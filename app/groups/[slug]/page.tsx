@@ -7,6 +7,7 @@ type PublicGroup = {
   description: string;
   location: string;
   name: string;
+  nextGatheringLocation: string;
   nextGathering: string;
   rhythm: string;
   scriptureReference: string;
@@ -22,6 +23,7 @@ const fallbackPublicGroups: Record<string, PublicGroup> = {
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     location: "Lebanon Hills Trailhead, Eagan, MN",
     name: "2three2",
+    nextGatheringLocation: "Lebanon Hills Trailhead, Eagan, MN",
     nextGathering: "Saturday Run & Prayer · Saturdays at 7:00 AM",
     rhythm: "Weekly · Saturday · 7:00 AM",
     scriptureReference: "2 Timothy 2:22",
@@ -61,10 +63,9 @@ async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
   const supabase = createSupabaseAdminClient();
   const { data: group, error } = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, active")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location")
     .eq("slug", slug)
     .eq("active", true)
-    .eq("visibility", "workspace")
     .maybeSingle();
 
   if (error) {
@@ -91,6 +92,7 @@ async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
     description: group.description ?? "A recurring discipleship rhythm.",
     location: group.default_location ?? nextGathering?.location ?? "Location TBD",
     name: group.name,
+    nextGatheringLocation: nextGathering?.location ?? group.default_location ?? "Location TBD",
     nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
     rhythm: group.rhythm_label ?? "Recurring",
     scriptureReference: group.scripture_reference ?? "",
@@ -128,30 +130,41 @@ export default async function PublicGroupPage({ params }: { params: Promise<{ sl
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <div className="flex flex-1 flex-col justify-center gap-6">
-          <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_22px_60px_rgba(15,23,42,0.08)]">
-            <div className="bg-[#0B1120] px-6 py-10 text-white sm:px-8 lg:px-10">
+      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-8 lg:px-10">
+        <div className="flex flex-1 flex-col justify-center gap-5">
+          <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.1)]">
+            <div className="relative isolate overflow-hidden bg-[#06111F] px-5 py-10 text-white sm:px-8 lg:px-10 lg:py-14">
+              <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_18%,rgba(248,197,106,0.3),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0),rgba(2,6,23,0.72))]" aria-hidden="true" />
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{group.scriptureReference}</p>
-              <h1 className="mt-3 text-5xl font-black leading-none tracking-tight sm:text-6xl">{group.name}</h1>
-              <p className="mt-3 text-xl font-black text-[#F8C56A]">{group.tagline}</p>
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-white/78">"{group.scriptureText}"</p>
+              <h1 className="mt-4 text-5xl font-black leading-none tracking-tight sm:text-6xl lg:text-7xl">{group.name}</h1>
+              <p className="mt-3 text-2xl font-black text-[#F8C56A]">{group.tagline}</p>
+              {group.scriptureText ? <p className="mt-5 max-w-2xl text-sm leading-7 text-white/78">"{group.scriptureText}"</p> : null}
+              <div className="mt-7 flex flex-wrap gap-2">
+                <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-black text-white">{group.rhythm}</span>
+                <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-black text-white">{group.location}</span>
+              </div>
             </div>
-            <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:p-10">
-              <div>
+            <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-10">
+              <div className="space-y-5">
                 <p className="text-base leading-8 text-[#334155]">{group.description}</p>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <InfoTile label="Rhythm" value={group.rhythm} />
                   <InfoTile label="Location" value={group.location} />
                   <InfoTile label="Upcoming" value={group.nextGathering} />
                 </div>
               </div>
-              <aside className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-5">
-                <p className="text-sm font-black text-[#0F172A]">Request Information</p>
+              <aside className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">Request Information</p>
+                <p className="mt-2 text-xl font-black text-[#0F172A]">Join the rhythm</p>
                 <p className="mt-2 text-sm leading-6 text-[#475569]">Share interest and a group leader will follow up when public group intake is ready.</p>
-                <button className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white" type="button">
-                  Join Group
-                </button>
+                <div className="mt-4 grid gap-2">
+                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)]" type="button">
+                    Join Group
+                  </button>
+                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-black text-[#1D4ED8]" type="button">
+                    Request Info
+                  </button>
+                </div>
               </aside>
             </div>
           </div>
@@ -160,16 +173,15 @@ export default async function PublicGroupPage({ params }: { params: Promise<{ sl
             <PublicGroupSection items={group.typicalSchedule} title="Typical Schedule" />
             <PublicGroupSection items={group.whoThisIsFor} title="Who This Is For" />
           </div>
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="rounded-[22px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">Upcoming Gathering</p>
-              <p className="mt-2 text-lg font-black text-[#0F172A]">{group.nextGathering}</p>
-              <p className="mt-2 text-sm leading-6 text-[#475569]">{group.location}</p>
-            </div>
-            <div className="rounded-[22px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-              <p className="text-sm font-black text-[#0F172A]">Request Information</p>
-              <button className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-black text-[#1D4ED8]" type="button">
-                Request Info
+          <div className="rounded-[24px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] sm:p-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">Next Gathering</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(13rem,auto)] md:items-center">
+              <div>
+                <p className="text-xl font-black text-[#0F172A]">{group.nextGathering}</p>
+                <p className="mt-2 text-sm leading-6 text-[#475569]">{group.nextGatheringLocation}</p>
+              </div>
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-black text-[#1D4ED8]" type="button">
+                Request Information
               </button>
             </div>
           </div>

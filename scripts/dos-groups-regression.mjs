@@ -214,14 +214,19 @@ assertIncludes(appClient, "function GroupDetailWorkspace", "Groups detail worksp
 assertIncludes(appClient, "xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)]", "Desktop group detail header must preserve a sensible text column width.");
 assertIncludes(appClient, "max-w-4xl", "Group detail title and scripture column must use the available width instead of collapsing.");
 assertIncludes(appClient, "whitespace-normal text-sm leading-6", "Group scripture text must render as normal paragraph copy.");
-assertIncludes(appClient, "flex min-w-0 flex-wrap gap-2 xl:justify-end", "Group detail actions must wrap without squeezing the title column.");
+assertIncludes(appClient, "hidden min-w-0 flex-wrap gap-2 md:flex xl:justify-end", "Desktop group detail actions must wrap without squeezing the title column.");
+assertIncludes(appClient, "More Actions", "Mobile group detail must move secondary actions into a compact More Actions sheet.");
+assertIncludes(appClient, "isMobileActionSheetOpen", "Mobile group detail must keep secondary actions out of the crowded header.");
+assertIncludes(appClient, "runMobileAction", "Mobile group secondary actions must close the sheet before running.");
 assertIncludes(appClient, "inline-flex min-h-10 shrink-0", "Group detail action buttons must wrap as whole buttons instead of shrinking text.");
 assertIncludes(appClient, "md:grid-cols-4", "Group metadata row must use four equal desktop columns.");
 assertIncludes(appClient, "title={value}", "Group metadata chips must truncate with a readable title fallback.");
 assertIncludes(appClient, "overflow-x-auto px-1 pb-1", "Group detail tabs must stay horizontally scrollable on narrow screens.");
 assertIncludes(appClient, "grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-3", "Today's Gathering workflow metrics must be compact on mobile.");
-assertIncludes(appClient, "pb-28 md:space-y-4 md:pb-4", "Group detail must keep mobile bottom navigation from covering content.");
+assertIncludes(appClient, "pb-32 md:space-y-4 md:pb-4", "Group detail must keep mobile bottom navigation from covering content.");
 assertIncludes(appClient, "xl:grid-cols-2 xl:items-start", "Group overview must use a two-column desktop dashboard layout.");
+assertIncludes(appClient, "GroupMobileSummaryCard", "Mobile group overview must use compact summary cards instead of the full desktop dashboard.");
+assertIncludes(appClient, "Upcoming Discipleship Rhythms", "Mobile group overview must summarize upcoming rhythms.");
 assertIncludes(appClient, "My Groups", "Groups list must include My Groups tab.");
 assertIncludes(appClient, "All Groups", "Groups list must include All Groups tab.");
 for (const tab of [
@@ -242,7 +247,7 @@ assertIncludes(appClient, "Log as Table", "Group detail must expose Log as Table
 assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gathering.");
 assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
 assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
-assertIncludes(appClient, 'label="Add to Group"', "Group detail action must be renamed Add to Group.");
+assertIncludes(appClient, 'label: "Add to Group"', "Group detail action must be renamed Add to Group.");
 assertIncludes(appClient, "Copy Link", "Group detail must expose a separate public link copy action.");
 assertIncludes(appClient, "View Public", "Group detail must expose View Public Page.");
 assertIncludes(appClient, "copyPublicGroupLink", "Group detail must wire public group link copying.");
@@ -354,11 +359,29 @@ assertIncludes(groupSettingsRoute, ".neq(\"id\", groupId)", "Group settings API 
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_gatherings\")", "Group settings API must update future gathering locations when confirmed.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settings API must update leader membership.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
-assertIncludes(publicGroupPage, ".eq(\"visibility\", \"workspace\")", "Public group route must not expose private groups from DOS.");
+assertIncludes(publicGroupPage, ".from(\"dos_groups\")", "Public group route must resolve from real group data.");
+assertIncludes(publicGroupPage, ".eq(\"slug\", slug)", "Public group route must resolve groups by slug.");
+assertIncludes(publicGroupPage, ".eq(\"active\", true)", "Public group route must only render active groups.");
+assert(
+  !publicGroupPage.includes(".eq(\"visibility\", \"workspace\")"),
+  "Public group route must not 404 private DOS groups that are rendered through safe public fields.",
+);
+assert(
+  !publicGroupPage.includes("dos_group_members"),
+  "Public group route must not expose member data.",
+);
+assert(
+  !publicGroupPage.includes("dos_group_attendance"),
+  "Public group route must not expose attendance data.",
+);
+assert(
+  !publicGroupPage.includes("prayer_requests"),
+  "Public group route must not expose private prayer data.",
+);
 assertIncludes(publicGroupPage, "What to Expect", "Public group route must include What to Expect.");
 assertIncludes(publicGroupPage, "Typical Schedule", "Public group route must include Typical Schedule.");
 assertIncludes(publicGroupPage, "Who This Is For", "Public group route must include Who This Is For.");
-assertIncludes(publicGroupPage, "Upcoming Gathering", "Public group route must include Upcoming Gathering.");
+assertIncludes(publicGroupPage, "Next Gathering", "Public group route must include Next Gathering.");
 assertIncludes(publicGroupPage, "Request Information", "Public group route must include Request Information.");
 assertIncludes(publicGroupPage, "Join Group", "Public group route must include Join Group placeholder.");
 assertIncludes(publicGroupPage, "Powered by", "Public group route must include the powered-by footer.");

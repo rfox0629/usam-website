@@ -5816,6 +5816,7 @@ function GroupDetailWorkspace({
   const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, GroupFollowUpDraft>>({});
   const [gatheringNotes, setGatheringNotes] = useState("");
   const [activityItems, setActivityItems] = useState<GroupActivityItem[]>(() => defaultGroupActivityItems(group));
+  const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
   const activeGathering = activeGatheringRun
     ? group.gatherings.find((gathering) => gathering.id === activeGatheringRun.gatheringId) ?? null
     : null;
@@ -5837,6 +5838,7 @@ function GroupDetailWorkspace({
     setFollowUpDrafts({});
     setGatheringNotes("");
     setActivityItems(defaultGroupActivityItems(group));
+    setIsMobileActionSheetOpen(false);
   }, [group]);
 
   useEffect(() => {
@@ -5966,14 +5968,27 @@ function GroupDetailWorkspace({
     ]);
   }
 
+  function runMobileAction(action: () => void) {
+    setIsMobileActionSheetOpen(false);
+    action();
+  }
+
+  const secondaryActions = [
+    { icon: <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add to Group", onClick: onInvite },
+    { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Link", onClick: onCopyPublicLink },
+    { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public", onClick: onViewPublicGroup },
+    { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
+    { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log as Table", onClick: onLogAsTable },
+  ];
+
   return (
-    <div className="space-y-3 pb-28 md:space-y-4 md:pb-4">
+    <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
       <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
       <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
-        <div className="grid min-w-0 gap-3 p-4 md:gap-4 md:p-5 xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
-          <div className="min-w-0 max-w-4xl">
-            <div className="flex flex-wrap items-center gap-2">
+        <div className="grid min-w-0 gap-3 p-4 text-center md:gap-4 md:p-5 md:text-left xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
+          <div className="mx-auto min-w-0 max-w-4xl md:mx-0">
+            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
               <h1 className="min-w-[min(16rem,100%)] text-[30px] font-black leading-none tracking-[-0.04em] text-[#0F172A] md:text-[36px]" style={{ fontFamily: font.oswald }}>
                 {group.name}
               </h1>
@@ -5981,19 +5996,21 @@ function GroupDetailWorkspace({
             </div>
             <p className="mt-2 text-sm font-bold text-[#2563EB]">{group.tagline ?? "Recurring discipleship rhythm"}</p>
             {group.scriptureReference || group.scriptureText ? (
-              <p className="mt-3 max-w-3xl whitespace-normal text-sm leading-6 text-[#475569]">
+              <p className="mx-auto mt-3 max-w-3xl whitespace-normal text-sm leading-6 text-[#475569] md:mx-0">
                 {group.scriptureText ? `"${group.scriptureText}"` : null}
                 {group.scriptureReference ? <span className="font-bold text-[#0F172A]"> {group.scriptureReference}</span> : null}
               </p>
             ) : null}
           </div>
-          <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end">
+          <div className="hidden min-w-0 flex-wrap gap-2 md:flex xl:justify-end">
             {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
-            <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add to Group" onClick={onInvite} />
-            <GroupQuickAction icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Copy Link" onClick={onCopyPublicLink} />
-            <GroupQuickAction icon={<ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="View Public" onClick={onViewPublicGroup} />
-            <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
-            <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log as Table" onClick={onLogAsTable} />
+            {secondaryActions.map((action) => (
+              <GroupQuickAction icon={action.icon} key={action.label} label={action.label} onClick={action.onClick} />
+            ))}
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 md:hidden">
+            {activeGathering ? null : <GroupQuickAction icon={<Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Start Gathering" onClick={startGathering} tone="primary" />}
+            <GroupQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="More Actions" onClick={() => setIsMobileActionSheetOpen(true)} />
           </div>
         </div>
         <div className="grid border-t border-[#EAF2FF] md:grid-cols-4">
@@ -6056,6 +6073,26 @@ function GroupDetailWorkspace({
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
       {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {tab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
+      {isMobileActionSheetOpen ? (
+        <Sheet onClose={() => setIsMobileActionSheetOpen(false)} showEyebrow={false} title="More Actions">
+          <div className="grid gap-2">
+            {secondaryActions.map((action) => (
+              <button
+                className="flex min-h-12 items-center justify-between rounded-[18px] border border-[#DCEBFF] bg-white px-4 text-left text-sm font-black text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+                key={action.label}
+                onClick={() => runMobileAction(action.onClick)}
+                type="button"
+              >
+                <span className="inline-flex items-center gap-3">
+                  <span className="text-[#2563EB]">{action.icon}</span>
+                  {action.label}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
     </div>
   );
 }
@@ -6717,10 +6754,59 @@ function GroupOverviewTab({
     ...group.prayerRequests.map((request) => request.title),
   ].slice(0, 3);
   const followUpItems = Object.entries(followUpDrafts).slice(0, 4);
+  const upcomingCount = groupUpcomingGatherings(group).length;
+  const mobileSummaryItems = [
+    {
+      body: nextGathering ? formatGroupGatheringTime(nextGathering) : "Schedule the next rhythm.",
+      meta: nextGathering?.location ?? "Location TBD",
+      title: "Next Gathering",
+    },
+    {
+      body: attendanceSummary.marked ? `${attendanceSummary.marked}/${attendanceSummary.total} marked` : "Ready to record",
+      meta: "Attendance Trend",
+      title: "Attendance Trend",
+    },
+    {
+      body: recentPrayerTitles[0] ?? "No active requests.",
+      meta: `${recentPrayerTitles.length} recent`,
+      title: "Recent Prayer Requests",
+    },
+    {
+      body: fruitDrafts[0] ?? "No fruit recorded yet.",
+      meta: `${fruitDrafts.length} tags`,
+      title: "Recent Fruit",
+    },
+    {
+      body: followUpItems[0]?.[1].nextStep ?? "No follow-ups queued.",
+      meta: `${followUpItems.length} upcoming`,
+      title: "Follow Ups",
+    },
+    {
+      body: upcomingCount ? "Momentum is steady." : "Needs next rhythm.",
+      meta: "Momentum",
+      title: "Group Health",
+    },
+    {
+      body: activityItems[0]?.title ?? "No recent activity.",
+      meta: activityItems[0]?.meta ?? "Activity",
+      title: "Recent Activity",
+    },
+    {
+      body: upcomingCount ? `${upcomingCount} upcoming` : "No upcoming gatherings.",
+      meta: "Rhythms",
+      title: "Upcoming Discipleship Rhythms",
+    },
+  ];
 
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-2 xl:items-start">
-      <div className="grid min-w-0 gap-3">
+    <>
+      <div className="grid min-w-0 gap-2 md:hidden">
+        {mobileSummaryItems.map((item) => (
+          <GroupMobileSummaryCard body={item.body} key={item.title} meta={item.meta} title={item.title} />
+        ))}
+      </div>
+      <div className="hidden min-w-0 gap-3 md:grid xl:grid-cols-2 xl:items-start">
+        <div className="grid min-w-0 gap-3">
         <DesktopPanel
           action={nextGathering ? <button className="rounded-full bg-[#2563EB] px-3 py-2 text-xs font-black text-white" onClick={onStartGathering} type="button">Start Gathering</button> : null}
           eyebrow="Next"
@@ -6774,21 +6860,45 @@ function GroupOverviewTab({
             )}
           </DesktopPanel>
         </div>
+        </div>
+        <div className="grid min-w-0 content-start gap-3">
+          <DesktopPanel eyebrow="Health" title="Group Health">
+            <GroupHealthSnapshot attendanceSummary={attendanceSummary} followUpCount={followUpItems.length} group={group} prayerCount={recentPrayerTitles.length} />
+          </DesktopPanel>
+          <DesktopPanel eyebrow="Activity" title="Recent Activity">
+            <GroupActivityTimeline items={activityItems} />
+          </DesktopPanel>
+          <DesktopPanel eyebrow="Upcoming" title="Discipleship Rhythms">
+            <div className="grid gap-2">
+              {upcoming.length ? upcoming.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} compact />) : <p className="text-sm text-[#64748B]">No upcoming gatherings.</p>}
+            </div>
+          </DesktopPanel>
+        </div>
       </div>
-      <div className="grid min-w-0 content-start gap-3">
-        <DesktopPanel eyebrow="Health" title="Group Health">
-          <GroupHealthSnapshot attendanceSummary={attendanceSummary} followUpCount={followUpItems.length} group={group} prayerCount={recentPrayerTitles.length} />
-        </DesktopPanel>
-        <DesktopPanel eyebrow="Activity" title="Recent Activity">
-          <GroupActivityTimeline items={activityItems} />
-        </DesktopPanel>
-        <DesktopPanel eyebrow="Upcoming" title="Discipleship Rhythms">
-          <div className="grid gap-2">
-            {upcoming.length ? upcoming.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} compact />) : <p className="text-sm text-[#64748B]">No upcoming gatherings.</p>}
-          </div>
-        </DesktopPanel>
+    </>
+  );
+}
+
+function GroupMobileSummaryCard({
+  body,
+  meta,
+  title,
+}: {
+  body: string;
+  meta: string;
+  title: string;
+}) {
+  return (
+    <article className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#DCEBFF] bg-white px-3.5 py-3 shadow-[0_10px_26px_rgba(37,99,235,0.045)]">
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="text-sm font-black text-[#0F172A]">{title}</h3>
+          <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{meta}</span>
+        </div>
+        <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{body}</p>
       </div>
-    </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+    </article>
   );
 }
 
