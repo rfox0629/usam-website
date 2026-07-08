@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -1154,6 +1154,20 @@ function formatDate(value: string | null) {
     month: "short",
     timeZone: dosDisplayTimeZone,
     year: "numeric",
+  }).format(date);
+}
+
+function formatShortDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: dosDisplayTimeZone,
   }).format(date);
 }
 
@@ -19729,24 +19743,26 @@ function MyRecordSnapshotTile({
 function MyRecordAtAGlanceCard({
   detail,
   icon,
+  kind,
   label,
   value,
 }: {
   detail: string;
   icon: ReactNode;
+  kind: MyRecordRecordKind;
   label: string;
   value: string;
 }) {
+  const visual = myRecordRecordVisual(kind);
+
   return (
-    <article className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-black text-[#64748B]">{label}</span>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 text-2xl font-black leading-none text-[#0F172A]">{value}</p>
-      <p className="mt-2 truncate text-[11px] font-semibold text-[#64748B]">{detail}</p>
+    <article className="min-w-0 rounded-[18px] bg-white px-2 py-2.5 text-center sm:px-3">
+      <span className={`mx-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+        {icon}
+      </span>
+      <p className="mt-2 truncate text-xl font-black leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-1 truncate text-[10px] font-black leading-4 text-[#0F172A] sm:text-[11px]">{label}</p>
+      <p className="mt-0.5 truncate text-[10px] font-semibold leading-4 text-[#64748B]">{detail}</p>
     </article>
   );
 }
@@ -19773,6 +19789,169 @@ function MyRecordActionButton({
       {children}
     </button>
   );
+}
+
+type MyRecordRecordKind =
+  | "assessment"
+  | "faithfulness"
+  | "learning"
+  | "life_plan"
+  | "mentor"
+  | "prayer"
+  | "prophetic"
+  | "reflection"
+  | "time_with_god"
+  | "timeline";
+
+type MyRecordRecordVisual = {
+  badgeClassName: string;
+  icon: ReactNode;
+  iconClassName: string;
+  label: string;
+};
+
+function myRecordRecordVisual(kind: MyRecordRecordKind): MyRecordRecordVisual {
+  if (kind === "time_with_god") {
+    return {
+      badgeClassName: "bg-[#ECFDF5] text-[#15803D]",
+      icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]",
+      label: "Time With God",
+    };
+  }
+
+  if (kind === "prayer") {
+    return {
+      badgeClassName: "bg-red-50 text-red-600",
+      icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-red-50 text-red-600 ring-red-100",
+      label: "Prayer",
+    };
+  }
+
+  if (kind === "reflection") {
+    return {
+      badgeClassName: "bg-violet-50 text-violet-600",
+      icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-violet-50 text-violet-600 ring-violet-100",
+      label: "Reflection",
+    };
+  }
+
+  if (kind === "life_plan") {
+    return {
+      badgeClassName: "bg-[#EBF2FF] text-[#1D4ED8]",
+      icon: <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#EBF2FF] text-[#2563EB] ring-[#BFDBFE]",
+      label: "Life Plan",
+    };
+  }
+
+  if (kind === "mentor") {
+    return {
+      badgeClassName: "bg-orange-50 text-orange-600",
+      icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-orange-50 text-orange-600 ring-orange-100",
+      label: "Mentor",
+    };
+  }
+
+  if (kind === "assessment") {
+    return {
+      badgeClassName: "bg-emerald-50 text-emerald-700",
+      icon: <BarChart3 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+      label: "Assessment",
+    };
+  }
+
+  if (kind === "prophetic") {
+    return {
+      badgeClassName: "bg-indigo-50 text-indigo-600",
+      icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+      label: "Prophetic Word",
+    };
+  }
+
+  if (kind === "learning") {
+    return {
+      badgeClassName: "bg-teal-50 text-teal-700",
+      icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-teal-50 text-teal-700 ring-teal-100",
+      label: "Book Notes",
+    };
+  }
+
+  if (kind === "faithfulness") {
+    return {
+      badgeClassName: "bg-[#ECFDF5] text-[#15803D]",
+      icon: <Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]",
+      label: "God's Faithfulness",
+    };
+  }
+
+  return {
+    badgeClassName: "bg-[#EBF2FF] text-[#1D4ED8]",
+    icon: <Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    iconClassName: "bg-[#EBF2FF] text-[#2563EB] ring-[#DCEBFF]",
+    label: "Timeline",
+  };
+}
+
+function MyRecordCompactRecordCard({
+  body,
+  date,
+  kind,
+  meta,
+  onClick,
+  title,
+  typeLabel,
+}: {
+  body?: string | null;
+  date?: string | null;
+  kind: MyRecordRecordKind;
+  meta?: string | null;
+  onClick?: () => void;
+  title: string;
+  typeLabel?: string | null;
+}) {
+  const visual = myRecordRecordVisual(kind);
+  const cardClassName = "group flex min-w-0 gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_10px_24px_rgba(37,99,235,0.035)] transition-colors hover:border-[#BFDBFE]";
+  const content = (
+    <>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+        {visual.icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-start justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{title}</span>
+            {meta ? <span className="mt-0.5 block truncate text-[11px] font-bold leading-4 text-[#64748B]">{meta}</span> : null}
+          </span>
+          {date ? <span className="shrink-0 text-[11px] font-bold leading-5 text-[#64748B]">{formatShortDate(date)}</span> : null}
+        </span>
+        {body ? <span className="mt-1 block line-clamp-1 text-xs leading-5 text-[#475569]">{body}</span> : null}
+        <span className="mt-2 flex min-w-0 items-center justify-between gap-3">
+          <span className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${visual.badgeClassName}`} style={{ fontFamily: font.rajdhani }}>
+            {typeLabel || visual.label}
+          </span>
+          {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={2} /> : null}
+        </span>
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={cardClassName} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return <article className={cardClassName}>{content}</article>;
 }
 
 function MyRecordPreviewCard({
@@ -19848,10 +20027,13 @@ function MyRecordRecommendedNextStep({
 }
 
 type MyRecordTimelineItem = {
+  badge: string;
   body: string | null;
   date: string | null;
   icon: ReactNode;
   id: string;
+  kind: MyRecordRecordKind;
+  meta: string | null;
   title: string;
 };
 
@@ -19904,11 +20086,30 @@ function buildMyRecordEncounterTags(entry: DosAppUserJournalEntry) {
 }
 
 function myRecordEncounterTitleForEntry(entry: DosAppUserJournalEntry) {
-  if (entry.biblePassage) return entry.biblePassage;
+  if (entry.biblePassage) return "Time With God";
   if (myRecordJournalHasPrayerTag(entry)) return "Prayer Encounter";
   if (entry.notes || entry.lordHighlight || entry.prayerResponse) return "Reflection";
 
   return "Time With God";
+}
+
+function myRecordEncounterKind(encounter: MyRecordEncounter): MyRecordRecordKind {
+  if (encounter.sourceKind === "prayer") return "prayer";
+  if (myRecordTagEquals(encounter.title, "Prayer Encounter")) return "prayer";
+  if (myRecordTagEquals(encounter.title, "Reflection")) return "reflection";
+
+  return "time_with_god";
+}
+
+function myRecordEncounterLabel(encounter: MyRecordEncounter) {
+  return myRecordRecordVisual(myRecordEncounterKind(encounter)).label;
+}
+
+function myRecordEncounterMeta(encounter: MyRecordEncounter) {
+  return [
+    encounter.biblePassage,
+    encounter.minutesSpent ? formatRecordDuration(encounter.minutesSpent) : null,
+  ].filter(Boolean).join(" · ");
 }
 
 function buildMyRecordEncounters(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordEncounter[] {
@@ -19965,8 +20166,6 @@ function myRecordEncounterMatchesFilter(encounter: MyRecordEncounter, filter: My
 
 function MyRecordEncounterCard({
   encounter,
-  onEdit,
-  onNew,
   onView,
   titlePrefix,
 }: {
@@ -19976,92 +20175,102 @@ function MyRecordEncounterCard({
   onView: () => void;
   titlePrefix?: string;
 }) {
-  const icon = encounter.sourceKind === "prayer"
-    ? <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-    : <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
-  const meta = [formatDate(encounter.date), formatRecordDuration(encounter.minutesSpent)].filter(Boolean).join(" - ");
-
   return (
-    <MyRecordPreviewCard
-      badge={encounter.sourceLabel}
+    <MyRecordCompactRecordCard
       body={encounter.body}
-      icon={icon}
-      meta={meta}
-      onEdit={onEdit}
-      onNew={onNew}
-      onView={onView}
+      date={encounter.date}
+      kind={myRecordEncounterKind(encounter)}
+      meta={myRecordEncounterMeta(encounter)}
+      onClick={onView}
       title={titlePrefix ? `${titlePrefix}: ${encounter.title}` : encounter.title}
-    >
-      {encounter.tags.length ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {encounter.tags.slice(0, 5).map((tag) => (
-            <span className="rounded-full bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" key={`${encounter.id}-${tag}`} style={{ fontFamily: font.rajdhani }}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </MyRecordPreviewCard>
+      typeLabel={myRecordEncounterLabel(encounter)}
+    />
   );
 }
 
 function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
-  const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => ({
-    body: encounter.body,
-    date: encounter.date,
-    icon: encounter.sourceKind === "prayer"
-      ? <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      : <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    id: encounter.id,
-    title: encounter.sourceKind === "prayer" ? `Prayer Encounter - ${encounter.title}` : `Time With God - ${encounter.title}`,
-  }));
+  const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => {
+    const kind = myRecordEncounterKind(encounter);
+
+    return {
+      badge: myRecordRecordVisual(kind).label,
+      body: encounter.body,
+      date: encounter.date,
+      icon: myRecordRecordVisual(kind).icon,
+      id: encounter.id,
+      kind,
+      meta: myRecordEncounterMeta(encounter),
+      title: encounter.title,
+    };
+  });
   const mentorItems = record.mentorMeetings.map((meeting) => ({
+    badge: "Mentor",
     body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
     date: meeting.meetingDate,
     icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `mentor-${meeting.id}`,
-    title: `Mentor Meeting · ${meeting.mentorName}`,
+    kind: "mentor" as const,
+    meta: [meeting.mentorName, meeting.durationMinutes ? formatRecordDuration(meeting.durationMinutes) : null].filter(Boolean).join(" · "),
+    title: "Mentor Meeting",
   }));
   const assessmentItems = record.assessmentResults.map((result) => ({
+    badge: "Assessment",
     body: `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%`,
     date: result.completedAt,
     icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `assessment-${result.id}`,
-    title: `Assessment · ${result.assessmentName}`,
+    kind: "assessment" as const,
+    meta: `${Math.round(result.percentage)}%`,
+    title: result.assessmentName,
   }));
   const externalAssessmentItems = record.externalAssessmentResults.map((result) => ({
+    badge: "Assessment",
     body: result.shortSummary ?? result.resultType ?? (result.topStrengths.join(", ") || result.notes),
     date: latestMyRecordDate(result.dateTaken, result.createdAt),
     icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `external-assessment-${result.id}`,
-    title: `External Assessment · ${result.assessmentName}`,
+    kind: "assessment" as const,
+    meta: result.resultType ?? result.category,
+    title: result.assessmentName,
   }));
   const propheticWordItems = record.propheticWords.map((word) => ({
+    badge: "Prophetic Word",
     body: word.context ?? word.confirmations ?? word.notes ?? word.wordText,
     date: word.dateReceived,
     icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `prophetic-word-${word.id}`,
-    title: `Prophetic Word · ${myRecordPropheticWordStatusLabel(word.status)}`,
+    kind: "prophetic" as const,
+    meta: [myRecordPropheticWordStatusLabel(word.status), word.givenBy ? `Given by ${word.givenBy}` : null].filter(Boolean).join(" · "),
+    title: "Prophetic Word",
   }));
   const learningBookItems = record.learningBooks.map((book) => ({
+    badge: "Book Notes",
     body: book.finalSummary ?? book.personalApplication ?? `${book.chapterNotes.length} chapter notes`,
     date: latestMyRecordDate(book.finishedOn, book.updatedAt, book.startedOn, book.createdAt),
     icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `learning-book-${book.id}`,
-    title: `Book Notes · ${book.title}`,
+    kind: "learning" as const,
+    meta: book.status.replace(/_/g, " "),
+    title: book.title,
   }));
   const learningChapterItems = record.learningBooks.flatMap((book) => book.chapterNotes.map((note) => ({
+    badge: "Book Notes",
     body: note.personalApplication ?? note.highlights ?? note.notes,
     date: latestMyRecordDate(note.updatedAt, note.createdAt),
     icon: <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `learning-chapter-${note.id}`,
-    title: `${book.title} · ${note.chapterLabel}`,
+    kind: "learning" as const,
+    meta: book.title,
+    title: note.chapterLabel,
   })));
   const lifePlanItems = record.lifePlan ? [{
+    badge: "Life Plan",
     body: record.lifePlan.callingStatement ?? record.lifePlan.dailyReminder ?? "Private calling focus document",
     date: latestMyRecordDate(record.lifePlan.lastReviewedDate, record.lifePlan.updatedAt, record.lifePlan.createdAt),
     icon: <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `life-plan-${record.lifePlan.id}`,
+    kind: "life_plan" as const,
+    meta: "Private calling focus",
     title: "Life Plan",
   }] : [];
 
@@ -20098,12 +20307,14 @@ function MyRecordWalkWithGodPanel({
     <div className="grid gap-4">
       <p className="text-sm font-semibold text-[#64748B]">How am I abiding?</p>
       <section className="grid gap-2">
-        <SectionHeading title={todaysEncounter ? "Today's Encounter" : "Latest Encounter"} />
+        <SectionHeading
+          action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })} type="button">+ New</button>}
+          title={todaysEncounter ? "Today's Encounter" : "Latest Encounter"}
+        />
         {latestEncounter ? (
           <MyRecordEncounterCard
             encounter={latestEncounter}
             onEdit={() => openEncounter(latestEncounter, "edit")}
-            onNew={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}
             onView={() => openEncounter(latestEncounter, "view")}
           />
         ) : (
@@ -20154,12 +20365,12 @@ function MyRecordWalkWithGodPanel({
         )}
       </section>
       <section className="grid gap-2">
-        <MyRecordPreviewCard
+        <MyRecordCompactRecordCard
           body="See your full walk history in chronological order."
-          icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+          date={timeline[0]?.date ?? null}
+          kind="timeline"
           meta={`${timeline.length} items`}
-          onNew={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}
-          onView={() => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" })}
+          onClick={() => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" })}
           title="Master Timeline"
         />
       </section>
@@ -20689,7 +20900,15 @@ function MyRecordSheetContent({
     return sheet.items.length ? (
       <div className="grid gap-2">
         {sheet.items.map((item) => (
-          <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
+          <MyRecordCompactRecordCard
+            body={item.body}
+            date={item.date}
+            kind={item.kind}
+            key={item.id}
+            meta={item.meta}
+            title={item.title}
+            typeLabel={item.badge}
+          />
         ))}
       </div>
     ) : <SectionEmptyState title="No timeline activity yet." />;
@@ -21452,11 +21671,11 @@ function MyRecordWorkspace({
               <SectionHeading title="Today at a Glance" />
               <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "No encounter"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Encounters" value={`${encountersToday}`} />
-              <MyRecordAtAGlanceCard detail={prayerEncounterMinutesThisWeek ? "Tagged or dedicated" : "Dedicated today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${prayerEncountersToday}`} />
-              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No reflection"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Reflection" value={`${reflectionEntriesToday}`} />
-              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Time with God" value={formatRecordDuration(timeWithGodThisWeek)} />
+            <div className="grid grid-cols-4 gap-1 rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "No encounter"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Encounters" value={`${encountersToday}`} />
+              <MyRecordAtAGlanceCard detail={prayerEncounterMinutesThisWeek ? "Tagged or dedicated" : "Dedicated today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="prayer" label="Prayer" value={`${prayerEncountersToday}`} />
+              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No reflection"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="reflection" label="Reflection" value={`${reflectionEntriesToday}`} />
+              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time with God" value={formatRecordDuration(timeWithGodThisWeek)} />
             </div>
           </section>
           <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
@@ -21464,13 +21683,15 @@ function MyRecordWorkspace({
             {timeline.length ? (
               <div className="grid gap-2">
                 {timeline.slice(0, 4).map((item) => (
-                  <MyRecordActivityRow
-                    action={<MyRecordActionButton onClick={() => openMyRecordTimelineItem(item)}>View</MyRecordActionButton>}
+                  <MyRecordCompactRecordCard
                     body={item.body}
                     date={item.date}
-                    icon={item.icon}
+                    kind={item.kind}
                     key={item.id}
+                    meta={item.meta}
+                    onClick={() => openMyRecordTimelineItem(item)}
                     title={item.title}
+                    typeLabel={item.badge}
                   />
                 ))}
               </div>
@@ -27714,7 +27935,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
           ]
       : [];
+  const suppressGlobalFabForMyRecordV2 = activeTab === "more" && activeMoreAppView === "my_record" && myRecordV2Enabled;
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
+    && !suppressGlobalFabForMyRecordV2
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -27741,6 +27964,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedReminderId
     && !selectedScripture;
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
+    && !suppressGlobalFabForMyRecordV2
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
