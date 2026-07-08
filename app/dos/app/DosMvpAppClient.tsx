@@ -19756,13 +19756,13 @@ function MyRecordAtAGlanceCard({
   const visual = myRecordRecordVisual(kind);
 
   return (
-    <article className="min-w-0 rounded-[18px] bg-white px-2 py-2.5 text-center sm:px-3">
-      <span className={`mx-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+    <article className="min-w-0 rounded-[16px] bg-white px-2 py-2 text-center">
+      <span className={`mx-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
         {icon}
       </span>
-      <p className="mt-2 truncate text-xl font-black leading-none text-[#0F172A]">{value}</p>
-      <p className="mt-1 truncate text-[10px] font-black leading-4 text-[#0F172A] sm:text-[11px]">{label}</p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold leading-4 text-[#64748B]">{detail}</p>
+      <p className="mt-1.5 truncate text-lg font-black leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-[10px] font-black leading-3 text-[#0F172A]">{label}</p>
+      <p className="mt-0.5 truncate text-[10px] font-semibold leading-3 text-[#64748B]">{detail}</p>
     </article>
   );
 }
@@ -19918,27 +19918,25 @@ function MyRecordCompactRecordCard({
   typeLabel?: string | null;
 }) {
   const visual = myRecordRecordVisual(kind);
-  const cardClassName = "group flex min-w-0 gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-3 text-left shadow-[0_10px_24px_rgba(37,99,235,0.035)] transition-colors hover:border-[#BFDBFE]";
+  const cardClassName = "group flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]";
   const content = (
     <>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
         {visual.icon}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{title}</span>
-            {meta ? <span className="mt-0.5 block truncate text-[11px] font-bold leading-4 text-[#64748B]">{meta}</span> : null}
-          </span>
-          {date ? <span className="shrink-0 text-[11px] font-bold leading-5 text-[#64748B]">{formatShortDate(date)}</span> : null}
-        </span>
-        {body ? <span className="mt-1 block line-clamp-1 text-xs leading-5 text-[#475569]">{body}</span> : null}
-        <span className="mt-2 flex min-w-0 items-center justify-between gap-3">
-          <span className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${visual.badgeClassName}`} style={{ fontFamily: font.rajdhani }}>
+      <span className="min-w-0 flex-1 py-0.5">
+        <span className="block truncate text-sm font-black leading-4 text-[#0F172A]">{title}</span>
+        <span className="mt-1 flex min-w-0 items-center gap-1.5">
+          <span className={`inline-flex max-w-[42%] shrink-0 truncate rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.11em] ${visual.badgeClassName}`} style={{ fontFamily: font.rajdhani }}>
             {typeLabel || visual.label}
           </span>
-          {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={2} /> : null}
+          {meta ? <span className="min-w-0 truncate text-[11px] font-bold leading-4 text-[#64748B]">{meta}</span> : null}
         </span>
+        {body ? <span className="mt-1 block truncate text-[12px] font-medium leading-4 text-[#475569]">{body}</span> : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-1 self-start pt-0.5">
+        {date ? <span className="text-[11px] font-bold leading-4 text-[#64748B]">{formatShortDate(date)}</span> : null}
+        {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={2} /> : null}
       </span>
     </>
   );
@@ -19952,6 +19950,31 @@ function MyRecordCompactRecordCard({
   }
 
   return <article className={cardClassName}>{content}</article>;
+}
+
+function MyRecordCompactEmptyRow({
+  action,
+  icon,
+  text,
+  title,
+}: {
+  action?: ReactNode;
+  icon: ReactNode;
+  text?: string;
+  title: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black leading-4 text-[#0F172A]">{title}</span>
+        {text ? <span className="mt-1 block truncate text-xs font-medium leading-4 text-[#64748B]">{text}</span> : null}
+      </span>
+      {action ? <span className="shrink-0">{action}</span> : null}
+    </div>
+  );
 }
 
 function MyRecordPreviewCard({
@@ -20304,7 +20327,7 @@ function MyRecordWalkWithGodPanel({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3 pb-36 md:pb-6">
       <p className="text-sm font-semibold text-[#64748B]">How am I abiding?</p>
       <section className="grid gap-2">
         <SectionHeading
@@ -20318,14 +20341,15 @@ function MyRecordWalkWithGodPanel({
             onView={() => openEncounter(latestEncounter, "view")}
           />
         ) : (
-          <SectionEmptyState
-            action={<CompactButton icon="log" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>New Encounter</CompactButton>}
-            text="Capture Scripture, reflection, what the Lord highlighted, prayer response, and next steps in one place."
+          <MyRecordCompactEmptyRow
+            action={<MyRecordActionButton onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
+            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+            text="Capture Scripture, reflection, prayer response, and next steps."
             title="No encounters yet."
           />
         )}
       </section>
-      <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <section className="grid gap-2">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <SectionHeading title="Encounter History" />
           <button className="shrink-0 text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })} type="button">
@@ -20350,7 +20374,7 @@ function MyRecordWalkWithGodPanel({
           ))}
         </div>
         {filteredEncounters.length ? (
-          <div className="grid gap-3">
+          <div className="grid gap-1.5">
             {filteredEncounters.slice(0, 6).map((encounter) => (
               <MyRecordEncounterCard
                 encounter={encounter}
@@ -20361,7 +20385,11 @@ function MyRecordWalkWithGodPanel({
             ))}
           </div>
         ) : (
-          <SectionEmptyState text="Try another filter or add a new encounter." title="No matching encounters." />
+          <MyRecordCompactEmptyRow
+            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+            text="Try another filter or add a new encounter."
+            title="No matching encounters."
+          />
         )}
       </section>
       <section className="grid gap-2">
@@ -21620,7 +21648,7 @@ function MyRecordWorkspace({
   // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
 
   return (
-    <div className={`relative space-y-5 ${myRecordV2Enabled ? "pb-24" : ""}`}>
+    <div className={`relative space-y-5 ${myRecordV2Enabled ? "pb-36 md:pb-24" : ""}`}>
       <div className="flex min-h-9 items-center md:hidden">
         <MoreBackButton onClick={onBack} />
       </div>
@@ -21665,23 +21693,23 @@ function MyRecordWorkspace({
       <MyRecordTabBar onChange={onTabChange} tabs={myRecordTabs} value={activeMyRecordTab} />
 
       {activeMyRecordTab === "overview" && myRecordV2Enabled ? (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-36 md:pb-6">
           <section className="grid gap-3">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <SectionHeading title="Today at a Glance" />
               <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
             </div>
-            <div className="grid grid-cols-4 gap-1 rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 rounded-[20px] border border-[#EAF2FF] bg-white p-1.5 shadow-[0_10px_24px_rgba(37,99,235,0.035)] min-[520px]:grid-cols-4">
               <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "No encounter"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Encounters" value={`${encountersToday}`} />
               <MyRecordAtAGlanceCard detail={prayerEncounterMinutesThisWeek ? "Tagged or dedicated" : "Dedicated today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="prayer" label="Prayer" value={`${prayerEncountersToday}`} />
               <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No reflection"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="reflection" label="Reflection" value={`${reflectionEntriesToday}`} />
-              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time with God" value={formatRecordDuration(timeWithGodThisWeek)} />
+              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time" value={formatRecordDuration(timeWithGodThisWeek)} />
             </div>
           </section>
-          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <section className="grid gap-2">
             <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
             {timeline.length ? (
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 {timeline.slice(0, 4).map((item) => (
                   <MyRecordCompactRecordCard
                     body={item.body}
@@ -21696,9 +21724,10 @@ function MyRecordWorkspace({
                 ))}
               </div>
             ) : (
-              <SectionEmptyState
-                action={<CompactButton icon="log" onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>New Encounter</CompactButton>}
-                text="Time with God, mentor meetings, assessments, and prophetic words will collect here."
+              <MyRecordCompactEmptyRow
+                action={<MyRecordActionButton onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
+                icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                text="Time with God, mentors, assessments, and words collect here."
                 title="No personal activity yet."
               />
             )}

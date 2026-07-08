@@ -242,8 +242,11 @@ assert(client.includes("myRecordFutureSharingRoles.map"), "Share Settings should
 assert(client.includes("Today at a Glance"), "V2 overview should include the compact daily KPI cards.");
 assert(client.includes("type MyRecordRecordKind"), "V2 activity rows should classify records with one shared display kind.");
 assert(client.includes("function MyRecordCompactRecordCard"), "V2 should use one compact activity card pattern across record types.");
+assert(client.includes("items-center gap-2.5 rounded-[16px]") && client.includes("px-3 py-2.5"), "V2 activity cards should stay tight activity rows, not oversized cards.");
+assert(client.includes("layout icon | content | date/chevron") || client.includes("self-start pt-0.5"), "V2 activity cards should keep the icon, content, date/chevron row layout.");
 assert(client.includes("badge: myRecordRecordVisual(kind).label"), "Timeline items should carry the compact card badge label.");
 assert(client.includes("kind={item.kind}") && client.includes("typeLabel={item.badge}"), "Overview and timeline activity should render through the compact card kind and badge.");
+assert(client.includes("grid min-w-0 grid-cols-2") && client.includes("min-[520px]:grid-cols-4"), "Today at a Glance should be responsive instead of clipping KPI cards.");
 assert(client.includes("Word(s) of the Year"), "V2 Calling should show the Word(s) of the Year card.");
 assert(client.includes("Discipline") && client.includes("Assignment"), "V2 should show Ryan's current words.");
 assert(client.includes("מוּסָר") && client.includes("שְׁלִיחוּת"), "V2 should render Hebrew word details.");
