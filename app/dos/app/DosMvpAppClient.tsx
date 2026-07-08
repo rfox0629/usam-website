@@ -334,6 +334,89 @@ function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "househ
   return (responsibleMembers.length ? responsibleMembers : activeMembers.slice(0, 1)).map((member) => member.id);
 }
 
+type InvitationCoHostCandidate = {
+  displayName: string;
+  helper: string;
+  id: string;
+};
+
+function normalizedInviteCoHostName(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function invitationCoHostDisplayName(value: string) {
+  const normalized = normalizedInviteCoHostName(value);
+
+  if (normalized === "darren pickit" || normalized === "darren pickett") {
+    return "Darren Pickett";
+  }
+
+  return value;
+}
+
+function isExplicitInviteCoHostContact(person: DosAppPerson) {
+  const name = normalizedInviteCoHostName(person.name);
+
+  return !["archived", "inactive"].includes(person.status.toLowerCase())
+    && (name === "andy leenstra" || name === "darren pickett" || name === "darren pickit");
+}
+
+function isAdultHouseholdInviteCoHost(member: DosAppHouseholdMember, workspaceDisplayName: string) {
+  const status = member.status.toLowerCase();
+  const name = normalizedInviteCoHostName(member.displayName);
+  const primaryName = normalizedInviteCoHostName(workspaceDisplayName);
+  const relationship = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
+  const childLike = relationship.includes("child") || relationship.includes("son") || relationship.includes("daughter") || relationship.includes("kid");
+  const adultRole = relationship.includes("spouse")
+    || relationship.includes("wife")
+    || relationship.includes("husband")
+    || relationship.includes("missionary")
+    || relationship.includes("leader");
+
+  return !["archived", "inactive"].includes(status)
+    && Boolean(name)
+    && name !== primaryName
+    && !childLike
+    && adultRole;
+}
+
+function inviteCoHostCandidates(
+  householdMembers: DosAppHouseholdMember[],
+  people: DosAppPerson[],
+  workspaceDisplayName: string,
+): InvitationCoHostCandidate[] {
+  const candidates = [
+    ...householdMembers
+      .filter((member) => isAdultHouseholdInviteCoHost(member, workspaceDisplayName))
+      .map((member) => ({
+        displayName: invitationCoHostDisplayName(member.displayName),
+        helper: "Household co-host",
+        id: member.id,
+      })),
+    ...people
+      .filter(isExplicitInviteCoHostContact)
+      .map((person) => ({
+        displayName: invitationCoHostDisplayName(person.name),
+        helper: "Field contact",
+        id: person.id,
+      })),
+  ];
+  const seenNames = new Set<string>();
+
+  return candidates
+    .filter((candidate) => {
+      const key = normalizedInviteCoHostName(candidate.displayName);
+
+      if (seenNames.has(key)) {
+        return false;
+      }
+
+      seenNames.add(key);
+      return true;
+    })
+    .sort((first, second) => first.displayName.localeCompare(second.displayName));
+}
+
 const commitmentLevelOptions: ReadonlyArray<{
   helper: string;
   label: string;
@@ -8839,6 +8922,7 @@ function InvitationDetailSheet({
   onOpenInvitation,
   onSave,
   onToggleGoogleAvailabilitySource,
+  people,
   savingCalendarSourceId,
   savingInvitation,
   workspaceDisplayName,
@@ -8858,6 +8942,7 @@ function InvitationDetailSheet({
   onOpenInvitation: () => void;
   onSave: (invitation: InviteCard) => void;
   onToggleGoogleAvailabilitySource: (sourceId: string) => void;
+  people: DosAppPerson[];
   savingCalendarSourceId: string | null;
   savingInvitation: boolean;
   workspaceDisplayName: string;
@@ -8871,15 +8956,9 @@ function InvitationDetailSheet({
   const [hostMode, setHostMode] = useState(invitation.hostMode);
   const [hostMemberIds, setHostMemberIds] = useState<string[]>(invitation.hostMemberIds);
   const durationValue = tableInvitationDuration(settings, invitation.kind);
-  const spouseHostCandidates = householdMembers.filter((member) => {
-    const status = member.status.toLowerCase();
-    const nameMatchesPrimary = member.displayName.trim().toLowerCase() === workspaceDisplayName.trim().toLowerCase();
-    const relationship = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
-
-    return !["archived", "inactive"].includes(status)
-      && !nameMatchesPrimary
-      && (relationship.includes("spouse") || relationship.includes("wife") || relationship.includes("husband") || relationship.includes("missionary") || member.isPublic);
-  });
+  const coHostCandidates = inviteCoHostCandidates(householdMembers, people, workspaceDisplayName);
+  const coHostCandidateIds = new Set(coHostCandidates.map((candidate) => candidate.id));
+  const selectedCoHostIds = hostMemberIds.filter((id) => coHostCandidateIds.has(id));
   const googleAvailabilitySources = calendarSourcePreferences.filter((source) => source.canPersist);
   const googleCalendarsBlockAvailability = googleAvailabilitySources.some((source) => source.selectedForAvailability !== false);
 
@@ -8926,7 +9005,7 @@ function InvitationDetailSheet({
   }
 
   function saveInvitation() {
-    const nextHostMemberIds = hostMode === "household" ? hostMemberIds : [];
+    const nextHostMemberIds = hostMode === "household" ? selectedCoHostIds : [];
 
     onSave(createInviteCard({
       ...invitation,
@@ -8985,24 +9064,24 @@ function InvitationDetailSheet({
             setHostMode("single");
             setHostMemberIds([]);
           }}
-          selected={hostMode === "single" || !hostMemberIds.length}
+          selected={hostMode === "single" || !selectedCoHostIds.length}
           status="Single host"
         />
-        {spouseHostCandidates.length ? (
+        {coHostCandidates.length ? (
           <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
             <InvitationToggleRow
-              label="Household co-host"
-              onToggle={() => setHostMode(hostMode === "household" && hostMemberIds.length ? "single" : "household")}
-              selected={hostMode === "household" && hostMemberIds.length > 0}
+              label="Co-hosts"
+              onToggle={() => setHostMode(hostMode === "household" && selectedCoHostIds.length ? "single" : "household")}
+              selected={hostMode === "household" && selectedCoHostIds.length > 0}
             />
             <div className="grid gap-2">
-              {spouseHostCandidates.map((member) => (
+              {coHostCandidates.map((member) => (
                 <InvitationToggleRow
                   key={member.id}
                   label={member.displayName}
                   onToggle={() => toggleHouseholdMember(member.id)}
                   selected={hostMemberIds.includes(member.id)}
-                  status={hostMemberIds.includes(member.id) ? "Co-host" : "Add"}
+                  status={hostMemberIds.includes(member.id) ? "Co-host" : member.helper}
                 />
               ))}
             </div>
@@ -9228,6 +9307,7 @@ function DesktopInvitePanel({
   isDisconnecting,
   onDisconnectCalendar,
   onToggleGoogleAvailabilitySource,
+  people,
   savingCalendarSourceId,
   tableInvitations,
   workspaceDisplayName,
@@ -9241,6 +9321,7 @@ function DesktopInvitePanel({
   isDisconnecting: boolean;
   onDisconnectCalendar: () => void;
   onToggleGoogleAvailabilitySource: (sourceId: string) => void;
+  people: DosAppPerson[];
   savingCalendarSourceId: string | null;
   tableInvitations: DosTableInvitation[];
   workspaceDisplayName: string;
@@ -9411,6 +9492,7 @@ function DesktopInvitePanel({
           onOpenInvitation={() => openInvitation(selectedInvitation)}
           onSave={(nextInvitation) => void saveInvitation(nextInvitation)}
           onToggleGoogleAvailabilitySource={onToggleGoogleAvailabilitySource}
+          people={people}
           savingCalendarSourceId={savingCalendarSourceId}
           savingInvitation={savingInvitationId === selectedInvitation.id}
           workspaceDisplayName={workspaceDisplayName}
@@ -25081,19 +25163,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       workspaceSlug={data.workspace.slug}
                     />
                   ) : (
-	                    <DesktopInvitePanel
-	                      calendarConnection={calendarConnection}
-	                      calendarSourceMessage={calendarSourceMessage}
-	                      calendarSourcePreferences={calendarSourcePreferences}
-	                      householdMembers={data.householdMembers}
-	                      isDisconnecting={isCalendarDisconnecting}
-	                      onDisconnectCalendar={handleDisconnectCalendar}
-	                      onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
-	                      savingCalendarSourceId={savingCalendarSourceId}
-	                      tableInvitations={data.tableInvitations}
-	                      workspaceDisplayName={data.workspace.displayName}
-	                      workspaceId={data.workspace.id}
-	                      workspaceSlug={data.workspace.slug}
+                    <DesktopInvitePanel
+                      calendarConnection={calendarConnection}
+                      calendarSourceMessage={calendarSourceMessage}
+                      calendarSourcePreferences={calendarSourcePreferences}
+                      householdMembers={data.householdMembers}
+                      isDisconnecting={isCalendarDisconnecting}
+                      onDisconnectCalendar={handleDisconnectCalendar}
+                      onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
+                      people={people}
+                      savingCalendarSourceId={savingCalendarSourceId}
+                      tableInvitations={data.tableInvitations}
+                      workspaceDisplayName={data.workspace.displayName}
+                      workspaceId={data.workspace.id}
+                      workspaceSlug={data.workspace.slug}
                     />
                   )}
                 </div>

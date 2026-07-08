@@ -39,6 +39,29 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function normalizeInviteCoHostName(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isExplicitInviteCoHostName(value: string | null | undefined) {
+  const name = normalizeInviteCoHostName(value);
+
+  return name === "andy leenstra" || name === "darren pickett" || name === "darren pickit";
+}
+
+function isAdultHouseholdCoHost(row: { display_name?: string | null; relationship?: string | null; role_title?: string | null; status?: string | null }) {
+  const status = String(row.status ?? "").toLowerCase();
+  const relationship = `${row.relationship ?? ""} ${row.role_title ?? ""}`.toLowerCase();
+  const childLike = relationship.includes("child") || relationship.includes("son") || relationship.includes("daughter") || relationship.includes("kid");
+  const adultRole = relationship.includes("spouse")
+    || relationship.includes("wife")
+    || relationship.includes("husband")
+    || relationship.includes("missionary")
+    || relationship.includes("leader");
+
+  return !["archived", "inactive"].includes(status) && !childLike && adultRole;
+}
+
 function isMissingInviteModel(error: { message?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? "";
 
@@ -95,19 +118,41 @@ async function validHostMemberIds(workspaceId: string, requestedIds: string[]) {
     return [];
   }
 
-  const { data, error } = await createSupabaseAdminClient()
-    .from("missionary_team_members")
-    .select("id, status")
-    .eq("household_id", workspaceId)
-    .in("id", ids);
+  const supabase = createSupabaseAdminClient();
+  const [teamResult, fieldPeopleResult] = await Promise.all([
+    supabase
+      .from("missionary_team_members")
+      .select("id, display_name, relationship, role_title, status")
+      .eq("household_id", workspaceId)
+      .in("id", ids),
+    supabase
+      .from("missionary_field_people")
+      .select("id, name, status")
+      .eq("workspace_id", workspaceId)
+      .in("id", ids),
+  ]);
 
-  if (error) {
+  if (teamResult.error && fieldPeopleResult.error) {
     return [];
   }
 
-  return (data ?? [])
-    .filter((member) => !["archived", "inactive"].includes(String(member.status ?? "").toLowerCase()))
-    .map((member) => String(member.id));
+  const validIds = new Set<string>();
+
+  for (const member of teamResult.data ?? []) {
+    if (isAdultHouseholdCoHost(member)) {
+      validIds.add(String(member.id));
+    }
+  }
+
+  for (const person of fieldPeopleResult.data ?? []) {
+    const status = String(person.status ?? "").toLowerCase();
+
+    if (!["archived", "inactive"].includes(status) && isExplicitInviteCoHostName(person.name)) {
+      validIds.add(String(person.id));
+    }
+  }
+
+  return ids.filter((id) => validIds.has(id));
 }
 
 function createdByUserId(authorization: Awaited<ReturnType<typeof getDosAuthorization>>) {

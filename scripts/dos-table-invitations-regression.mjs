@@ -33,7 +33,10 @@ assert(bookingApi.includes("createPublicTableInvitationBooking"), "Public bookin
 assert(bookingPage.includes("loadPublicTableInvitation") && bookingPage.includes("DosTableBookingForm"), "Public booking page must load tokenized invites.");
 assert(dataHelper.includes("generateDosTableInvitationSlots") && dataHelper.includes("selected_for_availability"), "Availability must respect selected blocking calendars.");
 assert(dataHelper.includes(".from(\"missionary_tables\")") && dataHelper.includes(".from(\"dos_table_invitation_bookings\")"), "Bookings must create DOS table and booking records.");
-assert(client.includes("Household co-host"), "Hosts tab must expose functional household co-hosting when data exists.");
+assert(client.includes("Co-hosts") && client.includes("inviteCoHostCandidates"), "Hosts tab must expose functional co-hosting when data exists.");
+assert(client.includes("isAdultHouseholdInviteCoHost") && client.includes("isExplicitInviteCoHostContact"), "Hosts tab must filter co-hosts to adult household roles and explicit contacts.");
+assert(client.includes("Darren Pickett") && client.includes("andy leenstra"), "Hosts tab must allow the expected explicit adult co-host contacts.");
+assert(inviteApi.includes(".from(\"missionary_field_people\")") && inviteApi.includes("isAdultHouseholdCoHost") && inviteApi.includes("isExplicitInviteCoHostName"), "Invite API must reject stale child/general household co-host ids.");
 assert(!client.includes("Spouse / household\" status=\"Future"), "Hosts tab must not show dead Future spouse rows.");
 assert(!client.includes("Team invitations\" status=\"Future"), "Hosts tab must hide unfinished team invitations.");
 assert(client.includes("minimumNoticeHours") && client.includes("bookingWindowDays"), "Rules tab must edit notice and booking window.");
