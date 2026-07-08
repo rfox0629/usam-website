@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -35,6 +35,8 @@ import {
 import {
   createDefaultDosTableInvitation,
   defaultDosTableInvitationSettings,
+  dosTableInvitationDateKey,
+  generateDosTableInvitationSlots,
   tableInvitationDuration,
   tableInvitationPublicUrl,
   type DosTableInvitation,
@@ -8281,6 +8283,142 @@ function InvitationToggleRow({
   );
 }
 
+function InvitationAvailabilityPreview({
+  kind,
+  settings,
+}: {
+  kind: DosTableInvitationKind;
+  settings: AvailabilitySettings;
+}) {
+  const previewSlots = useMemo(() => generateDosTableInvitationSlots({
+    busyIntervals: [],
+    kind,
+    limit: 120,
+    now: new Date(),
+    settings,
+  }), [kind, settings]);
+  const slotsByDate = useMemo(() => {
+    const groupedSlots = new Map<string, typeof previewSlots>();
+
+    previewSlots.forEach((slot) => {
+      const key = dosTableInvitationDateKey(new Date(slot.startAt), settings.timezone);
+      groupedSlots.set(key, [...groupedSlots.get(key) ?? [], slot]);
+    });
+
+    return groupedSlots;
+  }, [previewSlots, settings.timezone]);
+  const firstAvailableDateKey = previewSlots[0]
+    ? dosTableInvitationDateKey(new Date(previewSlots[0].startAt), settings.timezone)
+    : calendarDateKey(new Date());
+  const [selectedDateKey, setSelectedDateKey] = useState(firstAvailableDateKey);
+  const [previewMonth, setPreviewMonth] = useState(() => startOfCalendarMonth(dateFromCalendarKey(firstAvailableDateKey)));
+  const calendarDays = useMemo(() => {
+    const gridStart = startOfCalendarWeek(previewMonth);
+
+    return Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index));
+  }, [previewMonth]);
+  const selectedSlots = slotsByDate.get(selectedDateKey) ?? [];
+
+  useEffect(() => {
+    if (!slotsByDate.get(selectedDateKey)?.length && firstAvailableDateKey) {
+      setSelectedDateKey(firstAvailableDateKey);
+      setPreviewMonth(startOfCalendarMonth(dateFromCalendarKey(firstAvailableDateKey)));
+    }
+  }, [firstAvailableDateKey, selectedDateKey, slotsByDate]);
+
+  return (
+    <section className="grid gap-4 rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#0F172A]">Availability Preview</p>
+          <p className="mt-1 text-xs font-semibold text-[#64748B]">Click a day</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            aria-label="Previous month"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8]"
+            onClick={() => setPreviewMonth((current) => addCalendarMonths(current, -1))}
+            type="button"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          <button
+            aria-label="Next month"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8]"
+            onClick={() => setPreviewMonth((current) => addCalendarMonths(current, 1))}
+            type="button"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-black text-[#0F172A]">{calendarMonthLabel(previewMonth)}</span>
+          <span className="text-xs font-bold text-[#64748B]">Month Calendar</span>
+        </div>
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[#64748B]">
+          {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+            <span key={`${day}-${index}`}>{day}</span>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-7 gap-1">
+          {calendarDays.map((date) => {
+            const key = calendarDateKey(date);
+            const hasSlots = Boolean(slotsByDate.get(key)?.length);
+            const selected = key === selectedDateKey;
+            const outsideMonth = !isSameCalendarMonth(date, previewMonth);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex aspect-square min-h-9 items-center justify-center rounded-full text-xs font-black transition-colors ${
+                  selected
+                    ? "bg-[#2563EB] text-white shadow-[0_10px_20px_rgba(37,99,235,0.18)]"
+                    : hasSlots
+                      ? "border border-[#BFDBFE] bg-white text-[#0F172A]"
+                      : "text-[#94A3B8]"
+                } ${outsideMonth ? "opacity-45" : ""}`}
+                disabled={!hasSlots}
+                key={key}
+                onClick={() => setSelectedDateKey(key)}
+                type="button"
+              >
+                {date.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="text-sm font-black text-[#0F172A]">Available Times</p>
+          <span className="truncate text-xs font-bold text-[#64748B]">{calendarSelectedDayLabel(selectedDateKey)}</span>
+        </div>
+        {selectedSlots.length ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {selectedSlots.slice(0, 5).map((slot) => (
+              <button
+                className="flex min-h-10 items-center gap-3 rounded-[14px] border border-[#DCEBFF] bg-white px-3 text-left text-sm font-bold text-[#0F172A]"
+                key={slot.id}
+                type="button"
+              >
+                <span className="h-3 w-3 rounded-full border-2 border-[#2563EB]" aria-hidden="true" />
+                <span>{slot.timeLabel}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-sm font-semibold text-[#64748B]">No times available.</p>
+        )}
+        <p className="text-xs font-semibold leading-5 text-[#64748B]">This is what people booking this invitation will see.</p>
+      </div>
+    </section>
+  );
+}
+
 function InvitationDetailSheet({
   calendarConnection,
   calendarSourceMessage,
@@ -8476,15 +8614,50 @@ function InvitationDetailSheet({
     </InvitationEditorBlock>
   ) : activeSection === "calendar" ? (
     <InvitationEditorBlock title="Calendar">
-      <div className="grid gap-4">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isDisconnecting}
-          onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
-        />
-        <div className="grid gap-3">
+      <div className="grid gap-5">
+        <section className="grid gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1D4ED8]">
+              <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-[#64748B]">Connected Calendar</p>
+              <p className="mt-1 truncate text-sm font-black text-[#0F172A]">Google Calendar</p>
+            </div>
+            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+              calendarConnectionIsHealthy(calendarConnection)
+                ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+                : "border-[#BFDBFE] bg-white text-[#1D4ED8]"
+            }`}>
+              {calendarConnectionIsHealthy(calendarConnection) ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} /> : null}
+              {calendarConnectionIsHealthy(calendarConnection) ? "Connected" : "Connect"}
+            </span>
+          </div>
+          <p className="text-sm font-semibold leading-6 text-[#475569]">
+            {calendarConnectionIsHealthy(calendarConnection)
+              ? "This invitation checks your Google Calendar for conflicts."
+              : "Connect Google Calendar to check this invitation for conflicts."}
+          </p>
+          {calendarConnection.connected && onDisconnectCalendar ? (
+            <button
+              className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] disabled:opacity-60"
+              disabled={isDisconnecting}
+              onClick={onDisconnectCalendar}
+              type="button"
+            >
+              {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+          ) : calendarConnection.googleConfigured ? (
+            <a className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8]" href={googleCalendarConnectHref(workspaceId, workspaceSlug)}>
+              Connect
+            </a>
+          ) : null}
+        </section>
+
+        <InvitationAvailabilityPreview kind={invitation.kind} settings={settings} />
+
+        <section className="grid gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-sm font-black text-[#0F172A]">Booking Settings</p>
           <InvitationStatusRow label="Accepted bookings" status={settings.calendarRules.createDosMeeting ? "DOS table" : "Booking only"} tone={settings.calendarRules.createDosMeeting ? "green" : "neutral"} />
           <InvitationToggleRow
             label="Create Google Calendar event"
@@ -8492,8 +8665,6 @@ function InvitationDetailSheet({
             selected={settings.calendarRules.createGoogleCalendarEvent}
             status={calendarConnectionIsHealthy(calendarConnection) ? undefined : "Connect"}
           />
-        </div>
-        <div className="grid gap-3">
           <InvitationToggleRow
             label="Block DOS table meetings"
             onToggle={() => updateCalendarRule("blockDosMeetings", !settings.calendarRules.blockDosMeetings)}
@@ -8517,7 +8688,7 @@ function InvitationDetailSheet({
             <InvitationStatusRow label="Google calendars" status={calendarConnectionIsHealthy(calendarConnection) ? "None" : "Not connected"} />
           )}
           {calendarSourceMessage ? <p className="text-xs font-semibold leading-5 text-[#64748B]">{calendarSourceMessage}</p> : null}
-        </div>
+        </section>
       </div>
     </InvitationEditorBlock>
   ) : activeSection === "rules" ? (

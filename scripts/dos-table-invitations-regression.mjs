@@ -38,6 +38,7 @@ assert(!client.includes("Spouse / household\" status=\"Future"), "Hosts tab must
 assert(!client.includes("Team invitations\" status=\"Future"), "Hosts tab must hide unfinished team invitations.");
 assert(client.includes("minimumNoticeHours") && client.includes("bookingWindowDays"), "Rules tab must edit notice and booking window.");
 assert(client.includes("Block DOS table meetings") && client.includes("Block DOS reminders") && client.includes("Block Google calendars"), "Calendar tab must use plain blocking labels.");
+assert(client.includes("Connected Calendar") && client.includes("Availability Preview") && client.includes("This invitation checks your Google Calendar for conflicts."), "Calendar tab must explain the connected calendar and show an availability preview.");
 assert(client.includes("tableInvitationPublicUrl") && !client.includes("?invite="), "Copy Link must use the public booking URL, not the private DOS app query.");
 
 console.log("DOS table invitation regression checks passed.");
