@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -34,6 +34,20 @@ import {
   type DosResource,
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
+import {
+  createDefaultDosTableInvitation,
+  defaultDosTableInvitationSettings,
+  dosTableInvitationDateKey,
+  generateDosTableInvitationSlots,
+  tableInvitationDuration,
+  tableInvitationPublicUrl,
+  type DosTableInvitation,
+  type DosTableInvitationDaySetting,
+  type DosTableInvitationKind,
+  type DosTableInvitationMeetingTypeSetting,
+  type DosTableInvitationSettings,
+  type DosTableInvitationTimeWindow,
+} from "@/src/lib/dos/table-invitations";
 import {
   defaultRelationshipModel,
   discipleshipStageLabel,
@@ -614,6 +628,7 @@ const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
 const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
+const meetingObservedFruitValues = new Set(meetingObservedFruitOptions.map((option) => option.value));
 
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
@@ -728,46 +743,19 @@ type CalendarSourceApiSource = {
   selectedForImport?: boolean | null;
   timeZone?: string | null;
 };
-type AvailabilityTimeWindow = {
-  end: string;
-  id: string;
-  start: string;
-};
-type AvailabilityDaySetting = {
-  available: boolean;
-  id: string;
-  label: string;
-  windows: AvailabilityTimeWindow[];
-};
-type AvailabilityMeetingTypeSetting = {
-  duration: number;
-  enabled: boolean;
-  id: string;
-  label: string;
-};
-type AvailabilitySettings = {
-  bookingRules: {
-    bufferMinutes: number;
-    maxPerDay: number;
-    maxPerWeek: number;
-  };
-  meetingTypes: AvailabilityMeetingTypeSetting[];
-  preferredDays: string[];
-  preferredTimes: string[];
-  weeklySchedule: AvailabilityDaySetting[];
-};
+type AvailabilityTimeWindow = DosTableInvitationTimeWindow;
+type AvailabilityDaySetting = DosTableInvitationDaySetting;
+type AvailabilityMeetingTypeSetting = DosTableInvitationMeetingTypeSetting;
+type AvailabilitySettings = DosTableInvitationSettings;
 type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
 type InvitationEditorSection = "availability" | "calendar" | "hosts" | "overview" | "questions" | "rules" | "sharing";
-type InviteCardKey = "coffee" | "kitchen_table" | "prayer";
-type InviteCard = {
+type InviteCardKey = DosTableInvitationKind;
+type InviteCard = Omit<DosTableInvitation, "audience"> & {
   audience: string;
   daySummary: string;
-  description: string;
   durationMinutes: number;
-  id: InviteCardKey;
-  status: "Active" | "Draft";
+  isDraft?: boolean;
   timeSummary: string;
-  title: string;
 };
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
@@ -1412,18 +1400,53 @@ function timeInputValueFromDateTime(value: string | null | undefined, fallback =
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
+function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined, fallbackMinutes = 60) {
   const start = startValue ? new Date(startValue).getTime() : Number.NaN;
   const end = endValue ? new Date(endValue).getTime() : Number.NaN;
   const duration = Math.round((end - start) / 60_000);
 
-  return Number.isFinite(duration) && duration > 0 ? duration : 60;
+  return Number.isFinite(duration) && duration > 0 ? duration : fallbackMinutes;
+}
+
+function optionalDurationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined) {
+  const start = startValue ? new Date(startValue).getTime() : Number.NaN;
+  const end = endValue ? new Date(endValue).getTime() : Number.NaN;
+  const duration = Math.round((end - start) / 60_000);
+
+  return Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+function normalizedDurationMinutes(value: number | string | null | undefined, fallbackMinutes = 60) {
+  const minutes = Number(value);
+
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : fallbackMinutes;
 }
 
 function formDurationMinutes(value: FormDataEntryValue | null) {
   const minutes = Number(value);
 
   return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+}
+
+function formObservedFruit(formData: FormData) {
+  return formData
+    .getAll("observed_fruit")
+    .filter((value): value is string => typeof value === "string" && meetingObservedFruitValues.has(value));
+}
+
+function formatDurationLabel(minutes: number | null) {
+  if (!minutes) {
+    return "Not recorded";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  const parts = [
+    hours ? `${hours} ${hours === 1 ? "hr" : "hrs"}` : "",
+    remainingMinutes ? `${remainingMinutes} min` : "",
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(" ") : "0 min";
 }
 
 function meetingTypeLabel(value: string) {
@@ -1865,6 +1888,31 @@ function meetingMetadataLine(meeting: DosAppMeeting) {
   return formatDosMeetingSecondary(meetingActivityTitle(meeting), dateLine);
 }
 
+function latestLeaderReflectionForMeeting(reflections: DosAppLeaderReflection[], meetingId: string) {
+  return reflections
+    .filter((reflection) => reflection.meetingId === meetingId)
+    .sort((first, second) => (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0))[0] ?? null;
+}
+
+function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEvents: DosAppFruitEvent[], meetingId: string) {
+  const latestReflection = latestLeaderReflectionForMeeting(reflections, meetingId);
+
+  if (latestReflection) {
+    return latestReflection.observedFruit.filter((fruit) => meetingObservedFruitValues.has(fruit));
+  }
+
+  return Array.from(new Set(
+    fruitEvents
+      .filter((event) =>
+        event.meetingId === meetingId
+        && event.status !== "hidden"
+        && (event.generatedBy === "leader_review" || event.sourceType === "leader_reflection")
+        && meetingObservedFruitValues.has(event.fruitType)
+      )
+      .map((event) => event.fruitType),
+  ));
+}
+
 function reviewStatusLabel(value: DosAppReviewStatus) {
   return {
     approved: "Approved",
@@ -1879,18 +1927,6 @@ function reviewStatusClass(value: DosAppReviewStatus) {
   return value === "not_sent"
     ? "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
     : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
-}
-
-function reviewSharePermissionLabel(value: string | null) {
-  if (value === "with_name") {
-    return "Name OK";
-  }
-
-  if (value === "anonymous") {
-    return "Anonymous OK";
-  }
-
-  return "Private";
 }
 
 function fruitNarrative(event: DosAppFruitEvent) {
@@ -3948,6 +3984,20 @@ type PersonOutcomeEntry =
     testimony: DosAppParticipantTestimony;
     type: "testimony";
   };
+
+type PersonGrowthMilestone = {
+  date: string | null;
+  description: string;
+  id: string;
+  source: "Assessment" | "Fruit" | "Quick Review" | "Table" | "Testimony";
+  title: string;
+};
+
+const personAssessmentResultPlaceholders: ReadonlyArray<{ href?: string; title: string }> = [
+  { href: "/dos/library/marriage-assessment", title: "Marriage Assessment" },
+  { title: "Friendship Assessment" },
+  { title: "Spiritual Assessment" },
+];
 
 function ActivityFilterCard({
   active,
@@ -7058,31 +7108,7 @@ const availabilityDayOptions = [
   { id: "sat", label: "Saturday", shortLabel: "Sat" },
   { id: "sun", label: "Sunday", shortLabel: "Sun" },
 ] as const;
-const defaultAvailabilitySettings: AvailabilitySettings = {
-  bookingRules: {
-    bufferMinutes: 30,
-    maxPerDay: 2,
-    maxPerWeek: 6,
-  },
-  meetingTypes: [
-    { duration: 45, enabled: true, id: "coffee", label: "Coffee" },
-    { duration: 90, enabled: true, id: "kitchen_table", label: "Kitchen Table" },
-    { duration: 30, enabled: true, id: "prayer", label: "Prayer" },
-    { duration: 30, enabled: true, id: "phone_call", label: "Phone Call" },
-    { duration: 60, enabled: false, id: "custom", label: "Custom" },
-  ],
-  preferredDays: ["mon", "tue", "wed", "thu"],
-  preferredTimes: ["Evening"],
-  weeklySchedule: [
-    { available: false, id: "mon", label: "Monday", windows: [] },
-    { available: true, id: "tue", label: "Tuesday", windows: [{ end: "23:00", id: "tue-evening", start: "20:00" }] },
-    { available: true, id: "wed", label: "Wednesday", windows: [{ end: "21:00", id: "wed-evening", start: "18:00" }] },
-    { available: true, id: "thu", label: "Thursday", windows: [{ end: "23:00", id: "thu-evening", start: "20:00" }] },
-    { available: false, id: "fri", label: "Friday", windows: [] },
-    { available: false, id: "sat", label: "Saturday", windows: [] },
-    { available: false, id: "sun", label: "Sunday", windows: [] },
-  ],
-};
+const defaultAvailabilitySettings: AvailabilitySettings = defaultDosTableInvitationSettings();
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
@@ -7656,9 +7682,11 @@ function googleCalendarConnectHref(workspaceId: string, workspaceSlug: string) {
 function createDefaultAvailabilitySettings(): AvailabilitySettings {
   return {
     bookingRules: { ...defaultAvailabilitySettings.bookingRules },
+    calendarRules: { ...defaultAvailabilitySettings.calendarRules },
     meetingTypes: defaultAvailabilitySettings.meetingTypes.map((type) => ({ ...type })),
     preferredDays: [...defaultAvailabilitySettings.preferredDays],
     preferredTimes: [...defaultAvailabilitySettings.preferredTimes],
+    timezone: defaultAvailabilitySettings.timezone,
     weeklySchedule: defaultAvailabilitySettings.weeklySchedule.map((day) => ({
       ...day,
       windows: day.windows.map((window) => ({ ...window })),
@@ -8089,9 +8117,6 @@ function AvailabilityEditSheet({
           </div>
         ) : null}
 
-        <p className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-          Local only for now. These settings reset after refresh.
-        </p>
         <button
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
           onClick={onClose}
@@ -8104,53 +8129,39 @@ function AvailabilityEditSheet({
   );
 }
 
-function createDefaultInvitationCards(settings: AvailabilitySettings): InviteCard[] {
-  const durationById = new Map(settings.meetingTypes.map((type) => [type.id, type.duration]));
-
-  return [
-    {
-      audience: "1:1 or Couples",
-      daySummary: "Tuesday & Thursday",
-      description: "Invite someone to your table for a focused conversation.",
-      durationMinutes: durationById.get("kitchen_table") ?? 90,
-      id: "kitchen_table",
-      status: "Active",
-      timeSummary: "8:00 - 11:00 PM",
-      title: "Kitchen Table",
-    },
-    {
-      audience: "1:1",
-      daySummary: "Monday mornings",
-      description: "Invite someone to pray together.",
-      durationMinutes: durationById.get("prayer") ?? 30,
-      id: "prayer",
-      status: "Active",
-      timeSummary: "6:00 - 8:00 AM",
-      title: "Prayer",
-    },
-    {
-      audience: "Weekdays",
-      daySummary: "Weekdays",
-      description: "Invite someone to meet over coffee.",
-      durationMinutes: durationById.get("coffee") ?? 45,
-      id: "coffee",
-      status: "Active",
-      timeSummary: "Flexible",
-      title: "Coffee",
-    },
-  ];
+function invitationStatusLabel(status: InviteCard["status"]) {
+  return status === "active" ? "Active" : status === "draft" ? "Draft" : status === "paused" ? "Paused" : "Archived";
 }
 
-function invitationHref(workspaceSlug: string, invitationId: InviteCardKey) {
-  return `/dos/${workspaceSlug}?invite=${invitationId}`;
+function createInviteCard(invitation: DosTableInvitation, options?: { isDraft?: boolean }): InviteCard {
+  return {
+    ...invitation,
+    audience: invitation.audience ?? "1:1",
+    daySummary: invitationPreviewDaySummary(invitation.settings),
+    durationMinutes: tableInvitationDuration(invitation.settings, invitation.kind),
+    isDraft: options?.isDraft,
+    timeSummary: invitationPreviewTimeSummary(invitation.settings),
+  };
 }
 
-function invitationUrl(workspaceSlug: string, invitationId: InviteCardKey) {
-  if (typeof window === "undefined") {
-    return invitationHref(workspaceSlug, invitationId);
+function createDraftInviteCard(kind: InviteCardKey = "kitchen_table"): InviteCard {
+  const draft = createDefaultDosTableInvitation(kind);
+
+  return createInviteCard({
+    ...draft,
+    createdAt: null,
+    id: `draft-${kind}-${Date.now()}`,
+    token: "",
+    updatedAt: null,
+  }, { isDraft: true });
+}
+
+function invitationUrl(invitation: Pick<InviteCard, "token">) {
+  if (!invitation.token) {
+    return "";
   }
 
-  return new URL(invitationHref(workspaceSlug, invitationId), window.location.origin).toString();
+  return tableInvitationPublicUrl(invitation.token, typeof window === "undefined" ? undefined : window.location.origin);
 }
 
 function InvitationIcon({ id }: { id: InviteCardKey }) {
@@ -8183,14 +8194,14 @@ function InvitationCard({
         <span className="flex min-w-0 items-start justify-between gap-3">
           <span className="flex min-w-0 items-start gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
-              <InvitationIcon id={invitation.id} />
+              <InvitationIcon id={invitation.kind} />
             </span>
             <span className="min-w-0 pt-1">
               <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{invitation.title}</span>
               <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#334155]">{invitation.audience}</span>
             </span>
           </span>
-          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitation.status}</span>
+          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
         </span>
         <span className="mt-5 grid gap-3">
           <InviteMetaItem icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.daySummary}</InviteMetaItem>
@@ -8437,7 +8448,7 @@ function InvitationLivePreview({
           <p className="text-xs font-black text-[#0F172A]">Preview</p>
           <div className="mt-5 flex items-start gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]">
-              <InvitationIcon id={invitation.id} />
+              <InvitationIcon id={invitation.kind} />
             </span>
             <div className="min-w-0 pt-1">
               <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{name || invitation.title}</p>
@@ -8647,11 +8658,178 @@ function InvitationAvailabilityEditor({
   );
 }
 
+function InvitationToggleRow({
+  disabled = false,
+  label,
+  onToggle,
+  selected,
+  status,
+}: {
+  disabled?: boolean;
+  label: string;
+  onToggle: () => void;
+  selected: boolean;
+  status?: string;
+}) {
+  return (
+    <button
+      aria-pressed={selected}
+      className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-left transition-colors hover:border-[#BFDBFE] disabled:cursor-not-allowed disabled:opacity-55"
+      disabled={disabled}
+      onClick={onToggle}
+      type="button"
+    >
+      <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{label}</span>
+      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+        selected ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+      }`}>
+        {status ?? (selected ? "On" : "Off")}
+      </span>
+    </button>
+  );
+}
+
+function InvitationAvailabilityPreview({
+  kind,
+  settings,
+}: {
+  kind: DosTableInvitationKind;
+  settings: AvailabilitySettings;
+}) {
+  const previewSlots = useMemo(() => generateDosTableInvitationSlots({
+    busyIntervals: [],
+    kind,
+    limit: 120,
+    now: new Date(),
+    settings,
+  }), [kind, settings]);
+  const slotsByDate = useMemo(() => {
+    const groupedSlots = new Map<string, typeof previewSlots>();
+
+    previewSlots.forEach((slot) => {
+      const key = dosTableInvitationDateKey(new Date(slot.startAt), settings.timezone);
+      groupedSlots.set(key, [...groupedSlots.get(key) ?? [], slot]);
+    });
+
+    return groupedSlots;
+  }, [previewSlots, settings.timezone]);
+  const firstAvailableDateKey = previewSlots[0]
+    ? dosTableInvitationDateKey(new Date(previewSlots[0].startAt), settings.timezone)
+    : calendarDateKey(new Date());
+  const [selectedDateKey, setSelectedDateKey] = useState(firstAvailableDateKey);
+  const [previewMonth, setPreviewMonth] = useState(() => startOfCalendarMonth(dateFromCalendarKey(firstAvailableDateKey)));
+  const calendarDays = useMemo(() => {
+    const gridStart = startOfCalendarWeek(previewMonth);
+
+    return Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index));
+  }, [previewMonth]);
+  const selectedSlots = slotsByDate.get(selectedDateKey) ?? [];
+
+  useEffect(() => {
+    if (!slotsByDate.get(selectedDateKey)?.length && firstAvailableDateKey) {
+      setSelectedDateKey(firstAvailableDateKey);
+      setPreviewMonth(startOfCalendarMonth(dateFromCalendarKey(firstAvailableDateKey)));
+    }
+  }, [firstAvailableDateKey, selectedDateKey, slotsByDate]);
+
+  return (
+    <section className="grid gap-4 rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#0F172A]">Availability Preview</p>
+          <p className="mt-1 text-xs font-semibold text-[#64748B]">Click a day</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            aria-label="Previous month"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8]"
+            onClick={() => setPreviewMonth((current) => addCalendarMonths(current, -1))}
+            type="button"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+          <button
+            aria-label="Next month"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8]"
+            onClick={() => setPreviewMonth((current) => addCalendarMonths(current, 1))}
+            type="button"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-black text-[#0F172A]">{calendarMonthLabel(previewMonth)}</span>
+          <span className="text-xs font-bold text-[#64748B]">Month Calendar</span>
+        </div>
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[#64748B]">
+          {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+            <span key={`${day}-${index}`}>{day}</span>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-7 gap-1">
+          {calendarDays.map((date) => {
+            const key = calendarDateKey(date);
+            const hasSlots = Boolean(slotsByDate.get(key)?.length);
+            const selected = key === selectedDateKey;
+            const outsideMonth = !isSameCalendarMonth(date, previewMonth);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex aspect-square min-h-9 items-center justify-center rounded-full text-xs font-black transition-colors ${
+                  selected
+                    ? "bg-[#2563EB] text-white shadow-[0_10px_20px_rgba(37,99,235,0.18)]"
+                    : hasSlots
+                      ? "border border-[#BFDBFE] bg-white text-[#0F172A]"
+                      : "text-[#94A3B8]"
+                } ${outsideMonth ? "opacity-45" : ""}`}
+                disabled={!hasSlots}
+                key={key}
+                onClick={() => setSelectedDateKey(key)}
+                type="button"
+              >
+                {date.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="text-sm font-black text-[#0F172A]">Available Times</p>
+          <span className="truncate text-xs font-bold text-[#64748B]">{calendarSelectedDayLabel(selectedDateKey)}</span>
+        </div>
+        {selectedSlots.length ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {selectedSlots.slice(0, 5).map((slot) => (
+              <button
+                className="flex min-h-10 items-center gap-3 rounded-[14px] border border-[#DCEBFF] bg-white px-3 text-left text-sm font-bold text-[#0F172A]"
+                key={slot.id}
+                type="button"
+              >
+                <span className="h-3 w-3 rounded-full border-2 border-[#2563EB]" aria-hidden="true" />
+                <span>{slot.timeLabel}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-sm font-semibold text-[#64748B]">No times available.</p>
+        )}
+        <p className="text-xs font-semibold leading-5 text-[#64748B]">This is what people booking this invitation will see.</p>
+      </div>
+    </section>
+  );
+}
+
 function InvitationDetailSheet({
   calendarConnection,
-  calendarDisplaySettings,
   calendarSourceMessage,
   calendarSourcePreferences,
+  householdMembers,
   invitation,
   inviteShareMessage,
   isDisconnecting,
@@ -8659,19 +8837,18 @@ function InvitationDetailSheet({
   onCopy,
   onDisconnectCalendar,
   onOpenInvitation,
-  onToggleCalendarCoreSource,
-  onToggleGoogleCalendarSource,
+  onSave,
+  onToggleGoogleAvailabilitySource,
   savingCalendarSourceId,
-  setSettings,
-  settings,
+  savingInvitation,
   workspaceDisplayName,
   workspaceId,
   workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
-  calendarDisplaySettings: CalendarDisplaySettings;
   calendarSourceMessage: string;
   calendarSourcePreferences: CalendarSourcePreference[];
+  householdMembers: DosAppHouseholdMember[];
   invitation: InviteCard;
   inviteShareMessage: string;
   isDisconnecting: boolean;
@@ -8679,24 +8856,45 @@ function InvitationDetailSheet({
   onCopy: () => void;
   onDisconnectCalendar: () => void;
   onOpenInvitation: () => void;
-  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
-  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  onSave: (invitation: InviteCard) => void;
+  onToggleGoogleAvailabilitySource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
-  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
-  settings: AvailabilitySettings;
+  savingInvitation: boolean;
   workspaceDisplayName: string;
   workspaceId: string;
   workspaceSlug: string;
 }) {
   const [activeSection, setActiveSection] = useState<InvitationEditorSection>("availability");
   const [nameDraft, setNameDraft] = useState(invitation.title);
-  const [descriptionDraft, setDescriptionDraft] = useState(invitation.description);
-  const durationValue = settings.meetingTypes.find((type) => type.id === invitation.id)?.duration ?? invitation.durationMinutes;
+  const [descriptionDraft, setDescriptionDraft] = useState(invitation.description ?? "");
+  const [settings, setSettings] = useState<AvailabilitySettings>(() => invitation.settings);
+  const [hostMode, setHostMode] = useState(invitation.hostMode);
+  const [hostMemberIds, setHostMemberIds] = useState<string[]>(invitation.hostMemberIds);
+  const durationValue = tableInvitationDuration(settings, invitation.kind);
+  const spouseHostCandidates = householdMembers.filter((member) => {
+    const status = member.status.toLowerCase();
+    const nameMatchesPrimary = member.displayName.trim().toLowerCase() === workspaceDisplayName.trim().toLowerCase();
+    const relationship = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
+
+    return !["archived", "inactive"].includes(status)
+      && !nameMatchesPrimary
+      && (relationship.includes("spouse") || relationship.includes("wife") || relationship.includes("husband") || relationship.includes("missionary") || member.isPublic);
+  });
+  const googleAvailabilitySources = calendarSourcePreferences.filter((source) => source.canPersist);
+  const googleCalendarsBlockAvailability = googleAvailabilitySources.some((source) => source.selectedForAvailability !== false);
+
+  useEffect(() => {
+    setNameDraft(invitation.title);
+    setDescriptionDraft(invitation.description ?? "");
+    setSettings(invitation.settings);
+    setHostMode(invitation.hostMode);
+    setHostMemberIds(invitation.hostMemberIds);
+  }, [invitation]);
 
   function updateDuration(value: number) {
     setSettings((current) => ({
       ...current,
-      meetingTypes: current.meetingTypes.map((type) => type.id === invitation.id ? { ...type, duration: Math.max(15, value) } : type),
+      meetingTypes: current.meetingTypes.map((type) => type.id === invitation.kind ? { ...type, duration: Math.max(15, value) } : type),
     }));
   }
 
@@ -8705,9 +8903,39 @@ function InvitationDetailSheet({
       ...current,
       bookingRules: {
         ...current.bookingRules,
-        [key]: Math.max(key === "bufferMinutes" ? 0 : 1, value),
+        [key]: Math.max(key === "bufferMinutes" || key === "minimumNoticeHours" ? 0 : 1, value),
       },
     }));
+  }
+
+  function updateCalendarRule(key: keyof AvailabilitySettings["calendarRules"], value: boolean) {
+    setSettings((current) => ({
+      ...current,
+      calendarRules: {
+        ...current.calendarRules,
+        [key]: value,
+      },
+    }));
+  }
+
+  function toggleHouseholdMember(memberId: string) {
+    setHostMemberIds((current) => current.includes(memberId)
+      ? current.filter((id) => id !== memberId)
+      : [...current, memberId]);
+    setHostMode("household");
+  }
+
+  function saveInvitation() {
+    const nextHostMemberIds = hostMode === "household" ? hostMemberIds : [];
+
+    onSave(createInviteCard({
+      ...invitation,
+      description: descriptionDraft,
+      hostMemberIds: nextHostMemberIds,
+      hostMode: nextHostMemberIds.length ? hostMode : "single",
+      settings,
+      title: nameDraft.trim() || invitation.title,
+    }, { isDraft: invitation.isDraft }));
   }
 
   const activeContent = activeSection === "overview" ? (
@@ -8737,7 +8965,7 @@ function InvitationDetailSheet({
             </div>
           </label>
           <div className="flex items-center gap-2">
-            <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">Active</span>
+            <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
             <button className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" onClick={onCopy} type="button">
               <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
               Copy Link
@@ -8751,9 +8979,35 @@ function InvitationDetailSheet({
   ) : activeSection === "hosts" ? (
     <InvitationEditorBlock title="Hosts">
       <div className="grid gap-3">
-        <InvitationStatusRow label={workspaceDisplayName} status="Single host" tone="green" />
-        <InvitationStatusRow label="Spouse / household" status="Future" />
-        <InvitationStatusRow label="Team invitations" status="Future" />
+        <InvitationToggleRow
+          label={workspaceDisplayName}
+          onToggle={() => {
+            setHostMode("single");
+            setHostMemberIds([]);
+          }}
+          selected={hostMode === "single" || !hostMemberIds.length}
+          status="Single host"
+        />
+        {spouseHostCandidates.length ? (
+          <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+            <InvitationToggleRow
+              label="Household co-host"
+              onToggle={() => setHostMode(hostMode === "household" && hostMemberIds.length ? "single" : "household")}
+              selected={hostMode === "household" && hostMemberIds.length > 0}
+            />
+            <div className="grid gap-2">
+              {spouseHostCandidates.map((member) => (
+                <InvitationToggleRow
+                  key={member.id}
+                  label={member.displayName}
+                  onToggle={() => toggleHouseholdMember(member.id)}
+                  selected={hostMemberIds.includes(member.id)}
+                  status={hostMemberIds.includes(member.id) ? "Co-host" : "Add"}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </InvitationEditorBlock>
   ) : activeSection === "questions" ? (
@@ -8766,34 +9020,100 @@ function InvitationDetailSheet({
     </InvitationEditorBlock>
   ) : activeSection === "calendar" ? (
     <InvitationEditorBlock title="Calendar">
-      <div className="grid gap-4">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isDisconnecting}
-          onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
-        />
-        <CalendarSourceControls
-          calendarConnection={calendarConnection}
-          displaySettings={calendarDisplaySettings}
-          message={calendarSourceMessage}
-          onToggleCoreSource={onToggleCalendarCoreSource}
-          onToggleGoogleSource={onToggleGoogleCalendarSource}
-          savingSourceId={savingCalendarSourceId}
-          showMessage
-          sourcePreferences={calendarSourcePreferences}
-        />
-        <div className="grid gap-3">
-          <InvitationStatusRow label="Google Calendar" status={availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length)} tone={calendarConnectionIsHealthy(calendarConnection) ? "green" : "neutral"} />
-          <InvitationStatusRow label="DOS Calendar" status="Active" tone="green" />
-          <InvitationStatusRow label="Busy-time awareness" status="Planned" />
-        </div>
+      <div className="grid gap-5">
+        <section className="grid gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1D4ED8]">
+              <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-[#64748B]">Connected Calendar</p>
+              <p className="mt-1 truncate text-sm font-black text-[#0F172A]">Google Calendar</p>
+            </div>
+            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+              calendarConnectionIsHealthy(calendarConnection)
+                ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
+                : "border-[#BFDBFE] bg-white text-[#1D4ED8]"
+            }`}>
+              {calendarConnectionIsHealthy(calendarConnection) ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} /> : null}
+              {calendarConnectionIsHealthy(calendarConnection) ? "Connected" : "Connect"}
+            </span>
+          </div>
+          <p className="text-sm font-semibold leading-6 text-[#475569]">
+            {calendarConnectionIsHealthy(calendarConnection)
+              ? "This invitation checks your Google Calendar for conflicts."
+              : "Connect Google Calendar to check this invitation for conflicts."}
+          </p>
+          {calendarConnection.connected && onDisconnectCalendar ? (
+            <button
+              className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8] disabled:opacity-60"
+              disabled={isDisconnecting}
+              onClick={onDisconnectCalendar}
+              type="button"
+            >
+              {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+          ) : calendarConnection.googleConfigured ? (
+            <a className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8]" href={googleCalendarConnectHref(workspaceId, workspaceSlug)}>
+              Connect
+            </a>
+          ) : null}
+        </section>
+
+        <InvitationAvailabilityPreview kind={invitation.kind} settings={settings} />
+
+        <section className="grid gap-3 rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-sm font-black text-[#0F172A]">Booking Settings</p>
+          <InvitationStatusRow label="Accepted bookings" status={settings.calendarRules.createDosMeeting ? "DOS table" : "Booking only"} tone={settings.calendarRules.createDosMeeting ? "green" : "neutral"} />
+          <InvitationToggleRow
+            label="Create Google Calendar event"
+            onToggle={() => updateCalendarRule("createGoogleCalendarEvent", !settings.calendarRules.createGoogleCalendarEvent)}
+            selected={settings.calendarRules.createGoogleCalendarEvent}
+            status={calendarConnectionIsHealthy(calendarConnection) ? undefined : "Connect"}
+          />
+          <InvitationToggleRow
+            label="Block DOS table meetings"
+            onToggle={() => updateCalendarRule("blockDosMeetings", !settings.calendarRules.blockDosMeetings)}
+            selected={settings.calendarRules.blockDosMeetings}
+          />
+          <InvitationToggleRow
+            label="Block DOS reminders"
+            onToggle={() => updateCalendarRule("blockDosReminders", !settings.calendarRules.blockDosReminders)}
+            selected={settings.calendarRules.blockDosReminders}
+          />
+          <InvitationStatusRow label="Block Google calendars" status={googleCalendarsBlockAvailability ? "Selected" : "Off"} tone={googleCalendarsBlockAvailability ? "green" : "neutral"} />
+          {googleAvailabilitySources.length ? googleAvailabilitySources.map((source) => (
+            <InvitationToggleRow
+              disabled={savingCalendarSourceId === source.id}
+              key={source.id}
+              label={calendarSourceFilterLabel(source.name)}
+              onToggle={() => onToggleGoogleAvailabilitySource(source.id)}
+              selected={source.selectedForAvailability !== false}
+            />
+          )) : (
+            <InvitationStatusRow label="Google calendars" status={calendarConnectionIsHealthy(calendarConnection) ? "None" : "Not connected"} />
+          )}
+          {calendarSourceMessage ? <p className="text-xs font-semibold leading-5 text-[#64748B]">{calendarSourceMessage}</p> : null}
+        </section>
       </div>
     </InvitationEditorBlock>
   ) : activeSection === "rules" ? (
     <InvitationEditorBlock title="Rules">
       <div className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InvitationRuleInput
+            label="Notice"
+            onChange={(value) => updateBookingRule("minimumNoticeHours", value)}
+            suffix="hours"
+            value={settings.bookingRules.minimumNoticeHours}
+          />
+          <InvitationRuleInput
+            label="Booking window"
+            onChange={(value) => updateBookingRule("bookingWindowDays", value)}
+            suffix="days"
+            value={settings.bookingRules.bookingWindowDays}
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <InvitationRuleInput
             label="Buffer"
@@ -8814,10 +9134,6 @@ function InvitationDetailSheet({
             value={settings.bookingRules.maxPerWeek}
           />
         </div>
-        <div className="grid gap-3">
-          <InvitationStatusRow label="Notice" status="12 hours" tone="blue" />
-          <InvitationStatusRow label="Booking window" status="30 days" tone="blue" />
-        </div>
       </div>
     </InvitationEditorBlock>
   ) : (
@@ -8830,18 +9146,6 @@ function InvitationDetailSheet({
         <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
           <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           Open Invitation
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-          <Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          Text
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-          <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          Email
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] sm:col-span-2" disabled type="button">
-          <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          QR Code
         </button>
       </div>
     </InvitationEditorBlock>
@@ -8864,7 +9168,7 @@ function InvitationDetailSheet({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="truncate text-lg font-black leading-tight text-[#0F172A]">{nameDraft || invitation.title}</h2>
-                <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">Active</span>
+                <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
               </div>
               <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{invitation.audience}</p>
             </div>
@@ -8875,13 +9179,6 @@ function InvitationDetailSheet({
             >
               <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
               Copy Link
-            </button>
-            <button
-              aria-label="Invitation options"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
-              type="button"
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
             </button>
           </div>
           {inviteShareMessage ? (
@@ -8895,18 +9192,19 @@ function InvitationDetailSheet({
             <div className="min-w-0">
               {activeContent}
             </div>
-            <InvitationLivePreview duration={durationValue} invitation={invitation} name={nameDraft} settings={settings} />
+            <InvitationLivePreview duration={durationValue} invitation={{ ...invitation, settings }} name={nameDraft} settings={settings} />
           </div>
         </div>
 
         <footer className="shrink-0 border-t border-[#EAF2FF] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:px-5 md:pb-4">
           <div className="flex items-center gap-3">
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] md:flex-none md:min-w-[150px]"
-              onClick={onClose}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] disabled:cursor-not-allowed disabled:opacity-60 md:flex-none md:min-w-[150px]"
+              disabled={savingInvitation}
+              onClick={saveInvitation}
               type="button"
             >
-              Save Changes
+              {savingInvitation ? "Saving..." : "Save Changes"}
             </button>
             <button
               className="hidden min-h-11 items-center justify-center rounded-full px-4 text-sm font-bold text-[#1D4ED8] md:inline-flex"
@@ -8924,40 +9222,56 @@ function InvitationDetailSheet({
 
 function DesktopInvitePanel({
   calendarConnection,
-  calendarDisplaySettings,
   calendarSourceMessage,
   calendarSourcePreferences,
+  householdMembers,
   isDisconnecting,
   onDisconnectCalendar,
-  onToggleCalendarCoreSource,
-  onToggleGoogleCalendarSource,
+  onToggleGoogleAvailabilitySource,
   savingCalendarSourceId,
+  tableInvitations,
   workspaceDisplayName,
   workspaceId,
   workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
-  calendarDisplaySettings: CalendarDisplaySettings;
   calendarSourceMessage: string;
   calendarSourcePreferences: CalendarSourcePreference[];
+  householdMembers: DosAppHouseholdMember[];
   isDisconnecting: boolean;
   onDisconnectCalendar: () => void;
-  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
-  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  onToggleGoogleAvailabilitySource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
+  tableInvitations: DosTableInvitation[];
   workspaceDisplayName: string;
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const [inviteSettings, setInviteSettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
-  const [selectedInvitationId, setSelectedInvitationId] = useState<InviteCardKey | null>(null);
+  const router = useRouter();
+  const savedInvitationCards = useMemo(() => tableInvitations.map((invitation) => createInviteCard(invitation)), [tableInvitations]);
+  const [invitations, setInvitations] = useState<InviteCard[]>(savedInvitationCards);
+  const [selectedInvitationId, setSelectedInvitationId] = useState<string | null>(null);
   const [inviteShareMessage, setInviteShareMessage] = useState("");
-  const invitations = useMemo(() => createDefaultInvitationCards(inviteSettings), [inviteSettings]);
+  const [savingInvitationId, setSavingInvitationId] = useState<string | null>(null);
   const selectedInvitation = selectedInvitationId ? invitations.find((invitation) => invitation.id === selectedInvitationId) ?? null : null;
+  const activeInvitationCount = invitations.filter((invitation) => invitation.status === "active" && !invitation.isDraft).length;
+
+  useEffect(() => {
+    setInvitations((current) => {
+      const drafts = current.filter((invitation) => invitation.isDraft);
+
+      return [...drafts, ...savedInvitationCards];
+    });
+  }, [savedInvitationCards]);
 
   async function copyInvitationLink(invitation: InviteCard) {
+    if (!invitation.token) {
+      setInviteShareMessage("Save this invitation before copying the public link.");
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(invitationUrl(workspaceSlug, invitation.id));
+      await navigator.clipboard.writeText(invitationUrl(invitation));
       setInviteShareMessage(`${invitation.title} link copied.`);
     } catch {
       setInviteShareMessage("Copy link is unavailable in this browser.");
@@ -8965,7 +9279,73 @@ function DesktopInvitePanel({
   }
 
   function openInvitation(invitation: InviteCard) {
-    window.open(invitationUrl(workspaceSlug, invitation.id), "_blank", "noopener,noreferrer");
+    const url = invitationUrl(invitation);
+
+    if (!url) {
+      setInviteShareMessage("Save this invitation before opening the public link.");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function startNewInvitation() {
+    const draft = createDraftInviteCard("kitchen_table");
+
+    setInviteShareMessage("");
+    setInvitations((current) => [draft, ...current.filter((invitation) => !invitation.isDraft)]);
+    setSelectedInvitationId(draft.id);
+  }
+
+  function closeSelectedInvitation() {
+    if (selectedInvitation?.isDraft) {
+      setInvitations((current) => current.filter((invitation) => invitation.id !== selectedInvitation.id));
+    }
+
+    setSelectedInvitationId(null);
+  }
+
+  async function saveInvitation(invitation: InviteCard) {
+    setSavingInvitationId(invitation.id);
+    setInviteShareMessage("");
+
+    try {
+      const response = await fetch("/api/dos/app/table-invitations", {
+        body: JSON.stringify({
+          audience: invitation.audience,
+          description: invitation.description,
+          hostMemberIds: invitation.hostMemberIds,
+          hostMode: invitation.hostMode,
+          id: invitation.isDraft ? undefined : invitation.id,
+          kind: invitation.kind,
+          settings: invitation.settings,
+          status: invitation.status,
+          title: invitation.title,
+          workspaceId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: invitation.isDraft ? "POST" : "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; invitation?: DosTableInvitation };
+
+      if (!response.ok || !result.invitation) {
+        throw new Error(result.error ?? "Unable to save invitation.");
+      }
+
+      const savedCard = createInviteCard(result.invitation);
+
+      setInvitations((current) => [
+        savedCard,
+        ...current.filter((item) => item.id !== invitation.id && item.id !== savedCard.id && !item.isDraft),
+      ]);
+      setSelectedInvitationId(savedCard.id);
+      setInviteShareMessage(`${savedCard.title} saved.`);
+      router.refresh();
+    } catch (error) {
+      setInviteShareMessage(error instanceof Error ? error.message : "Unable to save invitation.");
+    } finally {
+      setSavingInvitationId(null);
+    }
   }
 
   return (
@@ -8980,7 +9360,7 @@ function DesktopInvitePanel({
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-bold text-[#15803D]">
-          {invitations.length} Active
+          {activeInvitationCount} Active
         </span>
       </div>
 
@@ -8988,20 +9368,26 @@ function DesktopInvitePanel({
         <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {invitations.map((invitation) => (
+      {invitations.length ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {invitations.map((invitation) => (
           <InvitationCard
             invitation={invitation}
             key={invitation.id}
             onCopy={() => void copyInvitationLink(invitation)}
             onOpen={() => setSelectedInvitationId(invitation.id)}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#64748B]">
+          No invitations yet.
+        </p>
+      )}
 
       <button
         className="mt-5 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 text-center text-sm font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
-        onClick={() => setSelectedInvitationId("kitchen_table")}
+        onClick={startNewInvitation}
         type="button"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
@@ -9013,21 +9399,20 @@ function DesktopInvitePanel({
       {selectedInvitation ? (
         <InvitationDetailSheet
           calendarConnection={calendarConnection}
-          calendarDisplaySettings={calendarDisplaySettings}
           calendarSourceMessage={calendarSourceMessage}
           calendarSourcePreferences={calendarSourcePreferences}
+          householdMembers={householdMembers}
           invitation={selectedInvitation}
           inviteShareMessage={inviteShareMessage}
           isDisconnecting={isDisconnecting}
-          onClose={() => setSelectedInvitationId(null)}
+          onClose={closeSelectedInvitation}
           onCopy={() => void copyInvitationLink(selectedInvitation)}
           onDisconnectCalendar={onDisconnectCalendar}
           onOpenInvitation={() => openInvitation(selectedInvitation)}
-          onToggleCalendarCoreSource={onToggleCalendarCoreSource}
-          onToggleGoogleCalendarSource={onToggleGoogleCalendarSource}
+          onSave={(nextInvitation) => void saveInvitation(nextInvitation)}
+          onToggleGoogleAvailabilitySource={onToggleGoogleAvailabilitySource}
           savingCalendarSourceId={savingCalendarSourceId}
-          setSettings={setInviteSettings}
-          settings={inviteSettings}
+          savingInvitation={savingInvitationId === selectedInvitation.id}
           workspaceDisplayName={workspaceDisplayName}
           workspaceId={workspaceId}
           workspaceSlug={workspaceSlug}
@@ -11673,17 +12058,26 @@ function TableRolePicker({
 }
 
 function MeetingLeaderReflectionSection({
+  followUpNeededDefault = false,
+  nextStepDefault,
   notesDefault,
   onToggleOutcomeTag,
+  prayerNeedsDefault,
   selectedOutcomeTags,
 }: {
+  followUpNeededDefault?: boolean;
+  nextStepDefault?: string | null;
   notesDefault?: string | null;
   onToggleOutcomeTag: (tag: string) => void;
+  prayerNeedsDefault?: string | null;
   selectedOutcomeTags: string[];
 }) {
   return (
     <>
       <DosFormSection icon="fruit" title="What fruit did you see?">
+        {selectedOutcomeTags.map((tag) => (
+          <input key={tag} name="observed_fruit" type="hidden" value={tag} />
+        ))}
         <ObservedFruitMultiSelect
           onToggle={onToggleOutcomeTag}
           selectedOutcomeTags={selectedOutcomeTags}
@@ -11691,16 +12085,17 @@ function MeetingLeaderReflectionSection({
       </DosFormSection>
       <DosFormSection icon="prayer" title="Prayer Needs">
         <DosFormField>
-          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
+          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="Next Steps">
         <DosFormField>
-          <VoiceTextarea aria-label="Next Steps" className={`${FieldTextareaClass(false)} min-h-20`} name="next_step" />
+          <VoiceTextarea aria-label="Next Steps" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={nextStepDefault ?? ""} name="next_step" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
         <DosFormToggleRow
+          defaultChecked={followUpNeededDefault}
           description="Mark if this needs action soon."
           name="follow_up_needed"
           title="Follow Up Needed"
@@ -11806,6 +12201,7 @@ function MeetingPlanningReflectionSection({
 
 function MeetingRoleReflectionSections({
   growthReflectionDefault,
+  leaderReflectionDefault,
   notesDefault,
   onToggleOutcomeTag,
   planningReflectionDefault,
@@ -11813,6 +12209,7 @@ function MeetingRoleReflectionSections({
   tableRole,
 }: {
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
+  leaderReflectionDefault?: DosAppLeaderReflection | null;
   notesDefault?: string | null;
   onToggleOutcomeTag: (tag: string) => void;
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
@@ -11827,8 +12224,11 @@ function MeetingRoleReflectionSections({
     <>
       {tableRoleIncludesMinistering(tableRole) ? (
         <MeetingLeaderReflectionSection
+          followUpNeededDefault={leaderReflectionDefault?.followUpNeeded}
+          nextStepDefault={leaderReflectionDefault?.nextStep}
           notesDefault={notesDefault}
           onToggleOutcomeTag={onToggleOutcomeTag}
+          prayerNeedsDefault={leaderReflectionDefault?.prayerNeeds}
           selectedOutcomeTags={selectedOutcomeTags}
         />
       ) : null}
@@ -11847,6 +12247,7 @@ const meetingDurationOptions = [
   { label: "15m", value: "15" },
   { label: "30m", value: "30" },
   { label: "1h", value: "60" },
+  { label: "90m", value: "90" },
   { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
@@ -11860,10 +12261,20 @@ const scheduledTableDurationOptions = [
 
 type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
-function MeetingDurationSelector() {
-  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>("30");
-  const [customMinutes, setCustomMinutes] = useState("45");
-  const durationMinutes = selectedDuration === "custom" ? customMinutes || "60" : selectedDuration;
+function MeetingDurationSelector({
+  defaultMinutes = 30,
+}: {
+  defaultMinutes?: number | string | null;
+}) {
+  const normalizedDefault = normalizedDurationMinutes(defaultMinutes, 30);
+  const defaultOption = meetingDurationOptions.some((option) => option.value === String(normalizedDefault))
+    ? String(normalizedDefault) as MeetingDurationOptionValue
+    : "custom";
+  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>(defaultOption);
+  const [customHours, setCustomHours] = useState(String(Math.floor(normalizedDefault / 60)));
+  const [customMinutes, setCustomMinutes] = useState(String(normalizedDefault % 60));
+  const customTotalMinutes = (Number(customHours) || 0) * 60 + (Number(customMinutes) || 0);
+  const durationMinutes = selectedDuration === "custom" ? String(customTotalMinutes > 0 ? customTotalMinutes : normalizedDefault) : selectedDuration;
 
   return (
     <fieldset className="grid gap-2">
@@ -11887,20 +12298,35 @@ function MeetingDurationSelector() {
         ))}
       </div>
       {selectedDuration === "custom" ? (
-        <label className="mt-1 grid gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
-          <input
-            autoFocus
-            className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-            inputMode="numeric"
-            max="600"
-            min="1"
-            onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
-            placeholder="Minutes"
-            type="number"
-            value={customMinutes}
-          />
-        </label>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <label className="grid gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Hours</span>
+            <input
+              autoFocus
+              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              inputMode="numeric"
+              max="10"
+              min="0"
+              onChange={(event) => setCustomHours(event.target.value.replace(/\D/g, "").slice(0, 2))}
+              placeholder="0"
+              type="number"
+              value={customHours}
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Minutes</span>
+            <input
+              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              inputMode="numeric"
+              max="59"
+              min="0"
+              onChange={(event) => setCustomMinutes(String(Math.min(59, Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0)))}
+              placeholder="30"
+              type="number"
+              value={customMinutes}
+            />
+          </label>
+        </div>
       ) : null}
     </fieldset>
   );
@@ -12067,6 +12493,7 @@ function MeetingFormContent({
   buttonText,
   conversationResponses,
   dateDefault,
+  durationDefault,
   errorMessage,
   growthReflectionDefault,
   householdMembers,
@@ -12078,6 +12505,7 @@ function MeetingFormContent({
   ministryTeamPeopleOptions,
   ministryTeamQuery,
   notesDefault,
+  reflectionDefault,
   onContextChange,
   onCreatePerson,
   onConversationFlowChange,
@@ -12119,6 +12547,7 @@ function MeetingFormContent({
   buttonText: string;
   conversationResponses: DosConversationResponses;
   dateDefault: string;
+  durationDefault?: number | string | null;
   errorMessage?: string;
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
   householdMembers: DosAppData["householdMembers"];
@@ -12130,6 +12559,7 @@ function MeetingFormContent({
   ministryTeamPeopleOptions: DosAppPerson[];
   ministryTeamQuery: string;
   notesDefault?: string | null;
+  reflectionDefault?: DosAppLeaderReflection | null;
   onContextChange: (value: DosAppMeetingType) => void;
   onCreatePerson?: (name: string) => Promise<void>;
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
@@ -12181,7 +12611,7 @@ function MeetingFormContent({
       selectedPersonIds={selectedPersonIds}
     />
   );
-  const durationSelector = showDurationField ? <MeetingDurationSelector /> : null;
+  const durationSelector = showDurationField ? <MeetingDurationSelector defaultMinutes={durationDefault} /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
   const conversationFlowPicker = showConversationFlow ? (
     <ConversationFlowPicker
@@ -12264,6 +12694,7 @@ function MeetingFormContent({
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
           growthReflectionDefault={growthReflectionDefault}
+          leaderReflectionDefault={reflectionDefault}
           notesDefault={notesDefault}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
           planningReflectionDefault={planningReflectionDefault}
@@ -16845,6 +17276,39 @@ function MyRecordActivityRow({
   );
 }
 
+function AssessmentResultPlaceholderCard({
+  href,
+  title,
+}: {
+  href?: string;
+  title: string;
+}) {
+  const actionClassName = "mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <div className="flex min-w-0 gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+          <span className="mt-1 block text-sm leading-5 text-[#64748B]">No completed assessment yet</span>
+        </span>
+      </div>
+      {href ? (
+        <Link className={actionClassName} href={href}>
+          Open Assessment
+        </Link>
+      ) : (
+        <button className={`${actionClassName} cursor-not-allowed opacity-60 hover:border-[#BFDBFE] hover:bg-white`} disabled type="button">
+          Coming Soon
+        </button>
+      )}
+    </article>
+  );
+}
+
 function MyRecordTimerControls({
   elapsedMinutes,
   isRunning,
@@ -17399,6 +17863,84 @@ function MyRecordAssessmentResultCard({
   );
 }
 
+function AssessmentResultSummaryCard({
+  href,
+  results,
+  title,
+}: {
+  href?: string;
+  results: DosAppAssessmentResult[];
+  title: string;
+}) {
+  const latestResult = results[0];
+  const priorResults = results.slice(1, 4);
+  const actionLabel = latestResult ? "Retake Assessment" : "Open Assessment";
+  const actionClassName = "mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
+
+  if (!latestResult) {
+    return <AssessmentResultPlaceholderCard href={href} title={title} />;
+  }
+
+  return (
+    <article className="min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] md:col-span-3">
+      <div className="flex min-w-0 gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+              {latestResult.percentage}%
+            </span>
+          </span>
+          <span className="mt-1 block text-sm leading-5 text-[#64748B]">
+            {latestResult.overallScore}/{latestResult.maxScore} · {formatDate(latestResult.completedAt)}
+          </span>
+        </span>
+      </div>
+
+      {latestResult.categoryScores.length ? (
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          {latestResult.categoryScores.slice(0, 6).map((category) => (
+            <div className="rounded-[16px] border border-[#E2E8F0] bg-white px-3 py-2" key={category.name}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-bold text-[#0F172A]">{category.name}</p>
+                <span className="shrink-0 text-[10px] font-bold text-[#1D4ED8]">{category.percentage}%</span>
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-[#64748B]">
+                {category.score}/{category.maxScore}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {priorResults.length ? (
+        <div className="mt-3 rounded-[18px] border border-[#E2E8F0] bg-white p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            History
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            {priorResults.map((result) => (
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[#64748B]" key={result.id}>
+                <span>{formatDate(result.completedAt)}</span>
+                <span className="text-[#0F172A]">{result.overallScore}/{result.maxScore} · {result.percentage}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {href ? (
+        <Link className={actionClassName} href={href}>
+          {actionLabel}
+        </Link>
+      ) : null}
+    </article>
+  );
+}
+
 function MyRecordAssessmentForm({
   assessment,
   errorMessage,
@@ -17946,6 +18488,38 @@ function MyRecordWorkspace({
   );
 }
 
+function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone }) {
+  const icon = milestone.source === "Table"
+    ? <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : milestone.source === "Assessment"
+      ? <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : milestone.source === "Quick Review"
+      ? <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+      : milestone.source === "Testimony"
+        ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        : <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />;
+
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 flex-1 text-sm font-bold leading-5 text-[#0F172A]">{milestone.title}</span>
+          <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">
+            {formatDate(milestone.date)}
+          </span>
+        </span>
+        <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          {milestone.source}
+        </span>
+        <span className="mt-1 line-clamp-2 block text-sm leading-6 text-[#64748B]">{milestone.description}</span>
+      </span>
+    </article>
+  );
+}
+
 function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   const iconClass = "h-4 w-4";
 
@@ -18483,6 +19057,203 @@ function DetailRow({
     <div className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A]">
       {content}
     </div>
+  );
+}
+
+function TableDetailSummaryCard({ meeting }: { meeting: DosAppMeeting }) {
+  const durationMinutes = optionalDurationMinutesFromDateRange(meeting.scheduledStartAt, meeting.scheduledEndAt);
+  const statusLabel = meeting.meetingStatus === "scheduled" ? "Scheduled" : meeting.meetingStatus === "canceled" ? "Canceled" : "Logged";
+  const flowLabel = meeting.meetingStatus === "scheduled" ? statusLabel : conversationFlowLabel(meeting.conversationFlowKey);
+
+  return (
+    <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Summary">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={meeting.meetingStatus === "scheduled" ? formatMeetingTimeRange(meeting) : formatDate(meeting.date)} />
+        <DetailRow icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Type" value={meetingActivityTitle(meeting)} />
+        <DetailRow icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Duration" value={formatDurationLabel(durationMinutes)} />
+        <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={meeting.meetingStatus === "scheduled" ? "Status" : "Conversation Flow"} value={flowLabel} />
+      </div>
+    </DetailCard>
+  );
+}
+
+function ObservedFruitChipList({ fruit }: { fruit: string[] }) {
+  if (!fruit.length) {
+    return <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">No fruit recorded yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {fruit.map((item) => (
+        <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-bold text-[#1D4ED8]" key={item}>
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function NotesReflectionDetailCard({
+  meeting,
+  reflection,
+}: {
+  meeting: DosAppMeeting;
+  reflection: DosAppLeaderReflection | null;
+}) {
+  const reflectionText = reflection?.whatHappened?.trim();
+  const tableNotes = meeting.notes?.trim();
+  const shouldShowReflection = Boolean(reflectionText && reflectionText !== tableNotes);
+
+  return (
+    <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Notes & Reflection">
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Table Notes</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{tableNotes || "No table notes were added."}</p>
+        </div>
+        <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Leader Reflection</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">
+            {shouldShowReflection ? reflectionText : reflection?.prayerNeeds ? `Prayer: ${reflection.prayerNeeds}` : "No leader reflection added."}
+          </p>
+          {reflection?.followUpNeeded ? (
+            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              Follow Up
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Observed Fruit</p>
+        <ObservedFruitChipList fruit={reflection?.observedFruit ?? []} />
+      </div>
+    </DetailCard>
+  );
+}
+
+function FollowUpStatusRow({
+  action,
+  helper,
+  title,
+}: {
+  action?: ReactNode;
+  helper: string;
+  title: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-[#0F172A]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[#64748B]">{helper}</p>
+      </div>
+      {action ? <div className="shrink-0 sm:w-48">{action}</div> : null}
+    </div>
+  );
+}
+
+function FollowUpDetailCard({
+  canSendTestimony,
+  hasReviewRequestLink,
+  hasTestimonyRequestLink,
+  isSendingReview,
+  isSendingTestimony,
+  meeting,
+  meetingTestimonies,
+  onSendReview,
+  onSendTestimony,
+  reviewDisplayHelper,
+  reviewDisplayTitle,
+  storyDisplayHelper,
+  storyDisplayTitle,
+  storyIsCompleted,
+}: {
+  canSendTestimony: boolean;
+  hasReviewRequestLink?: boolean;
+  hasTestimonyRequestLink?: boolean;
+  isSendingReview?: boolean;
+  isSendingTestimony?: boolean;
+  meeting: DosAppMeeting;
+  meetingTestimonies: DosAppParticipantTestimony[];
+  onSendReview: () => void;
+  onSendTestimony: () => void;
+  reviewDisplayHelper: string;
+  reviewDisplayTitle: string;
+  storyDisplayHelper: string;
+  storyDisplayTitle: string;
+  storyIsCompleted: boolean;
+}) {
+  return (
+    <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Follow-up">
+      <FollowUpStatusRow
+        action={meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+          <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+            Send
+          </ReviewActionButton>
+        ) : null}
+        helper={reviewDisplayHelper}
+        title={`Quick Review · ${reviewDisplayTitle}`}
+      />
+      {canSendTestimony ? (
+        <FollowUpStatusRow
+          action={!storyIsCompleted && !hasTestimonyRequestLink ? (
+            <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
+              Send
+            </ReviewActionButton>
+          ) : null}
+          helper={storyDisplayHelper}
+          title={`Testimony Request · ${storyDisplayTitle}`}
+        />
+      ) : null}
+      {meeting.review.stoodOut ? (
+        <p className="line-clamp-3 rounded-[18px] bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
+      ) : null}
+      {meetingTestimonies.length ? (
+        <div className="grid gap-2">
+          {meetingTestimonies.map((testimony) => (
+            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
+          ))}
+        </div>
+      ) : null}
+    </DetailCard>
+  );
+}
+
+function FruitOutcomesDetailCard({ observedFruit }: { observedFruit: string[] }) {
+  return (
+    <DetailCard icon={<Flame className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit / Outcomes">
+      <ObservedFruitChipList fruit={observedFruit} />
+    </DetailCard>
+  );
+}
+
+function TableActionsDetailCard({
+  isSubmitting,
+  onDelete,
+  onEdit,
+  onEditNotes,
+}: {
+  isSubmitting?: boolean;
+  onDelete: () => void;
+  onEdit: () => void;
+  onEditNotes: () => void;
+}) {
+  return (
+    <DetailCard icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Actions">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0F172A] px-4 text-sm font-bold text-white transition-colors hover:bg-[#1E293B]" onClick={onEdit} type="button">
+          <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Edit Table
+        </button>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]" onClick={onEditNotes} type="button">
+          <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Add Notes
+        </button>
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} onClick={onDelete} type="button">
+          <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+          Delete Table
+        </button>
+      </div>
+    </DetailCard>
   );
 }
 
@@ -19243,9 +20014,11 @@ function ResourcePickerSheet({
 
 function PersonDetailOverlay({
   answeredPrayerByReminderId,
+  assessmentResults,
   circleScore,
   fruitEvents,
   fruitItems,
+  initialDetailTab,
   index,
   leaderReflections,
   meetings,
@@ -19264,11 +20037,14 @@ function PersonDetailOverlay({
   participantReviews,
   participantTestimonies,
   person,
+  workspace,
 }: {
   answeredPrayerByReminderId: Record<string, string>;
+  assessmentResults: DosAppAssessmentResult[];
   circleScore?: DosRelationshipScore | null;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
+  initialDetailTab?: PersonDetailTab | null;
   index: number;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
@@ -19287,9 +20063,10 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
+  workspace: DosAppWorkspace;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>("overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
@@ -19331,6 +20108,14 @@ function PersonDetailOverlay({
     participantTestimonies: personTestimonies,
     people: [person],
   });
+  const personAssessmentResults = assessmentResults
+    .filter((result) => result.personId === person.id || result.secondaryPersonId === person.id)
+    .sort((first, second) => (parseDisplayDate(second.completedAt)?.getTime() ?? 0) - (parseDisplayDate(first.completedAt)?.getTime() ?? 0));
+  const marriageAssessmentResults = personAssessmentResults.filter((result) => result.assessmentType === "marriage-assessment");
+  const latestMarriageAssessment = marriageAssessmentResults[0] ?? null;
+  const marriageAssessmentHref = workspace.isPreview
+    ? "/dos/library/marriage-assessment"
+    : `/dos/library/marriage-assessment?workspace=${encodeURIComponent(workspace.slug)}&person=${encodeURIComponent(person.id)}`;
   const personFruitSummary = selectPersonDetailFruitSummary({
     fruitEvents,
     fruitItems,
@@ -19372,6 +20157,47 @@ function PersonDetailOverlay({
     reflections: personReflections,
   });
   const lastMeetingDate = personLoggedMeetings[0]?.date ?? person.lastActivityAt;
+  const personGrowthMilestones: PersonGrowthMilestone[] = [
+    ...personAssessmentResults.map((result) => ({
+      date: result.completedAt,
+      description: `${result.assessmentTitle} completed with ${result.overallScore}/${result.maxScore} (${result.percentage}%).`,
+      id: `milestone-assessment-${result.id}`,
+      source: "Assessment" as const,
+      title: result.assessmentTitle,
+    })),
+    ...personOutcomeEntries.map((entry) => entry.type === "testimony"
+      ? {
+        date: entry.date,
+        description: entry.testimony.whatChanged?.trim() || entry.testimony.story?.trim() || "Shared story recorded.",
+        id: `milestone-${entry.id}`,
+        source: "Testimony" as const,
+        title: "Testimony Shared",
+      }
+      : {
+        date: entry.date,
+        description: fruitNarrative(entry.event),
+        id: `milestone-${entry.id}`,
+        source: "Fruit" as const,
+        title: fruitOutcomeLabel(entry.event),
+      }),
+    ...personParticipantReviews.map((review) => ({
+      date: review.submittedAt,
+      description: review.comments?.trim() || "Participant review submitted.",
+      id: `milestone-review-${review.id}`,
+      source: "Quick Review" as const,
+      title: "Quick Review",
+    })),
+    ...personLoggedMeetings.map((meeting) => ({
+      date: meeting.date,
+      description: meeting.notes?.trim() || "Table logged.",
+      id: `milestone-table-${meeting.id}`,
+      source: "Table" as const,
+      title: meetingActivityTitle(meeting),
+    })),
+  ]
+    .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
+    .slice(0, 6);
+  const latestGrowthDate = personGrowthMilestones[0]?.date ?? lastMeetingDate;
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
@@ -19395,11 +20221,11 @@ function PersonDetailOverlay({
   }
 
   useEffect(() => {
-    setActiveDetailTab("overview");
+    setActiveDetailTab(initialDetailTab ?? "overview");
     setIsSnapshotOpen(false);
     setSelectedOutcomeEntry(null);
     scrollDetailToTop();
-  }, [person.id]);
+  }, [initialDetailTab, person.id]);
 
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
@@ -19434,7 +20260,7 @@ function PersonDetailOverlay({
             { label: "Activity", value: "activity" },
             { label: "Reviews", value: "reviews" },
             { label: "Prayer", value: "prayer" },
-            { label: "Fruit", value: "fruit" },
+            { label: "Growth", value: "fruit" },
           ].map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
@@ -19718,6 +20544,30 @@ function PersonDetailOverlay({
 
         {activeDetailTab === "fruit" ? (
           <>
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
+                <FruitSummaryCard
+                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Assessments"
+                  value={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "None Yet"}
+                />
+                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Observable Fruit" value={String(personOutcomeEntries.length)} />
+                <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Growth" value={latestGrowthDate ? formatRelativeDate(latestGrowthDate) : "Not Yet"} />
+              </div>
+              <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-sm leading-6 text-[#64748B]">
+                Assessments show where this person or relationship is today. Fruit records observable outcomes God has done.
+              </p>
+            </DetailCard>
+
+            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assessment Results">
+              <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-3">
+                <AssessmentResultSummaryCard href={marriageAssessmentHref} results={marriageAssessmentResults} title="Marriage Assessment" />
+                {personAssessmentResultPlaceholders.slice(1).map((assessment) => (
+                  <AssessmentResultPlaceholderCard href={assessment.href} key={assessment.title} title={assessment.title} />
+                ))}
+              </div>
+            </DetailCard>
+
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
@@ -19737,6 +20587,14 @@ function PersonDetailOverlay({
                   : <FruitEventRow event={entry.event} key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} />
               )) : (
                 <SectionEmptyState text="Observable outcomes and shared stories will appear here." title="No outcomes yet." />
+              )}
+            </DetailCard>
+
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones / Timeline">
+              {personGrowthMilestones.length ? personGrowthMilestones.map((milestone) => (
+                <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+              )) : (
+                <SectionEmptyState text="Tables, quick reviews, testimonies, and fruit will form the growth timeline here." title="No growth milestones yet." />
               )}
             </DetailCard>
           </>
@@ -20061,6 +20919,7 @@ function MeetingDetailOverlay({
   meeting,
   onBack,
   onCopyReviewLink,
+  onDelete,
   onEdit,
   onDone,
   onEditNotes,
@@ -20078,6 +20937,7 @@ function MeetingDetailOverlay({
   reviewShareMessage,
   reviewOptionsShareMessage,
   showPostMeetingFollowUp,
+  isSubmitting,
   testimonyShareMessage,
 }: {
   fruitEvents: DosAppFruitEvent[];
@@ -20090,6 +20950,7 @@ function MeetingDetailOverlay({
   meeting: DosAppMeeting;
   onBack: () => void;
   onCopyReviewLink: () => void;
+  onDelete: () => void;
   onDone: () => void;
   onEdit: () => void;
   onEditNotes: () => void;
@@ -20107,6 +20968,7 @@ function MeetingDetailOverlay({
   reviewShareMessage?: string;
   reviewOptionsShareMessage?: string;
   showPostMeetingFollowUp?: boolean;
+  isSubmitting?: boolean;
   testimonyShareMessage?: string;
 }) {
   const isTableMeeting = meeting.source === "table";
@@ -20122,7 +20984,8 @@ function MeetingDetailOverlay({
   const meetingReflections = leaderReflections.filter((reflection) => reflection.meetingId === meeting.id);
   const meetingParticipantReviews = participantReviews.filter((review) => review.meetingId === meeting.id);
   const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
-  const meetingFruitEvents = fruitEvents.filter((event) => event.meetingId === meeting.id);
+  const latestReflection = latestLeaderReflectionForMeeting(leaderReflections, meeting.id);
+  const observedFruit = observedFruitForMeeting(leaderReflections, fruitEvents, meeting.id);
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
   const reviewDisplayTitle = reviewIsCompleted ? "Review received" : reviewRequestSent ? "Sent" : "Not sent";
@@ -20228,203 +21091,131 @@ function MeetingDetailOverlay({
   }
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
-      <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-        </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-          {isScheduledMeeting ? "Scheduled" : "Table"}
-        </p>
-        {isLoggedTableMeeting ? (
-          <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            Edit
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:bg-[#F8FBFF]">
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="flex items-center justify-between gap-3">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
           </button>
-        ) : <span className="h-10 w-10" aria-hidden="true" />}
-      </header>
-
-      <section className="mt-5 text-center">
-        {avatarNames.length ? (
-          <div className="mx-auto flex justify-center -space-x-2">
-            {avatarNames.map((name, index) => (
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
-                key={`${meeting.id}-detail-${name}`}
-              >
-                {initials(name)}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-            <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
-          </div>
-        )}
-        <h2 className="mx-auto mt-3 max-w-[320px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-          {title}
-        </h2>
-        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
-        <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {isTableMeeting ? (
-            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-              {tableRoleDisplayLabel(meeting.tableRole)}
-            </span>
-          ) : null}
-          {conversationBadgeLabel ? (
-            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-              {conversationBadgeLabel}
-            </span>
-          ) : null}
-          {meeting.googleSyncEnabled ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-            </span>
-          ) : null}
-          {temperature ? (
-            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-              {temperature}
-            </span>
-          ) : null}
-        </div>
-      </section>
-
-      <div className="mt-5 grid gap-3">
-        <MeetingPeopleDetailCard meeting={meeting} people={people} />
-        <GrowthReflectionDetailCard meeting={meeting} />
-        <PlanningReflectionDetailCard meeting={meeting} />
-
-        {isLoggedTableMeeting && roleAllowsFruitReviews ? (
-          <DetailCard title="Quick Review">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
-            </div>
-            {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
-              <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                {reviewSharePermissionLabel(meeting.review.sharePermission)}
-              </span>
-            ) : null}
-            {meeting.review.stoodOut ? (
-              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
-            ) : null}
-            {reviewOverallRating ? (
-              <p className="mt-3 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">Overall: {reviewOverallRating}</p>
-            ) : null}
-            {reviewRequestUrl ? (
-              <div className="mt-3 grid gap-2">
-                <ReviewActionButton icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onOpenReviewLink}>
-                  Open Review Link
-                </ReviewActionButton>
-                <ReviewActionButton icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReviewLink}>
-                  Copy Review Link
-                </ReviewActionButton>
-                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Again
-                </ReviewActionButton>
-              </div>
-            ) : meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
-              <div className="mt-3">
-                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
-                  Send Quick Review
-                </ReviewActionButton>
-              </div>
-            ) : null}
-            {reviewShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        {isLoggedTableMeeting && canSendTestimony ? (
-          <DetailCard title="Testimony Request">
-            <div>
-              <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
-              <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
-            </div>
-            {!storyIsCompleted && !hasTestimonyRequestLink ? (
-              <div className="mt-3">
-              <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
-                Send Testimony Request
-              </ReviewActionButton>
-            </div>
-            ) : null}
-            {testimonyShareMessage ? (
-              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
-            ) : null}
-          </DetailCard>
-        ) : null}
-
-        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
-          {meeting.notes ? (
-            <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
-              {meeting.notes}
-            </div>
-          ) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No notes yet."}</p>
-          )}
-          {isTableMeeting ? (
-            <button
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
-              onClick={onEditNotes}
-              type="button"
-            >
-              <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              {meeting.notes ? "Edit Notes" : "Add Notes"}
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {isScheduledMeeting ? "Scheduled" : "Table"}
+          </p>
+          {isLoggedTableMeeting ? (
+            <button className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Edit
             </button>
-          ) : null}
-        </DetailCard>
+          ) : <span className="h-10 w-10" aria-hidden="true" />}
+        </header>
 
-        {!isScheduledMeeting ? <ConversationFlowDetail meeting={meeting} /> : null}
-
-        {meetingReflections.length ? (
-        <DetailCard title="Leader Reflections">
-          {meetingReflections.length ? meetingReflections.map((reflection) => (
-            <LeaderReflectionRow key={reflection.id} reflection={reflection} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingParticipantReviews.length ? (
-        <DetailCard title="Reviews">
-          {meetingParticipantReviews.length ? meetingParticipantReviews.map((review) => (
-            <ParticipantReviewRow key={review.id} review={review} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingTestimonies.length ? (
-        <DetailCard title="Testimonies">
-          {meetingTestimonies.length ? meetingTestimonies.map((testimony) => (
-            <ParticipantTestimonyRow key={testimony.id} testimony={testimony} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meetingFruitEvents.length ? (
-        <DetailCard title="Fruit Feed">
-          {meetingFruitEvents.length ? meetingFruitEvents.map((event) => (
-            <FruitEventRow event={event} key={event.id} />
-          )) : null}
-        </DetailCard>
-        ) : null}
-
-        {meeting.recommendedResources.length ? (
-          <DetailCard title="Recommended Resources">
-            {/* TODO: Add SMS/email/share actions for queued resources after DOS messaging workflows exist. */}
-            {meeting.recommendedResources.map((resource) => (
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
-                  {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
+        <section className="mt-5 rounded-[26px] border border-[#DCEBFF] bg-white p-4 shadow-[0_16px_38px_rgba(37,99,235,0.055)] md:p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {avatarNames.length ? (
+                <div className="flex shrink-0 -space-x-2">
+                  {avatarNames.map((name, index) => (
+                    <span
+                      className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
+                      key={`${meeting.id}-detail-${name}`}
+                    >
+                      {initials(name)}
+                    </span>
+                  ))}
                 </div>
-                <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                  Queued
-                </span>
+              ) : (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+                  <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h2 className="truncate text-[28px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[34px]" style={{ fontFamily: font.oswald }}>
+                  {title}
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
               </div>
-            ))}
-          </DetailCard>
-        ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+                {isScheduledMeeting ? "Scheduled" : conversationFlowLabel(meeting.conversationFlowKey)}
+              </span>
+              {observedFruit.length ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {observedFruit.length} fruit
+                </span>
+              ) : null}
+              {meeting.googleSyncEnabled ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+                </span>
+              ) : null}
+              {temperature ? (
+                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+                  {temperature}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+          <div className="grid min-w-0 gap-3">
+            <TableDetailSummaryCard meeting={meeting} />
+            <MeetingPeopleDetailCard meeting={meeting} people={people} />
+            <NotesReflectionDetailCard meeting={meeting} reflection={latestReflection} />
+          </div>
+
+          <div className="grid min-w-0 content-start gap-3">
+            {isLoggedTableMeeting ? (
+              <FollowUpDetailCard
+                canSendTestimony={canSendTestimony}
+                hasReviewRequestLink={hasReviewRequestLink}
+                hasTestimonyRequestLink={hasTestimonyRequestLink}
+                isSendingReview={isSendingReview}
+                isSendingTestimony={isSendingTestimony}
+                meeting={meeting}
+                meetingTestimonies={meetingTestimonies}
+                onSendReview={onSendReview}
+                onSendTestimony={onSendTestimony}
+                reviewDisplayHelper={reviewDisplayHelper}
+                reviewDisplayTitle={reviewDisplayTitle}
+                storyDisplayHelper={storyDisplayHelper}
+                storyDisplayTitle={storyDisplayTitle}
+                storyIsCompleted={storyIsCompleted}
+              />
+            ) : null}
+            {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
+              <div className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+                {reviewShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p> : null}
+                {testimonyShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p> : null}
+                {reviewOptionsShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewOptionsShareMessage}</p> : null}
+              </div>
+            ) : null}
+            <FruitOutcomesDetailCard observedFruit={observedFruit} />
+            {isLoggedTableMeeting ? (
+              <TableActionsDetailCard
+                isSubmitting={isSubmitting}
+                onDelete={onDelete}
+                onEdit={onEdit}
+                onEditNotes={onEditNotes}
+              />
+            ) : null}
+            {meeting.recommendedResources.length ? (
+              <DetailCard title="Recommended Resources">
+                {meeting.recommendedResources.map((resource) => (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
+                      {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
+                    </div>
+                    <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      Queued
+                    </span>
+                  </div>
+                ))}
+              </DetailCard>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -20565,6 +21356,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     () => loggedMeetings.filter((meeting) => tableRoleIncludesMinistering(meeting.tableRole)),
     [loggedMeetings],
   );
+  const requestedPersonId = searchParams.get("person");
+  const requestedDetailTab = searchParams.get("tab") === "growth" ? "fruit" : null;
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
 
@@ -20670,6 +21463,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedExternalCalendarEvent = useMemo(() => (
     data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
   ), [data.externalCalendarEvents, selectedExternalCalendarEventId]);
+
+  useEffect(() => {
+    if (!requestedPersonId || !people.some((person) => person.id === requestedPersonId)) {
+      return;
+    }
+
+    setActiveTab("people");
+    setMoreAppView(null);
+    setSelectedMeetingId(null);
+    setSelectedReminderId(null);
+    setPostMeetingFollowUpId(null);
+    setSelectedPersonId(requestedPersonId);
+  }, [people, requestedPersonId]);
+
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
     const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));
     const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
@@ -21545,6 +22352,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingReviewRecipientId(null);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedOutcomeTags([]);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
     setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -21601,6 +22409,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedTableRole(meeting.tableRole);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
+    setSelectedOutcomeTags(observedFruitForMeeting(data.leaderReflections, data.fruitEvents, meeting.id));
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
     setSelectedMinistryTeamPersonIds(meeting.ministryTeam.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
     setSelectedSupportingAttendeeIds(meeting.supportingAttendees.map((eventPerson) => eventPerson.fieldPersonId).filter((id): id is string => Boolean(id)));
@@ -22406,6 +23215,52 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })();
   }
 
+  function handleToggleGoogleAvailabilitySource(sourceId: string) {
+    const source = calendarSourcePreferences.find((item) => item.id === sourceId);
+
+    if (!source) {
+      return;
+    }
+
+    const nextSelected = source.selectedForAvailability === false;
+
+    setCalendarSourceMessage("");
+    setCalendarSourcePreferences((current) => current.map((item) => (
+      item.id === sourceId ? { ...item, selectedForAvailability: nextSelected } : item
+    )));
+
+    if (!source.canPersist || isPreview) {
+      setCalendarSourceMessage("Calendar blocking is local for now.");
+      return;
+    }
+
+    setSavingCalendarSourceId(sourceId);
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dos/app/calendar/sources/${encodeURIComponent(sourceId)}`, {
+          body: JSON.stringify({
+            selectedForAvailability: nextSelected,
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "PATCH",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to save calendar blocking.");
+        }
+      } catch {
+        setCalendarSourceMessage("Unable to save calendar blocking. This view was updated locally.");
+      } finally {
+        setSavingCalendarSourceId((current) => current === sourceId ? null : current);
+      }
+    })();
+  }
+
   function handleAddExternalEventToDos() {
     if (!selectedExternalCalendarEvent || isAddingExternalEventToDos) {
       return;
@@ -22680,7 +23535,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
-    const observedFruit = [...selectedOutcomeTags];
+    const observedFruit = formObservedFruit(formData);
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const nextStep = String(formData.get("next_step") ?? "");
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
@@ -22803,20 +23658,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none";
     const isScheduledMeeting = selectedMeeting.meetingStatus === "scheduled";
     const isLoggingScheduledMeeting = loggingScheduledMeetingId === selectedMeeting.id && isScheduledMeeting;
+    const includesReflectionFields = !isScheduledMeeting || isLoggingScheduledMeeting;
+    const latestReflection = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
     const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
-    const observedFruit = [...selectedOutcomeTags];
-    const followUpNeeded = formData.get("follow_up_needed") === "on";
-    const nextStep = String(formData.get("next_step") ?? "");
-    const prayerNeeds = String(formData.get("prayer_needs") ?? "");
-    const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const observedFruit = formObservedFruit(formData);
+    const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
+    const nextStep = formData.has("next_step") ? String(formData.get("next_step") ?? "") : latestReflection?.nextStep ?? "";
+    const prayerNeeds = includesReflectionFields ? String(formData.get("prayer_needs") ?? "") : latestReflection?.prayerNeeds ?? "";
+    const spiritualOpenness = formData.has("spiritual_openness") ? String(formData.get("spiritual_openness") ?? "") : latestReflection?.spiritualOpenness ?? "";
     const meetingNotes = String(formData.get("notes") ?? "");
-    const shouldSaveReflection = isLoggingScheduledMeeting && shouldUseLeaderReflection && Boolean(
-      meetingNotes.trim()
+    const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
+      latestReflection
+      || isLoggingScheduledMeeting
+      || meetingNotes.trim()
       || observedFruit.length
       || followUpNeeded
       || nextStep.trim()
@@ -22851,10 +23710,41 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       payload.scheduledStartAt = scheduledStartAt;
       payload.scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
+    } else {
+      payload.scheduledStartAt = loggedStartAt;
+      payload.scheduledEndAt = loggedEndAt;
     }
 
     if (!isLoggingScheduledMeeting) {
-      void submitJson("/api/dos/app/meetings", payload, "PATCH");
+      void (async () => {
+        const result = await submitJson("/api/dos/app/meetings", payload, "PATCH", false);
+
+        if (!result) {
+          return;
+        }
+
+        if (!isScheduledMeeting && shouldSaveReflection) {
+          const reflectionResult = await submitJson("/api/dos/app/reflections", {
+            followUpNeeded,
+            meetingId: selectedMeeting.id,
+            nextStep,
+            observedFruit,
+            prayerNeeds,
+            privateNotes: latestReflection?.privateNotes ?? "",
+            replaceLatest: true,
+            spiritualOpenness,
+            whatHappened: latestReflection?.whatHappened ?? meetingNotes,
+          }, "POST", false);
+
+          if (!reflectionResult) {
+            return;
+          }
+        }
+
+        closeForm();
+        setSelectedMeetingId(selectedMeeting.id);
+        router.refresh();
+      })();
       return;
     }
 
@@ -22869,11 +23759,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         const reflectionResult = await submitJson("/api/dos/app/reflections", {
           followUpNeeded,
           meetingId: selectedMeeting.id,
-          nextStep,
-          observedFruit,
-          prayerNeeds,
-          privateNotes: "",
-          spiritualOpenness,
+            nextStep,
+            observedFruit,
+            prayerNeeds,
+            privateNotes: "",
+            spiritualOpenness,
           whatHappened: meetingNotes,
         }, "POST", false);
 
@@ -22904,6 +23794,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setActiveTab("meetings");
       setSelectedMeetingId(selectedMeeting.id);
       setPostMeetingFollowUpId(shouldUseLeaderReflection ? selectedMeeting.id : null);
+      router.refresh();
     })();
   }
 
@@ -24190,19 +25081,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       workspaceSlug={data.workspace.slug}
                     />
                   ) : (
-                    <DesktopInvitePanel
-                      calendarConnection={calendarConnection}
-                      calendarDisplaySettings={calendarDisplaySettings}
-                      calendarSourceMessage={calendarSourceMessage}
-                      calendarSourcePreferences={calendarSourcePreferences}
-                      isDisconnecting={isCalendarDisconnecting}
-                      onDisconnectCalendar={handleDisconnectCalendar}
-                      onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
-                      onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
-                      savingCalendarSourceId={savingCalendarSourceId}
-                      workspaceDisplayName={data.workspace.displayName}
-                      workspaceId={data.workspace.id}
-                      workspaceSlug={data.workspace.slug}
+	                    <DesktopInvitePanel
+	                      calendarConnection={calendarConnection}
+	                      calendarSourceMessage={calendarSourceMessage}
+	                      calendarSourcePreferences={calendarSourcePreferences}
+	                      householdMembers={data.householdMembers}
+	                      isDisconnecting={isCalendarDisconnecting}
+	                      onDisconnectCalendar={handleDisconnectCalendar}
+	                      onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
+	                      savingCalendarSourceId={savingCalendarSourceId}
+	                      tableInvitations={data.tableInvitations}
+	                      workspaceDisplayName={data.workspace.displayName}
+	                      workspaceId={data.workspace.id}
+	                      workspaceSlug={data.workspace.slug}
                     />
                   )}
                 </div>
@@ -24725,8 +25616,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {selectedPerson ? (
             <PersonDetailOverlay
               answeredPrayerByReminderId={answeredPrayerByReminderId}
+              assessmentResults={data.assessmentResults}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
+              initialDetailTab={requestedDetailTab}
               index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
@@ -24746,19 +25639,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
+              workspace={data.workspace}
             />
         ) : null}
 
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
-            fruitEvents={data.fruitEvents}
             hasReviewRequestLink={Boolean(selectedMeetingReviewUrl) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
             isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
             isSendingTestimony={testimonyLinkMeetingId === selectedMeetingWithReview.id}
+            isSubmitting={isSubmitting}
+            fruitEvents={data.fruitEvents}
             leaderReflections={data.leaderReflections}
             meeting={selectedMeetingWithReview}
+            participantReviews={data.participantReviews}
             onBack={() => {
               setPostMeetingFollowUpId(null);
               setSelectedMeetingReviewRecipientId(null);
@@ -24775,6 +25671,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setSelectedMeetingId(null);
               setActiveTab("meetings");
             }}
+            onDelete={handleDeleteMeeting}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
             onOpenReviewLink={() => {
@@ -24799,7 +25696,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" });
             }}
             onSendTestimony={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" })}
-            participantReviews={data.participantReviews}
             participantTestimonies={data.participantTestimonies}
             people={people}
             reviewRequestUrl={selectedMeetingReviewUrl}
@@ -25275,6 +26171,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "editMeeting" && selectedMeeting ? (() => {
         const isLoggingSelectedScheduledMeeting = selectedMeeting.meetingStatus === "scheduled" && loggingScheduledMeetingId === selectedMeeting.id;
         const logDateDefault = dateInputValueFromDateTime(selectedMeeting.scheduledStartAt ?? selectedMeeting.date, selectedMeeting.date ?? todayDateValue());
+        const reflectionDefault = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
 
         return (
         <Sheet onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}>
@@ -25285,10 +26182,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               buttonText={isLoggingSelectedScheduledMeeting ? "Log Table" : "Save Table"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
+              durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
               errorMessage={errorMessage}
               growthReflectionDefault={selectedMeeting.growthReflection}
               householdMembers={data.householdMembers}
-              includeReflectionFields={isLoggingSelectedScheduledMeeting}
+              includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               isCreatingPerson={isCreatingMeetingPerson}
               isSubmitting={isSubmitting}
               meetingPeopleOptions={meetingPeopleOptions}
@@ -25314,6 +26212,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onToggleSupportingAttendee={toggleSupportingAttendeeId}
               planningReflectionDefault={selectedMeeting.planningReflection}
               recommendedResources={draftRecommendedResources}
+              reflectionDefault={reflectionDefault}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
               scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
@@ -25325,7 +26224,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
               selectedTableRole={selectedTableRole}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
-              showDurationField={isLoggingSelectedScheduledMeeting}
+              showDurationField={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               showScheduledTiming={selectedMeeting.meetingStatus === "scheduled" && !isLoggingSelectedScheduledMeeting}
               submittingText="Saving..."
               supportingAttendeeOptions={supportingAttendeeOptions}

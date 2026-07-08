@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { buildFallbackCircleDataFromActivity } from "@/src/lib/dos/circle-scoring";
 import {
   type DosAppData,
+  type DosAppAssessmentResult,
   type DosAppFruit,
   type DosAppFruitEvent,
   type DosAppLeaderReflection,
@@ -31,6 +32,10 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
+const isDemoPreviewRouteEnabled =
+  process.env.VERCEL_ENV === "preview"
+  || process.env.NODE_ENV !== "production"
+  || process.env.DOS_ENABLE_DEMO_PREVIEW === "true";
 type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
   & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
 const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
@@ -467,6 +472,28 @@ function buildDosPreviewDemoData(): DosAppData {
       wouldMeetAgainResponse: "yes",
     },
   ];
+  const assessmentResults: DosAppAssessmentResult[] = [
+    {
+      answers: {},
+      assessmentTitle: "Marriage Assessment",
+      assessmentType: "marriage-assessment",
+      categoryScores: [
+        { husbandScore: 42, maxScore: 50, name: "Connection", percentage: 82, score: 41, wifeScore: 40 },
+        { husbandScore: 37, maxScore: 50, name: "Communication", percentage: 76, score: 38, wifeScore: 39 },
+      ],
+      completedAt: "2026-05-26T19:00:00-05:00",
+      completedByEmail: null,
+      completedByName: null,
+      id: "demo-assessment-george-marriage",
+      maxScore: 150,
+      overallScore: 119,
+      percentage: 79,
+      personId: "demo-person-george-jenko",
+      secondaryPersonId: null,
+      source: "self",
+      workspaceId: demoWorkspaceId,
+    },
+  ];
   const reminders: DosAppRelationshipReminder[] = [
     {
       googleSyncEnabled: true,
@@ -511,6 +538,7 @@ function buildDosPreviewDemoData(): DosAppData {
   });
 
   return {
+    assessmentResults,
     calendarConnection: {
       calendarId: "primary",
       connected: true,
@@ -644,6 +672,7 @@ function buildDosPreviewDemoData(): DosAppData {
       workspaceId: demoWorkspaceId,
     },
     reminders,
+    tableInvitations: [],
     usamApplication: {
       applicationId: "demo-usam-application",
       appliedAt: demoTimestamp,
@@ -694,7 +723,9 @@ export default async function DosAppPreviewPage({
 }: {
   searchParams: Promise<{ demo?: string; workspace?: string }>;
 }) {
-  redirect("/dos");
+  if (!isDemoPreviewRouteEnabled) {
+    redirect("/dos");
+  }
 
   const params = await searchParams;
 
