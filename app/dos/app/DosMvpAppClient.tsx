@@ -3300,7 +3300,7 @@ function EmptyState({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>
       {children}
     </span>
   );
@@ -10878,7 +10878,7 @@ function CompactOptionSelect({
                 type="button"
               >
                 <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#64748B]">{option.helper}</span> : null}
               </button>
             );
           })}
@@ -11070,7 +11070,7 @@ function ConversationFlowExperience({
           {flow.sections.map((section) => (
             <div className="grid gap-2" key={section.id}>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
                   {section.title}
                 </p>
                 {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
@@ -11188,7 +11188,7 @@ function ConversationQuestionCard({
     <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
       <p className="text-sm font-semibold leading-5 text-[#0F172A]">{question.label}</p>
       {question.scriptureRefs?.length ? (
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           {question.scriptureRefs.join(" · ")}
         </p>
       ) : null}
@@ -11761,7 +11761,7 @@ function MeetingDurationSelector() {
       </div>
       {selectedDuration === "custom" ? (
         <label className="mt-1 grid gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>Custom Minutes</span>
           <input
             autoFocus
             className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -13258,7 +13258,7 @@ function FruitImpactGroupCard({
           <div className="flex items-center justify-between gap-3 py-1.5" key={outcome.key}>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-[#0F172A]">{outcome.label}</p>
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-[#94A3B8]">
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-[#64748B]">
                 {outcome.sources.length ? outcome.sources.join(" · ") : "No records yet"}
               </p>
             </div>
@@ -13540,7 +13540,7 @@ function FruitFormsGrid({
         ))}
       </div>
       <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:block">
-        <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           <span>Form</span>
           <span>Purpose</span>
           <span>Preview</span>
@@ -13573,7 +13573,7 @@ function FruitFormsGrid({
           );
         })}
       </div>
-      <p className="px-1 text-xs leading-5 text-[#94A3B8]">Custom forms are coming later.</p>
+      <p className="px-1 text-xs leading-5 text-[#64748B]">Custom forms are coming later.</p>
     </div>
   );
 }
@@ -14229,7 +14229,7 @@ function PrayerRequestAudiencePicker({
                   )}
                   <span className="min-w-0 truncate font-semibold">{option.label}</span>
                 </span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#64748B]">{option.helper}</span> : null}
               </button>
             );
           })}
@@ -15028,7 +15028,7 @@ function DesktopPrayerPlaceholderSheet({
 function PrayerDetailMetaRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="grid gap-1 px-3 py-2.5 min-[420px]:grid-cols-[120px_minmax(0,1fr)] min-[420px]:items-center">
-      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</span>
       <span className="min-w-0 text-sm font-semibold leading-5 text-[#0F172A]">{value}</span>
     </div>
   );
@@ -16574,7 +16574,7 @@ function DetailCard({
             {icon}
           </span>
         ) : null}
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           {title}
         </p>
       </div>
@@ -17096,7 +17096,7 @@ function MyRecordMetricCard({
           {icon}
         </span>
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</span>
           <span className="mt-1 block truncate text-sm font-black text-[#0F172A]">{value}</span>
         </span>
       </div>
@@ -17228,7 +17228,7 @@ function MyRecordDetailBlock({ label, value }: { label: string; value?: ReactNod
   return (
     <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-      <div className="mt-2 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{value}</div>
+      <div className="mt-2 whitespace-pre-line text-sm font-medium leading-6 text-[#0F172A] [&_li]:text-[#0F172A]">{value}</div>
     </div>
   );
 }
@@ -18713,7 +18713,7 @@ function MyRecordAssessmentResultCard({
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-[#0F172A]">{result.assessmentName}</p>
-          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             {formatDate(result.completedAt)} · Private
           </p>
         </div>
@@ -19199,7 +19199,7 @@ function MyRecordExternalAssessmentForm({
         <div className="min-w-0">
           <SectionHeading title={isEditing ? "Edit Assessment Result" : "Add Assessment Result"} />
           <p className="mt-1 text-sm leading-6 text-[#64748B]">Store user-owned results and summaries only.</p>
-          <p className="mt-1 text-xs leading-5 text-[#94A3B8]">Do not copy questions, scoring systems, proprietary explanation tables, or copyrighted manuals.</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">Do not copy questions, scoring systems, proprietary explanation tables, or copyrighted manuals.</p>
         </div>
         <button className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#64748B]" onClick={onCancel} type="button">
           Cancel
@@ -20222,7 +20222,7 @@ function MyRecordMentorCard({
               ["Rhythm", mentor.meetingRhythm || "—"],
             ].map(([label, value]) => (
               <div className="rounded-2xl border border-[#EAF2FF] bg-white px-3 py-2" key={label}>
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
                 <p className="mt-1 truncate text-xs font-bold text-[#0F172A]">{value}</p>
               </div>
             ))}
@@ -21596,7 +21596,7 @@ function MyRecordWorkspace({
                     </span>
                   ))}
                 </div>
-                <p className="mt-3 text-xs leading-5 text-[#94A3B8]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
+                <p className="mt-3 text-xs leading-5 text-[#64748B]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
               </div>
             </div>
           </section>
@@ -22105,7 +22105,7 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
       {flow.sections.map((section) => (
         <div className="grid gap-2" key={section.id}>
           {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               {section.title}
             </p>
           ) : null}
@@ -22121,7 +22121,7 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
       ))}
       {selectedActionLabels.length ? (
         <div className="rounded-2xl bg-[#F1F5F9] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             Follow-up
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -22162,7 +22162,7 @@ function EventPeopleRoleGroup({
 
   return (
     <div className="grid gap-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{title}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {people.map((person) => {
           const subRoleLabel = supportingAttendeeSubRoleLabel(person.supportingSubRole ?? null);
@@ -22247,7 +22247,7 @@ function DetailRow({
     <>
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span> : null}
       <div className="min-w-0 flex-1">
-        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
+        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
         <div className="mt-0.5 break-words leading-5 text-[#0F172A]">{value}</div>
       </div>
       {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
@@ -23330,7 +23330,7 @@ function PersonDetailOverlay({
                     <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Note</span>
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Note</span>
                     <span className="mt-1 block whitespace-pre-line leading-6 text-[#0F172A]">{overviewNotes}</span>
                   </span>
                 </div>
@@ -23379,7 +23379,7 @@ function PersonDetailOverlay({
             <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Upcoming">
               {upcomingTimelineGroups.length ? upcomingTimelineGroups.map(({ group, items }) => (
                 <section className="grid gap-2" key={group}>
-                  <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{group}</p>
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group}</p>
                   {items.map((item) => (
                     <UpcomingTimelineRow
                       item={item}
@@ -23582,7 +23582,7 @@ function SendableFormPreviewCard({
               <p className="mt-2 text-xs leading-5 text-[#64748B]">{section.copy}</p>
             ) : null}
             {section.type === "field" ? (
-              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#94A3B8] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
+              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#64748B] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
                 {section.placeholder ?? (section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field")}
               </div>
             ) : null}
@@ -23651,7 +23651,7 @@ function MeetingSendConfirmationSheet({
         </div>
         {recipientOptions.length > 1 ? (
           <label className="grid gap-1.5 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               Recipient
             </span>
             <select
@@ -24005,7 +24005,7 @@ function MeetingDetailOverlay({
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           {isScheduledMeeting ? "Scheduled" : "Table"}
         </p>
         {isLoggedTableMeeting ? (
