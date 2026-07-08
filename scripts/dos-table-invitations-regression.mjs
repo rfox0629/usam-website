@@ -28,6 +28,7 @@ assert(helper.includes("minimumNoticeHours") && helper.includes("bookingWindowDa
 assert(helper.includes("calendarRules") && helper.includes("blockDosMeetings") && helper.includes("blockDosReminders"), "Invite calendar rules must be explicit.");
 assert(appData.includes("tableInvitations: DosTableInvitation[]") && appData.includes("loadTableInvitationsForWorkspace"), "DOS app data must load saved table invitations.");
 assert(inviteApi.includes("export async function POST") && inviteApi.includes("export async function PATCH"), "Invite API must support create and edit.");
+assert(inviteApi.includes("[89ab][0-9a-f]{3}-[0-9a-f]{12}"), "Invite API must accept full UUIDs when editing saved invitations and co-host ids.");
 assert(bookingApi.includes("createPublicTableInvitationBooking"), "Public booking API must create bookings through the shared helper.");
 assert(bookingPage.includes("loadPublicTableInvitation") && bookingPage.includes("DosTableBookingForm"), "Public booking page must load tokenized invites.");
 assert(dataHelper.includes("generateDosTableInvitationSlots") && dataHelper.includes("selected_for_availability"), "Availability must respect selected blocking calendars.");
