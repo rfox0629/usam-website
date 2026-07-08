@@ -60,7 +60,7 @@ const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 type MyRecordTab = "assessments" | "journal" | "mentors" | "overview" | "prayer" | "timeline";
 type LocalPrayerNeed = {
@@ -228,6 +228,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "More",
     items: [
+      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
       { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
       { icon: "library", label: "Library", type: "moreApp", value: "library" },
       { icon: "log", label: "Reports", type: "moreApp", value: "reports" },
@@ -5408,6 +5409,36 @@ type DosAppCatalogSection = {
   label: string;
 };
 
+const dosGroupsSummary = [
+  {
+    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+    href: "/groups/2three2",
+    name: "2three2",
+    rhythm: "Weekly · Saturday · 7:00 AM",
+    scripture: "2 Timothy 2:22",
+    tagline: "Run. Pray. Pursue.",
+    type: "Running Group",
+  },
+  {
+    description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
+    href: "",
+    name: "Tuesday Men's Group",
+    rhythm: "Weekly · Tuesday · 6:00 AM",
+    scripture: "",
+    tagline: "Grow together.",
+    type: "Men's Group",
+  },
+  {
+    description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
+    href: "",
+    name: "Wednesday Men's Group",
+    rhythm: "Weekly · Wednesday · Evening",
+    scripture: "",
+    tagline: "Brotherhood. Prayer. Discipleship.",
+    type: "Men's Group",
+  },
+] as const;
+
 function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
   return (
     <button
@@ -5440,6 +5471,56 @@ function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
         ))}
       </div>
     </DesktopPanel>
+  );
+}
+
+function GroupsWorkspace({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
+        <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Discipleship Rhythms</p>
+            <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              Discipleship happens in rhythms.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+              Build consistent rhythms through weekly gatherings, prayer, accountability, and community.
+            </p>
+          </div>
+          <div className="rounded-[20px] border border-[#102033] bg-[#06111F] p-4 text-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Featured Group</p>
+            <p className="mt-2 text-3xl font-black leading-none text-[#F8C56A]" style={{ fontFamily: font.oswald }}>2three2</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-white/72">Run. Pray. Pursue.</p>
+          </div>
+        </div>
+      </section>
+      <div className="grid gap-3 md:grid-cols-3">
+        {dosGroupsSummary.map((group) => (
+          <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]" key={group.name}>
+            <div className="flex items-start justify-between gap-3">
+              <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                {group.type}
+              </span>
+              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                Private
+              </span>
+            </div>
+            <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>{group.name}</h3>
+            <p className="mt-1 text-sm font-bold text-[#2563EB]">{group.tagline}</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group.rhythm}</p>
+            {group.scripture ? <p className="mt-2 text-sm font-bold text-[#0F172A]">{group.scripture}</p> : null}
+            <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#64748B]">{group.description}</p>
+            {group.href ? (
+              <Link className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" href={group.href}>
+                View Public
+              </Link>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -23631,6 +23712,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           status: `${upcomingTableCount} upcoming`,
         },
         {
+          description: "Recurring discipleship rhythms, gatherings, prayer, and accountability.",
+          icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Groups",
+          onClick: () => openMoreApp("groups"),
+          section: "installed",
+          status: `${dosGroupsSummary.length} groups`,
+        },
+        {
           description: `${prayerReminderCount} reminders and recent prayer activity.`,
           icon: <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
           label: "Prayer",
@@ -23722,7 +23811,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -23777,6 +23866,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
+          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
           { icon: "people", label: "Missionary Profile", onClick: runMobileAction(() => openMoreApp("missionary_profile")) },
           { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
@@ -24198,6 +24288,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     record={data.myRecord}
                     tab={myRecordTab}
                   />
+                ) : null}
+
+                {moreAppView === "groups" ? (
+                  <GroupsWorkspace onBack={() => setMoreAppView(null)} />
                 ) : null}
 
                 {moreAppView === "prayer" ? (
