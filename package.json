@@ -11,6 +11,7 @@
     "test:dos-quick-review": "node scripts/dos-quick-review-regression.mjs",
     "test:dos-scheduled-table-log": "node scripts/dos-scheduled-table-log-regression.mjs",
     "test:dos-table-detail-edit": "node scripts/dos-table-detail-edit-regression.mjs",
+    "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "start": "next start"
   },
   "dependencies": {

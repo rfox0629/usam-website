@@ -22,6 +22,8 @@ import {
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
+import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
+import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -412,6 +414,7 @@ export type DosAppData = {
   prayerPartners: DosAppPrayerPartner[];
   prayerRequests: DosAppPrayerRequest[];
   reminders: DosAppRelationshipReminder[];
+  tableInvitations: DosTableInvitation[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
     approvedFruit: number;
@@ -2107,7 +2110,7 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -2125,11 +2128,12 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
+    loadTableInvitationsForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || tableInvitationsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -2147,6 +2151,7 @@ export async function loadDosAppData(
         ?? remindersResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
+        ?? tableInvitationsResult.error?.message
         ?? "Unable to load DOS app data.",
       status: "error",
     };
@@ -2171,6 +2176,7 @@ export async function loadDosAppData(
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
+  const tableInvitations = tableInvitationsResult.data ?? [];
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
@@ -2648,6 +2654,7 @@ export async function loadDosAppData(
       prayerPartners,
       prayerRequests,
       reminders,
+      tableInvitations,
       usamApplication,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,

@@ -33,6 +33,18 @@ import {
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
 import {
+  createDefaultDosTableInvitation,
+  defaultDosTableInvitationSettings,
+  tableInvitationDuration,
+  tableInvitationPublicUrl,
+  type DosTableInvitation,
+  type DosTableInvitationDaySetting,
+  type DosTableInvitationKind,
+  type DosTableInvitationMeetingTypeSetting,
+  type DosTableInvitationSettings,
+  type DosTableInvitationTimeWindow,
+} from "@/src/lib/dos/table-invitations";
+import {
   defaultRelationshipModel,
   discipleshipStageLabel,
   relationshipContextLabel,
@@ -703,46 +715,19 @@ type CalendarSourceApiSource = {
   selectedForImport?: boolean | null;
   timeZone?: string | null;
 };
-type AvailabilityTimeWindow = {
-  end: string;
-  id: string;
-  start: string;
-};
-type AvailabilityDaySetting = {
-  available: boolean;
-  id: string;
-  label: string;
-  windows: AvailabilityTimeWindow[];
-};
-type AvailabilityMeetingTypeSetting = {
-  duration: number;
-  enabled: boolean;
-  id: string;
-  label: string;
-};
-type AvailabilitySettings = {
-  bookingRules: {
-    bufferMinutes: number;
-    maxPerDay: number;
-    maxPerWeek: number;
-  };
-  meetingTypes: AvailabilityMeetingTypeSetting[];
-  preferredDays: string[];
-  preferredTimes: string[];
-  weeklySchedule: AvailabilityDaySetting[];
-};
+type AvailabilityTimeWindow = DosTableInvitationTimeWindow;
+type AvailabilityDaySetting = DosTableInvitationDaySetting;
+type AvailabilityMeetingTypeSetting = DosTableInvitationMeetingTypeSetting;
+type AvailabilitySettings = DosTableInvitationSettings;
 type AvailabilityEditSection = "booking" | "calendar" | "meeting_types" | "preferred_times" | "weekly_schedule";
 type InvitationEditorSection = "availability" | "calendar" | "hosts" | "overview" | "questions" | "rules" | "sharing";
-type InviteCardKey = "coffee" | "kitchen_table" | "prayer";
-type InviteCard = {
+type InviteCardKey = DosTableInvitationKind;
+type InviteCard = Omit<DosTableInvitation, "audience"> & {
   audience: string;
   daySummary: string;
-  description: string;
   durationMinutes: number;
-  id: InviteCardKey;
-  status: "Active" | "Draft";
+  isDraft?: boolean;
   timeSummary: string;
-  title: string;
 };
 type PendingMeetingSendAction = {
   meeting: DosAppMeeting;
@@ -6725,31 +6710,7 @@ const availabilityDayOptions = [
   { id: "sat", label: "Saturday", shortLabel: "Sat" },
   { id: "sun", label: "Sunday", shortLabel: "Sun" },
 ] as const;
-const defaultAvailabilitySettings: AvailabilitySettings = {
-  bookingRules: {
-    bufferMinutes: 30,
-    maxPerDay: 2,
-    maxPerWeek: 6,
-  },
-  meetingTypes: [
-    { duration: 45, enabled: true, id: "coffee", label: "Coffee" },
-    { duration: 90, enabled: true, id: "kitchen_table", label: "Kitchen Table" },
-    { duration: 30, enabled: true, id: "prayer", label: "Prayer" },
-    { duration: 30, enabled: true, id: "phone_call", label: "Phone Call" },
-    { duration: 60, enabled: false, id: "custom", label: "Custom" },
-  ],
-  preferredDays: ["mon", "tue", "wed", "thu"],
-  preferredTimes: ["Evening"],
-  weeklySchedule: [
-    { available: false, id: "mon", label: "Monday", windows: [] },
-    { available: true, id: "tue", label: "Tuesday", windows: [{ end: "23:00", id: "tue-evening", start: "20:00" }] },
-    { available: true, id: "wed", label: "Wednesday", windows: [{ end: "21:00", id: "wed-evening", start: "18:00" }] },
-    { available: true, id: "thu", label: "Thursday", windows: [{ end: "23:00", id: "thu-evening", start: "20:00" }] },
-    { available: false, id: "fri", label: "Friday", windows: [] },
-    { available: false, id: "sat", label: "Saturday", windows: [] },
-    { available: false, id: "sun", label: "Sunday", windows: [] },
-  ],
-};
+const defaultAvailabilitySettings: AvailabilitySettings = defaultDosTableInvitationSettings();
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
@@ -7313,9 +7274,11 @@ function googleCalendarConnectHref(workspaceId: string, workspaceSlug: string) {
 function createDefaultAvailabilitySettings(): AvailabilitySettings {
   return {
     bookingRules: { ...defaultAvailabilitySettings.bookingRules },
+    calendarRules: { ...defaultAvailabilitySettings.calendarRules },
     meetingTypes: defaultAvailabilitySettings.meetingTypes.map((type) => ({ ...type })),
     preferredDays: [...defaultAvailabilitySettings.preferredDays],
     preferredTimes: [...defaultAvailabilitySettings.preferredTimes],
+    timezone: defaultAvailabilitySettings.timezone,
     weeklySchedule: defaultAvailabilitySettings.weeklySchedule.map((day) => ({
       ...day,
       windows: day.windows.map((window) => ({ ...window })),
@@ -7746,9 +7709,6 @@ function AvailabilityEditSheet({
           </div>
         ) : null}
 
-        <p className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-          Local only for now. These settings reset after refresh.
-        </p>
         <button
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
           onClick={onClose}
@@ -7761,53 +7721,39 @@ function AvailabilityEditSheet({
   );
 }
 
-function createDefaultInvitationCards(settings: AvailabilitySettings): InviteCard[] {
-  const durationById = new Map(settings.meetingTypes.map((type) => [type.id, type.duration]));
-
-  return [
-    {
-      audience: "1:1 or Couples",
-      daySummary: "Tuesday & Thursday",
-      description: "Invite someone to your table for a focused conversation.",
-      durationMinutes: durationById.get("kitchen_table") ?? 90,
-      id: "kitchen_table",
-      status: "Active",
-      timeSummary: "8:00 - 11:00 PM",
-      title: "Kitchen Table",
-    },
-    {
-      audience: "1:1",
-      daySummary: "Monday mornings",
-      description: "Invite someone to pray together.",
-      durationMinutes: durationById.get("prayer") ?? 30,
-      id: "prayer",
-      status: "Active",
-      timeSummary: "6:00 - 8:00 AM",
-      title: "Prayer",
-    },
-    {
-      audience: "Weekdays",
-      daySummary: "Weekdays",
-      description: "Invite someone to meet over coffee.",
-      durationMinutes: durationById.get("coffee") ?? 45,
-      id: "coffee",
-      status: "Active",
-      timeSummary: "Flexible",
-      title: "Coffee",
-    },
-  ];
+function invitationStatusLabel(status: InviteCard["status"]) {
+  return status === "active" ? "Active" : status === "draft" ? "Draft" : status === "paused" ? "Paused" : "Archived";
 }
 
-function invitationHref(workspaceSlug: string, invitationId: InviteCardKey) {
-  return `/dos/${workspaceSlug}?invite=${invitationId}`;
+function createInviteCard(invitation: DosTableInvitation, options?: { isDraft?: boolean }): InviteCard {
+  return {
+    ...invitation,
+    audience: invitation.audience ?? "1:1",
+    daySummary: invitationPreviewDaySummary(invitation.settings),
+    durationMinutes: tableInvitationDuration(invitation.settings, invitation.kind),
+    isDraft: options?.isDraft,
+    timeSummary: invitationPreviewTimeSummary(invitation.settings),
+  };
 }
 
-function invitationUrl(workspaceSlug: string, invitationId: InviteCardKey) {
-  if (typeof window === "undefined") {
-    return invitationHref(workspaceSlug, invitationId);
+function createDraftInviteCard(kind: InviteCardKey = "kitchen_table"): InviteCard {
+  const draft = createDefaultDosTableInvitation(kind);
+
+  return createInviteCard({
+    ...draft,
+    createdAt: null,
+    id: `draft-${kind}-${Date.now()}`,
+    token: "",
+    updatedAt: null,
+  }, { isDraft: true });
+}
+
+function invitationUrl(invitation: Pick<InviteCard, "token">) {
+  if (!invitation.token) {
+    return "";
   }
 
-  return new URL(invitationHref(workspaceSlug, invitationId), window.location.origin).toString();
+  return tableInvitationPublicUrl(invitation.token, typeof window === "undefined" ? undefined : window.location.origin);
 }
 
 function InvitationIcon({ id }: { id: InviteCardKey }) {
@@ -7840,14 +7786,14 @@ function InvitationCard({
         <span className="flex min-w-0 items-start justify-between gap-3">
           <span className="flex min-w-0 items-start gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
-              <InvitationIcon id={invitation.id} />
+              <InvitationIcon id={invitation.kind} />
             </span>
             <span className="min-w-0 pt-1">
               <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{invitation.title}</span>
               <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#334155]">{invitation.audience}</span>
             </span>
           </span>
-          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitation.status}</span>
+          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
         </span>
         <span className="mt-5 grid gap-3">
           <InviteMetaItem icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.daySummary}</InviteMetaItem>
@@ -8094,7 +8040,7 @@ function InvitationLivePreview({
           <p className="text-xs font-black text-[#0F172A]">Preview</p>
           <div className="mt-5 flex items-start gap-3">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]">
-              <InvitationIcon id={invitation.id} />
+              <InvitationIcon id={invitation.kind} />
             </span>
             <div className="min-w-0 pt-1">
               <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{name || invitation.title}</p>
@@ -8304,11 +8250,42 @@ function InvitationAvailabilityEditor({
   );
 }
 
+function InvitationToggleRow({
+  disabled = false,
+  label,
+  onToggle,
+  selected,
+  status,
+}: {
+  disabled?: boolean;
+  label: string;
+  onToggle: () => void;
+  selected: boolean;
+  status?: string;
+}) {
+  return (
+    <button
+      aria-pressed={selected}
+      className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-left transition-colors hover:border-[#BFDBFE] disabled:cursor-not-allowed disabled:opacity-55"
+      disabled={disabled}
+      onClick={onToggle}
+      type="button"
+    >
+      <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{label}</span>
+      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+        selected ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]" : "border-[#E2E8F0] bg-white text-[#64748B]"
+      }`}>
+        {status ?? (selected ? "On" : "Off")}
+      </span>
+    </button>
+  );
+}
+
 function InvitationDetailSheet({
   calendarConnection,
-  calendarDisplaySettings,
   calendarSourceMessage,
   calendarSourcePreferences,
+  householdMembers,
   invitation,
   inviteShareMessage,
   isDisconnecting,
@@ -8316,19 +8293,18 @@ function InvitationDetailSheet({
   onCopy,
   onDisconnectCalendar,
   onOpenInvitation,
-  onToggleCalendarCoreSource,
-  onToggleGoogleCalendarSource,
+  onSave,
+  onToggleGoogleAvailabilitySource,
   savingCalendarSourceId,
-  setSettings,
-  settings,
+  savingInvitation,
   workspaceDisplayName,
   workspaceId,
   workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
-  calendarDisplaySettings: CalendarDisplaySettings;
   calendarSourceMessage: string;
   calendarSourcePreferences: CalendarSourcePreference[];
+  householdMembers: DosAppHouseholdMember[];
   invitation: InviteCard;
   inviteShareMessage: string;
   isDisconnecting: boolean;
@@ -8336,24 +8312,45 @@ function InvitationDetailSheet({
   onCopy: () => void;
   onDisconnectCalendar: () => void;
   onOpenInvitation: () => void;
-  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
-  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  onSave: (invitation: InviteCard) => void;
+  onToggleGoogleAvailabilitySource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
-  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
-  settings: AvailabilitySettings;
+  savingInvitation: boolean;
   workspaceDisplayName: string;
   workspaceId: string;
   workspaceSlug: string;
 }) {
   const [activeSection, setActiveSection] = useState<InvitationEditorSection>("availability");
   const [nameDraft, setNameDraft] = useState(invitation.title);
-  const [descriptionDraft, setDescriptionDraft] = useState(invitation.description);
-  const durationValue = settings.meetingTypes.find((type) => type.id === invitation.id)?.duration ?? invitation.durationMinutes;
+  const [descriptionDraft, setDescriptionDraft] = useState(invitation.description ?? "");
+  const [settings, setSettings] = useState<AvailabilitySettings>(() => invitation.settings);
+  const [hostMode, setHostMode] = useState(invitation.hostMode);
+  const [hostMemberIds, setHostMemberIds] = useState<string[]>(invitation.hostMemberIds);
+  const durationValue = tableInvitationDuration(settings, invitation.kind);
+  const spouseHostCandidates = householdMembers.filter((member) => {
+    const status = member.status.toLowerCase();
+    const nameMatchesPrimary = member.displayName.trim().toLowerCase() === workspaceDisplayName.trim().toLowerCase();
+    const relationship = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
+
+    return !["archived", "inactive"].includes(status)
+      && !nameMatchesPrimary
+      && (relationship.includes("spouse") || relationship.includes("wife") || relationship.includes("husband") || relationship.includes("missionary") || member.isPublic);
+  });
+  const googleAvailabilitySources = calendarSourcePreferences.filter((source) => source.canPersist);
+  const googleCalendarsBlockAvailability = googleAvailabilitySources.some((source) => source.selectedForAvailability !== false);
+
+  useEffect(() => {
+    setNameDraft(invitation.title);
+    setDescriptionDraft(invitation.description ?? "");
+    setSettings(invitation.settings);
+    setHostMode(invitation.hostMode);
+    setHostMemberIds(invitation.hostMemberIds);
+  }, [invitation]);
 
   function updateDuration(value: number) {
     setSettings((current) => ({
       ...current,
-      meetingTypes: current.meetingTypes.map((type) => type.id === invitation.id ? { ...type, duration: Math.max(15, value) } : type),
+      meetingTypes: current.meetingTypes.map((type) => type.id === invitation.kind ? { ...type, duration: Math.max(15, value) } : type),
     }));
   }
 
@@ -8362,9 +8359,39 @@ function InvitationDetailSheet({
       ...current,
       bookingRules: {
         ...current.bookingRules,
-        [key]: Math.max(key === "bufferMinutes" ? 0 : 1, value),
+        [key]: Math.max(key === "bufferMinutes" || key === "minimumNoticeHours" ? 0 : 1, value),
       },
     }));
+  }
+
+  function updateCalendarRule(key: keyof AvailabilitySettings["calendarRules"], value: boolean) {
+    setSettings((current) => ({
+      ...current,
+      calendarRules: {
+        ...current.calendarRules,
+        [key]: value,
+      },
+    }));
+  }
+
+  function toggleHouseholdMember(memberId: string) {
+    setHostMemberIds((current) => current.includes(memberId)
+      ? current.filter((id) => id !== memberId)
+      : [...current, memberId]);
+    setHostMode("household");
+  }
+
+  function saveInvitation() {
+    const nextHostMemberIds = hostMode === "household" ? hostMemberIds : [];
+
+    onSave(createInviteCard({
+      ...invitation,
+      description: descriptionDraft,
+      hostMemberIds: nextHostMemberIds,
+      hostMode: nextHostMemberIds.length ? hostMode : "single",
+      settings,
+      title: nameDraft.trim() || invitation.title,
+    }, { isDraft: invitation.isDraft }));
   }
 
   const activeContent = activeSection === "overview" ? (
@@ -8394,7 +8421,7 @@ function InvitationDetailSheet({
             </div>
           </label>
           <div className="flex items-center gap-2">
-            <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">Active</span>
+            <span className="inline-flex min-h-10 items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 text-xs font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
             <button className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" onClick={onCopy} type="button">
               <Link2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
               Copy Link
@@ -8408,9 +8435,35 @@ function InvitationDetailSheet({
   ) : activeSection === "hosts" ? (
     <InvitationEditorBlock title="Hosts">
       <div className="grid gap-3">
-        <InvitationStatusRow label={workspaceDisplayName} status="Single host" tone="green" />
-        <InvitationStatusRow label="Spouse / household" status="Future" />
-        <InvitationStatusRow label="Team invitations" status="Future" />
+        <InvitationToggleRow
+          label={workspaceDisplayName}
+          onToggle={() => {
+            setHostMode("single");
+            setHostMemberIds([]);
+          }}
+          selected={hostMode === "single" || !hostMemberIds.length}
+          status="Single host"
+        />
+        {spouseHostCandidates.length ? (
+          <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+            <InvitationToggleRow
+              label="Household co-host"
+              onToggle={() => setHostMode(hostMode === "household" && hostMemberIds.length ? "single" : "household")}
+              selected={hostMode === "household" && hostMemberIds.length > 0}
+            />
+            <div className="grid gap-2">
+              {spouseHostCandidates.map((member) => (
+                <InvitationToggleRow
+                  key={member.id}
+                  label={member.displayName}
+                  onToggle={() => toggleHouseholdMember(member.id)}
+                  selected={hostMemberIds.includes(member.id)}
+                  status={hostMemberIds.includes(member.id) ? "Co-host" : "Add"}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </InvitationEditorBlock>
   ) : activeSection === "questions" ? (
@@ -8431,26 +8484,59 @@ function InvitationDetailSheet({
           workspaceId={workspaceId}
           workspaceSlug={workspaceSlug}
         />
-        <CalendarSourceControls
-          calendarConnection={calendarConnection}
-          displaySettings={calendarDisplaySettings}
-          message={calendarSourceMessage}
-          onToggleCoreSource={onToggleCalendarCoreSource}
-          onToggleGoogleSource={onToggleGoogleCalendarSource}
-          savingSourceId={savingCalendarSourceId}
-          showMessage
-          sourcePreferences={calendarSourcePreferences}
-        />
         <div className="grid gap-3">
-          <InvitationStatusRow label="Google Calendar" status={availabilityConnectionSummary(calendarConnection, calendarSourcePreferences.length)} tone={calendarConnectionIsHealthy(calendarConnection) ? "green" : "neutral"} />
-          <InvitationStatusRow label="DOS Calendar" status="Active" tone="green" />
-          <InvitationStatusRow label="Busy-time awareness" status="Planned" />
+          <InvitationStatusRow label="Accepted bookings" status={settings.calendarRules.createDosMeeting ? "DOS table" : "Booking only"} tone={settings.calendarRules.createDosMeeting ? "green" : "neutral"} />
+          <InvitationToggleRow
+            label="Create Google Calendar event"
+            onToggle={() => updateCalendarRule("createGoogleCalendarEvent", !settings.calendarRules.createGoogleCalendarEvent)}
+            selected={settings.calendarRules.createGoogleCalendarEvent}
+            status={calendarConnectionIsHealthy(calendarConnection) ? undefined : "Connect"}
+          />
+        </div>
+        <div className="grid gap-3">
+          <InvitationToggleRow
+            label="Block DOS table meetings"
+            onToggle={() => updateCalendarRule("blockDosMeetings", !settings.calendarRules.blockDosMeetings)}
+            selected={settings.calendarRules.blockDosMeetings}
+          />
+          <InvitationToggleRow
+            label="Block DOS reminders"
+            onToggle={() => updateCalendarRule("blockDosReminders", !settings.calendarRules.blockDosReminders)}
+            selected={settings.calendarRules.blockDosReminders}
+          />
+          <InvitationStatusRow label="Block Google calendars" status={googleCalendarsBlockAvailability ? "Selected" : "Off"} tone={googleCalendarsBlockAvailability ? "green" : "neutral"} />
+          {googleAvailabilitySources.length ? googleAvailabilitySources.map((source) => (
+            <InvitationToggleRow
+              disabled={savingCalendarSourceId === source.id}
+              key={source.id}
+              label={calendarSourceFilterLabel(source.name)}
+              onToggle={() => onToggleGoogleAvailabilitySource(source.id)}
+              selected={source.selectedForAvailability !== false}
+            />
+          )) : (
+            <InvitationStatusRow label="Google calendars" status={calendarConnectionIsHealthy(calendarConnection) ? "None" : "Not connected"} />
+          )}
+          {calendarSourceMessage ? <p className="text-xs font-semibold leading-5 text-[#64748B]">{calendarSourceMessage}</p> : null}
         </div>
       </div>
     </InvitationEditorBlock>
   ) : activeSection === "rules" ? (
     <InvitationEditorBlock title="Rules">
       <div className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InvitationRuleInput
+            label="Notice"
+            onChange={(value) => updateBookingRule("minimumNoticeHours", value)}
+            suffix="hours"
+            value={settings.bookingRules.minimumNoticeHours}
+          />
+          <InvitationRuleInput
+            label="Booking window"
+            onChange={(value) => updateBookingRule("bookingWindowDays", value)}
+            suffix="days"
+            value={settings.bookingRules.bookingWindowDays}
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <InvitationRuleInput
             label="Buffer"
@@ -8471,10 +8557,6 @@ function InvitationDetailSheet({
             value={settings.bookingRules.maxPerWeek}
           />
         </div>
-        <div className="grid gap-3">
-          <InvitationStatusRow label="Notice" status="12 hours" tone="blue" />
-          <InvitationStatusRow label="Booking window" status="30 days" tone="blue" />
-        </div>
       </div>
     </InvitationEditorBlock>
   ) : (
@@ -8487,18 +8569,6 @@ function InvitationDetailSheet({
         <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
           <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           Open Invitation
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-          <Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          Text
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-          <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          Email
-        </button>
-        <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] sm:col-span-2" disabled type="button">
-          <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          QR Code
         </button>
       </div>
     </InvitationEditorBlock>
@@ -8521,7 +8591,7 @@ function InvitationDetailSheet({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="truncate text-lg font-black leading-tight text-[#0F172A]">{nameDraft || invitation.title}</h2>
-                <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">Active</span>
+                <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
               </div>
               <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{invitation.audience}</p>
             </div>
@@ -8532,13 +8602,6 @@ function InvitationDetailSheet({
             >
               <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
               Copy Link
-            </button>
-            <button
-              aria-label="Invitation options"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
-              type="button"
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
             </button>
           </div>
           {inviteShareMessage ? (
@@ -8552,18 +8615,19 @@ function InvitationDetailSheet({
             <div className="min-w-0">
               {activeContent}
             </div>
-            <InvitationLivePreview duration={durationValue} invitation={invitation} name={nameDraft} settings={settings} />
+            <InvitationLivePreview duration={durationValue} invitation={{ ...invitation, settings }} name={nameDraft} settings={settings} />
           </div>
         </div>
 
         <footer className="shrink-0 border-t border-[#EAF2FF] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:px-5 md:pb-4">
           <div className="flex items-center gap-3">
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] md:flex-none md:min-w-[150px]"
-              onClick={onClose}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] disabled:cursor-not-allowed disabled:opacity-60 md:flex-none md:min-w-[150px]"
+              disabled={savingInvitation}
+              onClick={saveInvitation}
               type="button"
             >
-              Save Changes
+              {savingInvitation ? "Saving..." : "Save Changes"}
             </button>
             <button
               className="hidden min-h-11 items-center justify-center rounded-full px-4 text-sm font-bold text-[#1D4ED8] md:inline-flex"
@@ -8581,40 +8645,56 @@ function InvitationDetailSheet({
 
 function DesktopInvitePanel({
   calendarConnection,
-  calendarDisplaySettings,
   calendarSourceMessage,
   calendarSourcePreferences,
+  householdMembers,
   isDisconnecting,
   onDisconnectCalendar,
-  onToggleCalendarCoreSource,
-  onToggleGoogleCalendarSource,
+  onToggleGoogleAvailabilitySource,
   savingCalendarSourceId,
+  tableInvitations,
   workspaceDisplayName,
   workspaceId,
   workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
-  calendarDisplaySettings: CalendarDisplaySettings;
   calendarSourceMessage: string;
   calendarSourcePreferences: CalendarSourcePreference[];
+  householdMembers: DosAppHouseholdMember[];
   isDisconnecting: boolean;
   onDisconnectCalendar: () => void;
-  onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
-  onToggleGoogleCalendarSource: (sourceId: string) => void;
+  onToggleGoogleAvailabilitySource: (sourceId: string) => void;
   savingCalendarSourceId: string | null;
+  tableInvitations: DosTableInvitation[];
   workspaceDisplayName: string;
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const [inviteSettings, setInviteSettings] = useState<AvailabilitySettings>(() => createDefaultAvailabilitySettings());
-  const [selectedInvitationId, setSelectedInvitationId] = useState<InviteCardKey | null>(null);
+  const router = useRouter();
+  const savedInvitationCards = useMemo(() => tableInvitations.map((invitation) => createInviteCard(invitation)), [tableInvitations]);
+  const [invitations, setInvitations] = useState<InviteCard[]>(savedInvitationCards);
+  const [selectedInvitationId, setSelectedInvitationId] = useState<string | null>(null);
   const [inviteShareMessage, setInviteShareMessage] = useState("");
-  const invitations = useMemo(() => createDefaultInvitationCards(inviteSettings), [inviteSettings]);
+  const [savingInvitationId, setSavingInvitationId] = useState<string | null>(null);
   const selectedInvitation = selectedInvitationId ? invitations.find((invitation) => invitation.id === selectedInvitationId) ?? null : null;
+  const activeInvitationCount = invitations.filter((invitation) => invitation.status === "active" && !invitation.isDraft).length;
+
+  useEffect(() => {
+    setInvitations((current) => {
+      const drafts = current.filter((invitation) => invitation.isDraft);
+
+      return [...drafts, ...savedInvitationCards];
+    });
+  }, [savedInvitationCards]);
 
   async function copyInvitationLink(invitation: InviteCard) {
+    if (!invitation.token) {
+      setInviteShareMessage("Save this invitation before copying the public link.");
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(invitationUrl(workspaceSlug, invitation.id));
+      await navigator.clipboard.writeText(invitationUrl(invitation));
       setInviteShareMessage(`${invitation.title} link copied.`);
     } catch {
       setInviteShareMessage("Copy link is unavailable in this browser.");
@@ -8622,7 +8702,73 @@ function DesktopInvitePanel({
   }
 
   function openInvitation(invitation: InviteCard) {
-    window.open(invitationUrl(workspaceSlug, invitation.id), "_blank", "noopener,noreferrer");
+    const url = invitationUrl(invitation);
+
+    if (!url) {
+      setInviteShareMessage("Save this invitation before opening the public link.");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function startNewInvitation() {
+    const draft = createDraftInviteCard("kitchen_table");
+
+    setInviteShareMessage("");
+    setInvitations((current) => [draft, ...current.filter((invitation) => !invitation.isDraft)]);
+    setSelectedInvitationId(draft.id);
+  }
+
+  function closeSelectedInvitation() {
+    if (selectedInvitation?.isDraft) {
+      setInvitations((current) => current.filter((invitation) => invitation.id !== selectedInvitation.id));
+    }
+
+    setSelectedInvitationId(null);
+  }
+
+  async function saveInvitation(invitation: InviteCard) {
+    setSavingInvitationId(invitation.id);
+    setInviteShareMessage("");
+
+    try {
+      const response = await fetch("/api/dos/app/table-invitations", {
+        body: JSON.stringify({
+          audience: invitation.audience,
+          description: invitation.description,
+          hostMemberIds: invitation.hostMemberIds,
+          hostMode: invitation.hostMode,
+          id: invitation.isDraft ? undefined : invitation.id,
+          kind: invitation.kind,
+          settings: invitation.settings,
+          status: invitation.status,
+          title: invitation.title,
+          workspaceId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: invitation.isDraft ? "POST" : "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; invitation?: DosTableInvitation };
+
+      if (!response.ok || !result.invitation) {
+        throw new Error(result.error ?? "Unable to save invitation.");
+      }
+
+      const savedCard = createInviteCard(result.invitation);
+
+      setInvitations((current) => [
+        savedCard,
+        ...current.filter((item) => item.id !== invitation.id && item.id !== savedCard.id && !item.isDraft),
+      ]);
+      setSelectedInvitationId(savedCard.id);
+      setInviteShareMessage(`${savedCard.title} saved.`);
+      router.refresh();
+    } catch (error) {
+      setInviteShareMessage(error instanceof Error ? error.message : "Unable to save invitation.");
+    } finally {
+      setSavingInvitationId(null);
+    }
   }
 
   return (
@@ -8637,7 +8783,7 @@ function DesktopInvitePanel({
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-bold text-[#15803D]">
-          {invitations.length} Active
+          {activeInvitationCount} Active
         </span>
       </div>
 
@@ -8645,20 +8791,26 @@ function DesktopInvitePanel({
         <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
       ) : null}
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {invitations.map((invitation) => (
+      {invitations.length ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {invitations.map((invitation) => (
           <InvitationCard
             invitation={invitation}
             key={invitation.id}
             onCopy={() => void copyInvitationLink(invitation)}
             onOpen={() => setSelectedInvitationId(invitation.id)}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#64748B]">
+          No invitations yet.
+        </p>
+      )}
 
       <button
         className="mt-5 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 text-center text-sm font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
-        onClick={() => setSelectedInvitationId("kitchen_table")}
+        onClick={startNewInvitation}
         type="button"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
@@ -8670,21 +8822,20 @@ function DesktopInvitePanel({
       {selectedInvitation ? (
         <InvitationDetailSheet
           calendarConnection={calendarConnection}
-          calendarDisplaySettings={calendarDisplaySettings}
           calendarSourceMessage={calendarSourceMessage}
           calendarSourcePreferences={calendarSourcePreferences}
+          householdMembers={householdMembers}
           invitation={selectedInvitation}
           inviteShareMessage={inviteShareMessage}
           isDisconnecting={isDisconnecting}
-          onClose={() => setSelectedInvitationId(null)}
+          onClose={closeSelectedInvitation}
           onCopy={() => void copyInvitationLink(selectedInvitation)}
           onDisconnectCalendar={onDisconnectCalendar}
           onOpenInvitation={() => openInvitation(selectedInvitation)}
-          onToggleCalendarCoreSource={onToggleCalendarCoreSource}
-          onToggleGoogleCalendarSource={onToggleGoogleCalendarSource}
+          onSave={(nextInvitation) => void saveInvitation(nextInvitation)}
+          onToggleGoogleAvailabilitySource={onToggleGoogleAvailabilitySource}
           savingCalendarSourceId={savingCalendarSourceId}
-          setSettings={setInviteSettings}
-          settings={inviteSettings}
+          savingInvitation={savingInvitationId === selectedInvitation.id}
           workspaceDisplayName={workspaceDisplayName}
           workspaceId={workspaceId}
           workspaceSlug={workspaceSlug}
@@ -20754,6 +20905,52 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })();
   }
 
+  function handleToggleGoogleAvailabilitySource(sourceId: string) {
+    const source = calendarSourcePreferences.find((item) => item.id === sourceId);
+
+    if (!source) {
+      return;
+    }
+
+    const nextSelected = source.selectedForAvailability === false;
+
+    setCalendarSourceMessage("");
+    setCalendarSourcePreferences((current) => current.map((item) => (
+      item.id === sourceId ? { ...item, selectedForAvailability: nextSelected } : item
+    )));
+
+    if (!source.canPersist || isPreview) {
+      setCalendarSourceMessage("Calendar blocking is local for now.");
+      return;
+    }
+
+    setSavingCalendarSourceId(sourceId);
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/dos/app/calendar/sources/${encodeURIComponent(sourceId)}`, {
+          body: JSON.stringify({
+            selectedForAvailability: nextSelected,
+            workspaceId: data.workspace.id,
+          }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "PATCH",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "Unable to save calendar blocking.");
+        }
+      } catch {
+        setCalendarSourceMessage("Unable to save calendar blocking. This view was updated locally.");
+      } finally {
+        setSavingCalendarSourceId((current) => current === sourceId ? null : current);
+      }
+    })();
+  }
+
   function handleAddExternalEventToDos() {
     if (!selectedExternalCalendarEvent || isAddingExternalEventToDos) {
       return;
@@ -22495,19 +22692,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       workspaceSlug={data.workspace.slug}
                     />
                   ) : (
-                    <DesktopInvitePanel
-                      calendarConnection={calendarConnection}
-                      calendarDisplaySettings={calendarDisplaySettings}
-                      calendarSourceMessage={calendarSourceMessage}
-                      calendarSourcePreferences={calendarSourcePreferences}
-                      isDisconnecting={isCalendarDisconnecting}
-                      onDisconnectCalendar={handleDisconnectCalendar}
-                      onToggleCalendarCoreSource={handleToggleCalendarCoreSource}
-                      onToggleGoogleCalendarSource={handleToggleGoogleCalendarSource}
-                      savingCalendarSourceId={savingCalendarSourceId}
-                      workspaceDisplayName={data.workspace.displayName}
-                      workspaceId={data.workspace.id}
-                      workspaceSlug={data.workspace.slug}
+	                    <DesktopInvitePanel
+	                      calendarConnection={calendarConnection}
+	                      calendarSourceMessage={calendarSourceMessage}
+	                      calendarSourcePreferences={calendarSourcePreferences}
+	                      householdMembers={data.householdMembers}
+	                      isDisconnecting={isCalendarDisconnecting}
+	                      onDisconnectCalendar={handleDisconnectCalendar}
+	                      onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
+	                      savingCalendarSourceId={savingCalendarSourceId}
+	                      tableInvitations={data.tableInvitations}
+	                      workspaceDisplayName={data.workspace.displayName}
+	                      workspaceId={data.workspace.id}
+	                      workspaceSlug={data.workspace.slug}
                     />
                   )}
                 </div>

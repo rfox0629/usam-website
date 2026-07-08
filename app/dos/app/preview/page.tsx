@@ -598,6 +598,7 @@ function buildDosPreviewDemoData(): DosAppData {
     ],
     prayerRequests: [],
     reminders,
+    tableInvitations: [],
     usamApplication: {
       applicationId: "demo-usam-application",
       appliedAt: demoTimestamp,
