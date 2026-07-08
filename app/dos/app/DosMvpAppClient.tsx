@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -16671,6 +16671,61 @@ type MyRecordLearningHighlightUpload = {
   size: number;
   uploadedAt: string;
 };
+type MyRecordLifePlanUpload = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+
+const myRecordRyanSeedLifePlan: DosAppUserLifePlan = {
+  attachmentBucket: null,
+  attachmentContentType: null,
+  attachmentFileName: null,
+  attachmentPath: null,
+  attachmentUploadedAt: null,
+  attachmentUrl: null,
+  callingStatement: "I am not called to pursue every opportunity. I am called to faithfully steward the vision God has entrusted to me.",
+  createdAt: null,
+  dailyReminder: "Am I spending my time doing what only God has uniquely called and gifted me to do?",
+  decisionFilters: [
+    "Is this obedience?",
+    "Does this help us train, equip, multiply, or accelerate disciple-makers?",
+    "Am I the one who should own this?",
+    "If this succeeds beyond my expectations, does it move us closer to the mission God has given us, or does it create a second mission?",
+  ],
+  focusAllocation: null,
+  id: "seed-ryan-life-plan",
+  lastReviewedDate: null,
+  legacyChurch: null,
+  legacyDiscipled: null,
+  legacyFamily: null,
+  legacyJesus: null,
+  legacyRememberedFor: null,
+  nextReviewDate: null,
+  originalDateWritten: null,
+  rarelyDo: null,
+  responsibilities: null,
+  reviewHistory: [],
+  reviewRhythm: null,
+  shareEligible: false,
+  topPriorities: [
+    { allocationPercent: 10, id: "priority-1", label: "Abide with the Lord" },
+    { allocationPercent: 10, id: "priority-2", label: "Shepherd My Family" },
+    { allocationPercent: 50, id: "priority-3", label: "Create Systems that Multiply the Church" },
+    { allocationPercent: 5, id: "priority-4", label: "Build Strategic Kingdom Partnerships" },
+    { allocationPercent: 5, id: "priority-5", label: "Advance the Great Commission" },
+    { allocationPercent: 20, id: "priority-6", label: "Lead the Vision" },
+    { allocationPercent: 20, id: "priority-7", label: "Make Disciples" },
+    { allocationPercent: 0, id: "priority-8", label: "Be the Chief Storyteller" },
+    { allocationPercent: 0, id: "priority-9", label: "Unite the Body of Christ" },
+    { allocationPercent: 0, id: "priority-10", label: "Protect the Culture and Calling" },
+  ],
+  updatedAt: null,
+  visibility: "private",
+};
 
 const myRecordFutureAssessmentCards = [
   { category: "Spiritual", name: "Spiritual Gifts", typeLabel: "Future Assessment" },
@@ -16771,6 +16826,69 @@ function myRecordListInput(value: FormDataEntryValue | null) {
     .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function myRecordLifePlanPriorityInput(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split("\n")
+    .map((line, index) => {
+      const text = line.trim();
+
+      if (!text) {
+        return null;
+      }
+
+      const match = text.match(/^(?:\d+[.)]\s*)?(.*?)(?:\s*[-:]\s*([0-9]+)\s*%?)?$/);
+      const label = (match?.[1] ?? text).trim().replace(/\s+[–-]\s*$/, "");
+      const allocationPercent = match?.[2] ? Number.parseInt(match[2], 10) : null;
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        allocationPercent: Number.isFinite(allocationPercent) ? allocationPercent : null,
+        id: `priority-${index + 1}`,
+        label,
+      };
+    })
+    .filter(Boolean);
+}
+
+function myRecordLifePlanPriorityText(plan: DosAppUserLifePlan | null) {
+  return (plan?.topPriorities ?? myRecordRyanSeedLifePlan.topPriorities)
+    .map((priority, index) => `${index + 1}. ${priority.label}${priority.allocationPercent === null ? "" : ` - ${priority.allocationPercent}%`}`)
+    .join("\n");
+}
+
+function myRecordLifePlanReviewHistoryInput(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split("\n")
+    .map((line) => {
+      const text = line.trim();
+
+      if (!text) {
+        return null;
+      }
+
+      const match = text.match(/^(\d{4}-\d{2}-\d{2})\s*[-:]\s*(.*)$/);
+
+      return {
+        date: match?.[1] ?? null,
+        notes: (match?.[2] ?? text).trim(),
+      };
+    })
+    .filter(Boolean);
+}
+
+function myRecordLifePlanReviewHistoryText(plan: DosAppUserLifePlan | null) {
+  return (plan?.reviewHistory ?? [])
+    .map((review) => [review.date, review.notes].filter(Boolean).join(" - "))
+    .join("\n");
+}
+
+function resolveMyRecordLifePlan(record: DosAppUserRecord) {
+  return record.lifePlan ?? myRecordRyanSeedLifePlan;
 }
 
 function myRecordAssessmentStatusLabel(value: MyRecordExternalAssessmentStatus) {
@@ -17029,6 +17147,7 @@ type MyRecordSheetState =
   | { item: MyRecordAssessmentLibraryItem; kind: "assessment_detail"; mode: "view" }
   | { book?: DosAppUserLearningBook | null; kind: "book"; mode: MyRecordSheetMode }
   | { book: DosAppUserLearningBook; kind: "chapter_note"; mode: MyRecordSheetMode; note?: DosAppUserLearningChapterNote | null }
+  | { kind: "life_plan"; mode: MyRecordSheetMode; plan?: DosAppUserLifePlan | null }
   | { ebenezers: MyRecordEbenezer[]; kind: "faithfulness"; mode: "view" }
   | { items: MyRecordTimelineItem[]; kind: "timeline"; mode: "view" }
   | { description?: string; kind: "placeholder"; title: string };
@@ -17888,6 +18007,190 @@ async function uploadMyRecordLearningHighlightImage(workspaceId: string, file: F
   }
 
   return result.attachment;
+}
+
+async function uploadMyRecordLifePlanPdf(workspaceId: string, file: File) {
+  const formData = new FormData();
+  formData.set("workspaceId", workspaceId);
+  formData.set("file", file);
+
+  const response = await fetch("/api/dos/app/my-record/life-plan/attachments", {
+    body: formData,
+    method: "POST",
+  });
+  const result = await response.json().catch(() => ({})) as { attachment?: MyRecordLifePlanUpload; error?: string };
+
+  if (!response.ok || !result.attachment) {
+    throw new Error(result.error ?? "Life Plan PDF upload failed.");
+  }
+
+  return result.attachment;
+}
+
+function MyRecordLifePlanForm({
+  errorMessage,
+  isSubmitting,
+  nextTab = "calling",
+  onCancel,
+  onSave,
+  plan,
+  workspaceId,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  plan?: DosAppUserLifePlan | null;
+  workspaceId: string;
+}) {
+  const resolvedPlan = plan ?? myRecordRyanSeedLifePlan;
+  const isPersistedPlan = Boolean(plan?.id && !plan.id.startsWith("seed-"));
+  const [attachment, setAttachment] = useState<MyRecordLifePlanUpload | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  async function handlePdfChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+
+    try {
+      setAttachment(await uploadMyRecordLifePlanPdf(workspaceId, file));
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Life Plan PDF upload failed.");
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const saved = await onSave({
+      attachmentBucket: attachment?.bucket,
+      attachmentContentType: attachment?.contentType,
+      attachmentFileName: attachment?.fileName,
+      attachmentPath: attachment?.path,
+      attachmentUploadedAt: attachment?.uploadedAt,
+      callingStatement: String(formData.get("calling_statement") ?? ""),
+      dailyReminder: String(formData.get("daily_reminder") ?? ""),
+      decisionFilters: myRecordListInput(formData.get("decision_filters")),
+      focusAllocation: String(formData.get("focus_allocation") ?? ""),
+      kind: "life_plan",
+      lastReviewedDate: String(formData.get("last_reviewed_date") ?? ""),
+      legacyChurch: String(formData.get("legacy_church") ?? ""),
+      legacyDiscipled: String(formData.get("legacy_discipled") ?? ""),
+      legacyFamily: String(formData.get("legacy_family") ?? ""),
+      legacyJesus: String(formData.get("legacy_jesus") ?? ""),
+      legacyRememberedFor: String(formData.get("legacy_remembered_for") ?? ""),
+      lifePlanId: isPersistedPlan ? plan?.id : undefined,
+      nextReviewDate: String(formData.get("next_review_date") ?? ""),
+      originalDateWritten: String(formData.get("original_date_written") ?? ""),
+      rarelyDo: String(formData.get("rarely_do") ?? ""),
+      responsibilities: String(formData.get("responsibilities") ?? ""),
+      reviewHistory: myRecordLifePlanReviewHistoryInput(formData.get("review_history")),
+      reviewRhythm: String(formData.get("review_rhythm") ?? ""),
+      shareEligible: formData.get("share_eligible") === "on",
+      topPriorities: myRecordLifePlanPriorityInput(formData.get("top_priorities")),
+    }, nextTab);
+
+    if (saved) {
+      onCancel?.();
+    }
+  }
+
+  const currentAttachmentName = attachment?.fileName ?? resolvedPlan.attachmentFileName;
+
+  return (
+    <form className="space-y-4 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="log" title="Life Plan" description="Private, living focus document.">
+        <DosFormField label="Calling Statement">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={resolvedPlan.callingStatement ?? ""} name="calling_statement" placeholder="What am I called to faithfully steward?" />
+        </DosFormField>
+        <DosFormField label="Decision Filters">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-32`} defaultValue={resolvedPlan.decisionFilters.join("\n")} name="decision_filters" placeholder="One filter per line." />
+        </DosFormField>
+        <DosFormField label="Top 10 Priorities">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-48`} defaultValue={myRecordLifePlanPriorityText(resolvedPlan)} name="top_priorities" placeholder="1. Abide with the Lord - 10%" />
+        </DosFormField>
+        <DosFormField label="Daily Reminder">
+          <input className={FieldInputClass()} defaultValue={resolvedPlan.dailyReminder ?? ""} name="daily_reminder" placeholder="What question should keep me aligned?" />
+        </DosFormField>
+        <DosFormGrid>
+          <DosFormField label="Original Date Written">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.originalDateWritten ?? ""} name="original_date_written" type="date" />
+          </DosFormField>
+          <DosFormField label="Last Reviewed">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.lastReviewedDate ?? ""} name="last_reviewed_date" type="date" />
+          </DosFormField>
+          <DosFormField label="Next Review">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.nextReviewDate ?? ""} name="next_review_date" type="date" />
+          </DosFormField>
+          <DosFormField label="Review Rhythm">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.reviewRhythm ?? ""} name="review_rhythm" placeholder="Monthly, quarterly, mentor meeting" />
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormField label="Focus Allocation">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.focusAllocation ?? ""} name="focus_allocation" placeholder="How should focus and energy be allocated in this season?" />
+        </DosFormField>
+        <DosFormField label="Responsibilities">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.responsibilities ?? ""} name="responsibilities" placeholder="What am I responsible to carry?" />
+        </DosFormField>
+        <DosFormField label="What I Should Rarely Do">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.rarelyDo ?? ""} name="rarely_do" placeholder="Activities that create drift, distraction, or a second mission." />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="prayer" title="Legacy / Obituary Notes">
+        <DosFormField label="What I Want To Be Remembered For">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyRememberedFor ?? ""} name="legacy_remembered_for" />
+        </DosFormField>
+        <DosFormField label="What I Want My Family To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyFamily ?? ""} name="legacy_family" />
+        </DosFormField>
+        <DosFormField label="What I Want Those I Discipled To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyDiscipled ?? ""} name="legacy_discipled" />
+        </DosFormField>
+        <DosFormField label="What I Want The Church To Remember">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyChurch ?? ""} name="legacy_church" />
+        </DosFormField>
+        <DosFormField label="What I Want Jesus To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyJesus ?? ""} name="legacy_jesus" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="calendar" title="Review History">
+        <DosFormField label="Review Notes">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={myRecordLifePlanReviewHistoryText(resolvedPlan)} name="review_history" placeholder="2026-07-08 - Reviewed with mentor." />
+        </DosFormField>
+        <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
+          <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={resolvedPlan.shareEligible} name="share_eligible" type="checkbox" />
+          <span>Eligible for future Share Settings. Private by default until explicitly shared.</span>
+        </label>
+      </DosFormSection>
+      <DosFormSection icon="upload" title="Original PDF">
+        <div className="rounded-[18px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] p-4">
+          <input accept="application/pdf" className="block w-full text-sm text-[#475569] file:mr-3 file:rounded-full file:border-0 file:bg-[#EBF2FF] file:px-3 file:py-2 file:text-xs file:font-bold file:text-[#1D4ED8]" disabled={isUploading || isSubmitting} onChange={handlePdfChange} type="file" />
+          <p className="mt-2 text-xs font-semibold text-[#64748B]">{currentAttachmentName ? `Attached: ${currentAttachmentName}` : "Optional private PDF upload."}</p>
+          {uploadError ? <p className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</p> : null}
+        </div>
+        <button className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#64748B] disabled:opacity-70" disabled type="button">
+          Parse PDF into Life Plan - Coming Soon
+        </button>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting || isUploading} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Life Plan"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting || isUploading} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
+    </form>
+  );
 }
 
 function MyRecordLearningBookForm({
@@ -19754,8 +20057,15 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
     id: `learning-chapter-${note.id}`,
     title: `${book.title} · ${note.chapterLabel}`,
   })));
+  const lifePlanItems = record.lifePlan ? [{
+    body: record.lifePlan.callingStatement ?? record.lifePlan.dailyReminder ?? "Private calling focus document",
+    date: latestMyRecordDate(record.lifePlan.lastReviewedDate, record.lifePlan.updatedAt, record.lifePlan.createdAt),
+    icon: <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `life-plan-${record.lifePlan.id}`,
+    title: "Life Plan",
+  }] : [];
 
-  return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems]
+  return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
 }
 
@@ -20085,6 +20395,65 @@ function MyRecordGrowthPanel({
   );
 }
 
+function MyRecordLifePlanCard({
+  onEdit,
+  onReview,
+  onView,
+  plan,
+}: {
+  onEdit: () => void;
+  onReview: () => void;
+  onView: () => void;
+  plan: DosAppUserLifePlan;
+}) {
+  const topPriorities = plan.topPriorities.slice(0, 5);
+  const reviewDate = latestMyRecordDate(plan.lastReviewedDate, plan.updatedAt, plan.createdAt);
+
+  return (
+    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black leading-5 text-[#0F172A]">Life Plan</p>
+              <p className="mt-1 text-xs font-semibold text-[#64748B]">{reviewDate ? `Last reviewed ${formatDate(reviewDate)}` : "Private focus document"}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#ECFDF5] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+              Private
+            </span>
+          </div>
+          {plan.callingStatement ? <p className="mt-3 text-sm font-semibold leading-6 text-[#0F172A]">{plan.callingStatement}</p> : null}
+          {topPriorities.length ? (
+            <div className="mt-4 grid gap-2">
+              {topPriorities.map((priority, index) => (
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={priority.id}>
+                  <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{index + 1}. {priority.label}</span>
+                  {priority.allocationPercent !== null ? <span className="shrink-0 text-xs font-black text-[#1D4ED8]">{priority.allocationPercent}%</span> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {plan.dailyReminder ? <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">{plan.dailyReminder}</p> : null}
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#64748B]">Use this with mentors to review focus, obedience, priorities, and drift.</p>
+          {plan.attachmentUrl ? (
+            <a className="mt-3 inline-flex text-xs font-bold text-[#1D4ED8]" href={plan.attachmentUrl} rel="noreferrer" target="_blank">
+              View Original PDF
+            </a>
+          ) : null}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <MyRecordActionButton onClick={onView}>View</MyRecordActionButton>
+            <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton>
+            <MyRecordActionButton onClick={onReview} tone="blue">Review</MyRecordActionButton>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function MyRecordCallingPanel({
   errorMessage,
   isSubmitting,
@@ -20099,6 +20468,7 @@ function MyRecordCallingPanel({
   record: DosAppUserRecord;
 }) {
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
+  const lifePlan = resolveMyRecordLifePlan(record);
 
   function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20159,6 +20529,12 @@ function MyRecordCallingPanel({
           />
         )}
       </section>
+      <MyRecordLifePlanCard
+        onEdit={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan: lifePlan })}
+        onReview={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan: lifePlan })}
+        onView={() => onOpenSheet({ kind: "life_plan", mode: "view", plan: lifePlan })}
+        plan={lifePlan}
+      />
       <MyRecordPreviewCard
         badge="Coming Soon"
         body="Vision moments, calling markers, confirmations, and milestones will live here without affecting Field metrics."
@@ -20270,6 +20646,7 @@ function myRecordSheetTitle(sheet: MyRecordSheetState) {
   if (sheet.kind === "assessment") return sheet.item?.name ?? "Assessment";
   if (sheet.kind === "book") return sheet.mode === "new" ? "Add Book" : sheet.book?.title ?? "Book";
   if (sheet.kind === "chapter_note") return sheet.mode === "new" ? "Add Chapter Note" : sheet.note?.chapterLabel ?? "Chapter Note";
+  if (sheet.kind === "life_plan") return "Life Plan";
 
   return "My Record";
 }
@@ -20553,6 +20930,76 @@ function MyRecordSheetContent({
     ) : <SectionEmptyState title="Prophetic word not found." />;
   }
 
+  if (sheet.kind === "life_plan") {
+    const plan = sheet.plan ?? resolveMyRecordLifePlan(record);
+    const isPersistedPlan = Boolean(plan.id && !plan.id.startsWith("seed-"));
+
+    if (sheet.mode !== "view") {
+      return <MyRecordLifePlanForm errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} onCancel={onClose} onSave={onSave} plan={plan} workspaceId={record.workspaceId} />;
+    }
+
+    return (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Calling Statement" value={plan.callingStatement} />
+        {plan.decisionFilters.length ? (
+          <MyRecordDetailBlock
+            label="Decision Filters"
+            value={(
+              <ul className="list-disc space-y-1 pl-5">
+                {plan.decisionFilters.map((filter) => <li key={filter}>{filter}</li>)}
+              </ul>
+            )}
+          />
+        ) : null}
+        {plan.topPriorities.length ? (
+          <MyRecordDetailBlock
+            label="Top 10 Priorities"
+            value={(
+              <ol className="list-decimal space-y-1 pl-5">
+                {plan.topPriorities.map((priority) => (
+                  <li key={priority.id}>
+                    {priority.label}{priority.allocationPercent === null ? "" : ` - ${priority.allocationPercent}%`}
+                  </li>
+                ))}
+              </ol>
+            )}
+          />
+        ) : null}
+        <MyRecordDetailBlock label="Daily Reminder" value={plan.dailyReminder} />
+        <MyRecordDetailBlock label="Focus Allocation" value={plan.focusAllocation} />
+        <MyRecordDetailBlock label="Responsibilities" value={plan.responsibilities} />
+        <MyRecordDetailBlock label="What I Should Rarely Do" value={plan.rarelyDo} />
+        <MyRecordDetailBlock label="What I Want To Be Remembered For" value={plan.legacyRememberedFor} />
+        <MyRecordDetailBlock label="What I Want My Family To Say" value={plan.legacyFamily} />
+        <MyRecordDetailBlock label="What I Want Those I Discipled To Say" value={plan.legacyDiscipled} />
+        <MyRecordDetailBlock label="What I Want The Church To Remember" value={plan.legacyChurch} />
+        <MyRecordDetailBlock label="What I Want Jesus To Say" value={plan.legacyJesus} />
+        <MyRecordDetailBlock label="Original Date Written" value={plan.originalDateWritten ? formatDate(plan.originalDateWritten) : null} />
+        <MyRecordDetailBlock label="Last Reviewed Date" value={plan.lastReviewedDate ? formatDate(plan.lastReviewedDate) : null} />
+        <MyRecordDetailBlock label="Next Review Date" value={plan.nextReviewDate ? formatDate(plan.nextReviewDate) : null} />
+        <MyRecordDetailBlock label="Review Rhythm" value={plan.reviewRhythm} />
+        {plan.reviewHistory.length ? (
+          <MyRecordDetailBlock
+            label="Review History"
+            value={plan.reviewHistory.map((review) => [review.date ? formatDate(review.date) : null, review.notes].filter(Boolean).join(" - ")).join("\n")}
+          />
+        ) : null}
+        <MyRecordDetailBlock label="Privacy" value="Private by default. Eligible for future Share Settings only when the user explicitly shares it." />
+        {plan.attachmentUrl ? (
+          <a className="w-fit text-xs font-bold text-[#1D4ED8]" href={plan.attachmentUrl} rel="noreferrer" target="_blank">View Original PDF</a>
+        ) : null}
+        <button className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#64748B] disabled:opacity-70" disabled type="button">
+          Parse PDF into Life Plan - Coming Soon
+        </button>
+        <MyRecordEntryActions
+          canDelete={isPersistedPlan}
+          onDelete={isPersistedPlan ? () => onDelete("life_plan", plan.id) : undefined}
+          onEdit={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan })}
+        />
+      </div>
+    );
+  }
+
   if (sheet.kind === "external_assessment") {
     const result = sheet.assessmentResult ?? null;
 
@@ -20736,6 +21183,7 @@ function MyRecordWorkspace({
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
   const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, myRecordV2Enabled ? latestExternalAssessment : null);
+  const lifePlan = resolveMyRecordLifePlan(record);
   const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
   const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
@@ -20840,6 +21288,11 @@ function MyRecordWorkspace({
       }
     }
 
+    if (item.id.startsWith("life-plan-") && record.lifePlan) {
+      openMyRecordSheet({ kind: "life_plan", mode: "view", plan: record.lifePlan });
+      return;
+    }
+
     openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" });
   }
 
@@ -20882,6 +21335,7 @@ function MyRecordWorkspace({
     const mentorMeeting = () => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
     const assessment = () => openMyRecordSheet({ kind: "external_assessment", mode: "new" });
     const propheticWord = () => openMyRecordSheet({ kind: "prophetic_word", mode: "new" });
+    const openLifePlan = () => openMyRecordSheet({ kind: "life_plan", mode: "edit", plan: lifePlan });
     const book = () => openMyRecordSheet({ kind: "book", mode: "new" });
     const faithfulness = () => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" });
     const answeredPrayer = () => openMyRecordSheet({ defaultTags: ["Prayer", "Thanksgiving"], kind: "encounter", mode: "new", title: "Answered Prayer" });
@@ -20916,6 +21370,7 @@ function MyRecordWorkspace({
           },
         },
         { icon: "prayer", label: "Prophetic Word", onClick: propheticWord },
+        { icon: "log", label: "Life Plan", onClick: openLifePlan },
         { icon: "log", label: "Vision", onClick: () => openMyRecordPlaceholder("Vision", "Future calling record.") },
         { icon: "calendar", label: "Milestone", onClick: () => openMyRecordPlaceholder("Milestone", "Future calling milestone.") },
       ];

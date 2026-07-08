@@ -12,9 +12,11 @@ const externalAssessmentsMigration = readFileSync("supabase/migrations/202607041
 const assessmentLibraryMigration = readFileSync("supabase/migrations/20260706153343_dos_my_record_assessment_library_fields.sql", "utf8");
 const learningMigration = readFileSync("supabase/migrations/20260706155318_dos_my_record_learning_books.sql", "utf8");
 const mentorProfileFieldsMigration = readFileSync("supabase/migrations/20260707220719_dos_my_record_mentor_profile_fields.sql", "utf8");
+const lifePlanMigration = readFileSync("supabase/migrations/20260708002057_dos_my_record_life_plan.sql", "utf8");
 const route = readFileSync("app/api/dos/app/my-record/route.ts", "utf8");
 const attachmentRoute = readFileSync("app/api/dos/app/my-record/attachments/route.ts", "utf8");
 const learningAttachmentRoute = readFileSync("app/api/dos/app/my-record/learning/attachments/route.ts", "utf8");
+const lifePlanAttachmentRoute = readFileSync("app/api/dos/app/my-record/life-plan/attachments/route.ts", "utf8");
 const loader = readFileSync("src/lib/dos/missionary-app.ts", "utf8");
 const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const catalog = readFileSync("src/lib/dos/resource-catalog.ts", "utf8");
@@ -77,6 +79,19 @@ assert(learningMigration.includes("user_id = (select auth.uid())"), "Learning RL
 assert(learningMigration.includes("They do not create Field activity, Tables, Fruit, Reports, public Profile data, admin profile metrics, or circle scoring data"), "Learning comments should preserve metric isolation.");
 assert(learningMigration.includes("Future mentor sharing must remain user-controlled"), "Learning comments should preserve future share compatibility language.");
 
+assert(lifePlanMigration.includes("'dos-my-record-life-plans'"), "Life Plan migration should create the private PDF storage bucket.");
+assert(lifePlanMigration.includes("false,\n  10485760"), "Life Plan PDF bucket should be private and capped at 10 MB.");
+assert(lifePlanMigration.includes("array['application/pdf']::text[]"), "Life Plan PDF bucket should only allow PDFs.");
+assert(lifePlanMigration.includes("public.dos_user_life_plans"), "Life Plan migration should create dos_user_life_plans.");
+assert(lifePlanMigration.includes("constraint dos_user_life_plan_unique_record unique (record_id)"), "Life Plan should stay one living plan per My Record.");
+assert(lifePlanMigration.includes("alter table public.dos_user_life_plans enable row level security"), "Life Plan should enable RLS.");
+assert(lifePlanMigration.includes("revoke all on table public.dos_user_life_plans from anon"), "Life Plan should revoke anon access.");
+assert(lifePlanMigration.includes("grant select, insert, update, delete on table public.dos_user_life_plans to authenticated"), "Life Plan should grant explicit authenticated CRUD behind RLS.");
+assert(lifePlanMigration.includes("user_id = (select auth.uid())"), "Life Plan RLS should be scoped to the current authenticated user.");
+assert(lifePlanMigration.includes("visibility text not null default 'private'"), "Life Plan should be private by default.");
+assert(lifePlanMigration.includes("Future mentor sharing must remain user-controlled"), "Life Plan comments should preserve future share compatibility language.");
+assert(lifePlanMigration.includes("does not create Field activity, Tables, Fruit, Reports, public Profile data, admin profile metrics, or circle scoring data"), "Life Plan comments should preserve metric isolation.");
+
 [
   ".from(\"dos_user_records\")",
   ".from(\"dos_user_journal_entries\")",
@@ -111,6 +126,15 @@ assert(route.includes("encounter: { table: \"dos_user_journal_entries\""), "Enco
 assert(route.includes("asLearningHighlightImage"), "Route should validate private learning highlight image references.");
 assert(route.includes("expectedPrefix = `workspaces/${workspaceId}/users/${userId}/learning/`;"), "Route should scope learning highlight images to the current user and workspace.");
 assert(route.includes("My Record V2 is not enabled for this workspace."), "Route should reject Learning writes when V2 is disabled.");
+assert(route.includes(".from(\"dos_user_life_plans\")"), "Route should support private Life Plan storage.");
+assert(route.includes("kind === \"life_plan\""), "Route should support the Life Plan action.");
+assert(route.includes("asLifePlanAttachment"), "Route should validate private Life Plan PDF references.");
+assert(route.includes("expectedPrefix = `workspaces/${workspaceId}/users/${userId}/life-plan/`;"), "Route should scope Life Plan PDFs to the current user and workspace.");
+assert(route.includes("top_priorities: asLifePlanTopPriorities"), "Route should persist structured Life Plan priorities.");
+assert(route.includes("review_history: asLifePlanReviewHistory"), "Route should persist Life Plan review history.");
+assert(route.includes(".upsert({") && route.includes("onConflict: \"record_id\""), "Life Plan saves should upsert one living plan per My Record.");
+assert(route.includes("life_plan: { table: \"dos_user_life_plans\", v2Only: true }"), "Life Plan deletes should be V2-only and private.");
+assert(route.includes("myRecordDatabaseErrorResponse(lifePlanId.id ? \"Life Plan update\" : \"Life Plan upsert\""), "Life Plan database failures should return and log the real backend error.");
 
 assert(attachmentRoute.includes("assessmentReportBucket = \"dos-my-record-assessments\""), "Attachment route should upload to the private assessment report bucket.");
 assert(attachmentRoute.includes("isDosMyRecordV2Enabled"), "Attachment route should enforce the Ryan-only V2 feature flag server-side.");
@@ -124,6 +148,12 @@ assert(learningAttachmentRoute.includes("requireDosWorkspaceRouteAccess"), "Lear
 assert(learningAttachmentRoute.includes("maxImageSize = 10 * 1024 * 1024"), "Learning attachment route should cap highlight images at 10 MB.");
 assert(learningAttachmentRoute.includes("image/jpeg") && learningAttachmentRoute.includes("image/png") && learningAttachmentRoute.includes("image/webp"), "Learning attachment route should only allow image uploads.");
 assert(learningAttachmentRoute.includes("workspaces/${workspace.id}/users/${authorization.userId}/learning/"), "Learning attachment route should scope highlight images by workspace and user.");
+assert(lifePlanAttachmentRoute.includes("lifePlanBucket = \"dos-my-record-life-plans\""), "Life Plan attachment route should upload to the private Life Plan bucket.");
+assert(lifePlanAttachmentRoute.includes("isDosMyRecordV2Enabled"), "Life Plan attachment route should enforce the Ryan-only V2 feature flag server-side.");
+assert(lifePlanAttachmentRoute.includes("requireDosWorkspaceRouteAccess"), "Life Plan attachment route should require workspace access.");
+assert(lifePlanAttachmentRoute.includes("maxPdfSize = 10 * 1024 * 1024"), "Life Plan attachment route should cap PDFs at 10 MB.");
+assert(lifePlanAttachmentRoute.includes("file.type !== \"application/pdf\""), "Life Plan attachment route should only allow PDF uploads.");
+assert(lifePlanAttachmentRoute.includes("workspaces/${workspace.id}/users/${authorization.userId}/life-plan/"), "Life Plan attachment route should scope PDFs by workspace and user.");
 
 [
   ".from(\"missionary_tables\")",
@@ -137,13 +167,19 @@ assert(learningAttachmentRoute.includes("workspaces/${workspace.id}/users/${auth
 assert(loader.includes("includeExternalAssessments: features.myRecordV2Enabled"), "Loader should only load external assessment results when V2 is enabled.");
 assert(loader.includes("includePropheticWords: features.myRecordV2Enabled"), "Loader should only load prophetic words when V2 is enabled.");
 assert(loader.includes("includeLearning: features.myRecordV2Enabled"), "Loader should only load Learning books when V2 is enabled.");
+assert(loader.includes("includeLifePlan: features.myRecordV2Enabled"), "Loader should only load Life Plan when V2 is enabled.");
 assert(loader.includes("myRecord,"), "DosAppData should include myRecord.");
 assert(loader.includes("assessmentResults"), "DosAppData My Record should include personal assessment results.");
 assert(loader.includes("externalAssessmentResults"), "DosAppData My Record should include private external assessment results.");
 assert(loader.includes("learningBooks"), "DosAppData My Record should include private Learning books.");
+assert(loader.includes("lifePlan"), "DosAppData My Record should include the private Life Plan.");
 assert(loader.includes("short_summary, status, share_eligible"), "Loader should read assessment library summary, status, and sharing fields.");
 assert(loader.includes("createSignedUrl(result.attachment_path, 60 * 60)"), "Loader should create short-lived signed links for private report attachments.");
 assert(loader.includes("createSignedUrl(note.highlight_image_path, 60 * 60)"), "Loader should create short-lived signed links for private Learning highlight images.");
+assert(loader.includes("createSignedUrl(lifePlanRow.attachment_path, 60 * 60)"), "Loader should create short-lived signed links for private Life Plan PDFs.");
+assert(loader.includes(".from(\"dos_user_life_plans\")"), "Loader should read private Life Plan data.");
+assert(loader.includes("mapMyRecordLifePlanPriorities"), "Loader should normalize Life Plan priorities safely.");
+assert(loader.includes("mapMyRecordLifePlanReviewHistory"), "Loader should normalize Life Plan review history safely.");
 assert(loader.includes("myRecordV2Enabled: isDosMyRecordV2Enabled"), "Loader should calculate the Ryan-only My Record V2 flag server-side.");
 assert(loader.includes("dosMyRecordV2WorkspaceSlugs"), "Feature flag should use private workspace identifiers.");
 assert(loader.includes("dosMyRecordV2UserEmails"), "Feature flag should have an email fallback.");
@@ -250,6 +286,25 @@ assert(mentorProfileFieldsMigration.includes("add column if not exists mentor_ph
 assert(mentorProfileFieldsMigration.includes("add column if not exists meeting_rhythm"), "Mentor profile migration should add meeting_rhythm.");
 assert(mentorProfileFieldsMigration.includes("Not public profile, Field, Table, Fruit, or circle metric data"), "Mentor profile fields should stay isolated from public and metrics data.");
 assert(client.includes("function MyRecordCallingPanel"), "V2 should group Words, Prophetic Words, and Vision Timeline under Calling.");
+const callingPanelSource = client.slice(client.indexOf("function MyRecordCallingPanel"), client.indexOf("function MyRecordLegacyPanel"));
+assert(callingPanelSource.includes("MyRecordLifePlanCard"), "Calling should render the Life Plan summary card.");
+assert(callingPanelSource.indexOf("title=\"Prophetic Words\"") < callingPanelSource.indexOf("MyRecordLifePlanCard"), "Life Plan should appear below Prophetic Words in Calling.");
+assert(client.includes("function MyRecordLifePlanCard"), "Client should include a compact Life Plan summary card.");
+assert(client.includes("Use this with mentors to review focus, obedience, priorities, and drift."), "Life Plan should include the mentor/accountability note.");
+assert(client.includes("I am not called to pursue every opportunity. I am called to faithfully steward the vision God has entrusted to me."), "Life Plan should seed Ryan's calling statement from the supplied source text.");
+assert(client.includes("Does this help us train, equip, multiply, or accelerate disciple-makers?"), "Life Plan should seed Ryan's decision filters.");
+assert(client.includes("Create Systems that Multiply the Church"), "Life Plan should seed Ryan's Top 10 priorities.");
+assert(client.includes("Protect the Culture and Calling"), "Life Plan should render the tenth priority.");
+assert(client.includes("What I Want To Be Remembered For"), "Life Plan should render legacy / obituary notes fields.");
+assert(client.includes("What I Want Jesus To Say"), "Life Plan should render the Jesus legacy note field.");
+assert(client.includes("| { kind: \"life_plan\"; mode: MyRecordSheetMode; plan?: DosAppUserLifePlan | null }"), "Life Plan should use the existing drawer/sheet state.");
+assert(client.includes("kind: \"life_plan\", mode: \"view\""), "Life Plan View should open in a drawer/sheet.");
+assert(client.includes("kind: \"life_plan\", mode: \"edit\""), "Life Plan Edit and Review should open in a drawer/sheet.");
+assert(client.includes("kind: \"life_plan\""), "Client should save Life Plan through the private My Record API.");
+assert(client.includes("Upload PDF") || client.includes("Original PDF"), "Life Plan should expose a private PDF upload area.");
+assert(client.includes("Parse PDF into Life Plan - Coming Soon"), "Life Plan PDF parsing should remain a Coming Soon CTA.");
+assert(client.includes("Private by default. Eligible for future Share Settings only when the user explicitly shares it."), "Life Plan should preserve private/default share language.");
+assert(client.includes("id: `life-plan-${record.lifePlan.id}`"), "Saved Life Plans should appear in the private My Record timeline.");
 assert(client.includes("function MyRecordLegacyPanel"), "V2 should group God's Faithfulness, Family & Impact, and Year in Review under Legacy.");
 assert(client.includes("Timeline"), "Walk should include the unified My Record timeline.");
 assert(client.includes("Vision Timeline"), "Calling should reserve Vision Timeline for future work.");
@@ -291,6 +346,7 @@ assert(client.includes("myRecordV2Enabled ? data.myRecord.learningBooks.reduce")
 assert(!client.includes("propheticWords.filter((word) => isMyRecordDateInRange"), "Prophetic words should not be added to reports in this pass.");
 assert(!client.includes("label: \"External Assessments\", type: \"moreApp\""), "External assessments must not be added to the left nav.");
 assert(!client.includes("label: \"Learning\", type: \"moreApp\""), "Learning must not be added to the left nav.");
+assert(!client.includes("label: \"Life Plan\", type: \"moreApp\""), "Life Plan must not be added to the left nav.");
 assert(client.includes("Future: Permission-based My Record sharing"), "Future sharing permissions TODO should stay explicit.");
 assert(client.includes("Future: PDF exports and shareable report links"), "Future report export TODO should stay explicit.");
 assert(client.includes("Future: Smart prompts and check-in drafts based on Field records, prior meetings, reminders, and accountability cadence."), "Future AI/check-in TODO should stay explicit.");

@@ -692,6 +692,7 @@ function buildDosPreviewDemoData(): DosAppData {
           visibility: "private",
         },
       ],
+      lifePlan: null,
       mentorMeetings: [],
       mentorRelationships: [],
       prayerLogs: [],

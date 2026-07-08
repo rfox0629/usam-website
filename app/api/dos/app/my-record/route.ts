@@ -12,6 +12,7 @@ const externalAssessmentStatuses = ["completed", "draft", "not_started"] as cons
 const assessmentReportBucket = "dos-my-record-assessments";
 const learningStatuses = ["planned", "reading", "finished", "paused", "archived"] as const;
 const learningHighlightBucket = "dos-my-record-learning";
+const lifePlanBucket = "dos-my-record-life-plans";
 
 type MyRecordPayload = {
   actionSteps?: unknown;
@@ -28,6 +29,7 @@ type MyRecordPayload = {
   author?: unknown;
   biblePassage?: unknown;
   bookId?: unknown;
+  callingStatement?: unknown;
   category?: unknown;
   chapterLabel?: unknown;
   chapterNumber?: unknown;
@@ -38,10 +40,13 @@ type MyRecordPayload = {
   date?: unknown;
   dateReceived?: unknown;
   dateTaken?: unknown;
+  dailyReminder?: unknown;
+  decisionFilters?: unknown;
   discussed?: unknown;
   displayName?: unknown;
   fieldPersonId?: unknown;
   followUpDate?: unknown;
+  focusAllocation?: unknown;
   finalSummary?: unknown;
   finishedOn?: unknown;
   givenBy?: unknown;
@@ -55,6 +60,13 @@ type MyRecordPayload = {
   entryId?: unknown;
   externalAssessmentResultId?: unknown;
   chapterNoteId?: unknown;
+  lastReviewedDate?: unknown;
+  legacyChurch?: unknown;
+  legacyDiscipled?: unknown;
+  legacyFamily?: unknown;
+  legacyJesus?: unknown;
+  legacyRememberedFor?: unknown;
+  lifePlanId?: unknown;
   lordHighlight?: unknown;
   meetingRhythm?: unknown;
   mentorEmail?: unknown;
@@ -64,15 +76,21 @@ type MyRecordPayload = {
   minutesSpent?: unknown;
   notes?: unknown;
   officialAssessmentUrl?: unknown;
+  originalDateWritten?: unknown;
   prayerFocus?: unknown;
   prayerResponse?: unknown;
   prayerLogId?: unknown;
   personalApplication?: unknown;
+  nextReviewDate?: unknown;
   propheticWordId?: unknown;
+  rarelyDo?: unknown;
   relationshipId?: unknown;
   relationshipLabel?: unknown;
+  responsibilities?: unknown;
   resultType?: unknown;
   retakeReminderDate?: unknown;
+  reviewHistory?: unknown;
+  reviewRhythm?: unknown;
   shareEligible?: unknown;
   shortSummary?: unknown;
   scriptureReferences?: unknown;
@@ -81,6 +99,7 @@ type MyRecordPayload = {
   startedOn?: unknown;
   tags?: unknown;
   title?: unknown;
+  topPriorities?: unknown;
   topStrengths?: unknown;
   targetId?: unknown;
   targetKind?: unknown;
@@ -297,6 +316,38 @@ function asLearningHighlightImage(payload: MyRecordPayload, workspaceId: string,
   };
 }
 
+function asLifePlanAttachment(payload: MyRecordPayload, workspaceId: string, userId: string) {
+  const bucket = asString(payload.attachmentBucket);
+  const path = asString(payload.attachmentPath);
+
+  if (!bucket && !path) {
+    return {
+      attachmentBucket: null,
+      attachmentContentType: null,
+      attachmentFileName: null,
+      attachmentPath: null,
+      attachmentUploadedAt: null,
+    };
+  }
+
+  const expectedPrefix = `workspaces/${workspaceId}/users/${userId}/life-plan/`;
+
+  if (bucket !== lifePlanBucket || !path.startsWith(expectedPrefix)) {
+    return { response: NextResponse.json({ error: "Invalid Life Plan PDF attachment." }, { status: 400 }) };
+  }
+
+  const uploadedAt = asString(payload.attachmentUploadedAt);
+  const uploadedAtDate = uploadedAt ? new Date(uploadedAt) : null;
+
+  return {
+    attachmentBucket: bucket,
+    attachmentContentType: asNullableText(payload.attachmentContentType, 160),
+    attachmentFileName: asNullableText(payload.attachmentFileName, 240),
+    attachmentPath: path,
+    attachmentUploadedAt: uploadedAtDate && Number.isFinite(uploadedAtDate.getTime()) ? uploadedAtDate.toISOString() : new Date().toISOString(),
+  };
+}
+
 function asStringList(value: unknown, maxItems = 12) {
   const values = Array.isArray(value)
     ? value
@@ -305,6 +356,50 @@ function asStringList(value: unknown, maxItems = 12) {
       .map((item) => item.trim());
 
   return Array.from(new Set(values.map((item) => asString(item)).filter(Boolean))).slice(0, maxItems);
+}
+
+function asLifePlanTopPriorities(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      const priority = item && typeof item === "object" ? item as Record<string, unknown> : null;
+      const label = asNullableText(priority?.label, 240);
+      const allocationValue = typeof priority?.allocationPercent === "number"
+        ? priority.allocationPercent
+        : Number.parseInt(asString(priority?.allocationPercent), 10);
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        allocationPercent: Number.isFinite(allocationValue) ? Math.max(0, Math.round(allocationValue)) : null,
+        id: asNullableText(priority?.id, 80) || `priority-${index + 1}`,
+        label,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function asLifePlanReviewHistory(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const review = item && typeof item === "object" ? item as Record<string, unknown> : null;
+      const date = asOptionalDateString(review?.date);
+      const notes = asNullableText(review?.notes, 2000);
+
+      return date || notes ? { date, notes } : null;
+    })
+    .filter(Boolean)
+    .slice(0, 40);
 }
 
 function asOptionalInteger(value: unknown, min = 0, max = 9999) {
@@ -1203,6 +1298,82 @@ async function handleMyRecordPost(request: Request) {
     return NextResponse.json({ id: data.id });
   }
 
+  if (kind === "life_plan") {
+    if (!myRecordV2Enabled) {
+      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
+    }
+
+    const lifePlanId = validateOptionalUuid(payload.lifePlanId, "Life Plan");
+
+    if ("response" in lifePlanId) {
+      return lifePlanId.response;
+    }
+
+    const attachment = asLifePlanAttachment(payload, workspaceId, authResult.authorization.userId);
+
+    if ("response" in attachment) {
+      return attachment.response;
+    }
+
+    const lifePlanPayload: Record<string, unknown> = {
+      calling_statement: asNullableText(payload.callingStatement, 3000),
+      daily_reminder: asNullableText(payload.dailyReminder, 1000),
+      decision_filters: asStringList(payload.decisionFilters, 20),
+      focus_allocation: asNullableText(payload.focusAllocation, 5000),
+      last_reviewed_date: asOptionalDateString(payload.lastReviewedDate),
+      legacy_church: asNullableText(payload.legacyChurch, 3000),
+      legacy_discipled: asNullableText(payload.legacyDiscipled, 3000),
+      legacy_family: asNullableText(payload.legacyFamily, 3000),
+      legacy_jesus: asNullableText(payload.legacyJesus, 3000),
+      legacy_remembered_for: asNullableText(payload.legacyRememberedFor, 3000),
+      next_review_date: asOptionalDateString(payload.nextReviewDate),
+      original_date_written: asOptionalDateString(payload.originalDateWritten),
+      rarely_do: asNullableText(payload.rarelyDo, 5000),
+      responsibilities: asNullableText(payload.responsibilities, 5000),
+      review_history: asLifePlanReviewHistory(payload.reviewHistory),
+      review_rhythm: asNullableText(payload.reviewRhythm, 1000),
+      share_eligible: asBoolean(payload.shareEligible),
+      top_priorities: asLifePlanTopPriorities(payload.topPriorities),
+      visibility: "private",
+    };
+
+    if (!lifePlanId.id || attachment.attachmentPath) {
+      lifePlanPayload.attachment_bucket = attachment.attachmentBucket;
+      lifePlanPayload.attachment_content_type = attachment.attachmentContentType;
+      lifePlanPayload.attachment_file_name = attachment.attachmentFileName;
+      lifePlanPayload.attachment_path = attachment.attachmentPath;
+      lifePlanPayload.attachment_uploaded_at = attachment.attachmentUploadedAt;
+    }
+
+    const result = lifePlanId.id
+      ? await supabase
+        .from("dos_user_life_plans")
+        .update(lifePlanPayload)
+        .eq("id", lifePlanId.id)
+        .eq("record_id", recordId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", authResult.authorization.userId)
+        .select("id")
+        .single()
+      : await supabase
+        .from("dos_user_life_plans")
+        .upsert({
+          ...lifePlanPayload,
+          record_id: recordId,
+          user_id: authResult.authorization.userId,
+          workspace_id: workspaceId,
+        }, { onConflict: "record_id" })
+        .select("id")
+        .single();
+    const { data, error } = result;
+
+    if (error) {
+      return myRecordDatabaseErrorResponse(lifePlanId.id ? "Life Plan update" : "Life Plan upsert", error, payload);
+    }
+
+    return NextResponse.json({ id: data.id });
+  }
+
   if (kind === "assessment_result") {
     const assessmentResult = calculateAssessmentResult(payload);
 
@@ -1257,6 +1428,7 @@ async function handleMyRecordPost(request: Request) {
       journal: { table: "dos_user_journal_entries", v2Only: false },
       learning_book: { table: "dos_user_learning_books", v2Only: true },
       learning_chapter_note: { table: "dos_user_learning_chapter_notes", v2Only: true },
+      life_plan: { table: "dos_user_life_plans", v2Only: true },
       mentor_meeting: { table: "dos_user_mentor_meetings", v2Only: false },
       mentor_relationship: { table: "dos_user_mentor_relationships", v2Only: false },
       prayer: { table: "dos_user_prayer_logs", v2Only: false },
