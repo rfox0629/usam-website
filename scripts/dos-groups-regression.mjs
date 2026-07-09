@@ -428,6 +428,19 @@ assertIncludes(publicSingleGroupRoute, 'name="lastName"', "Public group join for
 assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form must include Email.");
 assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
 assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
+assert(exists("public/images/usam/groups-share.png"), "Default Groups social share image must exist.");
+assertIncludes(publicGroupsDirectoryPage, "Groups | USA Missionaries", "Public groups directory must set a specific metadata title.");
+assertIncludes(publicGroupsDirectoryPage, "Find discipleship groups connected to USA Missionaries.", "Public groups directory must set a specific metadata description.");
+assertIncludes(publicGroupsDirectoryPage, "/images/usam/groups-share.png", "Public groups directory must use the default Groups social image.");
+assertIncludes(publicGroupsDirectoryPage, "summary_large_image", "Public groups directory must configure Twitter large image metadata.");
+assertIncludes(publicGroupPage, "image_url", "Public group metadata must support a group-specific public image when present.");
+assertIncludes(publicGroupPage, "groupShareImageUrl", "Public group metadata must normalize group share images.");
+assertIncludes(publicGroupPage, "/images/usam/groups-share.png", "Public group metadata must fall back to the default Groups social image.");
+assertIncludes(publicGroupPage, "summary_large_image", "Public group metadata must configure Twitter large image metadata.");
+assert(
+  !publicGroupsDirectoryPage.includes("the-table-source") && !publicGroupPage.includes("the-table-source"),
+  "Public groups metadata must not point at the Table graphic.",
+);
 assertIncludes(publicGroupPageTemplate, "PrimaryNav", "Public group template must use the standard public header.");
 assert(
   !publicGroupPageTemplate.includes("Powered by"),

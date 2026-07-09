@@ -18,6 +18,7 @@ export type PublicGroupPageData = {
   scheduleTitle: string;
   scriptureReference: string;
   scriptureText: string;
+  shareImageUrl?: string | null;
   slug: string;
   tagline: string;
   typeLabel: string;

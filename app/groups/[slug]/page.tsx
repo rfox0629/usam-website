@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
@@ -7,6 +8,7 @@ type PublicGroupRow = {
   default_location: string | null;
   description: string | null;
   id: string;
+  image_url: string | null;
   name: string;
   organization_id: string | null;
   rhythm_label: string | null;
@@ -36,6 +38,7 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = {
     default_location: "Lebanon Hills Trailhead, Eagan, MN",
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     id: "2three2",
+    image_url: null,
     name: "2three2",
     organization_id: null,
     rhythm_label: "Weekly · Saturday · 7:00 AM",
@@ -46,6 +49,8 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = {
     type: "running",
   },
 };
+
+const defaultGroupsShareImage = "/images/usam/groups-share.png";
 
 const fallbackGatherings: Record<string, GatheringRow> = {
   "2three2": {
@@ -61,13 +66,43 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!group) {
     return {
+      description: "Find discipleship groups connected to USA Missionaries.",
       title: "Group | USA Missionaries",
     };
   }
 
+  const title = `${group.name} | USA Missionaries`;
+  const description = group.description || "A recurring discipleship rhythm connected with USA Missionaries.";
+  const url = `${getCanonicalSiteUrl()}/groups/${group.slug}`;
+  const image = groupShareImageUrl(group.shareImageUrl);
+
   return {
-    description: group.description,
-    title: `${group.name} | USA Missionaries`,
+    alternates: {
+      canonical: url,
+    },
+    description,
+    openGraph: {
+      description,
+      images: [
+        {
+          alt: `${group.name} discipleship group`,
+          height: 630,
+          url: image,
+          width: 1200,
+        },
+      ],
+      siteName: "USA Missionaries",
+      title,
+      type: "website",
+      url,
+    },
+    title,
+    twitter: {
+      card: "summary_large_image",
+      description,
+      images: [image],
+      title,
+    },
   };
 }
 
@@ -104,7 +139,7 @@ async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null
   const supabase = createSupabaseAdminClient();
   const { data: group, error } = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, organization_id")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -161,6 +196,7 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     scheduleTitle: content.scheduleTitle,
     scriptureReference,
     scriptureText: group.scripture_text ?? "",
+    shareImageUrl: group.image_url,
     slug: group.slug,
     tagline: group.tagline ?? "Discipleship happens in rhythms.",
     typeLabel,
@@ -168,6 +204,20 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     whatToExpect: content.whatToExpect,
     whoThisIsFor: content.whoThisIsFor,
   };
+}
+
+function groupShareImageUrl(value: string | null | undefined) {
+  const imageUrl = value?.trim();
+
+  if (!imageUrl || /\b(?:table|dos-table)\b/i.test(imageUrl)) {
+    return defaultGroupsShareImage;
+  }
+
+  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith("/")) {
+    return imageUrl;
+  }
+
+  return defaultGroupsShareImage;
 }
 
 function contentForGroup(group: PublicGroupRow): PublicGroupContent {

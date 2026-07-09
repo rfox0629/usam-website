@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PublicDirectoryGroup = {
@@ -51,9 +52,38 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
   },
 ];
 
+const groupsTitle = "Groups | USA Missionaries";
+const groupsDescription = "Find discipleship groups connected to USA Missionaries.";
+const groupsShareImage = "/images/usam/groups-share.png";
+const groupsUrl = `${getCanonicalSiteUrl()}/groups`;
+
 export const metadata: Metadata = {
-  description: "Public discipleship groups connected with USA Missionaries.",
-  title: "Groups | USA Missionaries",
+  alternates: {
+    canonical: groupsUrl,
+  },
+  description: groupsDescription,
+  openGraph: {
+    description: groupsDescription,
+    images: [
+      {
+        alt: "USA Missionaries Discipleship Groups",
+        height: 630,
+        url: groupsShareImage,
+        width: 1200,
+      },
+    ],
+    siteName: "USA Missionaries",
+    title: groupsTitle,
+    type: "website",
+    url: groupsUrl,
+  },
+  title: groupsTitle,
+  twitter: {
+    card: "summary_large_image",
+    description: groupsDescription,
+    images: [groupsShareImage],
+    title: groupsTitle,
+  },
 };
 
 function formatPublicDirectoryDate(value: string | null | undefined) {
