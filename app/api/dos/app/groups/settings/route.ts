@@ -93,7 +93,7 @@ function buildRhythmLabel(payload: GroupSettingsPayload) {
   const timeRange = [start, end].filter(Boolean).join(" - ");
   const generated = ["Weekly", day, timeRange].filter(Boolean).join(" · ");
 
-  return generated || explicitRhythm || null;
+  return explicitRhythm || generated || null;
 }
 
 async function authorizeWrite() {
@@ -138,7 +138,7 @@ export async function PATCH(request: Request) {
   const name = asString(payload.name);
   const requestedSlug = slugFromText(asString(payload.slug) || name);
 
-  if (!workspaceId || !isUuid(groupId)) {
+  if (!workspaceId || !groupId) {
     return NextResponse.json({ error: "Group not found." }, { status: 404 });
   }
 
@@ -157,12 +157,20 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const existingGroupResult = await supabase
-    .from("dos_groups")
-    .select("id, workspace_id, slug, leader_person_id, default_location")
-    .eq("id", groupId)
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
+  const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location";
+  const existingGroupResult = isUuid(groupId)
+    ? await supabase
+      .from("dos_groups")
+      .select(existingGroupSelect)
+      .eq("id", groupId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle()
+    : await supabase
+      .from("dos_groups")
+      .select(existingGroupSelect)
+      .eq("slug", requestedSlug)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
 
   if (existingGroupResult.error) {
     return NextResponse.json({ error: existingGroupResult.error.message }, { status: 500 });
@@ -172,12 +180,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Group not found." }, { status: 404 });
   }
 
+  const resolvedGroupId = existingGroupResult.data.id;
+
   const duplicateSlugResult = await supabase
     .from("dos_groups")
     .select("id")
     .eq("workspace_id", workspaceId)
     .eq("slug", requestedSlug)
-    .neq("id", groupId)
+    .neq("id", resolvedGroupId)
     .limit(1);
 
   if (duplicateSlugResult.error) {
@@ -188,7 +198,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "That public slug is already used by another group." }, { status: 409 });
   }
 
-  const leaderPersonId = asString(payload.leaderPersonId);
+  let leaderPersonId = asString(payload.leaderPersonId);
+
+  if (leaderPersonId) {
+    if (!isUuid(leaderPersonId)) {
+      leaderPersonId = existingGroupResult.data.leader_person_id ?? "";
+    }
+  }
 
   if (leaderPersonId) {
     if (!isUuid(leaderPersonId)) {
@@ -229,7 +245,7 @@ export async function PATCH(request: Request) {
   const { data: updatedGroup, error: updateError } = await supabase
     .from("dos_groups")
     .update(updateRecord)
-    .eq("id", groupId)
+    .eq("id", resolvedGroupId)
     .eq("workspace_id", workspaceId)
     .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, active")
     .single();
@@ -245,7 +261,7 @@ export async function PATCH(request: Request) {
       await supabase
         .from("dos_group_members")
         .update({ role: "member", updated_at: new Date().toISOString() })
-        .eq("group_id", groupId)
+        .eq("group_id", resolvedGroupId)
         .eq("person_id", previousLeaderId)
         .eq("role", "leader");
     }
@@ -253,7 +269,7 @@ export async function PATCH(request: Request) {
     const existingLeaderMemberResult = await supabase
       .from("dos_group_members")
       .select("id")
-      .eq("group_id", groupId)
+      .eq("group_id", resolvedGroupId)
       .eq("person_id", leaderPersonId)
       .maybeSingle();
 
@@ -269,7 +285,7 @@ export async function PATCH(request: Request) {
       : await supabase
         .from("dos_group_members")
         .insert({
-          group_id: groupId,
+          group_id: resolvedGroupId,
           joined_at: new Date().toISOString(),
           notes: "Added as group leader from DOS settings.",
           person_id: leaderPersonId,
@@ -289,7 +305,7 @@ export async function PATCH(request: Request) {
     const gatheringUpdateResult = await supabase
       .from("dos_group_gatherings")
       .update({ location: asNullableString(payload.defaultLocation), updated_at: new Date().toISOString() })
-      .eq("group_id", groupId)
+      .eq("group_id", resolvedGroupId)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString());
 

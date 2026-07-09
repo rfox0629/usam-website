@@ -1,69 +1,145 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
-type PublicGroup = {
-  description: string;
-  location: string;
+type PublicGroupRow = {
+  default_location: string | null;
+  description: string | null;
+  id: string;
+  image_url: string | null;
   name: string;
-  nextGatheringLocation: string;
-  nextGathering: string;
-  rhythm: string;
-  scriptureReference: string;
-  scriptureText: string;
-  tagline: string;
-  typicalSchedule: string[];
-  whatToExpect: string[];
-  whoThisIsFor: string[];
+  organization_id: string | null;
+  rhythm_label: string | null;
+  scripture_reference: string | null;
+  scripture_text: string | null;
+  slug: string;
+  tagline: string | null;
+  type: string | null;
 };
 
-const fallbackPublicGroups: Record<string, PublicGroup> = {
+type GatheringRow = {
+  location: string | null;
+  starts_at: string | null;
+  title: string | null;
+};
+
+type PublicGroupContent = {
+  scheduleIntro: string;
+  scheduleTitle: string;
+  typicalSchedule: readonly PublicGroupStep[];
+  whatToExpect: readonly PublicGroupDetail[];
+  whoThisIsFor: readonly PublicGroupDetail[];
+};
+
+const fallbackPublicGroups: Record<string, PublicGroupRow> = {
   "2three2": {
+    default_location: "Lebanon Hills Trailhead, Eagan, MN",
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
-    location: "Lebanon Hills Trailhead, Eagan, MN",
+    id: "2three2",
+    image_url: null,
     name: "2three2",
-    nextGatheringLocation: "Lebanon Hills Trailhead, Eagan, MN",
-    nextGathering: "Saturday Run & Prayer · Saturdays at 7:00 AM",
-    rhythm: "Weekly · Saturday · 7:00 AM",
-    scriptureReference: "2 Timothy 2:22",
-    scriptureText: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.",
+    organization_id: null,
+    rhythm_label: "Weekly · Saturday · 7:00 AM",
+    scripture_reference: "2 Timothy 2:22",
+    scripture_text: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.",
+    slug: "2three2",
     tagline: "Run. Pray. Pursue.",
-    typicalSchedule: ["Meet at the trailhead", "Run in pairs", "Pray as you go", "Regroup and share next steps"],
-    whatToExpect: ["A steady weekly rhythm", "Two-by-two prayer during the run", "Simple follow-up and encouragement"],
-    whoThisIsFor: ["Men pursuing Christ", "Runners of any normal training pace", "Men who want accountability, prayer, and brotherhood"],
+    type: "running",
   },
 };
 
-function formatPublicGroupDate(value: string | null | undefined) {
-  if (!value) {
-    return "";
+const defaultGroupsShareImage = "/images/usam/groups-share.png";
+
+const fallbackGatherings: Record<string, GatheringRow> = {
+  "2three2": {
+    location: "Lebanon Hills Trailhead, Eagan, MN",
+    starts_at: null,
+    title: "Saturday Run & Prayer",
+  },
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const group = await loadPublicGroup(slug);
+
+  if (!group) {
+    return {
+      description: "Find discipleship groups connected to USA Missionaries.",
+      title: "Group | USA Missionaries",
+    };
   }
 
-  const date = new Date(value);
+  const title = `${group.name} | USA Missionaries`;
+  const description = group.description || "A recurring discipleship rhythm connected with USA Missionaries.";
+  const url = `${getCanonicalSiteUrl()}/groups/${group.slug}`;
+  const image = groupShareImageUrl(group.shareImageUrl);
 
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    weekday: "long",
-  }).format(date);
+  return {
+    alternates: {
+      canonical: url,
+    },
+    description,
+    openGraph: {
+      description,
+      images: [
+        {
+          alt: `${group.name} discipleship group`,
+          height: 630,
+          url: image,
+          width: 1200,
+        },
+      ],
+      siteName: "USA Missionaries",
+      title,
+      type: "website",
+      url,
+    },
+    title,
+    twitter: {
+      card: "summary_large_image",
+      description,
+      images: [image],
+      title,
+    },
+  };
 }
 
-async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
+export default async function PublicGroupPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { slug } = await params;
+  const group = await loadPublicGroup(slug);
+
+  if (!group) {
+    notFound();
+  }
+
+  const query = searchParams ? await searchParams : {};
+  const requestParam = Array.isArray(query.request) ? query.request[0] : query.request;
+  const requestState = requestParam === "received" || requestParam === "missing" || requestParam === "unavailable" || requestParam === "error"
+    ? requestParam
+    : null;
+
+  return <PublicGroupPageTemplate group={group} requestState={requestState} />;
+}
+
+async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null> {
   if (!isSupabaseAdminConfigured()) {
-    return fallbackPublicGroups[slug] ?? null;
+    const fallback = fallbackPublicGroups[slug];
+
+    return fallback ? toPublicGroupData(fallback, fallbackGatherings[slug] ?? null) : null;
   }
 
   const supabase = createSupabaseAdminClient();
   const { data: group, error } = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -77,7 +153,7 @@ async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
     return null;
   }
 
-  const { data: gatherings } = await supabase
+  const { data: gatherings, error: gatheringsError } = await supabase
     .from("dos_group_gatherings")
     .select("title, starts_at, location")
     .eq("group_id", group.id)
@@ -85,136 +161,283 @@ async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
     .gte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
     .limit(1);
-  const nextGathering = gatherings?.[0];
-  const groupType = group.type === "running" ? "running group" : "discipleship group";
+
+  if (gatheringsError) {
+    console.warn("[Public Group] Unable to load next gathering", gatheringsError.message);
+  }
+
+  return toPublicGroupData(group as PublicGroupRow, gatherings?.[0] ?? null);
+}
+
+function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null): PublicGroupPageData {
+  const typeLabel = publicGroupType(group.type, group.name);
+  const content = contentForGroup(group);
+  const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
+  const scriptureReference = group.scripture_reference ?? "";
+  const anchor = scriptureAnchor(scriptureReference);
+  const nextGatheringTitle = nextGathering?.title ?? nextGatheringTitleFor(group);
+  const nextGatheringTime = dateParts.time || nextGatheringTimeFor(group);
+  const location = group.default_location ?? nextGathering?.location ?? "Location TBD";
 
   return {
-    description: group.description ?? "A recurring discipleship rhythm.",
-    location: group.default_location ?? nextGathering?.location ?? "Location TBD",
+    anchorMark: anchor.mark,
+    anchorSubtext: anchor.subtext,
+    description: group.description ?? "A recurring discipleship rhythm connected with USA Missionaries.",
+    location,
     name: group.name,
-    nextGatheringLocation: nextGathering?.location ?? group.default_location ?? "Location TBD",
-    nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
+    nextGatheringDay: dateParts.weekday || nextGatheringDayFor(group),
+    nextGatheringLocation: nextGathering?.location ?? location,
+    nextGatheringMonth: dateParts.month || "Soon",
+    nextGatheringNumber: dateParts.day || "TBD",
+    nextGatheringTime,
+    nextGatheringTitle,
     rhythm: group.rhythm_label ?? "Recurring",
-    scriptureReference: group.scripture_reference ?? "",
+    scheduleIntro: content.scheduleIntro,
+    scheduleTitle: content.scheduleTitle,
+    scriptureReference,
     scriptureText: group.scripture_text ?? "",
+    shareImageUrl: group.image_url,
+    slug: group.slug,
     tagline: group.tagline ?? "Discipleship happens in rhythms.",
-    typicalSchedule: ["Gather", "Pray", "Open Scripture", "Share next steps"],
-    whatToExpect: ["A steady recurring rhythm", "Prayer and accountability", "Simple follow-up and encouragement"],
-    whoThisIsFor: [`People looking for a ${groupType}`, "Those pursuing Christ together", "Anyone wanting prayer, community, and discipleship"],
+    typeLabel,
+    typicalSchedule: content.typicalSchedule,
+    whatToExpect: content.whatToExpect,
+    whoThisIsFor: content.whoThisIsFor,
   };
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
-  const group = await loadPublicGroup(slug);
+function groupShareImageUrl(value: string | null | undefined) {
+  const imageUrl = value?.trim();
 
-  if (!group) {
+  if (!imageUrl || /\b(?:table|dos-table)\b/i.test(imageUrl)) {
+    return defaultGroupsShareImage;
+  }
+
+  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith("/")) {
+    return imageUrl;
+  }
+
+  return defaultGroupsShareImage;
+}
+
+function contentForGroup(group: PublicGroupRow): PublicGroupContent {
+  if (group.type === "running" || group.slug === "2three2") {
     return {
-      title: "Group | USA Missionaries",
+      scheduleIntro: "Every gathering follows a simple route. The miles are where prayer, Scripture, and honest conversation have room to breathe.",
+      scheduleTitle: "The Route",
+      typicalSchedule: [
+        {
+          description: "Meet at the trailhead, check in, stretch, and pair up two-by-two.",
+          meta: "Start",
+          title: "Gather",
+        },
+        {
+          description: "Each pair prays for one another out loud and on the move.",
+          meta: "On the trail",
+          title: "Pray",
+        },
+        {
+          description: "Carry a short passage into the run and let it shape the conversation.",
+          meta: "Turnaround",
+          title: "Open Scripture",
+        },
+        {
+          description: "Return with one clear commitment for obedience and follow-up.",
+          meta: "Finish",
+          title: "Share Next Steps",
+        },
+      ],
+      whatToExpect: [
+        {
+          note: "Same rhythm each week. Show up and the group is there.",
+          title: "A steady recurring rhythm",
+        },
+        {
+          note: "Paired two-by-two so nobody runs alone and nobody prays alone.",
+          title: "Prayer and accountability",
+        },
+        {
+          note: "A simple check-in during the week. Honest, direct, and encouraging.",
+          title: "Simple follow-up",
+        },
+      ],
+      whoThisIsFor: [
+        {
+          note: "All normal training paces are welcome. The route serves the people, not the other way around.",
+          title: "Men looking for a running group",
+        },
+        {
+          note: "Pursuit is the operative word. This group moves toward Jesus together.",
+          title: "Those pursuing Christ together",
+        },
+        {
+          note: "Come ready for prayer, encouragement, and a practical next step.",
+          title: "Men wanting discipleship and brotherhood",
+        },
+      ],
     };
   }
 
   return {
-    description: group.description,
-    title: `${group.name} | USA Missionaries`,
+    scheduleIntro: "Each gathering keeps the rhythm simple: arrive, open Scripture, pray together, and leave with a clear next step.",
+    scheduleTitle: "The Rhythm",
+    typicalSchedule: [
+      {
+        description: "Arrive, settle in, and share what matters from the week.",
+        meta: "Open",
+        title: "Gather",
+      },
+      {
+        description: "Read Scripture together and listen for one practical step of obedience.",
+        meta: "Scripture",
+        title: "Open the Word",
+      },
+      {
+        description: "Pray honestly for one another and for the people God has placed nearby.",
+        meta: "Prayer",
+        title: "Pray",
+      },
+      {
+        description: "Name one next step and one way the group can follow up.",
+        meta: "Send",
+        title: "Share Next Steps",
+      },
+    ],
+    whatToExpect: [
+      {
+        note: "A consistent place to pursue Jesus with other people.",
+        title: "A steady recurring rhythm",
+      },
+      {
+        note: "Scripture, prayer, accountability, and real follow-up.",
+        title: "Simple discipleship",
+      },
+      {
+        note: "A group leader will help you know what to expect before you come.",
+        title: "A clear first step",
+      },
+    ],
+    whoThisIsFor: [
+      {
+        note: "People who want a consistent discipleship rhythm, not another event.",
+        title: "Those pursuing Christ together",
+      },
+      {
+        note: "People looking for prayer, accountability, and community.",
+        title: "Those wanting spiritual friendship",
+      },
+      {
+        note: "People ready to take a practical next step in obedience.",
+        title: "Those ready for a next step",
+      },
+    ],
   };
 }
 
-export default async function PublicGroupPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const group = await loadPublicGroup(slug);
-
-  if (!group) {
-    notFound();
+function nextGatheringDateParts(value: string | null | undefined) {
+  if (!value) {
+    return {
+      day: "",
+      month: "",
+      time: "",
+      weekday: "",
+    };
   }
 
-  return (
-    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-8 lg:px-10">
-        <div className="flex flex-1 flex-col justify-center gap-5">
-          <div className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.1)]">
-            <div className="relative isolate overflow-hidden bg-[#06111F] px-5 py-10 text-white sm:px-8 lg:px-10 lg:py-14">
-              <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_18%,rgba(248,197,106,0.3),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0),rgba(2,6,23,0.72))]" aria-hidden="true" />
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{group.scriptureReference}</p>
-              <h1 className="mt-4 text-5xl font-black leading-none tracking-tight sm:text-6xl lg:text-7xl">{group.name}</h1>
-              <p className="mt-3 text-2xl font-black text-[#F8C56A]">{group.tagline}</p>
-              {group.scriptureText ? <p className="mt-5 max-w-2xl text-sm leading-7 text-white/78">"{group.scriptureText}"</p> : null}
-              <div className="mt-7 flex flex-wrap gap-2">
-                <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-black text-white">{group.rhythm}</span>
-                <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-black text-white">{group.location}</span>
-              </div>
-            </div>
-            <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-10">
-              <div className="space-y-5">
-                <p className="text-base leading-8 text-[#334155]">{group.description}</p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <InfoTile label="Rhythm" value={group.rhythm} />
-                  <InfoTile label="Location" value={group.location} />
-                  <InfoTile label="Upcoming" value={group.nextGathering} />
-                </div>
-              </div>
-              <aside className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)]">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">Request Information</p>
-                <p className="mt-2 text-xl font-black text-[#0F172A]">Join the rhythm</p>
-                <p className="mt-2 text-sm leading-6 text-[#475569]">Share interest and a group leader will follow up when public group intake is ready.</p>
-                <div className="mt-4 grid gap-2">
-                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)]" type="button">
-                    Join Group
-                  </button>
-                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-black text-[#1D4ED8]" type="button">
-                    Request Info
-                  </button>
-                </div>
-              </aside>
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <PublicGroupSection items={group.whatToExpect} title="What to Expect" />
-            <PublicGroupSection items={group.typicalSchedule} title="Typical Schedule" />
-            <PublicGroupSection items={group.whoThisIsFor} title="Who This Is For" />
-          </div>
-          <div className="rounded-[24px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] sm:p-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">Next Gathering</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(13rem,auto)] md:items-center">
-              <div>
-                <p className="text-xl font-black text-[#0F172A]">{group.nextGathering}</p>
-                <p className="mt-2 text-sm leading-6 text-[#475569]">{group.nextGatheringLocation}</p>
-              </div>
-              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-black text-[#1D4ED8]" type="button">
-                Request Information
-              </button>
-            </div>
-          </div>
-        </div>
-        <footer className="pt-6 text-center text-xs font-bold text-[#64748B]">
-          Powered by{" "}
-          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
-            USA Missionaries
-          </Link>
-        </footer>
-      </section>
-    </main>
-  );
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return {
+      day: "",
+      month: "",
+      time: "",
+      weekday: "",
+    };
+  }
+
+  return {
+    day: new Intl.DateTimeFormat("en-US", { day: "numeric" }).format(date),
+    month: new Intl.DateTimeFormat("en-US", { month: "long" }).format(date),
+    time: new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date),
+    weekday: new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date),
+  };
 }
 
-function PublicGroupSection({ items, title }: { items: readonly string[]; title: string }) {
-  return (
-    <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-      <h2 className="text-sm font-black text-[#0F172A]">{title}</h2>
-      <div className="mt-4 grid gap-2">
-        {items.map((item) => (
-          <p className="rounded-[16px] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold leading-6 text-[#475569]" key={item}>{item}</p>
-        ))}
-      </div>
-    </section>
-  );
+function nextGatheringDayFor(group: PublicGroupRow) {
+  if (group.rhythm_label?.toLowerCase().includes("tuesday")) {
+    return "Tuesday";
+  }
+
+  if (group.rhythm_label?.toLowerCase().includes("wednesday")) {
+    return "Wednesday";
+  }
+
+  if (group.rhythm_label?.toLowerCase().includes("saturday")) {
+    return "Saturday";
+  }
+
+  return "Upcoming";
 }
 
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]">{label}</p>
-      <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{value}</p>
-    </div>
-  );
+function nextGatheringTimeFor(group: PublicGroupRow) {
+  const rhythm = group.rhythm_label ?? "";
+  const timeMatch = rhythm.match(/\b\d{1,2}:\d{2}\s?(?:AM|PM)\b/i);
+
+  if (timeMatch) {
+    return timeMatch[0].replace(/\s+/, " ");
+  }
+
+  if (rhythm.toLowerCase().includes("evening")) {
+    return "Evening";
+  }
+
+  return "Time TBD";
+}
+
+function nextGatheringTitleFor(group: PublicGroupRow) {
+  if (group.type === "running" || group.slug === "2three2") {
+    return "Saturday Run & Prayer";
+  }
+
+  return group.name;
+}
+
+function publicGroupType(value: string | null | undefined, name: string) {
+  if (name.toLowerCase().includes("men")) {
+    return "Men's Group";
+  }
+
+  if (value === "running") {
+    return "Running Group";
+  }
+
+  if (value === "mens" || value === "men" || value === "discipleship") {
+    return "Discipleship Group";
+  }
+
+  if (value === "prayer") {
+    return "Prayer Group";
+  }
+
+  if (value === "study") {
+    return "Bible Study";
+  }
+
+  return "Discipleship Group";
+}
+
+function scriptureAnchor(reference: string) {
+  const match = reference.match(/^(.+?)\s+(\d+):(\d+)/);
+
+  if (!match) {
+    return {
+      mark: "GO",
+      subtext: "Groups",
+    };
+  }
+
+  return {
+    mark: `${match[2]}:${match[3]}`,
+    subtext: match[1],
+  };
 }

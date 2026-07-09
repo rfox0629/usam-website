@@ -169,6 +169,34 @@ type GroupMemberAddResult = {
     phone: string;
   };
 };
+type GroupJoinRequest = {
+  createdAt: string;
+  email: string;
+  firstName: string;
+  groupId: string | null;
+  id: string;
+  lastName: string;
+  message: string | null;
+  phone: string | null;
+  sourceGroupSlug: string;
+  sourcePath: string;
+  status: "pending" | "reviewed" | "accepted" | "declined" | "archived" | string;
+  submittedAt: string;
+  updatedAt: string | null;
+  workspaceId: string | null;
+};
+type GroupJoinRequestsResult = {
+  error?: string;
+  ok?: boolean;
+  requests?: GroupJoinRequest[];
+  warning?: string;
+};
+type GroupJoinRequestAction = "accept" | "decline" | "review";
+type GroupJoinRequestActionResult = GroupMemberAddResult & {
+  error?: string;
+  ok?: boolean;
+  request?: GroupJoinRequest;
+};
 type GroupSettingsSavePayload = {
   active: boolean;
   dayOfWeek: string;
@@ -187,6 +215,12 @@ type GroupSettingsSavePayload = {
   type: DosAppGroup["type"];
   updateFutureGatheringLocations: boolean;
   visibility: DosAppGroup["visibility"];
+};
+type GroupRhythmSlot = {
+  dayOfWeek: string;
+  endTime: string;
+  id: string;
+  startTime: string;
 };
 type GroupSettingsSaveResult = {
   error?: string;
@@ -1440,16 +1474,132 @@ function slugFromText(value: string) {
     .slice(0, 80);
 }
 
-function groupScheduleDefaults(group: DosAppGroup) {
+const groupWeekdayOptions = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+function formatGroupTimeFromMinutes(totalMinutes: number) {
+  const normalizedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+const groupTimeOptions = Array.from({ length: 96 }, (_, index) => formatGroupTimeFromMinutes(index * 15));
+
+function normalizeGroupTimeLabel(value: string | null | undefined) {
+  const text = value?.trim().replace(/\s+/g, " ") ?? "";
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+
+  if (!match) {
+    return "";
+  }
+
+  const hour = Number.parseInt(match[1] ?? "", 10);
+  const minute = match[2] ? Number.parseInt(match[2], 10) : 0;
+
+  if (Number.isNaN(hour) || Number.isNaN(minute) || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+    return "";
+  }
+
+  return `${hour}:${String(minute).padStart(2, "0")} ${match[3].toUpperCase()}`;
+}
+
+function groupTimeToMinutes(value: string) {
+  const normalized = normalizeGroupTimeLabel(value);
+  const match = normalized.match(/^(\d{1,2}):(\d{2})\s(AM|PM)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number.parseInt(match[1] ?? "", 10);
+  const minute = Number.parseInt(match[2] ?? "", 10);
+  const hour24 = match[3] === "PM" ? (hour % 12) + 12 : hour % 12;
+
+  return hour24 * 60 + minute;
+}
+
+function addMinutesToGroupTime(value: string, minutesToAdd: number) {
+  const minutes = groupTimeToMinutes(value);
+
+  return minutes === null ? "" : formatGroupTimeFromMinutes(minutes + minutesToAdd);
+}
+
+function createGroupRhythmSlot(index: number, defaults?: Partial<GroupRhythmSlot>): GroupRhythmSlot {
+  return {
+    dayOfWeek: defaults?.dayOfWeek ?? "",
+    endTime: normalizeGroupTimeLabel(defaults?.endTime),
+    id: defaults?.id ?? `rhythm-slot-${index}`,
+    startTime: normalizeGroupTimeLabel(defaults?.startTime),
+  };
+}
+
+function rhythmSlotSummary(slot: GroupRhythmSlot) {
+  const timeRange = [slot.startTime, slot.endTime].filter(Boolean).join(" - ");
+
+  return [slot.dayOfWeek, timeRange].filter(Boolean).join(" · ");
+}
+
+function formatGroupRhythmLabel(slots: GroupRhythmSlot[]) {
+  const summaries = slots.map(rhythmSlotSummary).filter(Boolean);
+
+  return summaries.length ? `Weekly · ${summaries.join("; ")}` : "Weekly";
+}
+
+function parseGroupRhythmSlots(group: DosAppGroup) {
   const rhythm = group.rhythmLabel ?? "";
-  const dayMatch = rhythm.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)s?\b/i);
-  const timeMatches = rhythm.match(/\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/gi) ?? [];
+  const rhythmBody = rhythm.replace(/^Weekly\s*[·-]\s*/i, "");
+  const chunks = rhythmBody
+    .split(/\s*;\s*/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  const slots = chunks
+    .map((chunk, index) => {
+      const dayMatch = chunk.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)s?\b/i);
+      const timeMatches = chunk.match(/\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/gi) ?? [];
+
+      return createGroupRhythmSlot(index, {
+        dayOfWeek: dayMatch?.[1] ?? "",
+        endTime: timeMatches[1] ?? "",
+        startTime: timeMatches[0] ?? "",
+      });
+    })
+    .filter((slot) => slot.dayOfWeek || slot.startTime || slot.endTime);
+
+  if (slots.length) {
+    return slots;
+  }
+
+  return [createGroupRhythmSlot(0)];
+}
+
+function groupScheduleDefaults(group: DosAppGroup) {
+  const [firstSlot] = parseGroupRhythmSlots(group);
 
   return {
-    dayOfWeek: dayMatch?.[1] ?? "",
-    endTime: timeMatches[1] ?? "",
-    startTime: timeMatches[0] ?? "",
+    dayOfWeek: firstSlot?.dayOfWeek ?? "",
+    endTime: firstSlot?.endTime ?? "",
+    startTime: firstSlot?.startTime ?? "",
   };
+}
+
+function groupSettingsLeaderPersonId(group: DosAppGroup, people: DosAppPerson[]) {
+  if (group.leaderPersonId && isPersistedUuid(group.leaderPersonId)) {
+    return group.leaderPersonId;
+  }
+
+  const leaderName = group.leaderName?.trim().toLowerCase() ?? "";
+  const matchingPerson = leaderName
+    ? people.find((person) => isPersistedUuid(person.id) && person.name.trim().toLowerCase() === leaderName)
+    : null;
+
+  if (matchingPerson) {
+    return matchingPerson.id;
+  }
+
+  return group.members.find((member) => member.role === "leader" && isPersistedUuid(member.personId))?.personId ?? "";
 }
 
 function groupRoleLabel(role: DosAppGroup["members"][number]["role"]) {
@@ -5995,6 +6145,7 @@ function GroupCard({
 function GroupsWorkspace({
   groups,
   groupsNotice,
+  isPreview,
   onAddPrayer,
   onCopyPublicDirectoryLink,
   onCopyPublicLink,
@@ -6002,6 +6153,7 @@ function GroupsWorkspace({
   onDetailTabChange,
   onEditGroup,
   onInvite,
+  onJoinRequestAccepted,
   onLogAsTable,
   onOpenGroup,
   onSchedule,
@@ -6013,9 +6165,11 @@ function GroupsWorkspace({
   selectedGroup,
   selectedTab,
   view,
+  workspaceId,
 }: {
   groups: DosAppGroup[];
   groupsNotice: string;
+  isPreview: boolean;
   onAddPrayer: () => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
@@ -6023,6 +6177,7 @@ function GroupsWorkspace({
   onDetailTabChange: (tab: GroupDetailTab) => void;
   onEditGroup: () => void;
   onInvite: () => void;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
   onSchedule: () => void;
@@ -6034,23 +6189,27 @@ function GroupsWorkspace({
   selectedGroup: DosAppGroup | null;
   selectedTab: GroupDetailTab;
   view: GroupsListView;
+  workspaceId: string;
 }) {
   if (selectedGroup) {
     return (
       <GroupDetailWorkspace
         group={selectedGroup}
+        isPreview={isPreview}
         notice={groupsNotice}
         onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
         onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
         onEditGroup={onEditGroup}
         onInvite={onInvite}
+        onJoinRequestAccepted={onJoinRequestAccepted}
         onLogAsTable={onLogAsTable}
         onSchedule={onSchedule}
         onTabChange={onDetailTabChange}
         onTakeAttendance={onTakeAttendance}
         onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
         tab={selectedTab}
+        workspaceId={workspaceId}
       />
     );
   }
@@ -6119,32 +6278,38 @@ function GroupsWorkspace({
 
 function GroupDetailWorkspace({
   group,
+  isPreview,
   notice,
   onAddPrayer,
   onBack,
   onCopyPublicLink,
   onEditGroup,
   onInvite,
+  onJoinRequestAccepted,
   onViewPublicGroup,
   onLogAsTable,
   onSchedule,
   onTabChange,
   onTakeAttendance,
   tab,
+  workspaceId,
 }: {
   group: DosAppGroup;
+  isPreview: boolean;
   notice: string;
   onAddPrayer: () => void;
   onBack: () => void;
   onCopyPublicLink: () => void;
   onEditGroup: () => void;
   onInvite: () => void;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onViewPublicGroup: () => void;
   onLogAsTable: () => void;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onTakeAttendance: () => void;
   tab: GroupDetailTab;
+  workspaceId: string;
 }) {
   const nextGathering = nextGroupGathering(group);
   const [activeGatheringRun, setActiveGatheringRun] = useState<{ gatheringId: string; startedAt: number } | null>(null);
@@ -6411,7 +6576,7 @@ function GroupDetailWorkspace({
       ) : null}
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
       {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
-      {tab === "members" ? <GroupMembersTab group={group} /> : null}
+      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} workspaceId={workspaceId} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
@@ -7309,25 +7474,240 @@ function groupOverviewRhythms(group: DosAppGroup) {
   ];
 }
 
-function GroupMembersTab({ group }: { group: DosAppGroup }) {
+function groupJoinRequestName(request: GroupJoinRequest) {
+  return [request.firstName, request.lastName].map((part) => part.trim()).filter(Boolean).join(" ").trim() || "Group request";
+}
+
+function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
+  if (status === "reviewed") {
+    return "Reviewed";
+  }
+
+  if (status === "accepted") {
+    return "Accepted";
+  }
+
+  if (status === "declined") {
+    return "Declined";
+  }
+
+  return "Pending";
+}
+
+function GroupMembersTab({
+  group,
+  isPreview,
+  onJoinRequestAccepted,
+  workspaceId,
+}: {
+  group: DosAppGroup;
+  isPreview: boolean;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  workspaceId: string;
+}) {
+  const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
+  const [joinRequestsMessage, setJoinRequestsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [submittingJoinRequest, setSubmittingJoinRequest] = useState<string | null>(null);
+
+  async function loadJoinRequests() {
+    if (isPreview) {
+      setJoinRequests([]);
+      setJoinRequestsMessage(null);
+      return;
+    }
+
+    setIsLoadingJoinRequests(true);
+    setJoinRequestsMessage(null);
+
+    try {
+      const params = new URLSearchParams({
+        groupId: group.id,
+        workspaceId,
+      });
+      const response = await fetch(`/api/dos/app/groups/join-requests?${params.toString()}`);
+      const result = await response.json().catch(() => ({})) as GroupJoinRequestsResult;
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to load pending requests.");
+      }
+
+      setJoinRequests(result.requests ?? []);
+      setJoinRequestsMessage(result.warning ? { text: result.warning, tone: "error" } : null);
+    } catch (error) {
+      setJoinRequests([]);
+      setJoinRequestsMessage({ text: error instanceof Error ? error.message : "Unable to load pending requests.", tone: "error" });
+    } finally {
+      setIsLoadingJoinRequests(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadJoinRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.id, isPreview, workspaceId]);
+
+  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction) {
+    if (isPreview) {
+      setJoinRequestsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setSubmittingJoinRequest(`${action}:${requestId}`);
+    setJoinRequestsMessage(null);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/join-requests", {
+        body: JSON.stringify({
+          action,
+          groupId: group.id,
+          requestId,
+          workspaceId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as GroupJoinRequestActionResult;
+
+      if (!response.ok || !result.request) {
+        throw new Error(result.error ?? "Unable to update this request.");
+      }
+
+      if (action === "accept") {
+        onJoinRequestAccepted(group.id, result);
+      }
+
+      setJoinRequests((current) => action === "review"
+        ? current.map((request) => request.id === requestId ? (result.request as GroupJoinRequest) : request)
+        : current.filter((request) => request.id !== requestId));
+      setJoinRequestsMessage({
+        text: action === "accept"
+          ? "Request accepted and added to the group."
+          : action === "decline"
+            ? "Request declined."
+            : "Request marked reviewed.",
+        tone: "success",
+      });
+    } catch (error) {
+      setJoinRequestsMessage({ text: error instanceof Error ? error.message : "Unable to update this request.", tone: "error" });
+    } finally {
+      setSubmittingJoinRequest(null);
+    }
+  }
+
   return (
-    <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
-      {group.members.length ? (
-        <div className="grid gap-2">
-          {group.members.map((member) => (
-            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] xl:items-start">
+      <DesktopPanel
+        action={(
+          <button
+            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLoadingJoinRequests}
+            onClick={() => void loadJoinRequests()}
+            type="button"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingJoinRequests ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={2} />
+            Refresh
+          </button>
+        )}
+        eyebrow="Pending Requests"
+        title={`${joinRequests.length} ${joinRequests.length === 1 ? "request" : "requests"}`}
+      >
+        {joinRequestsMessage ? (
+          <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            joinRequestsMessage.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {joinRequestsMessage.text}
+          </p>
+        ) : null}
+        {isLoadingJoinRequests ? (
+          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">Loading pending requests...</p>
+        ) : joinRequests.length ? (
+          <div className="grid gap-2">
+            {joinRequests.map((request) => {
+              const name = groupJoinRequestName(request);
+              const isSubmittingRequest = submittingJoinRequest?.endsWith(`:${request.id}`) ?? false;
+
+              return (
+                <article className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3.5" key={request.id}>
+                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-[#0F172A]">{name}</p>
+                      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748B]">
+                        <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{request.email}</span>
+                        {request.phone ? <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatPhoneNumber(request.phone)}</span> : null}
+                      </p>
+                    </div>
+                    <GroupPill tone={request.status === "reviewed" ? "blue" : "gray"}>{groupJoinRequestStatusLabel(request.status)}</GroupPill>
+                  </div>
+                  {request.message ? (
+                    <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#475569]">{request.message}</p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-[#94A3B8]">{formatRelativeDate(request.submittedAt)} · {request.sourcePath}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {request.status === "pending" ? (
+                        <button
+                          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={Boolean(submittingJoinRequest)}
+                          onClick={() => void reviewJoinRequest(request.id, "review")}
+                          type="button"
+                        >
+                          Mark Reviewed
+                        </button>
+                      ) : null}
+                      <button
+                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={Boolean(submittingJoinRequest)}
+                        onClick={() => void reviewJoinRequest(request.id, "decline")}
+                        type="button"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={Boolean(submittingJoinRequest)}
+                        onClick={() => void reviewJoinRequest(request.id, "accept")}
+                        type="button"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                        {isSubmittingRequest ? "Saving..." : "Accept"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState
+            text="Public join requests will appear here for group leaders before anyone is added."
+            title="No pending requests."
+          />
+        )}
+      </DesktopPanel>
+      <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
+        {group.members.length ? (
+          <div className="grid gap-2">
+            {group.members.map((member) => (
+              <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+                </div>
+                <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
               </div>
-              <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-[#64748B]">No members linked yet.</p>
-      )}
-    </DesktopPanel>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[#64748B]">No members linked yet.</p>
+        )}
+      </DesktopPanel>
+    </div>
   );
 }
 
@@ -7508,6 +7888,7 @@ function GroupSettingsSheet({
   people: DosAppPerson[];
 }) {
   const scheduleDefaults = groupScheduleDefaults(group);
+  const [rhythmSlots, setRhythmSlots] = useState<GroupRhythmSlot[]>(() => parseGroupRhythmSlots(group));
   const [draft, setDraft] = useState<GroupSettingsSavePayload>(() => ({
     active: group.active,
     dayOfWeek: scheduleDefaults.dayOfWeek,
@@ -7515,7 +7896,7 @@ function GroupSettingsSheet({
     description: group.description ?? "",
     endTime: scheduleDefaults.endTime,
     groupId: group.id,
-    leaderPersonId: group.leaderPersonId ?? "",
+    leaderPersonId: groupSettingsLeaderPersonId(group, people),
     name: group.name,
     rhythmLabel: group.rhythmLabel ?? "",
     scriptureReference: group.scriptureReference ?? "",
@@ -7528,9 +7909,13 @@ function GroupSettingsSheet({
     visibility: group.visibility,
   }));
   const leaderPeople = useMemo(() => {
-    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const peopleById = new Map(people.filter((person) => isPersistedUuid(person.id)).map((person) => [person.id, person]));
 
     group.members.forEach((member) => {
+      if (!isPersistedUuid(member.personId)) {
+        return;
+      }
+
       const existing = peopleById.get(member.personId);
 
       if (!existing) {
@@ -7570,6 +7955,72 @@ function GroupSettingsSheet({
     }));
   }
 
+  function applyRhythmSlots(nextSlots: GroupRhythmSlot[]) {
+    const normalizedSlots = nextSlots.length ? nextSlots : [createGroupRhythmSlot(Date.now())];
+    const firstSlot = normalizedSlots[0] ?? createGroupRhythmSlot(0);
+
+    setRhythmSlots(normalizedSlots);
+    setDraft((current) => ({
+      ...current,
+      dayOfWeek: firstSlot.dayOfWeek,
+      endTime: firstSlot.endTime,
+      rhythmLabel: formatGroupRhythmLabel(normalizedSlots),
+      startTime: firstSlot.startTime,
+    }));
+  }
+
+  function updateRhythmSlot(slotId: string, field: "dayOfWeek" | "endTime" | "startTime", value: string) {
+    const nextSlots = rhythmSlots.map((slot) => {
+      if (slot.id !== slotId) {
+        return slot;
+      }
+
+      const normalizedValue = field === "dayOfWeek" ? value : normalizeGroupTimeLabel(value);
+      const nextSlot = {
+        ...slot,
+        [field]: normalizedValue,
+      };
+
+      if (field === "startTime" && nextSlot.startTime) {
+        const previousAutoEnd = slot.startTime ? addMinutesToGroupTime(slot.startTime, 75) : "";
+        const nextStartMinutes = groupTimeToMinutes(nextSlot.startTime);
+        const nextEndMinutes = groupTimeToMinutes(nextSlot.endTime);
+
+        if (
+          !nextSlot.endTime
+          || nextSlot.endTime === previousAutoEnd
+          || (nextStartMinutes !== null && nextEndMinutes !== null && nextEndMinutes <= nextStartMinutes)
+        ) {
+          nextSlot.endTime = addMinutesToGroupTime(nextSlot.startTime, 75);
+        }
+      }
+
+      return nextSlot;
+    });
+
+    applyRhythmSlots(nextSlots);
+  }
+
+  function addRhythmSlot() {
+    const lastSlot = rhythmSlots.at(-1);
+    const nextId = `rhythm-slot-${Date.now()}`;
+
+    applyRhythmSlots([
+      ...rhythmSlots,
+      createGroupRhythmSlot(rhythmSlots.length, {
+        endTime: lastSlot?.endTime,
+        id: nextId,
+        startTime: lastSlot?.startTime,
+      }),
+    ]);
+  }
+
+  function removeRhythmSlot(slotId: string) {
+    const nextSlots = rhythmSlots.filter((slot) => slot.id !== slotId);
+
+    applyRhythmSlots(nextSlots.length ? nextSlots : [createGroupRhythmSlot(Date.now())]);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -7586,128 +8037,169 @@ function GroupSettingsSheet({
   }
 
   return (
-    <Sheet description="Edit this private DOS group. Public-shareable only exposes the public landing page fields." onClose={onClose} showEyebrow={false} size="wide" title={`Edit ${group.name}`}>
-      <form className="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_320px]" onSubmit={handleSubmit}>
-        <div className="space-y-4">
-          {message ? (
-            <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
-              message.tone === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-red-200 bg-red-50 text-red-700"
-            }`}
+    <Sheet onClose={onClose} showHeader={false} size="wide" title={`Edit ${group.name}`}>
+      <form className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 flex-col overflow-hidden" onSubmit={handleSubmit}>
+        <header className="shrink-0 border-b border-[#EAF2FF] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-black leading-tight text-[#0F172A]">Edit {group.name}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">Edit this private DOS group. Public-shareable only exposes the public landing page fields.</p>
+            </div>
+            <button
+              aria-label="Close"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-xl leading-none text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+              onClick={onClose}
+              type="button"
             >
-              {message.text}
-            </p>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <FieldLabel>Group name</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
-            </label>
-            <label className="block">
-              <FieldLabel>Tagline</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("tagline", event.target.value)} value={draft.tagline} />
-            </label>
+              &times;
+            </button>
           </div>
-          <label className="block">
-            <FieldLabel>Description</FieldLabel>
-            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("description", event.target.value)} value={draft.description} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
+        </header>
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0 space-y-4">
+            {message ? (
+              <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+                message.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+              >
+                {message.text}
+              </p>
+            ) : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block min-w-0">
+                <FieldLabel>Group name</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
+              </label>
+              <label className="block min-w-0">
+                <FieldLabel>Tagline</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("tagline", event.target.value)} value={draft.tagline} />
+              </label>
+            </div>
             <label className="block">
-              <FieldLabel>Scripture reference</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
+              <FieldLabel>Description</FieldLabel>
+              <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("description", event.target.value)} value={draft.description} />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block min-w-0">
+                <FieldLabel>Scripture reference</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
+              </label>
+              <label className="block min-w-0">
+                <FieldLabel>Type</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
+                  {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
+                    <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="block">
+              <FieldLabel>Scripture text</FieldLabel>
+              <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("scriptureText", event.target.value)} value={draft.scriptureText} />
             </label>
             <label className="block">
-              <FieldLabel>Type</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
-                {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
-                  <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="block">
-            <FieldLabel>Scripture text</FieldLabel>
-            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("scriptureText", event.target.value)} value={draft.scriptureText} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <label className="block sm:col-span-2">
               <FieldLabel>Rhythm label</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("rhythmLabel", event.target.value)} placeholder="Weekly · Saturday · 7:00 AM" value={draft.rhythmLabel} />
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("rhythmLabel", event.target.value)} placeholder="Weekly · Tuesday · 6:00 AM; Thursday · 6:00 AM" value={draft.rhythmLabel} />
             </label>
-            <label className="block">
-              <FieldLabel>Day</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("dayOfWeek", event.target.value)} value={draft.dayOfWeek}>
-                <option value="">No day</option>
-                {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => <option key={day} value={day}>{day}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <FieldLabel>Start time</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("startTime", event.target.value)} placeholder="7:00 AM" value={draft.startTime} />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <FieldLabel>End time</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("endTime", event.target.value)} placeholder="8:15 AM" value={draft.endTime} />
-            </label>
+            <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#0F172A]">Weekly schedule</p>
+                  <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">Selecting days and times updates the rhythm label.</p>
+                </div>
+                <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]" onClick={addRhythmSlot} type="button">
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                  Add day
+                </button>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {rhythmSlots.map((slot, index) => (
+                  <div className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" key={slot.id}>
+                    <label className="block min-w-0">
+                      <FieldLabel>{index === 0 ? "Day" : `Day ${index + 1}`}</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "dayOfWeek", event.target.value)} value={slot.dayOfWeek}>
+                        <option value="">Select day</option>
+                        {groupWeekdayOptions.map((day) => <option key={day} value={day}>{day}</option>)}
+                      </select>
+                    </label>
+                    <label className="block min-w-0">
+                      <FieldLabel>Start time</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "startTime", event.target.value)} value={slot.startTime}>
+                        <option value="">Select time</option>
+                        {groupTimeOptions.map((time) => <option key={`${slot.id}-start-${time}`} value={time}>{time}</option>)}
+                      </select>
+                    </label>
+                    <label className="block min-w-0">
+                      <FieldLabel>End time</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "endTime", event.target.value)} value={slot.endTime}>
+                        <option value="">No end time</option>
+                        {groupTimeOptions.map((time) => <option key={`${slot.id}-end-${time}`} value={time}>{time}</option>)}
+                      </select>
+                    </label>
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] transition-colors hover:border-[#FCA5A5] hover:text-[#B91C1C]" onClick={() => removeRhythmSlot(slot.id)} type="button">
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
             <label className="block">
               <FieldLabel>Default location</FieldLabel>
               <input className={FieldInputClass()} onChange={(event) => updateDraft("defaultLocation", event.target.value)} value={draft.defaultLocation} />
             </label>
+            {locationChanged ? (
+              <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
+                <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
+                <span>Update future scheduled gatherings with this location?</span>
+              </label>
+            ) : null}
           </div>
-          {locationChanged ? (
-            <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
-              <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
-              <span>Update future scheduled gatherings with this location?</span>
-            </label>
-          ) : null}
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-0 lg:self-start">
+            <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <p className="text-sm font-black text-[#0F172A]">Publishing</p>
+              <label className="mt-3 block">
+                <FieldLabel>Visibility</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
+                  <option value="private">Private</option>
+                  <option value="workspace">Public-shareable</option>
+                </select>
+              </label>
+              <label className="mt-3 block">
+                <FieldLabel>Public slug</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
+              </label>
+              <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8]">{publicHref}</p>
+            </div>
+            <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <p className="text-sm font-black text-[#0F172A]">Leadership</p>
+              <label className="mt-3 block">
+                <FieldLabel>Leader</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
+                  <option value="">No leader</option>
+                  {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
+              <p className="text-sm font-black text-[#991B1B]">Archive</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
+              <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
+                <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
+                Archive group
+              </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
+                {isSubmitting ? "Saving..." : "Save changes"}
+              </button>
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569]" onClick={onClose} type="button">
+                Cancel
+              </button>
+            </div>
+          </aside>
         </div>
-        <aside className="space-y-4">
-          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-            <p className="text-sm font-black text-[#0F172A]">Publishing</p>
-            <label className="mt-3 block">
-              <FieldLabel>Visibility</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
-                <option value="private">Private</option>
-                <option value="workspace">Public-shareable</option>
-              </select>
-            </label>
-            <label className="mt-3 block">
-              <FieldLabel>Public slug</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
-            </label>
-            <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8]">{publicHref}</p>
-          </div>
-          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-            <p className="text-sm font-black text-[#0F172A]">Leadership</p>
-            <label className="mt-3 block">
-              <FieldLabel>Leader</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
-                <option value="">No leader</option>
-                {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
-            <p className="text-sm font-black text-[#991B1B]">Archive</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
-            <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
-              <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
-              Archive group
-            </label>
-          </div>
-          <div className="flex flex-col gap-2">
-            <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Saving..." : "Save changes"}
-            </button>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569]" onClick={onClose} type="button">
-              Cancel
-            </button>
-          </div>
-        </aside>
       </form>
     </Sheet>
   );
@@ -24668,6 +25160,35 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }
 
+  function applyGroupJoinRequestResult(groupId: string, result: GroupJoinRequestActionResult) {
+    if (result.member) {
+      setGroupMemberAdditions((current) => {
+        const existing = current[groupId] ?? [];
+        const withoutDuplicate = existing.filter((member) => member.personId !== result.member?.personId && member.id !== result.member?.id);
+
+        return {
+          ...current,
+          [groupId]: [...withoutDuplicate, result.member as DosAppGroupMember],
+        };
+      });
+    }
+
+    if (result.person) {
+      setQuickAddedPeople((current) => current.some((person) => person.id === result.person?.id)
+        ? current
+        : [...current, optimisticPersonFromGroupResult(result.person as NonNullable<GroupMemberAddResult["person"]>)]);
+    }
+
+    if (result.member) {
+      const message = result.alreadyMember
+        ? `${result.member.personName} is already in this group.`
+        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+
+      setGroupsNotice(message);
+      router.refresh();
+    }
+  }
+
   async function addGroupMember(payload: GroupMemberAddPayload) {
     setGroupInviteMessage(null);
     setErrorMessage("");
@@ -24767,6 +25288,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             : null,
         },
       }));
+      if (result.group.id && result.group.id !== payload.groupId) {
+        setSelectedGroupId(result.group.id);
+      }
       setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Group"} saved.`);
       setGroupSettingsMessage({ text: "Group settings saved.", tone: "success" });
 
@@ -27976,6 +28500,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <GroupsWorkspace
                     groups={groups}
                     groupsNotice={groupsNotice}
+                    isPreview={isPreview}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
@@ -27983,6 +28508,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onDetailTabChange={setGroupDetailTab}
                     onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}
+                    onJoinRequestAccepted={applyGroupJoinRequestResult}
                     onLogAsTable={() => openForm("meeting")}
                     onOpenGroup={(groupId) => {
                       if (groupId) {
@@ -28006,6 +28532,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     selectedGroup={selectedGroup}
                     selectedTab={groupDetailTab}
                     view={groupsView}
+                    workspaceId={data.workspace.id}
                   />
                 ) : null}
 
