@@ -15,7 +15,7 @@ const navItems = [
 type NavKey = (typeof navItems)[number]["key"];
 
 type PrimaryNavProps = {
-  active: NavKey;
+  active?: NavKey;
   fixed?: boolean;
   labelOverrides?: Partial<Record<NavKey, string>>;
 };
