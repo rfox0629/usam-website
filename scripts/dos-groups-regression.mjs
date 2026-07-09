@@ -428,7 +428,15 @@ assertIncludes(publicSingleGroupRoute, 'name="lastName"', "Public group join for
 assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form must include Email.");
 assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
 assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
-assertIncludes(publicSingleGroupRoute, "Powered by", "Public group route must include the powered-by footer.");
+assertIncludes(publicGroupPageTemplate, "PrimaryNav", "Public group template must use the standard public header.");
+assert(
+  !publicGroupPageTemplate.includes("Powered by"),
+  "Public group template must not render the removed custom powered-by footer.",
+);
+assert(
+  !publicGroupPageTemplate.includes("PublicGroupNav"),
+  "Public group template must not use a custom group-specific header.",
+);
 assertIncludes(publicGroupsDirectoryPage, ".from(\"dos_groups\")", "Public groups directory must resolve from real group data.");
 assertIncludes(publicGroupsDirectoryPage, ".eq(\"active\", true)", "Public groups directory must only list active groups.");
 assertIncludes(publicGroupsDirectoryPage, "fallbackPublicDirectoryGroups", "Public groups directory must have safe local fallback data.");

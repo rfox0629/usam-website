@@ -1,5 +1,4 @@
-import Image from "next/image";
-import Link from "next/link";
+import { PrimaryNav } from "@/components/PrimaryNav";
 import { submitGroupJoinRequest } from "./actions";
 
 export type PublicGroupPageData = {
@@ -49,7 +48,7 @@ export function PublicGroupPageTemplate({
 }) {
   return (
     <main className="min-h-screen bg-[#0B0D10] text-[#F5F3EE]">
-      <PublicGroupNav group={group} />
+      <PrimaryNav active="dos" />
       <section className="relative isolate overflow-hidden border-b border-white/10">
         <div className="absolute inset-0 -z-20 bg-[#0B0D10]" aria-hidden="true" />
         <div
@@ -120,16 +119,19 @@ export function PublicGroupPageTemplate({
             <p className="max-w-md text-sm leading-7 text-white/55">{group.scheduleIntro}</p>
           </div>
           <div className="relative">
-            <div className="mb-2 hidden h-24 md:block" aria-hidden="true">
+            <div className="relative mb-2 hidden h-24 md:block" aria-hidden="true">
               <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 1120 120">
                 <path d="M 0 90 C 120 90 150 30 280 30 C 400 30 430 95 560 95 C 690 95 720 25 840 25 C 960 25 1000 85 1120 85" fill="none" stroke="rgba(245,243,238,.18)" strokeDasharray="6 8" strokeWidth="1.5" />
                 <path d="M 0 90 C 120 90 150 30 280 30 C 400 30 430 95 560 95 C 690 95 720 25 840 25 C 960 25 1000 85 1120 85" fill="none" stroke="#C2A14E" strokeWidth="2" />
               </svg>
+              <RouteDot left="12.5%" top="48.8%" />
+              <RouteDot left="37.5%" top="53.4%" />
+              <RouteDot left="62.5%" top="51.4%" />
+              <RouteDot left="87.5%" top="45.8%" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {group.typicalSchedule.map((step, index) => (
                 <article className="relative rounded-xl border border-white/10 bg-[#12151A] p-5 transition-colors hover:border-[#8A7338]" key={`${step.title}-${index}`}>
-                  <span className="hidden h-3 w-3 rounded-full border-2 border-[#C2A14E] bg-[#0B0D10] md:absolute md:-top-8 md:left-7 md:block" />
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#C2A14E]">WP-{String(index + 1).padStart(2, "0")} · {step.meta}</p>
                   <h3 className="mt-3 text-xl font-black uppercase text-white">{step.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-white/55">{step.description}</p>
@@ -187,46 +189,16 @@ export function PublicGroupPageTemplate({
           <JoinRequestPanel group={group} requestState={requestState} />
         </div>
       </section>
-
-      <footer className="border-t border-white/10 py-12">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
-          <div>
-            <Link className="inline-flex items-center gap-3" href="/">
-              <Image alt="USA Missionaries" className="h-8 w-8 rounded-sm object-contain" height={32} src="/brand/logo/usam-website-logo.png" width={32} />
-              <span className="text-sm font-black uppercase tracking-[0.08em] text-white">USA Missionaries</span>
-            </Link>
-            <p className="mt-2 text-xs text-white/40">
-              Powered by{" "}
-              <Link className="text-[#C2A14E] underline-offset-4 hover:underline" href="https://usamissionaries.org">
-                USA Missionaries
-              </Link>
-            </p>
-          </div>
-          <p className="max-w-xl text-[10px] font-bold uppercase leading-6 tracking-[0.2em] text-white/40">
-            Go. Make disciples. Baptize them. Teach them the commands. Matthew 28:19-20
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }
 
-function PublicGroupNav({ group }: { group: PublicGroupPageData }) {
+function RouteDot({ left, top }: { left: string; top: string }) {
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0B0D10]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
-        <Link className="min-w-0 flex items-center gap-3" href="/">
-          <Image alt="USA Missionaries" className="h-8 w-8 rounded-sm object-contain" height={32} priority src="/brand/logo/usam-website-logo.png" width={32} />
-          <span className="hidden text-sm font-black uppercase tracking-[0.08em] text-white sm:inline">USA Missionaries</span>
-          <span className="truncate text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
-            / Groups / <span className="text-[#C2A14E]">{group.name}</span>
-          </span>
-        </Link>
-        <a className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-sm border border-white/20 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href="#join">
-          Request Info
-        </a>
-      </div>
-    </nav>
+    <span
+      className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#C2A14E] bg-[#0B0D10]"
+      style={{ left, top }}
+    />
   );
 }
 
@@ -269,9 +241,9 @@ function PublicDetailList({
       <h3 className="border-b border-white/10 pb-4 text-[11px] font-bold uppercase tracking-[0.28em] text-white/40">{title}</h3>
       <div className="divide-y divide-white/10">
         {items.map((item, index) => (
-          <div className="flex gap-5 py-5" key={`${title}-${item.title}`}>
-            <span className="min-w-8 text-xs font-bold text-[#C2A14E]">{arrow ? "->" : String(index + 1).padStart(2, "0")}</span>
-            <div>
+          <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-5 py-5" key={`${title}-${item.title}`}>
+            <span className="pt-[0.2rem] text-xs font-bold leading-6 text-[#C2A14E]">{arrow ? "->" : String(index + 1).padStart(2, "0")}</span>
+            <div className="min-w-0">
               <p className="text-base font-bold leading-6 text-white">{item.title}</p>
               <p className="mt-1 text-sm leading-6 text-white/45">{item.note}</p>
             </div>
