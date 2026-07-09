@@ -39,6 +39,24 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
+const dosMyRecordV2WorkspaceSlugs = new Set(["fox-family", "ryan-brooke-fox", "ryan-fox"]);
+const dosMyRecordV2UserEmails = new Set(["ryan@usamissionaries.org", "ryan@foxfamily.org"]);
+
+export function isDosMyRecordV2Enabled({
+  userEmail,
+  workspaceSlug,
+}: {
+  userEmail?: string | null;
+  workspaceSlug?: string | null;
+}) {
+  const normalizedSlug = workspaceSlug?.trim().toLowerCase() ?? "";
+  const normalizedEmail = userEmail?.trim().toLowerCase() ?? "";
+  const isRyanWorkspace = dosMyRecordV2WorkspaceSlugs.has(normalizedSlug);
+  const isRyanUser = dosMyRecordV2UserEmails.has(normalizedEmail);
+
+  return isRyanUser && isRyanWorkspace;
+}
+
 function normalizedPhone(value: string | null | undefined) {
   const digits = value?.replace(/\D/g, "") ?? "";
 
@@ -430,10 +448,13 @@ export type DosAppUserPrayerLog = {
 
 export type DosAppUserMentorRelationship = {
   createdAt: string | null;
+  email: string | null;
   fieldPersonId: string | null;
   id: string;
+  meetingRhythm: string | null;
   mentorName: string;
   notes: string | null;
+  phone: string | null;
   relationshipLabel: string | null;
   status: "active" | "archived";
   updatedAt: string | null;
@@ -479,16 +500,139 @@ export type DosAppUserAssessmentResult = {
   visibility: "private";
 };
 
+export type DosAppUserExternalAssessmentResult = {
+  assessmentName: string;
+  attachmentBucket: string | null;
+  attachmentContentType: string | null;
+  attachmentFileName: string | null;
+  attachmentPath: string | null;
+  attachmentUploadedAt: string | null;
+  attachmentUrl: string | null;
+  category: string | null;
+  createdAt: string | null;
+  dateTaken: string;
+  id: string;
+  notes: string | null;
+  officialAssessmentUrl: string | null;
+  resultType: string | null;
+  retakeReminderDate: string | null;
+  scoresDetails: string | null;
+  shareEligible: boolean;
+  shortSummary: string | null;
+  status: "completed" | "draft" | "not_started";
+  topStrengths: string[];
+  updatedAt: string | null;
+  visibility: "private";
+};
+
+export type DosAppUserPropheticWordStatus = "archived" | "confirmed" | "fulfilled" | "received" | "testing";
+
+export type DosAppUserPropheticWord = {
+  confirmations: string | null;
+  context: string | null;
+  createdAt: string | null;
+  dateReceived: string;
+  givenBy: string | null;
+  id: string;
+  notes: string | null;
+  scriptureReferences: string[];
+  status: DosAppUserPropheticWordStatus;
+  tags: string[];
+  updatedAt: string | null;
+  wordText: string;
+};
+
+export type DosAppUserLearningBookStatus = "archived" | "finished" | "paused" | "planned" | "reading";
+
+export type DosAppUserLearningChapterNote = {
+  chapterLabel: string;
+  chapterNumber: number | null;
+  createdAt: string | null;
+  highlightImageBucket: string | null;
+  highlightImageContentType: string | null;
+  highlightImageFileName: string | null;
+  highlightImagePath: string | null;
+  highlightImageUploadedAt: string | null;
+  highlightImageUrl: string | null;
+  highlights: string | null;
+  id: string;
+  notes: string | null;
+  personalApplication: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserLearningBook = {
+  author: string | null;
+  chapterNotes: DosAppUserLearningChapterNote[];
+  createdAt: string | null;
+  finalSummary: string | null;
+  finishedOn: string | null;
+  id: string;
+  personalApplication: string | null;
+  shareEligible: boolean;
+  startedOn: string | null;
+  status: DosAppUserLearningBookStatus;
+  title: string;
+  updatedAt: string | null;
+  visibility: "private";
+};
+
+export type DosAppUserLifePlanPriority = {
+  allocationPercent: number | null;
+  id: string;
+  label: string;
+};
+
+export type DosAppUserLifePlanReview = {
+  date: string | null;
+  notes: string | null;
+};
+
+export type DosAppUserLifePlan = {
+  attachmentBucket: string | null;
+  attachmentContentType: string | null;
+  attachmentFileName: string | null;
+  attachmentPath: string | null;
+  attachmentUploadedAt: string | null;
+  attachmentUrl: string | null;
+  callingStatement: string | null;
+  createdAt: string | null;
+  dailyReminder: string | null;
+  decisionFilters: string[];
+  focusAllocation: string | null;
+  id: string;
+  lastReviewedDate: string | null;
+  legacyChurch: string | null;
+  legacyDiscipled: string | null;
+  legacyFamily: string | null;
+  legacyJesus: string | null;
+  legacyRememberedFor: string | null;
+  nextReviewDate: string | null;
+  originalDateWritten: string | null;
+  rarelyDo: string | null;
+  responsibilities: string | null;
+  reviewHistory: DosAppUserLifePlanReview[];
+  reviewRhythm: string | null;
+  shareEligible: boolean;
+  topPriorities: DosAppUserLifePlanPriority[];
+  updatedAt: string | null;
+  visibility: "private";
+};
+
 export type DosAppUserRecord = {
   assessmentResults: DosAppUserAssessmentResult[];
   createdAt: string | null;
   currentSeasonFocus: string | null;
   displayName: string | null;
+  externalAssessmentResults: DosAppUserExternalAssessmentResult[];
   id: string | null;
   journalEntries: DosAppUserJournalEntry[];
+  learningBooks: DosAppUserLearningBook[];
+  lifePlan: DosAppUserLifePlan | null;
   mentorMeetings: DosAppUserMentorMeeting[];
   mentorRelationships: DosAppUserMentorRelationship[];
   prayerLogs: DosAppUserPrayerLog[];
+  propheticWords: DosAppUserPropheticWord[];
   updatedAt: string | null;
   userId: string | null;
   workspaceId: string;
@@ -513,6 +657,9 @@ export type DosAppData = {
   myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   usamApplication: DosUsamOrganizationApplication;
+  features: {
+    myRecordV2Enabled: boolean;
+  };
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -844,10 +991,13 @@ type DosUserPrayerLogRow = {
 
 type DosUserMentorRelationshipRow = {
   created_at: string | null;
+  mentor_email: string | null;
   field_person_id: string | null;
   id: string;
+  meeting_rhythm: string | null;
   mentor_name: string;
   notes: string | null;
+  mentor_phone: string | null;
   relationship_label: string | null;
   status: string | null;
   updated_at: string | null;
@@ -881,6 +1031,108 @@ type DosUserAssessmentResultRow = {
   max_score: number | null;
   overall_score: number | null;
   percentage: number | string | null;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
+type DosUserExternalAssessmentResultRow = {
+  assessment_name: string;
+  attachment_bucket?: string | null;
+  attachment_content_type?: string | null;
+  attachment_file_name?: string | null;
+  attachment_path?: string | null;
+  attachment_uploaded_at?: string | null;
+  attachment_url: string | null;
+  category: string | null;
+  created_at: string | null;
+  date_taken: string;
+  id: string;
+  notes: string | null;
+  official_assessment_url: string | null;
+  result_type: string | null;
+  retake_reminder_date: string | null;
+  scores_details: string | null;
+  share_eligible?: boolean | null;
+  short_summary?: string | null;
+  status?: string | null;
+  top_strengths: string[] | null;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
+type DosUserPropheticWordRow = {
+  confirmations: string | null;
+  context: string | null;
+  created_at: string | null;
+  date_received: string;
+  given_by: string | null;
+  id: string;
+  notes: string | null;
+  scripture_references: string[] | null;
+  status: string | null;
+  tags: string[] | null;
+  updated_at: string | null;
+  word_text: string;
+};
+
+type DosUserLearningBookRow = {
+  author: string | null;
+  created_at: string | null;
+  final_summary: string | null;
+  finished_on: string | null;
+  id: string;
+  personal_application: string | null;
+  share_eligible: boolean | null;
+  started_on: string | null;
+  status: string | null;
+  title: string;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
+type DosUserLearningChapterNoteRow = {
+  book_id: string;
+  chapter_label: string;
+  chapter_number: number | null;
+  created_at: string | null;
+  highlight_image_bucket: string | null;
+  highlight_image_content_type: string | null;
+  highlight_image_file_name: string | null;
+  highlight_image_path: string | null;
+  highlight_image_uploaded_at: string | null;
+  highlights: string | null;
+  id: string;
+  notes: string | null;
+  personal_application: string | null;
+  updated_at: string | null;
+};
+
+type DosUserLifePlanRow = {
+  attachment_bucket: string | null;
+  attachment_content_type: string | null;
+  attachment_file_name: string | null;
+  attachment_path: string | null;
+  attachment_uploaded_at: string | null;
+  calling_statement: string | null;
+  created_at: string | null;
+  daily_reminder: string | null;
+  decision_filters: string[] | null;
+  focus_allocation: string | null;
+  id: string;
+  last_reviewed_date: string | null;
+  legacy_church: string | null;
+  legacy_discipled: string | null;
+  legacy_family: string | null;
+  legacy_jesus: string | null;
+  legacy_remembered_for: string | null;
+  next_review_date: string | null;
+  original_date_written: string | null;
+  rarely_do: string | null;
+  responsibilities: string | null;
+  review_history: unknown;
+  review_rhythm: string | null;
+  share_eligible: boolean | null;
+  top_priorities: unknown;
   updated_at: string | null;
   visibility: string | null;
 };
@@ -1121,6 +1373,72 @@ function mapMyRecordMentorStatus(value: string | null | undefined): DosAppUserMe
   return value === "archived" ? value : "active";
 }
 
+function mapMyRecordPropheticWordStatus(value: string | null | undefined): DosAppUserPropheticWordStatus {
+  if (value === "archived" || value === "confirmed" || value === "fulfilled" || value === "testing") {
+    return value;
+  }
+
+  return "received";
+}
+
+function mapMyRecordExternalAssessmentStatus(value: string | null | undefined): DosAppUserExternalAssessmentResult["status"] {
+  if (value === "draft" || value === "not_started") {
+    return value;
+  }
+
+  return "completed";
+}
+
+function mapMyRecordLearningBookStatus(value: string | null | undefined): DosAppUserLearningBookStatus {
+  if (value === "archived" || value === "finished" || value === "paused" || value === "planned") {
+    return value;
+  }
+
+  return "reading";
+}
+
+function mapMyRecordLifePlanPriorities(value: unknown): DosAppUserLifePlanPriority[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      const priority = item && typeof item === "object" ? item as Record<string, unknown> : null;
+      const label = typeof priority?.label === "string" ? priority.label.trim() : "";
+      const allocationValue = typeof priority?.allocationPercent === "number"
+        ? priority.allocationPercent
+        : Number.parseInt(String(priority?.allocationPercent ?? ""), 10);
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        allocationPercent: Number.isFinite(allocationValue) ? Math.max(0, Math.round(allocationValue)) : null,
+        id: typeof priority?.id === "string" && priority.id.trim() ? priority.id : `priority-${index + 1}`,
+        label,
+      } satisfies DosAppUserLifePlanPriority;
+    })
+    .filter((priority): priority is DosAppUserLifePlanPriority => Boolean(priority));
+}
+
+function mapMyRecordLifePlanReviewHistory(value: unknown): DosAppUserLifePlanReview[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const review = item && typeof item === "object" ? item as Record<string, unknown> : null;
+      const date = typeof review?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(review.date) ? review.date : null;
+      const notes = typeof review?.notes === "string" && review.notes.trim() ? review.notes.trim() : null;
+
+      return date || notes ? { date, notes } satisfies DosAppUserLifePlanReview : null;
+    })
+    .filter((review): review is DosAppUserLifePlanReview => Boolean(review));
+}
+
 function mapMyRecordAssessmentAnswers(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -1173,11 +1491,15 @@ function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): 
     createdAt: null,
     currentSeasonFocus: null,
     displayName: viewer?.email ?? null,
+    externalAssessmentResults: [],
     id: null,
     journalEntries: [],
+    learningBooks: [],
+    lifePlan: null,
     mentorMeetings: [],
     mentorRelationships: [],
     prayerLogs: [],
+    propheticWords: [],
     updatedAt: null,
     userId: viewer?.userId ?? null,
     workspaceId,
@@ -1908,6 +2230,7 @@ async function loadMyRecordForWorkspace(
   supabase: SupabaseAdminClient,
   workspaceId: string,
   viewer?: DosAuthorizedUser | null,
+  options: { includeExternalAssessments?: boolean; includeLearning?: boolean; includeLifePlan?: boolean; includePropheticWords?: boolean } = {},
 ) {
   const emptyRecord = emptyMyRecord(workspaceId, viewer);
 
@@ -1934,7 +2257,7 @@ async function loadMyRecordForWorkspace(
     return { data: emptyRecord, error: null };
   }
 
-  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult] = await Promise.all([
+  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult, initialExternalAssessmentResultsResult, propheticWordsResult, learningBooksResult, learningChapterNotesResult, lifePlanResult] = await Promise.all([
     supabase
       .from("dos_user_journal_entries")
       .select("id, entry_date, minutes_spent, started_at, stopped_at, bible_passage, notes, lord_highlight, prayer_response, tags, created_at, updated_at")
@@ -1954,7 +2277,7 @@ async function loadMyRecordForWorkspace(
       .limit(80),
     supabase
       .from("dos_user_mentor_relationships")
-      .select("id, field_person_id, mentor_name, relationship_label, notes, status, created_at, updated_at")
+      .select("id, field_person_id, mentor_name, relationship_label, mentor_email, mentor_phone, meeting_rhythm, notes, status, created_at, updated_at")
       .eq("record_id", recordRow.id)
       .eq("workspace_id", workspaceId)
       .eq("user_id", viewer.userId)
@@ -1977,8 +2300,88 @@ async function loadMyRecordForWorkspace(
       .eq("user_id", viewer.userId)
       .order("completed_at", { ascending: false })
       .limit(80),
+    options.includeExternalAssessments
+      ? supabase
+        .from("dos_user_external_assessment_results")
+        .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, short_summary, status, share_eligible, attachment_url, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, retake_reminder_date, visibility, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("date_taken", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
+    options.includePropheticWords
+      ? supabase
+        .from("dos_user_prophetic_words")
+        .select("id, date_received, given_by, context, word_text, scripture_references, tags, status, confirmations, notes, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("date_received", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
+    options.includeLearning
+      ? supabase
+        .from("dos_user_learning_books")
+        .select("id, title, author, status, started_on, finished_on, personal_application, final_summary, share_eligible, visibility, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("updated_at", { ascending: false })
+        .limit(80)
+      : Promise.resolve({ data: [], error: null }),
+    options.includeLearning
+      ? supabase
+        .from("dos_user_learning_chapter_notes")
+        .select("id, book_id, chapter_label, chapter_number, highlights, notes, personal_application, highlight_image_bucket, highlight_image_path, highlight_image_file_name, highlight_image_content_type, highlight_image_uploaded_at, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .order("chapter_number", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(400)
+      : Promise.resolve({ data: [], error: null }),
+    options.includeLifePlan
+      ? supabase
+        .from("dos_user_life_plans")
+        .select("id, calling_statement, decision_filters, top_priorities, focus_allocation, responsibilities, rarely_do, daily_reminder, legacy_remembered_for, legacy_family, legacy_discipled, legacy_church, legacy_jesus, original_date_written, last_reviewed_date, next_review_date, review_rhythm, review_history, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, share_eligible, visibility, created_at, updated_at")
+        .eq("record_id", recordRow.id)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", viewer.userId)
+        .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
-  const error = journalResult.error ?? prayerResult.error ?? mentorRelationshipsResult.error ?? mentorMeetingsResult.error ?? assessmentResultsResult.error;
+  let externalAssessmentResultsResult = initialExternalAssessmentResultsResult;
+
+  if (options.includeExternalAssessments && externalAssessmentResultsResult.error && isMissingColumnError(externalAssessmentResultsResult.error)) {
+    externalAssessmentResultsResult = await supabase
+      .from("dos_user_external_assessment_results")
+      .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, attachment_url, retake_reminder_date, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("date_taken", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80) as typeof initialExternalAssessmentResultsResult;
+  }
+
+  const externalAssessmentResultsTableMissing = externalAssessmentResultsResult.error && isMissingWorkflowTable(externalAssessmentResultsResult.error, "dos_user_external_assessment_results");
+  const propheticWordsTableMissing = propheticWordsResult.error && isMissingWorkflowTable(propheticWordsResult.error, "dos_user_prophetic_words");
+  const learningBooksTableMissing = learningBooksResult.error && isMissingWorkflowTable(learningBooksResult.error, "dos_user_learning_books");
+  const learningChapterNotesTableMissing = learningChapterNotesResult.error && isMissingWorkflowTable(learningChapterNotesResult.error, "dos_user_learning_chapter_notes");
+  const lifePlanTableMissing = lifePlanResult.error && isMissingWorkflowTable(lifePlanResult.error, "dos_user_life_plans");
+  const error = journalResult.error
+    ?? prayerResult.error
+    ?? mentorRelationshipsResult.error
+    ?? mentorMeetingsResult.error
+    ?? assessmentResultsResult.error
+    ?? (externalAssessmentResultsTableMissing ? null : externalAssessmentResultsResult.error)
+    ?? (propheticWordsTableMissing ? null : propheticWordsResult.error)
+    ?? (learningBooksTableMissing ? null : learningBooksResult.error)
+    ?? (learningChapterNotesTableMissing ? null : learningChapterNotesResult.error)
+    ?? (lifePlanTableMissing ? null : lifePlanResult.error);
 
   if (error) {
     return isMissingWorkflowTable(error, "dos_user_")
@@ -2014,10 +2417,13 @@ async function loadMyRecordForWorkspace(
   }));
   const mentorRelationships = ((mentorRelationshipsResult.data ?? []) as DosUserMentorRelationshipRow[]).map((mentor) => ({
     createdAt: mentor.created_at,
+    email: mentor.mentor_email,
     fieldPersonId: mentor.field_person_id,
     id: mentor.id,
+    meetingRhythm: mentor.meeting_rhythm,
     mentorName: mentor.mentor_name,
     notes: mentor.notes,
+    phone: mentor.mentor_phone,
     relationshipLabel: mentor.relationship_label,
     status: mapMyRecordMentorStatus(mentor.status),
     updatedAt: mentor.updated_at,
@@ -2052,6 +2458,157 @@ async function loadMyRecordForWorkspace(
     updatedAt: result.updated_at,
     visibility: "private" as const,
   }));
+  const externalAssessmentRows = (externalAssessmentResultsTableMissing ? [] : externalAssessmentResultsResult.data ?? []) as DosUserExternalAssessmentResultRow[];
+  const externalAssessmentResults = await Promise.all(externalAssessmentRows.map(async (result) => {
+    let attachmentUrl = result.attachment_url;
+
+    if (result.attachment_bucket && result.attachment_path) {
+      const signedUrlResult = await supabase.storage
+        .from(result.attachment_bucket)
+        .createSignedUrl(result.attachment_path, 60 * 60);
+
+      attachmentUrl = signedUrlResult.data?.signedUrl ?? attachmentUrl;
+    }
+
+    return {
+      assessmentName: result.assessment_name,
+      attachmentBucket: result.attachment_bucket ?? null,
+      attachmentContentType: result.attachment_content_type ?? null,
+      attachmentFileName: result.attachment_file_name ?? null,
+      attachmentPath: result.attachment_path ?? null,
+      attachmentUploadedAt: result.attachment_uploaded_at ?? null,
+      attachmentUrl,
+      category: result.category,
+      createdAt: result.created_at,
+      dateTaken: result.date_taken,
+      id: result.id,
+      notes: result.notes,
+      officialAssessmentUrl: result.official_assessment_url,
+      resultType: result.result_type,
+      retakeReminderDate: result.retake_reminder_date,
+      scoresDetails: result.scores_details,
+      shareEligible: result.share_eligible === true,
+      shortSummary: result.short_summary ?? null,
+      status: mapMyRecordExternalAssessmentStatus(result.status),
+      topStrengths: Array.isArray(result.top_strengths) ? result.top_strengths.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+      updatedAt: result.updated_at,
+      visibility: "private" as const,
+    };
+  }));
+  const propheticWords = ((propheticWordsTableMissing ? [] : propheticWordsResult.data ?? []) as DosUserPropheticWordRow[]).map((word) => ({
+    confirmations: word.confirmations,
+    context: word.context,
+    createdAt: word.created_at,
+    dateReceived: word.date_received,
+    givenBy: word.given_by,
+    id: word.id,
+    notes: word.notes,
+    scriptureReferences: Array.isArray(word.scripture_references) ? word.scripture_references.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+    status: mapMyRecordPropheticWordStatus(word.status),
+    tags: Array.isArray(word.tags) ? word.tags.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+    updatedAt: word.updated_at,
+    wordText: word.word_text,
+  }));
+  const learningChapterRows = (learningChapterNotesTableMissing ? [] : learningChapterNotesResult.data ?? []) as DosUserLearningChapterNoteRow[];
+  const learningChapterNotes = await Promise.all(learningChapterRows.map(async (note) => {
+    let highlightImageUrl: string | null = null;
+
+    if (note.highlight_image_bucket && note.highlight_image_path) {
+      const signedUrlResult = await supabase.storage
+        .from(note.highlight_image_bucket)
+        .createSignedUrl(note.highlight_image_path, 60 * 60);
+
+      highlightImageUrl = signedUrlResult.data?.signedUrl ?? null;
+    }
+
+    return {
+      bookId: note.book_id,
+      chapterNote: {
+        chapterLabel: note.chapter_label,
+        chapterNumber: note.chapter_number,
+        createdAt: note.created_at,
+        highlightImageBucket: note.highlight_image_bucket,
+        highlightImageContentType: note.highlight_image_content_type,
+        highlightImageFileName: note.highlight_image_file_name,
+        highlightImagePath: note.highlight_image_path,
+        highlightImageUploadedAt: note.highlight_image_uploaded_at,
+        highlightImageUrl,
+        highlights: note.highlights,
+        id: note.id,
+        notes: note.notes,
+        personalApplication: note.personal_application,
+        updatedAt: note.updated_at,
+      } satisfies DosAppUserLearningChapterNote,
+    };
+  }));
+  const learningChapterNotesByBookId = new Map<string, DosAppUserLearningChapterNote[]>();
+
+  for (const item of learningChapterNotes) {
+    const notes = learningChapterNotesByBookId.get(item.bookId) ?? [];
+    notes.push(item.chapterNote);
+    learningChapterNotesByBookId.set(item.bookId, notes);
+  }
+
+  const learningBooks = ((learningBooksTableMissing ? [] : learningBooksResult.data ?? []) as DosUserLearningBookRow[]).map((book) => ({
+    author: book.author,
+    chapterNotes: learningChapterNotesByBookId.get(book.id) ?? [],
+    createdAt: book.created_at,
+    finalSummary: book.final_summary,
+    finishedOn: book.finished_on,
+    id: book.id,
+    personalApplication: book.personal_application,
+    shareEligible: book.share_eligible === true,
+    startedOn: book.started_on,
+    status: mapMyRecordLearningBookStatus(book.status),
+    title: book.title,
+    updatedAt: book.updated_at,
+    visibility: "private" as const,
+  }));
+  const lifePlanRow = (lifePlanTableMissing ? null : lifePlanResult.data ?? null) as DosUserLifePlanRow | null;
+  let lifePlan: DosAppUserLifePlan | null = null;
+
+  if (lifePlanRow) {
+    let attachmentUrl: string | null = null;
+
+    if (lifePlanRow.attachment_bucket && lifePlanRow.attachment_path) {
+      const signedUrlResult = await supabase.storage
+        .from(lifePlanRow.attachment_bucket)
+        .createSignedUrl(lifePlanRow.attachment_path, 60 * 60);
+
+      attachmentUrl = signedUrlResult.data?.signedUrl ?? null;
+    }
+
+    lifePlan = {
+      attachmentBucket: lifePlanRow.attachment_bucket,
+      attachmentContentType: lifePlanRow.attachment_content_type,
+      attachmentFileName: lifePlanRow.attachment_file_name,
+      attachmentPath: lifePlanRow.attachment_path,
+      attachmentUploadedAt: lifePlanRow.attachment_uploaded_at,
+      attachmentUrl,
+      callingStatement: lifePlanRow.calling_statement,
+      createdAt: lifePlanRow.created_at,
+      dailyReminder: lifePlanRow.daily_reminder,
+      decisionFilters: Array.isArray(lifePlanRow.decision_filters) ? lifePlanRow.decision_filters.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [],
+      focusAllocation: lifePlanRow.focus_allocation,
+      id: lifePlanRow.id,
+      lastReviewedDate: lifePlanRow.last_reviewed_date,
+      legacyChurch: lifePlanRow.legacy_church,
+      legacyDiscipled: lifePlanRow.legacy_discipled,
+      legacyFamily: lifePlanRow.legacy_family,
+      legacyJesus: lifePlanRow.legacy_jesus,
+      legacyRememberedFor: lifePlanRow.legacy_remembered_for,
+      nextReviewDate: lifePlanRow.next_review_date,
+      originalDateWritten: lifePlanRow.original_date_written,
+      rarelyDo: lifePlanRow.rarely_do,
+      responsibilities: lifePlanRow.responsibilities,
+      reviewHistory: mapMyRecordLifePlanReviewHistory(lifePlanRow.review_history),
+      reviewRhythm: lifePlanRow.review_rhythm,
+      shareEligible: lifePlanRow.share_eligible === true,
+      topPriorities: mapMyRecordLifePlanPriorities(lifePlanRow.top_priorities),
+      updatedAt: lifePlanRow.updated_at,
+      visibility: "private" as const,
+    };
+  }
 
   return {
     data: {
@@ -2059,11 +2616,15 @@ async function loadMyRecordForWorkspace(
       createdAt: recordRow.created_at,
       currentSeasonFocus: recordRow.current_season_focus,
       displayName: recordRow.display_name,
+      externalAssessmentResults,
       id: recordRow.id,
       journalEntries,
+      learningBooks,
+      lifePlan,
       mentorMeetings,
       mentorRelationships,
       prayerLogs,
+      propheticWords,
       updatedAt: recordRow.updated_at,
       userId: recordRow.user_id,
       workspaceId: recordRow.workspace_id,
@@ -2501,6 +3062,12 @@ export async function loadDosAppData(
     };
   }
 
+  const features = {
+    myRecordV2Enabled: isDosMyRecordV2Enabled({
+      userEmail: viewer?.email,
+      workspaceSlug: workspace.slug,
+    }),
+  };
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
@@ -2518,7 +3085,12 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
-    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
+    loadMyRecordForWorkspace(supabase, workspace.id, viewer, {
+      includeExternalAssessments: features.myRecordV2Enabled,
+      includeLearning: features.myRecordV2Enabled,
+      includeLifePlan: features.myRecordV2Enabled,
+      includePropheticWords: features.myRecordV2Enabled,
+    }),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
@@ -3074,6 +3646,7 @@ export async function loadDosAppData(
       myRecord,
       reminders,
       usamApplication,
+      features,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,
