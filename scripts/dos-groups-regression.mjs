@@ -384,10 +384,14 @@ assertIncludes(groupJoinRequestsRoute, "status: nextStatus", "Group join request
 assertIncludes(groupJoinRequestsRoute, "missingJoinRequestsTable", "Group join request API must fail softly before the migration lands.");
 assertIncludes(groupSettingsRoute, "requireDosWorkspaceRouteAccess", "Group settings API must be authenticated and workspace-scoped.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
-assertIncludes(groupSettingsRoute, ".neq(\"id\", groupId)", "Group settings API must validate slug uniqueness excluding the current group.");
+assertIncludes(groupSettingsRoute, "isUuid(groupId)", "Group settings API must tolerate legacy non-UUID client group identifiers.");
+assertIncludes(groupSettingsRoute, ".eq(\"slug\", requestedSlug)", "Group settings API must fall back to workspace-scoped slug lookup.");
+assertIncludes(groupSettingsRoute, "const resolvedGroupId = existingGroupResult.data.id", "Group settings API must normalize saves to the real group id.");
+assertIncludes(groupSettingsRoute, ".neq(\"id\", resolvedGroupId)", "Group settings API must validate slug uniqueness excluding the resolved current group.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_gatherings\")", "Group settings API must update future gathering locations when confirmed.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settings API must update leader membership.");
 assertIncludes(groupSettingsRoute, "return explicitRhythm || generated || null", "Group settings API must preserve the explicit generated multi-day rhythm label.");
+assertIncludes(appClient, "setSelectedGroupId(result.group.id)", "Group Settings must switch from a fallback identifier to the resolved group id after save.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
 assertIncludes(publicGroupPage, ".from(\"dos_groups\")", "Public group route must resolve from real group data.");
 assertIncludes(publicGroupPage, ".eq(\"slug\", slug)", "Public group route must resolve groups by slug.");

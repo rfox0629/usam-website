@@ -25267,6 +25267,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             : null,
         },
       }));
+      if (result.group.id && result.group.id !== payload.groupId) {
+        setSelectedGroupId(result.group.id);
+      }
       setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Group"} saved.`);
       setGroupSettingsMessage({ text: "Group settings saved.", tone: "success" });
 
