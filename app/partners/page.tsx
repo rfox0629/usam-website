@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { PartnersFaqAccordion } from "./PartnersFaqAccordion";
 import { groupPartnersDocuments, listPartnersDocuments } from "@/src/lib/partners-documents";
@@ -24,6 +25,7 @@ const inPageNav = [
   { href: "#takeon", label: "What We Take On" },
   { href: "#legal", label: "Legal Options" },
   { href: "#roadmap", label: "Roadmap" },
+  { href: "#board", label: "The Board" },
   { href: "#documents", label: "Documents" },
   { href: "#faq", label: "FAQ" },
 ] as const;
@@ -935,6 +937,110 @@ function RoadmapSection() {
 }
 
 /* ---------------------------------------------------------------------- */
+/* GOVERNANCE & BOARD                                                      */
+/* ---------------------------------------------------------------------- */
+
+const boardMembers = [
+  {
+    bio: "Founder and President of USA Missionaries. Over 15 years of experience in business, nonprofit, and pastoral leadership; background in finance, operations, and strategic growth ensures USA Missionaries is founded on integrity, transparency, and sound governance.",
+    name: "Ryan Fox",
+    photo: "/images/board/ryan-fox.webp",
+    title: "President",
+  },
+  {
+    bio: "Formerly Chief Compliance Officer and COO of a national financial services company that processed payments for thousands of nonprofits; implemented SOC 2 compliance, corporate policy, and risk management frameworks. Currently COO at a national recruiting firm; brings deep expertise in compliance, systems, and operational excellence.",
+    name: "Brandon Murphy",
+    photo: "/images/board/brandon-murphy.webp",
+    title: "Vice President",
+  },
+  {
+    bio: "Treasurer of USA Missionaries and Executive Pastor / Campus Pastor at Life Church in Germantown. Over 17 years in ministry leadership overseeing financial planning, audits, and compliance across multiple campuses. Holds an MBA from Southeastern University.",
+    name: "Ryan Coggins",
+    photo: "/images/board/ryan-coggins.webp",
+    title: "Treasurer",
+  },
+  {
+    bio: "Oversees administrative governance and communications. Strong organizational leadership and ministry coordination experience, ensuring accurate records, board transparency, and smooth operations.",
+    name: "Brooke Fox",
+    photo: "/images/board/brooke-fox.webp",
+    title: "Secretary",
+  },
+] as const;
+
+function GovernanceSection() {
+  return (
+    <Section id="board" variant="panel">
+      <Eyebrow>Sec 10: Governance & Board</Eyebrow>
+      <SectionHeading>Governed with Integrity</SectionHeading>
+      <Lede>
+        USA Missionaries is governed by an independent board with deep experience in ministry leadership, finance,
+        compliance, and operations.
+      </Lede>
+
+      <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {boardMembers.map((member) => (
+          <article className="border border-stone-800 bg-usam-black" key={member.name}>
+            <div className="relative aspect-square w-full overflow-hidden bg-stone-900">
+              <Image
+                alt={`${member.name} headshot`}
+                className="object-cover"
+                fill
+                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                src={member.photo}
+              />
+            </div>
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
+                {member.name}
+              </h3>
+              <p
+                className="mt-1 text-[10.5px] uppercase tracking-[0.2em] text-usam-gold"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              >
+                {member.title}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-stone-400">{member.bio}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-14">
+        <p
+          className="flex items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-usam-gold"
+          style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+        >
+          Professional Advisors
+          <span aria-hidden="true" className="h-px flex-1 bg-stone-800" />
+        </p>
+        <div className="mt-5 max-w-xl border border-stone-800 bg-white/[0.015] px-6 py-5">
+          <span
+            className="inline-flex items-center border border-usam-gold/40 px-2 py-0.5 text-[9.5px] uppercase tracking-[0.18em] text-usam-gold"
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          >
+            Advisor
+          </span>
+          <h4 className="mt-3 text-base font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
+            Garrett Richetto
+          </h4>
+          <p
+            className="mt-1 text-[11px] uppercase tracking-[0.18em] text-stone-500"
+            style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+          >
+            Accounting & Bookkeeping Partner
+          </p>
+          <p className="mt-1 text-xs text-stone-500">Dariba · Plover, Wisconsin</p>
+          <p className="mt-3 text-sm leading-6 text-stone-400">
+            USA Missionaries partners with Dariba for bookkeeping, financial reporting, payroll, and tax
+            preparation, keeping the organization&rsquo;s records accurate, current, and audit-ready.
+          </p>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 /* DUE DILIGENCE LIBRARY                                                   */
 /* ---------------------------------------------------------------------- */
 
@@ -964,7 +1070,7 @@ async function DocumentsSection() {
 
   return (
     <Section id="documents">
-      <Eyebrow>Sec 10: Due Diligence</Eyebrow>
+      <Eyebrow>Sec 11: Due Diligence</Eyebrow>
       <SectionHeading>Due Diligence Library</SectionHeading>
       <Lede>
         Everything a board, attorney, or CPA needs to evaluate USA Missionaries, organized, current, and available
@@ -1026,7 +1132,7 @@ async function DocumentsSection() {
 function StewardshipSection() {
   return (
     <Section id="stewardship" variant="panel">
-      <Eyebrow>Sec 11: Stewardship</Eyebrow>
+      <Eyebrow>Sec 12: Stewardship</Eyebrow>
       <SectionHeading>Cost & Stewardship</SectionHeading>
       <Prose>
         <p>
@@ -1116,7 +1222,7 @@ function StewardshipSection() {
 function FaqSection() {
   return (
     <Section id="faq">
-      <Eyebrow>Sec 12: Questions</Eyebrow>
+      <Eyebrow>Sec 13: Questions</Eyebrow>
       <SectionHeading>Frequently Asked Questions</SectionHeading>
       <Lede>The questions ministry leaders, boards, and advisors ask most, answered plainly.</Lede>
       <PartnersFaqAccordion />
@@ -1132,7 +1238,7 @@ function CtaSection() {
   return (
     <Section id="contact" variant="feature">
       <div className="text-center">
-        <Eyebrow center>Sec 13: Next Step</Eyebrow>
+        <Eyebrow center>Sec 14: Next Step</Eyebrow>
         <h2
           className="mx-auto mt-5 max-w-2xl text-[clamp(2rem,4.4vw,2.9rem)] font-bold leading-tight text-stone-100"
           style={{ fontFamily: font.oswald }}
@@ -1211,6 +1317,7 @@ export default function PartnersPage() {
       <NotAwaySection />
       <LegalSection />
       <RoadmapSection />
+      <GovernanceSection />
       <DocumentsSection />
       <StewardshipSection />
       <FaqSection />
