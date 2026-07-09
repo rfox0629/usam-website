@@ -8,8 +8,10 @@ type HouseholdMemberRelationship = "child" | "spouse";
 type ExistingPersonRow = {
   children_names?: string | null;
   church?: string | null;
+  created_by?: string | null;
   discipleship_stage?: string | null;
   engagement_level?: string | null;
+  email?: string | null;
   field_visibility?: string | null;
   household_id?: string | null;
   household_notes?: string | null;
@@ -44,6 +46,14 @@ type HouseholdMemberPersonInput = {
   workspaceId: string;
 };
 
+type DosViewerPersonInput = {
+  email?: string | null;
+  phone?: string | null;
+  userId?: string | null;
+  workspaceDisplayName?: string | null;
+  workspaceId: string;
+};
+
 type HouseholdMemberCandidate = {
   name: string;
   relationship: HouseholdMemberRelationship;
@@ -53,6 +63,12 @@ type HouseholdMemberSyncResult = {
   createdCount: number;
   error: SupabaseQueryError;
   updatedCount: number;
+};
+
+type ViewerProfileRow = {
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
 };
 
 const relationshipModelKeys = ["relationship_context", "role_in_my_life", "discipleship_stage"];
@@ -65,6 +81,18 @@ function cleanText(value: string | null | undefined) {
 
 function nameKey(value: string | null | undefined) {
   return cleanText(value).toLowerCase();
+}
+
+function normalizeEmail(value: string | null | undefined) {
+  const email = cleanText(value).toLowerCase();
+
+  return email ? email : null;
+}
+
+function normalizePhone(value: string | null | undefined) {
+  const digits = cleanText(value).replace(/\D/g, "");
+
+  return digits.length >= 7 ? digits : null;
 }
 
 function isMissingColumnError(error: SupabaseQueryError, columns: string[]) {
@@ -171,9 +199,9 @@ export function householdMemberPersonCandidates(input: {
 }
 
 async function loadExistingPeople(supabase: SupabaseAdminClient, workspaceId: string) {
-  const select = "id, name, phone, church, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id";
-  const fallbackSelect = "id, name, phone, church, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id";
-  const legacyFallbackSelect = "id, name, phone, church, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, household_id, workspace_id";
+  const select = "id, name, phone, email, church, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id, created_by";
+  const fallbackSelect = "id, name, phone, email, church, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, household_id, workspace_id, created_by";
+  const legacyFallbackSelect = "id, name, phone, email, church, status, relationship_type, engagement_level, spouse_name, children_names, household_notes, household_id, workspace_id, created_by";
   const scopedResult = await supabase
     .from("missionary_field_people")
     .select(select)
@@ -295,6 +323,49 @@ function buildHouseholdTeamMemberInsert(workspaceId: string, member: HouseholdTe
   };
 }
 
+function viewerEmailName(value: string | null | undefined) {
+  const email = normalizeEmail(value);
+  const localPart = email?.split("@")[0] ?? "";
+  const words = localPart
+    .split(/[._+-]+/)
+    .map(cleanText)
+    .filter(Boolean);
+
+  return words.length
+    ? words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
+    : "";
+}
+
+function viewerDisplayName(input: DosViewerPersonInput, profile: ViewerProfileRow | null) {
+  const profileName = cleanText([profile?.first_name, profile?.last_name].filter(Boolean).join(" "));
+
+  return profileName
+    || viewerEmailName(profile?.email ?? input.email)
+    || cleanText(input.workspaceDisplayName)
+    || "DOS User";
+}
+
+function buildDosViewerPersonInsert(input: DosViewerPersonInput, profile: ViewerProfileRow | null) {
+  return {
+    church: null,
+    created_by: input.userId ?? null,
+    discipleship_stage: "not_started",
+    email: normalizeEmail(profile?.email ?? input.email),
+    engagement_level: "0",
+    field_visibility: "secondary",
+    household_id: input.workspaceId,
+    household_notes: "Default DOS user person for workspace ownership, group leadership, attendance, and prayer context.",
+    name: viewerDisplayName(input, profile),
+    phone: cleanText(input.phone) || null,
+    relationship_context: "family",
+    relationship_type: "new",
+    role_in_my_life: "not_active",
+    source: "field",
+    status: "active",
+    workspace_id: input.workspaceId,
+  };
+}
+
 function buildExistingPersonUpdate(existing: ExistingPersonRow, input: HouseholdMemberPersonInput, candidate: HouseholdMemberCandidate) {
   const update: Record<string, unknown> = {};
 
@@ -377,6 +448,149 @@ function buildExistingHouseholdTeamMemberUpdate(existing: ExistingPersonRow, mem
   }
 
   return update;
+}
+
+function buildExistingDosViewerPersonUpdate(existing: ExistingPersonRow, input: DosViewerPersonInput, profile: ViewerProfileRow | null) {
+  const update: Record<string, unknown> = {};
+  const email = normalizeEmail(profile?.email ?? input.email);
+  const phone = cleanText(input.phone);
+
+  if (!cleanText(existing.created_by) && input.userId) {
+    update.created_by = input.userId;
+  }
+
+  if (!normalizeEmail(existing.email) && email) {
+    update.email = email;
+  }
+
+  if (!cleanText(existing.phone) && phone) {
+    update.phone = phone;
+  }
+
+  if (!cleanText(existing.workspace_id)) {
+    update.workspace_id = input.workspaceId;
+  }
+
+  if (!cleanText(existing.household_id)) {
+    update.household_id = input.workspaceId;
+  }
+
+  if (!cleanText(existing.relationship_context)) {
+    update.relationship_context = "family";
+  }
+
+  if (!cleanText(existing.relationship_type)) {
+    update.relationship_type = "new";
+  }
+
+  if (!cleanText(existing.role_in_my_life)) {
+    update.role_in_my_life = "not_active";
+  }
+
+  if (!cleanText(existing.discipleship_stage)) {
+    update.discipleship_stage = "not_started";
+  }
+
+  if (!cleanText(existing.engagement_level)) {
+    update.engagement_level = "0";
+  }
+
+  if (!cleanText(existing.field_visibility)) {
+    update.field_visibility = "secondary";
+  }
+
+  if (!cleanText(existing.household_notes)) {
+    update.household_notes = "Default DOS user person for workspace ownership, group leadership, attendance, and prayer context.";
+  }
+
+  if (["archived", "deleted"].includes(cleanText(existing.status).toLowerCase())) {
+    update.status = "active";
+  }
+
+  return update;
+}
+
+async function loadViewerProfile(supabase: SupabaseAdminClient, input: DosViewerPersonInput) {
+  const queries = [
+    input.userId
+      ? supabase
+        .from("profiles")
+        .select("first_name, last_name, email")
+        .eq("user_id", input.userId)
+        .limit(1)
+        .maybeSingle()
+      : null,
+    input.email
+      ? supabase
+        .from("profiles")
+        .select("first_name, last_name, email")
+        .ilike("email", input.email)
+        .limit(1)
+        .maybeSingle()
+      : null,
+  ].filter((query): query is NonNullable<typeof query> => Boolean(query));
+
+  for (const query of queries) {
+    const result = await query;
+
+    if (result.error) {
+      const message = result.error.message.toLowerCase();
+
+      if (message.includes("profiles") && (message.includes("does not exist") || message.includes("schema cache"))) {
+        return { data: null, error: null };
+      }
+
+      return { data: null, error: result.error };
+    }
+
+    if (result.data) {
+      return { data: result.data as ViewerProfileRow, error: null };
+    }
+  }
+
+  return { data: null, error: null };
+}
+
+function findExistingDosViewerPerson(rows: ExistingPersonRow[], input: DosViewerPersonInput, profile: ViewerProfileRow | null) {
+  const userId = cleanText(input.userId);
+  const email = normalizeEmail(profile?.email ?? input.email);
+  const phone = normalizePhone(input.phone);
+  const displayName = nameKey(viewerDisplayName(input, profile));
+  const activeRows = rows.filter((row) => !["archived", "deleted"].includes(cleanText(row.status).toLowerCase()));
+
+  if (userId) {
+    const match = activeRows.find((row) => cleanText(row.created_by) === userId);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (email) {
+    const match = activeRows.find((row) => normalizeEmail(row.email) === email);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (phone) {
+    const match = activeRows.find((row) => normalizePhone(row.phone) === phone);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  if (displayName) {
+    const matches = activeRows.filter((row) => nameKey(row.name) === displayName);
+
+    if (matches.length === 1) {
+      return matches[0];
+    }
+  }
+
+  return null;
 }
 
 async function insertHouseholdMemberPerson(
@@ -511,6 +725,55 @@ export async function syncHouseholdMembersAsPeople(
   }
 
   return { createdCount, error: null, updatedCount };
+}
+
+export async function ensureDosViewerPerson(
+  supabase: SupabaseAdminClient,
+  input: DosViewerPersonInput,
+): Promise<HouseholdMemberSyncResult> {
+  if (!cleanText(input.userId) && !normalizeEmail(input.email) && !normalizePhone(input.phone)) {
+    return { createdCount: 0, error: null, updatedCount: 0 };
+  }
+
+  const [existingResult, profileResult] = await Promise.all([
+    loadExistingPeople(supabase, input.workspaceId),
+    loadViewerProfile(supabase, input),
+  ]);
+
+  if (existingResult.error) {
+    return { createdCount: 0, error: existingResult.error, updatedCount: 0 };
+  }
+
+  if (profileResult.error) {
+    return { createdCount: 0, error: profileResult.error, updatedCount: 0 };
+  }
+
+  const existingPerson = findExistingDosViewerPerson((existingResult.data ?? []) as ExistingPersonRow[], input, profileResult.data);
+
+  if (existingPerson) {
+    const update = buildExistingDosViewerPersonUpdate(existingPerson, input, profileResult.data);
+
+    if (!Object.keys(update).length) {
+      return { createdCount: 0, error: null, updatedCount: 0 };
+    }
+
+    const updateResult = await updateHouseholdMemberPerson(supabase, input.workspaceId, existingPerson.id, update);
+
+    if (updateResult.error) {
+      return { createdCount: 0, error: updateResult.error, updatedCount: 0 };
+    }
+
+    return { createdCount: 0, error: null, updatedCount: 1 };
+  }
+
+  const insertRecord = buildDosViewerPersonInsert(input, profileResult.data);
+  const insertResult = await insertHouseholdMemberPerson(supabase, insertRecord);
+
+  if (insertResult.error || !insertResult.data?.id) {
+    return { createdCount: 0, error: insertResult.error, updatedCount: 0 };
+  }
+
+  return { createdCount: 1, error: null, updatedCount: 0 };
 }
 
 export async function syncHouseholdTeamMembersAsPeople(

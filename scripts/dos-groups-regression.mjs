@@ -21,6 +21,7 @@ function assertIncludes(source, needle, message) {
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
+const householdMemberPeople = read("src/lib/dos/household-member-people.ts");
 const groupSeeds = read("src/lib/dos/group-seeds.ts");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
@@ -37,6 +38,7 @@ const publicGroupPageTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
 const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
 const publicSingleGroupRoute = `${publicGroupPage}\n${publicGroupPageTemplate}`;
+const validUuidFinalSegments = "[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
 for (const table of [
   "dos_groups",
@@ -103,6 +105,10 @@ assertIncludes(realWorkspaceSeedMigration, "on conflict (group_id, person_id)", 
 assertIncludes(missionaryApp, "export type DosAppGroup", "DOS data model must export group data.");
 assertIncludes(missionaryApp, "groups: DosAppGroup[]", "DOS app data must include groups.");
 assertIncludes(missionaryApp, "ensureRyanDosWorkspaceGroups", "Real DOS workspace loader must run the Ryan groups seed path.");
+assertIncludes(missionaryApp, "ensureDosViewerPerson", "DOS app data loader must prepare the signed-in user as a shared Field person.");
+assertIncludes(householdMemberPeople, "export async function ensureDosViewerPerson", "DOS signed-in users must have a default shared Person upsert path.");
+assertIncludes(householdMemberPeople, "Default DOS user person", "Default DOS user person records must be traceable without creating separate Group people.");
+assertIncludes(householdMemberPeople, "findExistingDosViewerPerson", "Default DOS user person creation must reuse existing people before inserting.");
 assertIncludes(
   missionaryApp,
   "type DosAppWorkspaceRef",
@@ -369,6 +375,7 @@ assertIncludes(prayerRoute, "gatheringId", "DOS prayer API must accept gathering
 assertIncludes(prayerRoute, "meetingId", "DOS prayer API must accept meeting context.");
 assertIncludes(prayerRoute, "priority", "DOS prayer API must accept priority.");
 assertIncludes(groupMembersRoute, "requireDosWorkspaceRouteAccess", "Group member API must be authenticated and workspace-scoped.");
+assertIncludes(groupMembersRoute, validUuidFinalSegments, "Group member API must accept valid UUIDs with the final hyphenated segment.");
 assertIncludes(groupMembersRoute, ".from(\"dos_group_members\")", "Group member API must write dos_group_members.");
 assertIncludes(groupMembersRoute, ".eq(\"group_id\", groupId)", "Group member API must check existing group membership.");
 assertIncludes(groupMembersRoute, ".eq(\"person_id\", person.id)", "Group member API must prevent duplicate memberships by person.");
@@ -387,6 +394,7 @@ assertIncludes(groupJoinRequestsRoute, "missingJoinRequestsTable", "Group join r
 assertIncludes(groupSettingsRoute, "requireDosWorkspaceRouteAccess", "Group settings API must be authenticated and workspace-scoped.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
 assertIncludes(groupSettingsRoute, "isUuid(groupId)", "Group settings API must tolerate legacy non-UUID client group identifiers.");
+assertIncludes(groupSettingsRoute, validUuidFinalSegments, "Group settings API must accept valid UUIDs for group and leader ids.");
 assertIncludes(groupSettingsRoute, ".eq(\"slug\", requestedSlug)", "Group settings API must fall back to workspace-scoped slug lookup.");
 assertIncludes(groupSettingsRoute, "const resolvedGroupId = existingGroupResult.data.id", "Group settings API must normalize saves to the real group id.");
 assertIncludes(groupSettingsRoute, ".neq(\"id\", resolvedGroupId)", "Group settings API must validate slug uniqueness excluding the resolved current group.");
