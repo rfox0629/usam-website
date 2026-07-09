@@ -169,6 +169,34 @@ type GroupMemberAddResult = {
     phone: string;
   };
 };
+type GroupJoinRequest = {
+  createdAt: string;
+  email: string;
+  firstName: string;
+  groupId: string | null;
+  id: string;
+  lastName: string;
+  message: string | null;
+  phone: string | null;
+  sourceGroupSlug: string;
+  sourcePath: string;
+  status: "pending" | "reviewed" | "accepted" | "declined" | "archived" | string;
+  submittedAt: string;
+  updatedAt: string | null;
+  workspaceId: string | null;
+};
+type GroupJoinRequestsResult = {
+  error?: string;
+  ok?: boolean;
+  requests?: GroupJoinRequest[];
+  warning?: string;
+};
+type GroupJoinRequestAction = "accept" | "decline" | "review";
+type GroupJoinRequestActionResult = GroupMemberAddResult & {
+  error?: string;
+  ok?: boolean;
+  request?: GroupJoinRequest;
+};
 type GroupSettingsSavePayload = {
   active: boolean;
   dayOfWeek: string;
@@ -5995,6 +6023,7 @@ function GroupCard({
 function GroupsWorkspace({
   groups,
   groupsNotice,
+  isPreview,
   onAddPrayer,
   onCopyPublicDirectoryLink,
   onCopyPublicLink,
@@ -6002,6 +6031,7 @@ function GroupsWorkspace({
   onDetailTabChange,
   onEditGroup,
   onInvite,
+  onJoinRequestAccepted,
   onLogAsTable,
   onOpenGroup,
   onSchedule,
@@ -6013,9 +6043,11 @@ function GroupsWorkspace({
   selectedGroup,
   selectedTab,
   view,
+  workspaceId,
 }: {
   groups: DosAppGroup[];
   groupsNotice: string;
+  isPreview: boolean;
   onAddPrayer: () => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
@@ -6023,6 +6055,7 @@ function GroupsWorkspace({
   onDetailTabChange: (tab: GroupDetailTab) => void;
   onEditGroup: () => void;
   onInvite: () => void;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
   onSchedule: () => void;
@@ -6034,23 +6067,27 @@ function GroupsWorkspace({
   selectedGroup: DosAppGroup | null;
   selectedTab: GroupDetailTab;
   view: GroupsListView;
+  workspaceId: string;
 }) {
   if (selectedGroup) {
     return (
       <GroupDetailWorkspace
         group={selectedGroup}
+        isPreview={isPreview}
         notice={groupsNotice}
         onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
         onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
         onEditGroup={onEditGroup}
         onInvite={onInvite}
+        onJoinRequestAccepted={onJoinRequestAccepted}
         onLogAsTable={onLogAsTable}
         onSchedule={onSchedule}
         onTabChange={onDetailTabChange}
         onTakeAttendance={onTakeAttendance}
         onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
         tab={selectedTab}
+        workspaceId={workspaceId}
       />
     );
   }
@@ -6119,32 +6156,38 @@ function GroupsWorkspace({
 
 function GroupDetailWorkspace({
   group,
+  isPreview,
   notice,
   onAddPrayer,
   onBack,
   onCopyPublicLink,
   onEditGroup,
   onInvite,
+  onJoinRequestAccepted,
   onViewPublicGroup,
   onLogAsTable,
   onSchedule,
   onTabChange,
   onTakeAttendance,
   tab,
+  workspaceId,
 }: {
   group: DosAppGroup;
+  isPreview: boolean;
   notice: string;
   onAddPrayer: () => void;
   onBack: () => void;
   onCopyPublicLink: () => void;
   onEditGroup: () => void;
   onInvite: () => void;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onViewPublicGroup: () => void;
   onLogAsTable: () => void;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onTakeAttendance: () => void;
   tab: GroupDetailTab;
+  workspaceId: string;
 }) {
   const nextGathering = nextGroupGathering(group);
   const [activeGatheringRun, setActiveGatheringRun] = useState<{ gatheringId: string; startedAt: number } | null>(null);
@@ -6411,7 +6454,7 @@ function GroupDetailWorkspace({
       ) : null}
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
       {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
-      {tab === "members" ? <GroupMembersTab group={group} /> : null}
+      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} workspaceId={workspaceId} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
@@ -7309,25 +7352,240 @@ function groupOverviewRhythms(group: DosAppGroup) {
   ];
 }
 
-function GroupMembersTab({ group }: { group: DosAppGroup }) {
+function groupJoinRequestName(request: GroupJoinRequest) {
+  return [request.firstName, request.lastName].map((part) => part.trim()).filter(Boolean).join(" ").trim() || "Group request";
+}
+
+function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
+  if (status === "reviewed") {
+    return "Reviewed";
+  }
+
+  if (status === "accepted") {
+    return "Accepted";
+  }
+
+  if (status === "declined") {
+    return "Declined";
+  }
+
+  return "Pending";
+}
+
+function GroupMembersTab({
+  group,
+  isPreview,
+  onJoinRequestAccepted,
+  workspaceId,
+}: {
+  group: DosAppGroup;
+  isPreview: boolean;
+  onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  workspaceId: string;
+}) {
+  const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
+  const [joinRequestsMessage, setJoinRequestsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [submittingJoinRequest, setSubmittingJoinRequest] = useState<string | null>(null);
+
+  async function loadJoinRequests() {
+    if (isPreview) {
+      setJoinRequests([]);
+      setJoinRequestsMessage(null);
+      return;
+    }
+
+    setIsLoadingJoinRequests(true);
+    setJoinRequestsMessage(null);
+
+    try {
+      const params = new URLSearchParams({
+        groupId: group.id,
+        workspaceId,
+      });
+      const response = await fetch(`/api/dos/app/groups/join-requests?${params.toString()}`);
+      const result = await response.json().catch(() => ({})) as GroupJoinRequestsResult;
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to load pending requests.");
+      }
+
+      setJoinRequests(result.requests ?? []);
+      setJoinRequestsMessage(result.warning ? { text: result.warning, tone: "error" } : null);
+    } catch (error) {
+      setJoinRequests([]);
+      setJoinRequestsMessage({ text: error instanceof Error ? error.message : "Unable to load pending requests.", tone: "error" });
+    } finally {
+      setIsLoadingJoinRequests(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadJoinRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.id, isPreview, workspaceId]);
+
+  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction) {
+    if (isPreview) {
+      setJoinRequestsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setSubmittingJoinRequest(`${action}:${requestId}`);
+    setJoinRequestsMessage(null);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/join-requests", {
+        body: JSON.stringify({
+          action,
+          groupId: group.id,
+          requestId,
+          workspaceId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as GroupJoinRequestActionResult;
+
+      if (!response.ok || !result.request) {
+        throw new Error(result.error ?? "Unable to update this request.");
+      }
+
+      if (action === "accept") {
+        onJoinRequestAccepted(group.id, result);
+      }
+
+      setJoinRequests((current) => action === "review"
+        ? current.map((request) => request.id === requestId ? (result.request as GroupJoinRequest) : request)
+        : current.filter((request) => request.id !== requestId));
+      setJoinRequestsMessage({
+        text: action === "accept"
+          ? "Request accepted and added to the group."
+          : action === "decline"
+            ? "Request declined."
+            : "Request marked reviewed.",
+        tone: "success",
+      });
+    } catch (error) {
+      setJoinRequestsMessage({ text: error instanceof Error ? error.message : "Unable to update this request.", tone: "error" });
+    } finally {
+      setSubmittingJoinRequest(null);
+    }
+  }
+
   return (
-    <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
-      {group.members.length ? (
-        <div className="grid gap-2">
-          {group.members.map((member) => (
-            <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] xl:items-start">
+      <DesktopPanel
+        action={(
+          <button
+            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLoadingJoinRequests}
+            onClick={() => void loadJoinRequests()}
+            type="button"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingJoinRequests ? "animate-spin" : ""}`} aria-hidden="true" strokeWidth={2} />
+            Refresh
+          </button>
+        )}
+        eyebrow="Pending Requests"
+        title={`${joinRequests.length} ${joinRequests.length === 1 ? "request" : "requests"}`}
+      >
+        {joinRequestsMessage ? (
+          <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            joinRequestsMessage.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {joinRequestsMessage.text}
+          </p>
+        ) : null}
+        {isLoadingJoinRequests ? (
+          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">Loading pending requests...</p>
+        ) : joinRequests.length ? (
+          <div className="grid gap-2">
+            {joinRequests.map((request) => {
+              const name = groupJoinRequestName(request);
+              const isSubmittingRequest = submittingJoinRequest?.endsWith(`:${request.id}`) ?? false;
+
+              return (
+                <article className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3.5" key={request.id}>
+                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-[#0F172A]">{name}</p>
+                      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748B]">
+                        <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{request.email}</span>
+                        {request.phone ? <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatPhoneNumber(request.phone)}</span> : null}
+                      </p>
+                    </div>
+                    <GroupPill tone={request.status === "reviewed" ? "blue" : "gray"}>{groupJoinRequestStatusLabel(request.status)}</GroupPill>
+                  </div>
+                  {request.message ? (
+                    <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#475569]">{request.message}</p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-[#94A3B8]">{formatRelativeDate(request.submittedAt)} · {request.sourcePath}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {request.status === "pending" ? (
+                        <button
+                          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={Boolean(submittingJoinRequest)}
+                          onClick={() => void reviewJoinRequest(request.id, "review")}
+                          type="button"
+                        >
+                          Mark Reviewed
+                        </button>
+                      ) : null}
+                      <button
+                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={Boolean(submittingJoinRequest)}
+                        onClick={() => void reviewJoinRequest(request.id, "decline")}
+                        type="button"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={Boolean(submittingJoinRequest)}
+                        onClick={() => void reviewJoinRequest(request.id, "accept")}
+                        type="button"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                        {isSubmittingRequest ? "Saving..." : "Accept"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState
+            text="Public join requests will appear here for group leaders before anyone is added."
+            title="No pending requests."
+          />
+        )}
+      </DesktopPanel>
+      <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
+        {group.members.length ? (
+          <div className="grid gap-2">
+            {group.members.map((member) => (
+              <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+                </div>
+                <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
               </div>
-              <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-[#64748B]">No members linked yet.</p>
-      )}
-    </DesktopPanel>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[#64748B]">No members linked yet.</p>
+        )}
+      </DesktopPanel>
+    </div>
   );
 }
 
@@ -24668,6 +24926,35 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }
 
+  function applyGroupJoinRequestResult(groupId: string, result: GroupJoinRequestActionResult) {
+    if (result.member) {
+      setGroupMemberAdditions((current) => {
+        const existing = current[groupId] ?? [];
+        const withoutDuplicate = existing.filter((member) => member.personId !== result.member?.personId && member.id !== result.member?.id);
+
+        return {
+          ...current,
+          [groupId]: [...withoutDuplicate, result.member as DosAppGroupMember],
+        };
+      });
+    }
+
+    if (result.person) {
+      setQuickAddedPeople((current) => current.some((person) => person.id === result.person?.id)
+        ? current
+        : [...current, optimisticPersonFromGroupResult(result.person as NonNullable<GroupMemberAddResult["person"]>)]);
+    }
+
+    if (result.member) {
+      const message = result.alreadyMember
+        ? `${result.member.personName} is already in this group.`
+        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+
+      setGroupsNotice(message);
+      router.refresh();
+    }
+  }
+
   async function addGroupMember(payload: GroupMemberAddPayload) {
     setGroupInviteMessage(null);
     setErrorMessage("");
@@ -27976,6 +28263,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <GroupsWorkspace
                     groups={groups}
                     groupsNotice={groupsNotice}
+                    isPreview={isPreview}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
@@ -27983,6 +28271,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onDetailTabChange={setGroupDetailTab}
                     onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}
+                    onJoinRequestAccepted={applyGroupJoinRequestResult}
                     onLogAsTable={() => openForm("meeting")}
                     onOpenGroup={(groupId) => {
                       if (groupId) {
@@ -28006,6 +28295,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     selectedGroup={selectedGroup}
                     selectedTab={groupDetailTab}
                     view={groupsView}
+                    workspaceId={data.workspace.id}
                   />
                 ) : null}
 
