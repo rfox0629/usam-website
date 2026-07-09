@@ -28,6 +28,7 @@ const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_pra
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
+const publicGroupsDirectoryPage = read("app/groups/page.tsx");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
 const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
@@ -211,6 +212,12 @@ assert(
 );
 assertIncludes(appClient, "function GroupsWorkspace", "Groups list workspace must render.");
 assertIncludes(appClient, "function GroupDetailWorkspace", "Groups detail workspace must render.");
+assertIncludes(appClient, "My Groups", "Private DOS Groups must include My Groups.");
+assertIncludes(appClient, "All Groups", "Private DOS Groups must include All Groups.");
+assertIncludes(appClient, "GroupsSearchInput", "Private DOS Groups must include search.");
+assertIncludes(appClient, "New Group", "Private DOS Groups must expose New Group.");
+assertIncludes(appClient, "Copy Public Directory Link", "Private DOS Groups must expose public directory copy without becoming the public directory.");
+assertIncludes(appClient, "onCopyPublicDirectoryLink", "Private DOS Groups must wire public directory link copying.");
 assertIncludes(appClient, "xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)]", "Desktop group detail header must preserve a sensible text column width.");
 assertIncludes(appClient, "max-w-4xl", "Group detail title and scripture column must use the available width instead of collapsing.");
 assertIncludes(appClient, "whitespace-normal text-sm leading-6", "Group scripture text must render as normal paragraph copy.");
@@ -227,8 +234,6 @@ assertIncludes(appClient, "pb-32 md:space-y-4 md:pb-4", "Group detail must keep 
 assertIncludes(appClient, "xl:grid-cols-2 xl:items-start", "Group overview must use a two-column desktop dashboard layout.");
 assertIncludes(appClient, "GroupMobileSummaryCard", "Mobile group overview must use compact summary cards instead of the full desktop dashboard.");
 assertIncludes(appClient, "Upcoming Discipleship Rhythms", "Mobile group overview must summarize upcoming rhythms.");
-assertIncludes(appClient, "My Groups", "Groups list must include My Groups tab.");
-assertIncludes(appClient, "All Groups", "Groups list must include All Groups tab.");
 for (const tab of [
   "Overview",
   "Members",
@@ -248,8 +253,8 @@ assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gat
 assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
 assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
 assertIncludes(appClient, 'label: "Add to Group"', "Group detail action must be renamed Add to Group.");
-assertIncludes(appClient, "Copy Link", "Group detail must expose a separate public link copy action.");
-assertIncludes(appClient, "View Public", "Group detail must expose View Public Page.");
+assertIncludes(appClient, "Copy Public Link", "Group detail and cards must expose a public link copy action.");
+assertIncludes(appClient, "View Public Page", "Group detail and cards must expose View Public Page.");
 assertIncludes(appClient, "copyPublicGroupLink", "Group detail must wire public group link copying.");
 assertIncludes(appClient, "/api/dos/app/groups/members", "Group Invite must call the member API route.");
 assertIncludes(appClient, "groupMemberAdditions", "Group Invite must update group members locally after adding.");
@@ -385,7 +390,25 @@ assertIncludes(publicGroupPage, "Next Gathering", "Public group route must inclu
 assertIncludes(publicGroupPage, "Request Information", "Public group route must include Request Information.");
 assertIncludes(publicGroupPage, "Join Group", "Public group route must include Join Group placeholder.");
 assertIncludes(publicGroupPage, "Powered by", "Public group route must include the powered-by footer.");
+assertIncludes(publicGroupsDirectoryPage, ".from(\"dos_groups\")", "Public groups directory must resolve from real group data.");
+assertIncludes(publicGroupsDirectoryPage, ".eq(\"active\", true)", "Public groups directory must only list active groups.");
+assertIncludes(publicGroupsDirectoryPage, "fallbackPublicDirectoryGroups", "Public groups directory must have safe local fallback data.");
+assertIncludes(publicGroupsDirectoryPage, "href={`/groups/${group.slug}`}", "Public groups directory cards must link to public group pages.");
+assertIncludes(publicGroupsDirectoryPage, "Powered by", "Public groups directory must include the powered-by footer.");
+assert(
+  !publicGroupsDirectoryPage.includes("dos_group_members"),
+  "Public groups directory must not expose member data.",
+);
+assert(
+  !publicGroupsDirectoryPage.includes("dos_group_attendance"),
+  "Public groups directory must not expose attendance data.",
+);
+assert(
+  !publicGroupsDirectoryPage.includes("prayer_requests"),
+  "Public groups directory must not expose private prayer data.",
+);
 
+assert(exists("app/groups/page.tsx"), "Groups must create the public directory route.");
 assert(exists("app/groups/[slug]/page.tsx"), "Groups must create the public share route.");
 assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create the authenticated member add route.");
 assert(exists("app/api/dos/app/groups/settings/route.ts"), "Groups must create the authenticated settings route.");

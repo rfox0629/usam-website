@@ -5633,36 +5633,60 @@ function GroupIntroCard({ featuredGroup }: { featuredGroup: DosAppGroup | null }
 
 function GroupCard({
   group,
+  onCopyPublicLink,
   onOpen,
+  onViewPublicGroup,
 }: {
   group: DosAppGroup;
+  onCopyPublicLink: () => void;
   onOpen: () => void;
+  onViewPublicGroup: () => void;
 }) {
   const nextGathering = nextGroupGathering(group);
 
   return (
-    <button
-      className="grid min-w-0 gap-4 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 text-left shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF] min-[640px]:grid-cols-[224px_minmax(0,1fr)_auto] min-[640px]:items-center"
-      onClick={onOpen}
-      type="button"
-    >
-      <GroupLogoMark group={group} />
-      <span className="min-w-0">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-black leading-tight text-[#0F172A]">{group.name}</span>
-          <GroupTypeBadge group={group} />
-          <GroupPill tone="gray">{groupCadenceLabel(group)}</GroupPill>
+    <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF]">
+      <button
+        className="grid w-full min-w-0 gap-4 text-left min-[640px]:grid-cols-[224px_minmax(0,1fr)_auto] min-[640px]:items-center"
+        onClick={onOpen}
+        type="button"
+      >
+        <GroupLogoMark group={group} />
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-black leading-tight text-[#0F172A]">{group.name}</span>
+            <GroupTypeBadge group={group} />
+            <GroupPill tone="gray">{groupCadenceLabel(group)}</GroupPill>
+          </span>
+          <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</span>
+          <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
+            <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "No rhythm set"}</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
+            <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
+            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.defaultLocation ?? "Location TBD"}</span>
+          </span>
         </span>
-        <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</span>
-        <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
-          <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "No rhythm set"}</span>
-          <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
-          <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
-          <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.defaultLocation ?? "Location TBD"}</span>
-        </span>
-      </span>
-      <ChevronRight className="hidden h-5 w-5 text-[#94A3B8] min-[560px]:block" aria-hidden="true" strokeWidth={1.9} />
-    </button>
+        <ChevronRight className="hidden h-5 w-5 text-[#94A3B8] min-[560px]:block" aria-hidden="true" strokeWidth={1.9} />
+      </button>
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-[#EAF2FF] pt-3">
+        <button
+          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+          onClick={onCopyPublicLink}
+          type="button"
+        >
+          <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+          Copy Public Link
+        </button>
+        <button
+          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+          onClick={onViewPublicGroup}
+          type="button"
+        >
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+          View Public Page
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -5670,6 +5694,7 @@ function GroupsWorkspace({
   groups,
   groupsNotice,
   onAddPrayer,
+  onCopyPublicDirectoryLink,
   onCopyPublicLink,
   onCreateGroup,
   onDetailTabChange,
@@ -5690,6 +5715,7 @@ function GroupsWorkspace({
   groups: DosAppGroup[];
   groupsNotice: string;
   onAddPrayer: () => void;
+  onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
@@ -5737,14 +5763,24 @@ function GroupsWorkspace({
     <div className="space-y-3 pb-28 md:space-y-4 md:pb-4">
       <TabPageHeader
         action={(
-          <button
-            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-3.5 text-xs font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#1D4ED8]"
-            onClick={onCreateGroup}
-            type="button"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            New Group
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+              onClick={onCopyPublicDirectoryLink}
+              type="button"
+            >
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Copy Public Directory Link
+            </button>
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-3.5 text-xs font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] transition-colors hover:bg-[#1D4ED8]"
+              onClick={onCreateGroup}
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              New Group
+            </button>
+          </div>
         )}
         title="Groups"
       />
@@ -5759,7 +5795,13 @@ function GroupsWorkspace({
         {visibleGroups.length ? (
           <div className="grid gap-3">
             {visibleGroups.map((group) => (
-              <GroupCard group={group} key={group.id} onOpen={() => onOpenGroup(group.id)} />
+              <GroupCard
+                group={group}
+                key={group.id}
+                onCopyPublicLink={() => onCopyPublicLink(group)}
+                onOpen={() => onOpenGroup(group.id)}
+                onViewPublicGroup={() => onViewPublicGroup(group)}
+              />
             ))}
           </div>
         ) : (
@@ -5975,8 +6017,8 @@ function GroupDetailWorkspace({
 
   const secondaryActions = [
     { icon: <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add to Group", onClick: onInvite },
-    { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Link", onClick: onCopyPublicLink },
-    { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public", onClick: onViewPublicGroup },
+    { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Public Link", onClick: onCopyPublicLink },
+    { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public Page", onClick: onViewPublicGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
     { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log as Table", onClick: onLogAsTable },
   ];
@@ -22116,6 +22158,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
   }
 
+  function publicGroupsDirectoryUrl() {
+    const href = "/groups";
+
+    return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
+  }
+
+  async function copyPublicGroupsDirectoryLink() {
+    const url = publicGroupsDirectoryUrl();
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setGroupsNotice("Public group directory link copied.");
+    } catch {
+      setGroupsNotice(url);
+    }
+  }
+
   async function copyPublicGroupLink(group: DosAppGroup) {
     const url = publicGroupUrl(group);
 
@@ -25322,6 +25381,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     groups={groups}
                     groupsNotice={groupsNotice}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
+                    onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
                     onCreateGroup={() => showGroupsPlaceholder("New Group")}
                     onDetailTabChange={setGroupDetailTab}
