@@ -5585,39 +5585,12 @@ function DesktopRecentActivityPanel({
   );
 }
 
-function currentMonthRange(referenceDate = new Date()) {
-  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
-  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  return { end, start };
-}
-
-function monthKey(value: string | null | undefined) {
-  const date = value ? parseDisplayDate(value) : null;
-
-  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : null;
-}
-
 function formatDashboardDuration(minutes: number) {
   if (!minutes) {
     return "0h";
   }
 
   return formatLoggedTime(minutes);
-}
-
-function dashboardTrendMonths(count = 12) {
-  const now = new Date();
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-
-    return {
-      key,
-      label: new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
-    };
-  });
 }
 
 type DashboardFruitItem = {
@@ -5638,11 +5611,12 @@ type DashboardUpcomingRow = {
 };
 
 function DesktopHomeDashboard({
-  circleGroups,
   fruitEvents,
   fruitItems,
   loggedMeetings,
   meetings,
+  onAddPerson,
+  onLogMeeting,
   onOpenFruit,
   onOpenMeeting,
   onOpenPerson,
@@ -5651,18 +5625,20 @@ function DesktopHomeDashboard({
   onOpenReviews,
   onOpenTable,
   onOpenTableCalendar,
-  onViewField,
+  onPrayNow,
+  onScheduleMeeting,
   participantReviews = [],
   participantTestimonies = [],
   people,
   personTableStatsByPersonId,
   upcomingItems,
 }: {
-  circleGroups: CircleLayerGroups;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
   meetings: DosAppMeeting[];
+  onAddPerson: () => void;
+  onLogMeeting: () => void;
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
@@ -5671,7 +5647,8 @@ function DesktopHomeDashboard({
   onOpenReviews: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
-  onViewField: () => void;
+  onPrayNow: () => void;
+  onScheduleMeeting: () => void;
   participantReviews?: DosAppParticipantReview[];
   participantTestimonies?: DosAppParticipantTestimony[];
   people: DosAppPerson[];
@@ -5689,12 +5666,6 @@ function DesktopHomeDashboard({
   const totalReviews = submittedReviewItems.length;
   const newestReview = submittedReviewItems[0] ?? null;
   const recentReviewItems = submittedReviewItems.slice(0, 3);
-  const circleCounts = {
-    my3: circleGroups.three.length,
-    my12: circleGroups.twelve.length,
-    my70: circleGroups.seventy.length,
-    my120: circleGroups.my120.length,
-  };
   const recentFruitItems: DashboardFruitItem[] = [
     ...fruitItems.map((fruit) => ({
       date: fruit.testimonyDate,
@@ -5720,53 +5691,11 @@ function DesktopHomeDashboard({
     }))
     .filter((item) => item.stats.timeMinutes > 0 || item.stats.meetings > 0)
     .sort((first, second) => second.stats.timeMinutes - first.stats.timeMinutes || second.stats.meetings - first.stats.meetings)
-    .slice(0, 3);
-  const trendMonths = dashboardTrendMonths();
-  const trendData = trendMonths.map((month) => {
-    const monthMeetings = loggedMeetings.filter((meeting) => monthKey(meeting.date) === month.key);
-    const monthFruitCount = [
-      ...fruitItems.filter((fruit) => monthKey(fruit.testimonyDate) === month.key),
-      ...fruitEvents.filter((event) => monthKey(event.date) === month.key),
-    ].length;
-
-    return {
-      fruit: monthFruitCount,
-      hours: Math.round(monthMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0) / 60),
-      label: month.label,
-      tables: monthMeetings.length,
-    };
-  });
-  const trendMax = Math.max(1, ...trendData.flatMap((item) => [item.tables, item.hours, item.fruit]));
-  const trendWidth = 720;
-  const trendHeight = 112;
-  const trendY = (value: number) => trendHeight - 20 - (value / trendMax) * 72;
-  const trendX = (index: number) => 40 + index * ((trendWidth - 72) / Math.max(1, trendData.length - 1));
-  const trendPoints = (key: "fruit" | "hours" | "tables") => trendData.map((item, index) => `${trendX(index)},${trendY(item[key])}`).join(" ");
-  const circleMetrics = [
-    {
-      detail: "Closest focus",
-      label: "My 3",
-      target: 3,
-      value: circleCounts.my3,
-    },
-    {
-      detail: "Active discipleship",
-      label: "My 12",
-      target: 9,
-      value: circleCounts.my12,
-    },
-    {
-      detail: "Relational field",
-      label: "My 70",
-      target: 58,
-      value: circleCounts.my70,
-    },
-    {
-      detail: "Broader reach",
-      label: "My 120",
-      target: 50,
-      value: circleCounts.my120,
-    },
+    .slice(0, 5);
+  const quickActionItems: Array<{ icon: IconName; label: string; onClick: () => void }> = [
+    { icon: "calendar", label: "Schedule", onClick: onScheduleMeeting },
+    { icon: "people", label: "Add Person", onClick: onAddPerson },
+    { icon: "prayer", label: "Pray Now", onClick: onPrayNow },
   ];
   const tableActivityMetrics = [
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
@@ -5838,43 +5767,49 @@ function DesktopHomeDashboard({
       </section>
 
       <div className="grid w-full gap-3">
-      <div className="grid gap-3 min-[1200px]:grid-cols-[minmax(560px,1.18fr)_minmax(332px,0.82fr)] min-[1360px]:grid-cols-[minmax(620px,1.15fr)_minmax(420px,0.85fr)]">
-        <DesktopPanel action={<DashboardHeaderAction onClick={onViewField}>View Field</DashboardHeaderAction>} className="min-w-0 self-start" compact eyebrow="Field Health">
-          <div className="grid grid-cols-2 gap-2">
-            {circleMetrics.map((metric) => {
-              const progress = metric.target ? Math.min(metric.value / metric.target, 1) * 100 : null;
-
-              return (
-                <div className="flex min-h-[82px] min-w-0 flex-col justify-between rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={metric.label}>
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0">
-                      <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-                      <span className="mt-1 block truncate text-[11px] font-semibold text-[#64748B]">{metric.detail}</span>
-                    </span>
-                    <span className="shrink-0 text-xl font-black leading-none tracking-[-0.03em] text-[#0F172A]">{metric.target ? `${metric.value}/${metric.target}` : metric.value}</span>
-                  </div>
-                  {progress !== null ? (
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#DCEBFF]">
-                      <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${progress}%` }} />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+        <section className="grid gap-2" aria-label="Home quick actions">
+          <button
+            className="flex min-h-[86px] w-full items-center gap-3 rounded-[24px] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] p-4 text-left text-white shadow-[0_16px_38px_rgba(37,99,235,0.24)] transition-transform active:scale-[0.99]"
+            onClick={onLogMeeting}
+            type="button"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/16 ring-1 ring-white/22">
+              <Icon name="log" size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-lg font-black leading-tight tracking-[-0.01em]">Log Now</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-white/82">Quickly record a meeting you just had</span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-white/75" aria-hidden="true" strokeWidth={2} />
+          </button>
+          <div className="grid grid-cols-3 gap-2">
+            {quickActionItems.map((item) => (
+              <button
+                className="flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-2 rounded-[20px] border border-[#DCEBFF] bg-white px-2.5 text-center text-xs font-black text-[#0F172A] shadow-[0_10px_26px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF] active:scale-[0.99]"
+                key={item.label}
+                onClick={item.onClick}
+                type="button"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  <Icon name={item.icon} size={15} />
+                </span>
+                <span className="max-w-full truncate">{item.label}</span>
+              </button>
+            ))}
           </div>
-        </DesktopPanel>
+        </section>
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-            <div className="hidden grid-cols-[34px_minmax(0,1fr)_96px_44px] gap-2.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
+            <div className="hidden grid-cols-[34px_minmax(0,1fr)_76px_74px] gap-2.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
               <span>Rank</span>
               <span>Person</span>
-              <span>Relationship</span>
+              <span className="text-right">Meetings</span>
               <span className="text-right">Time</span>
             </div>
             {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
               <button
-                className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_96px_44px] sm:gap-2.5"
+                className="grid w-full grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_76px_74px] sm:gap-2.5"
                 key={item.person.id}
                 onClick={() => onOpenPerson(item.person.id)}
                 type="button"
@@ -5884,10 +5819,10 @@ function DesktopHomeDashboard({
                   <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
-                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B] sm:hidden">{relationshipTypePillLabel(item.person)}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B]">{relationshipLine(item.person)}</span>
                   </span>
                 </span>
-                <span className="hidden truncate text-sm font-semibold text-[#0F172A] sm:block">{relationshipTypePillLabel(item.person)}</span>
+                <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{item.stats.meetings}</span>
                 <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{formatDashboardDuration(item.stats.timeMinutes)}</span>
               </button>
             )) : (
@@ -5895,9 +5830,8 @@ function DesktopHomeDashboard({
             )}
           </div>
         </DesktopPanel>
-      </div>
 
-      <div className="grid gap-3 min-[1180px]:grid-cols-3">
+        <div className="grid gap-3 min-[1180px]:grid-cols-3">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
           <div className="grid">
             {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
@@ -6022,43 +5956,6 @@ function DesktopHomeDashboard({
               </article>
             );
           })}
-        </div>
-      </DesktopPanel>
-
-      <DesktopPanel
-        action={(
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="hidden rounded-[13px] border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#0F172A] sm:inline-flex">Last 12 Months</span>
-            <DashboardHeaderAction onClick={onOpenReports}>View Full Report</DashboardHeaderAction>
-          </div>
-        )}
-        compact
-        eyebrow="Activity Trends"
-      >
-        <div className="mb-2 flex flex-wrap gap-4 text-xs font-semibold text-[#334155]">
-          <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#2563EB]" />Tables</span>
-          <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#60A5FA]" />Time (Hours)</span>
-          <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#10B981]" />Fruit</span>
-        </div>
-        <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-          <svg className="h-[112px] w-full" viewBox={`0 0 ${trendWidth} ${trendHeight}`} role="img" aria-label="Activity trends for tables, hours, and fruit">
-            {[0, 1, 2, 3].map((line) => {
-              const y = 20 + line * 24;
-
-              return <line key={line} x1="34" x2={trendWidth - 18} y1={y} y2={y} stroke="#DCEBFF" strokeWidth="1" />;
-            })}
-            <polyline fill="none" points={trendPoints("tables")} stroke="#2563EB" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            <polyline fill="none" points={trendPoints("hours")} stroke="#60A5FA" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            <polyline fill="none" points={trendPoints("fruit")} stroke="#10B981" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-            {trendData.map((item, index) => (
-              <g key={item.label}>
-                <circle cx={trendX(index)} cy={trendY(item.tables)} fill="#2563EB" r="4" />
-                <circle cx={trendX(index)} cy={trendY(item.hours)} fill="#60A5FA" r="4" />
-                <circle cx={trendX(index)} cy={trendY(item.fruit)} fill="#10B981" r="4" />
-                <text fill="#475569" fontSize="10" fontWeight="700" textAnchor="middle" x={trendX(index)} y={trendHeight - 6}>{item.label}</text>
-              </g>
-            ))}
-          </svg>
         </div>
       </DesktopPanel>
       </div>
@@ -23999,11 +23896,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 />
               </div>
               <DesktopHomeDashboard
-                circleGroups={circlePeopleByLayer}
                 fruitEvents={data.fruitEvents}
                 fruitItems={data.fruit}
                 loggedMeetings={ministryLoggedMeetings}
                 meetings={data.meetings}
+                onAddPerson={() => openForm("person")}
+                onLogMeeting={() => openForm("meeting")}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
@@ -24015,7 +23913,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   setActiveTab("meetings");
                   setMeetingsView("calendar");
                 }}
-                onViewField={() => setActiveTab("people")}
+                onPrayNow={() => openMoreApp("prayer")}
+                onScheduleMeeting={() => openScheduleMeeting()}
                 participantReviews={data.participantReviews}
                 participantTestimonies={data.participantTestimonies}
                 people={people}
