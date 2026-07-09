@@ -5769,18 +5769,11 @@ function DesktopHomeDashboard({
       <div className="grid w-full gap-3">
         <section className="grid gap-2" aria-label="Home quick actions">
           <button
-            className="flex min-h-[86px] w-full items-center gap-3 rounded-[24px] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] p-4 text-left text-white shadow-[0_16px_38px_rgba(37,99,235,0.24)] transition-transform active:scale-[0.99]"
+            className="inline-flex min-h-[58px] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-center text-base font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] transition-transform active:scale-[0.99]"
             onClick={onLogMeeting}
             type="button"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/16 ring-1 ring-white/22">
-              <Icon name="log" size={20} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-lg font-black leading-tight tracking-[-0.01em]">Log Now</span>
-              <span className="mt-1 block text-sm font-semibold leading-5 text-white/82">Quickly record a meeting you just had</span>
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-white/75" aria-hidden="true" strokeWidth={2} />
+            Log Table
           </button>
           <div className="grid grid-cols-3 gap-2">
             {quickActionItems.map((item) => (
