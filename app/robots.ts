@@ -20,6 +20,8 @@ export default function robots(): MetadataRoute.Robots {
           "/dos/",
           "/login",
           "/missionary-intake",
+          "/partners",
+          "/partners/",
           "/review",
           "/review/",
           "/testimony",

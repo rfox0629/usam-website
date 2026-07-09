@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import { AdminShell } from "../_components/AdminShell";
+import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { PARTNERS_DOCUMENT_GROUPS, listPartnersDocuments } from "@/src/lib/partners-documents";
+import { PartnersDocumentsAdmin } from "./PartnersDocumentsAdmin";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: {
+    follow: false,
+    index: false,
+  },
+  title: "Partner Documents | Command Center",
+};
+
+export default async function PartnersDocumentsPage() {
+  const authorization = await getAdminAuthorization();
+
+  if (authorization.status !== "authorized") {
+    return null;
+  }
+
+  const documents = await listPartnersDocuments();
+
+  return (
+    <AdminShell
+      active="partners-documents"
+      description="Upload and manage the files shown in the Due Diligence Library on the private /partners page."
+      title="Partner Documents"
+    >
+      <PartnersDocumentsAdmin documents={documents} groupOptions={PARTNERS_DOCUMENT_GROUPS} />
+    </AdminShell>
+  );
+}
