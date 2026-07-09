@@ -198,7 +198,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "That public slug is already used by another group." }, { status: 409 });
   }
 
-  const leaderPersonId = asString(payload.leaderPersonId);
+  let leaderPersonId = asString(payload.leaderPersonId);
+
+  if (leaderPersonId) {
+    if (!isUuid(leaderPersonId)) {
+      leaderPersonId = existingGroupResult.data.leader_person_id ?? "";
+    }
+  }
 
   if (leaderPersonId) {
     if (!isUuid(leaderPersonId)) {

@@ -1585,6 +1585,23 @@ function groupScheduleDefaults(group: DosAppGroup) {
   };
 }
 
+function groupSettingsLeaderPersonId(group: DosAppGroup, people: DosAppPerson[]) {
+  if (group.leaderPersonId && isPersistedUuid(group.leaderPersonId)) {
+    return group.leaderPersonId;
+  }
+
+  const leaderName = group.leaderName?.trim().toLowerCase() ?? "";
+  const matchingPerson = leaderName
+    ? people.find((person) => isPersistedUuid(person.id) && person.name.trim().toLowerCase() === leaderName)
+    : null;
+
+  if (matchingPerson) {
+    return matchingPerson.id;
+  }
+
+  return group.members.find((member) => member.role === "leader" && isPersistedUuid(member.personId))?.personId ?? "";
+}
+
 function groupRoleLabel(role: DosAppGroup["members"][number]["role"]) {
   if (role === "co_leader") {
     return "Co-leader";
@@ -7879,7 +7896,7 @@ function GroupSettingsSheet({
     description: group.description ?? "",
     endTime: scheduleDefaults.endTime,
     groupId: group.id,
-    leaderPersonId: group.leaderPersonId ?? "",
+    leaderPersonId: groupSettingsLeaderPersonId(group, people),
     name: group.name,
     rhythmLabel: group.rhythmLabel ?? "",
     scriptureReference: group.scriptureReference ?? "",
@@ -7892,9 +7909,13 @@ function GroupSettingsSheet({
     visibility: group.visibility,
   }));
   const leaderPeople = useMemo(() => {
-    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const peopleById = new Map(people.filter((person) => isPersistedUuid(person.id)).map((person) => [person.id, person]));
 
     group.members.forEach((member) => {
+      if (!isPersistedUuid(member.personId)) {
+        return;
+      }
+
       const existing = peopleById.get(member.personId);
 
       if (!existing) {
