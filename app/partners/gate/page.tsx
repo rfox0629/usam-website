@@ -16,7 +16,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 export default function PartnersGatePage() {
   return (
     <main className="min-h-screen bg-usam-black text-stone-100">
-      <PrimaryNav />
+      <PrimaryNav minimal />
 
       <div className="relative flex min-h-[calc(100vh-88px)] items-center justify-center overflow-hidden px-6 py-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1100px_620px_at_50%_-12%,rgba(194,161,78,0.14),transparent_60%)]" />

@@ -18,6 +18,7 @@ type PrimaryNavProps = {
   active?: NavKey;
   fixed?: boolean;
   labelOverrides?: Partial<Record<NavKey, string>>;
+  minimal?: boolean;
 };
 
 function NavLink({
@@ -52,7 +53,7 @@ function NavLink({
   );
 }
 
-export function PrimaryNav({ active, fixed = false, labelOverrides }: PrimaryNavProps) {
+export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = false }: PrimaryNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -79,37 +80,41 @@ export function PrimaryNav({ active, fixed = false, labelOverrides }: PrimaryNav
           </span>
         </Link>
 
-        <nav className="ml-auto hidden md:flex" aria-label="Primary navigation">
-          <ul className="flex flex-row items-center justify-end gap-8 lg:gap-10 xl:gap-12">
-            {navItems.map((item) => (
-              <li key={item.key} className="flex-none">
-                <NavLink
-                  href={item.href}
-                  label={labelOverrides?.[item.key] ?? item.label}
-                  active={active === item.key}
-                />
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {minimal ? null : (
+          <>
+            <nav className="ml-auto hidden md:flex" aria-label="Primary navigation">
+              <ul className="flex flex-row items-center justify-end gap-8 lg:gap-10 xl:gap-12">
+                {navItems.map((item) => (
+                  <li key={item.key} className="flex-none">
+                    <NavLink
+                      href={item.href}
+                      label={labelOverrides?.[item.key] ?? item.label}
+                      active={active === item.key}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-        <button
-          type="button"
-          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((value) => !value)}
-          className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-sm border border-stone-700/80 text-[rgba(255,255,255,0.88)] transition-colors duration-200 hover:text-usam-gold md:hidden"
-        >
-          <span className="sr-only">Menu</span>
-          <span className="flex flex-col gap-1.5">
-            <span className={`block h-px w-5 bg-current transition-transform duration-200 ${mobileOpen ? "translate-y-[7px] rotate-45" : ""}`} />
-            <span className={`block h-px w-5 bg-current transition-opacity duration-200 ${mobileOpen ? "opacity-0" : "opacity-100"}`} />
-            <span className={`block h-px w-5 bg-current transition-transform duration-200 ${mobileOpen ? "-translate-y-[7px] -rotate-45" : ""}`} />
-          </span>
-        </button>
+            <button
+              type="button"
+              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((value) => !value)}
+              className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-sm border border-stone-700/80 text-[rgba(255,255,255,0.88)] transition-colors duration-200 hover:text-usam-gold md:hidden"
+            >
+              <span className="sr-only">Menu</span>
+              <span className="flex flex-col gap-1.5">
+                <span className={`block h-px w-5 bg-current transition-transform duration-200 ${mobileOpen ? "translate-y-[7px] rotate-45" : ""}`} />
+                <span className={`block h-px w-5 bg-current transition-opacity duration-200 ${mobileOpen ? "opacity-0" : "opacity-100"}`} />
+                <span className={`block h-px w-5 bg-current transition-transform duration-200 ${mobileOpen ? "-translate-y-[7px] -rotate-45" : ""}`} />
+              </span>
+            </button>
+          </>
+        )}
       </div>
 
-      {mobileOpen ? (
+      {!minimal && mobileOpen ? (
         <nav className="border-t border-stone-800/50 md:hidden" aria-label="Mobile navigation">
           <div className="mx-auto flex w-full max-w-7xl flex-col px-8 py-3">
             {navItems.map((item) => (

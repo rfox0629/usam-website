@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { PartnersFaqAccordion } from "./PartnersFaqAccordion";
+import { groupPartnersDocuments, listPartnersDocuments } from "@/src/lib/partners-documents";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   description: "Private partnership and integration resource center for USA Missionaries.",
@@ -89,7 +92,7 @@ function HeroSection() {
   return (
     <header className="relative overflow-hidden bg-[radial-gradient(1200px_700px_at_78%_-20%,rgba(194,161,78,0.14),transparent_62%)] px-6 pb-0 pt-20 md:pt-28" id="overview">
       <div className="relative mx-auto max-w-6xl">
-        <Eyebrow>Sec 01 — The Vision</Eyebrow>
+        <Eyebrow>Sec 01: The Vision</Eyebrow>
         <h1
           className="mt-6 max-w-3xl text-[clamp(2.3rem,6vw,3.75rem)] font-bold leading-[1.05] text-stone-100"
           style={{ fontFamily: font.oswald }}
@@ -164,12 +167,12 @@ function HeroSection() {
 function WhySection() {
   return (
     <Section id="why">
-      <Eyebrow>Sec 02 — Rationale</Eyebrow>
+      <Eyebrow>Sec 02: Rationale</Eyebrow>
       <SectionHeading>Why This Exists</SectionHeading>
       <Prose>
         <p>
           The Church in America does not suffer from a lack of ministries. It suffers from fragmentation. Across
-          every state, faithful men and women are serving people well — praying with the hurting, discipling new
+          every state, faithful men and women are serving people well, praying with the hurting, discipling new
           believers, walking families through crisis, and carrying callings they have stewarded for years. The
           problem is rarely the ministry itself. The problem is everything strapped to its back.
         </p>
@@ -220,7 +223,7 @@ function WhySection() {
           className="mt-3 flex flex-wrap justify-between gap-3 border-t border-stone-800 pt-3 text-[11px] uppercase tracking-[0.18em] text-stone-500"
           style={{ fontFamily: font.rajdhani }}
         >
-          <span>Fig. 01 — Shared infrastructure</span>
+          <span>Fig. 01: Shared infrastructure</span>
           <span>Separate streams · One river</span>
         </figcaption>
       </figure>
@@ -234,18 +237,18 @@ function WhySection() {
 
 const units = [
   {
-    body: "Deployment and first contact. Kitchen-table ministry, direct questions, encounter, and next steps — then a coordinated referral into the right pathway.",
-    tag: "Unit — Front Line",
+    body: "Deployment and first contact. Kitchen-table ministry, direct questions, encounter, and next steps, then a coordinated referral into the right pathway.",
+    tag: "Unit: Front Line",
     title: "USA Missionaries",
   },
   {
     body: "Reconciliation, freedom, prayer, and long-term spiritual support for people who need more than a first conversation can provide.",
-    tag: "Unit — Deeper Care",
+    tag: "Unit: Deeper Care",
     title: "Ministry of Reconciliation",
   },
   {
-    body: "Community, teaching, groups, and ongoing formation. Distinct roles, one mission — every unit stronger because the others exist.",
-    tag: "Unit — Long-Term Formation",
+    body: "Community, teaching, groups, and ongoing formation. Distinct roles, one mission: every unit stronger because the others exist.",
+    tag: "Unit: Long-Term Formation",
     title: "Churches & Partner Ministries",
   },
 ] as const;
@@ -253,12 +256,12 @@ const units = [
 function RoleSection() {
   return (
     <Section id="role" variant="panel">
-      <Eyebrow>Sec 03 — Our Role</Eyebrow>
+      <Eyebrow>Sec 03: Our Role</Eyebrow>
       <SectionHeading>The Role of USA Missionaries</SectionHeading>
       <Prose>
         <p>
           USA Missionaries serves as a front-line disciple-making and deployment ministry. Our primary ministry
-          environment is not a stage or a building — it is the kitchen table. USA Missionaries missionaries sit
+          environment is not a stage or a building; it is the kitchen table. USA Missionaries sit
           down with people face to face, ask direct questions, minister fully in the moment, help people encounter
           Jesus, identify next steps, and connect them into long-term discipleship pathways.
         </p>
@@ -270,7 +273,7 @@ function RoleSection() {
         </p>
         <p>
           We think of this the way specialized teams work together in the field. USA Missionaries is one specialized
-          unit — deployment and first contact. Ministry of Reconciliation is another specialized unit — deeper care
+          unit: deployment and first contact. Ministry of Reconciliation is another specialized unit: deeper care
           and reconciliation. Churches and other ministries hold their own distinct roles. The goal is not
           competition between ministries. The goal is coordinated ministry, where every person is handed forward
           with care and nothing falls through the cracks.
@@ -328,10 +331,10 @@ const levels = [
 function LevelsSection() {
   return (
     <Section id="levels">
-      <Eyebrow>Sec 04 — Framework</Eyebrow>
+      <Eyebrow>Sec 04: Framework</Eyebrow>
       <SectionHeading>Three Levels of Partnership</SectionHeading>
       <Lede>
-        Partnership is not all-or-nothing. Ministries can collaborate, share infrastructure, or fully integrate —
+        Partnership is not all-or-nothing. Ministries can collaborate, share infrastructure, or fully integrate,
         and every level is a legitimate long-term home, not a sales funnel.
       </Lede>
 
@@ -388,7 +391,7 @@ const morFlow = [
     title: "Need identified",
   },
   {
-    body: "Through DOS, the person is referred to Ministry of Reconciliation with context and care — not a cold handoff.",
+    body: "Through DOS, the person is referred to Ministry of Reconciliation with context and care, not a cold handoff.",
     title: "Referral through DOS",
   },
   {
@@ -404,10 +407,10 @@ const morFlow = [
 function MorSection() {
   return (
     <Section id="mor" variant="feature">
-      <Eyebrow>Sec 05 — Featured Case Study</Eyebrow>
+      <Eyebrow>Sec 05: Featured Case Study</Eyebrow>
       <SectionHeading>Ministry of Reconciliation</SectionHeading>
       <Lede>
-        The first integration conversation being explored — and the working model for how a partnership can
+        The first integration conversation being explored, and the working model for how a partnership can
         strengthen a ministry without replacing its calling.
       </Lede>
 
@@ -423,7 +426,7 @@ function MorSection() {
             <p>
               USA Missionaries&rsquo; goal would not be to replace MOR&rsquo;s calling. It would be to strengthen
               MOR by systematizing administration, operations, technology, documentation, referrals, donor systems,
-              and reporting — the load-bearing work that currently competes with ministry time.
+              and reporting: the load-bearing work that currently competes with ministry time.
             </p>
             <p className="text-stone-200">
               <b className="font-semibold text-stone-100">
@@ -443,7 +446,7 @@ function MorSection() {
                 Front Line
               </p>
               <p className="mt-2 text-sm leading-6 text-stone-400">
-                <b className="font-semibold text-stone-100">USA Missionaries</b> — deployment, first contact,
+                <b className="font-semibold text-stone-100">USA Missionaries</b>: deployment, first contact,
                 kitchen-table ministry, and coordinated next steps through DOS.
               </p>
             </div>
@@ -455,7 +458,7 @@ function MorSection() {
                 Deeper Care
               </p>
               <p className="mt-2 text-sm leading-6 text-stone-400">
-                <b className="font-semibold text-stone-100">Ministry of Reconciliation</b> — reconciliation,
+                <b className="font-semibold text-stone-100">Ministry of Reconciliation</b>: reconciliation,
                 freedom, prayer, and long-term spiritual support for those who need it.
               </p>
             </div>
@@ -505,7 +508,7 @@ const takeOnCategories = [
       "Annual planning",
       "Decision tracking",
     ],
-    tag: "01 — Backbone",
+    tag: "01: Backbone",
     title: "Governance & Administration",
   },
   {
@@ -520,7 +523,7 @@ const takeOnCategories = [
       "990 preparation support",
       "Internal controls",
     ],
-    tag: "02 — Backbone",
+    tag: "02: Backbone",
     title: "Finance",
   },
   {
@@ -534,7 +537,7 @@ const takeOnCategories = [
       "Intake forms and workflows",
       "Volunteer onboarding",
     ],
-    tag: "03 — Backbone",
+    tag: "03: Backbone",
     title: "Operations",
   },
   {
@@ -548,7 +551,7 @@ const takeOnCategories = [
       "Forms and automation",
       "Reporting dashboards",
     ],
-    tag: "04 — Systems",
+    tag: "04: Systems",
     title: "Technology",
   },
   {
@@ -562,7 +565,7 @@ const takeOnCategories = [
       "Video and photo coordination",
       "Public messaging",
     ],
-    tag: "05 — Systems",
+    tag: "05: Systems",
     title: "Communications",
   },
   {
@@ -576,7 +579,7 @@ const takeOnCategories = [
       "Ministry outcome reporting",
       "Training library",
     ],
-    tag: "06 — Systems",
+    tag: "06: Systems",
     title: "Ministry Systems",
   },
 ] as const;
@@ -584,7 +587,7 @@ const takeOnCategories = [
 function TakeOnSection() {
   return (
     <Section id="takeon" variant="panel">
-      <Eyebrow>Sec 06 — The Commitment</Eyebrow>
+      <Eyebrow>Sec 06: The Commitment</Eyebrow>
       <SectionHeading>What USA Missionaries Takes On</SectionHeading>
       <Lede>
         In an integrated or fully integrated partnership, USA Missionaries assumes a serious operational load. This
@@ -620,8 +623,8 @@ function TakeOnSection() {
           This is not a small commitment.
         </p>
         <p className="mt-2 text-[15px] leading-7 text-stone-400">
-          USA Missionaries becomes the operational backbone of the partnership — six full categories of ongoing
-          responsibility — so that ministry leaders can focus more fully on the ministry itself.
+          USA Missionaries becomes the operational backbone of the partnership: six full categories of ongoing
+          responsibility, so that ministry leaders can focus more fully on the ministry itself.
         </p>
       </div>
     </Section>
@@ -673,7 +676,7 @@ const notAways = [
 function NotAwaySection() {
   return (
     <Section id="not-away">
-      <Eyebrow>Sec 07 — The Guardrails</Eyebrow>
+      <Eyebrow>Sec 07: The Guardrails</Eyebrow>
       <SectionHeading>What USA Missionaries Does Not Take Away</SectionHeading>
       <Lede>
         Integration raises honest fears, and they deserve honest answers. These commitments hold at every level of
@@ -700,7 +703,7 @@ function NotAwaySection() {
       </ul>
 
       <p className="mt-10 max-w-xl text-2xl font-normal leading-snug text-stone-200" style={{ fontFamily: font.oswald }}>
-        The goal is <span className="text-usam-gold">unity without uniformity</span> — one backbone, many callings.
+        The goal is <span className="text-usam-gold">unity without uniformity</span>: one backbone, many callings.
       </p>
     </Section>
   );
@@ -737,7 +740,7 @@ const legalRows = [
   },
   {
     optionOne: "Fully independent brand",
-    optionThree: "May continue as a DBA, ministry name, or division — “A Ministry of USA Missionaries”",
+    optionThree: "May continue as a DBA, ministry name, or division: “A Ministry of USA Missionaries”",
     optionTwo: "Independent brand; shared DOS and technology possible",
     row: "Identity",
   },
@@ -750,7 +753,7 @@ const legalRows = [
   {
     optionOne: "Lowest legal complexity",
     optionThree: "Highest planning requirement",
-    optionTwo: "Medium complexity — a good pilot option",
+    optionTwo: "Medium complexity, a good pilot option",
     row: "Complexity",
   },
   {
@@ -764,7 +767,7 @@ const legalRows = [
 function LegalSection() {
   return (
     <Section id="legal" variant="panel">
-      <Eyebrow>Sec 08 — Structure</Eyebrow>
+      <Eyebrow>Sec 08: Structure</Eyebrow>
       <SectionHeading>Legal & Structural Options</SectionHeading>
       <Lede>
         Three honest structural paths, compared side by side. Each is workable; they differ in complexity,
@@ -851,7 +854,7 @@ function LegalSection() {
 
 const phases = [
   {
-    body: "Prayer, trust, and leadership conversations. Doctrine, mission alignment, values, culture, and initial board discussion. Nothing structural happens here — this phase exists to answer one question: is God in this?",
+    body: "Prayer, trust, and leadership conversations. Doctrine, mission alignment, values, culture, and initial board discussion. Nothing structural happens here. This phase exists to answer one question: is God in this?",
     num: "Phase 1",
     time: "30–60 days",
     title: "Relationship & Discernment",
@@ -869,7 +872,7 @@ const phases = [
     title: "Shared Services Pilot",
   },
   {
-    body: "Transition selected responsibilities — bookkeeping, administration, donor management, communications, systems, training, volunteer onboarding, and reporting — into USA Missionaries infrastructure, at a pace both leadership teams affirm.",
+    body: "Transition selected responsibilities, bookkeeping, administration, donor management, communications, systems, training, volunteer onboarding, and reporting, into USA Missionaries infrastructure, at a pace both leadership teams affirm.",
     num: "Phase 4",
     time: "6–12 months",
     title: "Operational Integration",
@@ -881,7 +884,7 @@ const phases = [
     title: "Legal Integration Decision",
   },
   {
-    body: "Use the MOR integration as a proven model for future ministry partnerships across Minnesota — and eventually all 50 states. Every lesson learned becomes documentation the next partnership inherits.",
+    body: "Use the MOR integration as a proven model for future ministry partnerships across Minnesota, and eventually all 50 states. Every lesson learned becomes documentation the next partnership inherits.",
     num: "Phase 6",
     time: "Year 2 and beyond",
     title: "National Replication",
@@ -891,11 +894,11 @@ const phases = [
 function RoadmapSection() {
   return (
     <Section id="roadmap" variant="feature">
-      <Eyebrow>Sec 09 — The Path</Eyebrow>
+      <Eyebrow>Sec 09: The Path</Eyebrow>
       <SectionHeading>Integration Roadmap</SectionHeading>
       <Lede>
         A deliberate, phased path from first conversation to a repeatable national model. Each phase has a clear
-        focus and an honest timeline — and the process can pause at any phase.
+        focus and an honest timeline, and the process can pause at any phase.
       </Lede>
 
       <div className="relative mt-14 max-w-3xl">
@@ -935,89 +938,83 @@ function RoadmapSection() {
 /* DUE DILIGENCE LIBRARY                                                   */
 /* ---------------------------------------------------------------------- */
 
-const docGroups = [
-  {
-    docs: [
-      "Articles of Incorporation",
-      "USA Missionaries Bylaws",
-      "Board Roster",
-      "Conflict of Interest Policy",
-      "Board Covenant",
-      "Organizational Chart",
-    ],
-    title: "Governance",
-    type: "Governance",
-  },
-  {
-    docs: ["IRS Determination Letter", "EIN Verification", "501(c)(3) Documentation", "Annual 990 Filing", "State Registration Documents"],
-    title: "IRS & Nonprofit",
-    type: "IRS",
-  },
-  {
-    docs: ["Annual Budget", "Financial Summary", "Donor Receipting Process", "Internal Controls Overview", "CPA Contact Summary"],
-    title: "Finance",
-    type: "Finance",
-  },
-  {
-    docs: ["DOS Overview", "Technology Stack", "Data & Privacy Overview", "Insurance Overview", "Volunteer Process", "Ministry Referral Workflow"],
-    title: "Operations",
-    type: "Operations",
-  },
-  {
-    docs: ["Mission & Vision", "Statement of Faith", "Core Values", "Brand Guide", "USA Missionaries Overview", "Five-Function Protocol"],
-    title: "Brand & Ministry",
-    type: "Ministry",
-  },
-] as const;
+function docTypeLabel(fileType: string | null) {
+  if (!fileType) {
+    return "FILE";
+  }
 
-function DocumentsSection() {
+  if (fileType === "application/pdf") {
+    return "PDF";
+  }
+
+  if (fileType.includes("wordprocessingml") || fileType === "application/msword") {
+    return "DOC";
+  }
+
+  if (fileType.startsWith("image/")) {
+    return "IMG";
+  }
+
+  return "FILE";
+}
+
+async function DocumentsSection() {
+  const documents = await listPartnersDocuments();
+  const groups = groupPartnersDocuments(documents);
+
   return (
     <Section id="documents">
-      <Eyebrow>Sec 10 — Due Diligence</Eyebrow>
+      <Eyebrow>Sec 10: Due Diligence</Eyebrow>
       <SectionHeading>Due Diligence Library</SectionHeading>
       <Lede>
-        Everything a board, attorney, or CPA needs to evaluate USA Missionaries — organized, current, and available
-        on request. Placeholder links below will connect to the secure document vault in production.
+        Everything a board, attorney, or CPA needs to evaluate USA Missionaries, organized, current, and available
+        on request.
       </Lede>
 
-      <div className="mt-12 space-y-10">
-        {docGroups.map((group) => (
-          <div key={group.title}>
-            <p
-              className="flex items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-usam-gold"
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            >
-              {group.title}
-              <span aria-hidden="true" className="h-px flex-1 bg-stone-800" />
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {group.docs.map((doc) => (
-                <a
-                  className="flex items-center justify-between gap-4 border border-stone-800 bg-white/[0.02] px-5 py-4 transition-colors hover:border-usam-gold/60 hover:bg-white/[0.04]"
-                  href="#documents"
-                  key={doc}
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-stone-200">{doc}</span>
-                    <span
-                      className="mt-1 block text-[9.5px] uppercase tracking-[0.16em] text-stone-500"
-                      style={{ fontFamily: font.rajdhani }}
-                    >
-                      PDF · {group.type}
-                    </span>
-                  </span>
-                  <span
-                    className="flex-shrink-0 whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-usam-gold"
-                    style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+      {groups.length === 0 ? (
+        <p className="mt-10 text-sm text-stone-500">Documents are being prepared and will be added here soon.</p>
+      ) : (
+        <div className="mt-12 space-y-10">
+          {groups.map((group) => (
+            <div key={group.groupName}>
+              <p
+                className="flex items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-usam-gold"
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              >
+                {group.groupName}
+                <span aria-hidden="true" className="h-px flex-1 bg-stone-800" />
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.documents.map((doc) => (
+                  <a
+                    className="flex items-center justify-between gap-4 border border-stone-800 bg-white/[0.02] px-5 py-4 transition-colors hover:border-usam-gold/60 hover:bg-white/[0.04]"
+                    href={`/api/partners/documents/${doc.id}`}
+                    key={doc.id}
+                    rel="noopener noreferrer"
+                    target="_blank"
                   >
-                    View Document
-                  </span>
-                </a>
-              ))}
+                    <span>
+                      <span className="block text-sm font-semibold text-stone-200">{doc.docName}</span>
+                      <span
+                        className="mt-1 block text-[9.5px] uppercase tracking-[0.16em] text-stone-500"
+                        style={{ fontFamily: font.rajdhani }}
+                      >
+                        {docTypeLabel(doc.fileType)} · {group.groupName}
+                      </span>
+                    </span>
+                    <span
+                      className="flex-shrink-0 whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-usam-gold"
+                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                    >
+                      View Document
+                    </span>
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Section>
   );
 }
@@ -1029,13 +1026,13 @@ function DocumentsSection() {
 function StewardshipSection() {
   return (
     <Section id="stewardship" variant="panel">
-      <Eyebrow>Sec 11 — Stewardship</Eyebrow>
+      <Eyebrow>Sec 11: Stewardship</Eyebrow>
       <SectionHeading>Cost & Stewardship</SectionHeading>
       <Prose>
         <p>
           Shared infrastructure saves money, but the deeper issue is stewardship. Every independent ministry that
-          maintains its own duplicate back office is spending God&rsquo;s resources — hours, dollars, and leadership
-          attention — on work that could be done once and shared. The comparison below is not about cutting
+          maintains its own duplicate back office is spending God&rsquo;s resources: hours, dollars, and leadership
+          attention, on work that could be done once and shared. The comparison below is not about cutting
           corners. It is about redirecting what is already being spent toward the mission itself.
         </p>
       </Prose>
@@ -1046,7 +1043,7 @@ function StewardshipSection() {
             className="text-[10.5px] uppercase tracking-[0.2em] text-stone-500"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
-            Model A — Duplicated
+            Model A: Duplicated
           </p>
           <h3 className="mt-2 text-xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
             Separate Ministry Model
@@ -1078,7 +1075,7 @@ function StewardshipSection() {
             className="text-[10.5px] uppercase tracking-[0.2em] text-usam-gold"
             style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
           >
-            Model B — Shared
+            Model B: Shared
           </p>
           <h3 className="mt-2 text-xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
             Integrated Ministry Model
@@ -1119,9 +1116,9 @@ function StewardshipSection() {
 function FaqSection() {
   return (
     <Section id="faq">
-      <Eyebrow>Sec 12 — Questions</Eyebrow>
+      <Eyebrow>Sec 12: Questions</Eyebrow>
       <SectionHeading>Frequently Asked Questions</SectionHeading>
-      <Lede>The questions ministry leaders, boards, and advisors ask most — answered plainly.</Lede>
+      <Lede>The questions ministry leaders, boards, and advisors ask most, answered plainly.</Lede>
       <PartnersFaqAccordion />
     </Section>
   );
@@ -1135,7 +1132,7 @@ function CtaSection() {
   return (
     <Section id="contact" variant="feature">
       <div className="text-center">
-        <Eyebrow center>Sec 13 — Next Step</Eyebrow>
+        <Eyebrow center>Sec 13: Next Step</Eyebrow>
         <h2
           className="mx-auto mt-5 max-w-2xl text-[clamp(2rem,4.4vw,2.9rem)] font-bold leading-tight text-stone-100"
           style={{ fontFamily: font.oswald }}
@@ -1187,7 +1184,7 @@ export default function PartnersPage() {
         &nbsp;//&nbsp; For ministry leaders, boards &amp; advisors
       </div>
 
-      <PrimaryNav />
+      <PrimaryNav minimal />
 
       <nav aria-label="Section navigation" className="sticky top-0 z-40 overflow-x-auto border-b border-stone-900 bg-[rgba(13,13,13,0.95)] backdrop-blur">
         <ul className="mx-auto flex max-w-6xl gap-1 px-6">
