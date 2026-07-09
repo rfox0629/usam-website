@@ -20,6 +20,12 @@ type ExistingPersonRow = {
   updated_at: string | null;
 };
 
+type ExistingGroupSeedRow = {
+  id: string;
+  name: string | null;
+  slug: string | null;
+};
+
 type RyanDosGroupSeed = {
   defaultLocation: string | null;
   description: string;
@@ -114,6 +120,10 @@ function ryanLeaderScore(person: ExistingPersonRow) {
   return `${nameScore}:${visibilityScore}:${person.updated_at ?? ""}:${person.created_at ?? ""}`;
 }
 
+function normalizedGroupSeedValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
 async function loadRyanLeaderPersonId(supabase: SupabaseAdminClient, workspaceId: string) {
   const { data, error } = await supabase
     .from("missionary_field_people")
@@ -163,7 +173,32 @@ export async function ensureRyanDosWorkspaceGroups(
     return { error: leaderResult.error, seeded: false };
   }
 
-  const groupRows = ryanDosGroupSeeds.map((group) => ({
+  const existingGroupsResult = await supabase
+    .from("dos_groups")
+    .select("id, name, slug")
+    .eq("workspace_id", workspace.id)
+    .limit(100);
+
+  if (existingGroupsResult.error) {
+    return {
+      error: isMissingDosGroupSchema(existingGroupsResult.error) ? null : existingGroupsResult.error,
+      seeded: false,
+    };
+  }
+
+  const existingGroups = (existingGroupsResult.data ?? []) as ExistingGroupSeedRow[];
+  const existingSlugs = new Set(existingGroups.map((group) => normalizedGroupSeedValue(group.slug)).filter(Boolean));
+  const existingNames = new Set(existingGroups.map((group) => normalizedGroupSeedValue(group.name)).filter(Boolean));
+  const missingSeeds = ryanDosGroupSeeds.filter((group) => (
+    !existingSlugs.has(normalizedGroupSeedValue(group.slug))
+    && !existingNames.has(normalizedGroupSeedValue(group.name))
+  ));
+
+  if (!missingSeeds.length) {
+    return { error: null, seeded: false };
+  }
+
+  const groupRows = missingSeeds.map((group) => ({
     active: true,
     default_location: group.defaultLocation,
     description: group.description,
@@ -182,7 +217,7 @@ export async function ensureRyanDosWorkspaceGroups(
 
   const { data: seededGroups, error: groupsError } = await supabase
     .from("dos_groups")
-    .upsert(groupRows, { onConflict: "workspace_id,slug" })
+    .upsert(groupRows, { ignoreDuplicates: true, onConflict: "workspace_id,slug" })
     .select("id, slug");
 
   if (groupsError) {

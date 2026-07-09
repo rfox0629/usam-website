@@ -169,6 +169,8 @@ assertIncludes(groupSeeds, '"ryan-fox"', "Ryan DOS group seed helper must target
 assertIncludes(groupSeeds, '"tuesday-mens-group"', "Ryan DOS group seed helper must include Tuesday Men's Group.");
 assertIncludes(groupSeeds, '"wednesday-mens-group"', "Ryan DOS group seed helper must include Wednesday Men's Group.");
 assertIncludes(groupSeeds, 'onConflict: "workspace_id,slug"', "Ryan DOS group seed helper must upsert by workspace and slug.");
+assertIncludes(groupSeeds, "ignoreDuplicates: true", "Ryan DOS group seed helper must not overwrite edited group settings on reload.");
+assertIncludes(groupSeeds, "missingSeeds", "Ryan DOS group seed helper must only insert missing bootstrap groups.");
 assertIncludes(groupSeeds, 'onConflict: "group_id,person_id"', "Ryan DOS group seed helper must upsert leader membership.");
 assertIncludes(groupSeeds, 'visibility: "private"', "Ryan DOS group seed helper must keep default visibility private.");
 assertIncludes(
@@ -403,6 +405,9 @@ assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settin
 assertIncludes(groupSettingsRoute, "return explicitRhythm || generated || null", "Group settings API must preserve the explicit generated multi-day rhythm label.");
 assertIncludes(groupSettingsRoute, "leaderPersonId = existingGroupResult.data.leader_person_id ?? \"\"", "Group settings API must preserve the existing leader when stale UI submits a non-UUID fallback value.");
 assertIncludes(appClient, "setSelectedGroupId(result.group.id)", "Group Settings must switch from a fallback identifier to the resolved group id after save.");
+assertIncludes(appClient, "const resolvedGroupId = result.group.id || payload.groupId", "Group Settings must key local overrides by the resolved group id.");
+assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must revalidate the public groups directory after edits.");
+assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must revalidate the public group page after edits.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
 assertIncludes(publicGroupPage, ".from(\"dos_groups\")", "Public group route must resolve from real group data.");
 assertIncludes(publicGroupPage, ".eq(\"slug\", slug)", "Public group route must resolve groups by slug.");
