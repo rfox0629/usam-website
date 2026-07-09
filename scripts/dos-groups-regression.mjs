@@ -279,7 +279,7 @@ assertIncludes(appClient, "setGroupDetailTab(\"members\")", "Group Invite succes
 assertIncludes(appClient, "GroupSettingsSheet", "Group Settings must open an edit sheet.");
 assertIncludes(appClient, "Edit Group", "Group Settings must expose Edit Group.");
 assertIncludes(appClient, "/api/dos/app/groups/settings", "Group Settings must call the settings API route.");
-assertIncludes(appClient, "Update future scheduled gatherings with this location?", "Group Settings must confirm future location updates.");
+assertIncludes(appClient, "Apply location changes to future scheduled gatherings", "Group Settings must use an inline future gathering location checkbox.");
 assertIncludes(appClient, "Archive group", "Group Settings must archive instead of hard delete.");
 assertIncludes(appClient, "Public-shareable", "Group Settings must expose public-shareable visibility copy.");
 assertIncludes(appClient, "type GroupRhythmSlot", "Group Settings must support multiple weekly rhythm rows.");
@@ -289,6 +289,7 @@ assertIncludes(appClient, "Add day", "Group Settings must allow adding another w
 assertIncludes(appClient, "Selecting days and times updates the rhythm label.", "Group Settings must explain the automatic rhythm label behavior.");
 assertIncludes(appClient, "groupSettingsLeaderPersonId", "Group Settings must resolve the leader selector to a real Field person id.");
 assertIncludes(appClient, "people.filter((person) => isPersistedUuid(person.id))", "Group Settings leader options must avoid fallback non-UUID person ids.");
+assertIncludes(appClient, "group.leaderPersonId && isPersistedUuid(group.leaderPersonId) && !peopleById.has(group.leaderPersonId)", "Group Settings leader options must include the existing leader fallback.");
 assert(
   !appClient.includes("Invite will be wired after group management is ready."),
   "Group Invite placeholder copy must be removed.",
@@ -383,6 +384,13 @@ assertIncludes(groupMembersRoute, ".eq(\"group_id\", groupId)", "Group member AP
 assertIncludes(groupMembersRoute, ".eq(\"person_id\", person.id)", "Group member API must prevent duplicate memberships by person.");
 assertIncludes(groupMembersRoute, ".from(\"missionary_field_people\")", "Group member API must create or link DOS person records.");
 assertIncludes(groupMembersRoute, "alreadyMember", "Group member API must report duplicate-safe existing membership.");
+assertIncludes(groupMembersRoute, "export async function DELETE", "Group member API must expose a private remove action.");
+assertIncludes(groupMembersRoute, "status: \"removed\"", "Group member removal must deactivate membership instead of deleting data.");
+assertIncludes(groupMembersRoute, "Change the group leader before removing this member.", "Group member removal must protect the current leader.");
+assert(
+  !groupMembersRoute.includes(".from(\"missionary_field_people\")\n    .delete"),
+  "Group member removal must not delete the shared Person record.",
+);
 assertIncludes(groupJoinRequestsRoute, "requireDosWorkspaceRouteAccess", "Group join request API must be authenticated and workspace-scoped.");
 assertIncludes(groupJoinRequestsRoute, "isAdminDosAuthorization", "Group join request API must allow DOS admins without leaking public access.");
 assertIncludes(groupJoinRequestsRoute, "\"leader\", \"co_leader\"", "Group join request API must restrict non-admin review to group leaders.");
@@ -393,6 +401,11 @@ assertIncludes(groupJoinRequestsRoute, ".from(\"missionary_field_people\")", "Ac
 assertIncludes(groupJoinRequestsRoute, ".from(\"dos_group_members\")", "Accepting a private join request must add the person to dos_group_members.");
 assertIncludes(groupJoinRequestsRoute, "status: nextStatus", "Group join request API must close reviewed requests through status updates.");
 assertIncludes(groupJoinRequestsRoute, "missingJoinRequestsTable", "Group join request API must fail softly before the migration lands.");
+assertIncludes(groupJoinRequestsRoute, "possiblePersonMatches", "Pending requests must surface possible existing Person matches.");
+assertIncludes(groupJoinRequestsRoute, "findPossiblePersonMatches", "Join request approval must inspect existing people before creating a Person.");
+assertIncludes(groupJoinRequestsRoute, "Multiple possible people match this request", "Join request approval must require a leader choice when multiple matches exist.");
+assertIncludes(groupJoinRequestsRoute, "selectedPersonId", "Join request approval must allow explicitly linking an existing Person.");
+assertIncludes(groupJoinRequestsRoute, "createNewPerson", "Join request approval must allow an intentional create-new path.");
 assertIncludes(groupSettingsRoute, "requireDosWorkspaceRouteAccess", "Group settings API must be authenticated and workspace-scoped.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
 assertIncludes(groupSettingsRoute, "isUuid(groupId)", "Group settings API must tolerate legacy non-UUID client group identifiers.");
@@ -404,8 +417,20 @@ assertIncludes(groupSettingsRoute, ".from(\"dos_group_gatherings\")", "Group set
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settings API must update leader membership.");
 assertIncludes(groupSettingsRoute, "return explicitRhythm || generated || null", "Group settings API must preserve the explicit generated multi-day rhythm label.");
 assertIncludes(groupSettingsRoute, "leaderPersonId = existingGroupResult.data.leader_person_id ?? \"\"", "Group settings API must preserve the existing leader when stale UI submits a non-UUID fallback value.");
+assertIncludes(groupSettingsRoute, "isCurrentGroupLeader", "Group settings API must allow the current valid leader to remain selected.");
+assertIncludes(groupSettingsRoute, "existingLeaderMemberResult", "Group settings API must include existing leader/member records in validation.");
 assertIncludes(appClient, "setSelectedGroupId(result.group.id)", "Group Settings must switch from a fallback identifier to the resolved group id after save.");
 assertIncludes(appClient, "const resolvedGroupId = result.group.id || payload.groupId", "Group Settings must key local overrides by the resolved group id.");
+assertIncludes(appClient, "Apply location changes to future scheduled gatherings", "Group Settings must use inline copy for future gathering location updates.");
+assert(
+  !appClient.includes("Update future scheduled gatherings with this location?"),
+  "Group Settings must not trigger the old native confirm popup.",
+);
+assertIncludes(appClient, "possiblePersonMatches", "DOS Pending Requests must render possible existing Person matches.");
+assertIncludes(appClient, "Accept & Link", "DOS Pending Requests must make matched-request approval explicit.");
+assertIncludes(appClient, "onRemoveMember", "DOS group members tab must wire a private remove-member action.");
+assertIncludes(appClient, "Remove Member", "DOS group members tab must show an inline remove confirmation.");
+assertIncludes(appClient, "Their Person record stays in Field.", "DOS group member removal must explain that Person data is preserved.");
 assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must revalidate the public groups directory after edits.");
 assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must revalidate the public group page after edits.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");

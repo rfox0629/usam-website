@@ -224,7 +224,24 @@ export async function PATCH(request: Request) {
     }
 
     if (!leaderResult.data) {
-      return NextResponse.json({ error: "Selected leader is not in this workspace." }, { status: 400 });
+      const existingLeaderMemberResult = await supabase
+        .from("dos_group_members")
+        .select("id")
+        .eq("group_id", resolvedGroupId)
+        .eq("person_id", leaderPersonId)
+        .in("role", ["leader", "co_leader"])
+        .neq("status", "removed")
+        .limit(1);
+
+      if (existingLeaderMemberResult.error) {
+        return NextResponse.json({ error: existingLeaderMemberResult.error.message }, { status: 500 });
+      }
+
+      const isCurrentGroupLeader = existingGroupResult.data.leader_person_id === leaderPersonId;
+
+      if (!isCurrentGroupLeader && !existingLeaderMemberResult.data?.length) {
+        return NextResponse.json({ error: "Selected leader is not in this workspace." }, { status: 400 });
+      }
     }
   }
 

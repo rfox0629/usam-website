@@ -169,6 +169,18 @@ type GroupMemberAddResult = {
     phone: string;
   };
 };
+type GroupMemberRemoveResult = {
+  error?: string;
+  member?: DosAppGroupMember;
+  ok?: boolean;
+};
+type GroupPersonMatch = {
+  email: string | null;
+  id: string;
+  matchReasons: ("email" | "phone")[];
+  name: string;
+  phone: string;
+};
 type GroupJoinRequest = {
   createdAt: string;
   email: string;
@@ -178,6 +190,7 @@ type GroupJoinRequest = {
   lastName: string;
   message: string | null;
   phone: string | null;
+  possiblePersonMatches?: GroupPersonMatch[];
   sourceGroupSlug: string;
   sourcePath: string;
   status: "pending" | "reviewed" | "accepted" | "declined" | "archived" | string;
@@ -195,6 +208,7 @@ type GroupJoinRequestAction = "accept" | "decline" | "review";
 type GroupJoinRequestActionResult = GroupMemberAddResult & {
   error?: string;
   ok?: boolean;
+  possiblePersonMatches?: GroupPersonMatch[];
   request?: GroupJoinRequest;
 };
 type GroupSettingsSavePayload = {
@@ -6156,6 +6170,7 @@ function GroupsWorkspace({
   onJoinRequestAccepted,
   onLogAsTable,
   onOpenGroup,
+  onRemoveMember,
   onSchedule,
   onSearchChange,
   onSelectListView,
@@ -6180,6 +6195,7 @@ function GroupsWorkspace({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
+  onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
   onSelectListView: (view: GroupsListView) => void;
@@ -6204,6 +6220,7 @@ function GroupsWorkspace({
         onInvite={onInvite}
         onJoinRequestAccepted={onJoinRequestAccepted}
         onLogAsTable={onLogAsTable}
+        onRemoveMember={onRemoveMember}
         onSchedule={onSchedule}
         onTabChange={onDetailTabChange}
         onTakeAttendance={onTakeAttendance}
@@ -6288,6 +6305,7 @@ function GroupDetailWorkspace({
   onJoinRequestAccepted,
   onViewPublicGroup,
   onLogAsTable,
+  onRemoveMember,
   onSchedule,
   onTabChange,
   onTakeAttendance,
@@ -6305,6 +6323,7 @@ function GroupDetailWorkspace({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onViewPublicGroup: () => void;
   onLogAsTable: () => void;
+  onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onTakeAttendance: () => void;
@@ -6576,7 +6595,7 @@ function GroupDetailWorkspace({
       ) : null}
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
       {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
-      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} workspaceId={workspaceId} /> : null}
+      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
@@ -7498,17 +7517,24 @@ function GroupMembersTab({
   group,
   isPreview,
   onJoinRequestAccepted,
+  onRemoveMember,
   workspaceId,
 }: {
   group: DosAppGroup;
   isPreview: boolean;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   workspaceId: string;
 }) {
   const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
   const [joinRequestsMessage, setJoinRequestsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [submittingJoinRequest, setSubmittingJoinRequest] = useState<string | null>(null);
+  const [joinRequestPersonChoices, setJoinRequestPersonChoices] = useState<Record<string, string>>({});
+  const [memberRemovalMessage, setMemberRemovalMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [memberPendingRemovalId, setMemberPendingRemovalId] = useState<string | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const visibleMembers = group.members.filter((member) => member.status !== "removed");
 
   async function loadJoinRequests() {
     if (isPreview) {
@@ -7547,7 +7573,7 @@ function GroupMembersTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.id, isPreview, workspaceId]);
 
-  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction) {
+  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction, options: { createNewPerson?: boolean; personId?: string } = {}) {
     if (isPreview) {
       setJoinRequestsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
       return;
@@ -7560,7 +7586,9 @@ function GroupMembersTab({
       const response = await fetch("/api/dos/app/groups/join-requests", {
         body: JSON.stringify({
           action,
+          createNewPerson: options.createNewPerson === true,
           groupId: group.id,
+          personId: options.personId,
           requestId,
           workspaceId,
         }),
@@ -7594,6 +7622,26 @@ function GroupMembersTab({
       setJoinRequestsMessage({ text: error instanceof Error ? error.message : "Unable to update this request.", tone: "error" });
     } finally {
       setSubmittingJoinRequest(null);
+    }
+  }
+
+  async function removeMember(member: DosAppGroupMember) {
+    if (isPreview) {
+      setMemberRemovalMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setRemovingMemberId(member.id);
+    setMemberRemovalMessage(null);
+
+    try {
+      await onRemoveMember(group.id, member);
+      setMemberRemovalMessage({ text: `${member.personName} removed from this group.`, tone: "success" });
+      setMemberPendingRemovalId(null);
+    } catch (error) {
+      setMemberRemovalMessage({ text: error instanceof Error ? error.message : "Unable to remove this member.", tone: "error" });
+    } finally {
+      setRemovingMemberId(null);
     }
   }
 
@@ -7631,6 +7679,15 @@ function GroupMembersTab({
             {joinRequests.map((request) => {
               const name = groupJoinRequestName(request);
               const isSubmittingRequest = submittingJoinRequest?.endsWith(`:${request.id}`) ?? false;
+              const possibleMatches = request.possiblePersonMatches ?? [];
+              const selectedPersonChoice = joinRequestPersonChoices[request.id] ?? "";
+              const selectedPersonId = possibleMatches.length === 1
+                ? possibleMatches[0]?.id
+                : selectedPersonChoice && selectedPersonChoice !== "create-new"
+                  ? selectedPersonChoice
+                  : undefined;
+              const createNewPerson = selectedPersonChoice === "create-new";
+              const acceptDisabled = Boolean(submittingJoinRequest) || (possibleMatches.length > 1 && !selectedPersonChoice);
 
               return (
                 <article className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3.5" key={request.id}>
@@ -7646,6 +7703,39 @@ function GroupMembersTab({
                   </div>
                   {request.message ? (
                     <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#475569]">{request.message}</p>
+                  ) : null}
+                  {possibleMatches.length ? (
+                    <div className="mt-3 rounded-[16px] border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">
+                        {possibleMatches.length === 1 ? "Possible existing person" : "Possible existing people"}
+                      </p>
+                      {possibleMatches.length === 1 ? (
+                        <p className="mt-1 text-sm font-bold text-[#0F172A]">
+                          {possibleMatches[0]?.name}
+                          <span className="font-semibold text-[#64748B]"> · matched by {(possibleMatches[0]?.matchReasons ?? []).join(" + ")}</span>
+                        </p>
+                      ) : (
+                        <label className="mt-2 block">
+                          <span className="sr-only">Choose existing person match</span>
+                          <select
+                            className={FieldInputClass()}
+                            onChange={(event) => setJoinRequestPersonChoices((current) => ({
+                              ...current,
+                              [request.id]: event.target.value,
+                            }))}
+                            value={selectedPersonChoice}
+                          >
+                            <option value="">Choose existing person or create new</option>
+                            {possibleMatches.map((person) => (
+                              <option key={person.id} value={person.id}>
+                                {person.name} · matched by {person.matchReasons.join(" + ")}
+                              </option>
+                            ))}
+                            <option value="create-new">Create new person</option>
+                          </select>
+                        </label>
+                      )}
+                    </div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-bold text-[#94A3B8]">{formatRelativeDate(request.submittedAt)} · {request.sourcePath}</p>
@@ -7670,12 +7760,12 @@ function GroupMembersTab({
                       </button>
                       <button
                         className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={Boolean(submittingJoinRequest)}
-                        onClick={() => void reviewJoinRequest(request.id, "accept")}
+                        disabled={acceptDisabled}
+                        onClick={() => void reviewJoinRequest(request.id, "accept", { createNewPerson, personId: selectedPersonId })}
                         type="button"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-                        {isSubmittingRequest ? "Saving..." : "Accept"}
+                        {isSubmittingRequest ? "Saving..." : possibleMatches.length ? "Accept & Link" : "Accept"}
                       </button>
                     </div>
                   </div>
@@ -7691,17 +7781,71 @@ function GroupMembersTab({
         )}
       </DesktopPanel>
       <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
-        {group.members.length ? (
+        {memberRemovalMessage ? (
+          <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            memberRemovalMessage.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {memberRemovalMessage.text}
+          </p>
+        ) : null}
+        {visibleMembers.length ? (
           <div className="grid gap-2">
-            {group.members.map((member) => (
-              <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                  <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+            {visibleMembers.map((member) => {
+              const isLeader = member.role === "leader" || group.leaderPersonId === member.personId;
+              const isConfirmingRemoval = memberPendingRemovalId === member.id;
+
+              return (
+                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
+                      <button
+                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-2.5 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={isLeader || removingMemberId === member.id}
+                        onClick={() => {
+                          setMemberRemovalMessage(null);
+                          setMemberPendingRemovalId(member.id);
+                        }}
+                        title={isLeader ? "Change the group leader before removing this member." : `Remove ${member.personName} from group`}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  {isConfirmingRemoval ? (
+                    <div className="mt-3 rounded-[16px] border border-red-200 bg-white px-3 py-2">
+                      <p className="text-sm font-bold text-[#0F172A]">Remove {member.personName} from this group?</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">This only deactivates the group membership. Their Person record stays in Field.</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className="inline-flex min-h-9 items-center justify-center rounded-full bg-red-600 px-3 text-xs font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={removingMemberId === member.id}
+                          onClick={() => void removeMember(member)}
+                          type="button"
+                        >
+                          {removingMemberId === member.id ? "Removing..." : "Remove Member"}
+                        </button>
+                        <button
+                          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
+                          onClick={() => setMemberPendingRemovalId(null)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-[#64748B]">No members linked yet.</p>
@@ -7941,8 +8085,30 @@ function GroupSettingsSheet({
       }
     });
 
+    if (group.leaderPersonId && isPersistedUuid(group.leaderPersonId) && !peopleById.has(group.leaderPersonId)) {
+      peopleById.set(group.leaderPersonId, {
+        church: null,
+        createdAt: null,
+        discipleshipRelationship: null,
+        discipleshipStage: "not_started",
+        email: null,
+        engagementLevel: null,
+        fieldVisibility: "primary",
+        id: group.leaderPersonId,
+        lastActivityAt: null,
+        name: group.leaderName ?? "Current leader",
+        notes: null,
+        phone: "",
+        relationshipContext: "other",
+        relationshipType: null,
+        roleInMyLife: "not_active",
+        status: "new",
+        updatedAt: null,
+      });
+    }
+
     return Array.from(peopleById.values()).sort((first, second) => first.name.localeCompare(second.name));
-  }, [group.members, people]);
+  }, [group.leaderName, group.leaderPersonId, group.members, people]);
   const publicSlug = slugFromText(draft.slug || draft.name);
   const publicHref = `/groups/${publicSlug}`;
   const locationChanged = draft.defaultLocation.trim() !== (group.defaultLocation ?? "");
@@ -8023,15 +8189,6 @@ function GroupSettingsSheet({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (locationChanged && !draft.updateFutureGatheringLocations) {
-      const shouldUpdateFutureGatherings = window.confirm("Update future scheduled gatherings with this location?");
-
-      if (shouldUpdateFutureGatherings) {
-        await onSave({ ...draft, slug: publicSlug, updateFutureGatheringLocations: true });
-        return;
-      }
-    }
 
     await onSave({ ...draft, slug: publicSlug });
   }
@@ -8152,7 +8309,7 @@ function GroupSettingsSheet({
             {locationChanged ? (
               <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
                 <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
-                <span>Update future scheduled gatherings with this location?</span>
+                <span>Apply location changes to future scheduled gatherings</span>
               </label>
             ) : null}
           </div>
@@ -25140,6 +25297,67 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  async function removeGroupMember(groupId: string, member: DosAppGroupMember) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      throw new Error("Preview mode is read-only. Demo changes are not saved.");
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          groupId,
+          memberId: member.id,
+          personId: member.personId,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => ({})) as GroupMemberRemoveResult;
+
+      if (!response.ok || !result.member) {
+        throw new Error(result.error ?? "Unable to remove this member.");
+      }
+
+      setGroupMemberAdditions((current) => ({
+        ...current,
+        [groupId]: (current[groupId] ?? []).filter((addition) => addition.personId !== result.member?.personId),
+      }));
+      setGroupOverrides((current) => {
+        const currentGroup = groups.find((candidate) => candidate.id === groupId) ?? selectedGroup;
+        const currentMembers = current[groupId]?.members ?? currentGroup?.members ?? [];
+        const members = currentMembers.map((candidate) => candidate.id === result.member?.id || candidate.personId === result.member?.personId
+          ? {
+            ...candidate,
+            ...result.member,
+            personName: candidate.personName,
+          }
+          : candidate);
+
+        return {
+          ...current,
+          [groupId]: {
+            ...(current[groupId] ?? {}),
+            memberCount: members.filter((candidate) => candidate.status === "active").length,
+            members,
+          },
+        };
+      });
+      setGroupsNotice(`${member.personName} removed from ${selectedGroup?.name ?? "group"}.`);
+      router.refresh();
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("Unable to remove this member.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function saveGroupSettings(payload: GroupSettingsSavePayload) {
     setGroupSettingsMessage(null);
     setErrorMessage("");
@@ -28428,6 +28646,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         scrollAppToTop();
                       }
                     }}
+                    onRemoveMember={removeGroupMember}
                     onSchedule={() => showGroupsPlaceholder("Schedule")}
                     onSearchChange={setGroupQuery}
                     onSelectListView={setGroupsView}

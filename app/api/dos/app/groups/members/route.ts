@@ -8,6 +8,8 @@ type GroupMemberPayload = {
   email?: unknown;
   groupId?: unknown;
   group_id?: unknown;
+  memberId?: unknown;
+  member_id?: unknown;
   name?: unknown;
   notes?: unknown;
   personId?: unknown;
@@ -335,5 +337,115 @@ export async function POST(request: Request) {
       name: person.name,
       phone: person.phone ?? "",
     },
+  });
+}
+
+export async function DELETE(request: Request) {
+  const authResult = await authorizeWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  let payload: GroupMemberPayload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId) || asString(payload.workspace_id));
+  const groupId = asString(payload.groupId) || asString(payload.group_id);
+  const memberId = asString(payload.memberId) || asString(payload.member_id);
+  const personId = asString(payload.personId) || asString(payload.person_id);
+
+  if (!workspaceId || !isUuid(groupId) || (!isUuid(memberId) && !isUuid(personId))) {
+    return NextResponse.json({ error: "Group member not found." }, { status: 404 });
+  }
+
+  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+
+  if ("response" in workspaceAccess) {
+    return workspaceAccess.response;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const groupResult = await supabase
+    .from("dos_groups")
+    .select("id, leader_person_id")
+    .eq("id", groupId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (groupResult.error) {
+    return NextResponse.json({ error: groupResult.error.message }, { status: 500 });
+  }
+
+  if (!groupResult.data) {
+    return NextResponse.json({ error: "Group not found." }, { status: 404 });
+  }
+
+  let memberQuery = supabase
+    .from("dos_group_members")
+    .select("id, person_id, role, status, joined_at, notes")
+    .eq("group_id", groupId);
+
+  memberQuery = isUuid(memberId)
+    ? memberQuery.eq("id", memberId)
+    : memberQuery.eq("person_id", personId);
+
+  const memberResult = await memberQuery.maybeSingle();
+
+  if (memberResult.error) {
+    return NextResponse.json({ error: memberResult.error.message }, { status: 500 });
+  }
+
+  if (!memberResult.data) {
+    return NextResponse.json({ error: "Group member not found." }, { status: 404 });
+  }
+
+  const member = memberResult.data as MemberRow;
+
+  if (member.role === "leader" || groupResult.data.leader_person_id === member.person_id) {
+    return NextResponse.json({ error: "Change the group leader before removing this member." }, { status: 409 });
+  }
+
+  const personResult = await supabase
+    .from("missionary_field_people")
+    .select("name")
+    .eq("id", member.person_id)
+    .maybeSingle();
+
+  if (personResult.error) {
+    return NextResponse.json({ error: personResult.error.message }, { status: 500 });
+  }
+
+  const removeResult = await supabase
+    .from("dos_group_members")
+    .update({
+      status: "removed",
+    })
+    .eq("id", member.id)
+    .select("id, person_id, role, status, joined_at, notes")
+    .single();
+
+  if (removeResult.error) {
+    return NextResponse.json({ error: removeResult.error.message }, { status: 500 });
+  }
+
+  const removedMember = removeResult.data as MemberRow;
+
+  return NextResponse.json({
+    member: {
+      id: removedMember.id,
+      joinedAt: removedMember.joined_at,
+      notes: removedMember.notes,
+      personId: removedMember.person_id,
+      personName: personResult.data?.name ?? "Member",
+      role: memberRole(removedMember),
+      status: memberStatus(removedMember),
+    },
+    ok: true,
   });
 }
