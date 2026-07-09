@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -315,6 +316,8 @@ export async function PATCH(request: Request) {
   }
 
   const group = updatedGroup as GroupRow;
+  revalidatePath("/groups");
+  revalidatePath(`/groups/${group.slug}`);
 
   return NextResponse.json({
     group: {

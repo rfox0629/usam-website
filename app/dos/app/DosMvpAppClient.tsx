@@ -25278,16 +25278,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         throw new Error(result.error ?? "Unable to save group settings.");
       }
 
-      setGroupOverrides((current) => ({
-        ...current,
-        [payload.groupId]: {
+      const resolvedGroupId = result.group.id || payload.groupId;
+
+      setGroupOverrides((current) => {
+        const savedGroupOverride = {
           ...(current[payload.groupId] ?? {}),
           ...result.group,
           leaderName: result.group?.leaderPersonId
             ? people.find((person) => person.id === result.group?.leaderPersonId)?.name ?? selectedGroup?.leaderName ?? null
             : null,
-        },
-      }));
+        };
+
+        return {
+          ...current,
+          [payload.groupId]: {
+            ...(current[payload.groupId] ?? {}),
+            ...savedGroupOverride,
+          },
+          [resolvedGroupId]: {
+            ...(current[resolvedGroupId] ?? {}),
+            ...savedGroupOverride,
+          },
+        };
+      });
       if (result.group.id && result.group.id !== payload.groupId) {
         setSelectedGroupId(result.group.id);
       }
