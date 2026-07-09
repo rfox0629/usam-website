@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
@@ -54,7 +55,7 @@ function asNullableString(value: unknown) {
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function slugFromText(value: string) {
@@ -223,7 +224,24 @@ export async function PATCH(request: Request) {
     }
 
     if (!leaderResult.data) {
-      return NextResponse.json({ error: "Selected leader is not in this workspace." }, { status: 400 });
+      const existingLeaderMemberResult = await supabase
+        .from("dos_group_members")
+        .select("id")
+        .eq("group_id", resolvedGroupId)
+        .eq("person_id", leaderPersonId)
+        .in("role", ["leader", "co_leader"])
+        .neq("status", "removed")
+        .limit(1);
+
+      if (existingLeaderMemberResult.error) {
+        return NextResponse.json({ error: existingLeaderMemberResult.error.message }, { status: 500 });
+      }
+
+      const isCurrentGroupLeader = existingGroupResult.data.leader_person_id === leaderPersonId;
+
+      if (!isCurrentGroupLeader && !existingLeaderMemberResult.data?.length) {
+        return NextResponse.json({ error: "Selected leader is not in this workspace." }, { status: 400 });
+      }
     }
   }
 
@@ -315,6 +333,8 @@ export async function PATCH(request: Request) {
   }
 
   const group = updatedGroup as GroupRow;
+  revalidatePath("/groups");
+  revalidatePath(`/groups/${group.slug}`);
 
   return NextResponse.json({
     group: {
