@@ -5712,36 +5712,6 @@ type DosAppCatalogSection = {
   label: string;
 };
 
-const dosGroupsSummary = [
-  {
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
-    href: "/groups/2three2",
-    name: "2three2",
-    rhythm: "Weekly · Saturday · 7:00 AM",
-    scripture: "2 Timothy 2:22",
-    tagline: "Run. Pray. Pursue.",
-    type: "Running Group",
-  },
-  {
-    description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
-    href: "",
-    name: "Tuesday Men's Group",
-    rhythm: "Weekly · Tuesday · 6:00 AM",
-    scripture: "",
-    tagline: "Grow together.",
-    type: "Men's Group",
-  },
-  {
-    description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
-    href: "",
-    name: "Wednesday Men's Group",
-    rhythm: "Weekly · Wednesday · Evening",
-    scripture: "",
-    tagline: "Brotherhood. Prayer. Discipleship.",
-    type: "Men's Group",
-  },
-] as const;
-
 function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
   return (
     <button
@@ -5775,56 +5745,6 @@ function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
         ))}
       </div>
     </DesktopPanel>
-  );
-}
-
-function GroupsWorkspace({ onBack }: { onBack: () => void }) {
-  return (
-    <div className="space-y-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
-      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
-        <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Discipleship Rhythms</p>
-            <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-              Discipleship happens in rhythms.
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-              Build consistent rhythms through weekly gatherings, prayer, accountability, and community.
-            </p>
-          </div>
-          <div className="rounded-[20px] border border-[#102033] bg-[#06111F] p-4 text-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Featured Group</p>
-            <p className="mt-2 text-3xl font-black leading-none text-[#F8C56A]" style={{ fontFamily: font.oswald }}>2three2</p>
-            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-white/72">Run. Pray. Pursue.</p>
-          </div>
-        </div>
-      </section>
-      <div className="grid gap-3 md:grid-cols-3">
-        {dosGroupsSummary.map((group) => (
-          <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]" key={group.name}>
-            <div className="flex items-start justify-between gap-3">
-              <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-                {group.type}
-              </span>
-              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                Private
-              </span>
-            </div>
-            <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>{group.name}</h3>
-            <p className="mt-1 text-sm font-bold text-[#2563EB]">{group.tagline}</p>
-            <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group.rhythm}</p>
-            {group.scripture ? <p className="mt-2 text-sm font-bold text-[#0F172A]">{group.scripture}</p> : null}
-            <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#64748B]">{group.description}</p>
-            {group.href ? (
-              <Link className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" href={group.href}>
-                View Public
-              </Link>
-            ) : null}
-          </article>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -7617,6 +7537,7 @@ function GroupSettingsSheet({
         peopleById.set(member.personId, {
           church: null,
           createdAt: null,
+          discipleshipRelationship: null,
           discipleshipStage: "not_started",
           email: null,
           engagementLevel: null,
@@ -24729,6 +24650,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return {
       church: null,
       createdAt,
+      discipleshipRelationship: null,
       discipleshipStage: "not_started",
       email: person.email,
       engagementLevel: "0",
