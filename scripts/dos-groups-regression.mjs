@@ -25,13 +25,17 @@ const groupSeeds = read("src/lib/dos/group-seeds.ts");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
+const joinRequestsMigration = read("supabase/migrations/20260709160043_dos_group_join_requests.sql");
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
+const publicGroupActions = read("app/groups/actions.ts");
 const publicGroupsDirectoryPage = read("app/groups/page.tsx");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
+const publicGroupPageTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
 const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
+const publicSingleGroupRoute = `${publicGroupPage}\n${publicGroupPageTemplate}`;
 
 for (const table of [
   "dos_groups",
@@ -372,24 +376,44 @@ assert(
   "Public group route must not 404 private DOS groups that are rendered through safe public fields.",
 );
 assert(
-  !publicGroupPage.includes("dos_group_members"),
+  !publicSingleGroupRoute.includes("dos_group_members"),
   "Public group route must not expose member data.",
 );
 assert(
-  !publicGroupPage.includes("dos_group_attendance"),
+  !publicSingleGroupRoute.includes("dos_group_attendance"),
   "Public group route must not expose attendance data.",
 );
 assert(
-  !publicGroupPage.includes("prayer_requests"),
+  !publicSingleGroupRoute.includes("prayer_requests"),
   "Public group route must not expose private prayer data.",
 );
-assertIncludes(publicGroupPage, "What to Expect", "Public group route must include What to Expect.");
-assertIncludes(publicGroupPage, "Typical Schedule", "Public group route must include Typical Schedule.");
-assertIncludes(publicGroupPage, "Who This Is For", "Public group route must include Who This Is For.");
-assertIncludes(publicGroupPage, "Next Gathering", "Public group route must include Next Gathering.");
-assertIncludes(publicGroupPage, "Request Information", "Public group route must include Request Information.");
-assertIncludes(publicGroupPage, "Join Group", "Public group route must include Join Group placeholder.");
-assertIncludes(publicGroupPage, "Powered by", "Public group route must include the powered-by footer.");
+for (const privatePublicTerm of [
+  "Members",
+  "Attendance",
+  "Settings",
+  "Start Gathering",
+  "Add to Group",
+  "Log as Table",
+]) {
+  assert(
+    !publicSingleGroupRoute.includes(privatePublicTerm),
+    `Public group route must not expose private admin term: ${privatePublicTerm}.`,
+  );
+}
+assertIncludes(publicSingleGroupRoute, "What to Expect", "Public group route must include What to Expect.");
+assertIncludes(publicSingleGroupRoute, "Typical Schedule", "Public group route must include Typical Schedule.");
+assertIncludes(publicSingleGroupRoute, "Who This Is For", "Public group route must include Who This Is For.");
+assertIncludes(publicSingleGroupRoute, "Next Gathering", "Public group route must include Next Gathering.");
+assertIncludes(publicSingleGroupRoute, "Request Information", "Public group route must include Request Information.");
+assertIncludes(publicSingleGroupRoute, "Join Group", "Public group route must include Join Group.");
+assertIncludes(publicSingleGroupRoute, "Request received. A group leader will follow up.", "Public group route must include the requested success state.");
+assertIncludes(publicSingleGroupRoute, "submitGroupJoinRequest", "Public group route must submit the live join request action.");
+assertIncludes(publicSingleGroupRoute, 'name="firstName"', "Public group join form must include First Name.");
+assertIncludes(publicSingleGroupRoute, 'name="lastName"', "Public group join form must include Last Name.");
+assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form must include Email.");
+assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
+assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
+assertIncludes(publicSingleGroupRoute, "Powered by", "Public group route must include the powered-by footer.");
 assertIncludes(publicGroupsDirectoryPage, ".from(\"dos_groups\")", "Public groups directory must resolve from real group data.");
 assertIncludes(publicGroupsDirectoryPage, ".eq(\"active\", true)", "Public groups directory must only list active groups.");
 assertIncludes(publicGroupsDirectoryPage, "fallbackPublicDirectoryGroups", "Public groups directory must have safe local fallback data.");
@@ -407,9 +431,69 @@ assert(
   !publicGroupsDirectoryPage.includes("prayer_requests"),
   "Public groups directory must not expose private prayer data.",
 );
+for (const privateDirectoryTerm of [
+  "Members",
+  "Attendance",
+  "Settings",
+  "Start Gathering",
+  "Add to Group",
+  "Log as Table",
+]) {
+  assert(
+    !publicGroupsDirectoryPage.includes(privateDirectoryTerm),
+    `Public groups directory must not expose private admin term: ${privateDirectoryTerm}.`,
+  );
+}
+
+assertIncludes(joinRequestsMigration, "create table if not exists public.dos_group_join_requests", "Join request migration must create pending group request storage.");
+assertIncludes(joinRequestsMigration, "status text not null default 'pending'", "Join request migration must default requests to pending.");
+assertIncludes(joinRequestsMigration, "source_type text not null default 'group_join_request'", "Join request migration must store source_type.");
+assertIncludes(joinRequestsMigration, "source_group_slug text not null", "Join request migration must store source_group_slug.");
+assertIncludes(joinRequestsMigration, "source_group_id uuid references public.dos_groups(id)", "Join request migration must store source_group_id.");
+assertIncludes(joinRequestsMigration, "source_path text not null", "Join request migration must store source_path.");
+assertIncludes(joinRequestsMigration, "submitted_at timestamptz not null default now()", "Join request migration must store submitted_at.");
+assertIncludes(joinRequestsMigration, "alter table public.dos_group_join_requests enable row level security", "Join request migration must enable RLS.");
+assertIncludes(joinRequestsMigration, "grant insert (", "Public join requests must use column-limited insert grants.");
+assertIncludes(joinRequestsMigration, "email,", "Public join requests must allow email submission.");
+assertIncludes(joinRequestsMigration, "source_group_slug,", "Public join requests must allow source_group_slug submission.");
+assertIncludes(joinRequestsMigration, "to anon", "Public join requests must allow public insert only through the anon role.");
+assertIncludes(joinRequestsMigration, "revoke all on table public.dos_group_join_requests from authenticated", "Join request migration must revoke direct authenticated table access.");
+assertIncludes(joinRequestsMigration, "dos_group_join_requests_pending_group_email_unique", "Join request migration must prevent duplicate pending requests by group/email.");
+assertIncludes(joinRequestsMigration, "Public can create pending group join requests", "Join request migration must include public pending insert policy.");
+assertIncludes(joinRequestsMigration, "status = 'pending'", "Public insert policy must keep requests pending.");
+assertIncludes(joinRequestsMigration, "group_id is null", "Direct public insert must not be able to set group_id.");
+assertIncludes(joinRequestsMigration, "source_group_id is null", "Direct public insert must not be able to set source_group_id.");
+assertIncludes(joinRequestsMigration, "workspace_id is null", "Direct public insert must not be able to set workspace_id.");
+assertIncludes(joinRequestsMigration, "Private DOS server routes review requests with workspace/group scoping.", "Join request migration must document private DOS review scoping.");
+assert(
+  !joinRequestsMigration.includes("grant insert, select, update, delete on table public.dos_group_join_requests to authenticated"),
+  "Join request migration must not grant direct authenticated CRUD access.",
+);
+assert(
+  !joinRequestsMigration.includes("for select\nto anon"),
+  "Join request migration must not allow public request selection.",
+);
+assertIncludes(publicGroupActions, ".from(\"dos_group_join_requests\")", "Join request action must write to dos_group_join_requests.");
+assertIncludes(publicGroupActions, ".from(\"dos_groups\")", "Join request action must resolve the active group.");
+assertIncludes(publicGroupActions, "emailPattern.test(email)", "Join request action must validate email format.");
+assertIncludes(publicGroupActions, "normalizePhone", "Join request action must intentionally keep phone optional and normalized.");
+assertIncludes(publicGroupActions, ".eq(\"status\", \"pending\")", "Join request action must check existing pending requests.");
+assertIncludes(publicGroupActions, "(error as { code?: string }).code === \"23505\"", "Join request action must handle duplicate pending requests safely.");
+assertIncludes(publicGroupActions, "status: \"pending\"", "Join request action must save requests as pending.");
+assertIncludes(publicGroupActions, "source_type: \"group_join_request\"", "Join request action must save source_type.");
+assertIncludes(publicGroupActions, "source_group_slug: group.slug", "Join request action must save source_group_slug.");
+assertIncludes(publicGroupActions, "source_group_id: group.id", "Join request action must save source_group_id.");
+assertIncludes(publicGroupActions, "source_path: sourcePath", "Join request action must save source_path.");
+assertIncludes(publicGroupActions, "submitted_at: submittedAt", "Join request action must save submitted_at.");
+assert(
+  !publicGroupActions.includes(".from(\"dos_group_members\")"),
+  "Join request action must not create group members directly.",
+);
 
 assert(exists("app/groups/page.tsx"), "Groups must create the public directory route.");
 assert(exists("app/groups/[slug]/page.tsx"), "Groups must create the public share route.");
+assert(exists("app/groups/PublicGroupPageTemplate.tsx"), "Groups must use a reusable public group page template.");
+assert(exists("app/groups/actions.ts"), "Groups must create a live public join request action.");
 assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create the authenticated member add route.");
 assert(exists("app/api/dos/app/groups/settings/route.ts"), "Groups must create the authenticated settings route.");
 assert(!exists("app/dos/groups/page.tsx"), "Groups should stay inside the authenticated DOS app surface.");

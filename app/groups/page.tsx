@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -75,7 +76,11 @@ function formatPublicDirectoryDate(value: string | null | undefined) {
   }).format(date);
 }
 
-function publicGroupType(value: string | null | undefined) {
+function publicGroupType(value: string | null | undefined, name = "") {
+  if (name.toLowerCase().includes("men")) {
+    return "Men's Group";
+  }
+
   if (value === "running") {
     return "Running Group";
   }
@@ -147,7 +152,7 @@ async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
       scriptureReference: group.scripture_reference ?? "",
       slug: group.slug,
       tagline: group.tagline ?? "Discipleship happens in rhythms.",
-      type: publicGroupType(group.type),
+      type: publicGroupType(group.type, group.name),
     };
   });
 }
@@ -162,10 +167,13 @@ export default async function PublicGroupsDirectoryPage() {
           <header className="overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
             <div className="relative isolate bg-[#06111F] px-5 py-10 text-white sm:px-8 lg:px-10">
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_18%,rgba(248,197,106,0.28),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0),rgba(2,6,23,0.72))]" aria-hidden="true" />
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">USA Missionaries Groups</p>
+              <Link className="inline-flex items-center gap-3" href="/">
+                <Image alt="USA Missionaries" className="h-8 w-8 rounded-sm object-contain" height={32} priority src="/brand/logo/usam-website-logo.png" width={32} />
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">USA Missionaries Groups</span>
+              </Link>
               <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none tracking-tight sm:text-5xl">Find a discipleship rhythm.</h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/78">
-                Public group pages share only safe details: rhythm, location, description, and the next gathering. Member details, attendance, prayer requests, and internal notes stay private inside DOS.
+                Explore public discipleship rhythms connected with USA Missionaries and request information from a group leader.
               </p>
             </div>
           </header>
