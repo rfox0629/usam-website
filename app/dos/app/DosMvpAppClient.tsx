@@ -216,6 +216,12 @@ type GroupSettingsSavePayload = {
   updateFutureGatheringLocations: boolean;
   visibility: DosAppGroup["visibility"];
 };
+type GroupRhythmSlot = {
+  dayOfWeek: string;
+  endTime: string;
+  id: string;
+  startTime: string;
+};
 type GroupSettingsSaveResult = {
   error?: string;
   group?: Partial<DosAppGroup> & { id: string };
@@ -1468,15 +1474,114 @@ function slugFromText(value: string) {
     .slice(0, 80);
 }
 
-function groupScheduleDefaults(group: DosAppGroup) {
+const groupWeekdayOptions = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+
+function formatGroupTimeFromMinutes(totalMinutes: number) {
+  const normalizedMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+const groupTimeOptions = Array.from({ length: 96 }, (_, index) => formatGroupTimeFromMinutes(index * 15));
+
+function normalizeGroupTimeLabel(value: string | null | undefined) {
+  const text = value?.trim().replace(/\s+/g, " ") ?? "";
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+
+  if (!match) {
+    return "";
+  }
+
+  const hour = Number.parseInt(match[1] ?? "", 10);
+  const minute = match[2] ? Number.parseInt(match[2], 10) : 0;
+
+  if (Number.isNaN(hour) || Number.isNaN(minute) || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+    return "";
+  }
+
+  return `${hour}:${String(minute).padStart(2, "0")} ${match[3].toUpperCase()}`;
+}
+
+function groupTimeToMinutes(value: string) {
+  const normalized = normalizeGroupTimeLabel(value);
+  const match = normalized.match(/^(\d{1,2}):(\d{2})\s(AM|PM)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number.parseInt(match[1] ?? "", 10);
+  const minute = Number.parseInt(match[2] ?? "", 10);
+  const hour24 = match[3] === "PM" ? (hour % 12) + 12 : hour % 12;
+
+  return hour24 * 60 + minute;
+}
+
+function addMinutesToGroupTime(value: string, minutesToAdd: number) {
+  const minutes = groupTimeToMinutes(value);
+
+  return minutes === null ? "" : formatGroupTimeFromMinutes(minutes + minutesToAdd);
+}
+
+function createGroupRhythmSlot(index: number, defaults?: Partial<GroupRhythmSlot>): GroupRhythmSlot {
+  return {
+    dayOfWeek: defaults?.dayOfWeek ?? "",
+    endTime: normalizeGroupTimeLabel(defaults?.endTime),
+    id: defaults?.id ?? `rhythm-slot-${index}`,
+    startTime: normalizeGroupTimeLabel(defaults?.startTime),
+  };
+}
+
+function rhythmSlotSummary(slot: GroupRhythmSlot) {
+  const timeRange = [slot.startTime, slot.endTime].filter(Boolean).join(" - ");
+
+  return [slot.dayOfWeek, timeRange].filter(Boolean).join(" · ");
+}
+
+function formatGroupRhythmLabel(slots: GroupRhythmSlot[]) {
+  const summaries = slots.map(rhythmSlotSummary).filter(Boolean);
+
+  return summaries.length ? `Weekly · ${summaries.join("; ")}` : "Weekly";
+}
+
+function parseGroupRhythmSlots(group: DosAppGroup) {
   const rhythm = group.rhythmLabel ?? "";
-  const dayMatch = rhythm.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)s?\b/i);
-  const timeMatches = rhythm.match(/\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/gi) ?? [];
+  const rhythmBody = rhythm.replace(/^Weekly\s*[·-]\s*/i, "");
+  const chunks = rhythmBody
+    .split(/\s*;\s*/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  const slots = chunks
+    .map((chunk, index) => {
+      const dayMatch = chunk.match(/\b(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)s?\b/i);
+      const timeMatches = chunk.match(/\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/gi) ?? [];
+
+      return createGroupRhythmSlot(index, {
+        dayOfWeek: dayMatch?.[1] ?? "",
+        endTime: timeMatches[1] ?? "",
+        startTime: timeMatches[0] ?? "",
+      });
+    })
+    .filter((slot) => slot.dayOfWeek || slot.startTime || slot.endTime);
+
+  if (slots.length) {
+    return slots;
+  }
+
+  return [createGroupRhythmSlot(0)];
+}
+
+function groupScheduleDefaults(group: DosAppGroup) {
+  const [firstSlot] = parseGroupRhythmSlots(group);
 
   return {
-    dayOfWeek: dayMatch?.[1] ?? "",
-    endTime: timeMatches[1] ?? "",
-    startTime: timeMatches[0] ?? "",
+    dayOfWeek: firstSlot?.dayOfWeek ?? "",
+    endTime: firstSlot?.endTime ?? "",
+    startTime: firstSlot?.startTime ?? "",
   };
 }
 
@@ -7766,6 +7871,7 @@ function GroupSettingsSheet({
   people: DosAppPerson[];
 }) {
   const scheduleDefaults = groupScheduleDefaults(group);
+  const [rhythmSlots, setRhythmSlots] = useState<GroupRhythmSlot[]>(() => parseGroupRhythmSlots(group));
   const [draft, setDraft] = useState<GroupSettingsSavePayload>(() => ({
     active: group.active,
     dayOfWeek: scheduleDefaults.dayOfWeek,
@@ -7828,6 +7934,72 @@ function GroupSettingsSheet({
     }));
   }
 
+  function applyRhythmSlots(nextSlots: GroupRhythmSlot[]) {
+    const normalizedSlots = nextSlots.length ? nextSlots : [createGroupRhythmSlot(Date.now())];
+    const firstSlot = normalizedSlots[0] ?? createGroupRhythmSlot(0);
+
+    setRhythmSlots(normalizedSlots);
+    setDraft((current) => ({
+      ...current,
+      dayOfWeek: firstSlot.dayOfWeek,
+      endTime: firstSlot.endTime,
+      rhythmLabel: formatGroupRhythmLabel(normalizedSlots),
+      startTime: firstSlot.startTime,
+    }));
+  }
+
+  function updateRhythmSlot(slotId: string, field: "dayOfWeek" | "endTime" | "startTime", value: string) {
+    const nextSlots = rhythmSlots.map((slot) => {
+      if (slot.id !== slotId) {
+        return slot;
+      }
+
+      const normalizedValue = field === "dayOfWeek" ? value : normalizeGroupTimeLabel(value);
+      const nextSlot = {
+        ...slot,
+        [field]: normalizedValue,
+      };
+
+      if (field === "startTime" && nextSlot.startTime) {
+        const previousAutoEnd = slot.startTime ? addMinutesToGroupTime(slot.startTime, 75) : "";
+        const nextStartMinutes = groupTimeToMinutes(nextSlot.startTime);
+        const nextEndMinutes = groupTimeToMinutes(nextSlot.endTime);
+
+        if (
+          !nextSlot.endTime
+          || nextSlot.endTime === previousAutoEnd
+          || (nextStartMinutes !== null && nextEndMinutes !== null && nextEndMinutes <= nextStartMinutes)
+        ) {
+          nextSlot.endTime = addMinutesToGroupTime(nextSlot.startTime, 75);
+        }
+      }
+
+      return nextSlot;
+    });
+
+    applyRhythmSlots(nextSlots);
+  }
+
+  function addRhythmSlot() {
+    const lastSlot = rhythmSlots.at(-1);
+    const nextId = `rhythm-slot-${Date.now()}`;
+
+    applyRhythmSlots([
+      ...rhythmSlots,
+      createGroupRhythmSlot(rhythmSlots.length, {
+        endTime: lastSlot?.endTime,
+        id: nextId,
+        startTime: lastSlot?.startTime,
+      }),
+    ]);
+  }
+
+  function removeRhythmSlot(slotId: string) {
+    const nextSlots = rhythmSlots.filter((slot) => slot.id !== slotId);
+
+    applyRhythmSlots(nextSlots.length ? nextSlots : [createGroupRhythmSlot(Date.now())]);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -7844,128 +8016,169 @@ function GroupSettingsSheet({
   }
 
   return (
-    <Sheet description="Edit this private DOS group. Public-shareable only exposes the public landing page fields." onClose={onClose} showEyebrow={false} size="wide" title={`Edit ${group.name}`}>
-      <form className="grid gap-4 p-1 md:grid-cols-[minmax(0,1fr)_320px]" onSubmit={handleSubmit}>
-        <div className="space-y-4">
-          {message ? (
-            <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
-              message.tone === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-red-200 bg-red-50 text-red-700"
-            }`}
+    <Sheet onClose={onClose} showHeader={false} size="wide" title={`Edit ${group.name}`}>
+      <form className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 flex-col overflow-hidden" onSubmit={handleSubmit}>
+        <header className="shrink-0 border-b border-[#EAF2FF] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-black leading-tight text-[#0F172A]">Edit {group.name}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">Edit this private DOS group. Public-shareable only exposes the public landing page fields.</p>
+            </div>
+            <button
+              aria-label="Close"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-xl leading-none text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+              onClick={onClose}
+              type="button"
             >
-              {message.text}
-            </p>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <FieldLabel>Group name</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
-            </label>
-            <label className="block">
-              <FieldLabel>Tagline</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("tagline", event.target.value)} value={draft.tagline} />
-            </label>
+              &times;
+            </button>
           </div>
-          <label className="block">
-            <FieldLabel>Description</FieldLabel>
-            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("description", event.target.value)} value={draft.description} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
+        </header>
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0 space-y-4">
+            {message ? (
+              <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+                message.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+              >
+                {message.text}
+              </p>
+            ) : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block min-w-0">
+                <FieldLabel>Group name</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
+              </label>
+              <label className="block min-w-0">
+                <FieldLabel>Tagline</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("tagline", event.target.value)} value={draft.tagline} />
+              </label>
+            </div>
             <label className="block">
-              <FieldLabel>Scripture reference</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
+              <FieldLabel>Description</FieldLabel>
+              <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("description", event.target.value)} value={draft.description} />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block min-w-0">
+                <FieldLabel>Scripture reference</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
+              </label>
+              <label className="block min-w-0">
+                <FieldLabel>Type</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
+                  {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
+                    <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="block">
+              <FieldLabel>Scripture text</FieldLabel>
+              <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("scriptureText", event.target.value)} value={draft.scriptureText} />
             </label>
             <label className="block">
-              <FieldLabel>Type</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
-                {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
-                  <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="block">
-            <FieldLabel>Scripture text</FieldLabel>
-            <textarea className={FieldTextareaClass()} onChange={(event) => updateDraft("scriptureText", event.target.value)} value={draft.scriptureText} />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <label className="block sm:col-span-2">
               <FieldLabel>Rhythm label</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("rhythmLabel", event.target.value)} placeholder="Weekly · Saturday · 7:00 AM" value={draft.rhythmLabel} />
+              <input className={FieldInputClass()} onChange={(event) => updateDraft("rhythmLabel", event.target.value)} placeholder="Weekly · Tuesday · 6:00 AM; Thursday · 6:00 AM" value={draft.rhythmLabel} />
             </label>
-            <label className="block">
-              <FieldLabel>Day</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("dayOfWeek", event.target.value)} value={draft.dayOfWeek}>
-                <option value="">No day</option>
-                {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => <option key={day} value={day}>{day}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <FieldLabel>Start time</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("startTime", event.target.value)} placeholder="7:00 AM" value={draft.startTime} />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <FieldLabel>End time</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("endTime", event.target.value)} placeholder="8:15 AM" value={draft.endTime} />
-            </label>
+            <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-[#0F172A]">Weekly schedule</p>
+                  <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">Selecting days and times updates the rhythm label.</p>
+                </div>
+                <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]" onClick={addRhythmSlot} type="button">
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                  Add day
+                </button>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {rhythmSlots.map((slot, index) => (
+                  <div className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" key={slot.id}>
+                    <label className="block min-w-0">
+                      <FieldLabel>{index === 0 ? "Day" : `Day ${index + 1}`}</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "dayOfWeek", event.target.value)} value={slot.dayOfWeek}>
+                        <option value="">Select day</option>
+                        {groupWeekdayOptions.map((day) => <option key={day} value={day}>{day}</option>)}
+                      </select>
+                    </label>
+                    <label className="block min-w-0">
+                      <FieldLabel>Start time</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "startTime", event.target.value)} value={slot.startTime}>
+                        <option value="">Select time</option>
+                        {groupTimeOptions.map((time) => <option key={`${slot.id}-start-${time}`} value={time}>{time}</option>)}
+                      </select>
+                    </label>
+                    <label className="block min-w-0">
+                      <FieldLabel>End time</FieldLabel>
+                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "endTime", event.target.value)} value={slot.endTime}>
+                        <option value="">No end time</option>
+                        {groupTimeOptions.map((time) => <option key={`${slot.id}-end-${time}`} value={time}>{time}</option>)}
+                      </select>
+                    </label>
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] transition-colors hover:border-[#FCA5A5] hover:text-[#B91C1C]" onClick={() => removeRhythmSlot(slot.id)} type="button">
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
             <label className="block">
               <FieldLabel>Default location</FieldLabel>
               <input className={FieldInputClass()} onChange={(event) => updateDraft("defaultLocation", event.target.value)} value={draft.defaultLocation} />
             </label>
+            {locationChanged ? (
+              <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
+                <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
+                <span>Update future scheduled gatherings with this location?</span>
+              </label>
+            ) : null}
           </div>
-          {locationChanged ? (
-            <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
-              <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
-              <span>Update future scheduled gatherings with this location?</span>
-            </label>
-          ) : null}
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-0 lg:self-start">
+            <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <p className="text-sm font-black text-[#0F172A]">Publishing</p>
+              <label className="mt-3 block">
+                <FieldLabel>Visibility</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
+                  <option value="private">Private</option>
+                  <option value="workspace">Public-shareable</option>
+                </select>
+              </label>
+              <label className="mt-3 block">
+                <FieldLabel>Public slug</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
+              </label>
+              <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8]">{publicHref}</p>
+            </div>
+            <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+              <p className="text-sm font-black text-[#0F172A]">Leadership</p>
+              <label className="mt-3 block">
+                <FieldLabel>Leader</FieldLabel>
+                <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
+                  <option value="">No leader</option>
+                  {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
+              <p className="text-sm font-black text-[#991B1B]">Archive</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
+              <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
+                <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
+                Archive group
+              </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
+                {isSubmitting ? "Saving..." : "Save changes"}
+              </button>
+              <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569]" onClick={onClose} type="button">
+                Cancel
+              </button>
+            </div>
+          </aside>
         </div>
-        <aside className="space-y-4">
-          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-            <p className="text-sm font-black text-[#0F172A]">Publishing</p>
-            <label className="mt-3 block">
-              <FieldLabel>Visibility</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
-                <option value="private">Private</option>
-                <option value="workspace">Public-shareable</option>
-              </select>
-            </label>
-            <label className="mt-3 block">
-              <FieldLabel>Public slug</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
-            </label>
-            <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-bold text-[#1D4ED8]">{publicHref}</p>
-          </div>
-          <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-            <p className="text-sm font-black text-[#0F172A]">Leadership</p>
-            <label className="mt-3 block">
-              <FieldLabel>Leader</FieldLabel>
-              <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
-                <option value="">No leader</option>
-                {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
-            <p className="text-sm font-black text-[#991B1B]">Archive</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
-            <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
-              <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
-              Archive group
-            </label>
-          </div>
-          <div className="flex flex-col gap-2">
-            <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Saving..." : "Save changes"}
-            </button>
-            <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569]" onClick={onClose} type="button">
-              Cancel
-            </button>
-          </div>
-        </aside>
       </form>
     </Sheet>
   );

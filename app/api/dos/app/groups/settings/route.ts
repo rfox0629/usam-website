@@ -93,7 +93,7 @@ function buildRhythmLabel(payload: GroupSettingsPayload) {
   const timeRange = [start, end].filter(Boolean).join(" - ");
   const generated = ["Weekly", day, timeRange].filter(Boolean).join(" · ");
 
-  return generated || explicitRhythm || null;
+  return explicitRhythm || generated || null;
 }
 
 async function authorizeWrite() {

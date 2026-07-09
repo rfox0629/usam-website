@@ -274,6 +274,11 @@ assertIncludes(appClient, "/api/dos/app/groups/settings", "Group Settings must c
 assertIncludes(appClient, "Update future scheduled gatherings with this location?", "Group Settings must confirm future location updates.");
 assertIncludes(appClient, "Archive group", "Group Settings must archive instead of hard delete.");
 assertIncludes(appClient, "Public-shareable", "Group Settings must expose public-shareable visibility copy.");
+assertIncludes(appClient, "type GroupRhythmSlot", "Group Settings must support multiple weekly rhythm rows.");
+assertIncludes(appClient, "formatGroupRhythmLabel", "Group Settings must generate the rhythm label from selected days and times.");
+assertIncludes(appClient, "groupTimeOptions", "Group Settings time controls must use selectable time options.");
+assertIncludes(appClient, "Add day", "Group Settings must allow adding another weekly day.");
+assertIncludes(appClient, "Selecting days and times updates the rhythm label.", "Group Settings must explain the automatic rhythm label behavior.");
 assert(
   !appClient.includes("Invite will be wired after group management is ready."),
   "Group Invite placeholder copy must be removed.",
@@ -382,6 +387,7 @@ assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API 
 assertIncludes(groupSettingsRoute, ".neq(\"id\", groupId)", "Group settings API must validate slug uniqueness excluding the current group.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_gatherings\")", "Group settings API must update future gathering locations when confirmed.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_group_members\")", "Group settings API must update leader membership.");
+assertIncludes(groupSettingsRoute, "return explicitRhythm || generated || null", "Group settings API must preserve the explicit generated multi-day rhythm label.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
 assertIncludes(publicGroupPage, ".from(\"dos_groups\")", "Public group route must resolve from real group data.");
 assertIncludes(publicGroupPage, ".eq(\"slug\", slug)", "Public group route must resolve groups by slug.");
