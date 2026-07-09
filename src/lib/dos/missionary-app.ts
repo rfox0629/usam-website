@@ -21,7 +21,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
-import { syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
+import { ensureDosViewerPerson, syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
@@ -2937,6 +2937,23 @@ export async function loadDosAppData(
   if (householdPeopleSync.error) {
     return {
       message: householdPeopleSync.error.message ?? "Unable to prepare household people.",
+      status: "error",
+    };
+  }
+
+  const viewerPersonSync = viewer
+    ? await ensureDosViewerPerson(supabase, {
+      email: viewer.email,
+      phone: "phone" in viewer ? viewer.phone : null,
+      userId: viewer.userId,
+      workspaceDisplayName: workspace.display_name,
+      workspaceId: workspace.id,
+    })
+    : { createdCount: 0, error: null, updatedCount: 0 };
+
+  if (viewerPersonSync.error) {
+    return {
+      message: viewerPersonSync.error.message ?? "Unable to prepare DOS user person.",
       status: "error",
     };
   }
