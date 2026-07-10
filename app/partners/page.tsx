@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { PartnersFaqAccordion } from "./PartnersFaqAccordion";
+import { PartnersDocumentsGrid } from "./PartnersDocumentsGrid";
 import { groupPartnersDocuments, listPartnersDocuments } from "@/src/lib/partners-documents";
 
 export const dynamic = "force-dynamic";
@@ -1044,26 +1045,6 @@ function GovernanceSection() {
 /* DUE DILIGENCE LIBRARY                                                   */
 /* ---------------------------------------------------------------------- */
 
-function docTypeLabel(fileType: string | null) {
-  if (!fileType) {
-    return "FILE";
-  }
-
-  if (fileType === "application/pdf") {
-    return "PDF";
-  }
-
-  if (fileType.includes("wordprocessingml") || fileType === "application/msword") {
-    return "DOC";
-  }
-
-  if (fileType.startsWith("image/")) {
-    return "IMG";
-  }
-
-  return "FILE";
-}
-
 async function DocumentsSection() {
   const documents = await listPartnersDocuments();
   const groups = groupPartnersDocuments(documents);
@@ -1077,50 +1058,7 @@ async function DocumentsSection() {
         on request.
       </Lede>
 
-      {groups.length === 0 ? (
-        <p className="mt-10 text-sm text-stone-500">Documents are being prepared and will be added here soon.</p>
-      ) : (
-        <div className="mt-12 space-y-10">
-          {groups.map((group) => (
-            <div key={group.groupName}>
-              <p
-                className="flex items-center gap-4 text-[11px] uppercase tracking-[0.22em] text-usam-gold"
-                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-              >
-                {group.groupName}
-                <span aria-hidden="true" className="h-px flex-1 bg-stone-800" />
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.documents.map((doc) => (
-                  <a
-                    className="flex items-center justify-between gap-4 border border-stone-800 bg-white/[0.02] px-5 py-4 transition-colors hover:border-usam-gold/60 hover:bg-white/[0.04]"
-                    href={`/api/partners/documents/${doc.id}`}
-                    key={doc.id}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <span>
-                      <span className="block text-sm font-semibold text-stone-200">{doc.docName}</span>
-                      <span
-                        className="mt-1 block text-[9.5px] uppercase tracking-[0.16em] text-stone-500"
-                        style={{ fontFamily: font.rajdhani }}
-                      >
-                        {docTypeLabel(doc.fileType)} · {group.groupName}
-                      </span>
-                    </span>
-                    <span
-                      className="flex-shrink-0 whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-usam-gold"
-                      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-                    >
-                      View Document
-                    </span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <PartnersDocumentsGrid groups={groups} />
     </Section>
   );
 }
