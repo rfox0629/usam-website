@@ -113,7 +113,7 @@ export async function POST(request: Request) {
     follow_up_needed: payload.followUpNeeded === true,
     leader_id: authResult.authorization.userId,
     meeting_id: meetingId,
-    next_step: asString(payload.nextStep, 160) || null,
+    next_step: asString(payload.nextStep) || null,
     observed_fruit: observedFruit,
     person_id: personIds.length === 1 ? personIds[0] : null,
     prayer_needs: asString(payload.prayerNeeds) || null,

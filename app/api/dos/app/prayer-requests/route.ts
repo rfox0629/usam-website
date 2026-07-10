@@ -466,6 +466,42 @@ export async function POST(request: Request) {
     visibility: asVisibility(payload.visibility),
     workspace_id: workspaceId,
   };
+  const existingMeetingPrayerResult = meetingId
+    ? await supabase
+      .from("prayer_requests")
+      .select("id")
+      .or(prayerRequestScopeFilter(workspaceId))
+      .eq("meeting_id", meetingId)
+      .eq("source", "dos_table")
+      .neq("status", "archived")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (existingMeetingPrayerResult.error && !isMissingPrayerBridgeColumn(existingMeetingPrayerResult.error)) {
+    return NextResponse.json({ error: existingMeetingPrayerResult.error.message }, { status: 500 });
+  }
+
+  if (meetingId && existingMeetingPrayerResult.data?.id && !existingMeetingPrayerResult.error) {
+    const updateResult = await supabase
+      .from("prayer_requests")
+      .update(insertPayload)
+      .eq("id", existingMeetingPrayerResult.data.id)
+      .or(prayerRequestScopeFilter(workspaceId))
+      .select(requestSelect)
+      .single();
+
+    if (updateResult.error) {
+      if (!isMissingPrayerBridgeColumn(updateResult.error)) {
+        return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
+      }
+    } else {
+      return NextResponse.json({ prayerRequest: mapPrayerRequest(updateResult.data as PrayerRequestRow, workspaceId) });
+    }
+  }
+
   const insertResult = await supabase
     .from("prayer_requests")
     .insert(insertPayload)

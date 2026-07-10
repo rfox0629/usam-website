@@ -198,6 +198,7 @@ export type DosAppMeeting = {
     token: string | null;
   };
   reviewLinks: Array<{
+    createdAt: string | null;
     recipientPersonId: string | null;
     status: string | null;
     submittedAt: string | null;
@@ -1511,6 +1512,14 @@ function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
   return "submitted";
 }
 
+function reviewLinkIsReusable(link: ReviewLinkRow | null | undefined) {
+  return Boolean(link?.token)
+    && !link?.used_at
+    && !link?.submitted_at
+    && link?.status !== "submitted"
+    && link?.status !== "expired";
+}
+
 function emptyReviewSummary(): DosAppMeeting["review"] {
   return {
     overallRating: null,
@@ -1530,6 +1539,7 @@ function meetingReviewSummary(
 ): DosAppMeeting["review"] {
   const review = meetingReviewByMeetingId.get(meetingId);
   const link = reviewLinkByMeetingId.get(meetingId);
+  const reusableLink = reviewLinkIsReusable(link) ? link : null;
 
   if (review) {
     return {
@@ -1539,16 +1549,16 @@ function meetingReviewSummary(
       stoodOut: review.stood_out,
       submittedAt: review.created_at,
       submittedName: review.submitted_name,
-      token: link?.token ?? null,
+      token: reusableLink?.token ?? null,
     };
   }
 
   if (link) {
     return {
       ...emptyReviewSummary(),
-      status: link.used_at || link.status === "submitted" ? "submitted" : "pending",
-      submittedAt: link.submitted_at ?? link.used_at,
-      token: link.token,
+      status: reusableLink ? "pending" : "not_sent",
+      submittedAt: null,
+      token: reusableLink?.token ?? null,
     };
   }
 
@@ -3399,6 +3409,7 @@ export async function loadDosAppData(
         recorder,
         review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
         reviewLinks: (reviewLinksByMeetingId.get(meeting.id) ?? []).map((link) => ({
+          createdAt: link.created_at ?? null,
           recipientPersonId: link.recipient_person_id ?? null,
           status: link.status ?? null,
           submittedAt: link.submitted_at ?? null,
