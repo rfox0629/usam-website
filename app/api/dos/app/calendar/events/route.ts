@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
   let query = createSupabaseAdminClient()
     .from("external_calendar_events")
-    .select("id, calendar_source_id, external_calendar_id, external_event_id, i_cal_uid, summary, description, location, html_link, start_at, end_at, all_day, timezone, imported_dos_source_id, calendar_sources(name)")
+    .select("id, calendar_source_id, external_calendar_id, external_event_id, i_cal_uid, status, summary, description, location, html_link, start_at, end_at, all_day, timezone, imported_dos_source_id, calendar_sources(name)")
     .eq("workspace_id", workspaceId)
     .eq("provider", "google")
     .is("deleted_at", null)
@@ -102,6 +102,7 @@ export async function GET(request: Request) {
         location: event.location,
         sourceName: Array.isArray(source) ? source[0]?.name ?? null : source?.name ?? null,
         startAt: event.start_at,
+        status: event.status,
         timezone: event.timezone,
         title: event.summary ?? "Google Calendar event",
       };

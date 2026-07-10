@@ -20,6 +20,7 @@
     "test:dos-table-next-steps": "node scripts/dos-table-next-steps-regression.mjs",
     "test:dos-table-roles": "node scripts/dos-table-discipleship-roles-regression.mjs",
     "test:dos-table-detail-edit": "node scripts/dos-table-detail-edit-regression.mjs",
+    "test:dos-calendar-sync": "node scripts/dos-calendar-sync-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "start": "next start"
   },

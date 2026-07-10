@@ -78,6 +78,32 @@ type GoogleCalendarEvent = {
   visibility?: string;
 };
 
+type ExternalCalendarEventRow = {
+  all_day: boolean | null;
+  description: string | null;
+  end_at: string | null;
+  etag: string | null;
+  external_event_id: string;
+  html_link: string | null;
+  i_cal_uid: string | null;
+  location: string | null;
+  raw: Record<string, unknown> | null;
+  recurring_event_id: string | null;
+  start_at: string | null;
+  status: string | null;
+  summary: string | null;
+  timezone: string | null;
+  transparency: string | null;
+  updated_external_at: string | null;
+  visibility: string | null;
+};
+
+type GoogleEventsListResponse = {
+  items?: GoogleCalendarEvent[];
+  nextPageToken?: string;
+  nextSyncToken?: string;
+};
+
 export type CalendarSyncSourceType = "important_date" | "meeting" | "reminder";
 
 export type DosCalendarEventInput = {
@@ -262,7 +288,10 @@ async function readGoogleResponse<T>(response: Response) {
 
     error.status = response.status;
 
-    if (typeof body.error !== "string") {
+    if (typeof body.error === "string") {
+      error.googleReason = body.error;
+      error.googleStatus = body.error;
+    } else {
       error.googleReason = body.error?.errors?.[0]?.reason;
       error.googleStatus = body.error?.status;
     }
@@ -286,6 +315,32 @@ export function isGoogleCalendarScopeError(error: unknown) {
       || scopedError.googleStatus === "PERMISSION_DENIED"
       || message.includes("insufficient authentication scopes")
       || message.includes("insufficient permission"));
+}
+
+export function isGoogleCalendarReconnectError(error: unknown) {
+  if (isGoogleCalendarScopeError(error)) {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const scopedError = error as Error & { googleReason?: string; googleStatus?: string; status?: number };
+  const message = error.message.toLowerCase();
+  const googleReason = scopedError.googleReason?.toLowerCase() ?? "";
+  const googleStatus = scopedError.googleStatus?.toLowerCase() ?? "";
+
+  return [400, 401].includes(scopedError.status ?? 0)
+    && (
+      googleReason.includes("invalid_grant")
+      || googleStatus.includes("invalid_grant")
+      || message.includes("invalid_grant")
+      || message.includes("invalid token")
+      || message.includes("token has been expired")
+      || message.includes("token has been revoked")
+      || message.includes("unauthorized")
+    );
 }
 
 export async function exchangeGoogleCodeForTokens(code: string, origin: string) {
@@ -517,16 +572,219 @@ async function loadEventLink(supabase: SupabaseAdminClient, input: Pick<DosCalen
   return data as { calendar_id: string; external_event_id: string | null; id: string } | null;
 }
 
-function googleCalendarDateBounds(event: GoogleCalendarEvent) {
-  const start = event.start?.dateTime ?? (event.start?.date ? `${event.start.date}T00:00:00.000Z` : null);
-  const end = event.end?.dateTime ?? (event.end?.date ? `${event.end.date}T00:00:00.000Z` : null);
+function allDayGoogleDateIso(value: string | undefined) {
+  return value ? `${value}T12:00:00.000Z` : null;
+}
+
+function googleCalendarDateBounds(event: GoogleCalendarEvent, existingEvent?: ExternalCalendarEventRow | null) {
+  const start = event.start?.dateTime ?? allDayGoogleDateIso(event.start?.date) ?? existingEvent?.start_at ?? null;
+  const end = event.end?.dateTime ?? allDayGoogleDateIso(event.end?.date) ?? existingEvent?.end_at ?? null;
 
   return {
-    allDay: Boolean(event.start?.date),
+    allDay: typeof event.start?.date === "string" ? true : existingEvent?.all_day === true,
     endAt: end ? new Date(end).toISOString() : null,
     startAt: start ? new Date(start).toISOString() : null,
-    timezone: event.start?.timeZone ?? event.end?.timeZone ?? null,
+    timezone: event.start?.timeZone ?? event.end?.timeZone ?? existingEvent?.timezone ?? null,
   };
+}
+
+function isGoogleCalendarSyncTokenExpired(error: unknown) {
+  return error instanceof Error && (error as Error & { status?: number }).status === 410;
+}
+
+function googleCalendarEventRecord({
+  event,
+  existingEvent,
+  externalCalendarId,
+  sourceId,
+  workspaceId,
+}: {
+  event: GoogleCalendarEvent;
+  existingEvent?: ExternalCalendarEventRow | null;
+  externalCalendarId: string;
+  sourceId: string;
+  workspaceId: string;
+}) {
+  const bounds = googleCalendarDateBounds(event, existingEvent);
+  const status = event.status ?? existingEvent?.status ?? "confirmed";
+
+  return {
+    all_day: bounds.allDay,
+    calendar_source_id: sourceId,
+    description: event.description ?? existingEvent?.description ?? null,
+    deleted_at: null,
+    end_at: bounds.endAt,
+    etag: event.etag ?? existingEvent?.etag ?? null,
+    external_calendar_id: externalCalendarId,
+    external_event_id: event.id as string,
+    html_link: event.htmlLink ?? existingEvent?.html_link ?? null,
+    i_cal_uid: event.iCalUID ?? existingEvent?.i_cal_uid ?? null,
+    location: event.location ?? existingEvent?.location ?? null,
+    provider: "google",
+    raw: event as unknown as Record<string, unknown>,
+    recurring_event_id: event.recurringEventId ?? existingEvent?.recurring_event_id ?? null,
+    start_at: bounds.startAt,
+    status,
+    summary: event.summary ?? existingEvent?.summary ?? (status === "cancelled" ? "Cancelled Google Calendar event" : "Google Calendar event"),
+    timezone: bounds.timezone,
+    transparency: event.transparency ?? existingEvent?.transparency ?? null,
+    updated_external_at: event.updated ? new Date(event.updated).toISOString() : existingEvent?.updated_external_at ?? null,
+    visibility: event.visibility ?? existingEvent?.visibility ?? null,
+    workspace_id: workspaceId,
+  };
+}
+
+async function loadExistingExternalCalendarEvents({
+  eventIds,
+  externalCalendarId,
+  supabase,
+  workspaceId,
+}: {
+  eventIds: string[];
+  externalCalendarId: string;
+  supabase: SupabaseAdminClient;
+  workspaceId: string;
+}) {
+  const uniqueIds = Array.from(new Set(eventIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    return new Map<string, ExternalCalendarEventRow>();
+  }
+
+  const { data, error } = await supabase
+    .from("external_calendar_events")
+    .select("external_event_id, i_cal_uid, etag, status, summary, description, location, html_link, start_at, end_at, all_day, timezone, recurring_event_id, visibility, transparency, updated_external_at, raw")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .eq("external_calendar_id", externalCalendarId)
+    .in("external_event_id", uniqueIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return new Map(((data ?? []) as ExternalCalendarEventRow[]).map((event) => [event.external_event_id, event]));
+}
+
+async function fetchGoogleCalendarEventPages({
+  accessToken,
+  end,
+  externalCalendarId,
+  start,
+  syncToken,
+}: {
+  accessToken: string;
+  end?: Date;
+  externalCalendarId: string;
+  start?: Date;
+  syncToken?: string | null;
+}) {
+  const events: GoogleCalendarEvent[] = [];
+  let nextSyncToken: string | null = null;
+  let pageToken: string | null = null;
+
+  do {
+    const params = new URLSearchParams({
+      maxResults: "2500",
+      showDeleted: "true",
+      singleEvents: "true",
+    });
+
+    if (syncToken) {
+      params.set("syncToken", syncToken);
+    } else {
+      params.set("orderBy", "startTime");
+      if (end) {
+        params.set("timeMax", end.toISOString());
+      }
+      if (start) {
+        params.set("timeMin", start.toISOString());
+      }
+    }
+
+    if (pageToken) {
+      params.set("pageToken", pageToken);
+    }
+
+    const response = await fetch(`${googleCalendarApiBase}/calendars/${encodeURIComponent(externalCalendarId)}/events?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const data = await readGoogleResponse<GoogleEventsListResponse>(response);
+
+    events.push(...(data.items ?? []));
+    pageToken = data.nextPageToken ?? null;
+    nextSyncToken = data.nextSyncToken ?? nextSyncToken;
+  } while (pageToken);
+
+  return { events, nextSyncToken };
+}
+
+async function persistGoogleCalendarEvents({
+  events,
+  externalCalendarId,
+  sourceId,
+  supabase,
+  workspaceId,
+}: {
+  events: GoogleCalendarEvent[];
+  externalCalendarId: string;
+  sourceId: string;
+  supabase: SupabaseAdminClient;
+  workspaceId: string;
+}) {
+  const syncableEvents = events.filter((event) => event.id);
+  const existingByEventId = await loadExistingExternalCalendarEvents({
+    eventIds: syncableEvents.map((event) => event.id as string),
+    externalCalendarId,
+    supabase,
+    workspaceId,
+  });
+  const records = syncableEvents.map((event) => googleCalendarEventRecord({
+    event,
+    existingEvent: existingByEventId.get(event.id as string) ?? null,
+    externalCalendarId,
+    sourceId,
+    workspaceId,
+  }));
+
+  if (!records.length) {
+    return 0;
+  }
+
+  const { error } = await supabase
+    .from("external_calendar_events")
+    .upsert(records, {
+      onConflict: "workspace_id,provider,external_calendar_id,external_event_id",
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data: linkedEvents } = await supabase
+    .from("calendar_event_links")
+    .select("source_id, source_type, external_event_id")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "google")
+    .eq("calendar_id", externalCalendarId)
+    .in("external_event_id", records.map((record) => record.external_event_id));
+
+  await Promise.all((linkedEvents ?? [])
+    .filter((link) => link.external_event_id && link.source_id && link.source_type)
+    .map((link) => supabase
+      .from("external_calendar_events")
+      .update({
+        imported_dos_source_id: link.source_id,
+        imported_dos_source_type: link.source_type,
+      })
+      .eq("workspace_id", workspaceId)
+      .eq("provider", "google")
+      .eq("external_calendar_id", externalCalendarId)
+      .eq("external_event_id", link.external_event_id)));
+
+  return records.length;
 }
 
 async function upsertCalendarSources({
@@ -693,7 +951,7 @@ export async function syncGoogleCalendarSources(workspaceId: string, supabase = 
 
     return { sources, status: "synced" as const };
   } catch (error) {
-    if (isGoogleCalendarScopeError(error)) {
+    if (isGoogleCalendarReconnectError(error)) {
       await recordWorkspaceCalendarScopeState({
         error: googleCalendarReconnectError,
         supabase,
@@ -707,7 +965,7 @@ export async function syncGoogleCalendarSources(workspaceId: string, supabase = 
   }
 }
 
-export async function pullFutureGoogleCalendarEvents({
+export async function pullGoogleCalendarEvents({
   supabase = createSupabaseAdminClient(),
   timeMax,
   timeMin,
@@ -749,13 +1007,38 @@ export async function pullFutureGoogleCalendarEvents({
     throw new Error(sourcesError.message);
   }
 
-  const accessToken = await calendarAccessToken(supabase, connectedCalendar);
+  let accessToken: string;
+
+  try {
+    accessToken = await calendarAccessToken(supabase, connectedCalendar);
+  } catch (error) {
+    if (isGoogleCalendarReconnectError(error)) {
+      await recordWorkspaceCalendarScopeState({
+        error: googleCalendarReconnectError,
+        supabase,
+        workspaceId,
+      }).catch(() => undefined);
+
+      return { eventCount: 0, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
+    }
+
+    throw error;
+  }
+
   let eventCount = 0;
 
   for (const source of sources ?? []) {
     const sourceId = String(source.id);
     const externalCalendarId = String(source.external_calendar_id);
     const syncStartedAt = new Date().toISOString();
+    const cursorResult = await supabase
+      .from("calendar_sync_cursors")
+      .select("sync_token")
+      .eq("workspace_id", workspaceId)
+      .eq("calendar_source_id", sourceId)
+      .eq("provider", "google")
+      .maybeSingle();
+    const existingSyncToken = cursorResult.error ? null : cursorResult.data?.sync_token ?? null;
 
     await supabase
       .from("calendar_sync_cursors")
@@ -764,6 +1047,7 @@ export async function pullFutureGoogleCalendarEvents({
         last_error: null,
         last_started_at: syncStartedAt,
         provider: "google",
+        sync_token: existingSyncToken,
         time_max: end.toISOString(),
         time_min: start.toISOString(),
         workspace_id: workspaceId,
@@ -772,99 +1056,35 @@ export async function pullFutureGoogleCalendarEvents({
       });
 
     try {
-      const events: GoogleCalendarEvent[] = [];
-      let pageToken: string | null = null;
+      let syncResult: Awaited<ReturnType<typeof fetchGoogleCalendarEventPages>>;
 
-      do {
-        const params = new URLSearchParams({
-          maxResults: "250",
-          orderBy: "startTime",
-          showDeleted: "false",
-          singleEvents: "true",
-          timeMax: end.toISOString(),
-          timeMin: start.toISOString(),
+      try {
+        syncResult = await fetchGoogleCalendarEventPages({
+          accessToken,
+          externalCalendarId,
+          syncToken: existingSyncToken,
         });
-
-        if (pageToken) {
-          params.set("pageToken", pageToken);
+      } catch (error) {
+        if (!existingSyncToken || !isGoogleCalendarSyncTokenExpired(error)) {
+          throw error;
         }
 
-        const response = await fetch(`${googleCalendarApiBase}/calendars/${encodeURIComponent(externalCalendarId)}/events?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+        syncResult = await fetchGoogleCalendarEventPages({
+          accessToken,
+          end,
+          externalCalendarId,
+          start,
         });
-        const data = await readGoogleResponse<{ items?: GoogleCalendarEvent[]; nextPageToken?: string }>(response);
-
-        events.push(...(data.items ?? []));
-        pageToken = data.nextPageToken ?? null;
-      } while (pageToken);
-
-      const records = events
-        .filter((event) => event.id && event.status !== "cancelled")
-        .map((event) => {
-          const bounds = googleCalendarDateBounds(event);
-
-          return {
-            all_day: bounds.allDay,
-            calendar_source_id: sourceId,
-            description: event.description ?? null,
-            end_at: bounds.endAt,
-            etag: event.etag ?? null,
-            external_calendar_id: externalCalendarId,
-            external_event_id: event.id as string,
-            html_link: event.htmlLink ?? null,
-            i_cal_uid: event.iCalUID ?? null,
-            location: event.location ?? null,
-            provider: "google",
-            raw: event as unknown as Record<string, unknown>,
-            recurring_event_id: event.recurringEventId ?? null,
-            start_at: bounds.startAt,
-            status: event.status ?? null,
-            summary: event.summary ?? "Google Calendar event",
-            timezone: bounds.timezone,
-            transparency: event.transparency ?? null,
-            updated_external_at: event.updated ? new Date(event.updated).toISOString() : null,
-            visibility: event.visibility ?? null,
-            workspace_id: workspaceId,
-          };
-        });
-
-      if (records.length) {
-        const { error } = await supabase
-          .from("external_calendar_events")
-          .upsert(records, {
-            onConflict: "workspace_id,provider,external_calendar_id,external_event_id",
-          });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        const { data: linkedEvents } = await supabase
-          .from("calendar_event_links")
-          .select("source_id, source_type, external_event_id")
-          .eq("workspace_id", workspaceId)
-          .eq("provider", "google")
-          .eq("calendar_id", externalCalendarId)
-          .in("external_event_id", records.map((record) => record.external_event_id));
-
-        await Promise.all((linkedEvents ?? [])
-          .filter((link) => link.external_event_id && link.source_id && link.source_type)
-          .map((link) => supabase
-            .from("external_calendar_events")
-            .update({
-              imported_dos_source_id: link.source_id,
-              imported_dos_source_type: link.source_type,
-            })
-            .eq("workspace_id", workspaceId)
-            .eq("provider", "google")
-            .eq("external_calendar_id", externalCalendarId)
-            .eq("external_event_id", link.external_event_id)));
       }
 
-      // TODO: Swap this bounded future-window pull for Google syncToken
-      // incremental sync after webhook/channel lifecycle is implemented.
+      eventCount += await persistGoogleCalendarEvents({
+        events: syncResult.events,
+        externalCalendarId,
+        sourceId,
+        supabase,
+        workspaceId,
+      });
+
       const syncedAt = new Date().toISOString();
 
       await Promise.all([
@@ -879,6 +1099,7 @@ export async function pullFutureGoogleCalendarEvents({
             last_error: null,
             last_finished_at: syncedAt,
             provider: "google",
+            sync_token: syncResult.nextSyncToken ?? existingSyncToken,
             time_max: end.toISOString(),
             time_min: start.toISOString(),
             workspace_id: workspaceId,
@@ -887,9 +1108,8 @@ export async function pullFutureGoogleCalendarEvents({
           }),
       ]);
 
-      eventCount += records.length;
     } catch (error) {
-      if (isGoogleCalendarScopeError(error)) {
+      if (isGoogleCalendarReconnectError(error)) {
         await recordWorkspaceCalendarScopeState({
           error: googleCalendarReconnectError,
           supabase,
@@ -906,6 +1126,7 @@ export async function pullFutureGoogleCalendarEvents({
           last_error: "Unable to sync Google Calendar events.",
           last_finished_at: new Date().toISOString(),
           provider: "google",
+          sync_token: existingSyncToken,
           time_max: end.toISOString(),
           time_min: start.toISOString(),
           workspace_id: workspaceId,
@@ -950,7 +1171,7 @@ export async function checkGoogleCalendarConnectionHealth(workspaceId: string, s
 
     return { message: null, status: "connected" as const };
   } catch (error) {
-    if (isGoogleCalendarScopeError(error)) {
+    if (isGoogleCalendarReconnectError(error)) {
       await recordWorkspaceCalendarScopeState({
         error: googleCalendarReconnectError,
         supabase,
@@ -1019,7 +1240,7 @@ export async function deleteGoogleCalendarEventForSource(
       workspaceId: input.workspaceId,
     }).catch(() => undefined);
 
-    return { status: isGoogleCalendarScopeError(error) ? "needs_reconnect" as const : "failed" as const };
+    return { status: isGoogleCalendarReconnectError(error) ? "needs_reconnect" as const : "failed" as const };
   }
 }
 

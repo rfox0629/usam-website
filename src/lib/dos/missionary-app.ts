@@ -488,6 +488,7 @@ export type DosAppExternalCalendarEvent = {
   location: string | null;
   sourceName: string | null;
   startAt: string | null;
+  status: string | null;
   timezone: string | null;
   title: string;
 };
@@ -1100,6 +1101,7 @@ type ExternalCalendarEventRow = {
   imported_dos_source_id: string | null;
   location: string | null;
   start_at: string | null;
+  status: string | null;
   summary: string | null;
   timezone: string | null;
 };
@@ -2615,12 +2617,12 @@ async function loadRelationshipRemindersForWorkspace(supabase: SupabaseAdminClie
 
 async function loadExternalCalendarEventsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const start = new Date();
-  start.setDate(start.getDate() - 30);
+  start.setDate(start.getDate() - 370);
   const end = new Date();
-  end.setDate(end.getDate() + 180);
+  end.setDate(end.getDate() + 370);
   const result = await supabase
     .from("external_calendar_events")
-    .select("id, calendar_source_id, external_calendar_id, external_event_id, i_cal_uid, summary, description, location, html_link, start_at, end_at, all_day, timezone, imported_dos_source_id, calendar_sources(name)")
+    .select("id, calendar_source_id, external_calendar_id, external_event_id, i_cal_uid, status, summary, description, location, html_link, start_at, end_at, all_day, timezone, imported_dos_source_id, calendar_sources(name)")
     .eq("workspace_id", workspaceId)
     .eq("provider", "google")
     .is("deleted_at", null)
@@ -3679,6 +3681,7 @@ export async function loadDosAppData(
       location: event.location,
       sourceName,
       startAt: event.start_at,
+      status: event.status,
       timezone: event.timezone,
       title: event.summary?.trim() || "Google Calendar event",
     };

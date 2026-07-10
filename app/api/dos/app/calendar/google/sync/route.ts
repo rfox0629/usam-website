@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { googleCalendarReconnectMessage, pullFutureGoogleCalendarEvents } from "@/src/lib/dos/google-calendar";
+import { googleCalendarReconnectMessage, pullGoogleCalendarEvents } from "@/src/lib/dos/google-calendar";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await pullFutureGoogleCalendarEvents({
+    const result = await pullGoogleCalendarEvents({
       supabase: createSupabaseAdminClient(),
       timeMax: asIsoDate(payload?.timeMax) ?? undefined,
       timeMin: asIsoDate(payload?.timeMin) ?? undefined,

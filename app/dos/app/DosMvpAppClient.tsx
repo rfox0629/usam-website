@@ -2244,9 +2244,9 @@ function buildMeetingCalendarItems({
   reminders: DosAppRelationshipReminder[];
 }) {
   const meetingItems: MeetingCalendarItem[] = meetings
-    .filter((meeting) => meeting.meetingStatus === "scheduled")
+    .filter((meeting) => meeting.source === "table")
     .map((meeting) => {
-      const date = meeting.scheduledStartAt ?? meeting.date;
+      const date = meeting.meetingStatus === "scheduled" ? meeting.scheduledStartAt ?? meeting.date : meeting.date ?? meeting.scheduledStartAt;
       const parsedDate = parseDisplayDate(date);
 
       return { date, meeting, parsedDate };
@@ -10090,7 +10090,6 @@ const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarV
   { label: "Week", value: "week" },
 ];
 
-const meetingCalendarWeekHours = Array.from({ length: 13 }, (_, index) => index + 8);
 const availabilityPreferredTimeOptions = ["Morning", "Afternoon", "Evening"] as const;
 const availabilityDayOptions = [
   { id: "mon", label: "Monday", shortLabel: "Mon" },
@@ -10590,6 +10589,16 @@ function calendarSourcePreferencesFromApi(sources: CalendarSourceApiSource[], ev
 
     return first.name.localeCompare(second.name);
   });
+}
+
+function mergeExternalCalendarEvents(currentEvents: DosAppExternalCalendarEvent[], nextEvents: DosAppExternalCalendarEvent[]) {
+  const eventsById = new Map(currentEvents.map((event) => [event.id, event]));
+
+  nextEvents.forEach((event) => {
+    eventsById.set(event.id, event);
+  });
+
+  return Array.from(eventsById.values()).sort((first, second) => dateSortValue(first.startAt) - dateSortValue(second.startAt));
 }
 
 function syncCalendarDisplaySettingsWithSources(settings: CalendarDisplaySettings, sources: CalendarSourcePreference[], options?: { preferPersisted?: boolean }) {
@@ -13188,7 +13197,7 @@ function CalendarItemIcon({ kind }: { kind: MeetingCalendarItemKind }) {
 
 function calendarItemSourceLabel(item: MeetingCalendarItem) {
   if (item.kind === "google") {
-    return "Google";
+    return item.externalEvent ? googleCalendarSourceMetadata(item.externalEvent) : "Google";
   }
 
   if (item.kind === "meeting") {
@@ -13236,6 +13245,70 @@ function calendarItemDateTimeLabel(item: MeetingCalendarItem) {
   }
 
   return formatDateTime(item.date);
+}
+
+function calendarItemTimeLabel(item: MeetingCalendarItem) {
+  if (item.externalEvent?.allDay) {
+    return "All day";
+  }
+
+  if (item.meeting) {
+    const start = formatTime(item.meeting.scheduledStartAt ?? item.date);
+    const end = formatTime(item.meeting.scheduledEndAt);
+
+    return start && end ? `${start} - ${end}` : start || "Any time";
+  }
+
+  if (item.externalEvent) {
+    const start = formatTime(item.externalEvent.startAt);
+    const end = formatTime(item.externalEvent.endAt);
+
+    return start && end ? `${start} - ${end}` : start || "Any time";
+  }
+
+  const time = formatTime(item.date);
+
+  return time || "Any time";
+}
+
+function calendarItemStatusLabel(item: MeetingCalendarItem) {
+  if (item.meeting) {
+    switch (item.meeting.meetingStatus) {
+      case "canceled":
+        return "Cancelled";
+      case "logged":
+        return "Logged";
+      case "scheduled":
+      default:
+        return "Scheduled";
+    }
+  }
+
+  if (item.externalEvent) {
+    const status = item.externalEvent.status?.trim().toLowerCase();
+
+    if (status === "cancelled" || status === "canceled") {
+      return "Cancelled";
+    }
+
+    if (status === "tentative") {
+      return "Tentative";
+    }
+
+    return item.externalEvent.importedMeetingId ? "Added to DOS" : "Scheduled";
+  }
+
+  return "Scheduled";
+}
+
+function calendarItemLocation(item: MeetingCalendarItem) {
+  return item.externalEvent?.location?.trim() ?? "";
+}
+
+function calendarDayCellTitle(item: MeetingCalendarItem) {
+  const title = calendarUpcomingCardHeadline(item).trim();
+
+  return title || calendarItemLabel(item.kind);
 }
 
 function calendarCompactDayLabel(value: string | null) {
@@ -13305,18 +13378,6 @@ function calendarItemSourceTone(item: MeetingCalendarItem) {
   return "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]";
 }
 
-function calendarQuickPrimaryActionLabel(item: MeetingCalendarItem) {
-  if (item.kind === "meeting") {
-    return "Log Table";
-  }
-
-  if (item.kind === "google") {
-    return "View Details";
-  }
-
-  return "Mark Done";
-}
-
 function calendarNeedsReviewPrimaryActionLabel(item: MeetingCalendarItem) {
   if (item.kind === "meeting") {
     return "Log Table";
@@ -13339,45 +13400,6 @@ function calendarNeedsReviewSecondaryActionLabel(item: MeetingCalendarItem) {
   }
 
   return "Edit";
-}
-
-function calendarQuickSecondaryActionLabel(item: MeetingCalendarItem) {
-  return item.meeting || item.reminder ? "Edit" : null;
-}
-
-function calendarWeekHourLabel(hour: number) {
-  if (hour === 12) {
-    return "12 PM";
-  }
-
-  return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
-}
-
-function calendarItemMinuteOfDay(item: MeetingCalendarItem) {
-  const date = parseDisplayDate(item.date);
-
-  if (!date || item.externalEvent?.allDay) {
-    return 9 * 60;
-  }
-
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-function calendarItemDurationMinutes(item: MeetingCalendarItem) {
-  if (item.meeting) {
-    return Math.max(30, tableDurationMinutes(item.meeting) || 60);
-  }
-
-  if (item.externalEvent?.endAt) {
-    const start = parseDisplayDate(item.externalEvent.startAt);
-    const end = parseDisplayDate(item.externalEvent.endAt);
-
-    if (start && end && end.getTime() > start.getTime()) {
-      return Math.max(30, Math.round((end.getTime() - start.getTime()) / 60000));
-    }
-  }
-
-  return item.kind === "birthday" || item.kind === "anniversary" ? 30 : 60;
 }
 
 function CalendarUpcomingCard({
@@ -13728,97 +13750,120 @@ function CalendarSourceControls({
   );
 }
 
-function CalendarQuickView({
+function calendarAgendaActionLabel(item: MeetingCalendarItem) {
+  if (item.reminder) {
+    return "Edit";
+  }
+
+  return "View Details";
+}
+
+function CalendarAgendaEventRow({
+  compact = false,
   item,
-  onClose,
-  onEdit,
-  onPrimaryAction,
+  onOpen,
 }: {
+  compact?: boolean;
   item: MeetingCalendarItem;
-  onClose: () => void;
-  onEdit: () => void;
-  onPrimaryAction: () => void;
+  onOpen: () => void;
 }) {
   const tone = calendarItemTone(item.kind);
   const notes = calendarItemNotes(item);
-  const primaryActionLabel = calendarQuickPrimaryActionLabel(item);
-  const secondaryActionLabel = calendarQuickSecondaryActionLabel(item);
-  const sourceLabel = calendarItemSourceLabel(item);
-  const typeLabel = calendarItemTypeLabel(item);
-  const showSourceBadge = sourceLabel !== typeLabel;
-  const showSyncRow = item.kind !== "google";
+  const location = calendarItemLocation(item);
+  const status = calendarItemStatusLabel(item);
+  const isCancelled = status.toLowerCase() === "cancelled";
 
   return (
-    <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
-      <div className="flex items-start justify-between gap-3">
-        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] ${tone.bg} ${tone.text}`}>
+    <article className={`grid min-w-0 gap-2 rounded-[16px] border px-2.5 py-2 text-left ${isCancelled ? "border-[#E2E8F0] bg-[#F8FAFC]" : "border-[#DCEBFF] bg-white"}`}>
+      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2">
+        <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] ${tone.bg} ${tone.text}`}>
           <CalendarItemIcon kind={item.kind} />
         </span>
-        <button
-          aria-label="Close event quick view"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
-          onClick={onClose}
-          type="button"
-        >
-          <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        </button>
-      </div>
-      <div className="mt-4 min-w-0">
-        <h3 className="text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-          {item.title}
-        </h3>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
-            {typeLabel}
-          </span>
-          {showSourceBadge ? (
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
-              {sourceLabel}
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <button className="min-w-0 text-left" onClick={onOpen} type="button">
+              <span className={`block truncate text-sm font-black leading-5 ${isCancelled ? "text-[#64748B]" : "text-[#0F172A]"}`}>
+                {calendarDayCellTitle(item)}
+              </span>
+              <span className="mt-0.5 block truncate text-xs font-bold text-[#64748B]">
+                {calendarItemTimeLabel(item)}
+              </span>
+            </button>
+            <button
+              className="inline-flex min-h-7 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#F8FBFF] px-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]"
+              onClick={onOpen}
+              style={{ fontFamily: font.rajdhani }}
+              type="button"
+            >
+              {calendarAgendaActionLabel(item)}
+            </button>
+          </div>
+          <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
+            <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${tone.bg} ${tone.text}`} style={{ fontFamily: font.rajdhani }}>
+              {calendarItemTypeLabel(item)}
             </span>
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${calendarItemSourceTone(item)}`} style={{ fontFamily: font.rajdhani }}>
+              {calendarItemSourceLabel(item)}
+            </span>
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${isCancelled ? "border-[#CBD5E1] bg-white text-[#64748B]" : "border-[#E2E8F0] bg-[#F8FAFC] text-[#475569]"}`} style={{ fontFamily: font.rajdhani }}>
+              {status}
+            </span>
+          </div>
+        </div>
+      </div>
+      {!compact && (location || notes) ? (
+        <div className="grid gap-1 pl-10 text-xs leading-5 text-[#475569]">
+          {location ? (
+            <p className="truncate font-semibold">{location}</p>
+          ) : null}
+          {notes ? (
+            <p className="line-clamp-2">{notes}</p>
           ) : null}
         </div>
-      </div>
-      <div className="mt-4 grid gap-3 text-sm">
-        <div className="flex gap-3 text-[#475569]">
-          <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          <span className="font-semibold">{calendarItemDateTimeLabel(item)}</span>
+      ) : null}
+    </article>
+  );
+}
+
+function CalendarDayAgenda({
+  date,
+  items,
+  onClose,
+  onOpenItem,
+}: {
+  date: Date;
+  items: MeetingCalendarItem[];
+  onClose: () => void;
+  onOpenItem: (item: MeetingCalendarItem) => void;
+}) {
+  const sortedItems = [...items].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
+
+  return (
+    <section className="grid gap-2 border-t border-[#EFF6FF] bg-[#F8FBFF] px-3 py-3">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">
+            {calendarSelectedDayLabel(calendarDateKey(date))}
+          </h3>
+          <p className="text-xs font-semibold text-[#64748B]">{sortedItems.length ? `${sortedItems.length} event${sortedItems.length === 1 ? "" : "s"}` : "No events"}</p>
         </div>
-        <div className="flex gap-3 text-[#475569]">
-          {item.kind === "google" ? (
-            <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          ) : (
-            <User className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          )}
-          <span className="font-semibold">{calendarItemPersonLabel(item)}</span>
-        </div>
-        <div className="flex gap-3 text-[#475569]">
-          <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-          <span className="leading-6">{notes || "No notes yet."}</span>
-        </div>
-        {showSyncRow ? (
-          <div className="flex gap-3 text-[#475569]">
-            <Settings className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-            <span className="font-semibold">{item.syncLabel ?? sourceLabel}</span>
-          </div>
-        ) : null}
-      </div>
-      <div className={`mt-5 grid gap-2 pr-16 sm:pr-0 ${secondaryActionLabel ? "grid-cols-2" : "grid-cols-1"}`}>
-        {secondaryActionLabel ? (
-          <button
-            className="min-h-11 rounded-full border border-[#BFDBFE] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
-            onClick={onEdit}
-            type="button"
-          >
-            {secondaryActionLabel}
-          </button>
-        ) : null}
         <button
-          className="min-h-11 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)]"
-          onClick={onPrimaryAction}
+          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
+          onClick={onClose}
+          style={{ fontFamily: font.rajdhani }}
           type="button"
         >
-          {primaryActionLabel}
+          Full Month
         </button>
+      </div>
+      <div className="grid gap-2">
+        {sortedItems.length ? sortedItems.map((item) => (
+          <CalendarAgendaEventRow item={item} key={item.id} onOpen={() => onOpenItem(item)} />
+        )) : (
+          <div className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-3 text-sm font-semibold text-[#64748B]">
+            Nothing scheduled for this day.
+          </div>
+        )}
       </div>
     </section>
   );
@@ -13885,7 +13930,7 @@ function MeetingCalendarView({
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const [selectedQuickItemId, setSelectedQuickItemId] = useState<string | null>(null);
+  const [isDayAgendaOpen, setIsDayAgendaOpen] = useState(false);
   const [locallyCompletedItemIds, setLocallyCompletedItemIds] = useState<string[]>([]);
   const monthStart = startOfCalendarMonth(month);
   const gridStart = new Date(monthStart);
@@ -13925,7 +13970,7 @@ function MeetingCalendarView({
 
     return map;
   }, new Map<string, MeetingCalendarItem[]>());
-  const selectedQuickItem = selectedQuickItemId ? filteredItems.find((item) => item.id === selectedQuickItemId) ?? null : null;
+  const selectedDayItems = itemsByDay.get(selectedDateKey) ?? [];
   const sourceStatusText = calendarSyncMessage
     || (calendarConnectionNeedsReconnect(calendarConnection)
       ? googleCalendarReconnectCopy
@@ -13937,12 +13982,30 @@ function MeetingCalendarView({
     return Boolean(date && date.getTime() >= weekStart.getTime() && date.getTime() <= weekEndDay.getTime());
   });
 
-  function openQuickItem(item: MeetingCalendarItem) {
-    setSelectedQuickItemId(item.id);
+  function openDayAgenda(date: Date) {
+    setIsDayAgendaOpen(true);
+    onSelectDate(date);
+  }
+
+  function openCalendarItem(item: MeetingCalendarItem) {
     const date = parseDisplayDate(item.date);
 
     if (date) {
       onSelectDate(date);
+    }
+
+    if (item.meeting) {
+      onOpenMeeting(item.meeting.id);
+      return;
+    }
+
+    if (item.reminder) {
+      onEditReminder(item.reminder.id);
+      return;
+    }
+
+    if (item.externalEvent) {
+      onOpenExternalEvent(item.externalEvent.id);
     }
   }
 
@@ -13980,12 +14043,11 @@ function MeetingCalendarView({
     }
 
     if (item.kind === "google") {
-      editQuickItem(item);
+      openCalendarItem(item);
       return;
     }
 
     setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
-    setSelectedQuickItemId(null);
   }
 
   function handleNeedsReviewPrimaryAction(item: MeetingCalendarItem) {
@@ -13995,18 +14057,16 @@ function MeetingCalendarView({
     }
 
     if (item.kind === "google") {
-      editQuickItem(item);
+      openCalendarItem(item);
       return;
     }
 
     setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
-    setSelectedQuickItemId(null);
   }
 
   function handleNeedsReviewSecondaryAction(item: MeetingCalendarItem) {
     if (item.kind === "google") {
       setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
-      setSelectedQuickItemId(null);
       return;
     }
 
@@ -14016,7 +14076,6 @@ function MeetingCalendarView({
     }
 
     setLocallyCompletedItemIds((current) => current.includes(item.id) ? current : [...current, item.id]);
-    setSelectedQuickItemId(null);
   }
 
   function shiftCalendar(offset: number) {
@@ -14028,39 +14087,14 @@ function MeetingCalendarView({
     onChangeMonth(offset);
   }
 
-  function weekEventStyle(item: MeetingCalendarItem) {
-    const date = parseDisplayDate(item.date) ?? selectedDate;
-    const dayStart = startOfDisplayDay(date.toISOString()) ?? weekStart;
-    const dayIndex = Math.max(0, Math.min(6, Math.round((dayStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000))));
-    const minuteOfDay = Math.max(8 * 60, Math.min(20 * 60, calendarItemMinuteOfDay(item)));
-    const rowStart = Math.floor((minuteOfDay - 8 * 60) / 60) + 2;
-    const span = Math.max(1, Math.min(3, Math.ceil(calendarItemDurationMinutes(item) / 60)));
-    const marginTop = Math.round(((minuteOfDay % 60) / 60) * 28);
-
-    return {
-      gridColumn: `${dayIndex + 2}`,
-      gridRow: `${rowStart} / span ${span}`,
-      marginTop: `${marginTop}px`,
-    };
-  }
-
   return (
     <section className="grid min-w-0 max-w-full gap-3">
       <CalendarNeedsReviewSection
         items={needsReviewItems}
-        onOpen={openQuickItem}
+        onOpen={openCalendarItem}
         onPrimaryAction={handleNeedsReviewPrimaryAction}
         onSecondaryAction={handleNeedsReviewSecondaryAction}
       />
-
-      {selectedQuickItem ? (
-        <CalendarQuickView
-          item={selectedQuickItem}
-          onClose={() => setSelectedQuickItemId(null)}
-          onEdit={() => editQuickItem(selectedQuickItem)}
-          onPrimaryAction={() => handleQuickPrimaryAction(selectedQuickItem)}
-        />
-      ) : null}
 
       <div className="w-full max-w-full overflow-hidden rounded-[28px] border border-[#DCEBFF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)] md:rounded-[26px] md:bg-white/92 md:backdrop-blur">
         <header className="grid gap-3 border-b border-[#EFF6FF] px-3 py-3">
@@ -14133,106 +14167,102 @@ function MeetingCalendarView({
                 const isToday = key === todayDateValue();
 
                 return (
-                  <button
-                    aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
-                    aria-pressed={isSelected}
-                    className={`min-h-[48px] rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[44px] max-[350px]:rounded-[14px] md:min-h-[68px] ${
-                      isSelected
-                        ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
-                        : isToday
-                          ? "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]"
-                          : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
-                    } ${isOutsideMonth && !isSelected ? "opacity-45" : ""}`}
-                    key={key}
-                    onClick={() => {
-                      onSelectDate(date);
-                      if (dayItems[0]) {
-                        openQuickItem(dayItems[0]);
-                      }
-                    }}
-                    type="button"
-                  >
-                    <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
-                    {dayItems.length ? (
-                      <span className="mt-2 flex min-h-1.5 items-center justify-center gap-0.5">
-                        {dayItems.slice(0, 3).map((item) => (
-                          <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : calendarItemTone(item.kind).dot}`} key={item.id} />
-                        ))}
-                        {dayItems.length > 3 ? <span className={`text-[8px] font-bold leading-none ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 3}</span> : null}
-                      </span>
-                    ) : null}
-                  </button>
+	                  <button
+	                    aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
+	                    aria-pressed={isSelected}
+	                    className={`grid min-h-[64px] content-start rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[58px] max-[350px]:rounded-[14px] md:min-h-[86px] md:px-2 ${
+	                      isSelected
+	                        ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
+	                        : isToday
+	                          ? "bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]"
+	                          : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
+	                    } ${isOutsideMonth && !isSelected ? "opacity-70" : ""}`}
+	                    key={key}
+	                    onClick={() => openDayAgenda(date)}
+	                    type="button"
+	                  >
+	                    <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
+	                    {dayItems.length ? (
+	                      <span className="mt-1.5 grid min-w-0 gap-0.5">
+	                        {dayItems.slice(0, 2).map((item) => {
+	                          const tone = calendarItemTone(item.kind);
+
+	                          return (
+	                            <span
+	                              className={`flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black leading-3 md:text-[10px] ${
+	                                isSelected
+	                                  ? "bg-white/18 text-white"
+	                                  : `${tone.bg} ${tone.text}`
+	                              }`}
+	                              key={item.id}
+	                            >
+	                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isSelected ? "bg-white" : tone.dot}`} />
+	                              <span className="truncate">{calendarDayCellTitle(item)}</span>
+	                            </span>
+	                          );
+	                        })}
+	                        {dayItems.length > 2 ? <span className={`px-1 text-[9px] font-bold leading-3 ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 2} more</span> : null}
+	                      </span>
+	                    ) : null}
+	                  </button>
                 );
               })}
             </div>
           </div>
-        ) : (
-          <div className="p-2.5">
-            <div className="grid overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white" style={{ gridTemplateColumns: "42px repeat(7, minmax(0, 1fr))" }}>
-              <div className="border-b border-r border-[#EFF6FF] bg-[#F8FBFF]" />
-              {weekDays.map((day) => {
-                const key = calendarDateKey(day);
-                const isToday = key === todayDateValue();
+	        ) : (
+	          <div className="grid gap-2 p-2.5 md:grid-cols-7">
+	            {weekDays.map((day) => {
+	              const key = calendarDateKey(day);
+	              const isToday = key === todayDateValue();
+	              const isSelected = key === selectedDateKey;
+	              const dayItems = (itemsByDay.get(key) ?? []).sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
 
-                return (
-                  <button
-                    className={`min-w-0 border-b border-r border-[#EFF6FF] px-1 py-2 text-center last:border-r-0 ${isToday ? "bg-[#EBF2FF]" : "bg-[#F8FBFF]"}`}
-                    key={key}
-                    onClick={() => onSelectDate(day)}
-                    type="button"
-                  >
-                    <span className="block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                      {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
-                    </span>
-                    <span className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${isToday ? "bg-[#2563EB] text-white" : "text-[#0F172A]"}`}>
-                      {day.getDate()}
-                    </span>
-                  </button>
-                );
-              })}
-              {meetingCalendarWeekHours.map((hour, hourIndex) => {
-                const gridRow = String(hourIndex + 2);
-
-                return (
-                  <div className="contents" key={hour}>
-                    <div className="border-r border-t border-[#EFF6FF] bg-white px-1.5 py-2 text-left text-[9px] font-bold text-[#94A3B8]" style={{ fontFamily: font.rajdhani, gridColumn: "1", gridRow }}>
-                      {calendarWeekHourLabel(hour)}
-                    </div>
-                    {weekDays.map((day, dayIndex) => (
-                      <div
-                        className={`min-h-[52px] border-t border-[#EFF6FF] bg-white ${dayIndex === weekDays.length - 1 ? "" : "border-r"}`}
-                        key={`${calendarDateKey(day)}-${hour}`}
-                        style={{ gridColumn: String(dayIndex + 2), gridRow }}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-              {weekItems.map((item) => {
-                const tone = calendarItemTone(item.kind);
-
-                return (
-                  <button
-                    className={`z-10 m-1 min-w-0 rounded-[14px] border px-1.5 py-1 text-left shadow-[0_8px_18px_rgba(37,99,235,0.08)] ${tone.bg} ${tone.text}`}
-                    key={`week-${item.id}`}
-                    onClick={() => openQuickItem(item)}
-                    style={weekEventStyle(item)}
-                    type="button"
-                  >
-                    <span className="block truncate text-[10px] font-black leading-4 sm:text-xs">{item.title}</span>
-                    <span className="block truncate text-[9px] font-bold leading-3 opacity-80 sm:text-[10px]">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+	              return (
+	                <section className={`grid min-w-0 gap-2 rounded-[18px] border p-2 ${isSelected ? "border-[#BFDBFE] bg-[#EBF2FF]" : "border-[#EAF2FF] bg-[#F8FAFC]"}`} key={key}>
+	                  <button className="flex min-w-0 items-center justify-between gap-2 text-left" onClick={() => openDayAgenda(day)} type="button">
+	                    <span className="min-w-0">
+	                      <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+	                        {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
+	                      </span>
+	                      <span className="mt-0.5 block truncate text-sm font-black text-[#0F172A]">
+	                        {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(day)}
+	                      </span>
+	                    </span>
+	                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${isToday || isSelected ? "bg-[#2563EB] text-white" : "bg-white text-[#0F172A]"}`}>
+	                      {day.getDate()}
+	                    </span>
+	                  </button>
+	                  <div className="grid gap-1.5">
+	                    {dayItems.length ? dayItems.map((item) => (
+	                      <CalendarAgendaEventRow compact item={item} key={`week-${item.id}`} onOpen={() => openCalendarItem(item)} />
+	                    )) : (
+	                      <p className="rounded-[14px] border border-[#EAF2FF] bg-white px-2.5 py-2 text-xs font-semibold text-[#94A3B8]">No events</p>
+	                    )}
+	                  </div>
+	                </section>
+	              );
+	            })}
+	          </div>
+	        )}
+	        {isDayAgendaOpen ? (
+	          <CalendarDayAgenda
+	            date={selectedDate}
+	            items={selectedDayItems}
+	            onClose={() => {
+	              setIsDayAgendaOpen(false);
+	              if (viewMode === "week") {
+	                onViewModeChange("month");
+	              }
+	            }}
+	            onOpenItem={openCalendarItem}
+	          />
+	        ) : null}
+	      </div>
 
       <CalendarUpcomingSection
         items={upcomingCardItems}
-        onOpen={openQuickItem}
-        selectedItemId={selectedQuickItemId}
+        onOpen={openCalendarItem}
+        selectedItemId={null}
       />
 
       <RecentlyCompletedTables
@@ -24373,6 +24403,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const appScrollRef = useRef<HTMLDivElement | null>(null);
+  const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
@@ -24380,6 +24411,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
+  const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
     fallbackCalendarSourcePreferences(data.externalCalendarEvents),
@@ -24501,7 +24533,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ...data.calendarConnection,
     ...calendarConnectionOverride,
   }), [calendarConnectionOverride, data.calendarConnection]);
-  const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(data.externalCalendarEvents), [data.externalCalendarEvents]);
+  const fallbackGoogleCalendarSources = useMemo(() => fallbackCalendarSourcePreferences(externalCalendarEvents), [externalCalendarEvents]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const [groupOverrides, setGroupOverrides] = useState<Record<string, Partial<DosAppGroup>>>({});
   const [groupMemberAdditions, setGroupMemberAdditions] = useState<Record<string, DosAppGroupMember[]>>({});
@@ -24635,8 +24667,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [selectedPrayerResourceSlug]);
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
   const selectedExternalCalendarEvent = useMemo(() => (
-    data.externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
-  ), [data.externalCalendarEvents, selectedExternalCalendarEventId]);
+    externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
+  ), [externalCalendarEvents, selectedExternalCalendarEventId]);
 
   useEffect(() => {
     if (!requestedPersonId || !people.some((person) => person.id === requestedPersonId)) {
@@ -24810,13 +24842,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [upcomingTimelineItems]);
   const meetingCalendarItems = useMemo(() => (
     buildMeetingCalendarItems({
-      externalCalendarEvents: data.externalCalendarEvents,
+      externalCalendarEvents,
       meetings: data.meetings,
       month: meetingsCalendarMonth,
       people,
       reminders: data.reminders,
     })
-  ), [data.externalCalendarEvents, data.meetings, data.reminders, meetingsCalendarMonth, people]);
+  ), [data.meetings, data.reminders, externalCalendarEvents, meetingsCalendarMonth, people]);
   const visibleMeetingCalendarItems = useMemo(() => filteredCalendarItems(meetingCalendarItems, tableQuery), [meetingCalendarItems, tableQuery]);
   const upcomingTableCount = useMemo(() => (
     data.meetings.filter((meeting) => meeting.meetingStatus === "scheduled" && isUpcomingDate(meeting.scheduledStartAt ?? meeting.date)).length
@@ -24916,6 +24948,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, []);
 
   useEffect(() => {
+    setExternalCalendarEvents(data.externalCalendarEvents);
+  }, [data.externalCalendarEvents]);
+
+  useEffect(() => {
     if (searchParams.get("walkthrough") !== "usam") {
       return;
     }
@@ -25001,7 +25037,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           }));
         }
 
-        const preferences = calendarSourcePreferencesFromApi(result.sources ?? [], data.externalCalendarEvents);
+        const preferences = calendarSourcePreferencesFromApi(result.sources ?? [], externalCalendarEvents);
         setCalendarSourcePreferences(preferences);
         setCalendarDisplaySettings((current) => syncCalendarDisplaySettingsWithSources(current, preferences, { preferPersisted: true }));
         setCalendarSourceMessage(result.message ?? "");
@@ -25015,7 +25051,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return () => {
       cancelled = true;
     };
-  }, [calendarConnection.connected, calendarConnection.status, data.externalCalendarEvents, data.workspace.id, fallbackGoogleCalendarSources, isPreview]);
+  }, [calendarConnection.connected, calendarConnection.status, data.workspace.id, externalCalendarEvents, fallbackGoogleCalendarSources, isPreview]);
+
+  useEffect(() => {
+    if (
+      isPreview
+      || activeTab !== "meetings"
+      || meetingsView !== "calendar"
+      || !calendarConnectionIsHealthy(calendarConnection)
+      || isSyncingGoogleCalendar
+    ) {
+      return;
+    }
+
+    const autoSyncKey = [
+      data.workspace.id,
+      meetingCalendarViewMode,
+      calendarDateKey(meetingsCalendarMonth),
+      selectedMeetingsCalendarDate,
+    ].join(":");
+
+    if (calendarAutoSyncKeyRef.current === autoSyncKey) {
+      return;
+    }
+
+    calendarAutoSyncKeyRef.current = autoSyncKey;
+    handleSyncGoogleCalendar({ silent: true });
+  }, [
+    activeTab,
+    calendarConnection.connected,
+    calendarConnection.status,
+    data.workspace.id,
+    isPreview,
+    isSyncingGoogleCalendar,
+    meetingCalendarViewMode,
+    meetingsCalendarMonth,
+    meetingsView,
+    selectedMeetingsCalendarDate,
+  ]);
 
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
@@ -26655,17 +26728,54 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     })();
   }
 
-  function handleSyncGoogleCalendar() {
-    setErrorMessage("");
-    setCalendarSyncMessage("");
+  async function refreshExternalCalendarEventsForWindow(start: Date, end: Date) {
+    const params = new URLSearchParams({
+      end: end.toISOString(),
+      start: start.toISOString(),
+      workspaceId: data.workspace.id,
+    });
+    const response = await fetch(`/api/dos/app/calendar/events?${params.toString()}`);
+    const result = await response.json().catch(() => ({})) as {
+      events?: DosAppExternalCalendarEvent[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(result.error ?? "Unable to load Google Calendar events.");
+    }
+
+    setExternalCalendarEvents((current) => {
+      const windowStart = start.getTime();
+      const windowEnd = end.getTime();
+      const eventsOutsideWindow = current.filter((event) => {
+        const eventTime = dateSortValue(event.startAt);
+
+        return eventTime < windowStart || eventTime > windowEnd;
+      });
+
+      return mergeExternalCalendarEvents(eventsOutsideWindow, result.events ?? []);
+    });
+
+    return result.events ?? [];
+  }
+
+  function handleSyncGoogleCalendar(options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      setErrorMessage("");
+      setCalendarSyncMessage("");
+    }
 
     if (isPreview) {
-      setCalendarSyncMessage("Preview mode does not sync live Google events.");
+      if (!options.silent) {
+        setCalendarSyncMessage("Preview mode does not sync live Google events.");
+      }
       return;
     }
 
     if (!calendarConnection.connected || isSyncingGoogleCalendar) {
-      setCalendarSyncMessage("Connect Google Calendar to read events.");
+      if (!options.silent) {
+        setCalendarSyncMessage("Connect Google Calendar to read events.");
+      }
       return;
     }
 
@@ -26712,10 +26822,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           return;
         }
 
-        setCalendarSyncMessage(`Synced ${result.eventCount ?? 0} Google events.`);
+        await refreshExternalCalendarEventsForWindow(syncStart, syncEnd);
+
+        if (!options.silent) {
+          setCalendarSyncMessage(`Synced ${result.eventCount ?? 0} Google events.`);
+        }
+
         router.refresh();
       } catch {
-        setCalendarSyncMessage("Unable to sync Google Calendar events.");
+        if (!options.silent) {
+          setCalendarSyncMessage("Unable to sync Google Calendar events.");
+        }
       } finally {
         setIsSyncingGoogleCalendar(false);
       }
@@ -26723,7 +26840,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function sourceHasImportedGoogleEvents(source: CalendarSourcePreference) {
-    return data.externalCalendarEvents.some((event) => (
+    return externalCalendarEvents.some((event) => (
       !event.importedMeetingId && calendarSourceMatchesEvent(source, event)
     ));
   }
@@ -28744,7 +28861,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       calendarSourceMessage={calendarSourceMessage}
                       calendarSourcePreferences={calendarSourcePreferences}
                       calendarSyncMessage={calendarSyncMessage}
-                      googleEventCount={data.externalCalendarEvents.length}
+                      googleEventCount={externalCalendarEvents.length}
                       isSyncingGoogleCalendar={isSyncingGoogleCalendar}
                       items={visibleMeetingCalendarItems}
                       month={meetingsCalendarMonth}
