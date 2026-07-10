@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -76,7 +76,30 @@ const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choos
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
-type MyRecordTab = "assessments" | "journal" | "mentors" | "overview" | "prayer" | "timeline";
+
+const moreAppViewValues = new Set<MoreAppView>([
+  "apps",
+  "fruit",
+  "groups",
+  "in_season",
+  "library",
+  "missionary_profile",
+  "my_record",
+  "organizations",
+  "prayer",
+  "prayer_team",
+  "reports",
+  "settings",
+  "stewardship",
+  "support_team",
+  "table_flow",
+]);
+
+function normalizeMoreAppView(view: MoreAppView | null | undefined): MoreAppView | null {
+  return view && moreAppViewValues.has(view) ? view : null;
+}
+
+type MyRecordTab = "assessments" | "calling" | "growth" | "journal" | "learning" | "legacy" | "mentors" | "overview" | "prayer" | "prophetic_words" | "scripture" | "timeline" | "walk_with_god";
 type LocalPrayerNeed = {
   createdAt: string;
   id: string;
@@ -1286,6 +1309,56 @@ function parseDisplayDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const dosDisplayTimeZone = "America/Chicago";
+const dosDisplayDatePartsFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: dosDisplayTimeZone,
+  year: "numeric",
+});
+const dosDisplayTimePartsFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  hourCycle: "h23",
+  minute: "2-digit",
+  timeZone: dosDisplayTimeZone,
+});
+const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function displayDateParts(date: Date) {
+  const parts = dosDisplayDatePartsFormatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? { day, month, year }
+    : null;
+}
+
+function dateKeyFromParts(year: number, month: number, day: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function displayDateKey(date: Date) {
+  const parts = displayDateParts(date);
+
+  return parts ? dateKeyFromParts(parts.year, parts.month, parts.day) : "";
+}
+
+function displayDayStart(date: Date) {
+  const parts = displayDateParts(date);
+
+  return parts ? new Date(Date.UTC(parts.year, parts.month - 1, parts.day)) : null;
+}
+
+function displayTimeInputValue(date: Date) {
+  const parts = dosDisplayTimePartsFormatter.formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+
+  return hour && minute ? `${hour}:${minute}` : "";
+}
+
 function formatDate(value: string | null) {
   const date = parseDisplayDate(value);
 
@@ -1296,7 +1369,22 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
+    timeZone: dosDisplayTimeZone,
     year: "numeric",
+  }).format(date);
+}
+
+function formatShortDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: dosDisplayTimeZone,
   }).format(date);
 }
 
@@ -1310,6 +1398,7 @@ function formatTime(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: dosDisplayTimeZone,
   }).format(date);
 }
 
@@ -1345,7 +1434,7 @@ function startOfDisplayDay(value: string | null | undefined) {
     return null;
   }
 
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return displayDayStart(date);
 }
 
 function isUpcomingDate(value: string | null | undefined) {
@@ -1355,10 +1444,10 @@ function isUpcomingDate(value: string | null | undefined) {
     return false;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const today = displayDayStart(new Date());
+  const todayStart = today?.getTime();
 
-  return date.getTime() >= todayStart;
+  return typeof todayStart === "number" && date.getTime() >= todayStart;
 }
 
 function dayOffsetFromToday(value: string | null | undefined) {
@@ -1368,10 +1457,12 @@ function dayOffsetFromToday(value: string | null | undefined) {
     return null;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const today = displayDayStart(new Date());
+  const todayStart = today?.getTime();
 
-  return Math.round((date.getTime() - todayStart) / (24 * 60 * 60 * 1000));
+  return typeof todayStart === "number"
+    ? Math.round((date.getTime() - todayStart) / (24 * 60 * 60 * 1000))
+    : null;
 }
 
 function isTodayDate(value: string | null | undefined) {
@@ -1385,9 +1476,15 @@ function formatRelativeDate(value: string | null) {
     return "No contact yet";
   }
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const activityDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const todayDate = displayDayStart(new Date());
+  const activityDate = displayDayStart(date);
+
+  if (!todayDate || !activityDate) {
+    return "No contact yet";
+  }
+
+  const today = todayDate.getTime();
+  const activityDay = activityDate.getTime();
   const daysAgo = Math.round((today - activityDay) / (24 * 60 * 60 * 1000));
 
   if (daysAgo <= 0) {
@@ -1631,20 +1728,21 @@ function formatWeekRangeCompact(start: Date, end: Date) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
+    timeZone: dosDisplayTimeZone,
   });
 
   return `${formatter.format(start)} · ${formatter.format(end)}`;
 }
 
 function todayDateValue() {
-  return new Date().toISOString().slice(0, 10);
+  return displayDateKey(new Date());
 }
 
 function dateValueFromToday(offsetDays: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
+  const date = displayDayStart(new Date()) ?? new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
 
-  return calendarDateKey(date);
+  return dateKeyFromParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function calendarDateKey(date: Date) {
@@ -1664,7 +1762,7 @@ function dateFromCalendarKey(value: string) {
 function calendarDateKeyFromValue(value: string | null | undefined) {
   const date = parseDisplayDate(value ?? null);
 
-  return date ? calendarDateKey(date) : "";
+  return date ? displayDateKey(date) : "";
 }
 
 function normalizeDateInputValue(value: string | null | undefined) {
@@ -1800,7 +1898,7 @@ function localDateTimeIso(dateValue: string, timeValue: string) {
 function dateInputValueFromDateTime(value: string | null | undefined, fallback = todayDateValue()) {
   const date = parseDisplayDate(value ?? null);
 
-  return date ? calendarDateKey(date) : fallback;
+  return date ? displayDateKey(date) : fallback;
 }
 
 function timeInputValueFromDateTime(value: string | null | undefined, fallback = "18:00") {
@@ -1814,7 +1912,7 @@ function timeInputValueFromDateTime(value: string | null | undefined, fallback =
     return fallback;
   }
 
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return displayTimeInputValue(date) || fallback;
 }
 
 function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined, fallbackMinutes = 60) {
@@ -3011,6 +3109,7 @@ function homeDateSubtitle(date = new Date()) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "long",
+    timeZone: dosDisplayTimeZone,
     weekday: "long",
   }).format(date);
 
@@ -3291,15 +3390,21 @@ function nextAnnualDate(value: string | null | undefined) {
     return null;
   }
 
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const nextDate = new Date(today.getFullYear(), date.getMonth(), date.getDate(), 12);
+  const sourceParts = displayDateParts(date);
+  const todayParts = displayDateParts(new Date());
+  const todayStart = displayDayStart(new Date())?.getTime();
 
-  if (nextDate.getTime() < todayStart) {
-    nextDate.setFullYear(today.getFullYear() + 1);
+  if (!sourceParts || !todayParts || typeof todayStart !== "number") {
+    return null;
   }
 
-  return nextDate.toISOString();
+  const nextDate = new Date(Date.UTC(todayParts.year, sourceParts.month - 1, sourceParts.day, 12));
+
+  if (nextDate.getTime() < todayStart) {
+    nextDate.setUTCFullYear(todayParts.year + 1);
+  }
+
+  return dateKeyFromParts(nextDate.getUTCFullYear(), nextDate.getUTCMonth() + 1, nextDate.getUTCDate());
 }
 
 function primaryMeetingPerson(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -3826,7 +3931,7 @@ function EmptyState({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>
       {children}
     </span>
   );
@@ -4708,6 +4813,7 @@ function TabPageHeader({
 }
 
 function TabHero({
+  action,
   desktopCompact = false,
   icon,
   onScriptureClick,
@@ -4715,6 +4821,7 @@ function TabHero({
   subtitle,
   title,
 }: {
+  action?: ReactNode;
   desktopCompact?: boolean;
   icon: ReactNode;
   onScriptureClick: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
@@ -4731,24 +4838,27 @@ function TabHero({
 
   return (
     <section className={sectionClassName}>
-      <div className="flex items-center gap-3.5">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF] md:h-10 md:w-10 md:rounded-[16px]">
-          {icon}
-        </span>
-        <span className="min-w-0">
-          <h2 className={titleClassName} style={{ fontFamily: font.oswald }}>{title}</h2>
-          {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B] md:line-clamp-1">{subtitle}</p> : null}
-          {scripture ? (
-            <button
-              className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
-              onClick={(event) => onScriptureClick(scripture, event)}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              {scripture.reference}
-            </button>
-          ) : null}
-        </span>
+      <div className="flex items-center justify-between gap-3.5">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF] md:h-10 md:w-10 md:rounded-[16px]">
+            {icon}
+          </span>
+          <span className="min-w-0">
+            <h2 className={titleClassName} style={{ fontFamily: font.oswald }}>{title}</h2>
+            {subtitle ? <p className="mt-1 text-[13px] leading-5 text-[#64748B] md:line-clamp-1">{subtitle}</p> : null}
+            {scripture ? (
+              <button
+                className="mt-3 inline-flex rounded-full text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB] transition-colors hover:text-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25 md:mt-1.5"
+                onClick={(event) => onScriptureClick(scripture, event)}
+                style={{ fontFamily: font.rajdhani }}
+                type="button"
+              >
+                {scripture.reference}
+              </button>
+            ) : null}
+          </span>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
     </section>
   );
@@ -8696,12 +8806,43 @@ function DesktopRecentActivityPanel({
   );
 }
 
+function currentMonthRange(referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  return { end, start };
+}
+
+function monthKey(value: string | null | undefined) {
+  const date = value ? parseDisplayDate(value) : null;
+  const parts = date ? displayDateParts(date) : null;
+
+  return parts ? `${parts.year}-${String(parts.month).padStart(2, "0")}` : null;
+}
+
 function formatDashboardDuration(minutes: number) {
   if (!minutes) {
     return "0h";
   }
 
   return formatLoggedTime(minutes);
+}
+
+function dashboardTrendMonths(count = 12) {
+  const nowParts = displayDateParts(new Date());
+  const nowMonthIndex = nowParts ? nowParts.month - 1 : new Date().getMonth();
+  const nowYear = nowParts ? nowParts.year : new Date().getFullYear();
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(nowYear, nowMonthIndex - (count - 1 - index), 1));
+    const month = date.getUTCMonth() + 1;
+    const key = `${date.getUTCFullYear()}-${String(month).padStart(2, "0")}`;
+
+    return {
+      key,
+      label: shortMonthNames[month - 1] ?? "",
+    };
+  });
 }
 
 type DashboardFruitItem = {
@@ -8726,10 +8867,13 @@ function DesktopHomeDashboard({
   fruitItems,
   loggedMeetings,
   meetings,
+  myRecord,
+  myRecordV2Enabled,
   onAddPerson,
   onLogMeeting,
   onOpenFruit,
   onOpenMeeting,
+  onOpenMyRecord,
   onOpenPerson,
   onOpenReports,
   onOpenReview,
@@ -8748,10 +8892,13 @@ function DesktopHomeDashboard({
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
   meetings: DosAppMeeting[];
+  myRecord: DosAppUserRecord;
+  myRecordV2Enabled: boolean;
   onAddPerson: () => void;
   onLogMeeting: () => void;
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
+  onOpenMyRecord: () => void;
   onOpenPerson: (personId: string) => void;
   onOpenReports: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
@@ -8831,6 +8978,18 @@ function DesktopHomeDashboard({
   const todayDashboardRows = dashboardUpcomingRows
     .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
     .slice(0, 3);
+  const latestJournal = myRecord.journalEntries[0] ?? null;
+  const timeWithGodStatus = latestJournal
+    ? `Last logged ${formatRelativeDate(latestJournal.date)}`
+    : "Not logged";
+  const followUpsDue = upcomingItems.filter((item) => item.icon === "reminder" && item.label.toLowerCase().includes("today")).length;
+  const nextMeeting = dashboardUpcomingRows.find((item) => item.meeting) ?? null;
+  const alignmentItems = [
+    { label: "Current focus", value: myRecord.currentSeasonFocus || "Not set" },
+    { label: "Time with God", value: timeWithGodStatus },
+    { label: "Follow-ups due", value: `${followUpsDue}` },
+    { label: "Next table", value: nextMeeting ? `${nextMeeting.title} · ${nextMeeting.label}` : "No table scheduled" },
+  ];
 
   function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
     if (item.meeting) {
@@ -8902,6 +9061,19 @@ function DesktopHomeDashboard({
             ))}
           </div>
         </section>
+
+        {myRecordV2Enabled ? (
+          <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
+            <div className="grid gap-2 md:grid-cols-4">
+              {alignmentItems.map((item) => (
+                <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={item.label}>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{item.label}</span>
+                  <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </DesktopPanel>
+        ) : null}
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
@@ -10148,7 +10320,7 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Answered Recently", value: "answered_recently" },
 ];
 
-const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
+const myRecordLegacyTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Overview", value: "overview" },
   { label: "Journal", value: "journal" },
   { label: "Prayer", value: "prayer" },
@@ -10156,6 +10328,19 @@ const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Assessments", value: "assessments" },
   { label: "Timeline", value: "timeline" },
 ];
+
+const myRecordV2Tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Walk", value: "walk_with_god" },
+  { label: "Growth", value: "growth" },
+  { label: "Calling", value: "calling" },
+  { label: "Legacy", value: "legacy" },
+];
+
+function normalizeMyRecordTab(tab: MyRecordTab, myRecordV2Enabled: boolean): MyRecordTab {
+  const tabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
+  return tabs.some((item) => item.value === tab) ? tab : "overview";
+}
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
   { label: "Praying", value: "praying" },
@@ -13318,10 +13503,11 @@ function calendarCompactDayLabel(value: string | null) {
     return "Soon";
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const eventDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const dayDiff = Math.round((eventDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const today = displayDayStart(new Date());
+  const eventDay = displayDayStart(date);
+  const dayDiff = today && eventDay
+    ? Math.round((eventDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+    : null;
 
   if (dayDiff === 0) {
     return "Today";
@@ -13331,11 +13517,11 @@ function calendarCompactDayLabel(value: string | null) {
     return "Tomorrow";
   }
 
-  if (dayDiff > 1 && dayDiff < 7) {
-    return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
+  if (dayDiff !== null && dayDiff > 1 && dayDiff < 7) {
+    return new Intl.DateTimeFormat("en-US", { timeZone: dosDisplayTimeZone, weekday: "short" }).format(date);
   }
 
-  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" }).format(date);
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: dosDisplayTimeZone }).format(date);
 }
 
 function calendarUpcomingCardTimeLabel(item: MeetingCalendarItem) {
@@ -14416,7 +14602,7 @@ function CompactOptionSelect({
                 type="button"
               >
                 <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#64748B]">{option.helper}</span> : null}
               </button>
             );
           })}
@@ -14608,7 +14794,7 @@ function ConversationFlowExperience({
           {flow.sections.map((section) => (
             <div className="grid gap-2" key={section.id}>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
                   {section.title}
                 </p>
                 {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
@@ -14726,7 +14912,7 @@ function ConversationQuestionCard({
     <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
       <p className="text-sm font-semibold leading-5 text-[#0F172A]">{question.label}</p>
       {question.scriptureRefs?.length ? (
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           {question.scriptureRefs.join(" · ")}
         </p>
       ) : null}
@@ -16856,7 +17042,7 @@ function FruitImpactGroupCard({
           <div className="flex items-center justify-between gap-3 py-1.5" key={outcome.key}>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold text-[#0F172A]">{outcome.label}</p>
-              <p className="mt-0.5 truncate text-[11px] font-semibold text-[#94A3B8]">
+              <p className="mt-0.5 truncate text-[11px] font-semibold text-[#64748B]">
                 {outcome.sources.length ? outcome.sources.join(" · ") : "No records yet"}
               </p>
             </div>
@@ -17138,7 +17324,7 @@ function FruitFormsGrid({
         ))}
       </div>
       <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_30px_rgba(37,99,235,0.045)] md:block">
-        <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <div className="grid grid-cols-[1.05fr_1.55fr_1.2fr] gap-3 border-b border-[#EAF2FF] bg-[#F8FBFF] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           <span>Form</span>
           <span>Purpose</span>
           <span>Preview</span>
@@ -17171,7 +17357,7 @@ function FruitFormsGrid({
           );
         })}
       </div>
-      <p className="px-1 text-xs leading-5 text-[#94A3B8]">Custom forms are coming later.</p>
+      <p className="px-1 text-xs leading-5 text-[#64748B]">Custom forms are coming later.</p>
     </div>
   );
 }
@@ -17947,7 +18133,7 @@ function PrayerRequestAudiencePicker({
                   )}
                   <span className="min-w-0 truncate font-semibold">{option.label}</span>
                 </span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#94A3B8]">{option.helper}</span> : null}
+                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#64748B]">{option.helper}</span> : null}
               </button>
             );
           })}
@@ -18746,7 +18932,7 @@ function DesktopPrayerPlaceholderSheet({
 function PrayerDetailMetaRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="grid gap-1 px-3 py-2.5 min-[420px]:grid-cols-[120px_minmax(0,1fr)] min-[420px]:items-center">
-      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</span>
       <span className="min-w-0 text-sm font-semibold leading-5 text-[#0F172A]">{value}</span>
     </div>
   );
@@ -20208,7 +20394,7 @@ function DetailCard({
             {icon}
           </span>
         ) : null}
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
           {title}
         </p>
       </div>
@@ -20241,8 +20427,186 @@ function SectionEmptyState({
 }
 
 const myRecordJournalTags = ["Prayer", "Scripture", "Worship", "Repentance", "Direction", "Thanksgiving"] as const;
+const myRecordExternalAssessmentCategories = [
+  "Spiritual",
+  "Relationships",
+  "Personality & Wiring",
+  "Leadership",
+] as const;
+const myRecordPropheticWordStatuses: ReadonlyArray<{ label: string; value: DosAppUserPropheticWordStatus }> = [
+  { label: "Received", value: "received" },
+  { label: "Testing", value: "testing" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Fulfilled", value: "fulfilled" },
+  { label: "Archived", value: "archived" },
+];
+const myRecordAssessmentLibraryCategories = ["All", "Spiritual", "Relationships", "Personality & Wiring", "Leadership"] as const;
+const myRecordExternalAssessmentStatuses = [
+  { label: "Completed", value: "completed" },
+  { label: "Draft", value: "draft" },
+  { label: "Not Started", value: "not_started" },
+] as const;
+const myRecordLearningBookStatuses: ReadonlyArray<{ label: string; value: DosAppUserLearningBookStatus }> = [
+  { label: "Planned", value: "planned" },
+  { label: "Reading", value: "reading" },
+  { label: "Finished", value: "finished" },
+  { label: "Paused", value: "paused" },
+  { label: "Archived", value: "archived" },
+] as const;
+
+type MyRecordAssessmentLibraryCategory = typeof myRecordAssessmentLibraryCategories[number];
+type MyRecordExternalAssessmentStatus = typeof myRecordExternalAssessmentStatuses[number]["value"];
+type MyRecordAssessmentLibraryItemKind = "dos" | "external" | "future" | "seed";
+type MyRecordAssessmentLibraryItem = {
+  assessment?: DosResource;
+  attachmentUrl?: string | null;
+  builtInHistory?: DosAppUserAssessmentResult[];
+  category: Exclude<MyRecordAssessmentLibraryCategory, "All">;
+  completedDate: string | null;
+  id: string;
+  keyResults: string[];
+  kind: MyRecordAssessmentLibraryItemKind;
+  name: string;
+  notes?: string | null;
+  officialUrl?: string | null;
+  result?: DosAppUserAssessmentResult | DosAppUserExternalAssessmentResult;
+  seedPayload?: MyRecordSavePayload;
+  shortSummary: string;
+  status: MyRecordExternalAssessmentStatus;
+  typeLabel: string;
+};
+type MyRecordAssessmentReportUpload = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+type MyRecordLearningHighlightUpload = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+type MyRecordLifePlanUpload = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+
+const myRecordRyanSeedLifePlan: DosAppUserLifePlan = {
+  attachmentBucket: null,
+  attachmentContentType: null,
+  attachmentFileName: null,
+  attachmentPath: null,
+  attachmentUploadedAt: null,
+  attachmentUrl: null,
+  callingStatement: "I am not called to pursue every opportunity. I am called to faithfully steward the vision God has entrusted to me.",
+  createdAt: null,
+  dailyReminder: "Am I spending my time doing what only God has uniquely called and gifted me to do?",
+  decisionFilters: [
+    "Is this obedience?",
+    "Does this help us train, equip, multiply, or accelerate disciple-makers?",
+    "Am I the one who should own this?",
+    "If this succeeds beyond my expectations, does it move us closer to the mission God has given us, or does it create a second mission?",
+  ],
+  focusAllocation: null,
+  id: "seed-ryan-life-plan",
+  lastReviewedDate: null,
+  legacyChurch: null,
+  legacyDiscipled: null,
+  legacyFamily: null,
+  legacyJesus: null,
+  legacyRememberedFor: null,
+  nextReviewDate: null,
+  originalDateWritten: null,
+  rarelyDo: null,
+  responsibilities: null,
+  reviewHistory: [],
+  reviewRhythm: null,
+  shareEligible: false,
+  topPriorities: [
+    { allocationPercent: 10, id: "priority-1", label: "Abide with the Lord" },
+    { allocationPercent: 10, id: "priority-2", label: "Shepherd My Family" },
+    { allocationPercent: 50, id: "priority-3", label: "Create Systems that Multiply the Church" },
+    { allocationPercent: 5, id: "priority-4", label: "Build Strategic Kingdom Partnerships" },
+    { allocationPercent: 5, id: "priority-5", label: "Advance the Great Commission" },
+    { allocationPercent: 20, id: "priority-6", label: "Lead the Vision" },
+    { allocationPercent: 20, id: "priority-7", label: "Make Disciples" },
+    { allocationPercent: 0, id: "priority-8", label: "Be the Chief Storyteller" },
+    { allocationPercent: 0, id: "priority-9", label: "Unite the Body of Christ" },
+    { allocationPercent: 0, id: "priority-10", label: "Protect the Culture and Calling" },
+  ],
+  updatedAt: null,
+  visibility: "private",
+};
+
+const myRecordFutureAssessmentCards = [
+  { category: "Spiritual", name: "Spiritual Gifts", typeLabel: "Future Assessment" },
+  { category: "Leadership", name: "Working Genius", typeLabel: "External Result" },
+  { category: "Leadership", name: "CliftonStrengths / StrengthsFinder", typeLabel: "External Result" },
+  { category: "Personality & Wiring", name: "DISC", typeLabel: "External Result" },
+  { category: "Personality & Wiring", name: "Enneagram", typeLabel: "External Result" },
+  { category: "Relationships", name: "Communication Style", typeLabel: "Future Assessment" },
+  { category: "Relationships", name: "Conflict Style", typeLabel: "Future Assessment" },
+] as const satisfies ReadonlyArray<{
+  category: Exclude<MyRecordAssessmentLibraryCategory, "All">;
+  name: string;
+  typeLabel: string;
+}>;
+
+const myRecordRyanSeedAssessments = [
+  {
+    category: "Personality & Wiring",
+    keyResults: ["Establish", "Maximize", "Improve", "Realize The Vision", "Persuade", "Orchestrator", "Driver", "Optimizer"],
+    name: "MCode",
+    notes: "May need to watch for over-structuring, pushing too hard, moving faster than others can process, or improving things before people feel heard.",
+    resultType: "Top 5 Motivations",
+    shortSummary: "Ryan is strongly motivated to build lasting foundations, maximize people and systems, improve what already exists, turn vision into reality, and influence others toward action.",
+    sourceNote: "Seeded from Ryan's uploaded report. Summary only; do not copy proprietary explanation text.",
+  },
+  {
+    category: "Personality & Wiring",
+    keyResults: ["CR", "Concrete Random"],
+    name: "Gregoric Mind Styles",
+    notes: "Summary only. Original test/report should be referenced for full proprietary interpretation.",
+    resultType: "CR - Concrete Random",
+    shortSummary: "Ryan tends to learn and operate through practical experimentation, independent problem-solving, fast adaptation, and turning ideas into workable action.",
+    sourceNote: "Seeded from Ryan's current result label and user-authored summary.",
+  },
+] as const satisfies ReadonlyArray<{
+  category: Exclude<MyRecordAssessmentLibraryCategory, "All">;
+  keyResults: readonly string[];
+  name: string;
+  notes: string;
+  resultType: string;
+  shortSummary: string;
+  sourceNote: string;
+}>;
 
 type MyRecordSavePayload = Record<string, unknown>;
+
+function myRecordLogValue(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  if (value.length <= 160) {
+    return value;
+  }
+
+  return `${value.slice(0, 160)}... (${value.length} chars)`;
+}
+
+function myRecordLogPayload(payload: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(payload).map(([key, value]) => [key, Array.isArray(value) ? value.map(myRecordLogValue) : myRecordLogValue(value)]));
+}
 
 function formatRecordDuration(minutes: number) {
   if (minutes <= 0) {
@@ -20273,30 +20637,265 @@ function personNameById(people: DosAppPerson[]) {
   return new Map(people.map((person) => [person.id, person.name]));
 }
 
+function myRecordPropheticWordStatusLabel(value: DosAppUserPropheticWordStatus) {
+  return myRecordPropheticWordStatuses.find((status) => status.value === value)?.label ?? "Received";
+}
+
+function myRecordListInput(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function myRecordLifePlanPriorityInput(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split("\n")
+    .map((line, index) => {
+      const text = line.trim();
+
+      if (!text) {
+        return null;
+      }
+
+      const match = text.match(/^(?:\d+[.)]\s*)?(.*?)(?:\s*[-:]\s*([0-9]+)\s*%?)?$/);
+      const label = (match?.[1] ?? text).trim().replace(/\s+[–-]\s*$/, "");
+      const allocationPercent = match?.[2] ? Number.parseInt(match[2], 10) : null;
+
+      if (!label) {
+        return null;
+      }
+
+      return {
+        allocationPercent: Number.isFinite(allocationPercent) ? allocationPercent : null,
+        id: `priority-${index + 1}`,
+        label,
+      };
+    })
+    .filter(Boolean);
+}
+
+function myRecordLifePlanPriorityText(plan: DosAppUserLifePlan | null) {
+  return (plan?.topPriorities ?? myRecordRyanSeedLifePlan.topPriorities)
+    .map((priority, index) => `${index + 1}. ${priority.label}${priority.allocationPercent === null ? "" : ` - ${priority.allocationPercent}%`}`)
+    .join("\n");
+}
+
+function myRecordLifePlanReviewHistoryInput(value: FormDataEntryValue | null) {
+  return String(value ?? "")
+    .split("\n")
+    .map((line) => {
+      const text = line.trim();
+
+      if (!text) {
+        return null;
+      }
+
+      const match = text.match(/^(\d{4}-\d{2}-\d{2})\s*[-:]\s*(.*)$/);
+
+      return {
+        date: match?.[1] ?? null,
+        notes: (match?.[2] ?? text).trim(),
+      };
+    })
+    .filter(Boolean);
+}
+
+function myRecordLifePlanReviewHistoryText(plan: DosAppUserLifePlan | null) {
+  return (plan?.reviewHistory ?? [])
+    .map((review) => [review.date, review.notes].filter(Boolean).join(" - "))
+    .join("\n");
+}
+
+function resolveMyRecordLifePlan(record: DosAppUserRecord) {
+  return record.lifePlan ?? myRecordRyanSeedLifePlan;
+}
+
+function myRecordAssessmentStatusLabel(value: MyRecordExternalAssessmentStatus) {
+  return myRecordExternalAssessmentStatuses.find((status) => status.value === value)?.label ?? "Completed";
+}
+
+function myRecordLearningBookStatusLabel(value: DosAppUserLearningBookStatus) {
+  return myRecordLearningBookStatuses.find((status) => status.value === value)?.label ?? "Reading";
+}
+
+function myRecordBooksReadCount(books: DosAppUserLearningBook[]) {
+  return books.filter((book) => book.status === "finished").length;
+}
+
+function myRecordAssessmentCategory(value: string | null | undefined): Exclude<MyRecordAssessmentLibraryCategory, "All"> {
+  const normalized = value?.trim().toLowerCase() ?? "";
+
+  if (normalized.includes("marriage")
+    || normalized.includes("friend")
+    || normalized.includes("relationship")
+    || normalized.includes("love")
+    || normalized.includes("communication")
+    || normalized.includes("conflict")) {
+    return "Relationships";
+  }
+
+  if (normalized.includes("spiritual") || normalized.includes("disciple") || normalized.includes("gift")) {
+    return "Spiritual";
+  }
+
+  if (normalized.includes("leadership") || normalized.includes("working genius") || normalized.includes("clifton") || normalized.includes("strength")) {
+    return "Leadership";
+  }
+
+  return "Personality & Wiring";
+}
+
+function myRecordAssessmentMatchesName(name: string, target: string) {
+  return name.trim().toLowerCase() === target.trim().toLowerCase();
+}
+
+function myRecordAssessmentKeyResultsFromBuiltIn(result: DosAppUserAssessmentResult | undefined) {
+  if (!result) {
+    return [];
+  }
+
+  return [
+    `${result.overallScore}/${result.maxScore}`,
+    `${Math.round(result.percentage)}%`,
+    ...result.categoryScores.slice(0, 3).map((category) => `${category.title}: ${Math.round(category.percentage)}%`),
+  ];
+}
+
+function myRecordAssessmentLibraryItems({
+  includeRyanSeeds,
+  record,
+}: {
+  includeRyanSeeds: boolean;
+  record: DosAppUserRecord;
+}): MyRecordAssessmentLibraryItem[] {
+  const latestResultsBySlug = new Map<string, DosAppUserAssessmentResult>();
+
+  for (const result of [...record.assessmentResults].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))) {
+    if (!latestResultsBySlug.has(result.assessmentSlug)) {
+      latestResultsBySlug.set(result.assessmentSlug, result);
+    }
+  }
+
+  const builtInItems = dosAssessmentResourceItems.map((assessment) => {
+    const history = record.assessmentResults
+      .filter((result) => result.assessmentSlug === assessment.slug)
+      .sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt));
+    const result = latestResultsBySlug.get(assessment.slug);
+
+    return {
+      assessment,
+      attachmentUrl: null,
+      builtInHistory: history,
+      category: myRecordAssessmentCategory(assessment.category),
+      completedDate: result?.completedAt ?? null,
+      id: `dos-${assessment.slug}`,
+      keyResults: myRecordAssessmentKeyResultsFromBuiltIn(result),
+      kind: "dos" as const,
+      name: assessment.title,
+      officialUrl: assessment.path,
+      result,
+      shortSummary: result
+        ? `${assessment.title} completed at ${Math.round(result.percentage)}%.`
+        : assessment.description,
+      status: result ? "completed" as const : "not_started" as const,
+      typeLabel: "DOS Assessment",
+    };
+  });
+  const externalItems = record.externalAssessmentResults.map((result) => ({
+    attachmentUrl: result.attachmentUrl,
+    category: myRecordAssessmentCategory(result.category ?? result.assessmentName),
+    completedDate: result.dateTaken,
+    id: `external-${result.id}`,
+    keyResults: [result.resultType, ...result.topStrengths].filter((item): item is string => Boolean(item)),
+    kind: "external" as const,
+    name: result.assessmentName,
+    notes: result.notes,
+    officialUrl: result.officialAssessmentUrl,
+    result,
+    shortSummary: result.shortSummary ?? result.notes ?? result.scoresDetails ?? "User-owned assessment result saved privately.",
+    status: result.status,
+    typeLabel: result.category || "External Result",
+  }));
+  const savedExternalNames = new Set(record.externalAssessmentResults.map((result) => result.assessmentName.trim().toLowerCase()));
+  const seedItems = includeRyanSeeds
+    ? myRecordRyanSeedAssessments
+      .filter((seed) => !savedExternalNames.has(seed.name.toLowerCase()))
+      .map((seed) => ({
+        attachmentUrl: null,
+        category: seed.category,
+        completedDate: null,
+        id: `seed-${seed.name.toLowerCase().replace(/\s+/g, "-")}`,
+        keyResults: [...seed.keyResults],
+        kind: "seed" as const,
+        name: seed.name,
+        notes: `${seed.notes}\n\n${seed.sourceNote}`,
+        officialUrl: null,
+        seedPayload: {
+          assessmentName: seed.name,
+          category: seed.category,
+          dateTaken: todayDateValue(),
+          kind: "external_assessment_result",
+          notes: `${seed.notes}\n\n${seed.sourceNote}`,
+          resultType: seed.resultType,
+          shareEligible: false,
+          shortSummary: seed.shortSummary,
+          status: "completed",
+          topStrengths: seed.keyResults.join("\n"),
+        },
+        shortSummary: seed.shortSummary,
+        status: "completed" as const,
+        typeLabel: "Starter Result",
+      }))
+    : [];
+  const existingNames = new Set([...builtInItems, ...externalItems, ...seedItems].map((item) => item.name.trim().toLowerCase()));
+  const futureItems = myRecordFutureAssessmentCards
+    .filter((item) => !existingNames.has(item.name.toLowerCase()))
+    .map((item) => ({
+      attachmentUrl: null,
+      category: item.category,
+      completedDate: null,
+      id: `future-${item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      keyResults: [],
+      kind: "future" as const,
+      name: item.name,
+      officialUrl: null,
+      shortSummary: "Add a result summary after taking this assessment elsewhere.",
+      status: "not_started" as const,
+      typeLabel: item.typeLabel,
+    }));
+
+  return [...seedItems, ...externalItems, ...builtInItems, ...futureItems];
+}
+
 function MyRecordTabBar({
   onChange,
+  tabs,
   value,
 }: {
   onChange: (tab: MyRecordTab) => void;
+  tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>>;
   value: MyRecordTab;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-[22px] bg-[#E2E8F0] p-1 shadow-inner shadow-white/60 min-[520px]:grid-cols-3 xl:grid-cols-6">
-      {myRecordTabs.map((tab) => (
-        <button
-          aria-pressed={value === tab.value}
-          className={`min-h-9 rounded-[18px] px-2 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
-            value === tab.value
-              ? "bg-white text-[#0F172A] shadow-[0_8px_18px_rgba(42,37,29,0.08)]"
-              : "text-[#64748B] hover:text-[#0F172A]"
-          }`}
-          key={tab.value}
-          onClick={() => onChange(tab.value)}
-          type="button"
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="-mx-1 overflow-x-auto pb-1 md:mx-0">
+      <div className="flex min-w-max gap-1 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] p-1 shadow-inner shadow-white/70 md:w-full md:min-w-0 md:justify-center">
+        {tabs.map((tab) => (
+          <button
+            aria-pressed={value === tab.value}
+            className={`min-h-8 shrink-0 rounded-full px-3 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 md:flex-1 md:px-4 ${
+              value === tab.value
+                ? "bg-white text-[#0F172A] shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-[#64748B] hover:text-[#0F172A]"
+            }`}
+            key={tab.value}
+            onClick={() => onChange(tab.value)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -20317,7 +20916,7 @@ function MyRecordMetricCard({
           {icon}
         </span>
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</span>
           <span className="mt-1 block truncate text-sm font-black text-[#0F172A]">{value}</span>
         </span>
       </div>
@@ -20326,11 +20925,13 @@ function MyRecordMetricCard({
 }
 
 function MyRecordActivityRow({
+  action,
   body,
   date,
   icon,
   title,
 }: {
+  action?: ReactNode;
   body?: string | null;
   date: string | null;
   icon: ReactNode;
@@ -20348,41 +20949,226 @@ function MyRecordActivityRow({
           {formatDate(date)}
         </span>
       </span>
+      {action ? <span className="shrink-0 self-center">{action}</span> : null}
     </article>
   );
 }
 
-function AssessmentResultPlaceholderCard({
-  href,
-  title,
+type MyRecordSheetMode = "edit" | "new" | "view";
+type MyRecordSheetState =
+  | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "encounter"; mode: MyRecordSheetMode; prayerLog?: DosAppUserPrayerLog | null; title?: string }
+  | { defaultTags?: string[]; entry?: DosAppUserJournalEntry | null; kind: "journal"; mode: MyRecordSheetMode; title?: string }
+  | { kind: "prayer"; log?: DosAppUserPrayerLog | null; mode: MyRecordSheetMode }
+  | { kind: "mentor_meeting"; meeting?: DosAppUserMentorMeeting | null; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }
+  | { kind: "mentor_relationship"; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }
+  | { kind: "prophetic_word"; mode: MyRecordSheetMode; word?: DosAppUserPropheticWord | null }
+  | { assessmentResult?: DosAppUserExternalAssessmentResult | null; kind: "external_assessment"; mode: MyRecordSheetMode }
+  | { item?: MyRecordAssessmentLibraryItem | null; kind: "assessment"; mode: MyRecordSheetMode }
+  | { item: MyRecordAssessmentLibraryItem; kind: "assessment_detail"; mode: "view" }
+  | { book?: DosAppUserLearningBook | null; kind: "book"; mode: MyRecordSheetMode }
+  | { book: DosAppUserLearningBook; kind: "chapter_note"; mode: MyRecordSheetMode; note?: DosAppUserLearningChapterNote | null }
+  | { kind: "life_plan"; mode: MyRecordSheetMode; plan?: DosAppUserLifePlan | null }
+  | { ebenezers: MyRecordEbenezer[]; kind: "faithfulness"; mode: "view" }
+  | { items: MyRecordTimelineItem[]; kind: "timeline"; mode: "view" }
+  | { description?: string; kind: "placeholder"; title: string };
+
+function myRecordCompactPreview(...values: Array<string | null | undefined>) {
+  return values.find((value) => Boolean(value?.trim()))?.trim() ?? "No notes yet.";
+}
+
+function MyRecordEntryActions({
+  canDelete = false,
+  onDelete,
+  onEdit,
+  onNew,
+  onView,
 }: {
-  href?: string;
-  title: string;
+  canDelete?: boolean;
+  onDelete?: () => void;
+  onEdit?: () => void;
+  onNew?: () => void;
+  onView?: () => void;
 }) {
-  const actionClassName = "mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]";
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {onView ? <button className="inline-flex min-h-8 items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={onView} type="button">View</button> : null}
+      {onEdit ? <button className="inline-flex min-h-8 items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8]" onClick={onEdit} type="button">Edit</button> : null}
+      {onNew ? <button className="inline-flex min-h-8 items-center rounded-full bg-[#2563EB] px-3 text-xs font-bold text-white" onClick={onNew} type="button">+ New</button> : null}
+      {canDelete && onDelete ? <button className="inline-flex min-h-8 items-center rounded-full border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700" onClick={onDelete} type="button">Delete</button> : null}
+    </div>
+  );
+}
+
+function MyRecordSummaryCard({
+  date,
+  emptyText = "Nothing logged yet.",
+  icon,
+  onEdit,
+  onNew,
+  onView,
+  preview,
+  title,
+  value,
+}: {
+  date?: string | null;
+  emptyText?: string;
+  icon: ReactNode;
+  onEdit?: () => void;
+  onNew: () => void;
+  onView?: () => void;
+  preview?: string | null;
+  title: string;
+  value?: string | null;
+}) {
+  const hasEntry = Boolean(value || preview || date);
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
-      <div className="flex min-w-0 gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    <article className="min-w-0 rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_28px_rgba(37,99,235,0.04)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
-          <span className="mt-1 block text-sm leading-5 text-[#64748B]">No completed assessment yet</span>
-        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{title}</p>
+          <p className="mt-2 truncate text-base font-black text-[#0F172A]">{value || "No entry yet"}</p>
+          <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-[#475569]">{hasEntry ? preview || "No preview yet." : emptyText}</p>
+          {date ? <p className="mt-3 text-xs font-bold text-[#64748B]">{formatDate(date)}</p> : null}
+        </div>
       </div>
-      {href ? (
-        <Link className={actionClassName} href={href}>
-          Open Assessment
-        </Link>
-      ) : (
-        <button className={`${actionClassName} cursor-not-allowed opacity-60 hover:border-[#BFDBFE] hover:bg-white`} disabled type="button">
-          Coming Soon
-        </button>
-      )}
+      <MyRecordEntryActions onEdit={hasEntry ? onEdit : undefined} onNew={onNew} onView={hasEntry ? onView : undefined} />
     </article>
   );
+}
+
+function MyRecordDetailBlock({ label, value }: { label: string; value?: ReactNode | null }) {
+  if (!value) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+      <div className="mt-2 whitespace-pre-line text-sm font-medium leading-6 text-[#0F172A] [&_li]:text-[#0F172A]">{value}</div>
+    </div>
+  );
+}
+
+function MyRecordSheetFrame({
+  children,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const content = (
+    <div className="fixed inset-0 z-[1100] bg-[#0F172A]/18 backdrop-blur-sm" onMouseDown={onClose} role="presentation">
+      <section
+        aria-modal="true"
+        className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(15,23,42,0.18)] md:max-w-[560px] md:border-l md:border-[#DCEBFF]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-[#EAF2FF] px-4">
+          <h2 className="truncate text-lg font-black text-[#0F172A]">{title}</h2>
+          <button aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onClose} type="button">
+            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto bg-[#F8FBFF] p-4 [scrollbar-width:none]">
+          {children}
+        </div>
+      </section>
+    </div>
+  );
+
+  return isMounted ? createPortal(content, document.body) : null;
+}
+
+type MyRecordContextualAction = {
+  disabled?: boolean;
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+};
+
+function MyRecordContextualFloatingActions({
+  isOpen,
+  items,
+  onClose,
+  onToggle,
+}: {
+  isOpen: boolean;
+  items: MyRecordContextualAction[];
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!items.length) {
+    return null;
+  }
+
+  const content = (
+    <div className="fixed inset-0 z-[90] pointer-events-none">
+      {isOpen ? (
+        <button aria-label="Close My Record actions" className="absolute inset-0 pointer-events-auto bg-transparent" onClick={onClose} type="button" />
+      ) : null}
+      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] right-5 flex w-[238px] flex-col items-end gap-2 pointer-events-auto md:bottom-7 md:right-7">
+        {isOpen ? (
+          <div className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+            {items.map((item) => (
+              <button
+                className="flex min-h-11 w-full items-center gap-3 rounded-[18px] px-3 text-left text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FAFC] active:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:text-[#94A3B8]"
+                disabled={item.disabled}
+                key={item.label}
+                onClick={() => {
+                  if (item.disabled) {
+                    return;
+                  }
+                  item.onClick();
+                  onClose();
+                }}
+                type="button"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                  <Icon name={item.icon} size={15} />
+                </span>
+                <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
+                {item.disabled ? (
+                  <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+                    Soon
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Close My Record actions" : "Open My Record actions"}
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97]"
+          onClick={onToggle}
+          type="button"
+        >
+          {isOpen ? <X className="h-6 w-6" aria-hidden="true" strokeWidth={2.2} /> : <Icon name="add" size={28} />}
+        </button>
+      </div>
+    </div>
+  );
+
+  return isMounted ? createPortal(content, document.body) : null;
 }
 
 function MyRecordTimerControls({
@@ -20431,17 +21217,32 @@ function MyRecordTimerControls({
 }
 
 function MyRecordJournalForm({
+  defaultTags = [],
+  entry,
   errorMessage,
   isSubmitting,
+  nextTab = "journal",
+  onCancel,
   onSave,
+  payloadKind = "journal",
+  saveLabel,
+  title = "Quiet Time",
 }: {
+  defaultTags?: string[];
+  entry?: DosAppUserJournalEntry | null;
   errorMessage: string;
   isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  payloadKind?: "encounter" | "journal";
+  saveLabel?: { edit: string; new: string };
+  title?: string;
 }) {
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const isEditing = Boolean(entry);
+  const [selectedTags, setSelectedTags] = useState<string[]>(entry?.tags ?? defaultTags);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
-  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(entry?.minutesSpent ?? null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const isRunning = timerStartedAt !== null;
 
@@ -20467,28 +21268,33 @@ function MyRecordJournalForm({
       const saved = await onSave({
         biblePassage: String(formData.get("bible_passage") ?? ""),
         date: String(formData.get("date") ?? todayDateValue()),
-        kind: "journal",
+        entryId: entry?.id,
+        kind: payloadKind,
         lordHighlight: String(formData.get("lord_highlight") ?? ""),
         minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
         notes: String(formData.get("notes") ?? ""),
         prayerResponse: String(formData.get("prayer_response") ?? ""),
         tags: selectedTags,
-      }, "journal");
+      }, nextTab);
 
-      if (saved) {
+      if (saved && !isEditing) {
         formRef.current?.reset();
-        setSelectedTags([]);
+        setSelectedTags(defaultTags);
         setTimerStartedAt(null);
         setTimerMinutes(null);
+      }
+
+      if (saved) {
+        onCancel?.();
       }
     })();
   }
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="library" title="Quiet Time">
+      <DosFormSection icon="library" title={title}>
         <DosFormGrid>
-          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosDateInput defaultValue={entry?.date ?? todayDateValue()} label="Date" name="date" />
           <DosFormField label="Time Spent">
             <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
           </DosFormField>
@@ -20504,16 +21310,16 @@ function MyRecordJournalForm({
           onStop={stopTimer}
         />
         <DosFormField label="Bible Passage">
-          <input className={FieldInputClass()} name="bible_passage" placeholder="John 15, Psalm 23, Romans 8" />
+          <input className={FieldInputClass()} defaultValue={entry?.biblePassage ?? ""} name="bible_passage" placeholder="John 15, Psalm 23, Romans 8" />
         </DosFormField>
         <DosFormField label="Notes / Reflection">
-          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Write what you noticed." />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={entry?.notes ?? ""} name="notes" placeholder="Write what you noticed." />
         </DosFormField>
         <DosFormField label="What did the Lord highlight?">
-          <VoiceTextarea className={FieldTextareaClass()} name="lord_highlight" placeholder="Capture the main highlight." />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={entry?.lordHighlight ?? ""} name="lord_highlight" placeholder="Capture the main highlight." />
         </DosFormField>
         <DosFormField label="Prayer Response / Next Step">
-          <VoiceTextarea className={FieldTextareaClass()} name="prayer_response" placeholder="How will you respond?" />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={entry?.prayerResponse ?? ""} name="prayer_response" placeholder="How will you respond?" />
         </DosFormField>
       </DosFormSection>
       <DosFormSection icon="fruit" title="Tags">
@@ -20538,7 +21344,10 @@ function MyRecordJournalForm({
         </div>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Journal Entry"}</AppButton>
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? saveLabel?.edit ?? "Save Entry" : saveLabel?.new ?? "Add Entry"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
     </form>
   );
 }
@@ -20546,16 +21355,23 @@ function MyRecordJournalForm({
 function MyRecordPrayerForm({
   errorMessage,
   isSubmitting,
+  log,
+  nextTab = "prayer",
+  onCancel,
   onSave,
   people,
 }: {
   errorMessage: string;
   isSubmitting: boolean;
+  log?: DosAppUserPrayerLog | null;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   people: DosAppPerson[];
 }) {
+  const isEditing = Boolean(log);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
-  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(log?.minutesSpent ?? null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const isRunning = timerStartedAt !== null;
 
@@ -20581,13 +21397,18 @@ function MyRecordPrayerForm({
         kind: "prayer",
         minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
         notes: String(formData.get("notes") ?? ""),
+        prayerLogId: log?.id,
         prayerFocus: String(formData.get("prayer_focus") ?? ""),
-      }, "prayer");
+      }, nextTab);
 
-      if (saved) {
+      if (saved && !isEditing) {
         formRef.current?.reset();
         setTimerStartedAt(null);
         setTimerMinutes(null);
+      }
+
+      if (saved) {
+        onCancel?.();
       }
     })();
   }
@@ -20596,7 +21417,7 @@ function MyRecordPrayerForm({
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
       <DosFormSection icon="prayer" title="Prayer Time">
         <DosFormGrid>
-          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosDateInput defaultValue={dateInputValueFromDateTime(log?.prayedAt, todayDateValue())} label="Date" name="date" />
           <DosFormField label="Time Spent">
             <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
           </DosFormField>
@@ -20612,11 +21433,12 @@ function MyRecordPrayerForm({
           onStop={stopTimer}
         />
         <DosFormField label="Prayer Focus">
-          <input className={FieldInputClass()} name="prayer_focus" placeholder="Family, direction, healing, a person, a team" />
+          <input className={FieldInputClass()} defaultValue={log?.prayerFocus ?? ""} name="prayer_focus" placeholder="Family, direction, healing, a person, a team" />
         </DosFormField>
         <FormOptionSelect
           label="Answered Status"
           name="answered_status"
+          defaultValue={log?.answeredStatus ?? "open"}
           options={[
             { label: "Open", value: "open" },
             { label: "Watching", value: "watching" },
@@ -20626,6 +21448,7 @@ function MyRecordPrayerForm({
         <FormOptionSelect
           label="Person Prayed For"
           name="field_person_id"
+          defaultValue={log?.fieldPersonId ?? ""}
           options={[
             { label: "Not linked", value: "" },
             ...people.map((person) => ({
@@ -20636,27 +21459,60 @@ function MyRecordPrayerForm({
           ]}
         />
         <DosFormField label="Notes">
-          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What did you pray through?" />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={log?.notes ?? ""} name="notes" placeholder="What did you pray through?" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Prayer Time"}</AppButton>
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Prayer" : "Log Prayer Time"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
     </form>
   );
 }
 
+const myRecordMentorRoleOptions = [
+  "Mentor",
+  "Pastor",
+  "Coach",
+  "Spiritual Father/Mother",
+  "Accountability Partner",
+  "Other",
+].map((label) => ({ label, value: label }));
+
+const myRecordMentorRhythmOptions = [
+  { label: "Weekly", value: "Weekly" },
+  { label: "2x/week", value: "2x/week" },
+  { label: "Monthly", value: "Monthly" },
+  { label: "As Needed", value: "As Needed" },
+  { label: "Custom", value: "Custom" },
+];
+
 function MyRecordMentorRelationshipForm({
   errorMessage,
   isSubmitting,
+  mentor,
+  nextTab = "mentors",
+  onCancel,
   onSave,
   people,
 }: {
   errorMessage: string;
   isSubmitting: boolean;
+  mentor?: DosAppUserMentorRelationship | null;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   people: DosAppPerson[];
 }) {
+  const isEditing = Boolean(mentor);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const mentorRoleOptions = mentor?.relationshipLabel && !myRecordMentorRoleOptions.some((option) => option.value === mentor.relationshipLabel)
+    ? [{ label: mentor.relationshipLabel, value: mentor.relationshipLabel }, ...myRecordMentorRoleOptions]
+    : myRecordMentorRoleOptions;
+  const mentorRhythmOptions = mentor?.meetingRhythm && !myRecordMentorRhythmOptions.some((option) => option.value === mentor.meetingRhythm)
+    ? [{ label: mentor.meetingRhythm, value: mentor.meetingRhythm }, ...myRecordMentorRhythmOptions]
+    : myRecordMentorRhythmOptions;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20664,27 +21520,36 @@ function MyRecordMentorRelationshipForm({
 
     void (async () => {
       const saved = await onSave({
+        meetingRhythm: String(formData.get("meeting_rhythm") ?? ""),
+        mentorEmail: String(formData.get("mentor_email") ?? ""),
         fieldPersonId: String(formData.get("field_person_id") ?? ""),
         kind: "mentor_relationship",
         mentorName: String(formData.get("mentor_name") ?? ""),
+        mentorPhone: String(formData.get("mentor_phone") ?? ""),
         notes: String(formData.get("notes") ?? ""),
+        relationshipId: mentor?.id,
         relationshipLabel: String(formData.get("relationship_label") ?? ""),
-      }, "mentors");
+      }, nextTab);
+
+      if (saved && !isEditing) {
+        formRef.current?.reset();
+      }
 
       if (saved) {
-        formRef.current?.reset();
+        onCancel?.();
       }
     })();
   }
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="people" title="Add Mentor">
+      <DosFormSection icon="people" title={isEditing ? "Edit Mentor" : "Add Mentor"}>
         <FormOptionSelect
-          label="Existing Field Contact"
+          label="Linked Field Contact"
           name="field_person_id"
+          defaultValue={mentor?.fieldPersonId ?? ""}
           options={[
-            { label: "Manual mentor", value: "" },
+            { label: "Not linked", value: "" },
             ...people.map((person) => ({
               helper: relationshipLine(person),
               label: person.name,
@@ -20692,18 +21557,38 @@ function MyRecordMentorRelationshipForm({
             })),
           ]}
         />
-        <DosFormField helper="Use this when the mentor is not in Field yet." label="Manual Name">
-          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
+        <DosFormField helper="Use a name even when they are not in Field yet." label="Name">
+          <input className={FieldInputClass()} defaultValue={mentor?.fieldPersonId ? "" : mentor?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
         </DosFormField>
-        <DosFormField label="Relationship">
-          <input className={FieldInputClass()} name="relationship_label" placeholder="Pastor, coach, spiritual father, peer" />
-        </DosFormField>
+        <FormOptionSelect
+          label="Role / Type"
+          name="relationship_label"
+          defaultValue={mentor?.relationshipLabel ?? "Mentor"}
+          options={mentorRoleOptions}
+        />
+        <DosFormGrid>
+          <DosFormField label="Email">
+            <input className={FieldInputClass()} defaultValue={mentor?.email ?? ""} name="mentor_email" placeholder="Optional" type="email" />
+          </DosFormField>
+          <DosFormField label="Phone">
+            <input className={FieldInputClass()} defaultValue={mentor?.phone ?? ""} name="mentor_phone" placeholder="Optional" type="tel" />
+          </DosFormField>
+        </DosFormGrid>
+        <FormOptionSelect
+          label="Meeting Rhythm"
+          name="meeting_rhythm"
+          defaultValue={mentor?.meetingRhythm ?? "2x/week"}
+          options={mentorRhythmOptions}
+        />
         <DosFormField label="Notes">
-          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What role do they play in your walk?" />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={mentor?.notes ?? ""} name="notes" placeholder="What role do they play in your walk?" />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Add Mentor"}</AppButton>
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Mentor" : "Add Mentor"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
     </form>
   );
 }
@@ -20711,17 +21596,32 @@ function MyRecordMentorRelationshipForm({
 function MyRecordMentorMeetingForm({
   errorMessage,
   isSubmitting,
+  meeting,
+  mentor,
   mentors,
+  nextTab = "mentors",
+  onCancel,
   onSave,
   people,
 }: {
   errorMessage: string;
   isSubmitting: boolean;
+  meeting?: DosAppUserMentorMeeting | null;
+  mentor?: DosAppUserMentorRelationship | null;
   mentors: DosAppUserMentorRelationship[];
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   people: DosAppPerson[];
 }) {
+  const isEditing = Boolean(meeting);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const activeMentors = mentors.filter((mentor) => mentor.status === "active");
+  const defaultMeetingMentor = meeting?.relationshipId
+    ? activeMentors.find((activeMentor) => activeMentor.id === meeting.relationshipId) ?? null
+    : mentor ?? (activeMentors.length === 1 ? activeMentors[0] : null);
+  const defaultRelationshipId = meeting?.relationshipId ?? defaultMeetingMentor?.id ?? "";
+  const defaultFieldPersonId = meeting?.fieldPersonId ?? defaultMeetingMentor?.fieldPersonId ?? "";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20737,14 +21637,19 @@ function MyRecordMentorMeetingForm({
         fieldPersonId: String(formData.get("field_person_id") ?? ""),
         followUpDate: String(formData.get("follow_up_date") ?? ""),
         kind: "mentor_meeting",
+        mentorMeetingId: meeting?.id,
         mentorName: String(formData.get("mentor_name") ?? ""),
         minutesSpent: Number.isFinite(minutes) ? minutes : 0,
         notes: String(formData.get("notes") ?? ""),
         relationshipId: String(formData.get("relationship_id") ?? ""),
-      }, "mentors");
+      }, nextTab);
+
+      if (saved && !isEditing) {
+        formRef.current?.reset();
+      }
 
       if (saved) {
-        formRef.current?.reset();
+        onCancel?.();
       }
     })();
   }
@@ -20753,26 +21658,40 @@ function MyRecordMentorMeetingForm({
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
       <DosFormSection icon="people" title="Mentor Meeting">
         <DosFormGrid>
-          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosDateInput defaultValue={meeting?.meetingDate ?? todayDateValue()} label="Date" name="date" />
           <DosFormField label="Duration">
-            <input className={FieldInputClass()} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+            <input className={FieldInputClass()} defaultValue={meeting?.durationMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
           </DosFormField>
         </DosFormGrid>
-        <FormOptionSelect
-          label="Saved Mentor"
-          name="relationship_id"
-          options={[
-            { label: "Choose or add below", value: "" },
-            ...mentors.filter((mentor) => mentor.status === "active").map((mentor) => ({
-              helper: mentor.relationshipLabel ?? undefined,
-              label: mentor.mentorName,
-              value: mentor.id,
-            })),
-          ]}
-        />
+        {activeMentors.length ? (
+          <FormOptionSelect
+            label="Saved Mentor"
+            name="relationship_id"
+            defaultValue={defaultRelationshipId}
+            options={[
+              { label: "Manual mentor", value: "" },
+              ...activeMentors.map((mentor) => ({
+                helper: [mentor.relationshipLabel, mentor.meetingRhythm].filter(Boolean).join(" · ") || undefined,
+                label: mentor.mentorName,
+                value: mentor.id,
+              })),
+            ]}
+          />
+        ) : (
+          <>
+            <input name="relationship_id" type="hidden" value="" />
+            <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">
+              No mentors saved yet. Add a mentor first or enter a manual name.
+            </div>
+          </>
+        )}
+        <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved mentor." : "Enter the mentor name for this meeting."} label="Manual Mentor Name">
+          <input className={FieldInputClass()} defaultValue={defaultRelationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
         <FormOptionSelect
           label="Field Contact"
           name="field_person_id"
+          defaultValue={defaultFieldPersonId}
           options={[
             { label: "Not linked", value: "" },
             ...people.map((person) => ({
@@ -20782,26 +21701,716 @@ function MyRecordMentorMeetingForm({
             })),
           ]}
         />
-        <DosFormField helper="Use this if you did not select a saved mentor." label="Manual Mentor Name">
-          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
-        </DosFormField>
         <DosFormField label="What was discussed?">
-          <VoiceTextarea className={FieldTextareaClass()} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.discussed ?? ""} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
         </DosFormField>
         <DosFormField label="Counsel Received">
-          <VoiceTextarea className={FieldTextareaClass()} name="counsel_received" placeholder="What counsel or correction was given?" />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.counselReceived ?? ""} name="counsel_received" placeholder="What counsel or correction was given?" />
         </DosFormField>
         <DosFormField label="Action Steps">
-          <VoiceTextarea className={FieldTextareaClass()} name="action_steps" placeholder="What will you obey or follow up on?" />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.actionSteps ?? ""} name="action_steps" placeholder="What will you obey or follow up on?" />
         </DosFormField>
-        <DosDateInput label="Follow-up Date" name="follow_up_date" />
+        <DosDateInput defaultValue={meeting?.followUpDate ?? ""} label="Follow-up Date" name="follow_up_date" />
         <DosFormField label="Notes">
-          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Private notes." />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.notes ?? ""} name="notes" placeholder="Private notes." />
         </DosFormField>
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Mentor Meeting"}</AppButton>
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Meeting" : "Log Mentor Meeting"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
     </form>
+  );
+}
+
+function MyRecordPropheticWordForm({
+  errorMessage,
+  isSubmitting,
+  nextTab = "prophetic_words",
+  onCancel,
+  onSave,
+  word,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  word?: DosAppUserPropheticWord | null;
+}) {
+  const isEditing = Boolean(word);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void (async () => {
+      const saved = await onSave({
+        confirmations: String(formData.get("confirmations") ?? ""),
+        context: String(formData.get("context") ?? ""),
+        dateReceived: String(formData.get("date_received") ?? todayDateValue()),
+        givenBy: String(formData.get("given_by") ?? ""),
+        kind: "prophetic_word",
+        notes: String(formData.get("notes") ?? ""),
+        propheticWordId: word?.id,
+        scriptureReferences: myRecordListInput(formData.get("scripture_references")),
+        status: String(formData.get("status") ?? "received"),
+        tags: myRecordListInput(formData.get("tags")),
+        wordText: String(formData.get("word_text") ?? ""),
+      }, nextTab);
+
+      if (saved && !isEditing) {
+        formRef.current?.reset();
+      }
+
+      if (saved) {
+        onCancel?.();
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="fruit" title="Prophetic Word">
+        <DosFormGrid>
+          <DosDateInput defaultValue={word?.dateReceived ?? todayDateValue()} label="Date Received" name="date_received" />
+          <DosFormField label="Given By">
+            <input className={FieldInputClass()} defaultValue={word?.givenBy ?? ""} name="given_by" placeholder="Name or ministry" />
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormField label="Location / Context">
+          <input className={FieldInputClass()} defaultValue={word?.context ?? ""} name="context" placeholder="Prayer night, mentor meeting, church, conference" />
+        </DosFormField>
+        <DosFormField label="Full Prophetic Word">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-36`} defaultValue={word?.wordText ?? ""} name="word_text" placeholder="Record the word as faithfully as possible." required />
+        </DosFormField>
+        <DosFormGrid>
+          <DosFormField label="Scripture References">
+            <input className={FieldInputClass()} defaultValue={word?.scriptureReferences.join(", ") ?? ""} name="scripture_references" placeholder="Isaiah 61, John 15" />
+          </DosFormField>
+          <DosFormField label="Theme / Tags">
+            <input className={FieldInputClass()} defaultValue={word?.tags.join(", ") ?? ""} name="tags" placeholder="Calling, family, provision" />
+          </DosFormField>
+        </DosFormGrid>
+        <FormOptionSelect defaultValue={word?.status ?? "received"} label="Fulfillment Status" name="status" options={myRecordPropheticWordStatuses} />
+        <DosFormField label="Confirmations">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={word?.confirmations ?? ""} name="confirmations" placeholder="Confirming words, Scriptures, events, or counsel." />
+        </DosFormField>
+        <DosFormField label="Notes / Reflections">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={word?.notes ?? ""} name="notes" placeholder="Track testing, counsel, fulfillment, and reflections over time." />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Prophetic Word" : "Add Prophetic Word"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
+    </form>
+  );
+}
+
+async function uploadMyRecordLearningHighlightImage(workspaceId: string, file: File) {
+  const formData = new FormData();
+  formData.set("workspaceId", workspaceId);
+  formData.set("file", file);
+
+  const response = await fetch("/api/dos/app/my-record/learning/attachments", {
+    body: formData,
+    method: "POST",
+  });
+  const result = await response.json().catch(() => ({})) as { attachment?: MyRecordLearningHighlightUpload; error?: string };
+
+  if (!response.ok || !result.attachment) {
+    throw new Error(result.error ?? "Highlight image upload failed.");
+  }
+
+  return result.attachment;
+}
+
+async function uploadMyRecordLifePlanPdf(workspaceId: string, file: File) {
+  const formData = new FormData();
+  formData.set("workspaceId", workspaceId);
+  formData.set("file", file);
+
+  const response = await fetch("/api/dos/app/my-record/life-plan/attachments", {
+    body: formData,
+    method: "POST",
+  });
+  const result = await response.json().catch(() => ({})) as { attachment?: MyRecordLifePlanUpload; error?: string };
+
+  if (!response.ok || !result.attachment) {
+    throw new Error(result.error ?? "Life Plan PDF upload failed.");
+  }
+
+  return result.attachment;
+}
+
+function MyRecordLifePlanForm({
+  errorMessage,
+  isSubmitting,
+  nextTab = "calling",
+  onCancel,
+  onSave,
+  plan,
+  workspaceId,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  plan?: DosAppUserLifePlan | null;
+  workspaceId: string;
+}) {
+  const resolvedPlan = plan ?? myRecordRyanSeedLifePlan;
+  const isPersistedPlan = Boolean(plan?.id && !plan.id.startsWith("seed-"));
+  const [attachment, setAttachment] = useState<MyRecordLifePlanUpload | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  async function handlePdfChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+
+    try {
+      setAttachment(await uploadMyRecordLifePlanPdf(workspaceId, file));
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Life Plan PDF upload failed.");
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const saved = await onSave({
+      attachmentBucket: attachment?.bucket,
+      attachmentContentType: attachment?.contentType,
+      attachmentFileName: attachment?.fileName,
+      attachmentPath: attachment?.path,
+      attachmentUploadedAt: attachment?.uploadedAt,
+      callingStatement: String(formData.get("calling_statement") ?? ""),
+      dailyReminder: String(formData.get("daily_reminder") ?? ""),
+      decisionFilters: myRecordListInput(formData.get("decision_filters")),
+      focusAllocation: String(formData.get("focus_allocation") ?? ""),
+      kind: "life_plan",
+      lastReviewedDate: String(formData.get("last_reviewed_date") ?? ""),
+      legacyChurch: String(formData.get("legacy_church") ?? ""),
+      legacyDiscipled: String(formData.get("legacy_discipled") ?? ""),
+      legacyFamily: String(formData.get("legacy_family") ?? ""),
+      legacyJesus: String(formData.get("legacy_jesus") ?? ""),
+      legacyRememberedFor: String(formData.get("legacy_remembered_for") ?? ""),
+      lifePlanId: isPersistedPlan ? plan?.id : undefined,
+      nextReviewDate: String(formData.get("next_review_date") ?? ""),
+      originalDateWritten: String(formData.get("original_date_written") ?? ""),
+      rarelyDo: String(formData.get("rarely_do") ?? ""),
+      responsibilities: String(formData.get("responsibilities") ?? ""),
+      reviewHistory: myRecordLifePlanReviewHistoryInput(formData.get("review_history")),
+      reviewRhythm: String(formData.get("review_rhythm") ?? ""),
+      shareEligible: formData.get("share_eligible") === "on",
+      topPriorities: myRecordLifePlanPriorityInput(formData.get("top_priorities")),
+    }, nextTab);
+
+    if (saved) {
+      onCancel?.();
+    }
+  }
+
+  const currentAttachmentName = attachment?.fileName ?? resolvedPlan.attachmentFileName;
+
+  return (
+    <form className="space-y-4 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="log" title="Life Plan" description="Private, living focus document.">
+        <DosFormField label="Calling Statement">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={resolvedPlan.callingStatement ?? ""} name="calling_statement" placeholder="What am I called to faithfully steward?" />
+        </DosFormField>
+        <DosFormField label="Decision Filters">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-32`} defaultValue={resolvedPlan.decisionFilters.join("\n")} name="decision_filters" placeholder="One filter per line." />
+        </DosFormField>
+        <DosFormField label="Top 10 Priorities">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-48`} defaultValue={myRecordLifePlanPriorityText(resolvedPlan)} name="top_priorities" placeholder="1. Abide with the Lord - 10%" />
+        </DosFormField>
+        <DosFormField label="Daily Reminder">
+          <input className={FieldInputClass()} defaultValue={resolvedPlan.dailyReminder ?? ""} name="daily_reminder" placeholder="What question should keep me aligned?" />
+        </DosFormField>
+        <DosFormGrid>
+          <DosFormField label="Original Date Written">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.originalDateWritten ?? ""} name="original_date_written" type="date" />
+          </DosFormField>
+          <DosFormField label="Last Reviewed">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.lastReviewedDate ?? ""} name="last_reviewed_date" type="date" />
+          </DosFormField>
+          <DosFormField label="Next Review">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.nextReviewDate ?? ""} name="next_review_date" type="date" />
+          </DosFormField>
+          <DosFormField label="Review Rhythm">
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.reviewRhythm ?? ""} name="review_rhythm" placeholder="Monthly, quarterly, mentor meeting" />
+          </DosFormField>
+        </DosFormGrid>
+        <DosFormField label="Focus Allocation">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.focusAllocation ?? ""} name="focus_allocation" placeholder="How should focus and energy be allocated in this season?" />
+        </DosFormField>
+        <DosFormField label="Responsibilities">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.responsibilities ?? ""} name="responsibilities" placeholder="What am I responsible to carry?" />
+        </DosFormField>
+        <DosFormField label="What I Should Rarely Do">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.rarelyDo ?? ""} name="rarely_do" placeholder="Activities that create drift, distraction, or a second mission." />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="prayer" title="Legacy / Obituary Notes">
+        <DosFormField label="What I Want To Be Remembered For">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyRememberedFor ?? ""} name="legacy_remembered_for" />
+        </DosFormField>
+        <DosFormField label="What I Want My Family To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyFamily ?? ""} name="legacy_family" />
+        </DosFormField>
+        <DosFormField label="What I Want Those I Discipled To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyDiscipled ?? ""} name="legacy_discipled" />
+        </DosFormField>
+        <DosFormField label="What I Want The Church To Remember">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyChurch ?? ""} name="legacy_church" />
+        </DosFormField>
+        <DosFormField label="What I Want Jesus To Say">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={resolvedPlan.legacyJesus ?? ""} name="legacy_jesus" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="calendar" title="Review History">
+        <DosFormField label="Review Notes">
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={myRecordLifePlanReviewHistoryText(resolvedPlan)} name="review_history" placeholder="2026-07-08 - Reviewed with mentor." />
+        </DosFormField>
+        <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
+          <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={resolvedPlan.shareEligible} name="share_eligible" type="checkbox" />
+          <span>Eligible for future Share Settings. Private by default until explicitly shared.</span>
+        </label>
+      </DosFormSection>
+      <DosFormSection icon="upload" title="Original PDF">
+        <div className="rounded-[18px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] p-4">
+          <input accept="application/pdf" className="block w-full text-sm text-[#475569] file:mr-3 file:rounded-full file:border-0 file:bg-[#EBF2FF] file:px-3 file:py-2 file:text-xs file:font-bold file:text-[#1D4ED8]" disabled={isUploading || isSubmitting} onChange={handlePdfChange} type="file" />
+          <p className="mt-2 text-xs font-semibold text-[#64748B]">{currentAttachmentName ? `Attached: ${currentAttachmentName}` : "Optional private PDF upload."}</p>
+          {uploadError ? <p className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</p> : null}
+        </div>
+        <button className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#64748B] disabled:opacity-70" disabled type="button">
+          Parse PDF into Life Plan - Coming Soon
+        </button>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <AppButton disabled={isSubmitting || isUploading} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Life Plan"}</AppButton>
+        {onCancel ? <AppButton disabled={isSubmitting || isUploading} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
+      </div>
+    </form>
+  );
+}
+
+function MyRecordLearningBookForm({
+  book,
+  errorMessage,
+  isSubmitting,
+  nextTab = "learning",
+  onCancel,
+  onSave,
+}: {
+  book?: DosAppUserLearningBook | null;
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  const isEditing = Boolean(book);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const saved = await onSave({
+      author: String(formData.get("author") ?? ""),
+      bookId: book?.id,
+      finalSummary: String(formData.get("final_summary") ?? ""),
+      finishedOn: String(formData.get("finished_on") ?? ""),
+      kind: "learning_book",
+      personalApplication: String(formData.get("personal_application") ?? ""),
+      shareEligible: formData.get("share_eligible") === "on",
+      startedOn: String(formData.get("started_on") ?? ""),
+      status: String(formData.get("status") ?? "reading"),
+      title: String(formData.get("title") ?? ""),
+    }, nextTab);
+
+    if (saved) {
+      if (!isEditing) {
+        form.reset();
+      }
+      onCancel?.();
+    }
+  }
+
+  return (
+    <form className="space-y-4 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <SectionHeading title={isEditing ? "Book Detail" : "Add Book"} />
+        {onCancel ? (
+          <button className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#64748B]" onClick={onCancel} type="button">
+            Cancel
+          </button>
+        ) : null}
+      </div>
+      <div className="grid gap-3 min-[620px]:grid-cols-2">
+        <DosFormField label="Book Title">
+          <input className={FieldInputClass()} defaultValue={book?.title ?? ""} name="title" placeholder="Book title" required />
+        </DosFormField>
+        <DosFormField label="Author">
+          <input className={FieldInputClass()} defaultValue={book?.author ?? ""} name="author" placeholder="Author" />
+        </DosFormField>
+        <DosFormField label="Status">
+          <select className={FieldInputClass()} defaultValue={book?.status ?? "reading"} name="status">
+            {myRecordLearningBookStatuses.map((status) => (
+              <option key={status.value} value={status.value}>{status.label}</option>
+            ))}
+          </select>
+        </DosFormField>
+        <DosFormField label="Started">
+          <input className={FieldInputClass()} defaultValue={book?.startedOn ?? ""} name="started_on" type="date" />
+        </DosFormField>
+        <DosFormField label="Finished">
+          <input className={FieldInputClass()} defaultValue={book?.finishedOn ?? ""} name="finished_on" type="date" />
+        </DosFormField>
+      </div>
+      <DosFormField label="Personal Application">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={book?.personalApplication ?? ""} name="personal_application" placeholder="What do I need to obey, practice, change, or discuss?" />
+      </DosFormField>
+      <DosFormField label="Final Summary">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-32`} defaultValue={book?.finalSummary ?? ""} name="final_summary" placeholder="Write your own summary after finishing the book." />
+      </DosFormField>
+      <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
+        <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={book?.shareEligible ?? false} name="share_eligible" type="checkbox" />
+        <span>
+          <span className="block font-bold text-[#0F172A]">Eligible for future mentor sharing</span>
+          Book notes stay private until you explicitly share them later.
+        </span>
+      </label>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Book" : "Add Book"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordLearningChapterForm({
+  book,
+  errorMessage,
+  isSubmitting,
+  note,
+  nextTab = "learning",
+  onCancel,
+  onSave,
+  workspaceId,
+}: {
+  book: DosAppUserLearningBook;
+  errorMessage: string;
+  isSubmitting: boolean;
+  note?: DosAppUserLearningChapterNote | null;
+  nextTab?: MyRecordTab;
+  onCancel?: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  workspaceId: string;
+}) {
+  const isEditing = Boolean(note);
+  const [uploadError, setUploadError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const imageFile = formData.get("highlight_image");
+    let uploadedImage: MyRecordLearningHighlightUpload | null = null;
+
+    setUploadError("");
+
+    if (imageFile instanceof File && imageFile.size > 0) {
+      setIsUploading(true);
+
+      try {
+        uploadedImage = await uploadMyRecordLearningHighlightImage(workspaceId, imageFile);
+      } catch (error) {
+        setIsUploading(false);
+        setUploadError(error instanceof Error ? error.message : "Highlight image upload failed.");
+        return;
+      }
+
+      setIsUploading(false);
+    }
+
+    const saved = await onSave({
+      bookId: book.id,
+      chapterNoteId: note?.id,
+      chapterLabel: String(formData.get("chapter_label") ?? ""),
+      chapterNumber: String(formData.get("chapter_number") ?? ""),
+      highlightImageBucket: uploadedImage?.bucket,
+      highlightImageContentType: uploadedImage?.contentType,
+      highlightImageFileName: uploadedImage?.fileName,
+      highlightImagePath: uploadedImage?.path,
+      highlightImageUploadedAt: uploadedImage?.uploadedAt,
+      highlights: String(formData.get("highlights") ?? ""),
+      kind: "learning_chapter_note",
+      notes: String(formData.get("notes") ?? ""),
+      personalApplication: String(formData.get("personal_application") ?? ""),
+    }, nextTab);
+
+    if (saved) {
+      if (!isEditing) {
+        form.reset();
+      }
+      setUploadError("");
+      if (isEditing) {
+        onCancel?.();
+      }
+    }
+  }
+
+  return (
+    <form className="space-y-4 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <SectionHeading title={isEditing ? "Edit Chapter Note" : "Chapter Notes"} />
+        {onCancel ? (
+          <button className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#64748B]" onClick={onCancel} type="button">
+            Cancel
+          </button>
+        ) : null}
+      </div>
+      <div className="grid gap-3 min-[620px]:grid-cols-2">
+        <DosFormField label="Chapter">
+          <input className={FieldInputClass()} defaultValue={note?.chapterLabel ?? ""} name="chapter_label" placeholder="Chapter 1, Introduction, Part Two" required />
+        </DosFormField>
+        <DosFormField label="Chapter Number">
+          <input className={FieldInputClass()} defaultValue={note?.chapterNumber ?? ""} min={0} name="chapter_number" placeholder="1" type="number" />
+        </DosFormField>
+      </div>
+      <DosFormField label="Highlights">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={note?.highlights ?? ""} name="highlights" placeholder="Key sentences, ideas, or chapter highlights in your own notes." />
+      </DosFormField>
+      <DosFormField label="Notes">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={note?.notes ?? ""} name="notes" placeholder="What stood out? What do you want to remember?" />
+      </DosFormField>
+      <DosFormField label="Personal Application">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={note?.personalApplication ?? ""} name="personal_application" placeholder="How will this shape obedience, leadership, relationships, or prayer?" />
+      </DosFormField>
+      <DosFormField label="Upload Highlight Image" helper="Optional JPG, PNG, or WebP screenshot/photo.">
+        <input className={FieldInputClass()} name="highlight_image" accept="image/jpeg,image/png,image/webp" type="file" />
+      </DosFormField>
+      {uploadError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</p> : null}
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting || isUploading} tone="black" type="submit">{isSubmitting || isUploading ? "Saving..." : isEditing ? "Save Chapter Note" : "Add Chapter Note"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordLearningBookCard({
+  book,
+  isSelected,
+  onSelect,
+}: {
+  book: DosAppUserLearningBook;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
+        isSelected
+          ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
+          : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)] hover:border-[#BFDBFE]"
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black text-[#0F172A]">{book.title}</span>
+          <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{book.author || "No author"}</span>
+        </span>
+        <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          {myRecordLearningBookStatusLabel(book.status)}
+        </span>
+      </span>
+      <span className="mt-3 block text-xs font-bold text-[#64748B]">
+        {book.chapterNotes.length} chapter notes{book.finishedOn ? ` · Finished ${formatDate(book.finishedOn)}` : ""}
+      </span>
+      {book.personalApplication || book.finalSummary ? (
+        <span className="mt-3 line-clamp-2 block text-sm leading-6 text-[#475569]">{book.personalApplication ?? book.finalSummary}</span>
+      ) : null}
+    </button>
+  );
+}
+
+function MyRecordLearningChapterCard({ note }: { note: DosAppUserLearningChapterNote }) {
+  return (
+    <article className="rounded-[20px] border border-[#EAF2FF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#0F172A]">{note.chapterLabel}</p>
+          <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatDate(note.createdAt)}</p>
+        </div>
+        {note.highlightImageUrl ? (
+          <a className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" href={note.highlightImageUrl} rel="noreferrer" target="_blank">
+            View Image
+          </a>
+        ) : null}
+      </div>
+      {note.highlightImageUrl ? (
+        <a className="mt-3 block overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF]" href={note.highlightImageUrl} rel="noreferrer" target="_blank">
+          <img alt={`${note.chapterLabel} highlight`} className="max-h-56 w-full object-cover" src={note.highlightImageUrl} />
+        </a>
+      ) : null}
+      {note.highlights ? (
+        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{note.highlights}</p>
+      ) : null}
+      {note.notes || note.personalApplication ? (
+        <div className="mt-3 grid gap-2">
+          {note.notes ? <p className="whitespace-pre-line text-sm leading-6 text-[#475569]">{note.notes}</p> : null}
+          {note.personalApplication ? (
+            <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#334155]">
+              <span className="font-black text-[#0F172A]">Application:</span> {note.personalApplication}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MyRecordLearningPanel({
+  errorMessage,
+  isSubmitting,
+  nextTab = "learning",
+  onOpenSheet,
+  onSave,
+  record,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  record: DosAppUserRecord;
+}) {
+  const [selectedBookId, setSelectedBookId] = useState(record.learningBooks[0]?.id ?? "");
+  const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived");
+  const selectedBook = visibleBooks.find((book) => book.id === selectedBookId) ?? visibleBooks[0] ?? null;
+  const booksRead = myRecordBooksReadCount(record.learningBooks);
+
+  useEffect(() => {
+    if (visibleBooks.length && !visibleBooks.some((book) => book.id === selectedBookId)) {
+      setSelectedBookId(visibleBooks[0].id);
+    }
+  }, [selectedBookId, visibleBooks]);
+
+  return (
+    <div className="grid gap-4">
+      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <SectionHeading title="Learning / Book Notes" />
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">Books, notes, highlights, and application.</p>
+          </div>
+          <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "book", mode: "new" })} type="button">
+            <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            Add Book
+          </button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
+          <MyRecordSnapshotTile icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Books Read" value={`${booksRead}`} />
+          <MyRecordSnapshotTile icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="In Progress" value={`${record.learningBooks.filter((book) => book.status === "reading").length}`} />
+          <MyRecordSnapshotTile icon={<StickyNote className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Chapter Notes" value={`${record.learningBooks.reduce((sum, book) => sum + book.chapterNotes.length, 0)}`} />
+          <MyRecordSnapshotTile icon={<Shield className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Visibility" value="Private" />
+        </div>
+      </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+        <section className="grid gap-3 self-start">
+          {visibleBooks.length ? (
+            visibleBooks.map((book) => (
+              <MyRecordLearningBookCard
+                book={book}
+                isSelected={selectedBook?.id === book.id}
+                key={book.id}
+                onSelect={() => setSelectedBookId(book.id)}
+              />
+            ))
+          ) : (
+            <SectionEmptyState
+              action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>}
+              text="Start a private reading record with chapter notes and application."
+              title="No books added yet."
+            />
+          )}
+        </section>
+        {selectedBook ? (
+          <section className="grid gap-4 self-start">
+            <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <SectionHeading title={selectedBook.title} />
+                  <p className="mt-1 text-sm leading-6 text-[#64748B]">{selectedBook.author || "No author"} · {myRecordLearningBookStatusLabel(selectedBook.status)}</p>
+                </div>
+                <MyRecordEntryActions
+                  onEdit={() => onOpenSheet({ book: selectedBook, kind: "book", mode: "edit" })}
+                  onNew={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "new" })}
+                  onView={() => onOpenSheet({ book: selectedBook, kind: "book", mode: "view" })}
+                />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <MyRecordDetailBlock label="Personal Application" value={selectedBook.personalApplication} />
+                <MyRecordDetailBlock label="Final Summary" value={selectedBook.finalSummary} />
+              </div>
+            </section>
+            <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                <SectionHeading title="Summary Tools" />
+                <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-xs font-bold text-[#64748B]" disabled type="button">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                  Generate Summary from Highlights
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Coming Soon</span>
+                </button>
+              </div>
+            </div>
+            <section className="grid gap-2">
+              <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "new" })} type="button">+ New</button>} title="Chapter Notes" />
+              {selectedBook.chapterNotes.length ? (
+                <div className="grid gap-3">
+                  {selectedBook.chapterNotes.map((note) => (
+                    <div className="grid gap-2" key={note.id}>
+                      <MyRecordLearningChapterCard note={note} />
+                      <div className="flex gap-2 px-1">
+                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "view", note })} type="button">View</button>
+                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "edit", note })} type="button">Edit</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Add chapter highlights, notes, application, and optional highlight photos/screenshots." title="No chapter notes yet." />
+              )}
+            </section>
+          </section>
+        ) : (
+          <SectionEmptyState
+            action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>}
+            text="Book detail, chapter notes, highlight images, application, and final summary will appear here."
+            title="Choose or add a book."
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -20861,6 +22470,35 @@ function latestMyRecordAssessmentResult(results: DosAppUserAssessmentResult[]) {
   return [...results].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))[0] ?? null;
 }
 
+function latestMyRecordExternalAssessmentResult(results: DosAppUserExternalAssessmentResult[]) {
+  return [...results].sort((first, second) => {
+    const firstDate = latestMyRecordDate(first.dateTaken, first.createdAt);
+    const secondDate = latestMyRecordDate(second.dateTaken, second.createdAt);
+
+    return myRecordDateValue(secondDate) - myRecordDateValue(firstDate);
+  })[0] ?? null;
+}
+
+function myRecordLatestAssessmentLabel(
+  result: DosAppUserAssessmentResult | null,
+  externalResult: DosAppUserExternalAssessmentResult | null,
+) {
+  if (!result && !externalResult) {
+    return "Not taken";
+  }
+
+  const resultDate = myRecordDateValue(result?.completedAt);
+  const externalDate = myRecordDateValue(latestMyRecordDate(externalResult?.dateTaken, externalResult?.createdAt));
+
+  if (externalResult && externalDate >= resultDate) {
+    return externalResult.resultType
+      ? `${externalResult.assessmentName} · ${externalResult.resultType}`
+      : externalResult.assessmentName;
+  }
+
+  return result ? `${result.assessmentName} · ${Math.round(result.percentage)}%` : "Not taken";
+}
+
 function myRecordAssessmentTrend(result: DosAppUserAssessmentResult, results: DosAppUserAssessmentResult[]) {
   const sameAssessment = results
     .filter((item) => item.assessmentSlug === result.assessmentSlug)
@@ -20895,7 +22533,7 @@ function MyRecordAssessmentResultCard({
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-[#0F172A]">{result.assessmentName}</p>
-          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             {formatDate(result.completedAt)} · Private
           </p>
         </div>
@@ -20935,6 +22573,46 @@ function MyRecordAssessmentResultCard({
           Retake
         </button>
       ) : null}
+    </article>
+  );
+}
+
+function AssessmentResultPlaceholderCard({
+  href,
+  title,
+}: {
+  href?: string;
+  title: string;
+}) {
+  const content = (
+    <>
+      <div className="flex min-w-0 gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Not started</span>
+        </span>
+        {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#64748B]" aria-hidden="true" strokeWidth={1.8} /> : null}
+      </div>
+      <span className="mt-3 inline-flex min-h-8 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8]">
+        Open Assessment
+      </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-white" href={href}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+      {content}
     </article>
   );
 }
@@ -20994,7 +22672,7 @@ function AssessmentResultSummaryCard({
 
       {priorResults.length ? (
         <div className="mt-3 rounded-[18px] border border-[#E2E8F0] bg-white p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             History
           </p>
           <div className="mt-2 grid gap-1.5">
@@ -21021,11 +22699,13 @@ function MyRecordAssessmentForm({
   assessment,
   errorMessage,
   isSubmitting,
+  nextTab = "assessments",
   onSave,
 }: {
   assessment: DosResource;
   errorMessage: string;
   isSubmitting: boolean;
+  nextTab?: MyRecordTab;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
 }) {
   const definition = assessment.content?.assessment;
@@ -21056,7 +22736,7 @@ function MyRecordAssessmentForm({
       answers,
       assessmentSlug: assessment.slug,
       kind: "assessment_result",
-    }, "assessments");
+    }, nextTab);
   }
 
   return (
@@ -21093,91 +22773,536 @@ function MyRecordAssessmentForm({
   );
 }
 
+async function uploadMyRecordAssessmentReport(workspaceId: string, file: File) {
+  const formData = new FormData();
+  formData.set("workspaceId", workspaceId);
+  formData.set("file", file);
+
+  const response = await fetch("/api/dos/app/my-record/attachments", {
+    body: formData,
+    method: "POST",
+  });
+  const result = await response.json().catch(() => ({})) as { attachment?: MyRecordAssessmentReportUpload; error?: string };
+
+  if (!response.ok || !result.attachment) {
+    throw new Error(result.error ?? "Report upload failed.");
+  }
+
+  return result.attachment;
+}
+
+function MyRecordAssessmentStatusPill({ status }: { status: MyRecordExternalAssessmentStatus }) {
+  const className = status === "completed"
+    ? "border-[#BBF7D0] bg-[#ECFDF5] text-[#047857]"
+    : status === "draft"
+      ? "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]"
+      : "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
+
+  return (
+    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${className}`} style={{ fontFamily: font.rajdhani }}>
+      {myRecordAssessmentStatusLabel(status)}
+    </span>
+  );
+}
+
+function MyRecordAssessmentLibraryCard({
+  item,
+  isSelected,
+  onSelect,
+}: {
+  item: MyRecordAssessmentLibraryItem;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
+        isSelected
+          ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
+          : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)] hover:border-[#BFDBFE]"
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black text-[#0F172A]">{item.name}</span>
+          <span className="mt-1 block text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {item.category} · {item.typeLabel}
+          </span>
+        </span>
+        <MyRecordAssessmentStatusPill status={item.status} />
+      </span>
+      <span className="mt-3 line-clamp-3 block text-sm leading-6 text-[#475569]">{item.shortSummary}</span>
+      {item.keyResults.length ? (
+        <span className="mt-3 flex flex-wrap gap-1.5">
+          {item.keyResults.slice(0, 4).map((result) => (
+            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" key={result} style={{ fontFamily: font.rajdhani }}>
+              {result}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      <span className="mt-4 flex min-w-0 items-center justify-between gap-3 text-xs font-bold text-[#64748B]">
+        <span>{item.completedDate ? formatDate(item.completedDate) : item.kind === "future" ? "Not started" : "Private"}</span>
+        <span className="inline-flex items-center gap-1 text-[#1D4ED8]">
+          {item.attachmentUrl ? "View report" : item.kind === "future" ? "Add result" : "View details"}
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function MyRecordAssessmentDetailPanel({
+  errorMessage,
+  isSubmitting,
+  item,
+  nextTab = "assessments",
+  onOpenSheet,
+  onSave,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  item: MyRecordAssessmentLibraryItem | null;
+  nextTab?: MyRecordTab;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  if (!item) {
+    return <SectionEmptyState text="Assessment resources added to the DOS Library will appear here." title="No assessments available yet." />;
+  }
+
+  if (item.kind === "dos" && item.assessment) {
+    return (
+      <div className="grid gap-4">
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <SectionHeading title={item.name} />
+              <p className="mt-1 text-sm leading-6 text-[#64748B]">{item.shortSummary}</p>
+            </div>
+            <MyRecordAssessmentStatusPill status={item.status} />
+          </div>
+          {item.result && "percentage" in item.result ? (
+            <div className="mt-4">
+              <MyRecordAssessmentResultCard
+                result={item.result}
+                trend={myRecordAssessmentTrend(item.result, item.builtInHistory ?? [])}
+              />
+            </div>
+          ) : null}
+        </section>
+        {item.builtInHistory?.length ? (
+          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <SectionHeading title="Historical Results" />
+            <div className="mt-3 grid gap-3">
+              {item.builtInHistory.map((result) => (
+                <MyRecordAssessmentResultCard
+                  key={result.id}
+                  result={result}
+                  trend={myRecordAssessmentTrend(result, item.builtInHistory ?? [])}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+        <button className="inline-flex min-h-10 w-fit items-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-bold text-white" onClick={() => onOpenSheet({ item, kind: "assessment", mode: "new" })} type="button">
+          <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+          {item.result ? "Retake Assessment" : "Take Assessment"}
+        </button>
+      </div>
+    );
+  }
+
+  const externalResult = item.kind === "external" ? item.result as DosAppUserExternalAssessmentResult | undefined : undefined;
+  const isMCode = myRecordAssessmentMatchesName(item.name, "MCode");
+  const isGregoric = myRecordAssessmentMatchesName(item.name, "Gregoric Mind Styles");
+  const mcodeTopFive = isMCode ? item.keyResults.slice(0, 5) : [];
+  const mcodeDimensions = isMCode ? item.keyResults.slice(5, 8) : [];
+  const gregoricLabel = isGregoric ? item.keyResults[1] ?? "Concrete Random" : null;
+  const reportLabel = externalResult?.attachmentFileName ?? (item.attachmentUrl ? "Original Report" : null);
+
+  return (
+    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <SectionHeading title={item.name} />
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">{item.category} · {item.typeLabel}</p>
+        </div>
+        <MyRecordAssessmentStatusPill status={item.status} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475569]">
+          <span className="font-black text-[#0F172A]">Completed:</span> {item.completedDate ? formatDate(item.completedDate) : "Not dated"}
+        </span>
+        <span className="rounded-full bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475569]">
+          <span className="font-black text-[#0F172A]">Visibility:</span> Private
+        </span>
+        {externalResult?.shareEligible ? (
+          <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-bold text-[#1D4ED8]">Future sharing eligible</span>
+        ) : null}
+      </div>
+      {isMCode ? (
+        <div className="mt-5 grid gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Top 5 Motivations</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {mcodeTopFive.map((motivation) => (
+                <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={motivation}>{motivation}</span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Strongest Dimensions</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {mcodeDimensions.map((dimension) => (
+                <span className="rounded-full bg-[#ECFDF5] px-3 py-1.5 text-xs font-black text-[#047857]" key={dimension}>{dimension}</span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Mentor Summary</p>
+            <p className="mt-2 text-sm leading-6 text-[#0F172A]">{item.shortSummary}</p>
+          </div>
+          <div className="rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Watch-outs</p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#475569]">{item.notes}</p>
+          </div>
+        </div>
+      ) : isGregoric ? (
+        <div className="mt-5 grid gap-4">
+          <div className="grid gap-3 min-[520px]:grid-cols-2">
+            <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Primary Result</p>
+              <p className="mt-2 text-2xl font-black text-[#0F172A]">CR</p>
+            </div>
+            <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Label</p>
+              <p className="mt-2 text-lg font-black text-[#0F172A]">{gregoricLabel}</p>
+            </div>
+          </div>
+          <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Mentor Summary</p>
+            <p className="mt-2 text-sm leading-6 text-[#0F172A]">{item.shortSummary}</p>
+          </div>
+          <p className="rounded-[20px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#475569]">{item.notes}</p>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-4">
+          {item.shortSummary ? (
+            <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Summary</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{item.shortSummary}</p>
+            </div>
+          ) : null}
+          {item.keyResults.length ? (
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Key Results</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {item.keyResults.map((result) => (
+                  <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={result}>{result}</span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {item.notes ? (
+            <div className="rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Notes</p>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#475569]">{item.notes}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {externalResult?.scoresDetails ? (
+        <div className="mt-4 rounded-[20px] border border-[#EAF2FF] bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scores / Details</p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#475569]">{externalResult.scoresDetails}</p>
+        </div>
+      ) : null}
+      <div className="mt-5 flex flex-wrap gap-2">
+        {item.seedPayload ? (
+          <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" disabled={isSubmitting} onClick={() => void onSave(item.seedPayload ?? {}, nextTab)} type="button">
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+            {isSubmitting ? "Saving..." : "Save to My Record"}
+          </button>
+        ) : null}
+        {item.kind === "future" ? (
+          <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
+            <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            Add Result
+          </button>
+        ) : null}
+        {externalResult ? (
+          <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ assessmentResult: externalResult, kind: "external_assessment", mode: "edit" })} type="button">
+            <Pencil className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            Edit Result
+          </button>
+        ) : null}
+        {item.officialUrl && item.kind !== "dos" ? (
+          <a className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" href={item.officialUrl} rel="noreferrer" target="_blank">
+            <ExternalLink className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            Official Link
+          </a>
+        ) : null}
+        {item.attachmentUrl ? (
+          <a className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" href={item.attachmentUrl} rel="noreferrer" target="_blank">
+            <FileImage className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            View Original Report{reportLabel && reportLabel !== "Original Report" ? ` · ${reportLabel}` : ""}
+          </a>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function MyRecordExternalAssessmentForm({
+  assessmentResult,
+  errorMessage,
+  isSubmitting,
+  nextTab = "assessments",
+  onCancel,
+  onSave,
+  workspaceId,
+}: {
+  assessmentResult?: DosAppUserExternalAssessmentResult | null;
+  errorMessage: string;
+  isSubmitting: boolean;
+  nextTab?: MyRecordTab;
+  onCancel: () => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  workspaceId: string;
+}) {
+  const isEditing = Boolean(assessmentResult);
+  const [uploadError, setUploadError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const reportFile = formData.get("report_file");
+    let uploadedReport: MyRecordAssessmentReportUpload | null = null;
+
+    setUploadError("");
+
+    if (reportFile instanceof File && reportFile.size > 0) {
+      setIsUploading(true);
+
+      try {
+        uploadedReport = await uploadMyRecordAssessmentReport(workspaceId, reportFile);
+      } catch (error) {
+        setIsUploading(false);
+        setUploadError(error instanceof Error ? error.message : "Report upload failed.");
+        return;
+      }
+
+      setIsUploading(false);
+    }
+
+    const saved = await onSave({
+      assessmentName: String(formData.get("assessment_name") ?? ""),
+      externalAssessmentResultId: assessmentResult?.id,
+      attachmentBucket: uploadedReport?.bucket,
+      attachmentContentType: uploadedReport?.contentType,
+      attachmentFileName: uploadedReport?.fileName,
+      attachmentPath: uploadedReport?.path,
+      attachmentUploadedAt: uploadedReport?.uploadedAt,
+      attachmentUrl: String(formData.get("attachment_url") ?? ""),
+      category: String(formData.get("category") ?? ""),
+      dateTaken: String(formData.get("date_taken") ?? ""),
+      kind: "external_assessment_result",
+      notes: String(formData.get("notes") ?? ""),
+      officialAssessmentUrl: String(formData.get("official_assessment_url") ?? ""),
+      resultType: String(formData.get("result_type") ?? ""),
+      retakeReminderDate: String(formData.get("retake_reminder_date") ?? ""),
+      scoresDetails: String(formData.get("scores_details") ?? ""),
+      shareEligible: formData.get("share_eligible") === "on",
+      shortSummary: String(formData.get("short_summary") ?? ""),
+      status: String(formData.get("status") ?? "completed"),
+      topStrengths: String(formData.get("top_strengths") ?? ""),
+    }, nextTab);
+
+    if (saved) {
+      form.reset();
+      setUploadError("");
+      onCancel();
+    }
+  }
+
+  return (
+    <form className="space-y-4 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <SectionHeading title={isEditing ? "Edit Assessment Result" : "Add Assessment Result"} />
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">Store user-owned results and summaries only.</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">Do not copy questions, scoring systems, proprietary explanation tables, or copyrighted manuals.</p>
+        </div>
+        <button className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#64748B]" onClick={onCancel} type="button">
+          Cancel
+        </button>
+      </div>
+      <div className="grid gap-3 min-[620px]:grid-cols-2">
+        <DosFormField label="Assessment Name">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.assessmentName ?? ""} name="assessment_name" placeholder="Working Genius, DISC, Spiritual Gifts" required />
+        </DosFormField>
+        <DosFormField label="Category">
+          <select className={FieldInputClass()} name="category" defaultValue={assessmentResult?.category ?? ""}>
+            <option value="">Select category</option>
+            {myRecordExternalAssessmentCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </DosFormField>
+        <DosFormField label="Official Assessment Link">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.officialAssessmentUrl ?? ""} name="official_assessment_url" placeholder="https://..." type="url" />
+        </DosFormField>
+        <DosFormField label="Date Taken">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.dateTaken ?? todayDateValue()} name="date_taken" type="date" />
+        </DosFormField>
+        <DosFormField label="Status">
+          <select className={FieldInputClass()} name="status" defaultValue={assessmentResult?.status ?? "completed"}>
+            {myRecordExternalAssessmentStatuses.map((status) => (
+              <option key={status.value} value={status.value}>{status.label}</option>
+            ))}
+          </select>
+        </DosFormField>
+        <DosFormField label="Result / Type">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.resultType ?? ""} name="result_type" placeholder="Type, code, profile, or headline result" />
+        </DosFormField>
+        <DosFormField label="Retake Reminder">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.retakeReminderDate ?? ""} name="retake_reminder_date" type="date" />
+        </DosFormField>
+      </div>
+      <DosFormField label="Short Summary">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={assessmentResult?.shortSummary ?? ""} name="short_summary" placeholder="A brief mentor-friendly summary in your own words." />
+      </DosFormField>
+      <DosFormField label="Key Results / Bullets">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={assessmentResult?.topStrengths.join("\n") ?? ""} name="top_strengths" placeholder="One per line or comma separated." />
+      </DosFormField>
+      <DosFormField label="Scores / Details">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={assessmentResult?.scoresDetails ?? ""} name="scores_details" placeholder="Store your scores, result labels, or personal details. Avoid proprietary interpretation text." />
+      </DosFormField>
+      <DosFormField label="Notes / Reflection">
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-28`} defaultValue={assessmentResult?.notes ?? ""} name="notes" placeholder="What do you want to remember or act on?" />
+      </DosFormField>
+      <div className="grid gap-3 min-[620px]:grid-cols-2">
+        <DosFormField label="Upload Original Report" helper="PDF, JPG, PNG, or WebP. Optional.">
+          <input className={FieldInputClass()} name="report_file" accept="application/pdf,image/jpeg,image/png,image/webp" type="file" />
+        </DosFormField>
+        <DosFormField label="Attachment / Result Link" helper="Optional link if your report lives elsewhere.">
+          <input className={FieldInputClass()} defaultValue={assessmentResult?.attachmentUrl ?? ""} name="attachment_url" placeholder="https://..." type="url" />
+        </DosFormField>
+      </div>
+      <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
+        <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={assessmentResult?.shareEligible ?? false} name="share_eligible" type="checkbox" />
+        <span>
+          <span className="block font-bold text-[#0F172A]">Eligible for future Share Settings</span>
+          Results stay private until you explicitly share them later.
+        </span>
+      </label>
+      {uploadError ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{uploadError}</p> : null}
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting || isUploading} tone="black" type="submit">{isSubmitting || isUploading ? "Saving..." : isEditing ? "Save Result" : "Add Result"}</AppButton>
+    </form>
+  );
+}
+
 function MyRecordAssessmentsPanel({
   errorMessage,
   isSubmitting,
+  myRecordV2Enabled,
+  nextTab = "assessments",
+  onOpenSheet,
   onSave,
+  profileName,
   record,
 }: {
   errorMessage: string;
   isSubmitting: boolean;
+  myRecordV2Enabled: boolean;
+  nextTab?: MyRecordTab;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  profileName: string;
   record: DosAppUserRecord;
 }) {
-  const [selectedSlug, setSelectedSlug] = useState(dosAssessmentResourceItems[0]?.slug ?? "");
-  const selectedAssessment = dosAssessmentResourceItems.find((assessment) => assessment.slug === selectedSlug) ?? dosAssessmentResourceItems[0] ?? null;
-  const latestResultsBySlug = useMemo(() => {
-    const map = new Map<string, DosAppUserAssessmentResult>();
+  const includeRyanSeeds = myRecordV2Enabled && /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
+  const [selectedCategory, setSelectedCategory] = useState<MyRecordAssessmentLibraryCategory>("All");
+  const [selectedItemId, setSelectedItemId] = useState(libraryItems[0]?.id ?? "");
+  const filteredItems = useMemo(() => (
+    selectedCategory === "All"
+      ? libraryItems
+      : libraryItems.filter((item) => item.category === selectedCategory)
+  ), [libraryItems, selectedCategory]);
 
-    for (const result of [...record.assessmentResults].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))) {
-      if (!map.has(result.assessmentSlug)) {
-        map.set(result.assessmentSlug, result);
-      }
+  useEffect(() => {
+    if (filteredItems.length && !filteredItems.some((item) => item.id === selectedItemId)) {
+      setSelectedItemId(filteredItems[0].id);
     }
+  }, [filteredItems, selectedItemId]);
 
-    return map;
-  }, [record.assessmentResults]);
+  const selectedItem = libraryItems.find((item) => item.id === selectedItemId) ?? filteredItems[0] ?? libraryItems[0] ?? null;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-      <section className="grid gap-4 self-start">
-        <div className="grid gap-2">
-          <SectionHeading title="Available Assessments" />
-          {dosAssessmentResourceItems.length ? (
-            <div className="grid gap-2">
-              {dosAssessmentResourceItems.map((assessment) => {
-                const latest = latestResultsBySlug.get(assessment.slug);
-
-                return (
-                  <button
-                    className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
-                      selectedAssessment?.slug === assessment.slug
-                        ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
-                        : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)]"
-                    }`}
-                    key={assessment.id}
-                    onClick={() => setSelectedSlug(assessment.slug)}
-                    type="button"
-                  >
-                    <span className="flex min-w-0 items-start justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-black text-[#0F172A]">{assessment.title}</span>
-                        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{assessment.description}</span>
-                      </span>
-                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-[#2563EB]">
-                        {latest ? `${Math.round(latest.percentage)}%` : "Start"}
-                      </span>
-                    </span>
-                    {latest ? <span className="mt-3 block text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Last taken {formatDate(latest.completedAt)}</span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <SectionEmptyState text="Assessment resources added to the DOS Library will appear here." title="No assessments available yet." />
-          )}
+    <div className="grid gap-4">
+      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <SectionHeading title="Assessment Library" />
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">A private library for how God wired me: DOS assessments, user-owned summaries, and original reports.</p>
+          </div>
+          {myRecordV2Enabled ? (
+            <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
+              <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+              Add External Result
+            </button>
+          ) : null}
         </div>
-        {selectedAssessment ? <MyRecordAssessmentForm assessment={selectedAssessment} errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} /> : null}
-      </section>
-      <section className="grid gap-4 self-start">
-        <div className="grid gap-2">
-          <SectionHeading title="Historical Results" />
-          {record.assessmentResults.length ? (
-            <div className="grid gap-3">
-              {record.assessmentResults.map((result) => (
-                <MyRecordAssessmentResultCard
-                  key={result.id}
-                  onRetake={() => setSelectedSlug(result.assessmentSlug)}
-                  result={result}
-                  trend={myRecordAssessmentTrend(result, record.assessmentResults)}
-                />
-              ))}
-            </div>
-          ) : (
-            <SectionEmptyState text="Completed assessments will save privately to My Record with score, percentage, breakdown, and trend." title="No assessment history yet." />
-          )}
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {myRecordAssessmentLibraryCategories.map((category) => (
+            <button
+              aria-pressed={selectedCategory === category}
+              className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-bold ${
+                selectedCategory === category
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : "border-[#EAF2FF] bg-white text-[#64748B]"
+              }`}
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              type="button"
+            >
+              {category}
+            </button>
+          ))}
         </div>
       </section>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <section className="grid gap-3 self-start">
+          {filteredItems.length ? (
+            filteredItems.map((item) => (
+              <MyRecordAssessmentLibraryCard
+                isSelected={selectedItem?.id === item.id}
+                item={item}
+                key={item.id}
+                onSelect={() => setSelectedItemId(item.id)}
+              />
+            ))
+          ) : (
+            <SectionEmptyState text="Try another category or add a custom result." title="No assessments in this category." />
+          )}
+        </section>
+        <MyRecordAssessmentDetailPanel
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          item={selectedItem}
+          nextTab={nextTab}
+          onOpenSheet={onOpenSheet}
+          onSave={onSave}
+        />
+      </div>
     </div>
   );
 }
@@ -21197,7 +23322,8 @@ function MyRecordReportPanel({
   const quietMinutes = record.journalEntries.filter((entry) => isMyRecordDateInRange(entry.date, range)).reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const prayerMinutes = record.prayerLogs.filter((log) => isMyRecordDateInRange(log.prayedAt, range)).reduce((sum, log) => sum + log.minutesSpent, 0);
   const mentorMeetings = record.mentorMeetings.filter((meeting) => isMyRecordDateInRange(meeting.meetingDate, range)).length;
-  const assessmentsCompleted = record.assessmentResults.filter((result) => isMyRecordDateInRange(result.completedAt, range)).length;
+  const assessmentsCompleted = record.assessmentResults.filter((result) => isMyRecordDateInRange(result.completedAt, range)).length
+    + record.externalAssessmentResults.filter((result) => isMyRecordDateInRange(result.dateTaken, range)).length;
   const ministryTables = meetings.filter((meeting) => meeting.source === "table" && isMyRecordDateInRange(meeting.date, range));
   const peopleMinisteredTo = new Set(ministryTables.flatMap((meeting) => meeting.fieldPersonIds)).size || people.filter((person) => isMyRecordDateInRange(person.lastActivityAt, range)).length;
   const fruitObserved = fruit.filter((item) => isMyRecordDateInRange(item.testimonyDate ?? item.updatedAt, range)).length;
@@ -21236,53 +23362,1950 @@ function MyRecordReportPanel({
   );
 }
 
-type MyRecordTimelineItem = {
-  body: string | null;
+type MyRecordWordOfYear = {
+  bullets: string[];
+  hebrew: string;
+  label: string;
+  transliteration: string;
+};
+
+type MyRecordEbenezer = {
   date: string | null;
-  icon: ReactNode;
+  detail: string | null;
   id: string;
   title: string;
 };
 
-function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
-  const namesById = personNameById(people);
-  const journalItems = record.journalEntries.map((entry) => ({
-    body: entry.lordHighlight ?? entry.notes ?? entry.prayerResponse,
-    date: entry.date,
-    icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-    id: `journal-${entry.id}`,
-    title: entry.biblePassage ? `Quiet Time · ${entry.biblePassage}` : "Quiet Time",
+const myRecordDefaultWordsOfYear: MyRecordWordOfYear[] = [
+  {
+    bullets: ["Instruction", "Correction", "Training"],
+    hebrew: "מוּסָר",
+    label: "Discipline",
+    transliteration: "Musar",
+  },
+  {
+    bullets: ["Sent", "Commission", "Purpose"],
+    hebrew: "שְׁלִיחוּת",
+    label: "Assignment",
+    transliteration: "Shlichut",
+  },
+];
+
+const myRecordWordsOfYearScripture = {
+  reference: "John 15:4",
+  text: "Remain in Me, and I in you.",
+};
+
+function myRecordPropheticOverviewStatus(value: DosAppUserPropheticWordStatus) {
+  if (value === "fulfilled") {
+    return "Fulfilled";
+  }
+
+  if (value === "testing" || value === "confirmed") {
+    return "In Progress";
+  }
+
+  return "Waiting";
+}
+
+function buildMyRecordEbenezers(record: DosAppUserRecord, fruit: DosAppFruit[]): MyRecordEbenezer[] {
+  const answeredPrayers = record.prayerLogs
+    .filter((log) => log.answeredStatus === "answered")
+    .map((log) => ({
+      date: latestMyRecordDate(log.answeredAt, log.prayedAt, log.updatedAt),
+      detail: log.notes,
+      id: `answered-prayer-${log.id}`,
+      title: log.prayerFocus ? `Answered prayer: ${log.prayerFocus}` : "Answered prayer",
+    }));
+  const thanksgivingJournal = record.journalEntries
+    .filter((entry) => entry.tags.some((tag) => tag.toLowerCase() === "thanksgiving"))
+    .map((entry) => ({
+      date: entry.date,
+      detail: entry.notes ?? entry.lordHighlight ?? entry.prayerResponse,
+      id: `thanksgiving-${entry.id}`,
+      title: entry.lordHighlight ?? entry.biblePassage ?? "Thanksgiving",
+    }));
+  const fruitItems = fruit.slice(0, 6).map((item) => ({
+    date: item.testimonyDate ?? item.updatedAt,
+    detail: item.outcomeTags.join(", ") || item.summary,
+    id: `fruit-${item.id}`,
+    title: item.summary || "Fruit observed",
   }));
-  const prayerItems = record.prayerLogs.map((log) => {
+
+  return [...answeredPrayers, ...thanksgivingJournal, ...fruitItems]
+    .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function MyRecordOverviewCard({
+  action,
+  children,
+  className = "",
+  icon,
+  title,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className={`rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)] ${className}`}>
+      <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#15803D] ring-1 ring-[#BBF7D0]">
+            {icon}
+          </span>
+          <SectionHeading title={title} />
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MyRecordWordsOfYearCard({
+  isEditing,
+  isSubmitting,
+  onEdit,
+  onSubmit,
+  record,
+}: {
+  isEditing: boolean;
+  isSubmitting: boolean;
+  onEdit: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  record: DosAppUserRecord;
+}) {
+  return (
+    <MyRecordOverviewCard
+      action={(
+        <button className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#1D4ED8]" onClick={onEdit} type="button">
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+          Edit
+        </button>
+      )}
+      icon={<Droplet className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+      title="Word(s) of the Year"
+    >
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+        <div className="min-w-0">
+          <h3 className="text-[26px] font-black leading-tight text-[#0F172A] md:text-[30px]" style={{ fontFamily: font.oswald }}>
+            {myRecordDefaultWordsOfYear.map((word) => word.label).join(" • ")}
+          </h3>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {myRecordDefaultWordsOfYear.map((word) => (
+              <div className="min-w-0 border-[#EAF2FF] md:border-r md:pr-4 md:last:border-r-0" key={word.label}>
+                <p className="text-sm font-black leading-5 text-[#0F172A]">
+                  {word.label} <span className="font-semibold text-[#64748B]">- {word.transliteration}</span> <span className="text-[#15803D]">({word.hebrew})</span>
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[#334155]">{word.bullets.join(" • ")}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+          <p className="text-sm font-black text-[#15803D]">{myRecordWordsOfYearScripture.reference}</p>
+          <p className="mt-2 text-sm leading-6 text-[#0F172A]">"{myRecordWordsOfYearScripture.text}"</p>
+        </div>
+      </div>
+      {record.currentSeasonFocus ? (
+        <p className="mt-4 rounded-[18px] border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
+          Saved note: {record.currentSeasonFocus}
+        </p>
+      ) : null}
+      {isEditing ? (
+        <form className="mt-4 grid gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" onSubmit={onSubmit}>
+          <DosFormField label="Words / Focus Note">
+            <input className={FieldInputClass()} defaultValue={record.currentSeasonFocus ?? ""} name="current_season_focus" placeholder="Discipline • Assignment" />
+          </DosFormField>
+          <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Save Words"}</AppButton>
+        </form>
+      ) : null}
+    </MyRecordOverviewCard>
+  );
+}
+
+function MyRecordPropheticOverviewCard({
+  latestWord,
+  onAdd,
+  onViewAll,
+  totalCount,
+}: {
+  latestWord: DosAppUserPropheticWord | null;
+  onAdd: () => void;
+  onViewAll: () => void;
+  totalCount: number;
+}) {
+  return (
+    <MyRecordOverviewCard
+      action={latestWord ? (
+        <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">
+          View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+        </button>
+      ) : null}
+      className="min-h-[220px]"
+      icon={<Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+      title="Prophetic Words"
+    >
+      {latestWord ? (
+        <div className="grid min-h-[142px] content-between gap-4">
+          <div>
+            <p className="text-4xl font-black leading-none text-[#BFDBFE]" style={{ fontFamily: font.oswald }}>"</p>
+            <p className="mt-1 line-clamp-4 text-base font-semibold leading-7 text-[#0F172A]">"{latestWord.wordText}"</p>
+            <p className="mt-3 text-xs font-semibold leading-5 text-[#475569]">
+              {latestWord.givenBy ? `- ${latestWord.givenBy}` : "Prophetic Word"}{latestWord.dateReceived ? ` • ${formatDate(latestWord.dateReceived)}` : ""}
+            </p>
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#475569]">
+              Status: <span className="h-2 w-2 rounded-full bg-[#2563EB]" aria-hidden="true" /> <span className="font-black text-[#0F172A]">{myRecordPropheticOverviewStatus(latestWord.status)}</span>
+            </span>
+            <button className="shrink-0 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">View all ({totalCount})</button>
+          </div>
+        </div>
+      ) : (
+        <SectionEmptyState
+          action={<CompactButton icon="add" onClick={onAdd}>Add Prophetic Word</CompactButton>}
+          text="No prophetic words recorded yet."
+          title="Prophetic Words"
+        />
+      )}
+    </MyRecordOverviewCard>
+  );
+}
+
+function MyRecordFaithfulnessCard({
+  ebenezers,
+  onAdd,
+  onViewAll,
+}: {
+  ebenezers: MyRecordEbenezer[];
+  onAdd: () => void;
+  onViewAll: () => void;
+}) {
+  return (
+    <MyRecordOverviewCard
+      action={ebenezers.length ? (
+        <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">
+          View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+        </button>
+      ) : null}
+      className="min-h-[220px]"
+      icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+      title="God's Faithfulness"
+    >
+      <p className="text-sm leading-6 text-[#0F172A]">Cultivate an attitude of gratitude by remembering God's faithfulness.</p>
+      {ebenezers.length ? (
+        <div className="mt-5 grid gap-3">
+          <p className="text-xs font-black text-[#15803D]">Recent Ebenezers</p>
+          {ebenezers.slice(0, 3).map((item) => (
+            <div className="flex min-w-0 items-center gap-3" key={item.id}>
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#15803D]" aria-hidden="true" strokeWidth={2} />
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[#0F172A]">{item.title}</p>
+              <p className="shrink-0 text-xs font-semibold text-[#64748B]">{formatDate(item.date)}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <SectionEmptyState
+            action={<CompactButton icon="add" onClick={onAdd}>Add Ebenezer</CompactButton>}
+            text="No Ebenezers recorded yet."
+            title="God's Faithfulness"
+          />
+        </div>
+      )}
+    </MyRecordOverviewCard>
+  );
+}
+
+function MyRecordQuickActionCard({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex min-h-12 min-w-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 py-2 text-left shadow-[0_10px_24px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] active:scale-[0.99] sm:justify-center"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <span className="min-w-0 text-xs font-black leading-4 text-[#0F172A]">{label}</span>
+    </button>
+  );
+}
+
+function MyRecordSnapshotTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white p-3 text-center">
+      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <p className="mt-3 truncate text-base font-black text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-xs font-semibold leading-4 text-[#475569]">{label}</p>
+    </div>
+  );
+}
+
+function MyRecordAtAGlanceCard({
+  detail,
+  icon,
+  kind,
+  label,
+  value,
+}: {
+  detail: string;
+  icon: ReactNode;
+  kind: MyRecordRecordKind;
+  label: string;
+  value: string;
+}) {
+  const visual = myRecordRecordVisual(kind);
+
+  return (
+    <article className="min-w-0 rounded-[16px] bg-white px-2 py-2 text-center">
+      <span className={`mx-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+        {icon}
+      </span>
+      <p className="mt-1.5 truncate text-lg font-black leading-none text-[#0F172A]">{value}</p>
+      <p className="mt-1 text-[10px] font-black leading-3 text-[#0F172A]">{label}</p>
+      <p className="mt-0.5 truncate text-[10px] font-semibold leading-3 text-[#64748B]">{detail}</p>
+    </article>
+  );
+}
+
+function MyRecordActionButton({
+  children,
+  onClick,
+  tone = "white",
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tone?: "blue" | "white";
+}) {
+  return (
+    <button
+      className={`inline-flex min-h-8 shrink-0 items-center rounded-full px-3 text-xs font-bold transition-colors ${
+        tone === "blue"
+          ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]"
+          : "border border-[#DCEBFF] bg-white text-[#0F172A] hover:border-[#BFDBFE]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+type MyRecordRecordKind =
+  | "assessment"
+  | "faithfulness"
+  | "learning"
+  | "life_plan"
+  | "mentor"
+  | "prayer"
+  | "prophetic"
+  | "reflection"
+  | "time_with_god"
+  | "timeline";
+
+type MyRecordRecordVisual = {
+  badgeClassName: string;
+  icon: ReactNode;
+  iconClassName: string;
+  label: string;
+};
+
+function myRecordRecordVisual(kind: MyRecordRecordKind): MyRecordRecordVisual {
+  if (kind === "time_with_god") {
+    return {
+      badgeClassName: "bg-[#ECFDF5] text-[#15803D]",
+      icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]",
+      label: "Time With God",
+    };
+  }
+
+  if (kind === "prayer") {
+    return {
+      badgeClassName: "bg-red-50 text-red-600",
+      icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-red-50 text-red-600 ring-red-100",
+      label: "Prayer",
+    };
+  }
+
+  if (kind === "reflection") {
+    return {
+      badgeClassName: "bg-violet-50 text-violet-600",
+      icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-violet-50 text-violet-600 ring-violet-100",
+      label: "Reflection",
+    };
+  }
+
+  if (kind === "life_plan") {
+    return {
+      badgeClassName: "bg-[#EBF2FF] text-[#1D4ED8]",
+      icon: <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#EBF2FF] text-[#2563EB] ring-[#BFDBFE]",
+      label: "Life Plan",
+    };
+  }
+
+  if (kind === "mentor") {
+    return {
+      badgeClassName: "bg-orange-50 text-orange-600",
+      icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-orange-50 text-orange-600 ring-orange-100",
+      label: "Mentor",
+    };
+  }
+
+  if (kind === "assessment") {
+    return {
+      badgeClassName: "bg-emerald-50 text-emerald-700",
+      icon: <BarChart3 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+      label: "Assessment",
+    };
+  }
+
+  if (kind === "prophetic") {
+    return {
+      badgeClassName: "bg-indigo-50 text-indigo-600",
+      icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+      label: "Prophetic Word",
+    };
+  }
+
+  if (kind === "learning") {
+    return {
+      badgeClassName: "bg-teal-50 text-teal-700",
+      icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-teal-50 text-teal-700 ring-teal-100",
+      label: "Book Notes",
+    };
+  }
+
+  if (kind === "faithfulness") {
+    return {
+      badgeClassName: "bg-[#ECFDF5] text-[#15803D]",
+      icon: <Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]",
+      label: "God's Faithfulness",
+    };
+  }
+
+  return {
+    badgeClassName: "bg-[#EBF2FF] text-[#1D4ED8]",
+    icon: <Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    iconClassName: "bg-[#EBF2FF] text-[#2563EB] ring-[#DCEBFF]",
+    label: "Timeline",
+  };
+}
+
+function MyRecordCompactRecordCard({
+  body,
+  date,
+  kind,
+  meta,
+  onClick,
+  title,
+  typeLabel,
+}: {
+  body?: string | null;
+  date?: string | null;
+  kind: MyRecordRecordKind;
+  meta?: string | null;
+  onClick?: () => void;
+  title: string;
+  typeLabel?: string | null;
+}) {
+  const visual = myRecordRecordVisual(kind);
+  const cardClassName = "group flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]";
+  const content = (
+    <>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ${visual.iconClassName}`}>
+        {visual.icon}
+      </span>
+      <span className="min-w-0 flex-1 py-0.5">
+        <span className="block truncate text-sm font-black leading-4 text-[#0F172A]">{title}</span>
+        <span className="mt-1 flex min-w-0 items-center gap-1.5">
+          <span className={`inline-flex max-w-[42%] shrink-0 truncate rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.11em] ${visual.badgeClassName}`} style={{ fontFamily: font.rajdhani }}>
+            {typeLabel || visual.label}
+          </span>
+          {meta ? <span className="min-w-0 truncate text-[11px] font-bold leading-4 text-[#64748B]">{meta}</span> : null}
+        </span>
+        {body ? <span className="mt-1 block truncate text-[12px] font-medium leading-4 text-[#475569]">{body}</span> : null}
+      </span>
+      <span className="flex shrink-0 items-center gap-1 self-start pt-0.5">
+        {date ? <span className="text-[11px] font-bold leading-4 text-[#64748B]">{formatShortDate(date)}</span> : null}
+        {onClick ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={2} /> : null}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button className={cardClassName} onClick={onClick} type="button">
+        {content}
+      </button>
+    );
+  }
+
+  return <article className={cardClassName}>{content}</article>;
+}
+
+function MyRecordCompactEmptyRow({
+  action,
+  icon,
+  text,
+  title,
+}: {
+  action?: ReactNode;
+  icon: ReactNode;
+  text?: string;
+  title: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black leading-4 text-[#0F172A]">{title}</span>
+        {text ? <span className="mt-1 block truncate text-xs font-medium leading-4 text-[#64748B]">{text}</span> : null}
+      </span>
+      {action ? <span className="shrink-0">{action}</span> : null}
+    </div>
+  );
+}
+
+function MyRecordPreviewCard({
+  badge,
+  body,
+  children,
+  icon,
+  meta,
+  onEdit,
+  onNew,
+  onView,
+  title,
+}: {
+  badge?: string | null;
+  body?: string | null;
+  children?: ReactNode;
+  icon: ReactNode;
+  meta?: string | null;
+  onEdit?: () => void;
+  onNew?: () => void;
+  onView?: () => void;
+  title: string;
+}) {
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_28px_rgba(37,99,235,0.04)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{title}</p>
+              {meta ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{meta}</p> : null}
+            </div>
+            {badge ? (
+              <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {body ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#475569]">{body}</p> : null}
+          {children}
+        </div>
+      </div>
+      {(onView || onEdit || onNew) ? (
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          {onView ? <MyRecordActionButton onClick={onView}>View</MyRecordActionButton> : null}
+          {onEdit ? <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton> : null}
+          {onNew ? <MyRecordActionButton onClick={onNew} tone="blue">+ New</MyRecordActionButton> : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MyRecordRecommendedNextStep({
+  action,
+  text,
+}: {
+  action?: ReactNode;
+  text: string;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4 shadow-[0_10px_24px_rgba(37,99,235,0.035)]">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Recommended Next Step</p>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 flex-1 text-sm font-semibold leading-6 text-[#0F172A]">{text}</p>
+        {action}
+      </div>
+    </section>
+  );
+}
+
+type MyRecordTimelineItem = {
+  badge: string;
+  body: string | null;
+  date: string | null;
+  icon: ReactNode;
+  id: string;
+  kind: MyRecordRecordKind;
+  meta: string | null;
+  title: string;
+};
+
+type MyRecordEncounter = {
+  biblePassage: string | null;
+  body: string | null;
+  date: string | null;
+  entry: DosAppUserJournalEntry | null;
+  id: string;
+  minutesSpent: number;
+  prayerLog: DosAppUserPrayerLog | null;
+  sourceKind: "journal" | "prayer";
+  sourceLabel: string;
+  sourceId: string;
+  tags: string[];
+  title: string;
+};
+
+type MyRecordEncounterFilter = "all" | "highlights" | "journal" | "prayer" | "scripture";
+
+const myRecordEncounterFilters: ReadonlyArray<{ label: string; value: MyRecordEncounterFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Scripture", value: "scripture" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Journal", value: "journal" },
+  { label: "Highlights", value: "highlights" },
+];
+
+function myRecordTagEquals(tag: string, expected: string) {
+  return tag.trim().toLowerCase() === expected.trim().toLowerCase();
+}
+
+function myRecordJournalHasPrayerTag(entry: DosAppUserJournalEntry) {
+  return entry.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
+}
+
+function myRecordJournalReflectionCount(entries: DosAppUserJournalEntry[]) {
+  return entries.filter((entry) => Boolean(entry.notes?.trim() || entry.lordHighlight?.trim() || entry.prayerResponse?.trim())).length;
+}
+
+function buildMyRecordEncounterTags(entry: DosAppUserJournalEntry) {
+  const tagSet = new Set(entry.tags.filter((tag) => Boolean(tag.trim())));
+
+  if (entry.biblePassage) tagSet.add("Scripture");
+  if (entry.notes) tagSet.add("Journal");
+  if (entry.lordHighlight) tagSet.add("Highlights");
+  if (entry.prayerResponse || myRecordJournalHasPrayerTag(entry)) tagSet.add("Prayer");
+
+  return Array.from(tagSet);
+}
+
+function myRecordEncounterTitleForEntry(entry: DosAppUserJournalEntry) {
+  if (entry.biblePassage) return "Time With God";
+  if (myRecordJournalHasPrayerTag(entry)) return "Prayer Encounter";
+  if (entry.notes || entry.lordHighlight || entry.prayerResponse) return "Reflection";
+
+  return "Time With God";
+}
+
+function myRecordEncounterKind(encounter: MyRecordEncounter): MyRecordRecordKind {
+  if (encounter.sourceKind === "prayer") return "prayer";
+  if (myRecordTagEquals(encounter.title, "Prayer Encounter")) return "prayer";
+  if (myRecordTagEquals(encounter.title, "Reflection")) return "reflection";
+
+  return "time_with_god";
+}
+
+function myRecordEncounterLabel(encounter: MyRecordEncounter) {
+  return myRecordRecordVisual(myRecordEncounterKind(encounter)).label;
+}
+
+function myRecordEncounterMeta(encounter: MyRecordEncounter) {
+  return [
+    encounter.biblePassage,
+    encounter.minutesSpent ? formatRecordDuration(encounter.minutesSpent) : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function buildMyRecordEncounters(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordEncounter[] {
+  const namesById = personNameById(people);
+  const journalEncounters = record.journalEntries.map((entry) => ({
+    biblePassage: entry.biblePassage,
+    body: myRecordCompactPreview(entry.lordHighlight, entry.notes, entry.prayerResponse),
+    date: entry.date,
+    entry,
+    id: `encounter-journal-${entry.id}`,
+    minutesSpent: entry.minutesSpent,
+    prayerLog: null,
+    sourceId: entry.id,
+    sourceKind: "journal" as const,
+    sourceLabel: "Time With God",
+    tags: buildMyRecordEncounterTags(entry),
+    title: myRecordEncounterTitleForEntry(entry),
+  }));
+  const prayerEncounters = record.prayerLogs.map((log) => {
     const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+    const title = log.answeredStatus === "answered"
+      ? `Answered Prayer${log.prayerFocus ? ` - ${log.prayerFocus}` : ""}`
+      : log.prayerFocus || "Prayer Encounter";
 
     return {
-      body: log.notes ?? (personName ? `Prayed for ${personName}` : null),
+      biblePassage: null,
+      body: log.notes ?? (personName ? `Prayed for ${personName}` : "Prayer time"),
       date: log.prayedAt,
-      icon: log.answeredStatus === "answered"
-        ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
-      id: `prayer-${log.id}`,
-      title: log.answeredStatus === "answered" ? `Answered Prayer · ${log.prayerFocus || "Prayer"}` : `Prayer Time · ${log.prayerFocus || "Prayer"}`,
+      entry: null,
+      id: `encounter-prayer-${log.id}`,
+      minutesSpent: log.minutesSpent,
+      prayerLog: log,
+      sourceId: log.id,
+      sourceKind: "prayer" as const,
+      sourceLabel: "Prayer Encounter",
+      tags: log.answeredStatus === "answered" ? ["Prayer", "Answered Prayer"] : ["Prayer"],
+      title,
+    };
+  });
+
+  return [...journalEncounters, ...prayerEncounters]
+    .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function myRecordEncounterMatchesFilter(encounter: MyRecordEncounter, filter: MyRecordEncounterFilter) {
+  if (filter === "all") return true;
+  if (filter === "scripture") return Boolean(encounter.biblePassage);
+  if (filter === "prayer") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
+  if (filter === "journal") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Journal"));
+  if (filter === "highlights") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Highlights"));
+
+  return true;
+}
+
+function MyRecordEncounterCard({
+  encounter,
+  onView,
+  titlePrefix,
+}: {
+  encounter: MyRecordEncounter;
+  onEdit?: () => void;
+  onNew?: () => void;
+  onView: () => void;
+  titlePrefix?: string;
+}) {
+  return (
+    <MyRecordCompactRecordCard
+      body={encounter.body}
+      date={encounter.date}
+      kind={myRecordEncounterKind(encounter)}
+      meta={myRecordEncounterMeta(encounter)}
+      onClick={onView}
+      title={titlePrefix ? `${titlePrefix}: ${encounter.title}` : encounter.title}
+      typeLabel={myRecordEncounterLabel(encounter)}
+    />
+  );
+}
+
+function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+  const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => {
+    const kind = myRecordEncounterKind(encounter);
+
+    return {
+      badge: myRecordRecordVisual(kind).label,
+      body: encounter.body,
+      date: encounter.date,
+      icon: myRecordRecordVisual(kind).icon,
+      id: encounter.id,
+      kind,
+      meta: myRecordEncounterMeta(encounter),
+      title: encounter.title,
     };
   });
   const mentorItems = record.mentorMeetings.map((meeting) => ({
+    badge: "Mentor",
     body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
     date: meeting.meetingDate,
     icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `mentor-${meeting.id}`,
-    title: `Mentor Meeting · ${meeting.mentorName}`,
+    kind: "mentor" as const,
+    meta: [meeting.mentorName, meeting.durationMinutes ? formatRecordDuration(meeting.durationMinutes) : null].filter(Boolean).join(" · "),
+    title: "Mentor Meeting",
   }));
   const assessmentItems = record.assessmentResults.map((result) => ({
+    badge: "Assessment",
     body: `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%`,
     date: result.completedAt,
     icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `assessment-${result.id}`,
-    title: `Assessment · ${result.assessmentName}`,
+    kind: "assessment" as const,
+    meta: `${Math.round(result.percentage)}%`,
+    title: result.assessmentName,
   }));
+  const externalAssessmentItems = record.externalAssessmentResults.map((result) => ({
+    badge: "Assessment",
+    body: result.shortSummary ?? result.resultType ?? (result.topStrengths.join(", ") || result.notes),
+    date: latestMyRecordDate(result.dateTaken, result.createdAt),
+    icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `external-assessment-${result.id}`,
+    kind: "assessment" as const,
+    meta: result.resultType ?? result.category,
+    title: result.assessmentName,
+  }));
+  const propheticWordItems = record.propheticWords.map((word) => ({
+    badge: "Prophetic Word",
+    body: word.context ?? word.confirmations ?? word.notes ?? word.wordText,
+    date: word.dateReceived,
+    icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `prophetic-word-${word.id}`,
+    kind: "prophetic" as const,
+    meta: [myRecordPropheticWordStatusLabel(word.status), word.givenBy ? `Given by ${word.givenBy}` : null].filter(Boolean).join(" · "),
+    title: "Prophetic Word",
+  }));
+  const learningBookItems = record.learningBooks.map((book) => ({
+    badge: "Book Notes",
+    body: book.finalSummary ?? book.personalApplication ?? `${book.chapterNotes.length} chapter notes`,
+    date: latestMyRecordDate(book.finishedOn, book.updatedAt, book.startedOn, book.createdAt),
+    icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `learning-book-${book.id}`,
+    kind: "learning" as const,
+    meta: book.status.replace(/_/g, " "),
+    title: book.title,
+  }));
+  const learningChapterItems = record.learningBooks.flatMap((book) => book.chapterNotes.map((note) => ({
+    badge: "Book Notes",
+    body: note.personalApplication ?? note.highlights ?? note.notes,
+    date: latestMyRecordDate(note.updatedAt, note.createdAt),
+    icon: <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `learning-chapter-${note.id}`,
+    kind: "learning" as const,
+    meta: book.title,
+    title: note.chapterLabel,
+  })));
+  const lifePlanItems = record.lifePlan ? [{
+    badge: "Life Plan",
+    body: record.lifePlan.callingStatement ?? record.lifePlan.dailyReminder ?? "Private calling focus document",
+    date: latestMyRecordDate(record.lifePlan.lastReviewedDate, record.lifePlan.updatedAt, record.lifePlan.createdAt),
+    icon: <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `life-plan-${record.lifePlan.id}`,
+    kind: "life_plan" as const,
+    meta: "Private calling focus",
+    title: "Life Plan",
+  }] : [];
 
-  return [...journalItems, ...prayerItems, ...mentorItems, ...assessmentItems]
+  return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function MyRecordWalkWithGodPanel({
+  encounters,
+  onOpenSheet,
+  timeline,
+}: {
+  encounters: MyRecordEncounter[];
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  timeline: MyRecordTimelineItem[];
+}) {
+  const [filter, setFilter] = useState<MyRecordEncounterFilter>("all");
+  const todaysEncounter = encounters.find((encounter) => isTodayDate(encounter.date));
+  const latestEncounter = todaysEncounter ?? encounters[0] ?? null;
+  const filteredEncounters = encounters.filter((encounter) => myRecordEncounterMatchesFilter(encounter, filter));
+
+  function openEncounter(encounter: MyRecordEncounter, mode: MyRecordSheetMode) {
+    if (encounter.entry) {
+      onOpenSheet({ entry: encounter.entry, kind: "encounter", mode, title: mode === "new" ? "Time With God" : "Time With God" });
+      return;
+    }
+
+    if (encounter.prayerLog) {
+      onOpenSheet({ kind: "encounter", mode, prayerLog: encounter.prayerLog, title: "Prayer Encounter" });
+    }
+  }
+
+  return (
+    <div className="grid gap-3 pb-36 md:pb-6">
+      <p className="text-sm font-semibold text-[#64748B]">How am I abiding?</p>
+      <section className="grid gap-2">
+        <SectionHeading
+          action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })} type="button">+ New</button>}
+          title={todaysEncounter ? "Today's Encounter" : "Latest Encounter"}
+        />
+        {latestEncounter ? (
+          <MyRecordEncounterCard
+            encounter={latestEncounter}
+            onEdit={() => openEncounter(latestEncounter, "edit")}
+            onView={() => openEncounter(latestEncounter, "view")}
+          />
+        ) : (
+          <MyRecordCompactEmptyRow
+            action={<MyRecordActionButton onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
+            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+            text="Capture Scripture, reflection, prayer response, and next steps."
+            title="No encounters yet."
+          />
+        )}
+      </section>
+      <section className="grid gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <SectionHeading title="Encounter History" />
+          <button className="shrink-0 text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })} type="button">
+            + New
+          </button>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {myRecordEncounterFilters.map((item) => (
+            <button
+              aria-pressed={filter === item.value}
+              className={`min-h-8 shrink-0 rounded-full border px-3 text-xs font-bold ${
+                filter === item.value
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : "border-[#EAF2FF] bg-white text-[#64748B]"
+              }`}
+              key={item.value}
+              onClick={() => setFilter(item.value)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {filteredEncounters.length ? (
+          <div className="grid gap-1.5">
+            {filteredEncounters.slice(0, 6).map((encounter) => (
+              <MyRecordEncounterCard
+                encounter={encounter}
+                key={encounter.id}
+                onEdit={() => openEncounter(encounter, "edit")}
+                onView={() => openEncounter(encounter, "view")}
+              />
+            ))}
+          </div>
+        ) : (
+          <MyRecordCompactEmptyRow
+            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+            text="Try another filter or add a new encounter."
+            title="No matching encounters."
+          />
+        )}
+      </section>
+      <section className="grid gap-2">
+        <MyRecordCompactRecordCard
+          body="See your full walk history in chronological order."
+          date={timeline[0]?.date ?? null}
+          kind="timeline"
+          meta={`${timeline.length} items`}
+          onClick={() => onOpenSheet({ items: timeline, kind: "timeline", mode: "view" })}
+          title="Master Timeline"
+        />
+      </section>
+    </div>
+  );
+}
+
+function myRecordMentorMeetingsForRelationship(record: DosAppUserRecord, mentor: DosAppUserMentorRelationship) {
+  return record.mentorMeetings
+    .filter((meeting) => meeting.relationshipId === mentor.id || (!meeting.relationshipId && meeting.mentorName === mentor.mentorName))
+    .sort((first, second) => myRecordDateValue(second.meetingDate) - myRecordDateValue(first.meetingDate));
+}
+
+function myRecordMentorNextFollowUpLabel(meetings: DosAppUserMentorMeeting[]) {
+  const today = todayDateValue();
+  const nextFollowUp = meetings
+    .map((meeting) => meeting.followUpDate)
+    .filter((date): date is string => Boolean(date))
+    .filter((date) => date >= today)
+    .sort()[0];
+
+  return nextFollowUp ? formatDate(nextFollowUp) : "—";
+}
+
+function MyRecordMentorCard({
+  mentor,
+  meetings,
+  onEdit,
+  onLogMeeting,
+  onView,
+}: {
+  mentor: DosAppUserMentorRelationship;
+  meetings: DosAppUserMentorMeeting[];
+  onEdit: () => void;
+  onLogMeeting: () => void;
+  onView: () => void;
+}) {
+  const lastMeeting = meetings[0] ?? null;
+
+  return (
+    <article className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{mentor.mentorName}</p>
+              <p className="mt-1 truncate text-xs font-bold text-[#2563EB]">{mentor.relationshipLabel || "Mentor"}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#ECFDF5] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#047857]" style={{ fontFamily: font.rajdhani }}>
+              Active
+            </span>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {[
+              ["Last meeting", lastMeeting ? formatDate(lastMeeting.meetingDate) : "—"],
+              ["Next meeting", myRecordMentorNextFollowUpLabel(meetings)],
+              ["Rhythm", mentor.meetingRhythm || "—"],
+            ].map(([label, value]) => (
+              <div className="rounded-2xl border border-[#EAF2FF] bg-white px-3 py-2" key={label}>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+                <p className="mt-1 truncate text-xs font-bold text-[#0F172A]">{value}</p>
+              </div>
+            ))}
+          </div>
+          {mentor.notes ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#475569]">{mentor.notes}</p> : null}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <MyRecordActionButton onClick={onView}>View</MyRecordActionButton>
+            <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton>
+            <MyRecordActionButton onClick={onLogMeeting} tone="blue">Log Meeting</MyRecordActionButton>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MyRecordGrowthPanel({
+  myRecordV2Enabled,
+  onOpenSheet,
+  people,
+  profileName,
+  record,
+}: {
+  myRecordV2Enabled: boolean;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  people: DosAppPerson[];
+  profileName: string;
+  record: DosAppUserRecord;
+}) {
+  const includeRyanSeeds = myRecordV2Enabled && /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
+  const priorityAssessmentItems = useMemo(() => {
+    const priorityNames = ["MCode", "Gregoric Mind Styles"];
+    const priority = libraryItems.filter((item) => priorityNames.some((name) => myRecordAssessmentMatchesName(item.name, name)));
+    const rest = libraryItems.filter((item) => !priority.some((priorityItem) => priorityItem.id === item.id));
+
+    return [...priority, ...rest].slice(0, 4);
+  }, [libraryItems]);
+  const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived").slice(0, 4);
+  const activeMentors = record.mentorRelationships.filter((mentor) => mentor.status === "active");
+  const recentMentorMeetings = record.mentorMeetings.slice(0, 3);
+  const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
+    ? "Add your MCode result so mentors can quickly understand your wiring."
+    : visibleBooks.length === 0
+      ? "Add the first book you are reading and capture one chapter note."
+      : record.mentorMeetings.length === 0
+        ? "Review your latest assessment or book insight with a mentor."
+        : "Choose one growth insight to turn into a concrete next step this week.";
+
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm font-semibold text-[#64748B]">How is God shaping me?</p>
+      <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <SectionHeading title="Mentors" />
+            <p className="mt-1 text-sm leading-6 text-[#64748B]">People helping shape your walk, calling, and obedience.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })} tone="blue">+ Add Mentor</MyRecordActionButton>
+            <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}>Log Meeting</MyRecordActionButton>
+          </div>
+        </div>
+        {activeMentors.length ? (
+          <div className="grid gap-3">
+            {activeMentors.map((mentor) => {
+              const meetings = myRecordMentorMeetingsForRelationship(record, mentor);
+
+              return (
+                <MyRecordMentorCard
+                  key={mentor.id}
+                  meetings={meetings}
+                  mentor={mentor}
+                  onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })}
+                  onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mentor, mode: "new" })}
+                  onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="people" onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>Add Mentor</CompactButton>} text="Save the people pouring into you, then log meetings against them." title="No mentors saved yet." />
+        )}
+        {recentMentorMeetings.length ? (
+          <div className="grid gap-2 border-t border-[#EAF2FF] pt-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Recent Meetings</p>
+            <div className="grid gap-2">
+              {recentMentorMeetings.map((meeting) => (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={meeting.id}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{meeting.mentorName}</span>
+                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{formatDate(meeting.meetingDate)} · {formatRecordDuration(meeting.durationMinutes)}</span>
+                  </span>
+                  <span className="flex shrink-0 gap-2">
+                    <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "view" })}>View</MyRecordActionButton>
+                    <MyRecordActionButton onClick={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })}>Edit</MyRecordActionButton>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
+      <MyRecordRecommendedNextStep
+        action={<MyRecordActionButton onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>Add Result</MyRecordActionButton>}
+        text={recommendedStep}
+      />
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">Add External Result</button>} title="Assessments" />
+        {priorityAssessmentItems.length ? (
+          <div className="grid gap-3">
+            {priorityAssessmentItems.map((item) => {
+              const externalResult = item.kind === "external" ? item.result as DosAppUserExternalAssessmentResult | undefined : undefined;
+              const resultSummary = item.keyResults.slice(0, 4).join(" · ");
+              const badge = item.kind === "dos" && item.result && "percentage" in item.result
+                ? `${Math.round(item.result.percentage)}%`
+                : myRecordAssessmentStatusLabel(item.status);
+
+              return (
+                <MyRecordPreviewCard
+                  badge={badge}
+                  body={item.shortSummary}
+                  icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={item.id}
+                  meta={item.completedDate ? formatDate(item.completedDate) : item.category}
+                  onEdit={externalResult ? () => onOpenSheet({ assessmentResult: externalResult, kind: "external_assessment", mode: "edit" }) : undefined}
+                  onNew={item.kind === "dos" ? () => onOpenSheet({ item, kind: "assessment", mode: "new" }) : item.kind === "future" ? () => onOpenSheet({ kind: "external_assessment", mode: "new" }) : undefined}
+                  onView={() => onOpenSheet({ item, kind: "assessment_detail", mode: "view" })}
+                  title={item.name}
+                >
+                  {resultSummary ? <p className="mt-2 truncate text-xs font-bold text-[#1D4ED8]">{resultSummary}</p> : null}
+                </MyRecordPreviewCard>
+              );
+            })}
+          </div>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>Add Result</CompactButton>} text="DOS and third-party results will appear here." title="No assessments yet." />
+        )}
+      </section>
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "book", mode: "new" })} type="button">Add Book</button>} title="Learning" />
+        {visibleBooks.length ? (
+          <div className="grid gap-3">
+            {visibleBooks.map((book) => (
+              <MyRecordPreviewCard
+                badge={myRecordLearningBookStatusLabel(book.status)}
+                body={book.personalApplication ?? book.finalSummary ?? `${book.chapterNotes.length} chapter notes saved.`}
+                icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={book.id}
+                meta={book.author || "Book Notes"}
+                onEdit={() => onOpenSheet({ book, kind: "book", mode: "edit" })}
+                onNew={() => onOpenSheet({ book, kind: "chapter_note", mode: "new" })}
+                onView={() => onOpenSheet({ book, kind: "book", mode: "view" })}
+                title={book.title}
+              >
+                <div className="mt-3 flex min-w-0 items-center gap-3">
+                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#E2E8F0]">
+                    <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: book.status === "finished" ? "100%" : book.chapterNotes.length ? "60%" : "18%" }} />
+                  </div>
+                  <span className="shrink-0 text-xs font-black text-[#0F172A]">{book.chapterNotes.length} notes</span>
+                </div>
+              </MyRecordPreviewCard>
+            ))}
+          </div>
+        ) : (
+          <SectionEmptyState action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>} text="Capture books, chapter notes, highlights, and application." title="No book notes yet." />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function MyRecordLifePlanCard({
+  onEdit,
+  onReview,
+  onView,
+  plan,
+}: {
+  onEdit: () => void;
+  onReview: () => void;
+  onView: () => void;
+  plan: DosAppUserLifePlan;
+}) {
+  const topPriorities = plan.topPriorities.slice(0, 5);
+  const reviewDate = latestMyRecordDate(plan.lastReviewedDate, plan.updatedAt, plan.createdAt);
+
+  return (
+    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          <GitBranch className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black leading-5 text-[#0F172A]">Life Plan</p>
+              <p className="mt-1 text-xs font-semibold text-[#64748B]">{reviewDate ? `Last reviewed ${formatDate(reviewDate)}` : "Private focus document"}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#ECFDF5] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+              Private
+            </span>
+          </div>
+          {plan.callingStatement ? <p className="mt-3 text-sm font-semibold leading-6 text-[#0F172A]">{plan.callingStatement}</p> : null}
+          {topPriorities.length ? (
+            <div className="mt-4 grid gap-2">
+              {topPriorities.map((priority, index) => (
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={priority.id}>
+                  <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{index + 1}. {priority.label}</span>
+                  {priority.allocationPercent !== null ? <span className="shrink-0 text-xs font-black text-[#1D4ED8]">{priority.allocationPercent}%</span> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {plan.dailyReminder ? <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">{plan.dailyReminder}</p> : null}
+          <p className="mt-3 text-xs font-semibold leading-5 text-[#64748B]">Use this with mentors to review focus, obedience, priorities, and drift.</p>
+          {plan.attachmentUrl ? (
+            <a className="mt-3 inline-flex text-xs font-bold text-[#1D4ED8]" href={plan.attachmentUrl} rel="noreferrer" target="_blank">
+              View Original PDF
+            </a>
+          ) : null}
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <MyRecordActionButton onClick={onView}>View</MyRecordActionButton>
+            <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton>
+            <MyRecordActionButton onClick={onReview} tone="blue">Review</MyRecordActionButton>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MyRecordCallingPanel({
+  errorMessage,
+  isSubmitting,
+  onOpenSheet,
+  onSave,
+  record,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  record: DosAppUserRecord;
+}) {
+  const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
+  const lifePlan = resolveMyRecordLifePlan(record);
+
+  function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void (async () => {
+      const saved = await onSave({
+        currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
+        kind: "record",
+      }, "calling");
+
+      if (saved) {
+        setIsWordsEditorOpen(false);
+      }
+    })();
+  }
+
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm font-semibold text-[#64748B]">What has God spoken?</p>
+      <MyRecordWordsOfYearCard
+        isEditing={isWordsEditorOpen}
+        isSubmitting={isSubmitting}
+        onEdit={() => setIsWordsEditorOpen((current) => !current)}
+        onSubmit={handleRecordSubmit}
+        record={record}
+      />
+      <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "new" })} type="button">+ New</button>} title="Prophetic Words" />
+        {record.propheticWords.length ? (
+          <div className="grid gap-3">
+            {record.propheticWords.map((word) => (
+              <MyRecordPreviewCard
+                badge={myRecordPropheticWordStatusLabel(word.status)}
+                body={word.wordText}
+                icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={word.id}
+                meta={`${formatDate(word.dateReceived)}${word.context ? ` · ${word.context}` : ""}`}
+                onEdit={() => onOpenSheet({ kind: "prophetic_word", mode: "edit", word })}
+                onView={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word })}
+                title={word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}
+              >
+                {word.scriptureReferences.length || word.tags.length ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {[...word.scriptureReferences, ...word.tags].slice(0, 5).map((item) => (
+                      <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#475569]" key={item}>{item}</span>
+                    ))}
+                  </div>
+                ) : null}
+              </MyRecordPreviewCard>
+            ))}
+          </div>
+        ) : (
+          <SectionEmptyState
+            action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "new" })}>Add Prophetic Word</CompactButton>}
+            text="Track words, Scripture references, confirmations, fulfillment status, and reflections privately."
+            title="No prophetic words recorded yet."
+          />
+        )}
+      </section>
+      <MyRecordLifePlanCard
+        onEdit={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan: lifePlan })}
+        onReview={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan: lifePlan })}
+        onView={() => onOpenSheet({ kind: "life_plan", mode: "view", plan: lifePlan })}
+        plan={lifePlan}
+      />
+      <MyRecordPreviewCard
+        badge="Coming Soon"
+        body="Vision moments, calling markers, confirmations, and milestones will live here without affecting Field metrics."
+        icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+        meta={record.currentSeasonFocus || "Prepared for a future My Record pass"}
+        onView={() => onOpenSheet({ description: "Future calling timeline for vision moments, milestones, and confirmations.", kind: "placeholder", title: "Vision Timeline" })}
+        title="Vision Timeline"
+      />
+    </div>
+  );
+}
+
+function MyRecordLegacyPanel({
+  ebenezers,
+  fruit,
+  meetings,
+  onOpenSheet,
+  people,
+}: {
+  ebenezers: MyRecordEbenezer[];
+  fruit: DosAppFruit[];
+  meetings: DosAppMeeting[];
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  people: DosAppPerson[];
+}) {
+  const familyPeople = people.filter((person) => person.relationshipContext === "family" || /brooke|child|son|daughter/i.test(`${person.name} ${person.spouseName ?? ""} ${person.childrenNames ?? ""}`));
+  const ministryTables = meetings.filter((meeting) => meeting.source === "table");
+
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm font-semibold text-[#64748B]">What has God done?</p>
+      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading
+          action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" })} type="button">+ New</button>}
+          title="God's Faithfulness"
+        />
+        {ebenezers.length ? (
+          <div className="mt-4 grid gap-2">
+            {ebenezers.slice(0, 4).map((item) => (
+              <MyRecordActivityRow
+                action={<MyRecordActionButton onClick={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })}>View</MyRecordActionButton>}
+                body={item.detail}
+                date={item.date}
+                icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                key={item.id}
+                title={item.title}
+              />
+            ))}
+            <button className="mt-2 w-fit text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })} type="button">View all</button>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <SectionEmptyState text="Answered prayers, thanksgiving entries, and fruit stories will preview here." title="No faithfulness markers yet." />
+          </div>
+        )}
+      </section>
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+        <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <SectionHeading title="Family & Impact" />
+          {familyPeople.length ? (
+            <div className="mt-4 grid gap-2">
+              {familyPeople.slice(0, 3).map((person) => (
+                <MyRecordActivityRow
+                  body={person.notes}
+                  date={person.lastActivityAt}
+                  icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={person.id}
+                  title={person.name}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4">
+              <SectionEmptyState text="Family discipleship and milestones will preview here." title="No family records yet." />
+            </div>
+          )}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <MyRecordSnapshotTile icon={<Coffee className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTables.length}`} />
+            <MyRecordSnapshotTile icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruit.length}`} />
+            <MyRecordSnapshotTile icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="People Ministered" value={`${new Set(ministryTables.flatMap((meeting) => meeting.fieldPersonIds)).size}`} />
+            <MyRecordSnapshotTile icon={<Shield className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Visibility" value="Private" />
+          </div>
+        </div>
+        <MyRecordPreviewCard
+          badge="Coming Soon"
+          body="A private annual summary of faithfulness, answered prayers, family milestones, and ministry stories."
+          icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+          meta="Prepared for future reports"
+          onView={() => onOpenSheet({ description: "Future Year in Review report for My Record.", kind: "placeholder", title: "Year in Review" })}
+          title="Year in Review"
+        />
+      </section>
+    </div>
+  );
+}
+
+function myRecordSheetTitle(sheet: MyRecordSheetState) {
+  if (sheet.kind === "placeholder") return sheet.title;
+  if (sheet.kind === "timeline") return "Timeline";
+  if (sheet.kind === "faithfulness") return "God's Faithfulness";
+  if (sheet.kind === "encounter") return sheet.title ?? (sheet.mode === "new" ? "Time With God" : "Encounter");
+  if (sheet.kind === "journal") return sheet.title ?? (sheet.mode === "new" ? "Add Journal Entry" : "Journal Entry");
+  if (sheet.kind === "prayer") return sheet.mode === "new" ? "Log Prayer Time" : "Prayer Time";
+  if (sheet.kind === "mentor_meeting") return sheet.mode === "new" ? "Log Mentor Meeting" : "Mentor Meeting";
+  if (sheet.kind === "mentor_relationship") return sheet.mode === "new" ? "Add Mentor" : "Mentor";
+  if (sheet.kind === "prophetic_word") return sheet.mode === "new" ? "Add Prophetic Word" : "Prophetic Word";
+  if (sheet.kind === "external_assessment") return sheet.mode === "new" ? "Add Assessment Result" : "Assessment Result";
+  if (sheet.kind === "assessment_detail") return sheet.item.name;
+  if (sheet.kind === "assessment") return sheet.item?.name ?? "Assessment";
+  if (sheet.kind === "book") return sheet.mode === "new" ? "Add Book" : sheet.book?.title ?? "Book";
+  if (sheet.kind === "chapter_note") return sheet.mode === "new" ? "Add Chapter Note" : sheet.note?.chapterLabel ?? "Chapter Note";
+  if (sheet.kind === "life_plan") return "Life Plan";
+
+  return "My Record";
+}
+
+function MyRecordSheetContent({
+  activeTab,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onDelete,
+  onOpenSheet,
+  onSave,
+  people,
+  record,
+  sheet,
+}: {
+  activeTab: MyRecordTab;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onDelete: (targetKind: string, targetId: string) => void;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+  record: DosAppUserRecord;
+  sheet: MyRecordSheetState;
+}) {
+  const namesById = personNameById(people);
+
+  if (sheet.kind === "placeholder") {
+    return (
+      <SectionEmptyState
+        text={sheet.description ?? "This belongs in a future My Record pass."}
+        title={sheet.title}
+      />
+    );
+  }
+
+  if (sheet.kind === "timeline") {
+    return sheet.items.length ? (
+      <div className="grid gap-2">
+        {sheet.items.map((item) => (
+          <MyRecordCompactRecordCard
+            body={item.body}
+            date={item.date}
+            kind={item.kind}
+            key={item.id}
+            meta={item.meta}
+            title={item.title}
+            typeLabel={item.badge}
+          />
+        ))}
+      </div>
+    ) : <SectionEmptyState title="No timeline activity yet." />;
+  }
+
+  if (sheet.kind === "faithfulness") {
+    return sheet.ebenezers.length ? (
+      <div className="grid gap-2">
+        {sheet.ebenezers.map((item) => (
+          <MyRecordActivityRow
+            body={item.detail}
+            date={item.date}
+            icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+            key={item.id}
+            title={item.title}
+          />
+        ))}
+      </div>
+    ) : <SectionEmptyState title="No faithfulness markers yet." />;
+  }
+
+  if (sheet.kind === "encounter") {
+    const entry = sheet.entry ?? null;
+    const prayerLog = sheet.prayerLog ?? null;
+    const personName = prayerLog?.fieldPersonId ? namesById.get(prayerLog.fieldPersonId) : null;
+
+    if (prayerLog && sheet.mode !== "view") {
+      return (
+        <MyRecordPrayerForm
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          log={prayerLog}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          people={people}
+        />
+      );
+    }
+
+    if (sheet.mode !== "view") {
+      return (
+        <MyRecordJournalForm
+          defaultTags={sheet.defaultTags}
+          entry={entry}
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          payloadKind="encounter"
+          saveLabel={{ edit: "Save Encounter", new: "Save Encounter" }}
+          title={sheet.title ?? "Time With God"}
+        />
+      );
+    }
+
+    if (entry) {
+      return (
+        <div className="grid gap-3">
+          <MyRecordDetailBlock label="Date" value={formatDate(entry.date)} />
+          <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(entry.minutesSpent)} />
+          <MyRecordDetailBlock label="Bible Passage" value={entry.biblePassage} />
+          <MyRecordDetailBlock label="Notes / Reflection" value={entry.notes} />
+          <MyRecordDetailBlock label="What the Lord Highlighted" value={entry.lordHighlight} />
+          <MyRecordDetailBlock label="Prayer Response / Next Step" value={entry.prayerResponse} />
+          {entry.tags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {entry.tags.map((tag) => (
+                <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={tag}>{tag}</span>
+              ))}
+            </div>
+          ) : null}
+          <MyRecordEntryActions
+            canDelete
+            onDelete={() => onDelete("encounter", entry.id)}
+            onEdit={() => onOpenSheet({ entry, kind: "encounter", mode: "edit", title: "Time With God" })}
+          />
+        </div>
+      );
+    }
+
+    return prayerLog ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date" value={formatDate(prayerLog.prayedAt)} />
+        <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(prayerLog.minutesSpent)} />
+        <MyRecordDetailBlock label="Prayer Focus" value={prayerLog.prayerFocus} />
+        <MyRecordDetailBlock label="Person Prayed For" value={personName} />
+        <MyRecordDetailBlock label="Status" value={prayerLog.answeredStatus === "answered" ? "Answered" : prayerLog.answeredStatus === "watching" ? "Watching" : "Open"} />
+        <MyRecordDetailBlock label="Notes" value={prayerLog.notes} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("prayer", prayerLog.id)} onEdit={() => onOpenSheet({ kind: "encounter", mode: "edit", prayerLog, title: "Prayer Encounter" })} />
+      </div>
+    ) : <SectionEmptyState title="Encounter not found." />;
+  }
+
+  if (sheet.kind === "journal") {
+    const entry = sheet.entry ?? null;
+
+    if (sheet.mode !== "view") {
+      return (
+        <MyRecordJournalForm
+          defaultTags={sheet.defaultTags}
+          entry={entry}
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          title={sheet.title ?? (entry ? "Edit Journal Entry" : "Add Journal Entry")}
+        />
+      );
+    }
+
+    return entry ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date" value={formatDate(entry.date)} />
+        <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(entry.minutesSpent)} />
+        <MyRecordDetailBlock label="Bible Passage" value={entry.biblePassage} />
+        <MyRecordDetailBlock label="Notes / Reflection" value={entry.notes} />
+        <MyRecordDetailBlock label="What the Lord Highlighted" value={entry.lordHighlight} />
+        <MyRecordDetailBlock label="Prayer Response / Next Step" value={entry.prayerResponse} />
+        {entry.tags.length ? (
+          <div className="flex flex-wrap gap-2">
+            {entry.tags.map((tag) => (
+              <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={tag}>{tag}</span>
+            ))}
+          </div>
+        ) : null}
+        <MyRecordEntryActions
+          canDelete
+          onDelete={() => onDelete("journal", entry.id)}
+          onEdit={() => onOpenSheet({ entry, kind: "journal", mode: "edit", title: "Edit Journal Entry" })}
+        />
+      </div>
+    ) : <SectionEmptyState title="Journal entry not found." />;
+  }
+
+  if (sheet.kind === "prayer") {
+    const log = sheet.log ?? null;
+    const personName = log?.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+
+    if (sheet.mode !== "view") {
+      return (
+        <MyRecordPrayerForm
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          log={log}
+          nextTab={activeTab}
+          onCancel={onClose}
+          onSave={onSave}
+          people={people}
+        />
+      );
+    }
+
+    return log ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date" value={formatDate(log.prayedAt)} />
+        <MyRecordDetailBlock label="Time Spent" value={formatRecordDuration(log.minutesSpent)} />
+        <MyRecordDetailBlock label="Prayer Focus" value={log.prayerFocus} />
+        <MyRecordDetailBlock label="Person Prayed For" value={personName} />
+        <MyRecordDetailBlock label="Status" value={log.answeredStatus === "answered" ? "Answered" : log.answeredStatus === "watching" ? "Watching" : "Open"} />
+        <MyRecordDetailBlock label="Notes" value={log.notes} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("prayer", log.id)} onEdit={() => onOpenSheet({ kind: "prayer", log, mode: "edit" })} />
+      </div>
+    ) : <SectionEmptyState title="Prayer log not found." />;
+  }
+
+  if (sheet.kind === "mentor_relationship") {
+    const mentor = sheet.mentor ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordMentorRelationshipForm errorMessage={errorMessage} isSubmitting={isSubmitting} mentor={mentor} nextTab={activeTab} onCancel={onClose} onSave={onSave} people={people} />;
+    }
+
+    return mentor ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Mentor" value={mentor.mentorName} />
+        <MyRecordDetailBlock label="Relationship" value={mentor.relationshipLabel} />
+        <MyRecordDetailBlock label="Meeting Rhythm" value={mentor.meetingRhythm} />
+        <MyRecordDetailBlock label="Email" value={mentor.email} />
+        <MyRecordDetailBlock label="Phone" value={mentor.phone} />
+        <MyRecordDetailBlock label="Field Contact" value={mentor.fieldPersonId ? namesById.get(mentor.fieldPersonId) : null} />
+        <MyRecordDetailBlock label="Notes" value={mentor.notes} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_relationship", mentor.id)} onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })} />
+      </div>
+    ) : <SectionEmptyState title="Mentor not found." />;
+  }
+
+  if (sheet.kind === "mentor_meeting") {
+    const meeting = sheet.meeting ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} meeting={meeting} mentor={sheet.mentor ?? null} mentors={record.mentorRelationships} nextTab={activeTab} onCancel={onClose} onSave={onSave} people={people} />;
+    }
+
+    return meeting ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date" value={formatDate(meeting.meetingDate)} />
+        <MyRecordDetailBlock label="Duration" value={formatRecordDuration(meeting.durationMinutes)} />
+        <MyRecordDetailBlock label="Mentor" value={meeting.mentorName} />
+        <MyRecordDetailBlock label="What Was Discussed" value={meeting.discussed} />
+        <MyRecordDetailBlock label="Counsel Received" value={meeting.counselReceived} />
+        <MyRecordDetailBlock label="Action Steps" value={meeting.actionSteps} />
+        <MyRecordDetailBlock label="Follow-up Date" value={meeting.followUpDate ? formatDate(meeting.followUpDate) : null} />
+        <MyRecordDetailBlock label="Notes" value={meeting.notes} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_meeting", meeting.id)} onEdit={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })} />
+      </div>
+    ) : <SectionEmptyState title="Mentor meeting not found." />;
+  }
+
+  if (sheet.kind === "prophetic_word") {
+    const word = sheet.word ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordPropheticWordForm errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} onCancel={onClose} onSave={onSave} word={word} />;
+    }
+
+    return word ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Date Received" value={formatDate(word.dateReceived)} />
+        <MyRecordDetailBlock label="Given By" value={word.givenBy} />
+        <MyRecordDetailBlock label="Location / Context" value={word.context} />
+        <MyRecordDetailBlock label="Status" value={myRecordPropheticWordStatusLabel(word.status)} />
+        <MyRecordDetailBlock label="Prophetic Word" value={word.wordText} />
+        <MyRecordDetailBlock label="Scripture References" value={word.scriptureReferences.join(", ")} />
+        <MyRecordDetailBlock label="Confirmations" value={word.confirmations} />
+        <MyRecordDetailBlock label="Notes / Reflections" value={word.notes} />
+        {word.tags.length ? (
+          <div className="flex flex-wrap gap-2">
+            {word.tags.map((tag) => (
+              <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={tag}>{tag}</span>
+            ))}
+          </div>
+        ) : null}
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("prophetic_word", word.id)} onEdit={() => onOpenSheet({ kind: "prophetic_word", mode: "edit", word })} />
+      </div>
+    ) : <SectionEmptyState title="Prophetic word not found." />;
+  }
+
+  if (sheet.kind === "life_plan") {
+    const plan = sheet.plan ?? resolveMyRecordLifePlan(record);
+    const isPersistedPlan = Boolean(plan.id && !plan.id.startsWith("seed-"));
+
+    if (sheet.mode !== "view") {
+      return <MyRecordLifePlanForm errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} onCancel={onClose} onSave={onSave} plan={plan} workspaceId={record.workspaceId} />;
+    }
+
+    return (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Calling Statement" value={plan.callingStatement} />
+        {plan.decisionFilters.length ? (
+          <MyRecordDetailBlock
+            label="Decision Filters"
+            value={(
+              <ul className="list-disc space-y-1 pl-5">
+                {plan.decisionFilters.map((filter) => <li key={filter}>{filter}</li>)}
+              </ul>
+            )}
+          />
+        ) : null}
+        {plan.topPriorities.length ? (
+          <MyRecordDetailBlock
+            label="Top 10 Priorities"
+            value={(
+              <ol className="list-decimal space-y-1 pl-5">
+                {plan.topPriorities.map((priority) => (
+                  <li key={priority.id}>
+                    {priority.label}{priority.allocationPercent === null ? "" : ` - ${priority.allocationPercent}%`}
+                  </li>
+                ))}
+              </ol>
+            )}
+          />
+        ) : null}
+        <MyRecordDetailBlock label="Daily Reminder" value={plan.dailyReminder} />
+        <MyRecordDetailBlock label="Focus Allocation" value={plan.focusAllocation} />
+        <MyRecordDetailBlock label="Responsibilities" value={plan.responsibilities} />
+        <MyRecordDetailBlock label="What I Should Rarely Do" value={plan.rarelyDo} />
+        <MyRecordDetailBlock label="What I Want To Be Remembered For" value={plan.legacyRememberedFor} />
+        <MyRecordDetailBlock label="What I Want My Family To Say" value={plan.legacyFamily} />
+        <MyRecordDetailBlock label="What I Want Those I Discipled To Say" value={plan.legacyDiscipled} />
+        <MyRecordDetailBlock label="What I Want The Church To Remember" value={plan.legacyChurch} />
+        <MyRecordDetailBlock label="What I Want Jesus To Say" value={plan.legacyJesus} />
+        <MyRecordDetailBlock label="Original Date Written" value={plan.originalDateWritten ? formatDate(plan.originalDateWritten) : null} />
+        <MyRecordDetailBlock label="Last Reviewed Date" value={plan.lastReviewedDate ? formatDate(plan.lastReviewedDate) : null} />
+        <MyRecordDetailBlock label="Next Review Date" value={plan.nextReviewDate ? formatDate(plan.nextReviewDate) : null} />
+        <MyRecordDetailBlock label="Review Rhythm" value={plan.reviewRhythm} />
+        {plan.reviewHistory.length ? (
+          <MyRecordDetailBlock
+            label="Review History"
+            value={plan.reviewHistory.map((review) => [review.date ? formatDate(review.date) : null, review.notes].filter(Boolean).join(" - ")).join("\n")}
+          />
+        ) : null}
+        <MyRecordDetailBlock label="Privacy" value="Private by default. Eligible for future Share Settings only when the user explicitly shares it." />
+        {plan.attachmentUrl ? (
+          <a className="w-fit text-xs font-bold text-[#1D4ED8]" href={plan.attachmentUrl} rel="noreferrer" target="_blank">View Original PDF</a>
+        ) : null}
+        <button className="inline-flex min-h-9 w-fit items-center rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#64748B] disabled:opacity-70" disabled type="button">
+          Parse PDF into Life Plan - Coming Soon
+        </button>
+        <MyRecordEntryActions
+          canDelete={isPersistedPlan}
+          onDelete={isPersistedPlan ? () => onDelete("life_plan", plan.id) : undefined}
+          onEdit={() => onOpenSheet({ kind: "life_plan", mode: "edit", plan })}
+        />
+      </div>
+    );
+  }
+
+  if (sheet.kind === "external_assessment") {
+    const result = sheet.assessmentResult ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordExternalAssessmentForm assessmentResult={result} errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} onCancel={onClose} onSave={onSave} workspaceId={record.workspaceId} />;
+    }
+
+    return result ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Assessment" value={result.assessmentName} />
+        <MyRecordDetailBlock label="Category" value={result.category} />
+        <MyRecordDetailBlock label="Date Taken" value={formatDate(result.dateTaken)} />
+        <MyRecordDetailBlock label="Result / Type" value={result.resultType} />
+        <MyRecordDetailBlock label="Short Summary" value={result.shortSummary} />
+        <MyRecordDetailBlock label="Scores / Details" value={result.scoresDetails} />
+        <MyRecordDetailBlock label="Notes" value={result.notes} />
+        {result.topStrengths.length ? (
+          <div className="flex flex-wrap gap-2">
+            {result.topStrengths.map((strength) => (
+              <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-xs font-black text-[#1D4ED8]" key={strength}>{strength}</span>
+            ))}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {result.officialAssessmentUrl ? <a className="text-xs font-bold text-[#1D4ED8]" href={result.officialAssessmentUrl} rel="noreferrer" target="_blank">Official Link</a> : null}
+          {result.attachmentUrl ? <a className="text-xs font-bold text-[#1D4ED8]" href={result.attachmentUrl} rel="noreferrer" target="_blank">View Report</a> : null}
+        </div>
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("external_assessment_result", result.id)} onEdit={() => onOpenSheet({ assessmentResult: result, kind: "external_assessment", mode: "edit" })} />
+      </div>
+    ) : <SectionEmptyState title="Assessment result not found." />;
+  }
+
+  if (sheet.kind === "assessment") {
+    if (sheet.item?.assessment) {
+      return (
+        <MyRecordAssessmentForm
+          assessment={sheet.item.assessment}
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          nextTab={activeTab}
+          onSave={async (payload, nextTab) => {
+            const saved = await onSave(payload, nextTab);
+            if (saved) onClose();
+            return saved;
+          }}
+        />
+      );
+    }
+
+    return <SectionEmptyState title="Choose an assessment from Growth." />;
+  }
+
+  if (sheet.kind === "assessment_detail") {
+    return (
+      <MyRecordAssessmentDetailPanel
+        errorMessage={errorMessage}
+        isSubmitting={isSubmitting}
+        item={sheet.item}
+        nextTab={activeTab}
+        onOpenSheet={onOpenSheet}
+        onSave={onSave}
+      />
+    );
+  }
+
+  if (sheet.kind === "book") {
+    const book = sheet.book ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordLearningBookForm book={book} errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} onCancel={onClose} onSave={onSave} />;
+    }
+
+    return book ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Book" value={book.title} />
+        <MyRecordDetailBlock label="Author" value={book.author} />
+        <MyRecordDetailBlock label="Status" value={myRecordLearningBookStatusLabel(book.status)} />
+        <MyRecordDetailBlock label="Started" value={book.startedOn ? formatDate(book.startedOn) : null} />
+        <MyRecordDetailBlock label="Finished" value={book.finishedOn ? formatDate(book.finishedOn) : null} />
+        <MyRecordDetailBlock label="Personal Application" value={book.personalApplication} />
+        <MyRecordDetailBlock label="Final Summary" value={book.finalSummary} />
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("learning_book", book.id)} onEdit={() => onOpenSheet({ book, kind: "book", mode: "edit" })} onNew={() => onOpenSheet({ book, kind: "chapter_note", mode: "new" })} />
+        <div className="grid gap-2">
+          <SectionHeading title="Chapter Notes" />
+          {book.chapterNotes.length ? (
+            <div className="grid gap-2">
+              {book.chapterNotes.map((note) => (
+                <MyRecordActivityRow
+                  action={(
+                    <div className="flex gap-2">
+                      <MyRecordActionButton onClick={() => onOpenSheet({ book, kind: "chapter_note", mode: "view", note })}>View</MyRecordActionButton>
+                      <MyRecordActionButton onClick={() => onOpenSheet({ book, kind: "chapter_note", mode: "edit", note })}>Edit</MyRecordActionButton>
+                    </div>
+                  )}
+                  body={note.personalApplication ?? note.highlights ?? note.notes}
+                  date={latestMyRecordDate(note.updatedAt, note.createdAt)}
+                  icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={note.id}
+                  title={note.chapterLabel}
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState text="Add chapter highlights, notes, application, and optional highlight photos/screenshots." title="No chapter notes yet." />
+          )}
+        </div>
+      </div>
+    ) : <SectionEmptyState title="Book not found." />;
+  }
+
+  if (sheet.kind === "chapter_note") {
+    const note = sheet.note ?? null;
+
+    if (sheet.mode !== "view") {
+      return <MyRecordLearningChapterForm book={sheet.book} errorMessage={errorMessage} isSubmitting={isSubmitting} nextTab={activeTab} note={note} onCancel={onClose} onSave={onSave} workspaceId={record.workspaceId} />;
+    }
+
+    return note ? (
+      <div className="grid gap-3">
+        <MyRecordDetailBlock label="Book" value={sheet.book.title} />
+        <MyRecordDetailBlock label="Chapter" value={note.chapterLabel} />
+        <MyRecordDetailBlock label="Highlights" value={note.highlights} />
+        <MyRecordDetailBlock label="Notes" value={note.notes} />
+        <MyRecordDetailBlock label="Personal Application" value={note.personalApplication} />
+        {note.highlightImageUrl ? (
+          <a className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white" href={note.highlightImageUrl} rel="noreferrer" target="_blank">
+            <img alt={`${note.chapterLabel} highlight`} className="max-h-72 w-full object-cover" src={note.highlightImageUrl} />
+          </a>
+        ) : null}
+        <MyRecordEntryActions canDelete onDelete={() => onDelete("learning_chapter_note", note.id)} onEdit={() => onOpenSheet({ book: sheet.book, kind: "chapter_note", mode: "edit", note })} />
+      </div>
+    ) : <SectionEmptyState title="Chapter note not found." />;
+  }
+
+  return null;
 }
 
 function MyRecordWorkspace({
@@ -21290,6 +25313,7 @@ function MyRecordWorkspace({
   fruit,
   isSubmitting,
   meetings,
+  myRecordV2Enabled,
   onBack,
   onQuickTab,
   onSave,
@@ -21297,12 +25321,14 @@ function MyRecordWorkspace({
   people,
   profileName,
   record,
+  reminders,
   tab,
 }: {
   errorMessage: string;
   fruit: DosAppFruit[];
   isSubmitting: boolean;
   meetings: DosAppMeeting[];
+  myRecordV2Enabled: boolean;
   onBack: () => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
@@ -21310,27 +25336,234 @@ function MyRecordWorkspace({
   people: DosAppPerson[];
   profileName: string;
   record: DosAppUserRecord;
+  reminders: DosAppRelationshipReminder[];
   tab: MyRecordTab;
 }) {
+  const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
+  const myRecordTabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
+  const activeMyRecordTab = normalizeMyRecordTab(tab, myRecordV2Enabled);
+  const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
+  const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
+  const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
+  const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
   const latestJournal = record.journalEntries[0] ?? null;
   const latestPrayer = record.prayerLogs[0] ?? null;
+  const latestEncounter = encounters[0] ?? null;
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
+  const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
+  const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, myRecordV2Enabled ? latestExternalAssessment : null);
+  const lifePlan = resolveMyRecordLifePlan(record);
   const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
+  const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
   const namesById = useMemo(() => personNameById(people), [people]);
+  const todayKey = todayDateValue();
+  const { end: weekEnd, start: weekStart } = currentWeekRange();
+  const encountersToday = encounters.filter((encounter) => isTodayDate(encounter.date)).length;
+  const reflectionEntriesToday = myRecordJournalReflectionCount(record.journalEntries.filter((entry) => isTodayDate(entry.date)));
+  const prayerEncountersToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length
+    + record.journalEntries.filter((entry) => isTodayDate(entry.date) && myRecordJournalHasPrayerTag(entry)).length;
+  const encounterMinutesThisWeek = record.journalEntries
+    .filter((entry) => isDateWithinRange(entry.date, weekStart, weekEnd))
+    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerEncounterMinutesThisWeek = record.journalEntries
+    .filter((entry) => myRecordJournalHasPrayerTag(entry) && isDateWithinRange(entry.date, weekStart, weekEnd))
+    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerMinutesThisWeek = record.prayerLogs
+    .filter((log) => isDateWithinRange(log.prayedAt, weekStart, weekEnd))
+    .reduce((sum, log) => sum + log.minutesSpent, 0);
+  const timeWithGodThisWeek = encounterMinutesThisWeek + prayerMinutesThisWeek;
+
+  useEffect(() => {
+    setIsMyRecordFabOpen(false);
+  }, [activeMyRecordTab]);
+
+  useEffect(() => {
+    if (tab !== activeMyRecordTab) {
+      onTabChange(activeMyRecordTab);
+    }
+  }, [activeMyRecordTab, onTabChange, tab]);
+
+  function openMyRecordSheet(sheet: MyRecordSheetState) {
+    setMyRecordSheet(sheet);
+  }
+
+  function openMyRecordPlaceholder(title: string, description?: string) {
+    setMyRecordSheet({ description, kind: "placeholder", title });
+  }
+
+  function openMyRecordTimelineItem(item: MyRecordTimelineItem) {
+    if (item.id.startsWith("encounter-journal-")) {
+      const entry = record.journalEntries.find((journalEntry) => journalEntry.id === item.id.replace("encounter-journal-", ""));
+      if (entry) {
+        openMyRecordSheet({ entry, kind: "encounter", mode: "view", title: "Time With God" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("encounter-prayer-")) {
+      const log = record.prayerLogs.find((prayerLog) => prayerLog.id === item.id.replace("encounter-prayer-", ""));
+      if (log) {
+        openMyRecordSheet({ kind: "encounter", mode: "view", prayerLog: log, title: "Prayer Encounter" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("mentor-")) {
+      const meeting = record.mentorMeetings.find((mentorMeeting) => mentorMeeting.id === item.id.replace("mentor-", ""));
+      if (meeting) {
+        openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("external-assessment-")) {
+      const assessmentResult = record.externalAssessmentResults.find((result) => result.id === item.id.replace("external-assessment-", ""));
+      if (assessmentResult) {
+        openMyRecordSheet({ assessmentResult, kind: "external_assessment", mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("assessment-")) {
+      const result = record.assessmentResults.find((assessmentResult) => assessmentResult.id === item.id.replace("assessment-", ""));
+      openMyRecordPlaceholder(result?.assessmentName ?? "Assessment Result", result ? `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%` : "Assessment result details.");
+      return;
+    }
+
+    if (item.id.startsWith("prophetic-word-")) {
+      const word = record.propheticWords.find((propheticWord) => propheticWord.id === item.id.replace("prophetic-word-", ""));
+      if (word) {
+        openMyRecordSheet({ kind: "prophetic_word", mode: "view", word });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("learning-book-")) {
+      const book = record.learningBooks.find((learningBook) => learningBook.id === item.id.replace("learning-book-", ""));
+      if (book) {
+        openMyRecordSheet({ book, kind: "book", mode: "view" });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("learning-chapter-")) {
+      const noteId = item.id.replace("learning-chapter-", "");
+      const book = record.learningBooks.find((learningBook) => learningBook.chapterNotes.some((note) => note.id === noteId));
+      const note = book?.chapterNotes.find((chapterNote) => chapterNote.id === noteId);
+      if (book && note) {
+        openMyRecordSheet({ book, kind: "chapter_note", mode: "view", note });
+        return;
+      }
+    }
+
+    if (item.id.startsWith("life-plan-") && record.lifePlan) {
+      openMyRecordSheet({ kind: "life_plan", mode: "view", plan: record.lifePlan });
+      return;
+    }
+
+    openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" });
+  }
+
+  function handleMyRecordDelete(targetKind: string, targetId: string) {
+    if (!window.confirm("Delete this My Record item?")) {
+      return;
+    }
+
+    void (async () => {
+      const saved = await onSave({ kind: "delete", targetId, targetKind }, activeMyRecordTab);
+
+      if (saved) {
+        setMyRecordSheet(null);
+      }
+    })();
+  }
 
   function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    void onSave({
-      currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
-      displayName: profileName,
-      kind: "record",
-    }, "overview");
+    void (async () => {
+      const saved = await onSave({
+        currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
+        displayName: profileName,
+        kind: "record",
+      }, "overview");
+
+      if (saved) {
+        setIsWordsEditorOpen(false);
+      }
+    })();
   }
+
+  const myRecordFabItems: MyRecordContextualAction[] = myRecordV2Enabled ? (() => {
+    const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
+    const prayerEncounter = () => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" });
+    const reflection = () => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" });
+    const addMentor = () => openMyRecordSheet({ kind: "mentor_relationship", mode: "new" });
+    const mentorMeeting = () => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
+    const assessment = () => openMyRecordSheet({ kind: "external_assessment", mode: "new" });
+    const propheticWord = () => openMyRecordSheet({ kind: "prophetic_word", mode: "new" });
+    const openLifePlan = () => openMyRecordSheet({ kind: "life_plan", mode: "edit", plan: lifePlan });
+    const book = () => openMyRecordSheet({ kind: "book", mode: "new" });
+    const faithfulness = () => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" });
+    const answeredPrayer = () => openMyRecordSheet({ defaultTags: ["Prayer", "Thanksgiving"], kind: "encounter", mode: "new", title: "Answered Prayer" });
+
+    if (activeMyRecordTab === "walk_with_god") {
+      return [
+        { icon: "library", label: "Time With God", onClick: encounter },
+        { icon: "prayer", label: "Prayer Encounter", onClick: prayerEncounter },
+        { icon: "log", label: "Reflection", onClick: reflection },
+      ];
+    }
+
+    if (activeMyRecordTab === "growth") {
+      return [
+        { icon: "people", label: "Add Mentor", onClick: addMentor },
+        { icon: "people", label: "Log Mentor Meeting", onClick: mentorMeeting },
+        { icon: "library", label: "Assessment", onClick: assessment },
+        { icon: "library", label: "Book", onClick: book },
+        { disabled: true, icon: "library", label: "Course", onClick: () => undefined },
+        { disabled: true, icon: "prayer", label: "Podcast", onClick: () => undefined },
+      ];
+    }
+
+    if (activeMyRecordTab === "calling") {
+      return [
+        {
+          icon: "log",
+          label: "Word(s) of the Year",
+          onClick: () => {
+            setIsWordsEditorOpen(true);
+            onTabChange("overview");
+          },
+        },
+        { icon: "prayer", label: "Prophetic Word", onClick: propheticWord },
+        { icon: "log", label: "Life Plan", onClick: openLifePlan },
+        { icon: "log", label: "Vision", onClick: () => openMyRecordPlaceholder("Vision", "Future calling record.") },
+        { icon: "calendar", label: "Milestone", onClick: () => openMyRecordPlaceholder("Milestone", "Future calling milestone.") },
+      ];
+    }
+
+    if (activeMyRecordTab === "legacy") {
+      return [
+        { icon: "fruit", label: "God's Faithfulness", onClick: faithfulness },
+        { icon: "prayer", label: "Answered Prayer", onClick: answeredPrayer },
+        { icon: "people", label: "Family Milestone", onClick: () => openMyRecordPlaceholder("Family Milestone", "Future family milestone.") },
+        { icon: "fruit", label: "Ministry Story", onClick: () => openMyRecordPlaceholder("Ministry Story", "Future ministry story.") },
+      ];
+    }
+
+    return [
+      { icon: "library", label: "Time With God", onClick: encounter },
+      { icon: "prayer", label: "Prayer Encounter", onClick: prayerEncounter },
+      { icon: "log", label: "Reflection", onClick: reflection },
+      { icon: "people", label: "Mentor", onClick: mentorMeeting },
+      { icon: "library", label: "Assessment", onClick: assessment },
+    ];
+  })() : [];
 
   // TODO: Future: Permission-based My Record sharing for mentor, spouse, board member, accountability partner, pastor, and custom viewer roles.
   // TODO: Future: Mentor-request workflow for assessments, reflections, Scripture reading, accountability questions, and prayer updates.
@@ -21339,19 +25572,142 @@ function MyRecordWorkspace({
   // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
 
   return (
-    <div className="space-y-5">
+    <div className={`relative space-y-5 ${myRecordV2Enabled ? "pb-36 md:pb-24" : ""}`}>
       <div className="flex min-h-9 items-center md:hidden">
         <MoreBackButton onClick={onBack} />
       </div>
       <TabHero
+        action={(
+          <button
+            aria-expanded={isShareSettingsOpen}
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_22px_rgba(37,99,235,0.05)]"
+            onClick={() => setIsShareSettingsOpen((current) => !current)}
+            type="button"
+          >
+            <Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+            <span className="hidden sm:inline">Share Settings</span>
+            <span className="sm:hidden">Share</span>
+          </button>
+        )}
         icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
         onScriptureClick={() => undefined}
         subtitle="Your walk with the Lord, prayer, and personal discipleship history."
         title="My Record"
       />
-      <MyRecordTabBar onChange={onTabChange} value={tab} />
+      {isShareSettingsOpen ? (
+        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#15803D] ring-1 ring-[#BBF7D0]">
+              <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-[#0F172A]">My Record is private.</p>
+              <p className="mt-1 text-sm leading-6 text-[#64748B]">Future sharing will be section-by-section and controlled by the user.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {myRecordFutureSharingRoles.map((role) => (
+                  <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" key={role} style={{ fontFamily: font.rajdhani }}>
+                    {role}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+      <MyRecordTabBar onChange={onTabChange} tabs={myRecordTabs} value={activeMyRecordTab} />
 
-      {tab === "overview" ? (
+      {activeMyRecordTab === "overview" && myRecordV2Enabled ? (
+        <div className="space-y-4 pb-36 md:pb-6">
+          <section className="grid gap-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <SectionHeading title="Today at a Glance" />
+              <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
+            </div>
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 rounded-[20px] border border-[#EAF2FF] bg-white p-1.5 shadow-[0_10px_24px_rgba(37,99,235,0.035)] min-[520px]:grid-cols-4">
+              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "No encounter"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Encounters" value={`${encountersToday}`} />
+              <MyRecordAtAGlanceCard detail={prayerEncounterMinutesThisWeek ? "Tagged or dedicated" : "Dedicated today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="prayer" label="Prayer" value={`${prayerEncountersToday}`} />
+              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "No reflection"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="reflection" label="Reflection" value={`${reflectionEntriesToday}`} />
+              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time" value={formatRecordDuration(timeWithGodThisWeek)} />
+            </div>
+          </section>
+          <section className="grid gap-2">
+            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
+            {timeline.length ? (
+              <div className="grid gap-1.5">
+                {timeline.slice(0, 4).map((item) => (
+                  <MyRecordCompactRecordCard
+                    body={item.body}
+                    date={item.date}
+                    kind={item.kind}
+                    key={item.id}
+                    meta={item.meta}
+                    onClick={() => openMyRecordTimelineItem(item)}
+                    title={item.title}
+                    typeLabel={item.badge}
+                  />
+                ))}
+              </div>
+            ) : (
+              <MyRecordCompactEmptyRow
+                action={<MyRecordActionButton onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
+                icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                text="Time with God, mentors, assessments, and words collect here."
+                title="No personal activity yet."
+              />
+            )}
+          </section>
+          <section className="grid gap-2">
+            <SectionHeading title="Quick Actions" />
+            <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-3 xl:grid-cols-5">
+              <MyRecordQuickActionCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Time With God" onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })} />
+              <MyRecordQuickActionCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Encounter" onClick={() => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" })} />
+              <MyRecordQuickActionCard icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Reflection" onClick={() => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" })} />
+              <MyRecordQuickActionCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meeting" onClick={() => openMyRecordSheet({ kind: "mentor_meeting", mode: "new" })} />
+              <MyRecordQuickActionCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessment" onClick={() => openMyRecordSheet({ kind: "external_assessment", mode: "new" })} />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeMyRecordTab === "walk_with_god" && myRecordV2Enabled ? (
+        <MyRecordWalkWithGodPanel
+          encounters={encounters}
+          onOpenSheet={openMyRecordSheet}
+          timeline={timeline}
+        />
+      ) : null}
+
+      {activeMyRecordTab === "growth" && myRecordV2Enabled ? (
+        <MyRecordGrowthPanel
+          myRecordV2Enabled={myRecordV2Enabled}
+          onOpenSheet={openMyRecordSheet}
+          people={people}
+          profileName={profileName}
+          record={record}
+        />
+      ) : null}
+
+      {activeMyRecordTab === "calling" && myRecordV2Enabled ? (
+        <MyRecordCallingPanel
+          errorMessage={errorMessage}
+          isSubmitting={isSubmitting}
+          onOpenSheet={openMyRecordSheet}
+          onSave={onSave}
+          record={record}
+        />
+      ) : null}
+
+      {activeMyRecordTab === "legacy" && myRecordV2Enabled ? (
+        <MyRecordLegacyPanel
+          ebenezers={ebenezers}
+          fruit={fruit}
+          meetings={meetings}
+          onOpenSheet={openMyRecordSheet}
+          people={people}
+        />
+      ) : null}
+
+      {activeMyRecordTab === "overview" && !myRecordV2Enabled ? (
         <div className="space-y-4">
           <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
             <div className="flex min-w-0 items-start gap-3">
@@ -21377,7 +25733,7 @@ function MyRecordWorkspace({
             <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Mentor Meeting" value={latestMentorMeeting ? formatDate(latestMentorMeeting.meetingDate) : "Not logged"} />
             <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time Logged" value={formatRecordDuration(totalQuietMinutes)} />
             <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time Logged" value={formatRecordDuration(totalPrayerMinutes)} />
-            <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Assessment" value={latestAssessment ? `${latestAssessment.assessmentName} · ${Math.round(latestAssessment.percentage)}%` : "Not taken"} />
+            <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Assessment" value={latestAssessmentLabel} />
           </section>
           <section className="grid gap-2">
             <SectionHeading title="Quick Actions" />
@@ -21414,7 +25770,7 @@ function MyRecordWorkspace({
                     </span>
                   ))}
                 </div>
-                <p className="mt-3 text-xs leading-5 text-[#94A3B8]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
+                <p className="mt-3 text-xs leading-5 text-[#64748B]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
               </div>
             </div>
           </section>
@@ -21438,7 +25794,7 @@ function MyRecordWorkspace({
         </div>
       ) : null}
 
-      {tab === "journal" ? (
+      {activeMyRecordTab === "journal" && !myRecordV2Enabled ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <MyRecordJournalForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
           <section className="grid gap-2 self-start">
@@ -21462,7 +25818,7 @@ function MyRecordWorkspace({
         </div>
       ) : null}
 
-      {tab === "prayer" ? (
+      {activeMyRecordTab === "prayer" && !myRecordV2Enabled ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <MyRecordPrayerForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
           <section className="grid gap-2 self-start">
@@ -21491,7 +25847,7 @@ function MyRecordWorkspace({
         </div>
       ) : null}
 
-      {tab === "mentors" ? (
+      {activeMyRecordTab === "mentors" && !myRecordV2Enabled ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="grid gap-4 self-start">
             <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} mentors={record.mentorRelationships} onSave={onSave} people={people} />
@@ -21538,11 +25894,79 @@ function MyRecordWorkspace({
         </div>
       ) : null}
 
-      {tab === "assessments" ? (
-        <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} record={record} />
+      {activeMyRecordTab === "scripture" && !myRecordV2Enabled ? (
+        <section className="grid gap-3">
+          <SectionHeading title="Scripture" />
+          {record.journalEntries.some((entry) => Boolean(entry.biblePassage)) ? (
+            <div className="grid gap-2">
+              {record.journalEntries.filter((entry) => Boolean(entry.biblePassage)).map((entry) => (
+                <MyRecordActivityRow
+                  body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
+                  date={entry.date}
+                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                  key={`scripture-${entry.id}`}
+                  title={`${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState
+              action={<CompactButton icon="log" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>}
+              text="Scriptures from journal entries will collect here."
+              title="No Scripture logged yet."
+            />
+          )}
+        </section>
       ) : null}
 
-      {tab === "timeline" ? (
+      {activeMyRecordTab === "learning" && !myRecordV2Enabled ? (
+        <MyRecordLearningPanel errorMessage={errorMessage} isSubmitting={isSubmitting} onOpenSheet={openMyRecordSheet} onSave={onSave} record={record} />
+      ) : null}
+
+      {activeMyRecordTab === "prophetic_words" && !myRecordV2Enabled ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <MyRecordPropheticWordForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
+          <section className="grid gap-2 self-start">
+            <SectionHeading title="Prophetic Words" />
+            {record.propheticWords.length ? (
+              <div className="grid gap-2">
+                {record.propheticWords.map((word) => (
+                  <article className="rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]" key={word.id}>
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black leading-5 text-[#0F172A]">{word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatDate(word.dateReceived)}{word.context ? ` · ${word.context}` : ""}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                        {myRecordPropheticWordStatusLabel(word.status)}
+                      </span>
+                    </div>
+                    <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#334155]">{word.wordText}</p>
+                    {word.scriptureReferences.length || word.tags.length ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {[...word.scriptureReferences, ...word.tags].slice(0, 8).map((item) => (
+                          <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#475569]" key={item}>{item}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                    {word.confirmations || word.notes ? (
+                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#64748B]">{word.confirmations ?? word.notes}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState text="Track words, Scripture references, confirmations, fulfillment status, and reflections privately." title="No prophetic words recorded yet." />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {activeMyRecordTab === "assessments" && !myRecordV2Enabled ? (
+        <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} myRecordV2Enabled={myRecordV2Enabled} onOpenSheet={openMyRecordSheet} onSave={onSave} profileName={profileName} record={record} />
+      ) : null}
+
+      {activeMyRecordTab === "timeline" && !myRecordV2Enabled ? (
         <section className="grid gap-2">
           <SectionHeading title="Personal Timeline" />
           {timeline.length ? (
@@ -21559,6 +25983,32 @@ function MyRecordWorkspace({
             />
           )}
         </section>
+      ) : null}
+
+      {myRecordV2Enabled ? (
+        <MyRecordContextualFloatingActions
+          isOpen={isMyRecordFabOpen}
+          items={myRecordFabItems}
+          onClose={() => setIsMyRecordFabOpen(false)}
+          onToggle={() => setIsMyRecordFabOpen((current) => !current)}
+        />
+      ) : null}
+
+      {myRecordSheet ? (
+        <MyRecordSheetFrame onClose={() => setMyRecordSheet(null)} title={myRecordSheetTitle(myRecordSheet)}>
+          <MyRecordSheetContent
+            activeTab={activeMyRecordTab}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setMyRecordSheet(null)}
+            onDelete={handleMyRecordDelete}
+            onOpenSheet={openMyRecordSheet}
+            onSave={onSave}
+            people={people}
+            record={record}
+            sheet={myRecordSheet}
+          />
+        </MyRecordSheetFrame>
       ) : null}
     </div>
   );
@@ -21968,7 +26418,7 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
       {flow.sections.map((section) => (
         <div className="grid gap-2" key={section.id}>
           {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               {section.title}
             </p>
           ) : null}
@@ -21984,7 +26434,7 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
       ))}
       {selectedActionLabels.length ? (
         <div className="rounded-2xl bg-[#F1F5F9] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             Follow-up
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -22025,7 +26475,7 @@ function EventPeopleRoleGroup({
 
   return (
     <div className="grid gap-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{title}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {people.map((person) => {
           const subRoleLabel = supportingAttendeeSubRoleLabel(person.supportingSubRole ?? null);
@@ -22128,7 +26578,7 @@ function DetailRow({
     <>
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span> : null}
       <div className="min-w-0 flex-1">
-        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
+        {label ? <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p> : null}
         <div className="mt-0.5 break-words leading-5 text-[#0F172A]">{value}</div>
       </div>
       {href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
@@ -22212,13 +26662,13 @@ function NotesReflectionDetailCard({
         </div>
         {prayerNeedsText ? (
           <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Prayer Needs</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Prayer Needs</p>
             <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{prayerNeedsText}</p>
           </div>
         ) : null}
       </div>
       <div className="rounded-[18px] border border-[#E2E8F0] bg-white px-3 py-3">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Observed Fruit</p>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Observed Fruit</p>
         <ObservedFruitChipList fruit={reflection?.observedFruit ?? []} />
       </div>
     </DetailCard>
@@ -23517,7 +27967,7 @@ function PersonDetailOverlay({
                     <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Note</span>
+                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Note</span>
                     <span className="mt-1 block whitespace-pre-line leading-6 text-[#0F172A]">{overviewNotes}</span>
                   </span>
                 </div>
@@ -23566,7 +28016,7 @@ function PersonDetailOverlay({
             <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Upcoming">
               {upcomingTimelineGroups.length ? upcomingTimelineGroups.map(({ group, items }) => (
                 <section className="grid gap-2" key={group}>
-                  <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{group}</p>
+                  <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group}</p>
                   {items.map((item) => (
                     <UpcomingTimelineRow
                       item={item}
@@ -23833,7 +28283,7 @@ function SendableFormPreviewCard({
               <p className="mt-2 text-xs leading-5 text-[#64748B]">{section.copy}</p>
             ) : null}
             {section.type === "field" ? (
-              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#94A3B8] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
+              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#64748B] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
                 {section.placeholder ?? (section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field")}
               </div>
             ) : null}
@@ -23902,7 +28352,7 @@ function MeetingSendConfirmationSheet({
         </div>
         {recipientOptions.length > 1 ? (
           <label className="grid gap-1.5 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               Recipient
             </span>
             <select
@@ -24405,10 +28855,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
+  const myRecordV2Enabled = data.features.myRecordV2Enabled;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
+  const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
@@ -25179,6 +29631,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeTab === "more" && moreAppView !== activeMoreAppView) {
+      setMoreAppView(activeMoreAppView);
+    }
+  }, [activeMoreAppView, activeTab, moreAppView]);
+
   function pulseTabTransition() {
     if (tabTransitionTimeoutRef.current !== null) {
       window.clearTimeout(tabTransitionTimeoutRef.current);
@@ -25192,7 +29650,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function selectTab(tab: ActiveTab) {
-    if (tab !== activeTab || moreAppView !== null) {
+    if (tab !== activeTab || activeMoreAppView !== null) {
       pulseTabTransition();
     }
 
@@ -25231,12 +29689,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openMoreApp(view: MoreAppView) {
-    if (activeTab !== "more" || moreAppView !== view) {
+    const nextView = normalizeMoreAppView(view) ?? "apps";
+
+    if (activeTab !== "more" || activeMoreAppView !== nextView) {
       pulseTabTransition();
     }
 
     setActiveTab("more");
-    setMoreAppView(view);
+    setMoreAppView(nextView);
+    if (nextView === "my_record") {
+      setMyRecordTab((current) => normalizeMyRecordTab(current, myRecordV2Enabled));
+    }
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
     setIsPrayerSearchOpen(false);
@@ -25265,7 +29728,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMyRecordTab(tab: MyRecordTab) {
     openMoreApp("my_record");
-    setMyRecordTab(tab);
+    setMyRecordTab(normalizeMyRecordTab(tab, myRecordV2Enabled));
   }
 
   function openReviewsList() {
@@ -25288,27 +29751,56 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsSubmitting(true);
 
     try {
+      const requestPayload = {
+        ...payload,
+        workspaceId: data.workspace.id,
+      };
+
+      console.info("[My Record] Save request", myRecordLogPayload(requestPayload));
       const response = await fetch("/api/dos/app/my-record", {
-        body: JSON.stringify({
-          ...payload,
-          workspaceId: data.workspace.id,
-        }),
+        body: JSON.stringify(requestPayload),
         headers: {
           "Content-Type": "application/json",
         },
         method: "POST",
       });
-      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+      const responseText = await response.text();
+      let result: { error?: string; id?: string } = {};
 
-      if (!response.ok || !result.id) {
-        throw new Error(result.error ?? "Unable to save My Record.");
+      try {
+        result = responseText ? JSON.parse(responseText) as { error?: string; id?: string } : {};
+      } catch (parseError) {
+        console.error("[My Record] Save response was not JSON", {
+          body: responseText.slice(0, 1000),
+          parseError,
+          payload: myRecordLogPayload(requestPayload),
+          status: response.status,
+          statusText: response.statusText,
+        });
       }
 
-      setMyRecordTab(nextTab);
+      console.info("[My Record] Save response", {
+        body: responseText.slice(0, 1000),
+        ok: response.ok,
+        payload: myRecordLogPayload(requestPayload),
+        result,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? (responseText.slice(0, 500) || `Unable to save My Record. HTTP ${response.status} ${response.statusText}`.trim()));
+      }
+
+      setMyRecordTab(normalizeMyRecordTab(nextTab, myRecordV2Enabled));
       router.refresh();
 
       return true;
     } catch (error) {
+      console.error("[My Record] Save failed", {
+        error,
+        payload: myRecordLogPayload(payload),
+      });
       setErrorMessage(error instanceof Error ? error.message : "Unable to save My Record.");
       return false;
     } finally {
@@ -28364,7 +32856,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : isUsamApplicationPending
         ? "Pending"
         : "Optional";
-  const myRecordActivityCount = data.myRecord.journalEntries.length + data.myRecord.prayerLogs.length + data.myRecord.mentorMeetings.length + data.myRecord.assessmentResults.length;
+  const myRecordActivityCount = data.myRecord.journalEntries.length
+    + data.myRecord.prayerLogs.length
+    + data.myRecord.mentorMeetings.length
+    + data.myRecord.assessmentResults.length
+    + (myRecordV2Enabled ? data.myRecord.externalAssessmentResults.length : 0)
+    + (myRecordV2Enabled ? data.myRecord.propheticWords.length : 0)
+    + (myRecordV2Enabled ? data.myRecord.learningBooks.reduce((sum, book) => sum + 1 + book.chapterNotes.length, 0) : 0);
   const appCatalogSections: DosAppCatalogSection[] = [
     {
       description: "Core DOS rhythms that are already available in this workspace.",
@@ -28528,6 +33026,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const testimonyReviewFruitFormAction = {
     onPreview: () => handlePreviewFruitForm("testimony_review"),
   };
+  const myRecordQuickActionTabs = myRecordV2Enabled
+    ? {
+        assessment: "growth" as MyRecordTab,
+        mentor: "growth" as MyRecordTab,
+        prayer: "walk_with_god" as MyRecordTab,
+        prophetic: "calling" as MyRecordTab,
+        quietTime: "walk_with_god" as MyRecordTab,
+      }
+    : {
+        assessment: "assessments" as MyRecordTab,
+        mentor: "mentors" as MyRecordTab,
+        prayer: "prayer" as MyRecordTab,
+        prophetic: "overview" as MyRecordTab,
+        quietTime: "journal" as MyRecordTab,
+      };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
     ? [
         { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
@@ -28539,19 +33052,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runMobileAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runMobileAction(() => setIsPeopleImportOpen(true)) },
         ]
-    : activeTab === "more" && moreAppView === "prayer"
+    : activeTab === "more" && activeMoreAppView === "prayer"
       ? [
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
-    : activeTab === "more" && moreAppView === "my_record"
+    : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
       ? [
-          { icon: "log", label: "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab("journal")) },
-          { icon: "prayer", label: "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab("prayer")) },
-          { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab("mentors")) },
-          { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab("assessments")) },
+          { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
+          { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
+          { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
+          { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
+          ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
         ]
-    : activeTab === "more" && moreAppView === "fruit"
+    : activeTab === "more" && activeMoreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
           label: form.title,
@@ -28581,15 +33095,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
-      : activeTab === "more" && moreAppView === "my_record"
+      : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
         ? [
-            { icon: "log", label: "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab("journal")) },
-            { icon: "prayer", label: "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab("prayer")) },
-            { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab("mentors")) },
-            { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab("assessments")) },
+            { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
+            { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
+            { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
+            { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
+            ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
           ]
       : [];
+  const suppressGlobalFabForMyRecordV2 = activeTab === "more" && activeMoreAppView === "my_record" && myRecordV2Enabled;
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
+    && !suppressGlobalFabForMyRecordV2
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -28618,6 +33135,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedReminderId
     && !selectedScripture;
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
+    && !suppressGlobalFabForMyRecordV2
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -28647,7 +33165,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosDawnShellClassName}`}>
         <DesktopNavigation
           activeTab={activeTab}
-          moreAppView={moreAppView}
+          moreAppView={activeMoreAppView}
           onOpenMoreApp={openMoreApp}
           onOpenProfile={() => openMoreApp("settings")}
           onSelect={selectTab}
@@ -28698,10 +33216,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 fruitItems={data.fruit}
                 loggedMeetings={ministryLoggedMeetings}
                 meetings={data.meetings}
+                myRecord={data.myRecord}
+                myRecordV2Enabled={myRecordV2Enabled}
                 onAddPerson={() => openForm("person")}
                 onLogMeeting={() => openForm("meeting")}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
+                onOpenMyRecord={() => openMoreApp("my_record")}
                 onOpenPerson={openPersonDetail}
                 onOpenReports={() => openMoreApp("reports")}
                 onOpenReview={openSubmittedReview}
@@ -28908,8 +33429,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             ) : null}
 
             {activeTab === "more" ? (
-              <div className="space-y-5">
-                {moreAppView === null || moreAppView === "apps" ? (
+              <div className="space-y-5" key={`more-${activeMoreAppView ?? "apps"}`}>
+                {activeMoreAppView === null || activeMoreAppView === "apps" ? (
                   <>
                     <div className="space-y-4 md:hidden">
                       {isAppsSearchOpen ? (
@@ -28949,7 +33470,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "settings" ? (
+                {activeMoreAppView === "settings" ? (
                   <DesktopSettingsProfileView
                     application={usamApplication}
                     email={profileEmail}
@@ -28971,12 +33492,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
-                {moreAppView === "my_record" ? (
+                {activeMoreAppView === "my_record" ? (
                   <MyRecordWorkspace
                     errorMessage={errorMessage}
                     fruit={data.fruit}
                     isSubmitting={isSubmitting}
                     meetings={data.meetings}
+                    myRecordV2Enabled={myRecordV2Enabled}
                     onBack={() => setMoreAppView(null)}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
@@ -28984,11 +33506,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     people={people}
                     profileName={profileName}
                     record={data.myRecord}
+                    reminders={data.reminders}
                     tab={myRecordTab}
                   />
                 ) : null}
 
-                {moreAppView === "groups" ? (
+                {activeMoreAppView === "groups" ? (
                   <GroupsWorkspace
                     groups={groups}
                     groupsNotice={groupsNotice}
@@ -29029,7 +33552,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
-                {moreAppView === "prayer" ? (
+                {activeMoreAppView === "prayer" ? (
                   <>
                     <div className="flex min-h-9 items-center md:hidden">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -29101,7 +33624,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "fruit" ? (
+                {activeMoreAppView === "fruit" ? (
                   <>
                     <div className="flex min-h-9 items-center">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -29177,7 +33700,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "library" ? (
+                {activeMoreAppView === "library" ? (
                   <>
                     <div className="flex min-h-9 items-center">
                       <MoreBackButton onClick={() => setMoreAppView(null)} />
@@ -29238,7 +33761,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "in_season" ? (
+                {activeMoreAppView === "in_season" ? (
                   <>
                     {/* TODO: Later rename the internal in_season app key after migration/route plan. */}
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
@@ -29257,7 +33780,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "missionary_profile" ? (
+                {activeMoreAppView === "missionary_profile" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
                     <TabHero
@@ -29286,7 +33809,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "prayer_team" ? (
+                {activeMoreAppView === "prayer_team" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
                     <TabHero
@@ -29304,7 +33827,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "support_team" ? (
+                {activeMoreAppView === "support_team" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
                     <TabHero
@@ -29322,7 +33845,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "stewardship" ? (
+                {activeMoreAppView === "stewardship" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
                     <TabHero
@@ -29337,7 +33860,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
 
                 {/* TODO: Fold Table Flow into Table later as Guided Flow templates. */}
-                {moreAppView === "table_flow" ? (
+                {activeMoreAppView === "table_flow" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
                     <TabHero
@@ -29351,7 +33874,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "reports" ? (
+                {activeMoreAppView === "reports" ? (
                   <>
                     <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
                     <TabHero
@@ -29368,7 +33891,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </>
                 ) : null}
 
-                {moreAppView === "organizations" ? (
+                {activeMoreAppView === "organizations" ? (
                   <>
                     <div className="space-y-5 md:hidden">
                       <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
