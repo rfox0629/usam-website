@@ -296,6 +296,8 @@ assert(
 );
 assertIncludes(appClient, "● Gathering In Progress", "Active gathering state must be visible.");
 assertIncludes(appClient, "Attendance Progress", "Active gathering state must show attendance progress.");
+assertIncludes(appClient, "activeGroupMembers(group)", "Attendance progress must ignore removed/deactivated group memberships.");
+assertIncludes(appClient, "member.status === \"active\"", "Attendance progress must count only active group members.");
 assertIncludes(appClient, "End Gathering Wizard", "Groups must include the end gathering wizard.");
 assertIncludes(appClient, "Prayer Requests", "End gathering wizard must include prayer requests.");
 assertIncludes(appClient, "What happened today?", "End gathering wizard must include the Fruit step prompt.");
