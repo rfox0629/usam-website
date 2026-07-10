@@ -38,7 +38,7 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = {
     default_location: "Lebanon Hills Trailhead, Eagan, MN",
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     id: "2three2",
-    image_url: null,
+    image_url: "/images/usam/2three2-share.png",
     name: "2three2",
     organization_id: null,
     rhythm_label: "Weekly · Saturday · 7:00 AM",
