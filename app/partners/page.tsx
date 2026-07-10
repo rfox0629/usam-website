@@ -4,6 +4,7 @@ import Image from "next/image";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { PartnersFaqAccordion } from "./PartnersFaqAccordion";
 import { PartnersDocumentsGrid } from "./PartnersDocumentsGrid";
+import { PartnersSectionRail } from "./PartnersSectionRail";
 import { groupPartnersDocuments, listPartnersDocuments } from "@/src/lib/partners-documents";
 
 export const dynamic = "force-dynamic";
@@ -18,18 +19,6 @@ export const metadata: Metadata = {
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
-const inPageNav = [
-  { href: "#overview", label: "Overview" },
-  { href: "#levels", label: "Partnership Levels" },
-  { href: "#mor", label: "MOR Case Study" },
-  { href: "#takeon", label: "What We Take On" },
-  { href: "#legal", label: "Legal Options" },
-  { href: "#roadmap", label: "Roadmap" },
-  { href: "#board", label: "The Board" },
-  { href: "#documents", label: "Documents" },
-  { href: "#faq", label: "FAQ" },
-] as const;
 
 function Eyebrow({ center = false, children }: { center?: boolean; children: ReactNode }) {
   return (
@@ -106,29 +95,6 @@ function HeroSection() {
           USA Missionaries helps aligned ministries partner, integrate, and scale together while preserving the
           unique calling God has given each organization.
         </p>
-        <div className="mt-10 flex flex-wrap gap-3">
-          <a
-            className="inline-flex items-center justify-center border border-usam-gold bg-usam-gold px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-usam-black transition-colors hover:bg-usam-gold/90"
-            href="#levels"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Explore Partnership Levels
-          </a>
-          <a
-            className="inline-flex items-center justify-center border border-stone-700 bg-transparent px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
-            href="#roadmap"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            View Integration Roadmap
-          </a>
-          <a
-            className="inline-flex items-center justify-center border border-stone-700 bg-transparent px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
-            href="#documents"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Review Documents
-          </a>
-        </div>
       </div>
 
       <div className="relative mt-16 border-t border-stone-900">
@@ -1220,31 +1186,8 @@ function CtaSection() {
 export default function PartnersPage() {
   return (
     <main className="min-h-screen bg-usam-black text-stone-100">
-      <div
-        className="border-b border-stone-900 bg-usam-black px-6 py-2 text-center text-[10px] uppercase tracking-[0.18em] text-usam-gold/85"
-        style={{ fontFamily: font.rajdhani }}
-      >
-        USAM–MN &nbsp;//&nbsp; Ministry Network &nbsp;//&nbsp; <b className="text-usam-gold">Private Briefing</b>{" "}
-        &nbsp;//&nbsp; For ministry leaders, boards &amp; advisors
-      </div>
-
       <PrimaryNav minimal />
-
-      <nav aria-label="Section navigation" className="sticky top-0 z-40 overflow-x-auto border-b border-stone-900 bg-[rgba(13,13,13,0.95)] backdrop-blur">
-        <ul className="mx-auto flex max-w-6xl gap-1 px-6">
-          {inPageNav.map((item) => (
-            <li className="flex-shrink-0" key={item.href}>
-              <a
-                className="block px-3 py-3 text-[11px] uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-usam-gold"
-                href={item.href}
-                style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <PartnersSectionRail />
 
       <HeroSection />
       <WhySection />

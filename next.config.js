@@ -18,6 +18,7 @@ const nextConfig = {
     ];
 
     if (process.env.ENABLE_NEW_DOMAIN_REDIRECT === "true") {
+      // Backward compatibility only: send old cutover-host traffic to the canonical production host.
       redirects.push({
         source: "/:path*",
         has: [
