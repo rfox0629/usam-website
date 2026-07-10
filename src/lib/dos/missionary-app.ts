@@ -42,37 +42,6 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
-const dosMyRecordV2WorkspaceSlugs = new Set(["fox-family", "ryan-brooke-fox", "ryan-fox"]);
-const dosMyRecordV2WorkspaceDisplayNames = new Set(["fox family", "ryan fox", "ryan and brooke fox", "ryan & brooke fox"]);
-const dosMyRecordV2UserEmails = new Set(["ryan@usamissionaries.org", "ryan@foxfamily.org"]);
-
-function normalizeMyRecordV2Identifier(value: string | null | undefined) {
-  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
-}
-
-export function isDosMyRecordV2Enabled({
-  userEmail,
-  workspaceDisplayName,
-  workspacePublicSlug,
-  workspaceSlug,
-}: {
-  userEmail?: string | null;
-  workspaceDisplayName?: string | null;
-  workspacePublicSlug?: string | null;
-  workspaceSlug?: string | null;
-}) {
-  const normalizedEmail = normalizeMyRecordV2Identifier(userEmail);
-  const workspaceIdentifiers = [workspaceSlug, workspacePublicSlug, workspaceDisplayName]
-    .map(normalizeMyRecordV2Identifier)
-    .filter(Boolean);
-  const isRyanWorkspace = workspaceIdentifiers.some((identifier) => (
-    dosMyRecordV2WorkspaceSlugs.has(identifier) || dosMyRecordV2WorkspaceDisplayNames.has(identifier)
-  ));
-  const isRyanUser = dosMyRecordV2UserEmails.has(normalizedEmail);
-
-  return isRyanUser && isRyanWorkspace;
-}
-
 function normalizedPhone(value: string | null | undefined) {
   const digits = value?.replace(/\D/g, "") ?? "";
 
@@ -779,9 +748,6 @@ export type DosAppData = {
   reminders: DosAppRelationshipReminder[];
   tableInvitations: DosTableInvitation[];
   usamApplication: DosUsamOrganizationApplication;
-  features: {
-    myRecordV2Enabled: boolean;
-  };
   stats: {
     approvedFruit: number;
     connectionsCount: number;
@@ -2582,7 +2548,6 @@ async function loadMyRecordForWorkspace(
   supabase: SupabaseAdminClient,
   workspaceId: string,
   viewer?: DosAuthorizedUser | null,
-  options: { includeExternalAssessments?: boolean; includeLearning?: boolean; includeLifePlan?: boolean; includePropheticWords?: boolean } = {},
 ) {
   const emptyRecord = emptyMyRecord(workspaceId, viewer);
 
@@ -2652,62 +2617,52 @@ async function loadMyRecordForWorkspace(
       .eq("user_id", viewer.userId)
       .order("completed_at", { ascending: false })
       .limit(80),
-    options.includeExternalAssessments
-      ? supabase
-        .from("dos_user_external_assessment_results")
-        .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, short_summary, status, share_eligible, attachment_url, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, retake_reminder_date, visibility, created_at, updated_at")
-        .eq("record_id", recordRow.id)
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", viewer.userId)
-        .order("date_taken", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(80)
-      : Promise.resolve({ data: [], error: null }),
-    options.includePropheticWords
-      ? supabase
-        .from("dos_user_prophetic_words")
-        .select("id, date_received, given_by, context, word_text, scripture_references, tags, status, confirmations, notes, created_at, updated_at")
-        .eq("record_id", recordRow.id)
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", viewer.userId)
-        .order("date_received", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(80)
-      : Promise.resolve({ data: [], error: null }),
-    options.includeLearning
-      ? supabase
-        .from("dos_user_learning_books")
-        .select("id, title, author, status, started_on, finished_on, personal_application, final_summary, share_eligible, visibility, created_at, updated_at")
-        .eq("record_id", recordRow.id)
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", viewer.userId)
-        .order("updated_at", { ascending: false })
-        .limit(80)
-      : Promise.resolve({ data: [], error: null }),
-    options.includeLearning
-      ? supabase
-        .from("dos_user_learning_chapter_notes")
-        .select("id, book_id, chapter_label, chapter_number, highlights, notes, personal_application, highlight_image_bucket, highlight_image_path, highlight_image_file_name, highlight_image_content_type, highlight_image_uploaded_at, created_at, updated_at")
-        .eq("record_id", recordRow.id)
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", viewer.userId)
-        .order("chapter_number", { ascending: true, nullsFirst: false })
-        .order("created_at", { ascending: true })
-        .limit(400)
-      : Promise.resolve({ data: [], error: null }),
-    options.includeLifePlan
-      ? supabase
-        .from("dos_user_life_plans")
-        .select("id, calling_statement, decision_filters, top_priorities, focus_allocation, responsibilities, rarely_do, daily_reminder, legacy_remembered_for, legacy_family, legacy_discipled, legacy_church, legacy_jesus, original_date_written, last_reviewed_date, next_review_date, review_rhythm, review_history, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, share_eligible, visibility, created_at, updated_at")
-        .eq("record_id", recordRow.id)
-        .eq("workspace_id", workspaceId)
-        .eq("user_id", viewer.userId)
-        .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    supabase
+      .from("dos_user_external_assessment_results")
+      .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, short_summary, status, share_eligible, attachment_url, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, retake_reminder_date, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("date_taken", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_prophetic_words")
+      .select("id, date_received, given_by, context, word_text, scripture_references, tags, status, confirmations, notes, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("date_received", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_learning_books")
+      .select("id, title, author, status, started_on, finished_on, personal_application, final_summary, share_eligible, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("updated_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_learning_chapter_notes")
+      .select("id, book_id, chapter_label, chapter_number, highlights, notes, personal_application, highlight_image_bucket, highlight_image_path, highlight_image_file_name, highlight_image_content_type, highlight_image_uploaded_at, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("chapter_number", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true })
+      .limit(400),
+    supabase
+      .from("dos_user_life_plans")
+      .select("id, calling_statement, decision_filters, top_priorities, focus_allocation, responsibilities, rarely_do, daily_reminder, legacy_remembered_for, legacy_family, legacy_discipled, legacy_church, legacy_jesus, original_date_written, last_reviewed_date, next_review_date, review_rhythm, review_history, attachment_bucket, attachment_path, attachment_file_name, attachment_content_type, attachment_uploaded_at, share_eligible, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .maybeSingle(),
   ]);
   let externalAssessmentResultsResult = initialExternalAssessmentResultsResult;
 
-  if (options.includeExternalAssessments && externalAssessmentResultsResult.error && isMissingColumnError(externalAssessmentResultsResult.error)) {
+  if (externalAssessmentResultsResult.error && isMissingColumnError(externalAssessmentResultsResult.error)) {
     externalAssessmentResultsResult = await supabase
       .from("dos_user_external_assessment_results")
       .select("id, assessment_name, category, official_assessment_url, date_taken, result_type, top_strengths, scores_details, notes, attachment_url, retake_reminder_date, visibility, created_at, updated_at")
@@ -3550,15 +3505,6 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const features = {
-    myRecordV2Enabled: isDosMyRecordV2Enabled({
-      userEmail: viewer?.email,
-      workspaceDisplayName: workspace.display_name,
-      workspacePublicSlug: workspace.public_slug,
-      workspaceSlug: workspace.slug,
-    }),
-  };
-
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
@@ -3578,12 +3524,7 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
-    loadMyRecordForWorkspace(supabase, workspace.id, viewer, {
-      includeExternalAssessments: features.myRecordV2Enabled,
-      includeLearning: features.myRecordV2Enabled,
-      includeLifePlan: features.myRecordV2Enabled,
-      includePropheticWords: features.myRecordV2Enabled,
-    }),
+    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
     loadTableInvitationsForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
@@ -4298,7 +4239,6 @@ export async function loadDosAppData(
       reminders,
       tableInvitations,
       usamApplication,
-      features,
       stats: {
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,

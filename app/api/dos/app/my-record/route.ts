@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization, type DosAuthorizedUser } from "@/src/lib/dos/auth";
-import { isDosMyRecordV2Enabled, resolveDosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import { resolveDosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -706,12 +706,6 @@ async function handleMyRecordPost(request: Request) {
     return workspaceAccess.response;
   }
 
-  const myRecordV2Enabled = isDosMyRecordV2Enabled({
-    userEmail: authResult.authorization.email,
-    workspaceDisplayName: workspace.display_name,
-    workspacePublicSlug: workspace.public_slug,
-    workspaceSlug: workspace.slug,
-  });
   const supabase = createSupabaseAdminClient();
   const displayName = asNullableText(payload.displayName, 160);
   const recordResult = await ensureMyRecord(supabase, workspaceId, authResult.authorization, displayName);
@@ -1008,10 +1002,6 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "prophetic_word") {
-    if (!myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
-    }
-
     const propheticWordId = validateOptionalUuid(payload.propheticWordId, "Prophetic word");
 
     if ("response" in propheticWordId) {
@@ -1065,10 +1055,6 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "external_assessment_result") {
-    if (!myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
-    }
-
     const externalAssessmentResultId = validateOptionalUuid(payload.externalAssessmentResultId, "External assessment result");
 
     if ("response" in externalAssessmentResultId) {
@@ -1154,10 +1140,6 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "learning_book") {
-    if (!myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
-    }
-
     const bookId = asString(payload.bookId);
     const title = asNullableText(payload.title, 240);
 
@@ -1210,10 +1192,6 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "learning_chapter_note") {
-    if (!myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
-    }
-
     const chapterNoteId = validateOptionalUuid(payload.chapterNoteId, "Chapter note");
 
     if ("response" in chapterNoteId) {
@@ -1301,10 +1279,6 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "life_plan") {
-    if (!myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
-    }
-
     const lifePlanId = validateOptionalUuid(payload.lifePlanId, "Life Plan");
 
     if ("response" in lifePlanId) {
@@ -1424,26 +1398,22 @@ async function handleMyRecordPost(request: Request) {
 
     const targetKind = asString(payload.targetKind);
     const deleteTargets = {
-      assessment_result: { table: "dos_user_assessment_results", v2Only: false },
-      external_assessment_result: { table: "dos_user_external_assessment_results", v2Only: true },
-      encounter: { table: "dos_user_journal_entries", v2Only: false },
-      journal: { table: "dos_user_journal_entries", v2Only: false },
-      learning_book: { table: "dos_user_learning_books", v2Only: true },
-      learning_chapter_note: { table: "dos_user_learning_chapter_notes", v2Only: true },
-      life_plan: { table: "dos_user_life_plans", v2Only: true },
-      mentor_meeting: { table: "dos_user_mentor_meetings", v2Only: false },
-      mentor_relationship: { table: "dos_user_mentor_relationships", v2Only: false },
-      prayer: { table: "dos_user_prayer_logs", v2Only: false },
-      prophetic_word: { table: "dos_user_prophetic_words", v2Only: true },
+      assessment_result: { table: "dos_user_assessment_results" },
+      external_assessment_result: { table: "dos_user_external_assessment_results" },
+      encounter: { table: "dos_user_journal_entries" },
+      journal: { table: "dos_user_journal_entries" },
+      learning_book: { table: "dos_user_learning_books" },
+      learning_chapter_note: { table: "dos_user_learning_chapter_notes" },
+      life_plan: { table: "dos_user_life_plans" },
+      mentor_meeting: { table: "dos_user_mentor_meetings" },
+      mentor_relationship: { table: "dos_user_mentor_relationships" },
+      prayer: { table: "dos_user_prayer_logs" },
+      prophetic_word: { table: "dos_user_prophetic_words" },
     } as const;
     const target = deleteTargets[targetKind as keyof typeof deleteTargets];
 
     if (!target) {
       return NextResponse.json({ error: "Unsupported My Record delete target." }, { status: 400 });
-    }
-
-    if (target.v2Only && !myRecordV2Enabled) {
-      return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
     }
 
     const { data, error } = await supabase

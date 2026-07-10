@@ -983,9 +983,6 @@ function buildDosPreviewDemoData(): DosAppData {
         roleInMyLife: person.roleInMyLife,
       }))),
     },
-    features: {
-      myRecordV2Enabled: true,
-    },
     workspace: {
       displayName: "Fox Family",
       greetingName: "Ryan",

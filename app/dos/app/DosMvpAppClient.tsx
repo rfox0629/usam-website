@@ -8868,7 +8868,6 @@ function DesktopHomeDashboard({
   loggedMeetings,
   meetings,
   myRecord,
-  myRecordV2Enabled,
   onAddPerson,
   onLogMeeting,
   onOpenFruit,
@@ -8893,7 +8892,6 @@ function DesktopHomeDashboard({
   loggedMeetings: DosAppMeeting[];
   meetings: DosAppMeeting[];
   myRecord: DosAppUserRecord;
-  myRecordV2Enabled: boolean;
   onAddPerson: () => void;
   onLogMeeting: () => void;
   onOpenFruit: () => void;
@@ -9062,8 +9060,7 @@ function DesktopHomeDashboard({
           </div>
         </section>
 
-        {myRecordV2Enabled ? (
-          <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
             <div className="grid gap-2 md:grid-cols-4">
               {alignmentItems.map((item) => (
                 <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={item.label}>
@@ -9073,7 +9070,6 @@ function DesktopHomeDashboard({
               ))}
             </div>
           </DesktopPanel>
-        ) : null}
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
@@ -10320,16 +10316,7 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Answered Recently", value: "answered_recently" },
 ];
 
-const myRecordLegacyTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
-  { label: "Overview", value: "overview" },
-  { label: "Journal", value: "journal" },
-  { label: "Prayer", value: "prayer" },
-  { label: "Mentors", value: "mentors" },
-  { label: "Assessments", value: "assessments" },
-  { label: "Timeline", value: "timeline" },
-];
-
-const myRecordV2Tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
+const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Overview", value: "overview" },
   { label: "Walk", value: "walk_with_god" },
   { label: "Growth", value: "growth" },
@@ -10337,9 +10324,8 @@ const myRecordV2Tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Legacy", value: "legacy" },
 ];
 
-function normalizeMyRecordTab(tab: MyRecordTab, myRecordV2Enabled: boolean): MyRecordTab {
-  const tabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
-  return tabs.some((item) => item.value === tab) ? tab : "overview";
+function normalizeMyRecordTab(tab: MyRecordTab): MyRecordTab {
+  return myRecordTabs.some((item) => item.value === tab) ? tab : "overview";
 }
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
@@ -23212,8 +23198,7 @@ function MyRecordExternalAssessmentForm({
 function MyRecordAssessmentsPanel({
   errorMessage,
   isSubmitting,
-  myRecordV2Enabled,
-  nextTab = "assessments",
+  nextTab = "growth",
   onOpenSheet,
   onSave,
   profileName,
@@ -23221,14 +23206,13 @@ function MyRecordAssessmentsPanel({
 }: {
   errorMessage: string;
   isSubmitting: boolean;
-  myRecordV2Enabled: boolean;
   nextTab?: MyRecordTab;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   profileName: string;
   record: DosAppUserRecord;
 }) {
-  const includeRyanSeeds = myRecordV2Enabled && /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
   const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
   const [selectedCategory, setSelectedCategory] = useState<MyRecordAssessmentLibraryCategory>("All");
   const [selectedItemId, setSelectedItemId] = useState(libraryItems[0]?.id ?? "");
@@ -23254,12 +23238,10 @@ function MyRecordAssessmentsPanel({
             <SectionHeading title="Assessment Library" />
             <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">A private library for how God wired me: DOS assessments, user-owned summaries, and original reports.</p>
           </div>
-          {myRecordV2Enabled ? (
-            <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
-              <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-              Add External Result
-            </button>
-          ) : null}
+          <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
+            <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+            Add External Result
+          </button>
         </div>
         <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
           {myRecordAssessmentLibraryCategories.map((category) => (
@@ -24403,19 +24385,17 @@ function MyRecordMentorCard({
 }
 
 function MyRecordGrowthPanel({
-  myRecordV2Enabled,
   onOpenSheet,
   people,
   profileName,
   record,
 }: {
-  myRecordV2Enabled: boolean;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   people: DosAppPerson[];
   profileName: string;
   record: DosAppUserRecord;
 }) {
-  const includeRyanSeeds = myRecordV2Enabled && /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
   const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
   const priorityAssessmentItems = useMemo(() => {
     const priorityNames = ["MCode", "Gregoric Mind Styles"];
@@ -25313,7 +25293,6 @@ function MyRecordWorkspace({
   fruit,
   isSubmitting,
   meetings,
-  myRecordV2Enabled,
   onBack,
   onQuickTab,
   onSave,
@@ -25328,7 +25307,6 @@ function MyRecordWorkspace({
   fruit: DosAppFruit[];
   isSubmitting: boolean;
   meetings: DosAppMeeting[];
-  myRecordV2Enabled: boolean;
   onBack: () => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
@@ -25341,8 +25319,7 @@ function MyRecordWorkspace({
 }) {
   const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
-  const myRecordTabs = myRecordV2Enabled ? myRecordV2Tabs : myRecordLegacyTabs;
-  const activeMyRecordTab = normalizeMyRecordTab(tab, myRecordV2Enabled);
+  const activeMyRecordTab = normalizeMyRecordTab(tab);
   const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -25353,7 +25330,7 @@ function MyRecordWorkspace({
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
-  const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, myRecordV2Enabled ? latestExternalAssessment : null);
+  const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, latestExternalAssessment);
   const lifePlan = resolveMyRecordLifePlan(record);
   const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
@@ -25498,7 +25475,7 @@ function MyRecordWorkspace({
     })();
   }
 
-  const myRecordFabItems: MyRecordContextualAction[] = myRecordV2Enabled ? (() => {
+  const myRecordFabItems: MyRecordContextualAction[] = (() => {
     const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
     const prayerEncounter = () => openMyRecordSheet({ defaultTags: ["Prayer"], kind: "encounter", mode: "new", title: "Prayer Encounter" });
     const reflection = () => openMyRecordSheet({ defaultTags: ["Journal"], kind: "encounter", mode: "new", title: "Reflection" });
@@ -25563,7 +25540,7 @@ function MyRecordWorkspace({
       { icon: "people", label: "Mentor", onClick: mentorMeeting },
       { icon: "library", label: "Assessment", onClick: assessment },
     ];
-  })() : [];
+  })();
 
   // TODO: Future: Permission-based My Record sharing for mentor, spouse, board member, accountability partner, pastor, and custom viewer roles.
   // TODO: Future: Mentor-request workflow for assessments, reflections, Scripture reading, accountability questions, and prayer updates.
@@ -25572,7 +25549,7 @@ function MyRecordWorkspace({
   // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
 
   return (
-    <div className={`relative space-y-5 ${myRecordV2Enabled ? "pb-36 md:pb-24" : ""}`}>
+    <div className="relative space-y-5 pb-36 md:pb-24">
       <div className="flex min-h-9 items-center md:hidden">
         <MoreBackButton onClick={onBack} />
       </div>
@@ -25616,7 +25593,7 @@ function MyRecordWorkspace({
       ) : null}
       <MyRecordTabBar onChange={onTabChange} tabs={myRecordTabs} value={activeMyRecordTab} />
 
-      {activeMyRecordTab === "overview" && myRecordV2Enabled ? (
+      {activeMyRecordTab === "overview" ? (
         <div className="space-y-4 pb-36 md:pb-6">
           <section className="grid gap-3">
             <div className="flex min-w-0 items-center justify-between gap-3">
@@ -25669,7 +25646,7 @@ function MyRecordWorkspace({
         </div>
       ) : null}
 
-      {activeMyRecordTab === "walk_with_god" && myRecordV2Enabled ? (
+      {activeMyRecordTab === "walk_with_god" ? (
         <MyRecordWalkWithGodPanel
           encounters={encounters}
           onOpenSheet={openMyRecordSheet}
@@ -25677,9 +25654,8 @@ function MyRecordWorkspace({
         />
       ) : null}
 
-      {activeMyRecordTab === "growth" && myRecordV2Enabled ? (
+      {activeMyRecordTab === "growth" ? (
         <MyRecordGrowthPanel
-          myRecordV2Enabled={myRecordV2Enabled}
           onOpenSheet={openMyRecordSheet}
           people={people}
           profileName={profileName}
@@ -25687,7 +25663,7 @@ function MyRecordWorkspace({
         />
       ) : null}
 
-      {activeMyRecordTab === "calling" && myRecordV2Enabled ? (
+      {activeMyRecordTab === "calling" ? (
         <MyRecordCallingPanel
           errorMessage={errorMessage}
           isSubmitting={isSubmitting}
@@ -25697,7 +25673,7 @@ function MyRecordWorkspace({
         />
       ) : null}
 
-      {activeMyRecordTab === "legacy" && myRecordV2Enabled ? (
+      {activeMyRecordTab === "legacy" ? (
         <MyRecordLegacyPanel
           ebenezers={ebenezers}
           fruit={fruit}
@@ -25707,292 +25683,12 @@ function MyRecordWorkspace({
         />
       ) : null}
 
-      {activeMyRecordTab === "overview" && !myRecordV2Enabled ? (
-        <div className="space-y-4">
-          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-black text-[#0F172A]">{record.displayName || profileName}</p>
-                <p className="mt-1 text-sm leading-6 text-[#64748B]">{record.currentSeasonFocus || "No current season focus set yet."}</p>
-              </div>
-            </div>
-            <form className="mt-4 grid gap-3" onSubmit={handleRecordSubmit}>
-              <DosFormField label="Current Season / Focus">
-                <input className={FieldInputClass()} defaultValue={record.currentSeasonFocus ?? ""} name="current_season_focus" placeholder="Abiding, obedience, prayer, Scripture, sabbath" />
-              </DosFormField>
-              {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-              <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Save Focus"}</AppButton>
-            </form>
-          </section>
-          <section className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
-            <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Quiet Time" value={latestJournal ? formatDate(latestJournal.date) : "Not logged"} />
-            <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Prayer Time" value={latestPrayer ? formatDate(latestPrayer.prayedAt) : "Not logged"} />
-            <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Mentor Meeting" value={latestMentorMeeting ? formatDate(latestMentorMeeting.meetingDate) : "Not logged"} />
-            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time Logged" value={formatRecordDuration(totalQuietMinutes)} />
-            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time Logged" value={formatRecordDuration(totalPrayerMinutes)} />
-            <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Assessment" value={latestAssessmentLabel} />
-          </section>
-          <section className="grid gap-2">
-            <SectionHeading title="Quick Actions" />
-            <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-5">
-              <CompactButton icon="log" onClick={() => onQuickTab("journal")}>Start Quiet Time</CompactButton>
-              <CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>
-              <CompactButton icon="add" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>
-              <CompactButton icon="people" onClick={() => onQuickTab("mentors")}>Log Mentor Meeting</CompactButton>
-              <CompactButton icon="library" onClick={() => onQuickTab("assessments")}>Take Assessment</CompactButton>
-            </div>
-          </section>
-          {latestAssessment ? (
-            <section className="grid gap-2">
-              <SectionHeading title="Latest Assessment" />
-              <MyRecordAssessmentResultCard
-                onRetake={() => onQuickTab("assessments")}
-                result={latestAssessment}
-                trend={myRecordAssessmentTrend(latestAssessment, record.assessmentResults)}
-              />
-            </section>
-          ) : null}
-          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#047857] ring-1 ring-[#BBF7D0]">
-                <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              </span>
-              <div className="min-w-0">
-                <SectionHeading title="Sharing" />
-                <p className="mt-1 text-sm leading-6 text-[#64748B]">My Record is private. Future sharing will be section-by-section and controlled by the user.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {myRecordFutureSharingRoles.slice(0, 6).map((role) => (
-                    <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" key={role} style={{ fontFamily: font.rajdhani }}>
-                      {role}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-3 text-xs leading-5 text-[#64748B]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
-              </div>
-            </div>
-          </section>
-          <MyRecordReportPanel fruit={fruit} meetings={meetings} people={people} record={record} />
-          <section className="grid gap-2">
-            <SectionHeading title="Recent Spiritual Activity" />
-            {timeline.length ? (
-              <div className="grid gap-2">
-                {timeline.slice(0, 5).map((item) => (
-                  <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState
-                action={<CompactButton icon="log" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>}
-                text="Quiet time, prayer time, and mentor meetings will collect here."
-                title="No personal activity yet."
-              />
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {activeMyRecordTab === "journal" && !myRecordV2Enabled ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <MyRecordJournalForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
-          <section className="grid gap-2 self-start">
-            <SectionHeading title="Journal Entries" />
-            {record.journalEntries.length ? (
-              <div className="grid gap-2">
-                {record.journalEntries.map((entry) => (
-                  <MyRecordActivityRow
-                    body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
-                    date={entry.date}
-                    icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                    key={entry.id}
-                    title={entry.biblePassage ? `${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}` : `Quiet Time · ${formatRecordDuration(entry.minutesSpent)}`}
-                  />
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState text="Use this to record Scripture, reflection, highlights, and next steps from time with the Lord." title="No journal entries yet." />
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {activeMyRecordTab === "prayer" && !myRecordV2Enabled ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <MyRecordPrayerForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
-          <section className="grid gap-2 self-start">
-            <SectionHeading title="Prayer Logs" />
-            {record.prayerLogs.length ? (
-              <div className="grid gap-2">
-                {record.prayerLogs.map((log) => {
-                  const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
-                  const title = log.prayerFocus || (personName ? `Prayed for ${personName}` : "Prayer Time");
-
-                  return (
-                    <MyRecordActivityRow
-                      body={log.notes}
-                      date={log.prayedAt}
-                      icon={log.answeredStatus === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      key={log.id}
-                      title={`${title} · ${formatRecordDuration(log.minutesSpent)}`}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <SectionEmptyState text="Use this to log personal prayer time and answered prayers without changing ministry metrics." title="No prayer time logged yet." />
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {activeMyRecordTab === "mentors" && !myRecordV2Enabled ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="grid gap-4 self-start">
-            <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} mentors={record.mentorRelationships} onSave={onSave} people={people} />
-            <MyRecordMentorRelationshipForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
-          </div>
-          <section className="grid gap-4 self-start">
-            <div className="grid gap-2">
-              <SectionHeading title="Mentors" />
-              {record.mentorRelationships.length ? (
-                <div className="grid gap-2">
-                  {record.mentorRelationships.map((mentor) => (
-                    <MyRecordActivityRow
-                      body={mentor.notes}
-                      date={latestMyRecordDate(mentor.updatedAt, mentor.createdAt)}
-                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      key={mentor.id}
-                      title={mentor.relationshipLabel ? `${mentor.mentorName} · ${mentor.relationshipLabel}` : mentor.mentorName}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <SectionEmptyState text="Track pastors, mentors, coaches, peers, or spiritual parents who are pouring into you." title="No mentors added yet." />
-              )}
-            </div>
-            <div className="grid gap-2">
-              <SectionHeading title="Mentor Meetings" />
-              {record.mentorMeetings.length ? (
-                <div className="grid gap-2">
-                  {record.mentorMeetings.map((meeting) => (
-                    <MyRecordActivityRow
-                      body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
-                      date={meeting.meetingDate}
-                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                      key={meeting.id}
-                      title={`${meeting.mentorName} · ${formatRecordDuration(meeting.durationMinutes)}`}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <SectionEmptyState text="Log what was discussed, counsel received, action steps, and follow-up dates." title="No mentor meetings yet." />
-              )}
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {activeMyRecordTab === "scripture" && !myRecordV2Enabled ? (
-        <section className="grid gap-3">
-          <SectionHeading title="Scripture" />
-          {record.journalEntries.some((entry) => Boolean(entry.biblePassage)) ? (
-            <div className="grid gap-2">
-              {record.journalEntries.filter((entry) => Boolean(entry.biblePassage)).map((entry) => (
-                <MyRecordActivityRow
-                  body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
-                  date={entry.date}
-                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  key={`scripture-${entry.id}`}
-                  title={`${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <SectionEmptyState
-              action={<CompactButton icon="log" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>}
-              text="Scriptures from journal entries will collect here."
-              title="No Scripture logged yet."
-            />
-          )}
-        </section>
-      ) : null}
-
-      {activeMyRecordTab === "learning" && !myRecordV2Enabled ? (
-        <MyRecordLearningPanel errorMessage={errorMessage} isSubmitting={isSubmitting} onOpenSheet={openMyRecordSheet} onSave={onSave} record={record} />
-      ) : null}
-
-      {activeMyRecordTab === "prophetic_words" && !myRecordV2Enabled ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <MyRecordPropheticWordForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
-          <section className="grid gap-2 self-start">
-            <SectionHeading title="Prophetic Words" />
-            {record.propheticWords.length ? (
-              <div className="grid gap-2">
-                {record.propheticWords.map((word) => (
-                  <article className="rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]" key={word.id}>
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black leading-5 text-[#0F172A]">{word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatDate(word.dateReceived)}{word.context ? ` · ${word.context}` : ""}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                        {myRecordPropheticWordStatusLabel(word.status)}
-                      </span>
-                    </div>
-                    <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#334155]">{word.wordText}</p>
-                    {word.scriptureReferences.length || word.tags.length ? (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {[...word.scriptureReferences, ...word.tags].slice(0, 8).map((item) => (
-                          <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold text-[#475569]" key={item}>{item}</span>
-                        ))}
-                      </div>
-                    ) : null}
-                    {word.confirmations || word.notes ? (
-                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#64748B]">{word.confirmations ?? word.notes}</p>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <SectionEmptyState text="Track words, Scripture references, confirmations, fulfillment status, and reflections privately." title="No prophetic words recorded yet." />
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {activeMyRecordTab === "assessments" && !myRecordV2Enabled ? (
-        <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} myRecordV2Enabled={myRecordV2Enabled} onOpenSheet={openMyRecordSheet} onSave={onSave} profileName={profileName} record={record} />
-      ) : null}
-
-      {activeMyRecordTab === "timeline" && !myRecordV2Enabled ? (
-        <section className="grid gap-2">
-          <SectionHeading title="Personal Timeline" />
-          {timeline.length ? (
-            <div className="grid gap-2">
-              {timeline.map((item) => (
-                <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
-              ))}
-            </div>
-          ) : (
-            <SectionEmptyState
-              action={<CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>}
-              text="Quiet time entries, prayer logs, answered prayers, mentor meetings, notes, and milestones will appear here."
-              title="No timeline activity yet."
-            />
-          )}
-        </section>
-      ) : null}
-
-      {myRecordV2Enabled ? (
-        <MyRecordContextualFloatingActions
-          isOpen={isMyRecordFabOpen}
-          items={myRecordFabItems}
-          onClose={() => setIsMyRecordFabOpen(false)}
-          onToggle={() => setIsMyRecordFabOpen((current) => !current)}
-        />
-      ) : null}
+      <MyRecordContextualFloatingActions
+        isOpen={isMyRecordFabOpen}
+        items={myRecordFabItems}
+        onClose={() => setIsMyRecordFabOpen(false)}
+        onToggle={() => setIsMyRecordFabOpen((current) => !current)}
+      />
 
       {myRecordSheet ? (
         <MyRecordSheetFrame onClose={() => setMyRecordSheet(null)} title={myRecordSheetTitle(myRecordSheet)}>
@@ -28855,7 +28551,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
-  const myRecordV2Enabled = data.features.myRecordV2Enabled;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
@@ -29698,7 +29393,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setActiveTab("more");
     setMoreAppView(nextView);
     if (nextView === "my_record") {
-      setMyRecordTab((current) => normalizeMyRecordTab(current, myRecordV2Enabled));
+      setMyRecordTab((current) => normalizeMyRecordTab(current));
     }
     setIsAppsSearchOpen(false);
     setIsTableSearchOpen(false);
@@ -29728,7 +29423,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMyRecordTab(tab: MyRecordTab) {
     openMoreApp("my_record");
-    setMyRecordTab(normalizeMyRecordTab(tab, myRecordV2Enabled));
+    setMyRecordTab(normalizeMyRecordTab(tab));
   }
 
   function openReviewsList() {
@@ -29792,7 +29487,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         throw new Error(result.error ?? (responseText.slice(0, 500) || `Unable to save My Record. HTTP ${response.status} ${response.statusText}`.trim()));
       }
 
-      setMyRecordTab(normalizeMyRecordTab(nextTab, myRecordV2Enabled));
+      setMyRecordTab(normalizeMyRecordTab(nextTab));
       router.refresh();
 
       return true;
@@ -32860,9 +32555,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     + data.myRecord.prayerLogs.length
     + data.myRecord.mentorMeetings.length
     + data.myRecord.assessmentResults.length
-    + (myRecordV2Enabled ? data.myRecord.externalAssessmentResults.length : 0)
-    + (myRecordV2Enabled ? data.myRecord.propheticWords.length : 0)
-    + (myRecordV2Enabled ? data.myRecord.learningBooks.reduce((sum, book) => sum + 1 + book.chapterNotes.length, 0) : 0);
+    + data.myRecord.externalAssessmentResults.length
+    + data.myRecord.propheticWords.length
+    + data.myRecord.learningBooks.reduce((sum, book) => sum + 1 + book.chapterNotes.length, 0);
   const appCatalogSections: DosAppCatalogSection[] = [
     {
       description: "Core DOS rhythms that are already available in this workspace.",
@@ -33026,21 +32721,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const testimonyReviewFruitFormAction = {
     onPreview: () => handlePreviewFruitForm("testimony_review"),
   };
-  const myRecordQuickActionTabs = myRecordV2Enabled
-    ? {
-        assessment: "growth" as MyRecordTab,
-        mentor: "growth" as MyRecordTab,
-        prayer: "walk_with_god" as MyRecordTab,
-        prophetic: "calling" as MyRecordTab,
-        quietTime: "walk_with_god" as MyRecordTab,
-      }
-    : {
-        assessment: "assessments" as MyRecordTab,
-        mentor: "mentors" as MyRecordTab,
-        prayer: "prayer" as MyRecordTab,
-        prophetic: "overview" as MyRecordTab,
-        quietTime: "journal" as MyRecordTab,
-      };
+  const myRecordQuickActionTabs = {
+    assessment: "growth" as MyRecordTab,
+    mentor: "growth" as MyRecordTab,
+    prayer: "walk_with_god" as MyRecordTab,
+    prophetic: "calling" as MyRecordTab,
+    quietTime: "walk_with_god" as MyRecordTab,
+  };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
     ? [
         { icon: "log", label: "Log Table", onClick: runMobileAction(() => openForm("meeting")) },
@@ -33056,14 +32743,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ? [
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
-        ]
-    : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
-      ? [
-          { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
-          { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
-          { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
-          { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
-          ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runMobileAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
         ]
     : activeTab === "more" && activeMoreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
@@ -33095,18 +32774,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
-      : activeTab === "more" && activeMoreAppView === "my_record" && !myRecordV2Enabled
-        ? [
-            { icon: "log", label: myRecordV2Enabled ? "Time With God" : "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.quietTime)) },
-            { icon: "prayer", label: myRecordV2Enabled ? "Prayer Encounter" : "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prayer)) },
-            { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.mentor)) },
-            { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.assessment)) },
-            ...(myRecordV2Enabled ? [{ icon: "fruit" as const, label: "Add Prophetic Word", onClick: runDesktopAction(() => setMyRecordTab(myRecordQuickActionTabs.prophetic)) }] : []),
-          ]
       : [];
-  const suppressGlobalFabForMyRecordV2 = activeTab === "more" && activeMoreAppView === "my_record" && myRecordV2Enabled;
+  const suppressGlobalFabForMyRecord = activeTab === "more" && activeMoreAppView === "my_record";
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
-    && !suppressGlobalFabForMyRecordV2
+    && !suppressGlobalFabForMyRecord
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -33135,7 +32806,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedReminderId
     && !selectedScripture;
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
-    && !suppressGlobalFabForMyRecordV2
+    && !suppressGlobalFabForMyRecord
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -33217,8 +32888,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 loggedMeetings={ministryLoggedMeetings}
                 meetings={data.meetings}
                 myRecord={data.myRecord}
-                myRecordV2Enabled={myRecordV2Enabled}
-                onAddPerson={() => openForm("person")}
+                      onAddPerson={() => openForm("person")}
                 onLogMeeting={() => openForm("meeting")}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
@@ -33498,8 +33168,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     fruit={data.fruit}
                     isSubmitting={isSubmitting}
                     meetings={data.meetings}
-                    myRecordV2Enabled={myRecordV2Enabled}
-                    onBack={() => setMoreAppView(null)}
+                              onBack={() => setMoreAppView(null)}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
                     onTabChange={setMyRecordTab}

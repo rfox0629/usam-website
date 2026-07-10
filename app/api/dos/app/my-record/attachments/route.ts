@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { isDosMyRecordV2Enabled, resolveDosAppWorkspace } from "@/src/lib/dos/missionary-app";
+import { resolveDosAppWorkspace } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -65,15 +65,6 @@ export async function POST(request: Request) {
 
   if ("response" in workspaceAccess) {
     return workspaceAccess.response;
-  }
-
-  if (!isDosMyRecordV2Enabled({
-    userEmail: authorization.email,
-    workspaceDisplayName: workspace.display_name,
-    workspacePublicSlug: workspace.public_slug,
-    workspaceSlug: workspace.slug,
-  })) {
-    return NextResponse.json({ error: "My Record V2 is not enabled for this workspace." }, { status: 403 });
   }
 
   const file = formData.get("file");
