@@ -6445,7 +6445,7 @@ function GroupDetailWorkspace({
       return;
     }
 
-    const defaults = Object.fromEntries(group.members.map((member) => [member.id, "present" as GroupAttendanceChoice]));
+    const defaults = Object.fromEntries(activeGroupMembers(group).map((member) => [member.id, "present" as GroupAttendanceChoice]));
     setAttendanceDraft(defaults);
     setActiveGatheringRun({ gatheringId: gathering.id, startedAt: Date.now() });
     setClockNow(Date.now());
@@ -7153,7 +7153,7 @@ function GroupGatheringCompleteScreen() {
 
 function groupAttendanceRows(group: DosAppGroup, attendanceDraft: Record<string, GroupAttendanceChoice>, guestDrafts: GroupGuestDraft[]): GroupAttendanceRow[] {
   return [
-    ...group.members.map((member) => ({
+    ...activeGroupMembers(group).map((member) => ({
       id: member.id,
       isGuest: false,
       name: member.personName,
@@ -7171,13 +7171,14 @@ function groupAttendanceRows(group: DosAppGroup, attendanceDraft: Record<string,
 }
 
 function groupAttendanceSummary(group: DosAppGroup, attendanceDraft: Record<string, GroupAttendanceChoice>, guestDrafts: GroupGuestDraft[]) {
-  const memberStatuses = group.members.map((member) => attendanceDraft[member.id]).filter(Boolean) as GroupAttendanceChoice[];
+  const members = activeGroupMembers(group);
+  const memberStatuses = members.map((member) => attendanceDraft[member.id]).filter(Boolean) as GroupAttendanceChoice[];
   const present = memberStatuses.filter((status) => status === "present").length;
   const absent = memberStatuses.filter((status) => status === "absent").length;
   const guestMembers = memberStatuses.filter((status) => status === "guest").length;
   const guests = guestMembers + guestDrafts.length;
   const marked = memberStatuses.length + guestDrafts.length;
-  const total = group.members.length + guestDrafts.length;
+  const total = members.length + guestDrafts.length;
 
   return {
     absent,
@@ -7186,6 +7187,10 @@ function groupAttendanceSummary(group: DosAppGroup, attendanceDraft: Record<stri
     present,
     total,
   };
+}
+
+function activeGroupMembers(group: DosAppGroup) {
+  return group.members.filter((member) => member.status === "active");
 }
 
 function formatElapsedDuration(milliseconds: number) {
