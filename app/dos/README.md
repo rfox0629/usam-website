@@ -89,7 +89,6 @@ Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/
 - `/dos/app?workspace=<slug>` remains only as a protected compatibility app route; do not promote it as an entry point.
 - `/dos/[slug]` and `/dos/workspaces/[slug]` remain protected compatibility routes; do not promote slug URLs as public entry points.
 - Primary live entry route: `https://usamissionaries.org/dos`.
-- Temporary cutover verification route: `https://new.usamissionaries.org/dos`.
 - Canonical USA Missionaries organization hub route: `/admin/organizations/usa-missionaries`.
 - Canonical admin Command Center route: `/admin`; `/admin/dashboard` may remain as a compatibility alias.
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.

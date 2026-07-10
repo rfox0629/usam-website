@@ -22,13 +22,11 @@ Allowed Redirect URLs should include:
 ```text
 https://usamissionaries.org/**
 https://usamissionaries.org/update-password
-https://new.usamissionaries.org/**
-https://new.usamissionaries.org/update-password
 http://localhost:3000/**
 http://localhost:3000/update-password
 ```
 
-Keep the `new.usamissionaries.org` URLs during cutover verification so both production hosts can complete auth flows. Keep the localhost URLs so local development password-reset and auth flows keep working. Production reset emails should redirect to:
+Keep the localhost URLs so local development password-reset and auth flows keep working. Production reset emails should redirect to:
 
 ```text
 https://usamissionaries.org/update-password
