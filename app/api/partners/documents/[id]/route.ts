@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase.storage
     .from(PARTNERS_DOCUMENTS_BUCKET)
-    .createSignedUrl(document.filePath, 300, { download: document.docName });
+    .createSignedUrl(document.filePath, 300);
 
   if (error || !data?.signedUrl) {
     return NextResponse.json({ error: "Unable to retrieve that document right now." }, { status: 500 });
