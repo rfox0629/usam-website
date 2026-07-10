@@ -27,7 +27,9 @@ type CreateReviewRequestLinkInput = {
 
 type ReviewRequestLinkResult =
   | {
+      deliveryStatus: "ready";
       ok: true;
+      reviewLinkId: string;
       token: string;
       url: string;
     }
@@ -76,6 +78,32 @@ function isMissingMeetingMinistryEventColumn(error: { message?: string } | null 
 
 function tokenUrl(formType: keyof typeof formTypeRoutes, token: string) {
   return new URL(`${formTypeRoutes[formType]}/${token}`, getCanonicalSiteUrl()).toString();
+}
+
+function logReviewRequestEvent(
+  event: "create_failed" | "created" | "reused",
+  metadata: {
+    error?: string;
+    formType: string;
+    meetingId: string;
+    recipientPersonId: string | null;
+    reviewLinkId?: string | null;
+    workspaceId: string;
+  },
+) {
+  console.info("[DOS review send]", {
+    deliveryChannel: "link",
+    event,
+    failureReason: metadata.error ?? null,
+    formType: metadata.formType,
+    meetingId: metadata.meetingId,
+    providerRequestStatus: "not_attempted",
+    providerResponseStatus: "no_delivery_provider_configured",
+    recipientPersonId: metadata.recipientPersonId,
+    retryAttempt: event === "reused" ? "reuse_existing_link" : "create_link",
+    reviewId: metadata.reviewLinkId ?? null,
+    workspaceId: metadata.workspaceId,
+  });
 }
 
 async function loadMeeting(
@@ -227,7 +255,7 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
 
   const existingResult = await supabase
     .from("dos_review_links")
-    .select("token")
+    .select("id, token")
     .eq("workspace_id", input.workspaceId)
     .eq("meeting_id", meetingId)
     .eq("review_type", input.formType)
@@ -243,8 +271,18 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   }
 
   if (existingResult.data?.token) {
+    logReviewRequestEvent("reused", {
+      formType: input.formType,
+      meetingId,
+      recipientPersonId,
+      reviewLinkId: String(existingResult.data.id),
+      workspaceId: input.workspaceId,
+    });
+
     return {
+      deliveryStatus: "ready",
       ok: true,
+      reviewLinkId: String(existingResult.data.id),
       token: existingResult.data.token,
       url: tokenUrl(input.formType, existingResult.data.token),
     };
@@ -266,15 +304,33 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   const { data: insertedLink, error: insertError } = await supabase
     .from("dos_review_links")
     .insert(insertRecord)
-    .select("token")
+    .select("id, token")
     .single();
 
   if (insertError || !insertedLink?.token) {
+    logReviewRequestEvent("create_failed", {
+      error: insertError?.message ?? "Missing inserted review token.",
+      formType: input.formType,
+      meetingId,
+      recipientPersonId,
+      workspaceId: input.workspaceId,
+    });
+
     return { error: insertError?.message ?? "Unable to create review link.", ok: false, status: 500 };
   }
 
+  logReviewRequestEvent("created", {
+    formType: input.formType,
+    meetingId,
+    recipientPersonId,
+    reviewLinkId: String(insertedLink.id),
+    workspaceId: input.workspaceId,
+  });
+
   return {
+    deliveryStatus: "ready",
     ok: true,
+    reviewLinkId: String(insertedLink.id),
     token: insertedLink.token,
     url: tokenUrl(input.formType, insertedLink.token),
   };

@@ -115,6 +115,12 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function isMissingReminderSchema(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("relationship_reminders") || (message.includes("schema cache") && message.includes("reminder"));
+}
+
 function asStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
@@ -1183,6 +1189,18 @@ export async function DELETE(request: Request) {
 
   if (!data) {
     return NextResponse.json({ error: "Unable to delete meeting." }, { status: 500 });
+  }
+
+  const reminderDeleteResult = await supabase
+    .from("relationship_reminders")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("reminder_type", "follow_up")
+    .is("deleted_at", null)
+    .ilike("notes", `%DOS_TABLE_FOLLOW_UP%${String(data.id)}%`);
+
+  if (reminderDeleteResult.error && !isMissingReminderSchema(reminderDeleteResult.error)) {
+    return NextResponse.json({ error: reminderDeleteResult.error.message }, { status: 500 });
   }
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {

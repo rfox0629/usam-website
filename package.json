@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",
@@ -13,7 +14,9 @@
     "test:dos-household-people": "node scripts/dos-household-people-regression.mjs",
     "test:dos-my-record": "node scripts/dos-my-record-regression.mjs",
     "test:dos-quick-review": "node scripts/dos-quick-review-regression.mjs",
+    "test:dos-review-link-send-state": "node scripts/dos-review-link-send-state-regression.mjs",
     "test:dos-scheduled-table-log": "node scripts/dos-scheduled-table-log-regression.mjs",
+    "test:dos-table-next-steps": "node scripts/dos-table-next-steps-regression.mjs",
     "test:dos-table-roles": "node scripts/dos-table-discipleship-roles-regression.mjs",
     "test:dos-table-detail-edit": "node scripts/dos-table-detail-edit-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
