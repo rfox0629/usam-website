@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { PartnersFaqAccordion } from "./PartnersFaqAccordion";
+import { PartnersSectionRail } from "./PartnersSectionRail";
 import { groupPartnersDocuments, listPartnersDocuments } from "@/src/lib/partners-documents";
 
 export const dynamic = "force-dynamic";
@@ -93,29 +94,6 @@ function HeroSection() {
           USA Missionaries helps aligned ministries partner, integrate, and scale together while preserving the
           unique calling God has given each organization.
         </p>
-        <div className="mt-10 flex flex-wrap gap-3">
-          <a
-            className="inline-flex items-center justify-center border border-usam-gold bg-usam-gold px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-usam-black transition-colors hover:bg-usam-gold/90"
-            href="#levels"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Explore Partnership Levels
-          </a>
-          <a
-            className="inline-flex items-center justify-center border border-stone-700 bg-transparent px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
-            href="#roadmap"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            View Integration Roadmap
-          </a>
-          <a
-            className="inline-flex items-center justify-center border border-stone-700 bg-transparent px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-200 transition-colors hover:border-usam-gold hover:text-usam-gold"
-            href="#documents"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Review Documents
-          </a>
-        </div>
       </div>
 
       <div className="relative mt-16 border-t border-stone-900">
@@ -1271,6 +1249,7 @@ export default function PartnersPage() {
   return (
     <main className="min-h-screen bg-usam-black text-stone-100">
       <PrimaryNav minimal />
+      <PartnersSectionRail />
 
       <HeroSection />
       <WhySection />
