@@ -1,14 +1,16 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, HandHeart, Users } from "lucide-react";
+import { BookOpen, HandHeart, HeartHandshake, Users } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { HeroProfile } from "@/components/missionaries/HeroProfile";
 import { ProfileSupportSectionActions } from "@/components/missionaries/SupportMissionButtons";
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
+import { JoinPrayerTeamModal, PrayerRequestPreviewList, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
 import { ExpandableTeamMemberList } from "@/src/components/missionaries/ExpandableTeamMemberList";
+import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
 import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
 
@@ -289,6 +291,61 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
   );
 }
 
+function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
+  const prayerSettings = missionary.prayerSettings ?? {};
+  const requests = missionary.prayerRequests ?? [];
+  const previewRequests = requests.slice(0, 2);
+  const showPrayerTeamCount = prayerSettings.showPrayerTeamCount !== false;
+  const prayerTeamCount = showPrayerTeamCount ? prayerSettings.prayerTeamCount ?? 0 : 0;
+  const label = prayerTeamCount > 0
+    ? `${prayerTeamCount} ${prayerTeamCount === 1 ? "Partner" : "Partners"}`
+    : requests.length > 0
+      ? `${requests.length} ${requests.length === 1 ? "Request" : "Requests"}`
+      : "Prayer";
+  const headline = prayerSettings.headline?.trim() || "Prayer";
+  const description = prayerSettings.description?.trim()
+    || "Stand with this mission in prayer and share requests with the household.";
+  const prayerTeamButtonLabel = prayerSettings.ctaLabel?.trim() || "Become a Prayer Partner";
+
+  return (
+    <MissionProfileCard
+      icon={<HeartHandshake aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />}
+      label={label}
+      title={headline}
+    >
+      <p>
+        {description}
+      </p>
+
+      <div className="mt-4">
+        <PrayerRequestPreviewList requests={previewRequests} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {prayerSettings.enablePrayerTeam !== false ? (
+          <JoinPrayerTeamModal
+            buttonLabel={prayerTeamButtonLabel}
+            householdId={missionary.id}
+            householdName={missionary.name}
+            householdNumber={missionary.missionaryNumber}
+            initialPrayerRequests={requests}
+            profileSlug={missionary.slug}
+            variant="compact"
+          />
+        ) : null}
+        <SubmitPrayerRequestModal
+          householdId={missionary.id}
+          householdName={missionary.name}
+          profileSlug={missionary.slug}
+        />
+        {requests.length > previewRequests.length ? (
+          <PrayerRequestsModalButton requests={requests} />
+        ) : null}
+      </div>
+    </MissionProfileCard>
+  );
+}
+
 // Profiles (PF): render approved, curated Fruit only. Raw Encounter intake
 // stays inside Command Center until reviewed and transformed into Fruit.
 function FruitSection({
@@ -372,6 +429,7 @@ function FruitSection({
 
 function MissionProfileSection({
   missionary,
+  showPrayer,
   showStory,
   showSupport,
   showTeam,
@@ -380,6 +438,7 @@ function MissionProfileSection({
   storyPreview,
 }: {
   missionary: Missionary;
+  showPrayer: boolean;
   showStory: boolean;
   showSupport: boolean;
   showTeam: boolean;
@@ -389,6 +448,7 @@ function MissionProfileSection({
 }) {
   const hasCards = (showStory && storyParagraphs)
     || showTeam
+    || showPrayer
     || showSupport;
 
   if (!hasCards) {
@@ -413,6 +473,9 @@ function MissionProfileSection({
           ) : null}
           {showTeam ? (
             <TeamProfileCard missionary={missionary} />
+          ) : null}
+          {showPrayer ? (
+            <PrayerProfileCard missionary={missionary} />
           ) : null}
           {showSupport ? (
             <SupportProfileCard actions={supportActions} missionary={missionary} />
@@ -450,6 +513,7 @@ export function MissionaryProfileTemplate({
   const showPhotos = features.showPhotos;
   const showTeam = features.showTeam && Boolean(missionary.householdMembers?.length);
   const showStory = features.showStory && Boolean(storyParagraphs?.length);
+  const showPrayer = features.showPrayer;
   const shouldPreviewProfileReview = previewForm === "missionary_profile_review";
   const showFruit = features.showFruit && (fruitItems.length > 0 || shouldPreviewProfileReview);
   const supportDefaults = getSupportDefaults(missionary);
@@ -502,6 +566,7 @@ export function MissionaryProfileTemplate({
 
       <MissionProfileSection
         missionary={missionary}
+        showPrayer={showPrayer}
         showStory={showStory}
         showSupport={showSupport}
         showTeam={showTeam}

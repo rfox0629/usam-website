@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MissionaryPrayerRequest } from "@/src/data/missionaries";
 
 const publicPrayerStatuses = ["active", "open"] as const;
+const publicProfilePrayerVisibilities = ["public_profile", "public"] as const;
 const publicPrayerRequestSelect = [
   "id",
   "title",
@@ -74,6 +75,10 @@ function normalizeRequestText(value: string | null | undefined) {
   return value?.trim() ?? "";
 }
 
+function isPublicProfilePrayerVisibility(value: string | null | undefined) {
+  return publicProfilePrayerVisibilities.includes(value as typeof publicProfilePrayerVisibilities[number]);
+}
+
 function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 }
@@ -131,7 +136,10 @@ function prayerPartnerScopeFilters(profileId: string, profileSlugs: readonly str
 }
 
 function mapPublicPrayerRequest(row: PublicPrayerRequestRow): MissionaryPrayerRequest | null {
-  if (row.visibility !== "public_profile" || !publicPrayerStatuses.includes(row.status as typeof publicPrayerStatuses[number])) {
+  if (
+    !isPublicProfilePrayerVisibility(row.visibility)
+    || !publicPrayerStatuses.includes(row.status as typeof publicPrayerStatuses[number])
+  ) {
     return null;
   }
 
@@ -158,7 +166,7 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
     .select(publicPrayerRequestSelect)
     .or(prayerRequestScopeFilter(profileId))
     .in("status", [...publicPrayerStatuses])
-    .eq("visibility", "public_profile")
+    .in("visibility", [...publicProfilePrayerVisibilities])
     .order("created_at", { ascending: false });
 
   const result = scopedResult.error && hasMissingPrayerBridgeColumn(scopedResult.error)
@@ -167,7 +175,7 @@ async function loadPublicPrayerRequests(client: SupabaseLike, profileId: string)
       .select(legacyPrayerRequestSelect)
       .or(legacyPrayerRequestScopeFilter(profileId))
       .in("status", [...publicPrayerStatuses])
-      .eq("visibility", "public_profile")
+      .in("visibility", [...publicProfilePrayerVisibilities])
       .order("created_at", { ascending: false })
     : scopedResult;
 
@@ -241,8 +249,8 @@ async function loadPrayerRequestCounts(client: SupabaseLike, profileId: string) 
   const rows = (result.data ?? []) as Array<{ visibility: string | null }>;
 
   return {
-    internalOpenRequestCount: rows.filter((row) => row.visibility !== "public_profile").length,
-    publicOpenRequestCount: rows.filter((row) => row.visibility === "public_profile").length,
+    internalOpenRequestCount: rows.filter((row) => !isPublicProfilePrayerVisibility(row.visibility)).length,
+    publicOpenRequestCount: rows.filter((row) => isPublicProfilePrayerVisibility(row.visibility)).length,
   };
 }
 
