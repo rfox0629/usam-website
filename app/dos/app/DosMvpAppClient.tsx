@@ -3924,6 +3924,18 @@ function AppButton({
   );
 }
 
+function submitFormElement(form: HTMLFormElement | null, onSubmit: (event: FormEvent<HTMLFormElement>) => void) {
+  if (!form) {
+    return;
+  }
+
+  onSubmit({
+    currentTarget: form,
+    preventDefault: () => undefined,
+    target: form,
+  } as unknown as FormEvent<HTMLFormElement>);
+}
+
 function MeetingActionRow({
   onLogMeeting,
   onScheduleMeeting,
@@ -9348,10 +9360,11 @@ function CommitmentFormSheet({
   personId?: string | null;
 }) {
   const selectedPersonId = personId ?? commitment?.personId ?? people[0]?.id ?? "";
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={commitment ? "Edit Commitment" : "New Commitment"}>
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="grid gap-4" onSubmit={onSubmit} ref={formRef}>
         <DosFormSection icon="commitment" title="Commitment">
           {!personId && !commitment ? (
             <DosFormField label="Person">
@@ -9387,7 +9400,7 @@ function CommitmentFormSheet({
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : commitment ? "Save Commitment" : "Save Commitment"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="commitment" onClick={() => submitFormElement(formRef.current, onSubmit)} tone="black">{isSubmitting ? "Saving..." : commitment ? "Save Commitment" : "Save Commitment"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -9408,9 +9421,11 @@ function CommitmentUpdateSheet({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Add Update">
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="grid gap-4" onSubmit={onSubmit} ref={formRef}>
         <input name="commitment_id" type="hidden" value={commitment.id} />
         <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
           <p className="text-sm font-black text-[#0F172A]">{commitment.title}</p>
@@ -9434,7 +9449,7 @@ function CommitmentUpdateSheet({
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="add" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Update"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="add" onClick={() => submitFormElement(formRef.current, onSubmit)} tone="black">{isSubmitting ? "Saving..." : "Save Update"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -9457,9 +9472,11 @@ function AccountabilityScheduleSheet({
   person: DosAppPerson;
   schedule?: DosAppAccountabilitySchedule | null;
 }) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Check-In Rhythm" : "New Check-In Rhythm"}>
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="grid gap-4" onSubmit={onSubmit} ref={formRef}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
         <DosFormSection icon="calendar" title="Rhythm">
@@ -9502,7 +9519,7 @@ function AccountabilityScheduleSheet({
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Rhythm"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="calendar" onClick={() => submitFormElement(formRef.current, onSubmit)} tone="black">{isSubmitting ? "Saving..." : "Save Rhythm"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -9528,6 +9545,7 @@ function LogCheckInSheet({
   schedule?: DosAppAccountabilitySchedule | null;
 }) {
   const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [selectedCommitmentIds, setSelectedCommitmentIds] = useState<string[]>(activeCommitments.slice(0, 3).map((commitment) => commitment.id));
 
   function toggleCommitment(commitmentId: string) {
@@ -9538,7 +9556,7 @@ function LogCheckInSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Log Check-In">
-      <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)}>
+      <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)} ref={formRef}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="schedule_id" type="hidden" value={schedule.id} /> : null}
         <DosFormSection icon="log" title={schedule?.title ?? "Accountability Check-In"}>
@@ -9624,7 +9642,7 @@ function LogCheckInSheet({
 
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="log" onClick={() => submitFormElement(formRef.current, (event) => onSubmit(event, selectedCommitmentIds))} tone="black">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
