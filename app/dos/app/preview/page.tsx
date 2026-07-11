@@ -745,6 +745,9 @@ function buildDosPreviewDemoData(): DosAppData {
   });
 
   return {
+    accountabilityCheckInCommitments: [],
+    accountabilityCheckIns: [],
+    accountabilitySchedules: [],
     assessmentResults,
     calendarConnection: {
       calendarId: "primary",
@@ -755,7 +758,11 @@ function buildDosPreviewDemoData(): DosAppData {
       lastSyncedAt: demoTimestamp,
     },
     circles,
+    commitments: [],
     externalCalendarEvents: [],
+    featureFlags: {
+      commitmentsAccountability: false,
+    },
     fruit,
     fruitEvents,
     groups,

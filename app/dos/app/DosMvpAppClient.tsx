@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -65,6 +65,16 @@ import {
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
+import {
+  dosAccountabilityFrequencies,
+  dosCommitmentCategories,
+  dosCommitmentProgressStates,
+  todayDateKey as todayCommitmentDateKey,
+  type DosAccountabilityFrequency,
+  type DosAccountabilityScheduleStatus,
+  type DosCommitmentProgressState,
+  type DosCommitmentStatus,
+} from "@/src/lib/dos/commitments-accountability";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -75,7 +85,7 @@ const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choos
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
-type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
+type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "commitment" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 
 const moreAppViewValues = new Set<MoreAppView>([
   "apps",
@@ -935,7 +945,14 @@ type GroupActivityItem = {
   meta: string;
   title: string;
 };
-type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer" | "reviews";
+type PersonDetailTab = "activity" | "commitments" | "fruit" | "overview" | "prayer" | "reviews";
+type CommitmentSheetState =
+  | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
+  | { commitment: DosAppPersonCommitment; kind: "update" }
+  | { kind: "schedule"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
+  | { kind: "check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
+  | null;
+type CommitmentNotice = { personId?: string | null; text: string; tone: "error" | "success" } | null;
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "answered_recently" | "group_prayers" | "high_priority" | "needs_follow_up" | "person_prayers" | "pray_today";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -1184,6 +1201,15 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
           <path d="M17 3v3" />
           <path d="M4 8h16" />
           <rect height="16" rx="3" width="16" x="4" y="5" />
+        </svg>
+      );
+    case "commitment":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 5h6" />
+          <path d="M9.5 3.5h5a1.5 1.5 0 0 1 1.5 1.5v1H8V5a1.5 1.5 0 0 1 1.5-1.5Z" />
+          <path d="M6 5.5h12a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
+          <path d="m8 13 2 2 5-5" />
         </svg>
       );
     case "fruit":
@@ -8862,14 +8888,724 @@ type DashboardUpcomingRow = {
   title: string;
 };
 
+const commitmentStatusLabels: Record<DosCommitmentStatus, string> = {
+  active: "Active",
+  cancelled: "Cancelled",
+  completed: "Completed",
+  paused: "Paused",
+};
+
+const commitmentProgressLabels: Record<DosCommitmentProgressState, string> = {
+  completed: "Completed",
+  going_well: "Going Well",
+  in_progress: "In Progress",
+  not_started: "Not Started",
+  struggling: "Struggling",
+};
+
+const accountabilityFrequencyLabels: Record<DosAccountabilityFrequency, string> = {
+  every_two_weeks: "Every two weeks",
+  monthly: "Monthly",
+  one_time: "One-time date",
+  weekly: "Weekly",
+};
+
+const accountabilityStatusLabels: Record<DosAccountabilityScheduleStatus, string> = {
+  active: "Active",
+  paused: "Paused",
+};
+
+const accountabilityDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function commitmentLatestUpdate(commitment: DosAppPersonCommitment) {
+  return commitment.updates[0] ?? null;
+}
+
+function commitmentLastDiscussedAt(
+  commitment: DosAppPersonCommitment,
+  checkIns: DosAppAccountabilityCheckIn[],
+  links: DosAppAccountabilityCheckInCommitment[],
+) {
+  const checkInById = new Map(checkIns.map((checkIn) => [checkIn.id, checkIn]));
+
+  return links
+    .filter((link) => link.commitmentId === commitment.id)
+    .map((link) => checkInById.get(link.checkInId)?.checkInDate ?? null)
+    .filter((date): date is string => Boolean(date))
+    .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
+}
+
+function commitmentDueLabel(commitment: DosAppPersonCommitment) {
+  return commitment.targetDate ? formatDate(commitment.targetDate) : "No target date";
+}
+
+function commitmentStatusTone(status: DosCommitmentStatus) {
+  if (status === "completed") {
+    return "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D]";
+  }
+
+  if (status === "paused") {
+    return "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]";
+  }
+
+  if (status === "cancelled") {
+    return "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
+  }
+
+  return "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+}
+
+function CommitmentStatusPill({ status }: { status: DosCommitmentStatus }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-[0.12em] ${commitmentStatusTone(status)}`} style={{ fontFamily: font.rajdhani }}>
+      {commitmentStatusLabels[status]}
+    </span>
+  );
+}
+
+function CommitmentCard({
+  checkIns,
+  commitment,
+  links,
+  onAddUpdate,
+  onComplete,
+  onEdit,
+  onPause,
+}: {
+  checkIns: DosAppAccountabilityCheckIn[];
+  commitment: DosAppPersonCommitment;
+  links: DosAppAccountabilityCheckInCommitment[];
+  onAddUpdate: (commitment: DosAppPersonCommitment) => void;
+  onComplete: (commitment: DosAppPersonCommitment) => void;
+  onEdit: (commitment: DosAppPersonCommitment) => void;
+  onPause: (commitment: DosAppPersonCommitment) => void;
+}) {
+  const latestUpdate = commitmentLatestUpdate(commitment);
+  const lastDiscussedAt = commitmentLastDiscussedAt(commitment, checkIns, links);
+
+  return (
+    <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-base font-black leading-5 text-[#0F172A]">{commitment.title}</h4>
+          {commitment.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#475569]">{commitment.description}</p> : null}
+        </div>
+        <CommitmentStatusPill status={commitment.status} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-4">
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Assigned</span>
+          <span className="mt-1 block text-[#0F172A]">{formatDate(commitment.assignedDate)}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Due</span>
+          <span className="mt-1 block text-[#0F172A]">{commitmentDueLabel(commitment)}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Age</span>
+          <span className="mt-1 block text-[#0F172A]">{formatRelativeDate(commitment.assignedDate)}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Discussed</span>
+          <span className="mt-1 block text-[#0F172A]">{lastDiscussedAt ? formatRelativeDate(lastDiscussedAt) : "Not yet"}</span>
+        </span>
+      </div>
+
+      {commitment.category || latestUpdate ? (
+        <div className="mt-3 grid gap-2">
+          {commitment.category ? (
+            <span className="w-fit rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-xs font-bold text-[#1D4ED8]">{commitment.category}</span>
+          ) : null}
+          {latestUpdate ? (
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                Latest update {formatDate(latestUpdate.updateDate)}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{latestUpdate.progressNote}</p>
+              {latestUpdate.progressState ? <p className="mt-1 text-xs font-bold text-[#2563EB]">{commitmentProgressLabels[latestUpdate.progressState]}</p> : null}
+            </div>
+          ) : (
+            <p className="rounded-[18px] bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-[#64748B]">No progress update yet.</p>
+          )}
+        </div>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-3">
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Created By</span>
+          <span className="mt-1 block text-[#0F172A]">{commitment.createdByUserId ? "DOS user" : "Unknown"}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Workspace</span>
+          <span className="mt-1 block text-[#0F172A]">This workspace</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Completed</span>
+          <span className="mt-1 block text-[#0F172A]">{commitment.completedDate ? formatDate(commitment.completedDate) : "Not completed"}</span>
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <CompactButton icon="add" onClick={() => onAddUpdate(commitment)}>Add Update</CompactButton>
+        <CompactButton icon="commitment" onClick={() => onComplete(commitment)}>Complete</CompactButton>
+        <CompactButton icon="bell" onClick={() => onPause(commitment)}>{commitment.status === "paused" ? "Activate" : "Pause"}</CompactButton>
+        <CompactButton icon="settings" onClick={() => onEdit(commitment)}>Edit</CompactButton>
+      </div>
+    </article>
+  );
+}
+
+function CommitmentsPanel({
+  checkIns,
+  commitments,
+  links,
+  onAddCommitment,
+  onAddSchedule,
+  onAddUpdate,
+  onComplete,
+  onEdit,
+  onLogCheckIn,
+  onPause,
+  schedules,
+}: {
+  checkIns: DosAppAccountabilityCheckIn[];
+  commitments: DosAppPersonCommitment[];
+  links: DosAppAccountabilityCheckInCommitment[];
+  onAddCommitment: () => void;
+  onAddSchedule: () => void;
+  onAddUpdate: (commitment: DosAppPersonCommitment) => void;
+  onComplete: (commitment: DosAppPersonCommitment) => void;
+  onEdit: (commitment: DosAppPersonCommitment) => void;
+  onLogCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
+  onPause: (commitment: DosAppPersonCommitment) => void;
+  schedules: DosAppAccountabilitySchedule[];
+}) {
+  const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
+  const historicalCommitments = commitments.filter((commitment) => commitment.status === "completed" || commitment.status === "cancelled");
+  const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
+  const nextSchedule = activeSchedules[0] ?? null;
+
+  return (
+    <section className="grid min-w-0 gap-3">
+      <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitments">
+        <div className="grid grid-cols-2 gap-2">
+          <CompactButton icon="commitment" onClick={onAddCommitment}>New Commitment</CompactButton>
+          <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton>
+        </div>
+        {activeCommitments.length ? activeCommitments.map((commitment) => (
+          <CommitmentCard
+            checkIns={checkIns}
+            commitment={commitment}
+            key={commitment.id}
+            links={links}
+            onAddUpdate={onAddUpdate}
+            onComplete={onComplete}
+            onEdit={onEdit}
+            onPause={onPause}
+          />
+        )) : (
+          <SectionEmptyState action={<CompactButton icon="commitment" onClick={onAddCommitment}>Add Commitment</CompactButton>} title="No active commitments." />
+        )}
+      </DetailCard>
+
+      <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
+        <div className="grid gap-2">
+          <CompactButton icon="calendar" onClick={onAddSchedule}>Add Check-In Rhythm</CompactButton>
+          {schedules.length ? schedules.map((schedule) => (
+            <button
+              className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+              key={schedule.id}
+              onClick={() => onLogCheckIn(schedule)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-[#0F172A]">{schedule.title}</span>
+                <span className="mt-1 block text-xs font-semibold text-[#64748B]">
+                  {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""} · Next {formatDate(schedule.nextCheckIn)}
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                {accountabilityStatusLabels[schedule.status]}
+              </span>
+            </button>
+          )) : (
+            <SectionEmptyState action={<CompactButton icon="calendar" onClick={onAddSchedule}>Add Rhythm</CompactButton>} title="No check-in rhythm yet." />
+          )}
+        </div>
+      </DetailCard>
+
+      {historicalCommitments.length ? (
+        <details className="rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            History ({historicalCommitments.length})
+          </summary>
+          <div className="mt-3 grid gap-2">
+            {historicalCommitments.map((commitment) => (
+              <CommitmentCard
+                checkIns={checkIns}
+                commitment={commitment}
+                key={commitment.id}
+                links={links}
+                onAddUpdate={onAddUpdate}
+                onComplete={onComplete}
+                onEdit={onEdit}
+                onPause={onPause}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[]) {
+  const personById = new Map(people.map((person) => [person.id, person]));
+  const today = todayCommitmentDateKey();
+  const todayValue = dateSortValue(today);
+  const sevenDayValue = todayValue + 7 * 24 * 60 * 60 * 1000;
+
+  return schedules
+    .filter((schedule) => schedule.status === "active")
+    .map((schedule) => ({
+      bucket: dateSortValue(schedule.nextCheckIn) < todayValue ? "Overdue" : schedule.nextCheckIn === today ? "Due Today" : "Next 7 Days",
+      person: personById.get(schedule.personId) ?? null,
+      schedule,
+    }))
+    .filter((row) => row.bucket !== "Next 7 Days" || dateSortValue(row.schedule.nextCheckIn) <= sevenDayValue)
+    .sort((first, second) => dateSortValue(first.schedule.nextCheckIn) - dateSortValue(second.schedule.nextCheckIn));
+}
+
+function AccountabilityDashboardCard({
+  onLogCheckIn,
+  people,
+  schedules,
+}: {
+  onLogCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
+  people: DosAppPerson[];
+  schedules: DosAppAccountabilitySchedule[];
+}) {
+  const rows = accountabilityDueRows(schedules, people);
+  const dueToday = rows.filter((row) => row.bucket === "Due Today").length;
+  const overdue = rows.filter((row) => row.bucket === "Overdue").length;
+  const dueSoon = rows.filter((row) => row.bucket === "Next 7 Days").length;
+
+  return (
+    <DesktopPanel className="min-w-0" compact eyebrow="Accountability">
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          ["Due today", dueToday],
+          ["Overdue", overdue],
+          ["7 days", dueSoon],
+        ].map(([label, value]) => (
+          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
+            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+            <p className="mt-1 text-xl font-black text-[#0F172A]">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
+        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0" key={row.schedule.id}>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-[#0F172A]">{row.person?.name ?? "Field person"}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{row.schedule.title} · {row.bucket} · {formatDate(row.schedule.nextCheckIn)}</p>
+            </div>
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+              onClick={() => onLogCheckIn(row.schedule)}
+              type="button"
+            >
+              Log Check-In
+            </button>
+          </div>
+        )) : (
+          <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No check-ins due.</p>
+        )}
+      </div>
+    </DesktopPanel>
+  );
+}
+
+function PersonAccountabilitySummaryCard({
+  checkIns,
+  commitments,
+  onLogCheckIn,
+  onViewCommitments,
+  schedules,
+}: {
+  checkIns: DosAppAccountabilityCheckIn[];
+  commitments: DosAppPersonCommitment[];
+  onLogCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
+  onViewCommitments: () => void;
+  schedules: DosAppAccountabilitySchedule[];
+}) {
+  const activeCommitments = commitments.filter((commitment) => commitment.status === "active");
+  const nextCheckIn = schedules.filter((schedule) => schedule.status === "active")[0] ?? null;
+  const lastCheckIn = checkIns[0] ?? null;
+
+  return (
+    <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
+      <div className="grid grid-cols-3 gap-2">
+        <FruitSummaryCard icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active" value={String(activeCommitments.length)} />
+        <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next" value={nextCheckIn ? formatDate(nextCheckIn.nextCheckIn) : "None"} />
+        <FruitSummaryCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last" value={lastCheckIn ? formatRelativeDate(lastCheckIn.checkInDate) : "None"} />
+      </div>
+      {activeCommitments.length ? (
+        <div className="grid gap-2">
+          {activeCommitments.slice(0, 3).map((commitment) => (
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={commitment.id}>
+              <p className="truncate text-sm font-black text-[#0F172A]">{commitment.title}</p>
+              <p className="mt-1 text-xs font-semibold text-[#64748B]">Assigned {formatRelativeDate(commitment.assignedDate)} · {commitmentDueLabel(commitment)}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        <CompactButton icon="commitment" onClick={onViewCommitments}>View Commitments</CompactButton>
+        <CompactButton icon="log" onClick={() => onLogCheckIn(nextCheckIn)}>Log Check-In</CompactButton>
+      </div>
+    </DetailCard>
+  );
+}
+
+function CommitmentSuccessSheet({
+  notice,
+  onClose,
+  onOpenPerson,
+}: {
+  notice: NonNullable<CommitmentNotice>;
+  onClose: () => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Saved">
+      <div className="grid gap-3">
+        <p className="rounded-[22px] border border-[#BBF7D0] bg-[#F7FEFA] px-4 py-3 text-sm font-semibold leading-6 text-[#15803D]">{notice.text}</p>
+        {notice.personId ? (
+          <AppButton icon="people" onClick={() => onOpenPerson(notice.personId as string)} tone="black">Open Person Profile</AppButton>
+        ) : null}
+        <AppButton onClick={onClose} tone="white">Done</AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
+function CommitmentFormSheet({
+  commitment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  people,
+  personId,
+}: {
+  commitment?: DosAppPersonCommitment | null;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  people: DosAppPerson[];
+  personId?: string | null;
+}) {
+  const selectedPersonId = personId ?? commitment?.personId ?? people[0]?.id ?? "";
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={commitment ? "Edit Commitment" : "New Commitment"}>
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <DosFormSection icon="commitment" title="Commitment">
+          {!personId && !commitment ? (
+            <DosFormField label="Person">
+              <select className={FieldInputClass(false)} defaultValue={selectedPersonId} name="person_id" required>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>{person.name}</option>
+                ))}
+              </select>
+            </DosFormField>
+          ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
+          {commitment ? <input name="id" type="hidden" value={commitment.id} /> : null}
+          <DosFormField label="Title">
+            <input autoFocus className={FieldInputClass(false)} defaultValue={commitment?.title ?? ""} name="title" required />
+          </DosFormField>
+          <DosFormField label="Description">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={commitment?.description ?? ""} name="description" />
+          </DosFormField>
+        </DosFormSection>
+        <DosFormSection icon="settings" title="Details">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Category">
+              <select className={FieldInputClass(false)} defaultValue={commitment?.category ?? ""} name="category">
+                <option value="">None</option>
+                {dosCommitmentCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </DosFormField>
+            <DosFormField label="Target Date">
+              <input className={FieldInputClass(false)} defaultValue={commitment?.targetDate ?? ""} name="target_date" type="date" />
+            </DosFormField>
+          </div>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : commitment ? "Save Commitment" : "Save Commitment"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function CommitmentUpdateSheet({
+  commitment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  commitment: DosAppPersonCommitment;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Add Update">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="commitment_id" type="hidden" value={commitment.id} />
+        <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+          <p className="text-sm font-black text-[#0F172A]">{commitment.title}</p>
+          <p className="mt-1 text-xs font-semibold text-[#64748B]">Assigned {formatDate(commitment.assignedDate)}</p>
+        </div>
+        <DosFormSection icon="log" title="Progress">
+          <DosFormField label="Date">
+            <input className={FieldInputClass(false)} defaultValue={todayCommitmentDateKey()} name="date" type="date" />
+          </DosFormField>
+          <DosFormField label="Progress note">
+            <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="progress_note" required />
+          </DosFormField>
+          <DosFormField label="Progress state">
+            <select className={FieldInputClass(false)} defaultValue="" name="progress_state">
+              <option value="">None</option>
+              {dosCommitmentProgressStates.map((state) => (
+                <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
+              ))}
+            </select>
+          </DosFormField>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="add" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Update"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function AccountabilityScheduleSheet({
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  person,
+  schedule,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  person: DosAppPerson;
+  schedule?: DosAppAccountabilitySchedule | null;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Check-In Rhythm" : "New Check-In Rhythm"}>
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="person_id" type="hidden" value={person.id} />
+        {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
+        <DosFormSection icon="calendar" title="Rhythm">
+          <DosFormField label="Person">
+            <input className={FieldInputClass(false)} readOnly value={person.name} />
+          </DosFormField>
+          <DosFormField label="Title">
+            <input autoFocus className={FieldInputClass(false)} defaultValue={schedule?.title ?? ""} name="title" required />
+          </DosFormField>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Frequency">
+              <select className={FieldInputClass(false)} defaultValue={schedule?.frequency ?? "weekly"} name="frequency">
+                {dosAccountabilityFrequencies.map((frequency) => (
+                  <option key={frequency} value={frequency}>{accountabilityFrequencyLabels[frequency]}</option>
+                ))}
+              </select>
+            </DosFormField>
+            <DosFormField label="Day">
+              <select className={FieldInputClass(false)} defaultValue={schedule?.dayOfWeek ?? new Date().getDay()} name="day_of_week">
+                {accountabilityDayLabels.map((label, index) => (
+                  <option key={label} value={index}>{label}</option>
+                ))}
+              </select>
+            </DosFormField>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Time">
+              <input className={FieldInputClass(false)} defaultValue={schedule?.scheduledTime?.slice(0, 5) ?? ""} name="scheduled_time" type="time" />
+            </DosFormField>
+            <DosFormField label="Start Date">
+              <input className={FieldInputClass(false)} defaultValue={schedule?.startDate ?? todayCommitmentDateKey()} name="start_date" type="date" />
+            </DosFormField>
+          </div>
+          <DosFormField label="Status">
+            <select className={FieldInputClass(false)} defaultValue={schedule?.status ?? "active"} name="status">
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+            </select>
+          </DosFormField>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Rhythm"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function LogCheckInSheet({
+  commitments,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  person,
+  schedule,
+}: {
+  commitments: DosAppPersonCommitment[];
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>, selectedCommitmentIds: string[]) => void;
+  person: DosAppPerson;
+  schedule?: DosAppAccountabilitySchedule | null;
+}) {
+  const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
+  const [selectedCommitmentIds, setSelectedCommitmentIds] = useState<string[]>(activeCommitments.slice(0, 3).map((commitment) => commitment.id));
+
+  function toggleCommitment(commitmentId: string) {
+    setSelectedCommitmentIds((current) => current.includes(commitmentId)
+      ? current.filter((id) => id !== commitmentId)
+      : [...current, commitmentId]);
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Log Check-In">
+      <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)}>
+        <input name="person_id" type="hidden" value={person.id} />
+        {schedule ? <input name="schedule_id" type="hidden" value={schedule.id} /> : null}
+        <DosFormSection icon="log" title={schedule?.title ?? "Accountability Check-In"}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Date">
+              <input className={FieldInputClass(false)} defaultValue={todayCommitmentDateKey()} name="date" type="date" />
+            </DosFormField>
+            <DosFormField label="Duration">
+              <input className={FieldInputClass(false)} min={0} name="duration_minutes" placeholder="Minutes" type="number" />
+            </DosFormField>
+          </div>
+          <DosFormField label="General update">
+            <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="general_update" required />
+          </DosFormField>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Wins">
+              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="wins" />
+            </DosFormField>
+            <DosFormField label="Struggles">
+              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="struggles" />
+            </DosFormField>
+          </div>
+          <DosFormField label="Prayer needs">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
+          </DosFormField>
+          <DosFormField label="Follow-up">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="follow_up" />
+          </DosFormField>
+        </DosFormSection>
+
+        <DosFormSection icon="commitment" title="Commitments Discussed">
+          {activeCommitments.length ? activeCommitments.map((commitment) => {
+            const selected = selectedCommitmentIds.includes(commitment.id);
+
+            return (
+              <div className="rounded-[20px] border border-[#DCEBFF] bg-white p-3" key={commitment.id}>
+                <label className="flex min-h-10 items-start gap-3 text-sm font-bold text-[#0F172A]">
+                  <input checked={selected} className="mt-1 h-4 w-4 accent-[#2563EB]" onChange={() => toggleCommitment(commitment.id)} type="checkbox" />
+                  <span className="min-w-0">
+                    <span className="block">{commitment.title}</span>
+                    <span className="mt-1 block text-xs font-semibold text-[#64748B]">{commitmentDueLabel(commitment)}</span>
+                  </span>
+                </label>
+                {selected ? (
+                  <div className="mt-3 grid gap-2">
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name={`commitment_note_${commitment.id}`} placeholder="Progress note" />
+                    <select className={FieldInputClass(false)} defaultValue="" name={`commitment_state_${commitment.id}`}>
+                      <option value="">No state</option>
+                      {dosCommitmentProgressStates.map((state) => (
+                        <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+              </div>
+            );
+          }) : (
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-[#64748B]">No active commitments yet.</p>
+          )}
+        </DosFormSection>
+
+        <DosFormSection icon="add" title="New Commitment">
+          <DosFormField label="Title">
+            <input className={FieldInputClass(false)} name="new_commitment_title" placeholder="Optional" />
+          </DosFormField>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Category">
+              <select className={FieldInputClass(false)} defaultValue="" name="new_commitment_category">
+                <option value="">None</option>
+                {dosCommitmentCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </DosFormField>
+            <DosFormField label="Target Date">
+              <input className={FieldInputClass(false)} name="new_commitment_target_date" type="date" />
+            </DosFormField>
+          </div>
+          <DosFormField label="Description">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="new_commitment_description" />
+          </DosFormField>
+        </DosFormSection>
+
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 function DesktopHomeDashboard({
+  accountabilitySchedules,
+  commitmentsEnabled,
   fruitEvents,
   fruitItems,
   loggedMeetings,
   meetings,
   myRecord,
   onAddPerson,
+  onCreateCommitment,
   onLogMeeting,
+  onLogAccountabilityCheckIn,
   onOpenFruit,
   onOpenMeeting,
   onOpenMyRecord,
@@ -8879,7 +9615,6 @@ function DesktopHomeDashboard({
   onOpenReviews,
   onOpenTable,
   onOpenTableCalendar,
-  onPrayNow,
   onScheduleMeeting,
   participantReviews = [],
   participantTestimonies = [],
@@ -8887,13 +9622,17 @@ function DesktopHomeDashboard({
   personTableStatsByPersonId,
   upcomingItems,
 }: {
+  accountabilitySchedules: DosAppAccountabilitySchedule[];
+  commitmentsEnabled: boolean;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
   meetings: DosAppMeeting[];
   myRecord: DosAppUserRecord;
   onAddPerson: () => void;
+  onCreateCommitment: () => void;
   onLogMeeting: () => void;
+  onLogAccountabilityCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenMyRecord: () => void;
@@ -8903,7 +9642,6 @@ function DesktopHomeDashboard({
   onOpenReviews: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
-  onPrayNow: () => void;
   onScheduleMeeting: () => void;
   participantReviews?: DosAppParticipantReview[];
   participantTestimonies?: DosAppParticipantTestimony[];
@@ -8951,7 +9689,7 @@ function DesktopHomeDashboard({
   const quickActionItems: Array<{ icon: IconName; label: string; onClick: () => void }> = [
     { icon: "calendar", label: "Schedule", onClick: onScheduleMeeting },
     { icon: "people", label: "Add Person", onClick: onAddPerson },
-    { icon: "prayer", label: "Pray Now", onClick: onPrayNow },
+    { icon: "commitment", label: "Commitment", onClick: onCreateCommitment },
   ];
   const tableActivityMetrics = [
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
@@ -9070,6 +9808,14 @@ function DesktopHomeDashboard({
               ))}
             </div>
           </DesktopPanel>
+
+        {commitmentsEnabled ? (
+          <AccountabilityDashboardCard
+            onLogCheckIn={onLogAccountabilityCheckIn}
+            people={people}
+            schedules={accountabilitySchedules}
+          />
+        ) : null}
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
@@ -27384,9 +28130,14 @@ function ResourcePickerSheet({
 }
 
 function PersonDetailOverlay({
+  accountabilityCheckInLinks,
+  accountabilityCheckIns,
+  accountabilitySchedules,
   answeredPrayerByReminderId,
   assessmentResults,
   circleScore,
+  commitments,
+  commitmentsEnabled,
   fruitEvents,
   fruitItems,
   initialDetailTab,
@@ -27395,15 +28146,22 @@ function PersonDetailOverlay({
   meetings,
   reminders,
   onBack,
+  onAddCommitment,
+  onAddCommitmentUpdate,
+  onAddAccountabilitySchedule,
   onAddReminder,
   onAddPrayerRequest,
+  onCompleteCommitment,
   onEditReminder,
+  onEditCommitment,
   onEdit,
+  onLogAccountabilityCheckIn,
   onMarkPrayerAnswered,
   onOpenPrayerResources,
   onOpenReview,
   onOpenMeeting,
   onLogMeeting,
+  onPauseCommitment,
   onScheduleMeeting,
   participantReviews,
   participantTestimonies,
@@ -27411,9 +28169,14 @@ function PersonDetailOverlay({
   prayerRequests,
   workspace,
 }: {
+  accountabilityCheckInLinks: DosAppAccountabilityCheckInCommitment[];
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
+  accountabilitySchedules: DosAppAccountabilitySchedule[];
   answeredPrayerByReminderId: Record<string, string>;
   assessmentResults: DosAppAssessmentResult[];
   circleScore?: DosRelationshipScore | null;
+  commitments: DosAppPersonCommitment[];
+  commitmentsEnabled: boolean;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   initialDetailTab?: PersonDetailTab | null;
@@ -27422,15 +28185,22 @@ function PersonDetailOverlay({
   meetings: DosAppMeeting[];
   reminders: DosAppRelationshipReminder[];
   onBack: () => void;
+  onAddCommitment: () => void;
+  onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
+  onAddAccountabilitySchedule: () => void;
   onAddReminder: () => void;
   onAddPrayerRequest: () => void;
+  onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
   onEditReminder: (reminderId: string) => void;
+  onEditCommitment: (commitment: DosAppPersonCommitment) => void;
   onEdit: () => void;
+  onLogAccountabilityCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
+  onPauseCommitment: (commitment: DosAppPersonCommitment) => void;
   onScheduleMeeting: () => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
@@ -27439,7 +28209,7 @@ function PersonDetailOverlay({
   workspace: DosAppWorkspace;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(commitmentsEnabled ? initialDetailTab ?? "overview" : "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
@@ -27578,6 +28348,29 @@ function PersonDetailOverlay({
     .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
     .slice(0, 6);
   const latestGrowthDate = personGrowthMilestones[0]?.date ?? lastMeetingDate;
+  const commitmentActivityItems = [
+    ...commitments.map((commitment) => ({
+      body: commitment.description || `${commitmentStatusLabels[commitment.status]} · ${commitmentDueLabel(commitment)}`,
+      date: commitment.updatedAt ?? commitment.assignedDate,
+      id: `commitment-${commitment.id}`,
+      title: commitment.title,
+      type: "Commitment",
+    })),
+    ...commitments.flatMap((commitment) => commitment.updates.map((update) => ({
+      body: update.progressNote,
+      date: update.updateDate,
+      id: `commitment-update-${update.id}`,
+      title: commitment.title,
+      type: update.progressState ? commitmentProgressLabels[update.progressState] : "Progress Update",
+    }))),
+    ...accountabilityCheckIns.map((checkIn) => ({
+      body: checkIn.generalUpdate,
+      date: checkIn.checkInDate,
+      id: `accountability-check-in-${checkIn.id}`,
+      title: "Accountability Check-In",
+      type: "Check-In",
+    })),
+  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 6);
   const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
@@ -27587,6 +28380,14 @@ function PersonDetailOverlay({
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
   ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
+  const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
+    { label: "Overview", value: "overview" },
+    { label: "Activity", value: "activity" },
+    ...(commitmentsEnabled ? [{ label: "Commitments", value: "commitments" as const }] : []),
+    { label: "Reviews", value: "reviews" },
+    { label: "Prayer", value: "prayer" },
+    { label: "Growth", value: "fruit" },
+  ];
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
       const scrollContainer = detailScrollRef.current;
@@ -27601,11 +28402,11 @@ function PersonDetailOverlay({
   }
 
   useEffect(() => {
-    setActiveDetailTab(initialDetailTab ?? "overview");
+    setActiveDetailTab(commitmentsEnabled ? initialDetailTab ?? "overview" : "overview");
     setIsSnapshotOpen(false);
     setSelectedOutcomeEntry(null);
     scrollDetailToTop();
-  }, [initialDetailTab, person.id]);
+  }, [commitmentsEnabled, initialDetailTab, person.id]);
 
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
@@ -27634,14 +28435,8 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
-        <div className="grid grid-cols-5 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
-          {[
-            { label: "Overview", value: "overview" },
-            { label: "Activity", value: "activity" },
-            { label: "Reviews", value: "reviews" },
-            { label: "Prayer", value: "prayer" },
-            { label: "Growth", value: "fruit" },
-          ].map((tab) => (
+        <div className={`grid gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)] ${commitmentsEnabled ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-5"}`}>
+          {detailTabs.map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
               className={`min-h-9 rounded-full px-1.5 text-[10px] font-bold transition-colors sm:px-2 sm:text-[11px] ${
@@ -27669,6 +28464,19 @@ function PersonDetailOverlay({
               <EngagementSnapshotTile label={engagementOverviewLabel} score={engagementOverviewScore} />
               <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Table" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
             </div>
+
+            {commitmentsEnabled ? (
+              <PersonAccountabilitySummaryCard
+                checkIns={accountabilityCheckIns}
+                commitments={commitments}
+                onLogCheckIn={onLogAccountabilityCheckIn}
+                onViewCommitments={() => {
+                  setActiveDetailTab("commitments");
+                  scrollDetailToTop();
+                }}
+                schedules={accountabilitySchedules}
+              />
+            ) : null}
 
             <section className="rounded-[24px] border border-[#D7F3DD] bg-[#F7FEFA] p-4 shadow-[0_14px_34px_rgba(22,163,74,0.055)]">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
@@ -27847,6 +28655,22 @@ function PersonDetailOverlay({
               </DetailCard>
             ) : null}
 
+            {commitmentsEnabled ? (
+              <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitment Activity">
+                {commitmentActivityItems.length ? commitmentActivityItems.map((item) => (
+                  <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={item.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.type} · {formatDate(item.date)}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#475569]">{item.body}</p>
+                  </div>
+                )) : <SectionEmptyState title="No commitment activity yet." />}
+              </DetailCard>
+            ) : null}
+
             <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Resources Sent">
               <SectionEmptyState
                 text="Sent date, opened date, completed date, and scores can be tracked later."
@@ -27854,6 +28678,22 @@ function PersonDetailOverlay({
               />
             </DetailCard>
           </>
+        ) : null}
+
+        {activeDetailTab === "commitments" && commitmentsEnabled ? (
+          <CommitmentsPanel
+            checkIns={accountabilityCheckIns}
+            commitments={commitments}
+            links={accountabilityCheckInLinks}
+            onAddCommitment={onAddCommitment}
+            onAddSchedule={onAddAccountabilitySchedule}
+            onAddUpdate={onAddCommitmentUpdate}
+            onComplete={onCompleteCommitment}
+            onEdit={onEditCommitment}
+            onLogCheckIn={onLogAccountabilityCheckIn}
+            onPause={onPauseCommitment}
+            schedules={accountabilitySchedules}
+          />
         ) : null}
 
         {activeDetailTab === "reviews" ? (
@@ -28645,6 +29485,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const appScrollRef = useRef<HTMLDivElement | null>(null);
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
+  const commitmentsEnabled = data.featureFlags.commitmentsAccountability === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
@@ -28782,6 +29623,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
   const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
+  const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const ministryLoggedMeetings = useMemo(
@@ -28789,7 +29632,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     [loggedMeetings],
   );
   const requestedPersonId = searchParams.get("person");
-  const requestedDetailTab = searchParams.get("tab") === "growth" ? "fruit" : null;
+  const requestedDetailTab = searchParams.get("tab") === "growth"
+    ? "fruit"
+    : searchParams.get("tab") === "commitments"
+      ? "commitments"
+      : null;
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
 
@@ -28903,6 +29750,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     selectedMeetingWithReview ? existingReviewUrl(selectedMeetingWithReview, selectedMeetingReviewRecipientId) : null
   ), [reviewLinksByMeetingId, selectedMeetingReviewRecipientId, selectedMeetingWithReview]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
+  const selectedPersonCommitments = useMemo(() => (
+    selectedPerson ? data.commitments.filter((commitment) => commitment.personId === selectedPerson.id) : []
+  ), [data.commitments, selectedPerson]);
+  const selectedPersonAccountabilitySchedules = useMemo(() => (
+    selectedPerson ? data.accountabilitySchedules.filter((schedule) => schedule.personId === selectedPerson.id) : []
+  ), [data.accountabilitySchedules, selectedPerson]);
+  const selectedPersonAccountabilityCheckIns = useMemo(() => (
+    selectedPerson ? data.accountabilityCheckIns.filter((checkIn) => checkIn.personId === selectedPerson.id) : []
+  ), [data.accountabilityCheckIns, selectedPerson]);
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
   ), [selectedPrayerResourceSlug]);
@@ -30193,6 +31049,193 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode("reminder");
     setNewReminderType("follow_up");
+  }
+
+  function openCommitmentCreate(personId?: string | null) {
+    if (!commitmentsEnabled) {
+      setErrorMessage("Commitments and accountability are not enabled for this workspace.");
+      return;
+    }
+
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ kind: "commitment", personId: personId ?? null });
+  }
+
+  function openCommitmentEdit(commitment: DosAppPersonCommitment) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment, kind: "commitment", personId: commitment.personId });
+  }
+
+  function openCommitmentUpdate(commitment: DosAppPersonCommitment) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment, kind: "update" });
+  }
+
+  function openAccountabilitySchedule(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ kind: "schedule", personId, schedule: schedule ?? null });
+  }
+
+  function openAccountabilityCheckIn(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ kind: "check_in", personId, schedule: schedule ?? null });
+  }
+
+  function openAccountabilityCheckInForSchedule(schedule: DosAppAccountabilitySchedule) {
+    openAccountabilityCheckIn(schedule.personId, schedule);
+  }
+
+  async function handleCommitmentSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const id = String(formData.get("id") ?? "").trim();
+    const personId = String(formData.get("person_id") ?? "").trim();
+    const payload = {
+      category: String(formData.get("category") ?? ""),
+      description: String(formData.get("description") ?? ""),
+      id,
+      personId,
+      targetDate: String(formData.get("target_date") ?? ""),
+      title: String(formData.get("title") ?? ""),
+    };
+    const result = await submitJson(
+      "/api/dos/app/commitments",
+      payload,
+      id ? "PATCH" : "POST",
+      false,
+    ) as { commitment?: DosAppPersonCommitment } | null;
+
+    if (result?.commitment) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({
+        personId: result.commitment.personId,
+        text: id ? "Commitment updated." : "Commitment saved.",
+        tone: "success",
+      });
+    }
+  }
+
+  async function handleCommitmentUpdateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const result = await submitJson(
+      "/api/dos/app/commitments/updates",
+      {
+        commitmentId: String(formData.get("commitment_id") ?? ""),
+        date: String(formData.get("date") ?? ""),
+        progressNote: String(formData.get("progress_note") ?? ""),
+        progressState: String(formData.get("progress_state") ?? ""),
+      },
+      "POST",
+      false,
+    ) as { commitment?: DosAppPersonCommitment; update?: DosAppCommitmentUpdate } | null;
+
+    if (result?.update) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({
+        personId: result.commitment?.personId ?? null,
+        text: "Progress update saved.",
+        tone: "success",
+      });
+    }
+  }
+
+  async function setCommitmentStatus(commitment: DosAppPersonCommitment, status: DosCommitmentStatus) {
+    const result = await submitJson(
+      "/api/dos/app/commitments",
+      {
+        id: commitment.id,
+        status,
+      },
+      "PATCH",
+      false,
+    ) as { commitment?: DosAppPersonCommitment } | null;
+
+    if (result?.commitment) {
+      setCommitmentNotice({
+        personId: result.commitment.personId,
+        text: status === "completed" ? "Commitment completed." : status === "paused" ? "Commitment paused." : "Commitment updated.",
+        tone: "success",
+      });
+    }
+  }
+
+  async function handleAccountabilityScheduleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const id = String(formData.get("id") ?? "").trim();
+    const result = await submitJson(
+      "/api/dos/app/accountability/schedules",
+      {
+        dayOfWeek: String(formData.get("day_of_week") ?? ""),
+        frequency: String(formData.get("frequency") ?? ""),
+        id,
+        personId: String(formData.get("person_id") ?? ""),
+        scheduledTime: String(formData.get("scheduled_time") ?? ""),
+        startDate: String(formData.get("start_date") ?? ""),
+        status: String(formData.get("status") ?? ""),
+        title: String(formData.get("title") ?? ""),
+      },
+      id ? "PATCH" : "POST",
+      false,
+    ) as { schedule?: DosAppAccountabilitySchedule } | null;
+
+    if (result?.schedule) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({
+        personId: result.schedule.personId,
+        text: "Accountability rhythm saved.",
+        tone: "success",
+      });
+    }
+  }
+
+  async function handleAccountabilityCheckInSubmit(event: FormEvent<HTMLFormElement>, selectedCommitmentIds: string[]) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const newCommitmentTitle = String(formData.get("new_commitment_title") ?? "").trim();
+    const commitments = selectedCommitmentIds.map((commitmentId) => ({
+      commitmentId,
+      progressNote: String(formData.get(`commitment_note_${commitmentId}`) ?? ""),
+      progressState: String(formData.get(`commitment_state_${commitmentId}`) ?? ""),
+    }));
+    const result = await submitJson(
+      "/api/dos/app/accountability/check-ins",
+      {
+        commitments,
+        date: String(formData.get("date") ?? ""),
+        durationMinutes: String(formData.get("duration_minutes") ?? ""),
+        followUp: String(formData.get("follow_up") ?? ""),
+        generalUpdate: String(formData.get("general_update") ?? ""),
+        newCommitment: newCommitmentTitle ? {
+          category: String(formData.get("new_commitment_category") ?? ""),
+          description: String(formData.get("new_commitment_description") ?? ""),
+          targetDate: String(formData.get("new_commitment_target_date") ?? ""),
+          title: newCommitmentTitle,
+        } : null,
+        personId: String(formData.get("person_id") ?? ""),
+        prayerNeeds: String(formData.get("prayer_needs") ?? ""),
+        scheduleId: String(formData.get("schedule_id") ?? ""),
+        struggles: String(formData.get("struggles") ?? ""),
+        wins: String(formData.get("wins") ?? ""),
+      },
+      "POST",
+      false,
+    ) as { checkIn?: DosAppAccountabilityCheckIn } | null;
+
+    if (result?.checkIn) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({
+        personId: result.checkIn.personId,
+        text: "Check-in saved.",
+        tone: "success",
+      });
+    }
   }
 
   function openScheduledDraftAsMeeting() {
@@ -32977,13 +34020,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 />
               </div>
               <DesktopHomeDashboard
+                accountabilitySchedules={data.accountabilitySchedules}
+                commitmentsEnabled={commitmentsEnabled}
                 fruitEvents={data.fruitEvents}
                 fruitItems={data.fruit}
                 loggedMeetings={ministryLoggedMeetings}
                 meetings={data.meetings}
                 myRecord={data.myRecord}
-                      onAddPerson={() => openForm("person")}
+                onAddPerson={() => openForm("person")}
+                onCreateCommitment={() => openCommitmentCreate()}
                 onLogMeeting={() => openForm("meeting")}
+                onLogAccountabilityCheckIn={openAccountabilityCheckInForSchedule}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMyRecord={() => openMoreApp("my_record")}
@@ -32996,7 +34043,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   setActiveTab("meetings");
                   setMeetingsView("calendar");
                 }}
-                onPrayNow={() => openMoreApp("prayer")}
                 onScheduleMeeting={() => openScheduleMeeting()}
                 participantReviews={data.participantReviews}
                 participantTestimonies={data.participantTestimonies}
@@ -33743,8 +34789,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedPerson ? (
             <PersonDetailOverlay
+              accountabilityCheckInLinks={data.accountabilityCheckInCommitments}
+              accountabilityCheckIns={selectedPersonAccountabilityCheckIns}
+              accountabilitySchedules={selectedPersonAccountabilitySchedules}
               answeredPrayerByReminderId={answeredPrayerByReminderId}
               assessmentResults={data.assessmentResults}
+              commitments={selectedPersonCommitments}
+              commitmentsEnabled={commitmentsEnabled}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
               initialDetailTab={requestedDetailTab}
@@ -33753,15 +34804,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               meetings={data.meetings}
               reminders={data.reminders}
             onBack={() => setSelectedPersonId(null)}
+            onAddCommitment={() => openCommitmentCreate(selectedPerson.id)}
+            onAddCommitmentUpdate={openCommitmentUpdate}
+            onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
             onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
+            onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
             onEdit={() => openPersonEdit(selectedPerson)}
+            onEditCommitment={openCommitmentEdit}
             onEditReminder={openReminderEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
+            onLogAccountabilityCheckIn={(schedule) => openAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
+            onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -33980,6 +35038,62 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setResourcePickerMessage("");
             }}
             onSelectResource={prepareResourceToSend}
+          />
+        ) : null}
+
+        {commitmentNotice ? (
+          <CommitmentSuccessSheet
+            notice={commitmentNotice}
+            onClose={() => setCommitmentNotice(null)}
+            onOpenPerson={(personId) => {
+              setCommitmentNotice(null);
+              openPersonDetail(personId);
+            }}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "commitment" ? (
+          <CommitmentFormSheet
+            commitment={commitmentSheet.commitment ?? null}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handleCommitmentSubmit}
+            people={people}
+            personId={commitmentSheet.personId ?? commitmentSheet.commitment?.personId ?? null}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "update" ? (
+          <CommitmentUpdateSheet
+            commitment={commitmentSheet.commitment}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handleCommitmentUpdateSubmit}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "schedule" && people.find((person) => person.id === commitmentSheet.personId) ? (
+          <AccountabilityScheduleSheet
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handleAccountabilityScheduleSubmit}
+            person={people.find((person) => person.id === commitmentSheet.personId) as DosAppPerson}
+            schedule={commitmentSheet.schedule ?? null}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "check_in" && people.find((person) => person.id === commitmentSheet.personId) ? (
+          <LogCheckInSheet
+            commitments={data.commitments.filter((commitment) => commitment.personId === commitmentSheet.personId)}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handleAccountabilityCheckInSubmit}
+            person={people.find((person) => person.id === commitmentSheet.personId) as DosAppPerson}
+            schedule={commitmentSheet.schedule ?? null}
           />
         ) : null}
 

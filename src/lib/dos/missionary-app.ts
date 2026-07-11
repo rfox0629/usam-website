@@ -27,6 +27,17 @@ import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } 
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
 import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
+import {
+  dosCommitmentsFeatureFlag,
+  isDosAccountabilityFrequency,
+  isDosAccountabilityScheduleStatus,
+  isDosCommitmentProgressState,
+  isDosCommitmentStatus,
+  type DosAccountabilityFrequency,
+  type DosAccountabilityScheduleStatus,
+  type DosCommitmentProgressState,
+  type DosCommitmentStatus,
+} from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -506,6 +517,80 @@ export type DosAppRelationshipReminder = {
   updatedAt: string | null;
 };
 
+export type DosAppFeatureFlags = {
+  commitmentsAccountability: boolean;
+};
+
+export type DosAppCommitmentUpdate = {
+  commitmentId: string;
+  createdAt: string | null;
+  createdByUserId: string | null;
+  id: string;
+  personId: string;
+  progressNote: string;
+  progressState: DosCommitmentProgressState | null;
+  updateDate: string;
+  workspaceId: string;
+};
+
+export type DosAppPersonCommitment = {
+  assignedDate: string;
+  category: string | null;
+  completedDate: string | null;
+  createdAt: string | null;
+  createdByUserId: string | null;
+  description: string | null;
+  id: string;
+  personId: string;
+  status: DosCommitmentStatus;
+  targetDate: string | null;
+  title: string;
+  updatedAt: string | null;
+  updates: DosAppCommitmentUpdate[];
+  workspaceId: string;
+};
+
+export type DosAppAccountabilitySchedule = {
+  createdAt: string | null;
+  createdByUserId: string | null;
+  dayOfWeek: number | null;
+  frequency: DosAccountabilityFrequency;
+  id: string;
+  nextCheckIn: string;
+  personId: string;
+  scheduledTime: string | null;
+  startDate: string;
+  status: DosAccountabilityScheduleStatus;
+  title: string;
+  updatedAt: string | null;
+  workspaceId: string;
+};
+
+export type DosAppAccountabilityCheckIn = {
+  checkInDate: string;
+  createdAt: string | null;
+  createdByUserId: string | null;
+  durationMinutes: number | null;
+  followUp: string | null;
+  generalUpdate: string;
+  id: string;
+  personId: string;
+  prayerNeeds: string | null;
+  scheduleId: string | null;
+  struggles: string | null;
+  updatedAt: string | null;
+  wins: string | null;
+  workspaceId: string;
+};
+
+export type DosAppAccountabilityCheckInCommitment = {
+  checkInId: string;
+  commitmentId: string;
+  id: string;
+  progressUpdateId: string | null;
+  workspaceId: string;
+};
+
 export type DosAppUserJournalEntry = {
   biblePassage: string | null;
   createdAt: string | null;
@@ -727,10 +812,15 @@ export type DosAppUserRecord = {
 };
 
 export type DosAppData = {
+  accountabilityCheckInCommitments: DosAppAccountabilityCheckInCommitment[];
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
+  accountabilitySchedules: DosAppAccountabilitySchedule[];
   assessmentResults: DosAppAssessmentResult[];
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
+  commitments: DosAppPersonCommitment[];
   externalCalendarEvents: DosAppExternalCalendarEvent[];
+  featureFlags: DosAppFeatureFlags;
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
   groups: DosAppGroup[];
@@ -1132,6 +1222,91 @@ type RelationshipReminderRow = {
   updated_at: string | null;
 };
 
+type WorkspaceFeatureFlagRow = {
+  enabled: boolean | null;
+  flag_key: string;
+  workspace_id: string;
+};
+
+type CommitmentRow = {
+  assigned_date: string;
+  category: string | null;
+  completed_date: string | null;
+  created_at: string | null;
+  created_by_user_id: string | null;
+  description: string | null;
+  id: string;
+  person_id: string;
+  status: string | null;
+  target_date: string | null;
+  title: string;
+  updated_at: string | null;
+  workspace_id: string;
+};
+
+type CommitmentUpdateRow = {
+  commitment_id: string;
+  created_at: string | null;
+  created_by_user_id: string | null;
+  id: string;
+  person_id: string;
+  progress_note: string;
+  progress_state: string | null;
+  update_date: string;
+  workspace_id: string;
+};
+
+type AccountabilityScheduleRow = {
+  created_at: string | null;
+  created_by_user_id: string | null;
+  day_of_week: number | null;
+  frequency: string | null;
+  id: string;
+  next_check_in: string;
+  person_id: string;
+  scheduled_time: string | null;
+  start_date: string;
+  status: string | null;
+  title: string;
+  updated_at: string | null;
+  workspace_id: string;
+};
+
+type AccountabilityCheckInRow = {
+  check_in_date: string;
+  created_at: string | null;
+  created_by_user_id: string | null;
+  duration_minutes: number | null;
+  follow_up: string | null;
+  general_update: string;
+  id: string;
+  person_id: string;
+  prayer_needs: string | null;
+  schedule_id: string | null;
+  struggles: string | null;
+  updated_at: string | null;
+  wins: string | null;
+  workspace_id: string;
+};
+
+type AccountabilityCheckInCommitmentRow = {
+  check_in_id: string;
+  commitment_id: string;
+  id: string;
+  progress_update_id: string | null;
+  workspace_id: string;
+};
+
+type CommitmentsLoadRows = {
+  commitments: CommitmentRow[];
+  updates: CommitmentUpdateRow[];
+};
+
+type AccountabilityCheckInsLoadRows = {
+  checkIns: AccountabilityCheckInRow[];
+  links: AccountabilityCheckInCommitmentRow[];
+};
+
 type DosUserRecordRow = {
   created_at: string | null;
   current_season_focus: string | null;
@@ -1485,6 +1660,22 @@ function mapReminderType(value: string | null | undefined): DosAppRelationshipRe
 
 function mapReminderRecurrence(value: string | null | undefined): DosAppRelationshipReminder["recurrence"] {
   return value === "yearly" || value === "monthly" || value === "weekly" ? value : "none";
+}
+
+function mapCommitmentStatus(value: string | null | undefined): DosCommitmentStatus {
+  return value && isDosCommitmentStatus(value) ? value : "active";
+}
+
+function mapCommitmentProgressState(value: string | null | undefined): DosCommitmentProgressState | null {
+  return value && isDosCommitmentProgressState(value) ? value : null;
+}
+
+function mapAccountabilityFrequency(value: string | null | undefined): DosAccountabilityFrequency {
+  return value && isDosAccountabilityFrequency(value) ? value : "weekly";
+}
+
+function mapAccountabilityScheduleStatus(value: string | null | undefined): DosAccountabilityScheduleStatus {
+  return value && isDosAccountabilityScheduleStatus(value) ? value : "active";
 }
 
 function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] {
@@ -3144,6 +3335,117 @@ async function loadRelationshipRemindersForWorkspace(supabase: SupabaseAdminClie
     : result;
 }
 
+async function loadWorkspaceFeatureFlagsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_workspace_feature_flags")
+    .select("workspace_id, flag_key, enabled")
+    .eq("workspace_id", workspaceId);
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_workspace_feature_flags")
+    ? { data: [] as WorkspaceFeatureFlagRow[], error: null }
+    : result;
+}
+
+async function loadCommitmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string): Promise<{ data: CommitmentsLoadRows; error: SupabaseQueryError }> {
+  const emptyRows: CommitmentsLoadRows = { commitments: [], updates: [] };
+  const commitmentsResult = await supabase
+    .from("dos_person_commitments")
+    .select("id, workspace_id, person_id, title, description, category, assigned_date, target_date, status, completed_date, created_by_user_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("assigned_date", { ascending: false })
+    .order("updated_at", { ascending: false });
+
+  if (commitmentsResult.error) {
+    return isMissingWorkflowTable(commitmentsResult.error, "dos_person_commitments")
+      ? { data: emptyRows, error: null }
+      : { data: emptyRows, error: commitmentsResult.error };
+  }
+
+  const commitmentRows = (commitmentsResult.data ?? []) as CommitmentRow[];
+  const commitmentIds = commitmentRows.map((commitment) => commitment.id);
+
+  if (!commitmentIds.length) {
+    return { data: { commitments: commitmentRows, updates: [] }, error: null };
+  }
+
+  const updatesResult = await supabase
+    .from("dos_commitment_updates")
+    .select("id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, created_by_user_id, created_at")
+    .in("commitment_id", commitmentIds)
+    .order("update_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (updatesResult.error) {
+    return isMissingWorkflowTable(updatesResult.error, "dos_commitment_updates")
+      ? { data: { commitments: commitmentRows, updates: [] }, error: null }
+      : { data: emptyRows, error: updatesResult.error };
+  }
+
+  return {
+    data: {
+      commitments: commitmentRows,
+      updates: (updatesResult.data ?? []) as CommitmentUpdateRow[],
+    },
+    error: null,
+  };
+}
+
+async function loadAccountabilitySchedulesForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_accountability_schedules")
+    .select("id, workspace_id, person_id, title, frequency, day_of_week, scheduled_time, start_date, next_check_in, status, created_by_user_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("next_check_in", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_accountability_schedules")
+    ? { data: [] as AccountabilityScheduleRow[], error: null }
+    : result;
+}
+
+async function loadAccountabilityCheckInsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string): Promise<{ data: AccountabilityCheckInsLoadRows; error: SupabaseQueryError }> {
+  const emptyRows: AccountabilityCheckInsLoadRows = { checkIns: [], links: [] };
+  const checkInsResult = await supabase
+    .from("dos_accountability_check_ins")
+    .select("id, workspace_id, schedule_id, person_id, check_in_date, duration_minutes, general_update, wins, struggles, prayer_needs, follow_up, created_by_user_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("check_in_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (checkInsResult.error) {
+    return isMissingWorkflowTable(checkInsResult.error, "dos_accountability_check_ins")
+      ? { data: emptyRows, error: null }
+      : { data: emptyRows, error: checkInsResult.error };
+  }
+
+  const checkInRows = (checkInsResult.data ?? []) as AccountabilityCheckInRow[];
+  const checkInIds = checkInRows.map((checkIn) => checkIn.id);
+
+  if (!checkInIds.length) {
+    return { data: { checkIns: checkInRows, links: [] }, error: null };
+  }
+
+  const linksResult = await supabase
+    .from("dos_accountability_check_in_commitments")
+    .select("id, workspace_id, check_in_id, commitment_id, progress_update_id")
+    .in("check_in_id", checkInIds)
+    .order("created_at", { ascending: true });
+
+  if (linksResult.error) {
+    return isMissingWorkflowTable(linksResult.error, "dos_accountability_check_in_commitments")
+      ? { data: { checkIns: checkInRows, links: [] }, error: null }
+      : { data: emptyRows, error: linksResult.error };
+  }
+
+  return {
+    data: {
+      checkIns: checkInRows,
+      links: (linksResult.data ?? []) as AccountabilityCheckInCommitmentRow[],
+    },
+    error: null,
+  };
+}
+
 async function loadExternalCalendarEventsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const start = new Date();
   start.setDate(start.getDate() - 370);
@@ -3505,7 +3807,7 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -3521,6 +3823,10 @@ export async function loadDosAppData(
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadCalendarWorkspaceSyncStateForWorkspace(supabase, workspace.id),
     loadRelationshipRemindersForWorkspace(supabase, workspace.id),
+    loadWorkspaceFeatureFlagsForWorkspace(supabase, workspace.id),
+    loadCommitmentsForWorkspace(supabase, workspace.id),
+    loadAccountabilitySchedulesForWorkspace(supabase, workspace.id),
+    loadAccountabilityCheckInsForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
@@ -3530,7 +3836,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -3547,6 +3853,10 @@ export async function loadDosAppData(
         ?? calendarEventLinksResult.error?.message
         ?? calendarWorkspaceSyncStateResult.error?.message
         ?? remindersResult.error?.message
+        ?? featureFlagsResult.error?.message
+        ?? commitmentsResult.error?.message
+        ?? accountabilitySchedulesResult.error?.message
+        ?? accountabilityCheckInsResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? myRecordResult.error?.message
@@ -3590,6 +3900,15 @@ export async function loadDosAppData(
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
   const reminderRows = (remindersResult.data ?? []) as RelationshipReminderRow[];
+  const featureFlagRows = (featureFlagsResult.data ?? []) as WorkspaceFeatureFlagRow[];
+  const featureFlags: DosAppFeatureFlags = {
+    commitmentsAccountability: featureFlagRows.some((flag) => flag.flag_key === dosCommitmentsFeatureFlag && flag.enabled === true),
+  };
+  const commitmentRows = featureFlags.commitmentsAccountability ? commitmentsResult.data.commitments : [];
+  const commitmentUpdateRows = featureFlags.commitmentsAccountability ? commitmentsResult.data.updates : [];
+  const accountabilityScheduleRows = featureFlags.commitmentsAccountability ? (accountabilitySchedulesResult.data ?? []) as AccountabilityScheduleRow[] : [];
+  const accountabilityCheckInRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.checkIns : [];
+  const accountabilityCheckInCommitmentRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.links : [];
   const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
   const rawPeopleById = new Map(((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => [person.id, person]));
   const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
@@ -3705,6 +4024,36 @@ export async function loadDosAppData(
 
     if (latestDate) {
       latestActivityByPersonId.set(review.person_id, latestDate);
+    }
+  });
+
+  commitmentRows.forEach((commitment) => {
+    const activityDate = latestActivityDate(commitment.updated_at, commitment.assigned_date, commitment.created_at);
+    const currentDate = latestActivityByPersonId.get(commitment.person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(commitment.person_id, latestDate);
+    }
+  });
+
+  commitmentUpdateRows.forEach((update) => {
+    const activityDate = latestActivityDate(update.update_date, update.created_at);
+    const currentDate = latestActivityByPersonId.get(update.person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(update.person_id, latestDate);
+    }
+  });
+
+  accountabilityCheckInRows.forEach((checkIn) => {
+    const activityDate = latestActivityDate(checkIn.check_in_date, checkIn.updated_at, checkIn.created_at);
+    const currentDate = latestActivityByPersonId.get(checkIn.person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(checkIn.person_id, latestDate);
     }
   });
 
@@ -4172,6 +4521,89 @@ export async function loadDosAppData(
     title: reminder.title,
     updatedAt: reminder.updated_at,
   })).sort((first, second) => activityDateValue(first.reminderDate) - activityDateValue(second.reminderDate));
+  const commitmentUpdatesByCommitmentId = new Map<string, CommitmentUpdateRow[]>();
+
+  commitmentUpdateRows.forEach((update) => {
+    const rows = commitmentUpdatesByCommitmentId.get(update.commitment_id) ?? [];
+
+    rows.push(update);
+    commitmentUpdatesByCommitmentId.set(update.commitment_id, rows);
+  });
+
+  const commitments: DosAppPersonCommitment[] = commitmentRows.map((commitment) => ({
+    assignedDate: commitment.assigned_date,
+    category: cleanOptionalText(commitment.category),
+    completedDate: commitment.completed_date,
+    createdAt: commitment.created_at,
+    createdByUserId: commitment.created_by_user_id,
+    description: cleanOptionalText(commitment.description),
+    id: commitment.id,
+    personId: commitment.person_id,
+    status: mapCommitmentStatus(commitment.status),
+    targetDate: commitment.target_date,
+    title: commitment.title,
+    updatedAt: commitment.updated_at,
+    updates: (commitmentUpdatesByCommitmentId.get(commitment.id) ?? []).map((update) => ({
+      commitmentId: update.commitment_id,
+      createdAt: update.created_at,
+      createdByUserId: update.created_by_user_id,
+      id: update.id,
+      personId: update.person_id,
+      progressNote: update.progress_note,
+      progressState: mapCommitmentProgressState(update.progress_state),
+      updateDate: update.update_date,
+      workspaceId: update.workspace_id,
+    })).sort((first, second) => activityDateValue(second.updateDate ?? second.createdAt) - activityDateValue(first.updateDate ?? first.createdAt)),
+    workspaceId: commitment.workspace_id,
+  })).sort((first, second) => {
+    if (first.status === "active" && second.status !== "active") {
+      return -1;
+    }
+
+    if (first.status !== "active" && second.status === "active") {
+      return 1;
+    }
+
+    return activityDateValue(second.updatedAt ?? second.assignedDate) - activityDateValue(first.updatedAt ?? first.assignedDate);
+  });
+  const accountabilitySchedules: DosAppAccountabilitySchedule[] = accountabilityScheduleRows.map((schedule) => ({
+    createdAt: schedule.created_at,
+    createdByUserId: schedule.created_by_user_id,
+    dayOfWeek: schedule.day_of_week,
+    frequency: mapAccountabilityFrequency(schedule.frequency),
+    id: schedule.id,
+    nextCheckIn: schedule.next_check_in,
+    personId: schedule.person_id,
+    scheduledTime: schedule.scheduled_time,
+    startDate: schedule.start_date,
+    status: mapAccountabilityScheduleStatus(schedule.status),
+    title: schedule.title,
+    updatedAt: schedule.updated_at,
+    workspaceId: schedule.workspace_id,
+  })).sort((first, second) => activityDateValue(first.nextCheckIn) - activityDateValue(second.nextCheckIn));
+  const accountabilityCheckIns: DosAppAccountabilityCheckIn[] = accountabilityCheckInRows.map((checkIn) => ({
+    checkInDate: checkIn.check_in_date,
+    createdAt: checkIn.created_at,
+    createdByUserId: checkIn.created_by_user_id,
+    durationMinutes: checkIn.duration_minutes,
+    followUp: cleanOptionalText(checkIn.follow_up),
+    generalUpdate: checkIn.general_update,
+    id: checkIn.id,
+    personId: checkIn.person_id,
+    prayerNeeds: cleanOptionalText(checkIn.prayer_needs),
+    scheduleId: checkIn.schedule_id,
+    struggles: cleanOptionalText(checkIn.struggles),
+    updatedAt: checkIn.updated_at,
+    wins: cleanOptionalText(checkIn.wins),
+    workspaceId: checkIn.workspace_id,
+  })).sort((first, second) => activityDateValue(second.checkInDate ?? second.createdAt) - activityDateValue(first.checkInDate ?? first.createdAt));
+  const accountabilityCheckInCommitments: DosAppAccountabilityCheckInCommitment[] = accountabilityCheckInCommitmentRows.map((link) => ({
+    checkInId: link.check_in_id,
+    commitmentId: link.commitment_id,
+    id: link.id,
+    progressUpdateId: link.progress_update_id,
+    workspaceId: link.workspace_id,
+  }));
   const calendarNeedsReconnect = Boolean(calendarConnectionRow && isGoogleCalendarReconnectState(calendarWorkspaceSyncStateRow?.last_error));
   const calendarConnectionStatus: GoogleCalendarConnectionHealthStatus = calendarConnectionRow
     ? calendarNeedsReconnect
@@ -4218,10 +4650,15 @@ export async function loadDosAppData(
 
   return {
     data: {
+      accountabilityCheckInCommitments,
+      accountabilityCheckIns,
+      accountabilitySchedules,
       assessmentResults,
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
+      commitments,
       externalCalendarEvents,
+      featureFlags,
       fruit,
       fruitEvents,
       groups,
