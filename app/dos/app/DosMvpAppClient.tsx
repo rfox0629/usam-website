@@ -3872,13 +3872,32 @@ function AppButton({
     white: "border border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#BFDBFE]",
   }[tone];
   const sizeClass = tone === "black" ? "min-h-[54px] text-[15px]" : "min-h-11 text-xs sm:text-sm";
+  const buttonType = type === "submit" ? "button" : type;
+
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    if (type === "submit") {
+      event.preventDefault();
+
+      const form = event.currentTarget.form;
+
+      if (typeof form?.requestSubmit === "function") {
+        form.requestSubmit();
+      } else {
+        form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }
+
+      return;
+    }
+
+    onClick?.();
+  }
 
   return (
     <button
       className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${sizeClass} ${toneClass}`}
       disabled={disabled}
-      onClick={onClick}
-      type={type}
+      onClick={handleClick}
+      type={buttonType}
     >
       {icon ? <Icon name={icon} size={15} /> : null}
       {children}

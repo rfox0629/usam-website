@@ -85,6 +85,8 @@ assertIncludes(client, "CommitmentsPanel", "person commitments panel");
 assertIncludes(client, "CommitmentFormSheet", "commitment creation sheet");
 assertIncludes(client, "CommitmentUpdateSheet", "progress update sheet");
 assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
+assertIncludes(client, 'const buttonType = type === "submit" ? "button" : type', "AppButton manually handles submit clicks");
+assertIncludes(client, "form.requestSubmit()", "AppButton submit clicks request form submission");
 assertIncludes(client, "grid-cols-3 sm:grid-cols-6", "mobile-safe profile tab grid");
 assertIncludes(client, "setCommitmentStatus(commitment, \"completed\")", "complete quick action");
 assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused\"", "pause/reactivate quick action");
