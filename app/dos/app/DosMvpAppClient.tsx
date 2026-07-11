@@ -901,6 +901,7 @@ type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
 type GroupsListView = "all" | "mine";
 type GroupDetailTab = "attendance" | "gatherings" | "members" | "overview" | "prayer" | "resources" | "settings";
+type PendingGroupJoinRequestItem = { count: number; groupId: string; groupName: string };
 type GroupAttendanceChoice = "absent" | "guest" | "present";
 type GroupWorkflowPanel = "attendance" | "notes" | "prayer" | null;
 type GroupGatheringWizardStep = 1 | 2 | 3 | 4 | 5;
@@ -6269,12 +6270,16 @@ function GroupCard({
   group,
   onCopyPublicLink,
   onOpen,
+  onOpenJoinRequests,
   onViewPublicGroup,
+  pendingRequestCount = 0,
 }: {
   group: DosAppGroup;
   onCopyPublicLink: () => void;
   onOpen: () => void;
+  onOpenJoinRequests: () => void;
   onViewPublicGroup: () => void;
+  pendingRequestCount?: number;
 }) {
   const nextGathering = nextGroupGathering(group);
 
@@ -6303,6 +6308,16 @@ function GroupCard({
         <ChevronRight className="hidden h-5 w-5 text-[#94A3B8] min-[560px]:block" aria-hidden="true" strokeWidth={1.9} />
       </button>
       <div className="mt-3 flex flex-wrap gap-2 border-t border-[#EAF2FF] pt-3">
+        {pendingRequestCount > 0 ? (
+          <button
+            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#FEF3C7] px-3 text-xs font-black text-[#92400E] transition-colors hover:bg-[#FDE68A]"
+            onClick={onOpenJoinRequests}
+            type="button"
+          >
+            <Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+            {pendingRequestCount} pending {pendingRequestCount === 1 ? "request" : "requests"}
+          </button>
+        ) : null}
         <button
           className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
           onClick={onCopyPublicLink}
@@ -6336,14 +6351,17 @@ function GroupsWorkspace({
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
+  onJoinRequestResolved,
   onLogAsTable,
   onOpenGroup,
+  onOpenGroupJoinRequests,
   onRemoveMember,
   onSchedule,
   onSearchChange,
   onSelectListView,
   onTakeAttendance,
   onViewPublicGroup,
+  pendingRequestCounts,
   query,
   selectedGroup,
   selectedTab,
@@ -6361,14 +6379,17 @@ function GroupsWorkspace({
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
+  onOpenGroupJoinRequests: (groupId: string) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
   onSelectListView: (view: GroupsListView) => void;
   onTakeAttendance: () => void;
   onViewPublicGroup: (group: DosAppGroup) => void;
+  pendingRequestCounts: Record<string, number>;
   query: string;
   selectedGroup: DosAppGroup | null;
   selectedTab: GroupDetailTab;
@@ -6387,6 +6408,7 @@ function GroupsWorkspace({
         onEditGroup={onEditGroup}
         onInvite={onInvite}
         onJoinRequestAccepted={onJoinRequestAccepted}
+        onJoinRequestResolved={onJoinRequestResolved}
         onLogAsTable={onLogAsTable}
         onRemoveMember={onRemoveMember}
         onSchedule={onSchedule}
@@ -6446,7 +6468,9 @@ function GroupsWorkspace({
                 key={group.id}
                 onCopyPublicLink={() => onCopyPublicLink(group)}
                 onOpen={() => onOpenGroup(group.id)}
+                onOpenJoinRequests={() => onOpenGroupJoinRequests(group.id)}
                 onViewPublicGroup={() => onViewPublicGroup(group)}
+                pendingRequestCount={pendingRequestCounts[group.id] ?? 0}
               />
             ))}
           </div>
@@ -6471,6 +6495,7 @@ function GroupDetailWorkspace({
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
+  onJoinRequestResolved,
   onViewPublicGroup,
   onLogAsTable,
   onRemoveMember,
@@ -6489,6 +6514,7 @@ function GroupDetailWorkspace({
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  onJoinRequestResolved: (groupId: string) => void;
   onViewPublicGroup: () => void;
   onLogAsTable: () => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
@@ -6763,7 +6789,7 @@ function GroupDetailWorkspace({
       ) : null}
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
       {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
-      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
+      {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
@@ -7690,12 +7716,14 @@ function GroupMembersTab({
   group,
   isPreview,
   onJoinRequestAccepted,
+  onJoinRequestResolved,
   onRemoveMember,
   workspaceId,
 }: {
   group: DosAppGroup;
   isPreview: boolean;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
+  onJoinRequestResolved: (groupId: string) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   workspaceId: string;
 }) {
@@ -7752,6 +7780,8 @@ function GroupMembersTab({
       return;
     }
 
+    const wasPending = joinRequests.find((request) => request.id === requestId)?.status === "pending";
+
     setSubmittingJoinRequest(`${action}:${requestId}`);
     setJoinRequestsMessage(null);
 
@@ -7778,6 +7808,10 @@ function GroupMembersTab({
 
       if (action === "accept") {
         onJoinRequestAccepted(group.id, result);
+      }
+
+      if (wasPending) {
+        onJoinRequestResolved(group.id);
       }
 
       setJoinRequests((current) => action === "review"
@@ -8871,6 +8905,7 @@ function DesktopHomeDashboard({
   onAddPerson,
   onLogMeeting,
   onOpenFruit,
+  onOpenGroupJoinRequests,
   onOpenMeeting,
   onOpenMyRecord,
   onOpenPerson,
@@ -8883,6 +8918,7 @@ function DesktopHomeDashboard({
   onScheduleMeeting,
   participantReviews = [],
   participantTestimonies = [],
+  pendingGroupJoinRequestItems = [],
   people,
   personTableStatsByPersonId,
   upcomingItems,
@@ -8895,6 +8931,7 @@ function DesktopHomeDashboard({
   onAddPerson: () => void;
   onLogMeeting: () => void;
   onOpenFruit: () => void;
+  onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenMyRecord: () => void;
   onOpenPerson: (personId: string) => void;
@@ -8907,6 +8944,7 @@ function DesktopHomeDashboard({
   onScheduleMeeting: () => void;
   participantReviews?: DosAppParticipantReview[];
   participantTestimonies?: DosAppParticipantTestimony[];
+  pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   upcomingItems: UpcomingTimelineItem[];
@@ -9008,6 +9046,30 @@ function DesktopHomeDashboard({
           </h1>
         </div>
       </header>
+
+      {pendingGroupJoinRequestItems.length ? (
+        <section className="mb-3 rounded-[24px] border border-[#FDE68A] bg-[#FFFBEB] p-3.5 shadow-[0_16px_38px_rgba(217,119,6,0.06)]">
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#92400E]">Groups needing your attention</p>
+          <div className="grid gap-2">
+            {pendingGroupJoinRequestItems.map((item) => (
+              <button
+                className="flex min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[#FDE68A] bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFBEB]"
+                key={item.groupId}
+                onClick={() => onOpenGroupJoinRequests(item.groupId)}
+                type="button"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Users className="h-4 w-4 shrink-0 text-[#92400E]" aria-hidden="true" strokeWidth={2} />
+                  <span className="truncate text-sm font-bold text-[#0F172A]">{item.groupName}</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-black text-[#92400E]">
+                  {item.count} pending
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="mb-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_16px_38px_rgba(37,99,235,0.06)] md:hidden">
         <div className="grid">
@@ -28666,6 +28728,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupQuery, setGroupQuery] = useState("");
   const [groupsNotice, setGroupsNotice] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [pendingGroupJoinRequestCounts, setPendingGroupJoinRequestCounts] = useState<Record<string, number>>({});
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("pray_today");
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -28790,6 +28853,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   );
   const requestedPersonId = searchParams.get("person");
   const requestedDetailTab = searchParams.get("tab") === "growth" ? "fruit" : null;
+  const requestedGroupId = searchParams.get("openGroup");
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
 
@@ -28813,6 +28877,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }), [data.groups, groupMemberAdditions, groupOverrides]);
   const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) ?? null : null;
+  const pendingGroupJoinRequestItems: PendingGroupJoinRequestItem[] = useMemo(() => groups
+    .map((group) => ({ count: pendingGroupJoinRequestCounts[group.id] ?? 0, groupId: group.id, groupName: group.name }))
+    .filter((item) => item.count > 0), [groups, pendingGroupJoinRequestCounts]);
   const fruitStoryEntries = useMemo(() => fieldFruitStories({
     fruitEvents: data.fruitEvents,
     fruitItems: data.fruit,
@@ -28923,6 +28990,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setPostMeetingFollowUpId(null);
     setSelectedPersonId(requestedPersonId);
   }, [people, requestedPersonId]);
+
+  useEffect(() => {
+    if (!requestedGroupId || !groups.some((group) => group.id === requestedGroupId)) {
+      return;
+    }
+
+    openGroupJoinRequests(requestedGroupId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, requestedGroupId]);
 
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
     const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));
@@ -29604,6 +29680,49 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupInviteMessage(null);
     setGroupSettingsMessage(null);
     scrollAppToTop();
+  }
+
+  function openGroupJoinRequests(groupId: string) {
+    openMoreApp("groups");
+    setSelectedGroupId(groupId);
+    setGroupDetailTab("members");
+  }
+
+  async function loadPendingGroupJoinRequestCounts() {
+    if (isPreview) {
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({ workspaceId: data.workspace.id });
+      const response = await fetch(`/api/dos/app/groups/pending-requests?${params.toString()}`);
+      const result = await response.json().catch(() => ({})) as { counts?: Record<string, number> };
+
+      if (response.ok) {
+        setPendingGroupJoinRequestCounts(result.counts ?? {});
+      }
+    } catch {
+      // Pending-count badges are a convenience layer; a failed fetch should not disrupt the dashboard.
+    }
+  }
+
+  useEffect(() => {
+    void loadPendingGroupJoinRequestCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.workspace.id, isPreview]);
+
+  function handleGroupJoinRequestResolved(groupId: string) {
+    setPendingGroupJoinRequestCounts((current) => {
+      const currentCount = current[groupId] ?? 0;
+
+      if (currentCount <= 1) {
+        const { [groupId]: _removed, ...rest } = current;
+
+        return rest;
+      }
+
+      return { ...current, [groupId]: currentCount - 1 };
+    });
   }
 
   function showGroupsPlaceholder(action: string) {
@@ -32985,6 +33104,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       onAddPerson={() => openForm("person")}
                 onLogMeeting={() => openForm("meeting")}
                 onOpenFruit={() => openMoreApp("fruit")}
+                onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMyRecord={() => openMoreApp("my_record")}
                 onOpenPerson={openPersonDetail}
@@ -33000,6 +33120,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 onScheduleMeeting={() => openScheduleMeeting()}
                 participantReviews={data.participantReviews}
                 participantTestimonies={data.participantTestimonies}
+                pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
                 upcomingItems={upcomingTimelineItems}
@@ -33287,6 +33408,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}
                     onJoinRequestAccepted={applyGroupJoinRequestResult}
+                    onJoinRequestResolved={handleGroupJoinRequestResolved}
                     onLogAsTable={() => openForm("meeting")}
                     onOpenGroup={(groupId) => {
                       if (groupId) {
@@ -33301,12 +33423,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         scrollAppToTop();
                       }
                     }}
+                    onOpenGroupJoinRequests={openGroupJoinRequests}
                     onRemoveMember={removeGroupMember}
                     onSchedule={() => showGroupsPlaceholder("Schedule")}
                     onSearchChange={setGroupQuery}
                     onSelectListView={setGroupsView}
                     onTakeAttendance={() => showGroupsPlaceholder("Take Attendance")}
                     onViewPublicGroup={viewPublicGroup}
+                    pendingRequestCounts={pendingGroupJoinRequestCounts}
                     query={groupQuery}
                     selectedGroup={selectedGroup}
                     selectedTab={groupDetailTab}
