@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { notifyGroupFacilitators } from "@/src/lib/groups/notify-facilitators";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 const groupSlugPattern = /^[a-z0-9][a-z0-9-]{1,80}$/;
@@ -69,7 +70,7 @@ export async function submitGroupJoinRequest(formData: FormData) {
   const supabase = createSupabaseAdminClient();
   const { data: group, error: groupError } = await supabase
     .from("dos_groups")
-    .select("id, workspace_id, organization_id, slug")
+    .select("id, workspace_id, organization_id, slug, name")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -124,6 +125,15 @@ export async function submitGroupJoinRequest(formData: FormData) {
     console.warn("[Public Group] Unable to save join request", error.message);
     redirectToGroup(group.slug, "error");
   }
+
+  await notifyGroupFacilitators(supabase, group, {
+    email,
+    firstName,
+    lastName,
+    message,
+    phone,
+    submittedAt,
+  });
 
   revalidatePath(`/groups/${group.slug}`);
   redirectToGroup(group.slug, "received");

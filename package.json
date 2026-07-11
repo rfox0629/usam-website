@@ -21,6 +21,7 @@
     "test:dos-table-roles": "node scripts/dos-table-discipleship-roles-regression.mjs",
     "test:dos-table-detail-edit": "node scripts/dos-table-detail-edit-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
+    "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
     "start": "next start"
   },
   "dependencies": {
