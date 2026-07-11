@@ -10258,6 +10258,7 @@ const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarV
   { label: "Week", value: "week" },
 ];
 
+const meetingCalendarWeekHours = Array.from({ length: 13 }, (_, index) => index + 8);
 const availabilityPreferredTimeOptions = ["Morning", "Afternoon", "Evening"] as const;
 const availabilityDayOptions = [
   { id: "mon", label: "Monday", shortLabel: "Mon" },
@@ -13574,6 +13575,57 @@ function calendarNeedsReviewSecondaryActionLabel(item: MeetingCalendarItem) {
   return "Edit";
 }
 
+function calendarWeekHourLabel(hour: number) {
+  if (hour === 12) {
+    return "12 PM";
+  }
+
+  return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+}
+
+function calendarItemMinuteOfDay(item: MeetingCalendarItem) {
+  const date = parseDisplayDate(item.date);
+
+  if (!date || item.externalEvent?.allDay) {
+    return 9 * 60;
+  }
+
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function calendarItemDurationMinutes(item: MeetingCalendarItem) {
+  if (item.meeting) {
+    return Math.max(30, tableDurationMinutes(item.meeting) || 60);
+  }
+
+  if (item.externalEvent?.endAt) {
+    const start = parseDisplayDate(item.externalEvent.startAt);
+    const end = parseDisplayDate(item.externalEvent.endAt);
+
+    if (start && end && end.getTime() > start.getTime()) {
+      return Math.max(30, Math.round((end.getTime() - start.getTime()) / 60000));
+    }
+  }
+
+  return item.kind === "birthday" || item.kind === "anniversary" ? 30 : 60;
+}
+
+function calendarItemNeedsReview(item: MeetingCalendarItem, nowTime: number) {
+  if (dateSortValue(item.date) >= nowTime) {
+    return false;
+  }
+
+  if (item.meeting) {
+    return item.meeting.meetingStatus === "scheduled";
+  }
+
+  if (item.externalEvent) {
+    return !item.externalEvent.importedMeetingId && item.externalEvent.status !== "cancelled";
+  }
+
+  return Boolean(item.reminder);
+}
+
 function CalendarUpcomingCard({
   item,
   onOpen,
@@ -14126,7 +14178,7 @@ function MeetingCalendarView({
     .filter((item) => dateSortValue(item.date) >= nowTime)
     .slice(0, 12);
   const needsReviewItems = filteredItems
-    .filter((item) => dateSortValue(item.date) < nowTime)
+    .filter((item) => calendarItemNeedsReview(item, nowTime))
     .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))
     .slice(0, 8);
   const itemsByDay = filteredItems.reduce((map, item) => {
@@ -14259,6 +14311,22 @@ function MeetingCalendarView({
     onChangeMonth(offset);
   }
 
+  function weekEventStyle(item: MeetingCalendarItem) {
+    const date = parseDisplayDate(item.date) ?? selectedDate;
+    const dayStart = startOfDisplayDay(date.toISOString()) ?? weekStart;
+    const dayIndex = Math.max(0, Math.min(6, Math.round((dayStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000))));
+    const minuteOfDay = Math.max(8 * 60, Math.min(20 * 60, calendarItemMinuteOfDay(item)));
+    const rowStart = Math.floor((minuteOfDay - 8 * 60) / 60) + 2;
+    const span = Math.max(1, Math.min(3, Math.ceil(calendarItemDurationMinutes(item) / 60)));
+    const marginTop = Math.round(((minuteOfDay % 60) / 60) * 28);
+
+    return {
+      gridColumn: `${dayIndex + 2}`,
+      gridRow: `${rowStart} / span ${span}`,
+      marginTop: `${marginTop}px`,
+    };
+  }
+
   return (
     <section className="grid min-w-0 max-w-full gap-3">
       <CalendarNeedsReviewSection
@@ -14381,41 +14449,67 @@ function MeetingCalendarView({
               })}
             </div>
           </div>
-	        ) : (
-	          <div className="grid gap-2 p-2.5 md:grid-cols-7">
-	            {weekDays.map((day) => {
-	              const key = calendarDateKey(day);
-	              const isToday = key === todayDateValue();
-	              const isSelected = key === selectedDateKey;
-	              const dayItems = (itemsByDay.get(key) ?? []).sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
+        ) : (
+          <div className="p-2.5">
+            <div className="grid overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white" style={{ gridTemplateColumns: "42px repeat(7, minmax(0, 1fr))" }}>
+              <div className="border-b border-r border-[#EFF6FF] bg-[#F8FBFF]" />
+              {weekDays.map((day) => {
+                const key = calendarDateKey(day);
+                const isToday = key === todayDateValue();
 
-	              return (
-	                <section className={`grid min-w-0 gap-2 rounded-[18px] border p-2 ${isSelected ? "border-[#BFDBFE] bg-[#EBF2FF]" : "border-[#EAF2FF] bg-[#F8FAFC]"}`} key={key}>
-	                  <button className="flex min-w-0 items-center justify-between gap-2 text-left" onClick={() => openDayAgenda(day)} type="button">
-	                    <span className="min-w-0">
-	                      <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-	                        {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
-	                      </span>
-	                      <span className="mt-0.5 block truncate text-sm font-black text-[#0F172A]">
-	                        {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(day)}
-	                      </span>
-	                    </span>
-	                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${isToday || isSelected ? "bg-[#2563EB] text-white" : "bg-white text-[#0F172A]"}`}>
-	                      {day.getDate()}
-	                    </span>
-	                  </button>
-	                  <div className="grid gap-1.5">
-	                    {dayItems.length ? dayItems.map((item) => (
-	                      <CalendarAgendaEventRow compact item={item} key={`week-${item.id}`} onOpen={() => openCalendarItem(item)} />
-	                    )) : (
-	                      <p className="rounded-[14px] border border-[#EAF2FF] bg-white px-2.5 py-2 text-xs font-semibold text-[#94A3B8]">No events</p>
-	                    )}
-	                  </div>
-	                </section>
-	              );
-	            })}
-	          </div>
-	        )}
+                return (
+                  <button
+                    className={`min-w-0 border-b border-r border-[#EFF6FF] px-1 py-2 text-center last:border-r-0 ${isToday ? "bg-[#EBF2FF]" : "bg-[#F8FBFF]"}`}
+                    key={key}
+                    onClick={() => onSelectDate(day)}
+                    type="button"
+                  >
+                    <span className="block text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                      {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
+                    </span>
+                    <span className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${isToday ? "bg-[#2563EB] text-white" : "text-[#0F172A]"}`}>
+                      {day.getDate()}
+                    </span>
+                  </button>
+                );
+              })}
+              {meetingCalendarWeekHours.map((hour, hourIndex) => {
+                const gridRow = String(hourIndex + 2);
+
+                return (
+                  <div className="contents" key={hour}>
+                    <div className="border-r border-t border-[#EFF6FF] bg-white px-1.5 py-2 text-left text-[9px] font-bold text-[#94A3B8]" style={{ fontFamily: font.rajdhani, gridColumn: "1", gridRow }}>
+                      {calendarWeekHourLabel(hour)}
+                    </div>
+                    {weekDays.map((day, dayIndex) => (
+                      <div
+                        className={`min-h-[52px] border-t border-[#EFF6FF] bg-white ${dayIndex === weekDays.length - 1 ? "" : "border-r"}`}
+                        key={`${calendarDateKey(day)}-${hour}`}
+                        style={{ gridColumn: String(dayIndex + 2), gridRow }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
+              {weekItems.map((item) => {
+                const tone = calendarItemTone(item.kind);
+
+                return (
+                  <button
+                    className={`z-10 m-1 min-w-0 rounded-[14px] border px-1.5 py-1 text-left shadow-[0_8px_18px_rgba(37,99,235,0.08)] ${tone.bg} ${tone.text}`}
+                    key={`week-${item.id}`}
+                    onClick={() => openCalendarItem(item)}
+                    style={weekEventStyle(item)}
+                    type="button"
+                  >
+                    <span className="block truncate text-[10px] font-black leading-4 sm:text-xs">{item.title}</span>
+                    <span className="block truncate text-[9px] font-bold leading-3 opacity-80 sm:text-[10px]">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 	        {isDayAgendaOpen ? (
 	          <CalendarDayAgenda
 	            date={selectedDate}

@@ -61,6 +61,12 @@ assert(
   "Upcoming and selected-day agenda filters must stay separate.",
 );
 assert(
+  client.includes("function calendarItemNeedsReview") &&
+    client.includes('return item.meeting.meetingStatus === "scheduled";') &&
+    client.includes(".filter((item) => calendarItemNeedsReview(item, nowTime))"),
+  "Needs Review must only include actionable past items, not logged table history.",
+);
+assert(
     client.includes("calendarDayCellTitle(item)") &&
     client.includes("+{dayItems.length - 2} more") &&
     !client.includes("dayItems.slice(0, 3).map((item) => ("),
@@ -75,11 +81,11 @@ assert(
   "Clicking a date must open a day agenda and must not render the old selected-event card above the calendar.",
 );
 assert(
-  client.includes("CalendarAgendaEventRow compact") &&
-    client.includes('md:grid-cols-7') &&
-    !client.includes("meetingCalendarWeekHours") &&
-    !client.includes("weekEventStyle"),
-  "Week view must use readable day agenda rows instead of tiny positioned event pills.",
+  client.includes("meetingCalendarWeekHours") &&
+    client.includes("weekEventStyle") &&
+    client.includes('gridTemplateColumns: "42px repeat(7, minmax(0, 1fr))"') &&
+    !client.includes("CalendarAgendaEventRow compact"),
+  "Week view must stay on the compact hourly grid, not the agenda-card format.",
 );
 assert(
   client.includes('activeTab !== "meetings"') &&
