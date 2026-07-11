@@ -8862,6 +8862,194 @@ type DashboardUpcomingRow = {
   title: string;
 };
 
+type MyRecordLaunchAction = "mentor_meeting" | "prayer_time" | "time_with_god" | "weekly_report";
+
+type DashboardWeeklyReportCard = {
+  completionPercent: number;
+  summary: string;
+  status: string;
+};
+
+function latestDashboardJournalEntry(record: DosAppUserRecord) {
+  return [...record.journalEntries]
+    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))[0] ?? null;
+}
+
+function latestDashboardPrayerLog(record: DosAppUserRecord) {
+  return [...record.prayerLogs]
+    .sort((first, second) => dateSortValue(second.prayedAt) - dateSortValue(first.prayedAt))[0] ?? null;
+}
+
+function nextDashboardMentorMeeting(record: DosAppUserRecord) {
+  return record.mentorMeetings
+    .filter((meeting) => isUpcomingDate(meeting.meetingDate))
+    .sort((first, second) => dateSortValue(first.meetingDate) - dateSortValue(second.meetingDate))[0] ?? null;
+}
+
+function dashboardLastLoggedStatus(value: string | null | undefined) {
+  return value ? `Last logged ${formatRelativeDate(value ?? null)}` : "Not logged yet";
+}
+
+function dashboardMentorMeetingDateLine(meeting: DosAppUserMentorMeeting | null) {
+  if (!meeting) {
+    return "No mentor meeting scheduled";
+  }
+
+  return [formatDate(meeting.meetingDate), formatTime(meeting.meetingDate) || "Time TBD"].filter(Boolean).join(" · ");
+}
+
+function dashboardMentorMeetingHelper(meeting: DosAppUserMentorMeeting | null) {
+  return meeting ? `With ${meeting.mentorName}` : "Schedule Meeting";
+}
+
+function buildDashboardWeeklyReportCard(myRecord: DosAppUserRecord, loggedMeetings: DosAppMeeting[]): DashboardWeeklyReportCard {
+  const { end, start } = currentWeekRange();
+  const journalEntriesThisWeek = myRecord.journalEntries.filter((entry) => isDateWithinRange(entry.date, start, end));
+  const prayerLogsThisWeek = myRecord.prayerLogs.filter((log) => isDateWithinRange(log.prayedAt, start, end));
+  const mentorMeetingsThisWeek = myRecord.mentorMeetings.filter((meeting) => isDateWithinRange(meeting.meetingDate, start, end));
+  const tablesThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date ?? meeting.scheduledStartAt, start, end));
+  const peopleMinisteredThisWeek = new Set(tablesThisWeek.flatMap((meeting) => meeting.fieldPersonIds));
+  const goals = [
+    journalEntriesThisWeek.length > 0,
+    prayerLogsThisWeek.length > 0,
+    mentorMeetingsThisWeek.length > 0,
+    tablesThisWeek.length > 0,
+    peopleMinisteredThisWeek.size > 0,
+  ];
+  const completedGoals = goals.filter(Boolean).length;
+  const totalGoals = goals.length;
+  const completionPercent = Math.round((completedGoals / totalGoals) * 100);
+  const status = completedGoals >= 4
+    ? "On Track"
+    : completedGoals >= 2
+      ? "Building"
+      : completedGoals === 1
+        ? "Started"
+        : "Needs Attention";
+
+  return {
+    completionPercent,
+    status,
+    summary: `You're meeting ${completedGoals} of ${totalGoals} goals this week.`,
+  };
+}
+
+function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
+  if (person.discipleshipRelationship === "mentor" || person.discipleshipRelationship === "pastor" || person.discipleshipRelationship === "coach" || person.discipleshipRelationship === "spiritual_parent") {
+    return "Being Mentored";
+  }
+
+  if (person.discipleshipRelationship === "mentee") {
+    return "Discipling";
+  }
+
+  if (person.discipleshipRelationship === "peer") {
+    return "Mutual Discipleship";
+  }
+
+  const model = personRelationshipModel(person);
+
+  if (model.roleInMyLife === "discipling_them") {
+    return "Discipling";
+  }
+
+  if (model.roleInMyLife === "walking_with_them") {
+    return "Walking With";
+  }
+
+  if (model.roleInMyLife === "mentoring_me") {
+    return "Being Mentored";
+  }
+
+  if (model.roleInMyLife === "peer_encouragement") {
+    return "Mutual Discipleship";
+  }
+
+  const relationshipType = relationshipTypeFromModel(model);
+
+  if (relationshipType === "discipling") {
+    return "Discipling";
+  }
+
+  if (relationshipType === "walking_with") {
+    return "Walking With";
+  }
+
+  if (relationshipType === "mentor") {
+    return "Being Mentored";
+  }
+
+  return "New";
+}
+
+function dashboardEngagementScoreLabel(person: DosAppPerson) {
+  if (!person.engagementLevel?.trim()) {
+    return "Not rated";
+  }
+
+  return relationshipScoreLabel(relationshipScoreFromEngagementLevel(person.engagementLevel));
+}
+
+function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson) {
+  return `${dashboardDiscipleshipRelationshipLabel(person)} · ${dashboardEngagementScoreLabel(person)}`;
+}
+
+function DashboardAlignmentRow({
+  actionLabel,
+  helper,
+  icon,
+  label,
+  onClick,
+  progress,
+  value,
+}: {
+  actionLabel?: string;
+  helper: string;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  progress?: number;
+  value: string;
+}) {
+  const boundedProgress = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
+
+  return (
+    <button
+      className="grid min-h-[88px] w-full grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 border-b border-[#EAF2FF] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[60px_minmax(0,1fr)_auto]"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF] sm:h-14 sm:w-14">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+        <span className="mt-1 block truncate text-base font-black leading-5 text-[#0F172A] sm:text-lg">{value}</span>
+        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#64748B]">{helper}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        {actionLabel ? (
+          <span className="inline-flex max-w-[104px] truncate rounded-full bg-[#F1F6FF] px-2.5 py-1.5 text-[11px] font-black text-[#1D4ED8] sm:px-3 sm:py-2 sm:text-xs">
+            {actionLabel}
+          </span>
+        ) : null}
+        {boundedProgress !== null ? (
+          <span
+            aria-label={`${boundedProgress}% complete`}
+            className="flex h-14 w-14 items-center justify-center rounded-full"
+            style={{ background: `conic-gradient(#2563EB ${boundedProgress}%, #EAF2FF ${boundedProgress}% 100%)` }}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-black text-[#1D4ED8]">
+              {boundedProgress}%
+            </span>
+          </span>
+        ) : null}
+        <ChevronRight className="h-5 w-5 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
+      </span>
+    </button>
+  );
+}
+
 function DesktopHomeDashboard({
   fruitEvents,
   fruitItems,
@@ -8869,17 +9057,20 @@ function DesktopHomeDashboard({
   meetings,
   myRecord,
   onAddPerson,
+  onLogPrayerTime,
+  onLogTimeWithGod,
   onLogMeeting,
   onOpenFruit,
   onOpenMeeting,
   onOpenMyRecord,
   onOpenPerson,
-  onOpenReports,
   onOpenReview,
   onOpenReviews,
   onOpenTable,
   onOpenTableCalendar,
+  onOpenWeeklyReport,
   onPrayNow,
+  onScheduleMentorMeeting,
   onScheduleMeeting,
   participantReviews = [],
   participantTestimonies = [],
@@ -8893,17 +9084,20 @@ function DesktopHomeDashboard({
   meetings: DosAppMeeting[];
   myRecord: DosAppUserRecord;
   onAddPerson: () => void;
+  onLogPrayerTime: () => void;
+  onLogTimeWithGod: () => void;
   onLogMeeting: () => void;
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenMyRecord: () => void;
   onOpenPerson: (personId: string) => void;
-  onOpenReports: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenReviews: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
+  onOpenWeeklyReport: () => void;
   onPrayNow: () => void;
+  onScheduleMentorMeeting: () => void;
   onScheduleMeeting: () => void;
   participantReviews?: DosAppParticipantReview[];
   participantTestimonies?: DosAppParticipantTestimony[];
@@ -8976,18 +9170,10 @@ function DesktopHomeDashboard({
   const todayDashboardRows = dashboardUpcomingRows
     .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
     .slice(0, 3);
-  const latestJournal = myRecord.journalEntries[0] ?? null;
-  const timeWithGodStatus = latestJournal
-    ? `Last logged ${formatRelativeDate(latestJournal.date)}`
-    : "Not logged";
-  const followUpsDue = upcomingItems.filter((item) => item.icon === "reminder" && item.label.toLowerCase().includes("today")).length;
-  const nextMeeting = dashboardUpcomingRows.find((item) => item.meeting) ?? null;
-  const alignmentItems = [
-    { label: "Current focus", value: myRecord.currentSeasonFocus || "Not set" },
-    { label: "Time with God", value: timeWithGodStatus },
-    { label: "Follow-ups due", value: `${followUpsDue}` },
-    { label: "Next table", value: nextMeeting ? `${nextMeeting.title} · ${nextMeeting.label}` : "No table scheduled" },
-  ];
+  const latestTimeWithGodEntry = latestDashboardJournalEntry(myRecord);
+  const latestPrayerLog = latestDashboardPrayerLog(myRecord);
+  const nextMentorMeeting = nextDashboardMentorMeeting(myRecord);
+  const weeklyReportCard = buildDashboardWeeklyReportCard(myRecord, loggedMeetings);
 
   function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
     if (item.meeting) {
@@ -9061,40 +9247,66 @@ function DesktopHomeDashboard({
         </section>
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
-            <div className="grid gap-2 md:grid-cols-4">
-              {alignmentItems.map((item) => (
-                <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={item.label}>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.13em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{item.label}</span>
-                  <span className="mt-1 block truncate text-sm font-bold text-[#0F172A]">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </DesktopPanel>
+          <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white">
+            <DashboardAlignmentRow
+              actionLabel="Log Now"
+              helper={latestTimeWithGodEntry ? "Stay consistent in the Word." : "Capture Scripture and reflection."}
+              icon={<BookOpen className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
+              label="Time With God"
+              onClick={onLogTimeWithGod}
+              value={dashboardLastLoggedStatus(latestTimeWithGodEntry?.date)}
+            />
+            <DashboardAlignmentRow
+              actionLabel="Log Now"
+              helper={latestPrayerLog ? "Keep praying and interceding." : "Log personal prayer time."}
+              icon={<Heart className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
+              label="Prayer Time"
+              onClick={onLogPrayerTime}
+              value={dashboardLastLoggedStatus(latestPrayerLog?.prayedAt)}
+            />
+            <DashboardAlignmentRow
+              actionLabel={nextMentorMeeting ? undefined : "Schedule Meeting"}
+              helper={dashboardMentorMeetingHelper(nextMentorMeeting)}
+              icon={<Users className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
+              label="Next Mentor Meeting"
+              onClick={nextMentorMeeting ? () => onOpenMyRecord() : onScheduleMentorMeeting}
+              value={dashboardMentorMeetingDateLine(nextMentorMeeting)}
+            />
+            <DashboardAlignmentRow
+              helper={weeklyReportCard.summary}
+              icon={<BarChart3 className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
+              label="Weekly Report Card"
+              onClick={onOpenWeeklyReport}
+              progress={weeklyReportCard.completionPercent}
+              value={weeklyReportCard.status}
+            />
+          </div>
+        </DesktopPanel>
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReports}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenWeeklyReport}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
           <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-            <div className="hidden grid-cols-[34px_minmax(0,1fr)_76px_74px] gap-2.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B] sm:grid" style={{ fontFamily: font.rajdhani }}>
-              <span>Rank</span>
-              <span>Person</span>
-              <span className="text-right">Meetings</span>
+            <div className="grid grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold tracking-[0.08em] text-[#64748B] sm:grid-cols-[34px_minmax(0,1fr)_64px_80px] sm:gap-2.5" style={{ fontFamily: font.rajdhani }}>
+              <span aria-hidden="true" />
+              <span aria-hidden="true" />
+              <span className="text-center">Tables</span>
               <span className="text-right">Time</span>
             </div>
             {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
               <button
-                className="grid w-full grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_76px_74px] sm:gap-2.5"
+                className="grid w-full grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_64px_80px] sm:gap-2.5"
                 key={item.person.id}
                 onClick={() => onOpenPerson(item.person.id)}
                 type="button"
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-black text-white">{index + 1}</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-sm font-black text-white">{index + 1}</span>
                 <span className="flex min-w-0 items-center gap-2.5">
                   <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-[#0F172A]">{item.person.name}</span>
-                    <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#64748B]">{relationshipLine(item.person)}</span>
+                    <span className="block truncate text-base font-black leading-5 text-[#0F172A]">{item.person.name}</span>
+                    <span className="mt-0.5 block truncate text-sm font-semibold leading-5 text-[#64748B]">{dashboardTimeInvestmentRelationshipLine(item.person)}</span>
                   </span>
                 </span>
-                <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{item.stats.meetings}</span>
+                <span className="shrink-0 text-center text-base font-black text-[#0F172A]">{item.stats.meetings}</span>
                 <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{formatDashboardDuration(item.stats.timeMinutes)}</span>
               </button>
             )) : (
@@ -21050,6 +21262,7 @@ type MyRecordSheetState =
   | { kind: "life_plan"; mode: MyRecordSheetMode; plan?: DosAppUserLifePlan | null }
   | { ebenezers: MyRecordEbenezer[]; kind: "faithfulness"; mode: "view" }
   | { items: MyRecordTimelineItem[]; kind: "timeline"; mode: "view" }
+  | { fruit: DosAppFruit[]; kind: "weekly_report"; meetings: DosAppMeeting[]; mode: "view" }
   | { description?: string; kind: "placeholder"; title: string };
 
 function myRecordCompactPreview(...values: Array<string | null | undefined>) {
@@ -23385,16 +23598,20 @@ function MyRecordAssessmentsPanel({
 
 function MyRecordReportPanel({
   fruit,
+  initialRange = "30d",
   meetings,
   people,
   record,
+  title = "Personal Report",
 }: {
   fruit: DosAppFruit[];
+  initialRange?: MyRecordReportRange;
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
   record: DosAppUserRecord;
+  title?: string;
 }) {
-  const [range, setRange] = useState<MyRecordReportRange>("30d");
+  const [range, setRange] = useState<MyRecordReportRange>(initialRange);
   const quietMinutes = record.journalEntries.filter((entry) => isMyRecordDateInRange(entry.date, range)).reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const prayerMinutes = record.prayerLogs.filter((log) => isMyRecordDateInRange(log.prayedAt, range)).reduce((sum, log) => sum + log.minutesSpent, 0);
   const mentorMeetings = record.mentorMeetings.filter((meeting) => isMyRecordDateInRange(meeting.meetingDate, range)).length;
@@ -23408,7 +23625,7 @@ function MyRecordReportPanel({
     <section className="grid gap-3">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <SectionHeading title="Personal Report" />
+          <SectionHeading title={title} />
           <p className="mt-1 text-sm leading-6 text-[#64748B]">A private date-range snapshot. PDF exports and share links stay future work.</p>
         </div>
       </div>
@@ -24884,6 +25101,7 @@ function myRecordSheetTitle(sheet: MyRecordSheetState) {
   if (sheet.kind === "book") return sheet.mode === "new" ? "Add Book" : sheet.book?.title ?? "Book";
   if (sheet.kind === "chapter_note") return sheet.mode === "new" ? "Add Chapter Note" : sheet.note?.chapterLabel ?? "Chapter Note";
   if (sheet.kind === "life_plan") return "Life Plan";
+  if (sheet.kind === "weekly_report") return "Weekly Report";
 
   return "My Record";
 }
@@ -24938,6 +25156,19 @@ function MyRecordSheetContent({
         ))}
       </div>
     ) : <SectionEmptyState title="No timeline activity yet." />;
+  }
+
+  if (sheet.kind === "weekly_report") {
+    return (
+      <MyRecordReportPanel
+        fruit={sheet.fruit}
+        initialRange="7d"
+        meetings={sheet.meetings}
+        people={people}
+        record={record}
+        title="Weekly Report"
+      />
+    );
   }
 
   if (sheet.kind === "faithfulness") {
@@ -25386,8 +25617,10 @@ function MyRecordWorkspace({
   errorMessage,
   fruit,
   isSubmitting,
+  launchAction,
   meetings,
   onBack,
+  onLaunchActionHandled,
   onQuickTab,
   onSave,
   onTabChange,
@@ -25400,8 +25633,10 @@ function MyRecordWorkspace({
   errorMessage: string;
   fruit: DosAppFruit[];
   isSubmitting: boolean;
+  launchAction?: MyRecordLaunchAction | null;
   meetings: DosAppMeeting[];
   onBack: () => void;
+  onLaunchActionHandled?: () => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   onTabChange: (tab: MyRecordTab) => void;
@@ -25464,6 +25699,24 @@ function MyRecordWorkspace({
   function openMyRecordPlaceholder(title: string, description?: string) {
     setMyRecordSheet({ description, kind: "placeholder", title });
   }
+
+  useEffect(() => {
+    if (!launchAction) {
+      return;
+    }
+
+    if (launchAction === "time_with_god") {
+      openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
+    } else if (launchAction === "prayer_time") {
+      openMyRecordSheet({ kind: "prayer", mode: "new" });
+    } else if (launchAction === "mentor_meeting") {
+      openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
+    } else if (launchAction === "weekly_report") {
+      openMyRecordSheet({ fruit, kind: "weekly_report", meetings, mode: "view" });
+    }
+
+    onLaunchActionHandled?.();
+  }, [fruit, launchAction, meetings, onLaunchActionHandled]);
 
   function openMyRecordTimelineItem(item: MyRecordTimelineItem) {
     if (item.id.startsWith("encounter-journal-")) {
@@ -28668,6 +28921,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("pray_today");
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
+  const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -29518,6 +29772,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openMyRecordTab(tab: MyRecordTab) {
     openMoreApp("my_record");
     setMyRecordTab(normalizeMyRecordTab(tab));
+  }
+
+  function launchMyRecordAction(action: MyRecordLaunchAction) {
+    setMyRecordLaunchAction(action);
+    openMyRecordTab(action === "mentor_meeting" ? "growth" : "overview");
   }
 
   function openReviewsList() {
@@ -32982,13 +33241,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 loggedMeetings={ministryLoggedMeetings}
                 meetings={data.meetings}
                 myRecord={data.myRecord}
-                      onAddPerson={() => openForm("person")}
+                onAddPerson={() => openForm("person")}
+                onLogPrayerTime={() => launchMyRecordAction("prayer_time")}
+                onLogTimeWithGod={() => launchMyRecordAction("time_with_god")}
                 onLogMeeting={() => openForm("meeting")}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMyRecord={() => openMoreApp("my_record")}
                 onOpenPerson={openPersonDetail}
-                onOpenReports={() => openMoreApp("reports")}
                 onOpenReview={openSubmittedReview}
                 onOpenReviews={openReviewsList}
                 onOpenTable={() => setActiveTab("meetings")}
@@ -32996,7 +33256,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   setActiveTab("meetings");
                   setMeetingsView("calendar");
                 }}
+                onOpenWeeklyReport={() => launchMyRecordAction("weekly_report")}
                 onPrayNow={() => openMoreApp("prayer")}
+                onScheduleMentorMeeting={() => launchMyRecordAction("mentor_meeting")}
                 onScheduleMeeting={() => openScheduleMeeting()}
                 participantReviews={data.participantReviews}
                 participantTestimonies={data.participantTestimonies}
@@ -33261,8 +33523,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     errorMessage={errorMessage}
                     fruit={data.fruit}
                     isSubmitting={isSubmitting}
+                    launchAction={myRecordLaunchAction}
                     meetings={data.meetings}
-                              onBack={() => setMoreAppView(null)}
+                    onBack={() => setMoreAppView(null)}
+                    onLaunchActionHandled={() => setMyRecordLaunchAction(null)}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
                     onTabChange={setMyRecordTab}
