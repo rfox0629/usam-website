@@ -492,7 +492,13 @@ function RecordsList({
             <div className={`grid gap-4 px-4 py-4 transition-colors hover:bg-stone-950/40 ${gridClassName} lg:items-center`}>
               <div className="min-w-0">
                 <HeaderCell>Submission</HeaderCell>
-                <p className="mt-1 truncate font-semibold text-stone-100">{record.title}</p>
+                {record.href && showProfileAssignment ? (
+                  <Link className="mt-1 block truncate font-semibold text-stone-100 underline-offset-2 hover:text-[#F5B942] hover:underline" href={record.href}>
+                    {record.title}
+                  </Link>
+                ) : (
+                  <p className="mt-1 truncate font-semibold text-stone-100">{record.title}</p>
+                )}
                 <p className="mt-1 line-clamp-2 text-sm leading-6 text-stone-400">{record.detail}</p>
               </div>
               <MetaCell label="Source" value={record.source} />

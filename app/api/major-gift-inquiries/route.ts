@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent, recordNotificationResult } from "@/src/lib/events/record-event";
 import { createFormSubmission } from "@/src/lib/forms/form-submissions";
 import { sendMajorGiftNotification } from "@/src/lib/major-gifts/email";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -256,6 +257,21 @@ export async function POST(request: Request) {
   }
 
   const majorGiftInquiryId = (insertResult.data as { id?: string } | null)?.id ?? null;
+
+  // Submission reliability order: the inquiry row above is already fully persisted.
+  // Recording the domain event and attempting notification happen after persistence
+  // succeeds, and neither can cause this request to fail.
+  if (majorGiftInquiryId) {
+    // Payload is intentionally empty: the amount range and every other detail already
+    // live on the major_gift_inquiries row itself (subject_id points at it). Nothing in
+    // Phase 0 consumes a copy of that data from the event, so none is recorded here.
+    await recordEvent({
+      eventType: "major_gift_inquiry.submitted",
+      subjectId: majorGiftInquiryId,
+      subjectType: "major_gift_inquiry",
+    });
+  }
+
   const formSubmissionResult = await createFormSubmission({
     assignedTeam: "support_team",
     email,
@@ -286,6 +302,8 @@ export async function POST(request: Request) {
   }
 
   let emailStatus = "skipped";
+  let emailProvider = "placeholder";
+  let emailErrorCode: string | undefined;
 
   try {
     const emailResult = await sendMajorGiftNotification({
@@ -304,9 +322,25 @@ export async function POST(request: Request) {
       projectedAmountRange,
     });
     emailStatus = emailResult.status;
+    emailProvider = emailResult.provider;
   } catch (error) {
     console.error("Major gift inquiry notification failed:", error instanceof Error ? error.message : "Unknown email error");
     emailStatus = "failed";
+    emailErrorCode = "resend_request_failed";
+  }
+
+  if (majorGiftInquiryId) {
+    await recordNotificationResult({
+      eventType: "major_gift_inquiry.notification_attempted",
+      result: {
+        notificationAttempted: true,
+        notificationErrorCode: emailErrorCode,
+        notificationProvider: emailProvider,
+        notificationStatus: emailStatus === "sent" ? "sent" : emailStatus === "failed" ? "failed" : "skipped",
+      },
+      subjectId: majorGiftInquiryId,
+      subjectType: "major_gift_inquiry",
+    });
   }
 
   return NextResponse.json({

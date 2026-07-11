@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { slugify } from "@/src/lib/admin/organization-shared";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 import { sendAdminNewApplicationNotificationEmail, sendApplicantApplicationSubmittedEmail } from "@/src/lib/email/resend";
+import { recordEvent, recordNotificationResult } from "@/src/lib/events/record-event";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -855,6 +856,21 @@ export async function POST(request: Request) {
       supabase,
     });
     const submittedAt = new Date().toISOString();
+
+    // Submission reliability order: the application is already fully persisted above.
+    // Recording the domain event and attempting notification happen after persistence
+    // succeeds, and neither can cause this request to fail -- see the notification
+    // result recording below, which always resolves before the response is returned.
+    if (applicationResult.applicationId) {
+      await recordEvent({
+        eventType: "usam_application.submitted",
+        organizationId: createdIds.organizationId ?? null,
+        payload: { status: "pending_review" },
+        subjectId: applicationResult.applicationId,
+        subjectType: "usam_missionary_application",
+      });
+    }
+
     const emailInput = {
       adminUrl: `${getConfiguredSiteUrl()}/admin/organizations/usam`,
       applicantEmail: email,
@@ -868,6 +884,24 @@ export async function POST(request: Request) {
       sendApplicantApplicationSubmittedEmail(emailInput),
       sendAdminNewApplicationNotificationEmail(emailInput),
     ]);
+    const notificationSent = applicantEmailResult.sent && adminEmailResult.sent;
+    const notificationSkippedReason = applicantEmailResult.skippedReason ?? adminEmailResult.skippedReason;
+    const notificationErrorCode = applicantEmailResult.error ?? adminEmailResult.error;
+
+    if (applicationResult.applicationId) {
+      await recordNotificationResult({
+        eventType: "usam_application.notification_attempted",
+        organizationId: createdIds.organizationId ?? null,
+        result: {
+          notificationAttempted: true,
+          notificationErrorCode: notificationErrorCode ?? notificationSkippedReason,
+          notificationProvider: "resend",
+          notificationStatus: notificationSent ? "sent" : notificationSkippedReason ? "skipped" : "failed",
+        },
+        subjectId: applicationResult.applicationId,
+        subjectType: "usam_missionary_application",
+      });
+    }
 
     return NextResponse.json({
       applicationId: applicationResult.applicationId,
