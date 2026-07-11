@@ -85,12 +85,8 @@ assertIncludes(client, "CommitmentsPanel", "person commitments panel");
 assertIncludes(client, "CommitmentFormSheet", "commitment creation sheet");
 assertIncludes(client, "CommitmentUpdateSheet", "progress update sheet");
 assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
-assertIncludes(client, 'const buttonType = type === "submit" ? "button" : type', "AppButton manually handles submit clicks");
-assertIncludes(client, 'fallbackSubmitter instanceof HTMLInputElement', "AppButton uses a native hidden submitter fallback");
-assertIncludes(client, 'document.createEvent("Event")', "AppButton keeps a legacy submit event fallback");
-assertIncludes(client, "function submitFormElement", "commitment sheets can submit through a form ref");
-assertIncludes(client, "submitFormElement(formRef.current, onSubmit)", "commitment save buttons call the form ref submit helper");
-assertIncludes(client, "function formControlValue", "commitment handlers read visible form controls directly");
+assertIncludes(client, 'type="submit"', "commitment sheets use native form submission");
+assertIncludes(client, "new FormData(event.currentTarget)", "commitment handlers read one submitted form");
 assertIncludes(client, "grid-cols-3 sm:grid-cols-6", "mobile-safe profile tab grid");
 assertIncludes(client, "setCommitmentStatus(commitment, \"completed\")", "complete quick action");
 assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused\"", "pause/reactivate quick action");
@@ -100,6 +96,7 @@ assertIncludes(loader, "commitmentsAccountability", "loader maps commitments fea
 assertIncludes(loader, "latestActivityByPersonId.set(commitment.person_id", "commitments affect person activity");
 assertIncludes(loader, "accountabilityCheckInCommitments", "loader returns check-in links");
 assertIncludes(preview, "commitmentsAccountability: false", "preview keeps feature disabled");
+assertIncludes(apiHelper, "-[89ab][0-9a-f]{3}-[0-9a-f]{12}", "UUID validation accepts normal UUID group separators");
 
 assertMatches(client, /name="general_update"[\s\S]*required/, "check-in general update is required");
 assertMatches(client, /name="progress_note"[\s\S]*required/, "progress note is primary required update field");
