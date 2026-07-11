@@ -3879,11 +3879,19 @@ function AppButton({
       event.preventDefault();
 
       const form = event.currentTarget.form;
+      const fallbackSubmitter = event.currentTarget.nextElementSibling;
+
+      if (fallbackSubmitter instanceof HTMLInputElement && fallbackSubmitter.type === "submit") {
+        fallbackSubmitter.click();
+        return;
+      }
 
       if (typeof form?.requestSubmit === "function") {
         form.requestSubmit();
       } else {
-        form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        const submitEvent = document.createEvent("Event");
+        submitEvent.initEvent("submit", true, true);
+        form?.dispatchEvent(submitEvent);
       }
 
       return;
@@ -3892,7 +3900,7 @@ function AppButton({
     onClick?.();
   }
 
-  return (
+  const button = (
     <button
       className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${sizeClass} ${toneClass}`}
       disabled={disabled}
@@ -3902,6 +3910,17 @@ function AppButton({
       {icon ? <Icon name={icon} size={15} /> : null}
       {children}
     </button>
+  );
+
+  if (type !== "submit") {
+    return button;
+  }
+
+  return (
+    <>
+      {button}
+      <input aria-hidden="true" className="sr-only" disabled={disabled} tabIndex={-1} type="submit" />
+    </>
   );
 }
 
