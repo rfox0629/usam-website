@@ -3936,6 +3936,16 @@ function submitFormElement(form: HTMLFormElement | null, onSubmit: (event: FormE
   } as unknown as FormEvent<HTMLFormElement>);
 }
 
+function formControlValue(form: HTMLFormElement, name: string) {
+  const field = form.elements.namedItem(name);
+
+  if (field && "value" in field) {
+    return String(field.value ?? "");
+  }
+
+  return String(new FormData(form).get(name) ?? "");
+}
+
 function MeetingActionRow({
   onLogMeeting,
   onScheduleMeeting,
@@ -31148,16 +31158,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function handleCommitmentSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const id = String(formData.get("id") ?? "").trim();
-    const personId = String(formData.get("person_id") ?? "").trim();
+    const form = event.currentTarget;
+    const id = formControlValue(form, "id").trim();
+    const personId = formControlValue(form, "person_id").trim();
     const payload = {
-      category: String(formData.get("category") ?? ""),
-      description: String(formData.get("description") ?? ""),
+      category: formControlValue(form, "category"),
+      description: formControlValue(form, "description"),
       id,
       personId,
-      targetDate: String(formData.get("target_date") ?? ""),
-      title: String(formData.get("title") ?? ""),
+      targetDate: formControlValue(form, "target_date"),
+      title: formControlValue(form, "title"),
     };
     const result = await submitJson(
       "/api/dos/app/commitments",
@@ -31178,14 +31188,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function handleCommitmentUpdateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
     const result = await submitJson(
       "/api/dos/app/commitments/updates",
       {
-        commitmentId: String(formData.get("commitment_id") ?? ""),
-        date: String(formData.get("date") ?? ""),
-        progressNote: String(formData.get("progress_note") ?? ""),
-        progressState: String(formData.get("progress_state") ?? ""),
+        commitmentId: formControlValue(form, "commitment_id"),
+        date: formControlValue(form, "date"),
+        progressNote: formControlValue(form, "progress_note"),
+        progressState: formControlValue(form, "progress_state"),
       },
       "POST",
       false,
@@ -31223,19 +31233,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function handleAccountabilityScheduleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const id = String(formData.get("id") ?? "").trim();
+    const form = event.currentTarget;
+    const id = formControlValue(form, "id").trim();
     const result = await submitJson(
       "/api/dos/app/accountability/schedules",
       {
-        dayOfWeek: String(formData.get("day_of_week") ?? ""),
-        frequency: String(formData.get("frequency") ?? ""),
+        dayOfWeek: formControlValue(form, "day_of_week"),
+        frequency: formControlValue(form, "frequency"),
         id,
-        personId: String(formData.get("person_id") ?? ""),
-        scheduledTime: String(formData.get("scheduled_time") ?? ""),
-        startDate: String(formData.get("start_date") ?? ""),
-        status: String(formData.get("status") ?? ""),
-        title: String(formData.get("title") ?? ""),
+        personId: formControlValue(form, "person_id"),
+        scheduledTime: formControlValue(form, "scheduled_time"),
+        startDate: formControlValue(form, "start_date"),
+        status: formControlValue(form, "status"),
+        title: formControlValue(form, "title"),
       },
       id ? "PATCH" : "POST",
       false,
@@ -31253,32 +31263,32 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   async function handleAccountabilityCheckInSubmit(event: FormEvent<HTMLFormElement>, selectedCommitmentIds: string[]) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const newCommitmentTitle = String(formData.get("new_commitment_title") ?? "").trim();
+    const form = event.currentTarget;
+    const newCommitmentTitle = formControlValue(form, "new_commitment_title").trim();
     const commitments = selectedCommitmentIds.map((commitmentId) => ({
       commitmentId,
-      progressNote: String(formData.get(`commitment_note_${commitmentId}`) ?? ""),
-      progressState: String(formData.get(`commitment_state_${commitmentId}`) ?? ""),
+      progressNote: formControlValue(form, `commitment_note_${commitmentId}`),
+      progressState: formControlValue(form, `commitment_state_${commitmentId}`),
     }));
     const result = await submitJson(
       "/api/dos/app/accountability/check-ins",
       {
         commitments,
-        date: String(formData.get("date") ?? ""),
-        durationMinutes: String(formData.get("duration_minutes") ?? ""),
-        followUp: String(formData.get("follow_up") ?? ""),
-        generalUpdate: String(formData.get("general_update") ?? ""),
+        date: formControlValue(form, "date"),
+        durationMinutes: formControlValue(form, "duration_minutes"),
+        followUp: formControlValue(form, "follow_up"),
+        generalUpdate: formControlValue(form, "general_update"),
         newCommitment: newCommitmentTitle ? {
-          category: String(formData.get("new_commitment_category") ?? ""),
-          description: String(formData.get("new_commitment_description") ?? ""),
-          targetDate: String(formData.get("new_commitment_target_date") ?? ""),
+          category: formControlValue(form, "new_commitment_category"),
+          description: formControlValue(form, "new_commitment_description"),
+          targetDate: formControlValue(form, "new_commitment_target_date"),
           title: newCommitmentTitle,
         } : null,
-        personId: String(formData.get("person_id") ?? ""),
-        prayerNeeds: String(formData.get("prayer_needs") ?? ""),
-        scheduleId: String(formData.get("schedule_id") ?? ""),
-        struggles: String(formData.get("struggles") ?? ""),
-        wins: String(formData.get("wins") ?? ""),
+        personId: formControlValue(form, "person_id"),
+        prayerNeeds: formControlValue(form, "prayer_needs"),
+        scheduleId: formControlValue(form, "schedule_id"),
+        struggles: formControlValue(form, "struggles"),
+        wins: formControlValue(form, "wins"),
       },
       "POST",
       false,

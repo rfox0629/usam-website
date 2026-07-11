@@ -90,6 +90,7 @@ assertIncludes(client, 'fallbackSubmitter instanceof HTMLInputElement', "AppButt
 assertIncludes(client, 'document.createEvent("Event")', "AppButton keeps a legacy submit event fallback");
 assertIncludes(client, "function submitFormElement", "commitment sheets can submit through a form ref");
 assertIncludes(client, "submitFormElement(formRef.current, onSubmit)", "commitment save buttons call the form ref submit helper");
+assertIncludes(client, "function formControlValue", "commitment handlers read visible form controls directly");
 assertIncludes(client, "grid-cols-3 sm:grid-cols-6", "mobile-safe profile tab grid");
 assertIncludes(client, "setCommitmentStatus(commitment, \"completed\")", "complete quick action");
 assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused\"", "pause/reactivate quick action");
