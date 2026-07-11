@@ -3937,7 +3937,8 @@ function submitFormElement(form: HTMLFormElement | null, onSubmit: (event: FormE
 }
 
 function formControlValue(form: HTMLFormElement, name: string) {
-  const field = form.elements.namedItem(name);
+  const safeName = name.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+  const field = form.querySelector(`[name="${safeName}"]`);
 
   if (field && "value" in field) {
     return String(field.value ?? "");
