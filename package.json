@@ -26,6 +26,7 @@
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
     "test:ncc-overhaul": "node scripts/ncc-overhaul-regression.mjs",
+    "test:ncc-compliance": "node scripts/ncc-compliance-regression.mjs",
     "start": "next start"
   },
   "dependencies": {

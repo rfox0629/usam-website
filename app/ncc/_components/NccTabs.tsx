@@ -2,6 +2,7 @@ import Link from "next/link";
 import { adminFont } from "../../admin/_components/AdminUI";
 
 export type NccTab = {
+  href?: string;
   key: string;
   label: string;
   status: "live" | "planned";
@@ -28,7 +29,7 @@ export function NccTabBar({
                 ? "border-[#C9A24A]/50 bg-[#C9A24A]/10 text-[#E4C465]"
                 : "border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-100"
             }`}
-            href={`${basePath}?tab=${tab.key}`}
+            href={tab.href ?? `${basePath}?tab=${tab.key}`}
             key={tab.key}
             style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
           >

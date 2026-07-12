@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AdminEmptyState, AdminMetricCard } from "../../admin/_components/AdminUI";
+import { AdminActionLink, AdminEmptyState, AdminMetricCard } from "../../admin/_components/AdminUI";
 import { NccShell } from "../_components/NccShell";
 import { NccTabBar, type NccTab } from "../_components/NccTabs";
 import { getCurrentOrganization } from "../_lib/organization-context";
@@ -10,6 +10,7 @@ import {
   isFinanceDocumentsWriteEnabled,
   listFinanceDocuments,
 } from "@/src/lib/finance-documents";
+import { listComplianceFilings } from "@/src/lib/compliance/filings";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,8 @@ const tabs: readonly NccTab[] = [
   { key: "overview", label: "Overview", status: "live" },
   { key: "documents", label: "Documents", status: "live" },
   { key: "checklist", label: "Monthly Checklist", status: "live" },
+  { href: "/ncc/finance/compliance", key: "compliance", label: "Compliance", status: "live" },
   { key: "reports", label: "Reports", status: "planned" },
-  { key: "compliance", label: "Compliance", status: "planned" },
   { key: "team", label: "Finance Team", status: "planned" },
 ];
 
@@ -38,6 +39,7 @@ export default async function NccFinancePage({
   const currentTab = tabs.some((tab) => tab.key === params.tab) ? (params.tab as string) : "overview";
   const documents = await listFinanceDocuments();
   const writeEnabled = isFinanceDocumentsWriteEnabled();
+  const complianceFilings = currentTab === "overview" ? await listComplianceFilings() : [];
 
   return (
     <NccShell active="finance" organization={getCurrentOrganization()} title="Finance">
@@ -46,10 +48,11 @@ export default async function NccFinancePage({
 
         {currentTab === "overview" ? (
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <AdminMetricCard href="/ncc/finance?tab=documents" label="Documents on File" value={documents.length} />
               <AdminMetricCard href="/ncc/finance?tab=documents" label="Document Categories" value={FINANCE_DOCUMENT_CATEGORIES.length} />
               <AdminMetricCard href="/ncc/finance?tab=checklist" label="Monthly Checklist" value="Prototype" />
+              <AdminMetricCard href="/ncc/finance/compliance" label="Compliance Filings Tracked" value={complianceFilings.length} />
             </div>
             <AdminEmptyState
               title="Phase 1 — Document Operations, Not Bookkeeping"
@@ -73,8 +76,9 @@ export default async function NccFinancePage({
 
         {currentTab === "compliance" ? (
           <AdminEmptyState
-            title="Planned"
-            description="990 prep tracking, audit prep, and insurance-policy status live here once Compliance & Legal is built out. Today, insurance and audit documents can already be filed under the Documents tab's categories."
+            action={<AdminActionLink href="/ncc/finance/compliance" variant="gold">Open Compliance Center</AdminActionLink>}
+            description="Compliance now has its own page."
+            title="Moved"
           />
         ) : null}
 
