@@ -4985,7 +4985,7 @@ export async function loadDosAppData(
         approvedFruit: fruit.filter((item) => item.status === "approved").length,
         connectionsCount: connectionRows.length,
         fruitCount: fruit.length,
-        meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === "logged").length,
+        meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === "logged").length + accountabilityCheckInRows.length,
         peopleCount: people.length,
         relationshipStewardship: relationshipModelCounts(people.map((person) => ({
           discipleshipStage: person.discipleshipStage,

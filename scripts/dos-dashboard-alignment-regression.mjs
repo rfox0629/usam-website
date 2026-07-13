@@ -43,6 +43,8 @@ assert(dashboard.includes('label: "Schedule"'), "Mobile Dashboard quick actions 
 assert(dashboard.includes('label: "Add Person"'), "Mobile Dashboard quick actions must include Add Person.");
 assert(dashboard.includes('label: "Commitment"'), "Mobile Dashboard quick actions must include Commitment.");
 assert(!dashboard.includes('label: "Pray Now"'), "Mobile Dashboard third quick action must not fall back to Pray Now.");
+assert(dashboard.includes("accountabilityCheckIns.reduce((sum, checkIn) => sum + accountabilityCheckInDurationMinutes(checkIn), 0)"), "Dashboard total time must include accountability check-in duration.");
+assert(dashboard.includes("loggedMeetings.length + accountabilityCheckIns.length"), "Dashboard total meetings must include accountability check-ins.");
 assert(dashboard.includes("DashboardNotificationsPanel"), "Dashboard must render Notifications.");
 assert(dashboard.includes("<AccountabilityDashboardCard"), "Dashboard must render Accountability.");
 assert(accountabilityCard.includes('eyebrow="Accountability"'), "Accountability card must keep its Dashboard section heading.");
@@ -57,7 +59,7 @@ assert(launchBridge.includes('openMyRecordSheet({ fruit, kind: "weekly_report", 
 
 assert(dashboard.includes("dashboardTimeInvestmentRelationshipLine(item.person)"), "Top Time Investments must render the dashboard relationship line.");
 assert(!dashboard.includes("relationshipLine(item.person)"), "Top Time Investments must not render the old context-heavy relationship line.");
-assert(dashboard.includes(">Tables</span>"), "Top Time Investments must include a Tables heading.");
+assert(dashboard.includes(">Meetings</span>"), "Top Time Investments must include a Meetings heading.");
 assert(dashboard.includes(">Time</span>"), "Top Time Investments must include a Time heading.");
 
 assert(relationshipHelper.includes("person.discipleshipRelationship"), "Relationship label should use the existing discipleship relationship field.");

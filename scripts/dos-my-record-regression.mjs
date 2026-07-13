@@ -196,7 +196,7 @@ assert(loader.includes(".select(\"id, slug, display_name, public_slug\")"), "Wor
 assert(workspaceRoute.includes("\"fox-family\": \"ryan-fox\""), "DOS route should normalize the Fox Family alias to Ryan's canonical route.");
 assert(workspaceRoute.includes("\"bond-family\": \"dirk-bond\""), "DOS route should normalize the Bond Family alias to Dirk's canonical route.");
 assert(workspaceRoute.includes("const activeWorkspace = resolvedWorkspace ?? (workspaceAccess.status === \"allowed\" ? workspaceAccess.workspace : null);") && workspaceRoute.includes("id: activeWorkspace.id") && workspaceRoute.includes("slug: activeWorkspace.slug"), "DOS route should load data from the authorized resolved workspace for Ryan, Dirk, and generic slugs.");
-assert(loader.includes("meetingsCount: meetings.filter"), "Existing meeting metrics should remain based on meetings.");
+assert(loader.includes("meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === \"logged\").length + accountabilityCheckInRows.length"), "Meeting metrics should include saved accountability check-ins.");
 assert(loader.includes("fruitCount: fruit.length"), "Existing fruit metrics should remain based on fruit.");
 assert(!loader.includes("meetingsCount: myRecord"), "My Record must not affect meeting metrics.");
 assert(!loader.includes("fruitCount: myRecord"), "My Record must not affect fruit metrics.");

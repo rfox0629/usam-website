@@ -3089,6 +3089,21 @@ function tableDurationMinutes(meeting: DosAppMeeting) {
   return Number.isFinite(duration) && duration > 0 ? duration : 0;
 }
 
+function accountabilityCheckInDurationMinutes(checkIn: DosAppAccountabilityCheckIn) {
+  const duration = checkIn.durationMinutes ?? 0;
+
+  return Number.isFinite(duration) && duration > 0 ? duration : 0;
+}
+
+function addPersonInteractionStats(stats: Map<string, PersonTableStats>, personId: string, durationMinutes: number) {
+  const current = stats.get(personId) ?? { meetings: 0, timeMinutes: 0 };
+
+  stats.set(personId, {
+    meetings: current.meetings + 1,
+    timeMinutes: current.timeMinutes + durationMinutes,
+  });
+}
+
 function formatLoggedTime(minutes: number) {
   if (!minutes) {
     return "—";
@@ -4662,7 +4677,7 @@ type PersonGrowthMilestone = {
   date: string | null;
   description: string;
   id: string;
-  source: "Assessment" | "Fruit" | "Quick Review" | "Table" | "Testimony";
+  source: "Assessment" | "Check-In" | "Fruit" | "Quick Review" | "Table" | "Testimony";
   title: string;
 };
 
@@ -11650,6 +11665,7 @@ function LogCheckInSheet({
 }
 
 function DesktopHomeDashboard({
+  accountabilityCheckIns,
   accountabilitySchedules,
   commitmentsEnabled,
   fruitEvents,
@@ -11686,6 +11702,7 @@ function DesktopHomeDashboard({
   resourceAssignments,
   upcomingItems,
 }: {
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
   accountabilitySchedules: DosAppAccountabilitySchedule[];
   commitmentsEnabled: boolean;
   fruitEvents: DosAppFruitEvent[];
@@ -11722,8 +11739,12 @@ function DesktopHomeDashboard({
   resourceAssignments: DosAppResourceAssignment[];
   upcomingItems: UpcomingTimelineItem[];
 }) {
-  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
-  const totalPeopleMet = new Set(loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds)).size;
+  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0)
+    + accountabilityCheckIns.reduce((sum, checkIn) => sum + accountabilityCheckInDurationMinutes(checkIn), 0);
+  const totalPeopleMet = new Set([
+    ...loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds),
+    ...accountabilityCheckIns.map((checkIn) => checkIn.personId),
+  ].filter(Boolean)).size;
   const submittedReviewItems = buildSubmittedReviewItems({
     meetings,
     participantReviews,
@@ -11764,7 +11785,7 @@ function DesktopHomeDashboard({
     { icon: "commitment", label: "Commitment", onClick: onCreateCommitment },
   ];
   const tableActivityMetrics = [
-    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
+    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total meetings", value: loggedMeetings.length + accountabilityCheckIns.length },
     { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total hours logged", value: formatDashboardDuration(totalDurationMinutes) },
     { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: totalPeopleMet },
     { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", onClick: onOpenReviews, value: totalReviews },
@@ -11903,7 +11924,7 @@ function DesktopHomeDashboard({
                 <span aria-hidden="true" />
                 <span aria-hidden="true" />
                 <span aria-hidden="true" />
-                <span className="text-center">Tables</span>
+                <span className="text-center">Meetings</span>
                 <span className="text-right">Time</span>
               </div>
               {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
@@ -11923,7 +11944,7 @@ function DesktopHomeDashboard({
                   <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDashboardDuration(item.stats.timeMinutes)}</span>
                 </button>
               )) : (
-                <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
+                <p className="px-4 py-5 text-sm text-[#64748B]">No logged meeting duration yet.</p>
               )}
             </div>
           </DesktopPanel>
@@ -15494,7 +15515,7 @@ function DesktopPeopleIndex({
           <span>Stories</span>
           <span className="leading-[0.82rem]">
             <span className="block">Last</span>
-            <span className="block">Table</span>
+            <span className="block">Meeting</span>
           </span>
         </div>
         <div className="divide-y divide-[#EFF6FF]">
@@ -29484,6 +29505,8 @@ function MyRecordWorkspace({
 function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone }) {
   const icon = milestone.source === "Table"
     ? <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+    : milestone.source === "Check-In"
+      ? <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
     : milestone.source === "Assessment"
       ? <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
     : milestone.source === "Quick Review"
@@ -31241,6 +31264,7 @@ function PersonDetailOverlay({
     ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
     : null;
   const recentMeetings = personLoggedMeetings.slice(0, 3);
+  const loggedInteractionCount = personLoggedMeetings.length + accountabilityCheckIns.length;
   const relationshipTypePill = relationshipTypePillLabel(person);
   const spiritualJourneyPill = deriveSpiritualJourney({
     fruitEvents: personFruitEvents,
@@ -31251,7 +31275,9 @@ function PersonDetailOverlay({
     person,
     reflections: personReflections,
   });
-  const lastMeetingDate = personLoggedMeetings[0]?.date ?? person.lastActivityAt;
+  const lastMeetingDate = [personLoggedMeetings[0]?.date, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
+    .filter((date): date is string => Boolean(date))
+    .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
   const personGrowthMilestones: PersonGrowthMilestone[] = [
     ...personAssessmentResults.map((result) => ({
       date: result.completedAt,
@@ -31289,6 +31315,13 @@ function PersonDetailOverlay({
       source: "Table" as const,
       title: meetingActivityTitle(meeting),
     })),
+    ...accountabilityCheckIns.map((checkIn) => ({
+      date: checkIn.checkInDate,
+      description: checkIn.generalUpdate,
+      id: `milestone-check-in-${checkIn.id}`,
+      source: "Check-In" as const,
+      title: "Accountability Check-In",
+    })),
   ]
     .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
     .slice(0, 6);
@@ -31322,7 +31355,7 @@ function PersonDetailOverlay({
   const overviewNotes = defaults.notes?.trim() ?? "";
   const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
   const relationshipSnapshotReasons = Array.from(new Set([
-    personLoggedMeetings.length ? `${personLoggedMeetings.length} table${personLoggedMeetings.length === 1 ? "" : "s"} logged` : "",
+    loggedInteractionCount ? `${loggedInteractionCount} meeting${loggedInteractionCount === 1 ? "" : "s"} logged` : "",
     completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
     relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
     personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
@@ -31539,8 +31572,8 @@ function PersonDetailOverlay({
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
                 <ActivityFilterCard
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Tables"
-                  value={personLoggedMeetings.length}
+                  label="Meetings"
+                  value={loggedInteractionCount}
                 />
                 <ActivityFilterCard
                   icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
@@ -32839,24 +32872,41 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       });
     });
 
+    data.accountabilityCheckIns.forEach((checkIn) => {
+      if (!checkIn.checkInDate || !checkIn.personId) {
+        return;
+      }
+
+      const checkInTime = new Date(checkIn.checkInDate).getTime();
+      const currentDate = latestDates.get(checkIn.personId);
+      const currentTime = currentDate ? new Date(currentDate).getTime() : Number.NEGATIVE_INFINITY;
+
+      if (!currentDate || checkInTime > currentTime) {
+        latestDates.set(checkIn.personId, checkIn.checkInDate);
+      }
+    });
+
     return latestDates;
-  }, [loggedMeetings]);
+  }, [data.accountabilityCheckIns, loggedMeetings]);
   const personTableStatsByPersonId = useMemo(() => {
     const stats = new Map<string, PersonTableStats>();
 
     ministryLoggedMeetings.forEach((meeting) => {
-      meeting.fieldPersonIds.forEach((personId) => {
-        const current = stats.get(personId) ?? { meetings: 0, timeMinutes: 0 };
-
-        stats.set(personId, {
-          meetings: current.meetings + 1,
-          timeMinutes: current.timeMinutes + tableDurationMinutes(meeting),
-        });
+      Array.from(new Set(meeting.fieldPersonIds)).forEach((personId) => {
+        addPersonInteractionStats(stats, personId, tableDurationMinutes(meeting));
       });
     });
 
+    data.accountabilityCheckIns.forEach((checkIn) => {
+      if (!checkIn.personId) {
+        return;
+      }
+
+      addPersonInteractionStats(stats, checkIn.personId, accountabilityCheckInDurationMinutes(checkIn));
+    });
+
     return stats;
-  }, [ministryLoggedMeetings]);
+  }, [data.accountabilityCheckIns, ministryLoggedMeetings]);
   const storyCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -37321,6 +37371,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 />
               </div>
               <DesktopHomeDashboard
+                accountabilityCheckIns={data.accountabilityCheckIns}
                 accountabilitySchedules={data.accountabilitySchedules}
                 commitmentsEnabled={commitmentsEnabled}
                 fruitEvents={data.fruitEvents}

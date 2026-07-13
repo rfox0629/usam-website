@@ -71,6 +71,7 @@ assertIncludes(checkInsRoute, "nextAccountabilityCheckInDate", "check-in logging
 assertIncludes(checkInsRoute, "dos_accountability_check_in_commitments", "check-in logging links commitments");
 assertIncludes(checkInsRoute, "newCommitment", "check-in logging supports inline new commitment");
 assertIncludes(checkInsRoute, "general_update", "check-in logging uses general update as primary note");
+assertIncludes(checkInsRoute, "duration_minutes: asNullableInteger", "check-in logging persists duration minutes");
 
 const quickActionsMatch = client.match(/const quickActionItems:[\s\S]*?\];/);
 
@@ -94,11 +95,18 @@ assertIncludes(client, "new FormData(event.currentTarget)", "commitment handlers
 assertIncludes(client, "grid-cols-3 sm:grid-cols-6", "mobile-safe profile tab grid");
 assertIncludes(client, "setCommitmentStatus(commitment, \"completed\")", "complete quick action");
 assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused\"", "pause/reactivate quick action");
+assertIncludes(client, "function accountabilityCheckInDurationMinutes", "client normalizes check-in duration for aggregation");
+assertIncludes(client, "data.accountabilityCheckIns.forEach((checkIn) => {", "client includes check-ins in person aggregation");
+assertIncludes(client, "addPersonInteractionStats(stats, checkIn.personId, accountabilityCheckInDurationMinutes(checkIn))", "person meeting stats include check-in duration");
+assertIncludes(client, "loggedMeetings.length + accountabilityCheckIns.length", "dashboard meeting count includes accountability check-ins");
+assertIncludes(client, "accountabilityCheckIns.map((checkIn) => checkIn.personId)", "dashboard people-met count includes check-in people");
+assertIncludes(client, 'source: "Check-In" as const', "person growth history includes check-in milestones");
 
 assertIncludes(loader, "featureFlags: DosAppFeatureFlags", "loader exposes feature flags");
 assertIncludes(loader, "commitmentsAccountability", "loader maps commitments feature flag");
 assertIncludes(loader, "latestActivityByPersonId.set(commitment.person_id", "commitments affect person activity");
 assertIncludes(loader, "accountabilityCheckInCommitments", "loader returns check-in links");
+assertIncludes(loader, "meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === \"logged\").length + accountabilityCheckInRows.length", "loader meeting count includes accountability check-ins");
 assertIncludes(preview, "commitmentsAccountability: false", "preview keeps feature disabled");
 assertIncludes(apiHelper, "-[89ab][0-9a-f]{3}-[0-9a-f]{12}", "UUID validation accepts normal UUID group separators");
 
