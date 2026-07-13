@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
@@ -231,7 +232,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
                 Start Reading
               </Link>
               {resource.downloadPath ? (
-                <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href={resource.downloadPath}>
+                <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" download href={resource.downloadPath}>
+                  <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
                   Download PDF
                 </Link>
               ) : null}
@@ -286,13 +288,6 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             <section className="rounded-[24px] border border-[#DCEBFF] bg-white/80 p-4 text-xs font-semibold leading-6 text-[#64748B]">
               {resource.content.attribution ? <p>{resource.content.attribution}</p> : null}
               {resource.content.credits ? <p className="mt-1">{resource.content.credits}</p> : null}
-            </section>
-          ) : null}
-
-          {resource.downloadPath?.includes("#pdf-download-placeholder") ? (
-            <section className="scroll-mt-28 rounded-[24px] border border-dashed border-[#BFDBFE] bg-white/80 p-5" id="pdf-download-placeholder">
-              <h2 className="text-xl font-bold leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Download PDF</h2>
-              <p className="mt-2 text-sm leading-7 text-[#475569]">The PDF download will be added here after the final plan is ready. For now, this page is the canonical reading plan.</p>
             </section>
           ) : null}
 

@@ -665,7 +665,7 @@ const discipleshipResources = [
       subtitle: "Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ.",
     },
     description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
-    downloadPath: "/guide/new-testament-14-days#pdf-download-placeholder",
+    downloadPath: "/guides/new-testament-14-days.pdf",
     emoji: "📖",
     estimatedDuration: "14 Days",
     icon: "bible",
