@@ -22,6 +22,7 @@ import {
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { ensureDosViewerPerson, syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
+import { resolveDosIdentityForWorkspace } from "@/src/lib/dos/identity";
 import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
@@ -3885,6 +3886,22 @@ export async function loadDosAppData(
       message: viewerPersonSync.error.message ?? "Unable to prepare DOS user person.",
       status: "error",
     };
+  }
+
+  if (viewer) {
+    const identityResult = await resolveDosIdentityForWorkspace(supabase, viewer, {
+      workspaceDisplayName: workspace.display_name,
+      workspaceId: workspace.id,
+    });
+
+    if (identityResult.status === "ambiguous") {
+      console.warn("DOS identity verification is ambiguous for this workspace.", {
+        candidateCount: identityResult.candidates.length,
+        workspaceId: workspace.id,
+      });
+    } else if (identityResult.status === "unavailable" && !identityResult.message.includes("migration has not been applied")) {
+      console.warn("Unable to verify DOS identity link.", identityResult.message);
+    }
   }
 
   const groupsSeedResult = await ensureRyanDosWorkspaceGroups(supabase, workspace);

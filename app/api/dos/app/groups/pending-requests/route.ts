@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization, isAdminDosAuthorization, type DosAuthorization } from "@/src/lib/dos/auth";
+import { resolveDosIdentityForWorkspace } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type AuthorizedDos = Extract<DosAuthorization, { status: "authorized" }>;
-
-function normalizeEmail(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function normalizePhone(value: string | null | undefined) {
-  const digits = value?.replace(/\D/g, "") ?? "";
-
-  return digits.length >= 7 ? digits : null;
-}
 
 function missingJoinRequestsTable(error: { code?: string; message?: string } | null | undefined) {
   if (!error) {
@@ -51,9 +41,9 @@ async function authorizeDosGroupsRequest(): Promise<{ authorization: AuthorizedD
 }
 
 /**
- * Pending counts are scoped to groups the caller actively leads (or, for admins, every
- * group in the workspace) using the same person-resolution logic as the join-requests
- * accept/decline flow, so a facilitator only ever sees counts for their own groups.
+ * Pending counts are scoped to groups the caller actively leads (or, for admins,
+ * every group in the workspace). Non-admins must resolve through the canonical
+ * DOS identity link before group leadership is honored.
  */
 async function resolveLedGroupIds(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
@@ -64,38 +54,16 @@ async function resolveLedGroupIds(
     return null;
   }
 
-  const personIds = new Set<string>();
-  const email = authorization.access === "member" ? normalizeEmail(authorization.email) : "";
-  const phone = authorization.access === "member" ? normalizePhone(authorization.phone) : null;
+  const identity = await resolveDosIdentityForWorkspace(supabase, authorization, { workspaceId });
 
-  if (email) {
-    const { data } = await supabase
-      .from("missionary_field_people")
-      .select("id")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .ilike("email", email);
-
-    (data ?? []).forEach((person) => personIds.add(person.id));
-  }
-
-  if (phone) {
-    const { data } = await supabase
-      .from("missionary_field_people")
-      .select("id")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .eq("phone", phone);
-
-    (data ?? []).forEach((person) => personIds.add(person.id));
-  }
-
-  if (!personIds.size) {
+  if (identity.status !== "linked") {
     return [];
   }
 
   const { data } = await supabase
     .from("dos_group_members")
     .select("group_id")
-    .in("person_id", Array.from(personIds))
+    .eq("person_id", identity.identity.person_id)
     .in("role", ["leader", "co_leader"])
     .eq("status", "active");
 
@@ -114,12 +82,6 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   if (!workspaceId) {
     return NextResponse.json({ counts: {}, ok: true });
-  }
-
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
-
-  if ("response" in workspaceAccess) {
-    return workspaceAccess.response as NextResponse;
   }
 
   const supabase = createSupabaseAdminClient();

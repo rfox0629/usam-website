@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -235,27 +235,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Group not found." }, { status: 404 });
   }
 
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
-
-  if ("response" in workspaceAccess) {
-    return workspaceAccess.response;
-  }
-
   const supabase = createSupabaseAdminClient();
-  const groupResult = await supabase
-    .from("dos_groups")
-    .select("id")
-    .eq("id", groupId)
-    .eq("workspace_id", workspaceId)
-    .eq("active", true)
-    .maybeSingle();
+  const groupAccess = await loadDosGroupRoleAccess(supabase, authResult.authorization, {
+    allowedRoles: ["leader", "co_leader"],
+    groupId,
+    workspaceId,
+  });
 
-  if (groupResult.error) {
-    return NextResponse.json({ error: groupResult.error.message }, { status: 500 });
-  }
-
-  if (!groupResult.data) {
-    return NextResponse.json({ error: "Group not found." }, { status: 404 });
+  if (groupAccess.status !== "allowed") {
+    return NextResponse.json(
+      { error: groupAccess.message },
+      { status: groupAccess.status === "not_found" ? 404 : groupAccess.status === "forbidden" ? 403 : 500 },
+    );
   }
 
   const existingPersonResult = await resolveExistingPerson(supabase, workspaceId, payload);
@@ -364,13 +355,20 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Group member not found." }, { status: 404 });
   }
 
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+  const supabase = createSupabaseAdminClient();
+  const groupAccess = await loadDosGroupRoleAccess(supabase, authResult.authorization, {
+    allowedRoles: ["leader", "co_leader"],
+    groupId,
+    workspaceId,
+  });
 
-  if ("response" in workspaceAccess) {
-    return workspaceAccess.response;
+  if (groupAccess.status !== "allowed") {
+    return NextResponse.json(
+      { error: groupAccess.message },
+      { status: groupAccess.status === "not_found" ? 404 : groupAccess.status === "forbidden" ? 403 : 500 },
+    );
   }
 
-  const supabase = createSupabaseAdminClient();
   const groupResult = await supabase
     .from("dos_groups")
     .select("id, leader_person_id")

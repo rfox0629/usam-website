@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
-import { canWriteDosActivity, getDosAuthorization, isAdminDosAuthorization, type DosAuthorization } from "@/src/lib/dos/auth";
+import { canWriteDosActivity, getDosAuthorization, type DosAuthorization } from "@/src/lib/dos/auth";
+import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -134,8 +134,8 @@ function memberStatus(row: MemberRow): "active" | "invited" | "removed" {
   return row.status === "invited" || row.status === "removed" ? row.status : "active";
 }
 
-function memberRole(row: MemberRow): "leader" | "co_leader" | "member" | "guest" {
-  return row.role === "leader" || row.role === "co_leader" || row.role === "guest" ? row.role : "member";
+function memberRole(row: MemberRow): "leader" | "co_leader" | "helper" | "member" | "guest" {
+  return row.role === "leader" || row.role === "co_leader" || row.role === "helper" || row.role === "guest" ? row.role : "member";
 }
 
 async function authorizeDosGroupsRequest(): Promise<{ authorization: AuthorizedDos } | { response: NextResponse }> {
@@ -166,86 +166,26 @@ async function requireGroupRequestAccess(
   workspaceId: string,
   groupId: string,
 ) {
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authorization, workspaceId);
+  const groupAccess = await loadDosGroupRoleAccess(supabase, authorization, {
+    allowedRoles: ["leader", "co_leader"],
+    groupId,
+    workspaceId,
+  });
 
-  if ("response" in workspaceAccess) {
-    return workspaceAccess;
+  if (groupAccess.status === "allowed") {
+    return { group: groupAccess.group };
   }
 
-  const groupResult = await supabase
-    .from("dos_groups")
-    .select("id, workspace_id")
-    .eq("id", groupId)
-    .eq("workspace_id", workspaceId)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (groupResult.error) {
-    return { response: NextResponse.json({ error: groupResult.error.message }, { status: 500 }) };
+  if (groupAccess.status === "not_found") {
+    return { response: NextResponse.json({ error: groupAccess.message }, { status: 404 }) };
   }
 
-  if (!groupResult.data) {
-    return { response: NextResponse.json({ error: "Group not found." }, { status: 404 }) };
-  }
-
-  if (isAdminDosAuthorization(authorization)) {
-    return { group: groupResult.data };
-  }
-
-  const personIds = new Set<string>();
-  const email = authorization.access === "member" ? normalizeEmail(authorization.email) : "";
-  const phone = authorization.access === "member" ? normalizePhone(authorization.phone) : null;
-
-  if (email) {
-    const { data, error } = await supabase
-      .from("missionary_field_people")
-      .select("id")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .ilike("email", email);
-
-    if (error) {
-      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
-    }
-
-    (data ?? []).forEach((person) => personIds.add(person.id));
-  }
-
-  if (phone) {
-    const { data, error } = await supabase
-      .from("missionary_field_people")
-      .select("id")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .eq("phone", phone);
-
-    if (error) {
-      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
-    }
-
-    (data ?? []).forEach((person) => personIds.add(person.id));
-  }
-
-  if (!personIds.size) {
-    return { response: NextResponse.json({ error: "Group leader access required." }, { status: 403 }) };
-  }
-
-  const leaderResult = await supabase
-    .from("dos_group_members")
-    .select("id")
-    .eq("group_id", groupId)
-    .in("person_id", Array.from(personIds))
-    .in("role", ["leader", "co_leader"])
-    .eq("status", "active")
-    .limit(1);
-
-  if (leaderResult.error) {
-    return { response: NextResponse.json({ error: leaderResult.error.message }, { status: 500 }) };
-  }
-
-  if (!leaderResult.data?.length) {
-    return { response: NextResponse.json({ error: "Group leader access required." }, { status: 403 }) };
-  }
-
-  return { group: groupResult.data };
+  return {
+    response: NextResponse.json(
+      { error: groupAccess.message },
+      { status: groupAccess.status === "forbidden" ? 403 : 500 },
+    ),
+  };
 }
 
 async function findPossiblePersonMatches(
@@ -425,7 +365,7 @@ async function acceptJoinRequest(
     joinRequest.message ? `Request message: ${joinRequest.message}` : null,
   ].filter(Boolean).join("\n");
   const existingRole = existingMemberResult.data?.role;
-  const nextRole = existingRole === "leader" || existingRole === "co_leader" ? existingRole : "member";
+  const nextRole = existingRole === "leader" || existingRole === "co_leader" || existingRole === "helper" ? existingRole : "member";
   const writeResult = existingMemberResult.data
     ? await supabase
       .from("dos_group_members")

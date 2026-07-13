@@ -22,11 +22,13 @@ const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const householdMemberPeople = read("src/lib/dos/household-member-people.ts");
+const dosIdentity = read("src/lib/dos/identity.ts");
 const groupSeeds = read("src/lib/dos/group-seeds.ts");
 const groupsConfig = read("src/lib/dos/groups.ts");
 const groupsV2RolloutDocs = read("docs/dos-groups-v2-rollout.md");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
 const groupsV2Migration = read("supabase/migrations/20260712235050_dos_groups_simplification_shared_leadership.sql");
+const identityMigration = read("supabase/migrations/20260713022111_dos_identity_shared_leadership.sql");
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const joinRequestsMigration = read("supabase/migrations/20260709160043_dos_group_join_requests.sql");
@@ -34,6 +36,7 @@ const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const groupCreateRoute = read("app/api/dos/app/groups/route.ts");
 const groupJoinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
+const groupPendingRequestsRoute = read("app/api/dos/app/groups/pending-requests/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupActions = read("app/groups/actions.ts");
 const publicGroupsDirectoryPage = read("app/groups/page.tsx");
@@ -114,7 +117,9 @@ assertIncludes(missionaryApp, "export type DosAppGroup", "DOS data model must ex
 assertIncludes(missionaryApp, "groups: DosAppGroup[]", "DOS app data must include groups.");
 assertIncludes(missionaryApp, "ensureRyanDosWorkspaceGroups", "Real DOS workspace loader must run the Ryan groups seed path.");
 assertIncludes(missionaryApp, "ensureDosViewerPerson", "DOS app data loader must prepare the signed-in user as a shared Field person.");
+assertIncludes(missionaryApp, "resolveDosIdentityForWorkspace", "DOS app data loader must verify the signed-in user against the canonical DOS identity link.");
 assertIncludes(householdMemberPeople, "export async function ensureDosViewerPerson", "DOS signed-in users must have a default shared Person upsert path.");
+assertIncludes(householdMemberPeople, "export async function resolveDosViewerPerson", "DOS signed-in user person resolution must return the canonical Field person id for identity linking.");
 assertIncludes(householdMemberPeople, "Default DOS user person", "Default DOS user person records must be traceable without creating separate Group people.");
 assertIncludes(householdMemberPeople, "findExistingDosViewerPerson", "Default DOS user person creation must reuse existing people before inserting.");
 assertIncludes(
@@ -131,6 +136,82 @@ assertIncludes(
   missionaryApp,
   "logEmptyGroupsLoad(workspace)",
   "Groups loader must log the resolved workspace when no groups load.",
+);
+
+assertIncludes(
+  identityMigration,
+  "create table if not exists public.dos_identity_links",
+  "Identity migration must add the canonical auth user to Field person link table.",
+);
+assertIncludes(
+  identityMigration,
+  "verification_status in ('candidate', 'ambiguous', 'verified', 'rejected')",
+  "Identity links must preserve ambiguous candidates instead of merging unsafely.",
+);
+assertIncludes(
+  identityMigration,
+  "dos_identity_links_verified_user_workspace_unique",
+  "Each authenticated user must have at most one verified person per workspace.",
+);
+assertIncludes(
+  identityMigration,
+  "dos_identity_links_verified_person_unique",
+  "Each Field person must resolve to at most one verified authenticated user.",
+);
+assertIncludes(
+  identityMigration,
+  "alter table public.dos_identity_links enable row level security",
+  "Identity links must use RLS.",
+);
+assertIncludes(
+  identityMigration,
+  "grant select on table public.dos_identity_links to authenticated",
+  "Authenticated users may read only their own identity links through RLS.",
+);
+assertIncludes(
+  identityMigration,
+  "public.current_dos_identity_person_ids",
+  "Database authorization must expose a verified identity-person resolver.",
+);
+assertIncludes(
+  identityMigration,
+  "public.can_view_dos_group",
+  "Database authorization must include group view checks based on verified identity.",
+);
+assertIncludes(
+  identityMigration,
+  "public.can_manage_dos_group",
+  "Database authorization must include group management checks based on verified identity.",
+);
+assertIncludes(
+  identityMigration,
+  "Workspace membership alone does not grant shared group management.",
+  "Group management must not rely on broad workspace assumptions.",
+);
+assertIncludes(
+  dosIdentity,
+  "resolveDosIdentityForWorkspace",
+  "Server identity helper must resolve authenticated DOS users to verified Field people.",
+);
+assertIncludes(
+  dosIdentity,
+  "recordAmbiguousIdentityCandidates",
+  "Server identity helper must persist ambiguous candidates for manual verification.",
+);
+assertIncludes(
+  dosIdentity,
+  "onlyNameMatches",
+  "Server identity helper must not auto-verify existing people using name-only matches.",
+);
+assertIncludes(
+  dosIdentity,
+  "loadDosGroupRoleAccess",
+  "Server group auth helper must authorize by verified identity plus active group role.",
+);
+assertIncludes(
+  dosIdentity,
+  "loadDosSharedWorkspaceAccess",
+  "Server identity helper must support filtered shared group workspace access without broad workspace membership.",
 );
 assertIncludes(
   missionaryApp,
@@ -183,18 +264,38 @@ assertIncludes(groupSeeds, 'onConflict: "group_id,person_id"', "Ryan DOS group s
 assertIncludes(groupSeeds, 'visibility: "private"', "Ryan DOS group seed helper must keep default visibility private.");
 assertIncludes(
   dosWorkspaceRoute,
-  "id: workspaceAccess.workspace.id",
+  "id: activeWorkspace.id",
   "/dos/[slug] must pass the resolved active workspace_id into DOS data loading.",
 );
 assertIncludes(
   dosWorkspaceRoute,
-  "slug: workspaceAccess.workspace.slug",
+  "slug: activeWorkspace.slug",
   "/dos/[slug] must also pass the canonical resolved workspace slug into DOS data loading.",
 );
 assertIncludes(
   dosWorkspaceRoute,
   "loadDosAppData({",
   "/dos/ryan-fox must load DOS data from the resolved workspace object.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "loadDosSharedWorkspaceAccess",
+  "/dos/[slug] must allow verified shared group members through a filtered access path.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "filterDosAppDataForSharedGroups",
+  "Shared group route access must filter the DOS payload before rendering.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "notes: null",
+  "Shared group route access must strip private person notes from the filtered payload.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "group.prayerRequests.filter(isSharedGroupPrayerRequest)",
+  "Shared group route access must hide private group prayer requests.",
 );
 assertIncludes(
   dosAppCompatibilityRoute,
@@ -474,7 +575,7 @@ assertIncludes(prayerRoute, "groupId", "DOS prayer API must accept group context
 assertIncludes(prayerRoute, "gatheringId", "DOS prayer API must accept gathering context.");
 assertIncludes(prayerRoute, "meetingId", "DOS prayer API must accept meeting context.");
 assertIncludes(prayerRoute, "priority", "DOS prayer API must accept priority.");
-assertIncludes(groupMembersRoute, "requireDosWorkspaceRouteAccess", "Group member API must be authenticated and workspace-scoped.");
+assertIncludes(groupMembersRoute, "loadDosGroupRoleAccess", "Group member API must be authenticated through canonical identity plus group role.");
 assertIncludes(groupMembersRoute, validUuidFinalSegments, "Group member API must accept valid UUIDs with the final hyphenated segment.");
 assertIncludes(groupMembersRoute, ".from(\"dos_group_members\")", "Group member API must write dos_group_members.");
 assertIncludes(groupMembersRoute, ".eq(\"group_id\", groupId)", "Group member API must check existing group membership.");
@@ -488,8 +589,15 @@ assert(
   !groupMembersRoute.includes(".from(\"missionary_field_people\")\n    .delete"),
   "Group member removal must not delete the shared Person record.",
 );
-assertIncludes(groupJoinRequestsRoute, "requireDosWorkspaceRouteAccess", "Group join request API must be authenticated and workspace-scoped.");
-assertIncludes(groupJoinRequestsRoute, "isAdminDosAuthorization", "Group join request API must allow DOS admins without leaking public access.");
+const groupJoinRequestAccessBlock = groupJoinRequestsRoute.slice(
+  groupJoinRequestsRoute.indexOf("async function requireGroupRequestAccess"),
+  groupJoinRequestsRoute.indexOf("async function findPossiblePersonMatches"),
+);
+assertIncludes(groupJoinRequestsRoute, "loadDosGroupRoleAccess", "Group join request API must authorize through canonical identity plus group role.");
+assert(
+  !groupJoinRequestAccessBlock.includes("missionary_field_people"),
+  "Group join request access must not infer leadership from email/phone matched Field people.",
+);
 assertIncludes(groupJoinRequestsRoute, "\"leader\", \"co_leader\"", "Group join request API must restrict non-admin review to group leaders.");
 assertIncludes(groupJoinRequestsRoute, ".from(\"dos_group_join_requests\")", "Group join request API must read and update pending join requests.");
 assertIncludes(groupJoinRequestsRoute, ".eq(\"workspace_id\", workspaceId)", "Group join request API must scope requests to the active workspace.");
@@ -503,7 +611,13 @@ assertIncludes(groupJoinRequestsRoute, "findPossiblePersonMatches", "Join reques
 assertIncludes(groupJoinRequestsRoute, "Multiple possible people match this request", "Join request approval must require a leader choice when multiple matches exist.");
 assertIncludes(groupJoinRequestsRoute, "selectedPersonId", "Join request approval must allow explicitly linking an existing Person.");
 assertIncludes(groupJoinRequestsRoute, "createNewPerson", "Join request approval must allow an intentional create-new path.");
-assertIncludes(groupSettingsRoute, "requireDosWorkspaceRouteAccess", "Group settings API must be authenticated and workspace-scoped.");
+assertIncludes(groupMembersRoute, "loadDosGroupRoleAccess", "Group member API must authorize writes through canonical identity plus group role.");
+assertIncludes(groupPendingRequestsRoute, "resolveDosIdentityForWorkspace", "Pending request counts must resolve the signed-in user through canonical DOS identity.");
+assert(
+  !groupPendingRequestsRoute.includes("requireDosWorkspaceRouteAccess"),
+  "Pending request counts must not require broad workspace access for verified co-leaders.",
+);
+assertIncludes(groupSettingsRoute, "loadDosGroupRoleAccess", "Group settings API must authorize writes through canonical identity plus group role.");
 assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
 assertIncludes(groupSettingsRoute, "isUuid(groupId)", "Group settings API must tolerate legacy non-UUID client group identifiers.");
 assertIncludes(groupSettingsRoute, validUuidFinalSegments, "Group settings API must accept valid UUIDs for group and leader ids.");

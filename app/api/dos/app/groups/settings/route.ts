@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
+import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -151,13 +151,20 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Public slug must use letters, numbers, and hyphens." }, { status: 400 });
   }
 
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
+  const supabase = createSupabaseAdminClient();
+  const groupAccess = await loadDosGroupRoleAccess(supabase, authResult.authorization, {
+    allowedRoles: ["leader", "co_leader"],
+    groupId,
+    workspaceId,
+  });
 
-  if ("response" in workspaceAccess) {
-    return workspaceAccess.response;
+  if (groupAccess.status !== "allowed") {
+    return NextResponse.json(
+      { error: groupAccess.message },
+      { status: groupAccess.status === "not_found" ? 404 : groupAccess.status === "forbidden" ? 403 : 500 },
+    );
   }
 
-  const supabase = createSupabaseAdminClient();
   const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location";
   const existingGroupResult = isUuid(groupId)
     ? await supabase

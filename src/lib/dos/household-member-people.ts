@@ -65,6 +65,10 @@ type HouseholdMemberSyncResult = {
   updatedCount: number;
 };
 
+export type DosViewerPersonResolution = HouseholdMemberSyncResult & {
+  person: ExistingPersonRow | null;
+};
+
 type ViewerProfileRow = {
   email: string | null;
   first_name: string | null;
@@ -727,12 +731,12 @@ export async function syncHouseholdMembersAsPeople(
   return { createdCount, error: null, updatedCount };
 }
 
-export async function ensureDosViewerPerson(
+export async function resolveDosViewerPerson(
   supabase: SupabaseAdminClient,
   input: DosViewerPersonInput,
-): Promise<HouseholdMemberSyncResult> {
+): Promise<DosViewerPersonResolution> {
   if (!cleanText(input.userId) && !normalizeEmail(input.email) && !normalizePhone(input.phone)) {
-    return { createdCount: 0, error: null, updatedCount: 0 };
+    return { createdCount: 0, error: null, person: null, updatedCount: 0 };
   }
 
   const [existingResult, profileResult] = await Promise.all([
@@ -741,11 +745,11 @@ export async function ensureDosViewerPerson(
   ]);
 
   if (existingResult.error) {
-    return { createdCount: 0, error: existingResult.error, updatedCount: 0 };
+    return { createdCount: 0, error: existingResult.error, person: null, updatedCount: 0 };
   }
 
   if (profileResult.error) {
-    return { createdCount: 0, error: profileResult.error, updatedCount: 0 };
+    return { createdCount: 0, error: profileResult.error, person: null, updatedCount: 0 };
   }
 
   const existingPerson = findExistingDosViewerPerson((existingResult.data ?? []) as ExistingPersonRow[], input, profileResult.data);
@@ -754,26 +758,47 @@ export async function ensureDosViewerPerson(
     const update = buildExistingDosViewerPersonUpdate(existingPerson, input, profileResult.data);
 
     if (!Object.keys(update).length) {
-      return { createdCount: 0, error: null, updatedCount: 0 };
+      return { createdCount: 0, error: null, person: existingPerson, updatedCount: 0 };
     }
 
     const updateResult = await updateHouseholdMemberPerson(supabase, input.workspaceId, existingPerson.id, update);
 
     if (updateResult.error) {
-      return { createdCount: 0, error: updateResult.error, updatedCount: 0 };
+      return { createdCount: 0, error: updateResult.error, person: null, updatedCount: 0 };
     }
 
-    return { createdCount: 0, error: null, updatedCount: 1 };
+    return { createdCount: 0, error: null, person: { ...existingPerson, ...update }, updatedCount: 1 };
   }
 
   const insertRecord = buildDosViewerPersonInsert(input, profileResult.data);
   const insertResult = await insertHouseholdMemberPerson(supabase, insertRecord);
 
   if (insertResult.error || !insertResult.data?.id) {
-    return { createdCount: 0, error: insertResult.error, updatedCount: 0 };
+    return { createdCount: 0, error: insertResult.error, person: null, updatedCount: 0 };
   }
 
-  return { createdCount: 1, error: null, updatedCount: 0 };
+  return {
+    createdCount: 1,
+    error: null,
+    person: {
+      ...insertRecord,
+      id: insertResult.data.id,
+    } as ExistingPersonRow,
+    updatedCount: 0,
+  };
+}
+
+export async function ensureDosViewerPerson(
+  supabase: SupabaseAdminClient,
+  input: DosViewerPersonInput,
+): Promise<HouseholdMemberSyncResult> {
+  const result = await resolveDosViewerPerson(supabase, input);
+
+  return {
+    createdCount: result.createdCount,
+    error: result.error,
+    updatedCount: result.updatedCount,
+  };
 }
 
 export async function syncHouseholdTeamMembersAsPeople(

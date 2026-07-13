@@ -70,8 +70,8 @@ assert(
 );
 assert(
   page.includes("const result = await loadDosAppData({")
-    && page.includes("id: workspaceAccess.workspace.id")
-    && page.includes("slug: workspaceAccess.workspace.slug")
+    && page.includes("id: activeWorkspace.id")
+    && page.includes("slug: activeWorkspace.slug")
     && page.includes("}, authorization);"),
   "DOS app route must pass the authorized viewer to the data loader.",
 );
