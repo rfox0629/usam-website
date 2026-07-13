@@ -16,6 +16,7 @@ import { type DosCommitmentProgressState } from "@/src/lib/dos/commitments-accou
 import {
   mapResourceAssignmentRow,
   normalizeResourceAssignmentStatus,
+  pauseResourceAssignmentFollowUpSchedules,
   resourceAssignmentCommitmentStatusPatch,
   resourceAssignmentErrorResponse,
   resourceAssignmentSelect,
@@ -186,6 +187,19 @@ export async function POST(request: Request) {
 
   if (nextAssignmentResult.error) {
     return resourceAssignmentErrorResponse(nextAssignmentResult.error);
+  }
+
+  const followUpPauseResult = await pauseResourceAssignmentFollowUpSchedules({
+    assignmentId,
+    checkInDate,
+    includeFuture: nextAssignmentStatus === "completed" || nextAssignmentStatus === "paused",
+    personId: String(assignment.person_id),
+    supabase,
+    workspaceId: workspaceResult.workspaceId,
+  });
+
+  if (followUpPauseResult.error) {
+    return resourceAssignmentErrorResponse(followUpPauseResult.error);
   }
 
   return NextResponse.json({

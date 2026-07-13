@@ -19,6 +19,14 @@ function assertMatches(source, pattern, label) {
   }
 }
 
+function assertCountAtLeast(source, needle, count, label) {
+  const matches = source.split(needle).length - 1;
+
+  if (matches < count) {
+    throw new Error(`${label}: expected at least ${count} occurrences of ${needle}, found ${matches}`);
+  }
+}
+
 const migration = read("supabase/migrations/20260713113226_dos_resource_assignments.sql");
 const catalog = read("src/lib/dos/resource-catalog.ts");
 const assignmentTypes = read("src/lib/dos/resource-assignments.ts");
@@ -45,6 +53,13 @@ assertIncludes(migration, "Library remains the source of truth", "migration docu
 assertIncludes(assignmentTypes, "dosResourceAssignmentStatuses", "assignment status helpers exist");
 assertIncludes(assignmentTypes, "dosResourceAssignmentFollowUpCadences", "assignment cadence helpers exist");
 assertIncludes(assignmentTypes, "resourceAssignmentCommitmentTitle", "linked commitment title helper exists");
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleHeading = \"Growth follow-up due\"", "follow-up schedule display heading exists");
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleMarker", "follow-up schedules carry assignment marker");
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleDisplayTitle", "follow-up schedule marker is hidden from users");
+assertIncludes(assignmentTypes, "resourceAssignmentMidpointDate", "midpoint date helper exists");
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpDates", "follow-up date helper exists");
+assertMatches(assignmentTypes, /followUpCadence === "midpoint_and_completion"[\s\S]*kind: "midpoint"[\s\S]*kind: "completion"/, "midpoint cadence creates midpoint and completion dates");
+assertMatches(assignmentTypes, /status === "completed" \|\| status === "paused" \|\| followUpCadence === "none"/, "completed, paused, and none suppress future follow-ups");
 
 assertIncludes(catalog, "assignable: true", "reading plan is assignable");
 assertIncludes(catalog, "durationDays: 14", "reading plan assignment duration defaults to fourteen days");
@@ -53,6 +68,13 @@ assertIncludes(catalog, 'followUpCadence: "midpoint_and_completion"', "reading p
 assertIncludes(assignmentApiHelper, "resolveAssignableDosResource", "API helper validates assignable resources");
 assertIncludes(assignmentApiHelper, "mapResourceAssignmentRow", "API helper maps assignment rows");
 assertIncludes(assignmentApiHelper, "resourceAssignmentCommitmentStatusPatch", "API helper syncs assignment status to commitment status");
+assertIncludes(assignmentApiHelper, "syncResourceAssignmentFollowUpSchedules", "API helper syncs accountability schedules");
+assertIncludes(assignmentApiHelper, "pauseResourceAssignmentFollowUpSchedules", "API helper pauses due resource follow-ups");
+assertIncludes(assignmentApiHelper, "dos_accountability_schedules", "API helper reuses accountability schedules");
+assertIncludes(assignmentApiHelper, "frequency: \"one_time\"", "resource follow-ups use one-time accountability schedules");
+assertIncludes(assignmentApiHelper, "next_check_in: row.date", "date edits update scheduled follow-up dates");
+assertIncludes(assignmentApiHelper, "existingForKind.slice(1)", "duplicate follow-up schedules are paused");
+assertIncludes(assignmentApiHelper, "status: \"paused\"", "stale future follow-ups are paused instead of duplicated");
 
 [
   assignmentsRoute,
@@ -67,9 +89,13 @@ assertIncludes(assignmentsRoute, "dos_person_commitments", "assignment creation 
 assertIncludes(assignmentsRoute, "dos_resource_assignments", "assignment route writes assignments");
 assertIncludes(assignmentsRoute, "loadWorkspacePerson", "assignment route scopes person to workspace");
 assertIncludes(assignmentsRoute, "resourceAssignmentCommitmentStatusPatch", "assignment status syncs commitment");
+assertIncludes(assignmentsRoute, "syncResourceAssignmentFollowUpSchedules", "assignment route syncs follow-up schedules");
+assertCountAtLeast(assignmentsRoute, "syncResourceAssignmentFollowUpSchedules", 3, "create and update paths both sync follow-up schedules");
 assertIncludes(checkInsRoute, "dos_accountability_check_ins", "resource check-ins use accountability check-ins");
 assertIncludes(checkInsRoute, "dos_accountability_check_in_commitments", "resource check-ins link discussed commitment");
 assertIncludes(checkInsRoute, "dos_commitment_updates", "resource check-ins create commitment progress updates");
+assertIncludes(checkInsRoute, "pauseResourceAssignmentFollowUpSchedules", "resource check-ins close due follow-up schedules");
+assertIncludes(checkInsRoute, "includeFuture: nextAssignmentStatus === \"completed\" || nextAssignmentStatus === \"paused\"", "completion and pause close future follow-ups");
 
 assertIncludes(loader, "type DosAppResourceAssignment", "loader exposes resource assignment type");
 assertIncludes(loader, "loadResourceAssignmentsForWorkspace", "loader loads resource assignments");
@@ -84,6 +110,16 @@ assertIncludes(client, "ResourceAssignmentCard", "client has reusable assignment
 assertIncludes(client, "Assigned Resources", "person Growth/My Record show assigned resources");
 assertIncludes(client, "Completed Resources", "person Growth/My Record show completed resources");
 assertIncludes(client, "ResourceAssignmentsDashboardCard", "dashboard has resource follow-up presentation");
+assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
+assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");
+assertIncludes(client, "resourceAssignmentFollowUpScheduleHeading", "dashboard uses growth follow-up heading");
+assertIncludes(client, "Check in with ${personName} about", "dashboard displays resource follow-up item text");
+assertIncludes(client, "Open Person", "dashboard exposes person action for due follow-ups");
+assertIncludes(client, "Log Check-In", "dashboard exposes check-in action for due follow-ups");
+assertIncludes(client, "Mark Complete", "dashboard exposes completion action for due follow-ups");
+assertIncludes(client, "Reschedule", "dashboard exposes reschedule action for due follow-ups");
+assertIncludes(client, "onLogResourceCheckIn(assignment)", "dashboard uses resource check-in flow for resource follow-ups");
+assertIncludes(client, "resourceAssignmentFollowUpScheduleDisplayTitle", "client hides resource assignment schedule marker");
 assertIncludes(client, "onAssign={openResourceAssignmentCreate}", "Library list wires Assign action");
 assertIncludes(client, "Read Online", "assignment card keeps online reading action");
 assertIncludes(client, "Download PDF", "Library card keeps PDF action");

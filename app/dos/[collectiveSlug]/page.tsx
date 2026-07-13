@@ -271,6 +271,7 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     prayerRequests,
     myRecord: emptySharedGroupMyRecord(data.workspace.id),
     reminders: [],
+    resourceAssignments: [],
     stats: {
       approvedFruit: 0,
       connectionsCount: 0,

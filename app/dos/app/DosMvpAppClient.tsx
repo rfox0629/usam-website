@@ -86,6 +86,9 @@ import {
   addDaysToResourceAssignmentDateKey,
   defaultResourceAssignmentDueDate,
   dosResourceAssignmentFollowUpCadences,
+  parseResourceAssignmentFollowUpScheduleTitle,
+  resourceAssignmentFollowUpScheduleDisplayTitle,
+  resourceAssignmentFollowUpScheduleHeading,
   resourceAssignmentCommitmentTitle,
   todayResourceAssignmentDateKey,
   type DosResourceAssignmentFollowUpCadence,
@@ -10010,6 +10013,16 @@ const resourceAssignmentFollowUpCadenceLabels: Record<DosResourceAssignmentFollo
 
 const accountabilityDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+function accountabilityScheduleDisplayTitle(schedule: DosAppAccountabilitySchedule) {
+  return resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title);
+}
+
+function resourceAssignmentForFollowUpSchedule(schedule: DosAppAccountabilitySchedule, assignments: DosAppResourceAssignment[]) {
+  const marker = parseResourceAssignmentFollowUpScheduleTitle(schedule.title);
+
+  return marker ? assignments.find((assignment) => assignment.id === marker.assignmentId) ?? null : null;
+}
+
 function commitmentLatestUpdate(commitment: DosAppPersonCommitment) {
   return commitment.updates[0] ?? null;
 }
@@ -10379,7 +10392,7 @@ function CommitmentsPanel({
               type="button"
             >
               <span className="min-w-0">
-                <span className="block text-sm font-black text-[#0F172A]">{schedule.title}</span>
+                <span className="block text-sm font-black text-[#0F172A]">{accountabilityScheduleDisplayTitle(schedule)}</span>
                 <span className="mt-1 block text-xs font-semibold text-[#64748B]">
                   {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""} · Next {formatDate(schedule.nextCheckIn)}
                 </span>
@@ -10419,7 +10432,7 @@ function CommitmentsPanel({
   );
 }
 
-function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[]) {
+function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[], resourceAssignments: DosAppResourceAssignment[] = []) {
   const personById = new Map(people.map((person) => [person.id, person]));
   const today = todayCommitmentDateKey();
   const todayValue = dateSortValue(today);
@@ -10427,25 +10440,40 @@ function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people
 
   return schedules
     .filter((schedule) => schedule.status === "active")
-    .map((schedule) => ({
-      bucket: dateSortValue(schedule.nextCheckIn) < todayValue ? "Overdue" : schedule.nextCheckIn === today ? "Due Today" : "Next 7 Days",
-      person: personById.get(schedule.personId) ?? null,
-      schedule,
-    }))
+    .map((schedule) => {
+      const assignment = resourceAssignmentForFollowUpSchedule(schedule, resourceAssignments);
+
+      return {
+        assignment,
+        bucket: dateSortValue(schedule.nextCheckIn) < todayValue ? "Overdue" : schedule.nextCheckIn === today ? "Due Today" : "Next 7 Days",
+        person: personById.get(schedule.personId) ?? null,
+        schedule,
+      };
+    })
     .filter((row) => row.bucket !== "Next 7 Days" || dateSortValue(row.schedule.nextCheckIn) <= sevenDayValue)
     .sort((first, second) => dateSortValue(first.schedule.nextCheckIn) - dateSortValue(second.schedule.nextCheckIn));
 }
 
 function AccountabilityDashboardCard({
   onLogCheckIn,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
+  onOpenPerson,
+  onRescheduleResourceAssignment,
   people,
+  resourceAssignments,
   schedules,
 }: {
   onLogCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
+  onOpenPerson: (personId: string) => void;
+  onRescheduleResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   people: DosAppPerson[];
+  resourceAssignments: DosAppResourceAssignment[];
   schedules: DosAppAccountabilitySchedule[];
 }) {
-  const rows = accountabilityDueRows(schedules, people);
+  const rows = accountabilityDueRows(schedules, people, resourceAssignments);
   const dueToday = rows.filter((row) => row.bucket === "Due Today").length;
   const overdue = rows.filter((row) => row.bucket === "Overdue").length;
   const dueSoon = rows.filter((row) => row.bucket === "Next 7 Days").length;
@@ -10465,21 +10493,63 @@ function AccountabilityDashboardCard({
         ))}
       </div>
       <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0" key={row.schedule.id}>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-[#0F172A]">{row.person?.name ?? "Field person"}</p>
-              <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{row.schedule.title} · {row.bucket} · {formatDate(row.schedule.nextCheckIn)}</p>
+        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => {
+          const assignment = row.assignment;
+          const person = row.person;
+          const personName = person?.name ?? "Field person";
+          const isResourceFollowUp = Boolean(assignment);
+          const resourceTitle = assignment ? resourceAssignmentTitle(assignment) : null;
+
+          return (
+            <div className="grid gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0 min-[760px]:grid-cols-[minmax(0,1fr)_auto] min-[760px]:items-center" key={row.schedule.id}>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-[#0F172A]">{isResourceFollowUp ? resourceAssignmentFollowUpScheduleHeading : personName}</p>
+                <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">
+                  {isResourceFollowUp && resourceTitle
+                    ? `Check in with ${personName} about "${resourceTitle}".`
+                    : accountabilityScheduleDisplayTitle(row.schedule)}
+                  {" "}&middot; {row.bucket} &middot; {formatDate(row.schedule.nextCheckIn)}
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-start gap-2 min-[760px]:justify-end">
+                {person ? (
+                  <button
+                    className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+                    onClick={() => onOpenPerson(person.id)}
+                    type="button"
+                  >
+                    Open Person
+                  </button>
+                ) : null}
+                <button
+                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+                  onClick={() => assignment ? onLogResourceCheckIn(assignment) : onLogCheckIn(row.schedule)}
+                  type="button"
+                >
+                  Log Check-In
+                </button>
+                {assignment ? (
+                  <>
+                    <button
+                      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BBF7D0] bg-[#F7FEFA] px-3 text-xs font-bold text-[#15803D] transition-colors hover:bg-[#DCFCE7]"
+                      onClick={() => onMarkResourceAssignmentComplete(assignment)}
+                      type="button"
+                    >
+                      Mark Complete
+                    </button>
+                    <button
+                      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+                      onClick={() => onRescheduleResourceAssignment(assignment)}
+                      type="button"
+                    >
+                      Reschedule
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </div>
-            <button
-              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
-              onClick={() => onLogCheckIn(row.schedule)}
-              type="button"
-            >
-              Log Check-In
-            </button>
-          </div>
-        )) : (
+          );
+        }) : (
           <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No check-ins due.</p>
         )}
       </div>
@@ -11009,7 +11079,7 @@ function LogCheckInSheet({
       <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="schedule_id" type="hidden" value={schedule.id} /> : null}
-        <DosFormSection icon="log" title={schedule?.title ?? "Accountability Check-In"}>
+        <DosFormSection icon="log" title={schedule ? accountabilityScheduleDisplayTitle(schedule) : "Accountability Check-In"}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DosFormField label="Date">
               <input className={FieldInputClass(false)} defaultValue={todayCommitmentDateKey()} name="date" type="date" />
@@ -11112,8 +11182,11 @@ function DesktopHomeDashboard({
   onLogPrayerTime,
   onLogTimeWithGod,
   onCreateCommitment,
+  onEditResourceAssignment,
   onLogMeeting,
   onLogAccountabilityCheckIn,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
   onOpenFruit,
   onOpenGroupJoinRequests,
   onOpenMeeting,
@@ -11146,8 +11219,11 @@ function DesktopHomeDashboard({
   onLogPrayerTime: () => void;
   onLogTimeWithGod: () => void;
   onCreateCommitment: () => void;
+  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onLogMeeting: () => void;
   onLogAccountabilityCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onOpenFruit: () => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
@@ -11377,7 +11453,12 @@ function DesktopHomeDashboard({
           <>
             <AccountabilityDashboardCard
               onLogCheckIn={onLogAccountabilityCheckIn}
+              onLogResourceCheckIn={onLogResourceCheckIn}
+              onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
+              onOpenPerson={onOpenPerson}
+              onRescheduleResourceAssignment={onEditResourceAssignment}
               people={people}
+              resourceAssignments={resourceAssignments}
               schedules={accountabilitySchedules}
             />
             <ResourceAssignmentsDashboardCard
@@ -36031,8 +36112,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 onLogPrayerTime={() => launchMyRecordAction("prayer_time")}
                 onLogTimeWithGod={() => launchMyRecordAction("time_with_god")}
                 onCreateCommitment={() => openCommitmentCreate()}
+                onEditResourceAssignment={openResourceAssignmentEdit}
                 onLogMeeting={() => openForm("meeting")}
                 onLogAccountabilityCheckIn={openAccountabilityCheckInForSchedule}
+                onLogResourceCheckIn={openResourceAssignmentCheckIn}
+                onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}

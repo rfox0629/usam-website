@@ -25,6 +25,7 @@ import {
   resourceAssignmentSelect,
   resourceAssignmentStatusPatch,
   resolveAssignableDosResource,
+  syncResourceAssignmentFollowUpSchedules,
 } from "@/src/lib/dos/resource-assignments-api";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
@@ -271,6 +272,18 @@ export async function POST(request: Request) {
     return resourceAssignmentErrorResponse(assignmentResult.error);
   }
 
+  const scheduleSyncResult = await syncResourceAssignmentFollowUpSchedules({
+    assignedBy,
+    assignment: assignmentResult.data as Record<string, unknown>,
+    resource,
+    supabase,
+    workspaceId: workspaceResult.workspaceId,
+  });
+
+  if (scheduleSyncResult.error) {
+    return resourceAssignmentErrorResponse(scheduleSyncResult.error);
+  }
+
   return NextResponse.json({
     assignment: mapResourceAssignmentRow(assignmentResult.data as Record<string, unknown>),
     commitment: commitmentRow ? mapCommitmentRow(commitmentRow) : null,
@@ -402,6 +415,18 @@ export async function PATCH(request: Request) {
     }
 
     commitmentRow = commitmentResult.data as Record<string, unknown> | null;
+  }
+
+  const scheduleSyncResult = await syncResourceAssignmentFollowUpSchedules({
+    assignedBy: authResult.authorization.status === "authorized" ? authResult.authorization.userId : null,
+    assignment: assignmentResult.data as Record<string, unknown>,
+    resource,
+    supabase,
+    workspaceId: workspaceResult.workspaceId,
+  });
+
+  if (scheduleSyncResult.error) {
+    return resourceAssignmentErrorResponse(scheduleSyncResult.error);
   }
 
   return NextResponse.json({
