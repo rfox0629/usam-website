@@ -10531,9 +10531,9 @@ function AccountabilityDashboardCard({
     <DesktopPanel className="min-w-0" compact eyebrow="Accountability">
       <div className="grid grid-cols-3 gap-2">
         {[
-          ["Due today", dueToday],
+          ["Due Today", dueToday],
           ["Overdue", overdue],
-          ["7 days", dueSoon],
+          ["7 Days", dueSoon],
         ].map(([label, value]) => (
           <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
             <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
@@ -11246,7 +11246,6 @@ function DesktopHomeDashboard({
   onOpenTable,
   onOpenTableCalendar,
   onOpenWeeklyReport,
-  onPrayNow,
   onScheduleMentorMeeting,
   onScheduleMeeting,
   participantReviews = [],
@@ -11283,7 +11282,6 @@ function DesktopHomeDashboard({
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onOpenWeeklyReport: () => void;
-  onPrayNow: () => void;
   onScheduleMentorMeeting: () => void;
   onScheduleMeeting: () => void;
   participantReviews?: DosAppParticipantReview[];
@@ -11333,9 +11331,7 @@ function DesktopHomeDashboard({
   const quickActionItems: Array<{ icon: IconName; label: string; onClick: () => void }> = [
     { icon: "calendar", label: "Schedule", onClick: onScheduleMeeting },
     { icon: "people", label: "Add Person", onClick: onAddPerson },
-    commitmentsEnabled
-      ? { icon: "commitment", label: "Commitment", onClick: onCreateCommitment }
-      : { icon: "prayer", label: "Pray Now", onClick: onPrayNow },
+    { icon: "commitment", label: "Commitment", onClick: onCreateCommitment },
   ];
   const tableActivityMetrics = [
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
@@ -11415,7 +11411,7 @@ function DesktopHomeDashboard({
                 onClick={onLogMeeting}
                 type="button"
               >
-                Log Table
+                Log Meeting
               </button>
               <div className="grid grid-cols-3 gap-2">
                 {quickActionItems.map((item) => (
@@ -11503,18 +11499,19 @@ function DesktopHomeDashboard({
           </DesktopPanel>
         </div>
 
+        <AccountabilityDashboardCard
+          onLogCheckIn={onLogAccountabilityCheckIn}
+          onLogResourceCheckIn={onLogResourceCheckIn}
+          onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
+          onOpenPerson={onOpenPerson}
+          onRescheduleResourceAssignment={onEditResourceAssignment}
+          people={people}
+          resourceAssignments={resourceAssignments}
+          schedules={accountabilitySchedules}
+        />
+
         {commitmentsEnabled ? (
           <>
-            <AccountabilityDashboardCard
-              onLogCheckIn={onLogAccountabilityCheckIn}
-              onLogResourceCheckIn={onLogResourceCheckIn}
-              onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
-              onOpenPerson={onOpenPerson}
-              onRescheduleResourceAssignment={onEditResourceAssignment}
-              people={people}
-              resourceAssignments={resourceAssignments}
-              schedules={accountabilitySchedules}
-            />
             <ResourceAssignmentsDashboardCard
               assignments={resourceAssignments}
               onOpenPerson={onOpenPerson}
@@ -11588,7 +11585,7 @@ function DesktopHomeDashboard({
         </DesktopPanel>
       </div>
 
-      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
+      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Meetings</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {tableActivityMetrics.map((metric) => {
             const isInteractiveMetric = Boolean(metric.onClick);
@@ -35859,7 +35856,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 		                  setActiveTab("meetings");
 		                }}
                 onOpenWeeklyReport={() => launchMyRecordAction("weekly_report")}
-                onPrayNow={() => openMoreApp("prayer")}
                 onScheduleMentorMeeting={() => launchMyRecordAction("mentor_meeting")}
                 onScheduleMeeting={() => openScheduleMeeting()}
                 participantReviews={data.participantReviews}

@@ -17,6 +17,7 @@ function sliceBetween(source, startNeedle, endNeedle) {
 
 const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const dashboard = sliceBetween(client, "function DesktopHomeDashboard", "function DesktopInvitePanel");
+const accountabilityCard = sliceBetween(client, "function AccountabilityDashboardCard", "function resourceAssignmentDashboardRows");
 const relationshipHelper = sliceBetween(client, "function dashboardDiscipleshipRelationshipLabel", "function dashboardEngagementScoreLabel");
 const launchBridge = sliceBetween(client, "useEffect(() => {\n    if (!launchAction)", "function openMyRecordTimelineItem");
 
@@ -34,6 +35,20 @@ assert(dashboard.includes("latestDashboardPrayerLog(myRecord)"), "Prayer Time mu
 assert(dashboard.includes("nextDashboardMentorMeeting(myRecord)"), "Next Mentor Meeting must use My Record mentor meetings.");
 assert(dashboard.includes("buildDashboardWeeklyReportCard(myRecord, loggedMeetings)"), "Weekly Report Card must derive completion from real weekly report data.");
 assert(dashboard.includes("progress={weeklyReportCard.completionPercent}"), "Weekly Report Card must render a derived completion percentage.");
+
+assert(dashboard.includes('aria-label="Home quick actions"'), "Mobile Dashboard quick-action group must remain present.");
+assert(dashboard.includes("md:hidden"), "Dashboard quick actions must stay hidden on desktop.");
+assert(dashboard.includes("Log Meeting"), "Mobile Dashboard primary action must read Log Meeting.");
+assert(dashboard.includes('label: "Schedule"'), "Mobile Dashboard quick actions must include Schedule.");
+assert(dashboard.includes('label: "Add Person"'), "Mobile Dashboard quick actions must include Add Person.");
+assert(dashboard.includes('label: "Commitment"'), "Mobile Dashboard quick actions must include Commitment.");
+assert(!dashboard.includes('label: "Pray Now"'), "Mobile Dashboard third quick action must not fall back to Pray Now.");
+assert(dashboard.includes("DashboardNotificationsPanel"), "Dashboard must render Notifications.");
+assert(dashboard.includes("<AccountabilityDashboardCard"), "Dashboard must render Accountability.");
+assert(accountabilityCard.includes('eyebrow="Accountability"'), "Accountability card must keep its Dashboard section heading.");
+assert(accountabilityCard.includes('"Due Today"'), "Accountability must include Due Today.");
+assert(accountabilityCard.includes('"Overdue"'), "Accountability must include Overdue.");
+assert(accountabilityCard.includes('"7 Days"'), "Accountability must include 7 Days.");
 
 assert(launchBridge.includes('openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })'), "Time With God must launch the existing encounter flow.");
 assert(launchBridge.includes('openMyRecordSheet({ kind: "prayer", mode: "new" })'), "Prayer Time must launch the personal prayer log flow.");
