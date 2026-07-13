@@ -57,9 +57,19 @@ alter table public.dos_group_gatherings
   add column if not exists shared_prayer_summary text,
   add column if not exists shared_follow_up text,
   add column if not exists fruit_summary text,
-  add column if not exists ministry_event_id uuid references public.ministry_events(id) on delete set null,
   add column if not exists started_at timestamptz,
   add column if not exists completed_at timestamptz;
+
+do $$
+begin
+  if to_regclass('public.ministry_events') is not null then
+    alter table public.dos_group_gatherings
+      add column if not exists ministry_event_id uuid references public.ministry_events(id) on delete set null;
+  else
+    alter table public.dos_group_gatherings
+      add column if not exists ministry_event_id uuid;
+  end if;
+end $$;
 
 create index if not exists dos_groups_template_idx
   on public.dos_groups(workspace_id, template_key, audience, activity_type)

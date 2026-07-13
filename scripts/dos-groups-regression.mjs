@@ -524,6 +524,7 @@ assertIncludes(groupsV2Migration, "create table if not exists public.dos_group_t
 assertIncludes(groupsV2Migration, "alter table public.dos_group_templates enable row level security", "Groups V2 templates must have RLS.");
 assertIncludes(groupsV2Migration, "revoke all on table public.dos_group_templates from anon", "Groups V2 templates must block anon access.");
 assertIncludes(groupsV2Migration, "grant select on table public.dos_group_templates to authenticated", "Authenticated DOS users must be able to read templates.");
+assertIncludes(groupsV2Migration, "to_regclass('public.ministry_events')", "Groups V2 migration must tolerate production environments where ministry_events has not been applied.");
 assertIncludes(groupsV2Migration, "grant select, insert, update, delete on table public.dos_group_templates to service_role", "Service role must manage templates.");
 assertIncludes(groupsV2Migration, "role in ('leader', 'co_leader', 'helper', 'member', 'guest')", "Groups V2 migration must add helper to shared leadership roles.");
 assertIncludes(groupsV2Migration, "'dos_groups_simplified_v2'", "Groups V2 migration must seed the beta rollout flag.");
