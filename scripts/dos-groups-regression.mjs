@@ -477,12 +477,13 @@ assertIncludes(appClient, "No attendance has been recorded yet.", "Attendance em
 assertIncludes(appClient, "Record attendance after your next gathering.", "Attendance empty state must use the polished body.");
 assertIncludes(appClient, "No active prayer requests.", "Prayer empty state must use the polished title.");
 assertIncludes(appClient, "Prayer requests added during gatherings will automatically appear here.", "Prayer empty state must use the polished body.");
-assertIncludes(appClient, "Pray Today", "Prayer app must include the Pray Today hub section.");
-assertIncludes(appClient, "High Priority", "Prayer app must include the High Priority hub section.");
-assertIncludes(appClient, "Needs Follow-Up", "Prayer app must include the Needs Follow-Up hub section.");
-assertIncludes(appClient, "Group Prayers", "Prayer app must include the Group Prayers hub section.");
-assertIncludes(appClient, "Person Prayers", "Prayer app must include the Person Prayers hub section.");
-assertIncludes(appClient, "Answered Recently", "Prayer app must include the Answered Recently hub section.");
+assertIncludes(appClient, '{ label: "Prayers", value: "prayers" }', "Prayer app must include the Prayers tab.");
+assertIncludes(appClient, '{ label: "Prayer Team", value: "prayer_team" }', "Prayer app must include the Prayer Team tab.");
+assertIncludes(appClient, '{ label: "Answered", value: "answered" }', "Prayer app must include the Answered tab.");
+assertIncludes(appClient, "prayerRequestFilterOptions", "Prayer app must keep old prayer categories as secondary filters.");
+assertIncludes(appClient, '{ label: "High Priority", value: "high_priority" }', "Prayer app must include the High Priority filter.");
+assertIncludes(appClient, '{ label: "Needs Follow-Up", value: "needs_follow_up" }', "Prayer app must include the Needs Follow-Up filter.");
+assertIncludes(appClient, '{ label: "Group", value: "group" }', "Prayer app must include the Group filter.");
 assertIncludes(
   appClient,
   'onLogAsTable={() => openForm("meeting")}',
