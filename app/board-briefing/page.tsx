@@ -185,16 +185,16 @@ function WhoIAmSection() {
           <p>
             I&rsquo;m Ryan Fox. My wife Brooke and I founded USA Missionaries because we kept meeting people who
             wanted to follow Jesus more seriously and had nowhere practical to start. We began at kitchen tables,
-            in coffee shops, and in living rooms &mdash; and we&rsquo;re still there today.
+            in coffee shops, and in living rooms. We&rsquo;re still there today.
           </p>
           <p>
-            Before ministry, my background was in business, operations, and building systems &mdash; finance,
+            Before ministry, my background was in business, operations, and building systems: finance,
             process design, and technology. That background is why USA Missionaries has always tried to pair real
             relational ministry with real infrastructure, rather than choosing one or the other.
           </p>
           <p>
             My role with SAVE is still developing. Today it&rsquo;s best described as advisor, contributor, and
-            systems-builder &mdash; helping translate a vision Dirk and Julia have carried for decades into working
+            systems-builder, helping translate a vision Dirk and Julia have carried for decades into working
             tools. I don&rsquo;t own the SAVE Standard, and this briefing isn&rsquo;t about USA Missionaries and SAVE
             becoming one thing.
           </p>
@@ -213,7 +213,7 @@ function WhoIAmSection() {
             className="col-span-2"
             id="ryan-brooke-ministry-01"
             kind="photo"
-            subject="Ryan & Brooke together in ministry — a kitchen table or home setting"
+            subject="Ryan & Brooke together in ministry, at a kitchen table or home setting"
           />
         </div>
       </div>
@@ -256,7 +256,7 @@ function VisionSection() {
         <p>
           USA Missionaries isn&rsquo;t an event series, a content channel, or a piece of software. Those things
           support the work, but they aren&rsquo;t the work. The work is ordinary people learning to have real
-          spiritual conversations, build real relationships, and disciple real people &mdash; with enough structure
+          spiritual conversations, build real relationships, and disciple real people, with enough structure
           behind them that it doesn&rsquo;t depend on any one person&rsquo;s memory or willpower.
         </p>
       </Prose>
@@ -286,13 +286,13 @@ function KitchenTableSection() {
       <Eyebrow>Sec 04 · Practical Ministry</Eyebrow>
       <SectionHeading>Kitchen Table: One Way We Put Training Into Practice</SectionHeading>
       <Lede>
-        Kitchen Table is one practical ministry methodology we use &mdash; not the whole of USA Missionaries. It
+        Kitchen Table is one practical ministry methodology we use, not the whole of USA Missionaries. It
         gives people a simple, repeatable way to have real spiritual conversations wherever life already happens.
       </Lede>
 
       <Prose>
         <p>
-          We give people practical teaching and ministry pathways they can use immediately &mdash; in homes,
+          We give people practical teaching and ministry pathways they can use immediately: in homes,
           coffee shops, churches, workplaces, and everyday relationships. Some of these pathways are already in
           active use. Others are still being developed and refined.
         </p>
@@ -445,7 +445,7 @@ function StewardshipSection() {
       <Prose>
         <p>
           Every leader has met people who take significant time and prayer, again and again, without any real
-          change or follow-through &mdash; while other people, ready for deeper investment, quietly wait. Without
+          change or follow-through, while other people, ready for deeper investment, quietly wait. Without
           an intentional system, time, prayer needs, commitments, and next steps are easy to forget. DOS exists to
           make those patterns visible.
         </p>
@@ -457,7 +457,7 @@ function StewardshipSection() {
             A. Engagement
           </p>
           <p className="mt-2 text-[15px] leading-7 text-stone-400">
-            A discernment and conversation tool &mdash; not a label or a condemnation.
+            A discernment and conversation tool, not a label or a condemnation.
           </p>
           <EngagementScale />
           <PullQuote>Where is this person today, and what is the most loving and responsible next step?</PullQuote>
@@ -469,7 +469,7 @@ function StewardshipSection() {
           </p>
           <p className="mt-2 text-[15px] leading-7 text-stone-400">
             Time, engagement, commitments, and fruit help a leader see where deeper investment may be appropriate
-            &mdash; a discernment aid, never a substitute for prayer.
+            It&rsquo;s a discernment aid, never a substitute for prayer.
           </p>
           <CirclesDiagram />
         </div>
@@ -484,7 +484,7 @@ function StewardshipSection() {
             <p>
               Meaningful ministry meetings happen at kitchen tables, in coffee shops, at church, at home, during
               evangelism, in mentoring, and online. DOS helps preserve what was discussed, prayer needs,
-              commitments, next steps, follow-up, and time invested &mdash; so nothing depends on memory alone.
+              commitments, next steps, follow-up, and time invested, so nothing depends on memory alone.
             </p>
           </Prose>
         </div>
@@ -496,6 +496,28 @@ function StewardshipSection() {
           <p className="mt-2 text-[15px] leading-7 text-stone-400">Activity alone is not the goal. There must be fruit.</p>
           <TagGrid items={fruitExamples} />
         </div>
+      </div>
+
+      <div className="mt-16 max-w-2xl">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+          E. Reviews
+        </p>
+        <p className="mt-2 text-[15px] leading-7 text-stone-400">
+          The other half of the story: not just what the missionary saw, but what the person felt.
+        </p>
+        <Prose>
+          <p>
+            After a real conversation, a leader can send the person a short review link. They answer a few honest
+            questions: did this feel like real care, was it helpful, would they want to meet again, plus anything
+            else on their mind. Their own words become part of the record alongside the leader&rsquo;s, so
+            engagement is never just one person&rsquo;s impression.
+          </p>
+          <p>
+            That honest, two-way signal feeds directly into how DOS reads a relationship. It doesn&rsquo;t replace
+            fruit, which stays its own distinct measure, but it helps a leader tell the difference between a
+            meeting that felt good and a relationship that is actually moving.
+          </p>
+        </Prose>
       </div>
 
       <p className="mt-16 text-[11px] uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
@@ -594,7 +616,7 @@ function SaveStandardSection() {
 
         <Prose>
           <p>
-            SAVE is its own organization. The SAVE Standard is a SAVE initiative &mdash; it does not belong to USA
+            SAVE is its own organization. The SAVE Standard is a SAVE initiative. It does not belong to USA
             Missionaries or to me. I helped develop SAVE&rsquo;s website and processes, and I&rsquo;m being invited
             into a growing advisory role, but SAVE&rsquo;s mission and leadership are Dirk and Julia&rsquo;s, not
             mine.
@@ -626,10 +648,10 @@ function SaveStandardSection() {
 
           <div className="bg-usam-black px-7 py-9">
             <p className="text-[11px] uppercase tracking-[0.2em] text-usam-gold" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-              Leader Health &mdash; The Differentiator
+              Leader Health: The Differentiator
             </p>
             <p className="mt-3 text-[14px] leading-7 text-stone-500">
-              Dirk and Julia bring more than thirty years of sitting with ministry leaders &mdash; sharing meals,
+              Dirk and Julia bring more than thirty years of sitting with ministry leaders: sharing meals,
               listening, and asking how they&rsquo;re really doing, not just reviewing documents.
             </p>
             <ul className="mt-5 space-y-2 text-[14px] leading-6 text-stone-400">
@@ -708,7 +730,7 @@ function ContributionSection() {
         </p>
         <p className="text-stone-500">
           A future integration between Ministry of Reconciliation and USA Missionaries may also become a useful
-          case study on reducing duplicated overhead and strengthening shared infrastructure &mdash; that work is
+          case study on reducing duplicated overhead and strengthening shared infrastructure. That work is
           still exploratory, and nothing here should be read as confirming a completed merger.
         </p>
       </Prose>
@@ -729,7 +751,7 @@ function ClosingSection() {
       <Prose>
         <p>
           The opportunity here is not to combine USA Missionaries and SAVE. The opportunity is to bring
-          complementary experience to the table &mdash; SAVE&rsquo;s decades of relational ministry wisdom, and my
+          complementary experience to the table: SAVE&rsquo;s decades of relational ministry wisdom, and my
           ability to organize, build, document, and operationalize vision.
         </p>
       </Prose>
