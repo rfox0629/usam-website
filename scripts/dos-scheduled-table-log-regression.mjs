@@ -21,8 +21,8 @@ assert(
   "Scheduled-table log submit must convert the existing record to logged.",
 );
 assert(
-  source.includes('title={isLoggingSelectedScheduledMeeting ? "Log Table" : "Edit Table"}'),
-  "Scheduled-table log sheet should present itself as Log Table.",
+  source.includes('title={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Edit Meeting"}'),
+  "Scheduled-table log sheet should present itself as Log Meeting.",
 );
 assert(
   source.includes('includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}'),
