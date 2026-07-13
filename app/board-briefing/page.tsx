@@ -208,12 +208,12 @@ function WhoIAmSection() {
             <Image alt="Brooke Fox" className="object-cover" fill sizes="180px" src="/images/board/brooke-fox.webp" />
           </div>
           <BoardBriefingMedia
-            alt="Ryan and Brooke Fox in relational ministry"
+            alt="The Fox family"
             aspect="wide"
             className="col-span-2"
-            id="ryan-brooke-ministry-01"
+            id="fox-family"
             kind="photo"
-            subject="Ryan & Brooke together in ministry, at a kitchen table or home setting"
+            subject="The Fox family"
           />
         </div>
       </div>
@@ -321,10 +321,15 @@ function KitchenTableSection() {
         ))}
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <BoardBriefingMedia alt="Kitchen table conversation" id="kitchen-table-01" subject="A real kitchen-table conversation" />
         <BoardBriefingMedia alt="Kitchen table ministry moment" id="kitchen-table-02" subject="A kitchen-table or coffee-shop ministry moment" />
         <BoardBriefingMedia alt="Group prayer" id="group-prayer-01" subject="A group praying together" />
+        <BoardBriefingMedia
+          alt="Ryan and Brooke Fox in relational ministry"
+          id="ryan-brooke-ministry-01"
+          subject="Ryan & Brooke together in ministry, at a kitchen table or home setting"
+        />
       </div>
     </Section>
   );
@@ -662,9 +667,10 @@ function SaveStandardSection() {
 
         <PullQuote>Healthy ministries require healthy systems and healthy leaders.</PullQuote>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-2">
+        <div className="mt-14 grid gap-4 sm:grid-cols-3">
           <BoardBriefingMedia alt="SAVE Standard website" id="save-standard-home" subject="SAVE Standard homepage" />
           <BoardBriefingMedia alt="Dirk and Julia Bond" id="dirk-julia" subject="Dirk and Julia Bond" />
+          <BoardBriefingMedia alt="Dirk and Julia Bond" id="dirk-julia-portrait" subject="Dirk and Julia Bond" />
         </div>
 
         <p className="mt-8 text-[13.5px] leading-7 text-stone-500">
