@@ -9782,6 +9782,15 @@ type DashboardUpcomingRow = {
   title: string;
 };
 
+type DashboardNotificationItem = {
+  badge: string;
+  icon: ReactNode;
+  id: string;
+  onClick: () => void;
+  subtitle: string;
+  title: string;
+};
+
 type MyRecordLaunchAction = "mentor_meeting" | "prayer_time" | "time_with_god" | "weekly_report";
 
 type DashboardWeeklyReportCard = {
@@ -9812,14 +9821,14 @@ function dashboardLastLoggedStatus(value: string | null | undefined) {
 
 function dashboardMentorMeetingDateLine(meeting: DosAppUserMentorMeeting | null) {
   if (!meeting) {
-    return "No mentor meeting scheduled";
+    return "Not scheduled";
   }
 
   return [formatDate(meeting.meetingDate), formatTime(meeting.meetingDate) || "Time TBD"].filter(Boolean).join(" · ");
 }
 
 function dashboardMentorMeetingHelper(meeting: DosAppUserMentorMeeting | null) {
-  return meeting ? `With ${meeting.mentorName}` : "Schedule Meeting";
+  return meeting ? `With ${meeting.mentorName}` : undefined;
 }
 
 function buildDashboardWeeklyReportCard(myRecord: DosAppUserRecord, loggedMeetings: DosAppMeeting[]): DashboardWeeklyReportCard {
@@ -9850,7 +9859,7 @@ function buildDashboardWeeklyReportCard(myRecord: DosAppUserRecord, loggedMeetin
   return {
     completionPercent,
     status,
-    summary: `You're meeting ${completedGoals} of ${totalGoals} goals this week.`,
+    summary: `${completedGoals} of ${totalGoals} goals this week`,
   };
 }
 
@@ -9921,52 +9930,88 @@ function DashboardAlignmentRow({
   label,
   onClick,
   progress,
+  showHelperOnMobile = false,
   value,
 }: {
   actionLabel?: string;
-  helper: string;
+  helper?: string;
   icon: ReactNode;
   label: string;
   onClick: () => void;
   progress?: number;
+  showHelperOnMobile?: boolean;
   value: string;
 }) {
   const boundedProgress = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
 
   return (
     <button
-      className="grid min-h-[88px] w-full grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 border-b border-[#EAF2FF] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[60px_minmax(0,1fr)_auto]"
+      className="grid min-h-[48px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-2.5 py-1 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:min-h-[54px] sm:grid-cols-[36px_minmax(0,1fr)_auto] sm:gap-2.5 sm:px-3 sm:py-1.5"
       onClick={onClick}
       type="button"
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF] sm:h-14 sm:w-14">
+      <span className="flex h-7 w-7 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF] sm:h-8 sm:w-8">
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[11px] font-black uppercase tracking-[0.18em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-1 block truncate text-base font-black leading-5 text-[#0F172A] sm:text-lg">{value}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#64748B]">{helper}</span>
+        <span className="block truncate text-[9px] font-black uppercase leading-3 tracking-[0.1em] text-[#1D4ED8] sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+        <span className="block truncate text-sm font-black leading-4 text-[#0F172A] sm:text-[15px]">{value}</span>
+        {helper ? (
+          <span className={`${showHelperOnMobile ? "block" : "hidden sm:block"} truncate text-[10px] font-semibold leading-3 text-[#64748B] sm:text-xs sm:leading-4`}>
+            {helper}
+          </span>
+        ) : null}
       </span>
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
         {actionLabel ? (
-          <span className="inline-flex max-w-[104px] truncate rounded-full bg-[#F1F6FF] px-2.5 py-1.5 text-[11px] font-black text-[#1D4ED8] sm:px-3 sm:py-2 sm:text-xs">
+          <span className="inline-flex max-w-[88px] justify-center truncate rounded-full bg-[#F1F6FF] px-2 py-1 text-[10px] font-black leading-none text-[#1D4ED8] sm:max-w-[112px] sm:px-2.5 sm:py-1.5 sm:text-xs">
             {actionLabel}
           </span>
         ) : null}
         {boundedProgress !== null ? (
           <span
             aria-label={`${boundedProgress}% complete`}
-            className="flex h-14 w-14 items-center justify-center rounded-full"
+            className="flex h-8 w-8 items-center justify-center rounded-full sm:h-9 sm:w-9"
             style={{ background: `conic-gradient(#2563EB ${boundedProgress}%, #EAF2FF ${boundedProgress}% 100%)` }}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-black text-[#1D4ED8]">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-black text-[#1D4ED8] sm:h-7 sm:w-7 sm:text-[10px]">
               {boundedProgress}%
             </span>
           </span>
         ) : null}
-        <ChevronRight className="h-5 w-5 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
       </span>
     </button>
+  );
+}
+
+function DashboardNotificationsPanel({ items }: { items: DashboardNotificationItem[] }) {
+  return (
+    <DesktopPanel className="min-w-0" compact eyebrow="Notifications">
+      <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white">
+        {items.length ? items.map((item) => (
+          <button
+            className="grid min-h-[52px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_auto]"
+            key={item.id}
+            onClick={item.onClick}
+            type="button"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              {item.icon}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{item.title}</span>
+              <span className="mt-0.5 hidden truncate text-xs font-semibold leading-4 text-[#64748B] sm:block">{item.subtitle}</span>
+            </span>
+            <span className="max-w-[142px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-right text-[10px] font-black uppercase leading-none tracking-[0.08em] text-[#1D4ED8] sm:max-w-[180px]" style={{ fontFamily: font.rajdhani }}>
+              {item.badge}
+            </span>
+          </button>
+        )) : (
+          <p className="px-3 py-2.5 text-sm font-semibold text-[#64748B]">No notifications today.</p>
+        )}
+      </div>
+    </DesktopPanel>
   );
 }
 
@@ -11254,7 +11299,6 @@ function DesktopHomeDashboard({
     people,
   });
   const totalReviews = submittedReviewItems.length;
-  const newestReview = submittedReviewItems[0] ?? null;
   const recentReviewItems = submittedReviewItems.slice(0, 3);
   const recentFruitItems: DashboardFruitItem[] = [
     ...fruitItems.map((fruit) => ({
@@ -11327,6 +11371,25 @@ function DesktopHomeDashboard({
     }
   }
 
+  const dashboardNotificationItems: DashboardNotificationItem[] = [
+    ...pendingGroupJoinRequestItems.map((item) => ({
+      badge: `${item.count} pending`,
+      icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={2} />,
+      id: `group-${item.groupId}`,
+      onClick: () => onOpenGroupJoinRequests(item.groupId),
+      subtitle: "Group join request",
+      title: item.groupName,
+    })),
+    ...todayDashboardRows.map((item) => ({
+      badge: `${item.label} · ${item.badge}`,
+      icon: <TimelineIcon icon={item.icon} />,
+      id: `today-${item.id}`,
+      onClick: () => openDashboardUpcomingRow(item),
+      subtitle: item.badge,
+      title: item.title,
+    })),
+  ];
+
   return (
     <div className="mt-5 block md:mt-0">
       <header className="mb-3 hidden items-start justify-between gap-4 md:flex">
@@ -11337,117 +11400,104 @@ function DesktopHomeDashboard({
         </div>
       </header>
 
-      {pendingGroupJoinRequestItems.length ? (
-        <section className="mb-3 rounded-[24px] border border-[#FDE68A] bg-[#FFFBEB] p-3.5 shadow-[0_16px_38px_rgba(217,119,6,0.06)]">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#92400E]">Groups needing your attention</p>
-          <div className="grid gap-2">
-            {pendingGroupJoinRequestItems.map((item) => (
-              <button
-                className="flex min-w-0 items-center justify-between gap-3 rounded-[14px] border border-[#FDE68A] bg-white px-3 py-2 text-left transition-colors hover:bg-[#FFFBEB]"
-                key={item.groupId}
-                onClick={() => onOpenGroupJoinRequests(item.groupId)}
-                type="button"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <Users className="h-4 w-4 shrink-0 text-[#92400E]" aria-hidden="true" strokeWidth={2} />
-                  <span className="truncate text-sm font-bold text-[#0F172A]">{item.groupName}</span>
-                </span>
-                <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-black text-[#92400E]">
-                  {item.count} pending
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="mb-3 rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_16px_38px_rgba(37,99,235,0.06)] md:hidden">
-        <div className="grid">
-          {todayDashboardRows.length ? todayDashboardRows.map((item) => (
-            <button
-              className="flex min-w-0 items-center gap-2 border-t border-[#EAF2FF] py-2 text-left first:border-t-0 first:pt-0 last:pb-0"
-              key={`mobile-${item.id}`}
-              onClick={() => openDashboardUpcomingRow(item)}
-              type="button"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[11px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                <TimelineIcon icon={item.icon} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black text-[#0F172A]">{item.title}</span>
-              </span>
-              <span className="max-w-[152px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1.5 text-right text-[10px] font-black uppercase leading-none tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {item.label} · {item.badge}
-              </span>
-            </button>
-          )) : (
-            <p className="rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-sm font-semibold text-[#64748B]">No notifications today.</p>
-          )}
-        </div>
-      </section>
-
       <div className="grid w-full gap-3">
-        <section className="grid gap-2" aria-label="Home quick actions">
-          <button
-            className="inline-flex min-h-[58px] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-center text-base font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.22)] transition-transform active:scale-[0.99]"
-            onClick={onLogMeeting}
-            type="button"
-          >
-            Log Table
-          </button>
-          <div className="grid grid-cols-3 gap-2">
-            {quickActionItems.map((item) => (
+        <div className="grid gap-3 lg:grid-cols-[minmax(300px,0.74fr)_minmax(0,1.26fr)] lg:items-start">
+          <div className="grid min-w-0 gap-3">
+            <DashboardNotificationsPanel items={dashboardNotificationItems} />
+
+            <section className="grid gap-2 rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_14px_34px_rgba(37,99,235,0.045)] md:hidden" aria-label="Home quick actions">
               <button
-                className="flex min-h-[68px] min-w-0 flex-col items-center justify-center gap-2 rounded-[20px] border border-[#DCEBFF] bg-white px-2.5 text-center text-xs font-black text-[#0F172A] shadow-[0_10px_26px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF] active:scale-[0.99]"
-                key={item.label}
-                onClick={item.onClick}
+                className="inline-flex min-h-[54px] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-center text-base font-black text-white shadow-[0_12px_26px_rgba(37,99,235,0.2)] transition-transform active:scale-[0.99]"
+                onClick={onLogMeeting}
                 type="button"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                  <Icon name={item.icon} size={15} />
-                </span>
-                <span className="max-w-full truncate">{item.label}</span>
+                Log Table
               </button>
-            ))}
-          </div>
-        </section>
+              <div className="grid grid-cols-3 gap-2">
+                {quickActionItems.map((item) => (
+                  <button
+                    className="flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-2 text-center text-xs font-black text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-white active:scale-[0.99]"
+                    key={item.label}
+                    onClick={item.onClick}
+                    type="button"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                      <Icon name={item.icon} size={15} />
+                    </span>
+                    <span className="max-w-full truncate">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
-          <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white">
-            <DashboardAlignmentRow
-              actionLabel="Log Now"
-              helper={latestTimeWithGodEntry ? "Stay consistent in the Word." : "Capture Scripture and reflection."}
-              icon={<BookOpen className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
-              label="Time With God"
-              onClick={onLogTimeWithGod}
-              value={dashboardLastLoggedStatus(latestTimeWithGodEntry?.date)}
-            />
-            <DashboardAlignmentRow
-              actionLabel="Log Now"
-              helper={latestPrayerLog ? "Keep praying and interceding." : "Log personal prayer time."}
-              icon={<Heart className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
-              label="Prayer Time"
-              onClick={onLogPrayerTime}
-              value={dashboardLastLoggedStatus(latestPrayerLog?.prayedAt)}
-            />
-            <DashboardAlignmentRow
-              actionLabel={nextMentorMeeting ? undefined : "Schedule Meeting"}
-              helper={dashboardMentorMeetingHelper(nextMentorMeeting)}
-              icon={<Users className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
-              label="Next Mentor Meeting"
-              onClick={nextMentorMeeting ? () => onOpenMyRecord() : onScheduleMentorMeeting}
-              value={dashboardMentorMeetingDateLine(nextMentorMeeting)}
-            />
-            <DashboardAlignmentRow
-              helper={weeklyReportCard.summary}
-              icon={<BarChart3 className="h-7 w-7" aria-hidden="true" strokeWidth={1.9} />}
-              label="Weekly Report Card"
-              onClick={onOpenWeeklyReport}
-              progress={weeklyReportCard.completionPercent}
-              value={weeklyReportCard.status}
-            />
+            <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
+              <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white">
+                <DashboardAlignmentRow
+                  actionLabel="Log Now"
+                  icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Time With God"
+                  onClick={onLogTimeWithGod}
+                  value={dashboardLastLoggedStatus(latestTimeWithGodEntry?.date)}
+                />
+                <DashboardAlignmentRow
+                  actionLabel="Log Now"
+                  icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Prayer Time"
+                  onClick={onLogPrayerTime}
+                  value={dashboardLastLoggedStatus(latestPrayerLog?.prayedAt)}
+                />
+                <DashboardAlignmentRow
+                  actionLabel={nextMentorMeeting ? undefined : "Schedule Meeting"}
+                  helper={dashboardMentorMeetingHelper(nextMentorMeeting)}
+                  icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Next Mentor Meeting"
+                  onClick={nextMentorMeeting ? () => onOpenMyRecord() : onScheduleMentorMeeting}
+                  value={dashboardMentorMeetingDateLine(nextMentorMeeting)}
+                />
+                <DashboardAlignmentRow
+                  helper={weeklyReportCard.summary}
+                  icon={<BarChart3 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                  label="Weekly Report Card"
+                  onClick={onOpenWeeklyReport}
+                  progress={weeklyReportCard.completionPercent}
+                  showHelperOnMobile
+                  value={weeklyReportCard.status}
+                />
+              </div>
+            </DesktopPanel>
           </div>
-        </DesktopPanel>
+
+          <DesktopPanel action={<DashboardHeaderAction onClick={onOpenWeeklyReport}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
+            <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
+              <div className="grid grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-2.5 py-1.5 text-[9px] font-bold tracking-[0.06em] text-[#64748B] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span className="text-center">Tables</span>
+                <span className="text-right">Time</span>
+              </div>
+              {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
+                <button
+                  className="grid w-full grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] px-2.5 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:py-2.5"
+                  key={item.person.id}
+                  onClick={() => onOpenPerson(item.person.id)}
+                  type="button"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-xs font-black text-white sm:h-8 sm:w-8 sm:text-sm">{index + 1}</span>
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold sm:h-7 sm:w-7 sm:text-[10px] ${avatarTone(index)}`}>{initials(item.person.name)}</span>
+                  <span className="min-w-0">
+                    <span className="block whitespace-normal break-words text-sm font-black leading-4 text-[#0F172A] sm:text-base sm:leading-5">{item.person.name}</span>
+                    <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">{dashboardTimeInvestmentRelationshipLine(item.person)}</span>
+                  </span>
+                  <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{item.stats.meetings}</span>
+                  <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDashboardDuration(item.stats.timeMinutes)}</span>
+                </button>
+              )) : (
+                <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
+              )}
+            </div>
+          </DesktopPanel>
+        </div>
 
         {commitmentsEnabled ? (
           <>
@@ -11469,39 +11519,7 @@ function DesktopHomeDashboard({
           </>
         ) : null}
 
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenWeeklyReport}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
-          <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-            <div className="grid grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] bg-[#F8FBFF] px-3 py-1.5 text-[10px] font-bold tracking-[0.08em] text-[#64748B] sm:grid-cols-[34px_minmax(0,1fr)_64px_80px] sm:gap-2.5" style={{ fontFamily: font.rajdhani }}>
-              <span aria-hidden="true" />
-              <span aria-hidden="true" />
-              <span className="text-center">Tables</span>
-              <span className="text-right">Time</span>
-            </div>
-            {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
-              <button
-                className="grid w-full grid-cols-[32px_minmax(0,1fr)_56px_64px] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_64px_80px] sm:gap-2.5"
-                key={item.person.id}
-                onClick={() => onOpenPerson(item.person.id)}
-                type="button"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-sm font-black text-white">{index + 1}</span>
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold sm:flex ${avatarTone(index)}`}>{initials(item.person.name)}</span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-base font-black leading-5 text-[#0F172A]">{item.person.name}</span>
-                    <span className="mt-0.5 block truncate text-sm font-semibold leading-5 text-[#64748B]">{dashboardTimeInvestmentRelationshipLine(item.person)}</span>
-                  </span>
-                </span>
-                <span className="shrink-0 text-center text-base font-black text-[#0F172A]">{item.stats.meetings}</span>
-                <span className="shrink-0 text-right text-sm font-black text-[#0F172A]">{formatDashboardDuration(item.stats.timeMinutes)}</span>
-              </button>
-            )) : (
-              <p className="px-4 py-5 text-sm text-[#64748B]">No persisted table duration yet.</p>
-            )}
-          </div>
-        </DesktopPanel>
-
-        <div className="grid gap-3 min-[1180px]:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
           <div className="grid">
             {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
@@ -11569,24 +11587,12 @@ function DesktopHomeDashboard({
       <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {tableActivityMetrics.map((metric) => {
-            const metricContent = (
-              <>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                  {metric.icon}
-                </span>
-                <span className="mt-3 min-w-0">
-                  <span className="block truncate text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
-                  <span className="mt-1.5 block text-[10px] font-black uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-                </span>
-              </>
-            );
-
             const isInteractiveMetric = Boolean(metric.onClick);
 
             return (
               <article
                 aria-label={isInteractiveMetric ? "Open reviews" : undefined}
-                className={`min-h-[96px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 ${
+                className={`min-h-[68px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-2.5 ${
                   isInteractiveMetric
                     ? "cursor-pointer transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30"
                     : ""
@@ -11602,27 +11608,15 @@ function DesktopHomeDashboard({
                 role={isInteractiveMetric ? "button" : undefined}
                 tabIndex={isInteractiveMetric ? 0 : undefined}
               >
-                <div className="flex min-w-0 flex-col justify-between">
-                  {metricContent}
+                <div className="flex h-full min-w-0 items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                    {metric.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[22px] font-black leading-none tracking-[-0.02em] text-[#0F172A] sm:text-2xl">{metric.value}</span>
+                    <span className="mt-1 block text-[9px] font-black uppercase leading-tight tracking-[0.08em] text-[#64748B] sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                  </span>
                 </div>
-                {metric.label === "Total reviews" && newestReview ? (
-                  <div className="mt-3 rounded-[14px] border border-[#DCEBFF] bg-white px-2.5 py-2">
-                    <p className="truncate text-[11px] font-semibold leading-4 text-[#475569]">
-                      Newest: <span className="font-bold text-[#0F172A]">{newestReview.personName}</span>
-                    </p>
-                    <button
-                      className="mt-1 inline-flex text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8]"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenReview(newestReview);
-                      }}
-                      onKeyDown={(event) => event.stopPropagation()}
-                      type="button"
-                    >
-                      View
-                    </button>
-                  </div>
-                ) : null}
               </article>
             );
           })}

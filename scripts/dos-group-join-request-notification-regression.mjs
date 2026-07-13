@@ -148,6 +148,8 @@ assertIncludes(appClient, "function handleGroupJoinRequestResolved(groupId: stri
 assertIncludes(appClient, "const wasPending = joinRequests.find((request) => request.id === requestId)?.status ===", "reviewJoinRequest must check the pre-action status before deciding whether to decrement.");
 assertIncludes(appClient, "onJoinRequestResolved(group.id);", "reviewJoinRequest must call onJoinRequestResolved after a resolving action.");
 assertIncludes(appClient, 'const requestedGroupId = searchParams.get("openGroup");', "DOS client must read an openGroup query param for email deep links.");
-assertIncludes(appClient, "Groups needing your attention", "Dashboard must render a pending group join request section.");
+assertIncludes(appClient, "DashboardNotificationsPanel", "Dashboard must render the unified notifications panel.");
+assertIncludes(appClient, 'subtitle: "Group join request"', "Dashboard must render pending group join requests as notifications.");
+assertIncludes(appClient, "onClick: () => onOpenGroupJoinRequests(item.groupId)", "Group join request notifications must open the group's pending requests.");
 
 console.log("dos-group-join-request-notification-regression: all checks passed.");
