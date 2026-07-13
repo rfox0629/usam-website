@@ -259,6 +259,7 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     fruit: [],
     fruitEvents: [],
     groups,
+    guidedResourceProgress: [],
     householdMembers: [],
     leaderReflections: [],
     meetings: [],

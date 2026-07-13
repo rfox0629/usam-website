@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -996,6 +996,10 @@ type ResourceAssignmentSheetState =
   | { assignment?: DosAppResourceAssignment | null; kind: "assign"; personId?: string | null; resource: DosResource }
   | { assignment: DosAppResourceAssignment; kind: "check_in" }
   | null;
+type GuidedResourceDetailState = {
+  personId?: string | null;
+  slug: string;
+} | null;
 type ResourceAssignmentNotice = {
   assignmentId: string;
   personId: string;
@@ -5087,22 +5091,97 @@ function catalogResourceIcon(icon: DosResourceIcon) {
   }
 }
 
+function guidedResourceSessions(resource: DosResource) {
+  return resource.content?.guidedResource?.sessions ?? [];
+}
+
+function isGuidedResource(resource: DosResource) {
+  return resource.type === "guided_resource" && Boolean(resource.content?.guidedResource?.sessions.length);
+}
+
+function guidedResourcePurchaseLink(resource: DosResource) {
+  return resource.accessLinks?.find((link) => link.type === "publisher" || link.type === "purchase")
+    ?? resource.accessLinks?.[0]
+    ?? null;
+}
+
+function guidedResourceProgressForPerson({
+  personId,
+  progress,
+  resource,
+}: {
+  personId?: string | null;
+  progress: readonly DosAppGuidedResourceProgress[];
+  resource: DosResource;
+}) {
+  if (!personId) {
+    return [];
+  }
+
+  return progress.filter((item) => item.personId === personId && item.resourceSlug === resource.slug);
+}
+
+function guidedResourceCompletion({
+  personId,
+  progress,
+  resource,
+}: {
+  personId?: string | null;
+  progress: readonly DosAppGuidedResourceProgress[];
+  resource: DosResource;
+}) {
+  const sessions = guidedResourceSessions(resource);
+  const completedSessionIds = new Set(guidedResourceProgressForPerson({ personId, progress, resource })
+    .filter((item) => Boolean(item.completedAt))
+    .map((item) => item.sessionId));
+  const completed = sessions.filter((session) => completedSessionIds.has(session.id)).length;
+
+  return {
+    completed,
+    percent: sessions.length ? Math.round((completed / sessions.length) * 100) : 0,
+    total: sessions.length,
+  };
+}
+
+function guidedResourceProgressBySession(progress: readonly DosAppGuidedResourceProgress[]) {
+  return new Map(progress.map((item) => [item.sessionId, item]));
+}
+
+function guidedResourceDifficultyLabel(resource: DosResource) {
+  if (resource.difficulty === "beginner") {
+    return "Beginner";
+  }
+
+  if (resource.difficulty === "advanced") {
+    return "Advanced";
+  }
+
+  return resource.difficulty === "intermediate" ? "Intermediate" : "Guided";
+}
+
 function CatalogResourceRow({
   actionLabel = "Open",
+  guidedResourceProgress = [],
   onAssign,
   onClick,
+  onOpenGuidedResource,
+  progressPersonId,
   resource,
   workspaceSlug,
 }: {
   actionLabel?: string;
+  guidedResourceProgress?: readonly DosAppGuidedResourceProgress[];
   onAssign?: (resource: DosResource) => void;
   onClick?: () => void;
+  onOpenGuidedResource?: (resource: DosResource) => void;
+  progressPersonId?: string | null;
   resource: DosResource;
   workspaceSlug?: string;
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
   const isFeaturedReadingPlan = resource.type === "reading_plan" && resource.featured && !onClick;
+  const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
   const iconContent = resource.emoji ? (
@@ -5114,6 +5193,83 @@ function CatalogResourceRow({
     ? resource.content?.subtitle ?? resource.description
     : resource.description;
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
+
+  if (isGuidedResourceCard) {
+    const completion = guidedResourceCompletion({ personId: progressPersonId, progress: guidedResourceProgress, resource });
+    const purchaseLink = guidedResourcePurchaseLink(resource);
+
+    return (
+      <article className="px-3.5 py-3.5">
+        <div className="flex items-start gap-3">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
+            <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap gap-1.5">
+              {resource.featured ? (
+                <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
+                  FEATURED
+                </span>
+              ) : null}
+              <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                GUIDED RESOURCE
+              </span>
+            </div>
+            <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
+            {resource.author ? <p className="mt-1 text-xs font-bold leading-5 text-[#475569]">{resource.author}</p> : null}
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              <span>{`Type: ${typeLabel}`}</span>
+              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
+              <span>{guidedResourceDifficultyLabel(resource)}</span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
+            {completion.total ? (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  <span>Progress</span>
+                  <span>{completion.completed}/{completion.total}</span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
+                  <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
+          {canAssignResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              onClick={() => onAssign?.(resource)}
+              type="button"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Assign
+            </button>
+          ) : null}
+          <button
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
+            onClick={() => onOpenGuidedResource?.(resource)}
+            type="button"
+          >
+            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+            {completion.completed ? "Continue" : "Open"}
+          </button>
+          {purchaseLink ? (
+            <a
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+              href={purchaseLink.href}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Purchase Book
+            </a>
+          ) : null}
+        </div>
+      </article>
+    );
+  }
 
   if (isFeaturedReadingPlan) {
     return (
@@ -5281,6 +5437,8 @@ function resourceTypeLabel(resource: DosResource) {
       return "Prayer";
     case "challenge":
       return "Challenge";
+    case "guided_resource":
+      return "Guided Resource";
     case "reading_plan":
       return "Reading Plan";
     case "guide":
@@ -5292,12 +5450,18 @@ function resourceTypeLabel(resource: DosResource) {
 
 function CatalogResourceList({
   actionLabel,
+  guidedResourceProgress,
   onAssign,
+  onOpenGuidedResource,
+  progressPersonId,
   resources,
   workspaceSlug,
 }: {
   actionLabel?: string;
+  guidedResourceProgress?: readonly DosAppGuidedResourceProgress[];
   onAssign?: (resource: DosResource) => void;
+  onOpenGuidedResource?: (resource: DosResource) => void;
+  progressPersonId?: string | null;
   resources: readonly DosResource[];
   workspaceSlug?: string;
 }) {
@@ -5305,10 +5469,266 @@ function CatalogResourceList({
     <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
       <div className="divide-y divide-[#EBF2FF]">
         {resources.map((resource) => (
-          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} onAssign={onAssign} resource={resource} workspaceSlug={workspaceSlug} />
+          <CatalogResourceRow
+            actionLabel={actionLabel}
+            guidedResourceProgress={guidedResourceProgress}
+            key={resource.id}
+            onAssign={onAssign}
+            onOpenGuidedResource={onOpenGuidedResource}
+            progressPersonId={progressPersonId}
+            resource={resource}
+            workspaceSlug={workspaceSlug}
+          />
         ))}
       </div>
     </article>
+  );
+}
+
+function GuidedResourceDetailSheet({
+  assignments,
+  errorMessage,
+  guidedResourceProgress,
+  isSubmitting,
+  onAssign,
+  onClose,
+  onSaveProgress,
+  personId,
+  resource,
+}: {
+  assignments: readonly DosAppResourceAssignment[];
+  errorMessage: string;
+  guidedResourceProgress: readonly DosAppGuidedResourceProgress[];
+  isSubmitting: boolean;
+  onAssign?: (resource: DosResource) => void;
+  onClose: () => void;
+  onSaveProgress: (request: {
+    actionStep: string;
+    assignmentId?: string | null;
+    completed?: boolean;
+    personId: string;
+    prayerFocus: string;
+    reflection: string;
+    resourceSlug: string;
+    sessionId: string;
+  }) => Promise<void>;
+  personId?: string | null;
+  resource: DosResource;
+}) {
+  const sessions = guidedResourceSessions(resource);
+  const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
+  const progressBySession = guidedResourceProgressBySession(personProgress);
+  const completion = guidedResourceCompletion({ personId, progress: guidedResourceProgress, resource });
+  const initialSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? sessions[0] ?? null;
+  const [selectedSessionId, setSelectedSessionId] = useState(initialSession?.id ?? "");
+  const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? initialSession;
+  const selectedProgress = selectedSession ? progressBySession.get(selectedSession.id) ?? null : null;
+  const [reflection, setReflection] = useState(selectedProgress?.reflection ?? "");
+  const [actionStep, setActionStep] = useState(selectedProgress?.actionStep ?? "");
+  const [prayerFocus, setPrayerFocus] = useState(selectedProgress?.prayerFocus ?? "");
+  const linkedAssignment = personId
+    ? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug && assignment.status !== "completed")
+      ?? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug)
+      ?? null
+    : null;
+  const purchaseLink = guidedResourcePurchaseLink(resource);
+
+  useEffect(() => {
+    setReflection(selectedProgress?.reflection ?? "");
+    setActionStep(selectedProgress?.actionStep ?? "");
+    setPrayerFocus(selectedProgress?.prayerFocus ?? "");
+  }, [selectedProgress?.actionStep, selectedProgress?.prayerFocus, selectedProgress?.reflection, selectedSession?.id]);
+
+  async function saveProgress(completed?: boolean) {
+    if (!selectedSession || !personId) {
+      return;
+    }
+
+    await onSaveProgress({
+      actionStep,
+      assignmentId: linkedAssignment?.id ?? null,
+      completed,
+      personId,
+      prayerFocus,
+      reflection,
+      resourceSlug: resource.slug,
+      sessionId: selectedSession.id,
+    });
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={resource.title}>
+      <div className="max-h-[72dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
+        <div className="grid gap-4">
+          <article className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.05)]">
+            <div className="grid gap-4 p-4 sm:grid-cols-[116px_minmax(0,1fr)]">
+              {resource.coverImage ? (
+                <img
+                  alt={resource.coverImage.alt}
+                  className="aspect-[2/3] w-full max-w-[128px] rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+                  src={resource.coverImage.src}
+                />
+              ) : (
+                <span className="flex aspect-[2/3] w-full max-w-[128px] items-center justify-center rounded-[18px] border border-[#DCEBFF] bg-[#EBF2FF] text-[#2563EB]">
+                  <BookOpen className="h-8 w-8" aria-hidden="true" strokeWidth={1.8} />
+                </span>
+              )}
+              <div className="min-w-0">
+                <div className="flex flex-wrap gap-1.5">
+                  {resource.featured ? (
+                    <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
+                      FEATURED
+                    </span>
+                  ) : null}
+                  <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                    GUIDED RESOURCE
+                  </span>
+                </div>
+                <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
+                {resource.author ? <p className="mt-1 text-sm font-bold text-[#475569]">{resource.author}</p> : null}
+                <p className="mt-2 text-sm leading-6 text-[#64748B]">{resource.description}</p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold text-[#64748B]">
+                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Duration</span>
+                    <span className="mt-1 block text-[#0F172A]">{resource.estimatedDuration ?? "Resource"}</span>
+                  </span>
+                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Difficulty</span>
+                    <span className="mt-1 block text-[#0F172A]">{guidedResourceDifficultyLabel(resource)}</span>
+                  </span>
+                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Sessions</span>
+                    <span className="mt-1 block text-[#0F172A]">{sessions.length}</span>
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                    <span>Progress</span>
+                    <span>{completion.completed}/{completion.total}</span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
+                    <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {purchaseLink ? (
+                    <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" href={purchaseLink.href} rel="noopener noreferrer" target="_blank">
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Purchase Book
+                    </a>
+                  ) : null}
+                  {onAssign ? (
+                    <button className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white" onClick={() => onAssign(resource)} type="button">
+                      <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Assign
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {!personId ? (
+            <p className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-xs font-bold leading-5 text-[#C2410C]">
+              Link your DOS user to a person record to save guided-resource progress in My Record.
+            </p>
+          ) : null}
+
+          <div className="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
+            <section className="grid content-start gap-2">
+              {sessions.map((session) => {
+                const sessionProgress = progressBySession.get(session.id) ?? null;
+                const completed = Boolean(sessionProgress?.completedAt);
+
+                return (
+                  <button
+                    className={`flex min-w-0 items-center gap-3 rounded-[20px] border px-3 py-3 text-left transition-colors ${
+                      selectedSession?.id === session.id ? "border-[#BFDBFE] bg-[#EBF2FF]" : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                    }`}
+                    key={session.id}
+                    onClick={() => setSelectedSessionId(session.id)}
+                    type="button"
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#F8FAFC] text-[#64748B]"}`}>
+                      {completed ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <span className="text-xs font-black">{session.order}</span>}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black leading-5 text-[#0F172A]">{session.title}</span>
+                      <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{session.assignment}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </section>
+
+            {selectedSession ? (
+              <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Selected Session</p>
+                    <h4 className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{selectedSession.title}</h4>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{selectedSession.assignment}</p>
+                  </div>
+                  {selectedProgress?.completedAt ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Complete
+                    </span>
+                  ) : null}
+                </div>
+                <div className="grid gap-2 text-sm leading-6 text-[#475569]">
+                  <p><span className="font-black text-[#0F172A]">Big Idea:</span> {selectedSession.bigIdea}</p>
+                  <p><span className="font-black text-[#0F172A]">Key Scriptures:</span> {selectedSession.keyScriptures.join(", ")}</p>
+                </div>
+                <div className="grid gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discussion Questions</p>
+                  <ul className="grid gap-2">
+                    {selectedSession.discussionQuestions.map((question) => (
+                      <li className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="grid gap-2 text-sm leading-6 text-[#475569]">
+                  <p><span className="font-black text-[#0F172A]">Personal Reflection:</span> {selectedSession.personalReflection}</p>
+                  <p><span className="font-black text-[#0F172A]">Action Step:</span> {selectedSession.actionStep}</p>
+                  <p><span className="font-black text-[#0F172A]">Prayer Focus:</span> {selectedSession.prayerFocus}</p>
+                </div>
+                {selectedSession.leaderNotes ? (
+                  <details className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Leader Notes</summary>
+                    <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
+                  </details>
+                ) : null}
+                <form className="grid gap-3 border-t border-[#EAF2FF] pt-3" onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveProgress();
+                }}>
+                  <DosFormField label="My Reflection">
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
+                  </DosFormField>
+                  <DosFormField label="My Action Step">
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
+                  </DosFormField>
+                  <DosFormField label="Prayer Focus">
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
+                  </DosFormField>
+                  {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting} type="submit">
+                      {isSubmitting ? "Saving..." : "Save Reflection"}
+                    </button>
+                    <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting} onClick={() => void saveProgress(true)} type="button">
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Mark Session Complete
+                    </button>
+                  </div>
+                </form>
+              </section>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -10140,6 +10560,7 @@ function ResourceAssignmentCard({
   assignment,
   compact = false,
   onEditDates,
+  onOpenGuidedResource,
   onLogCheckIn,
   onMarkComplete,
   onMarkInProgress,
@@ -10148,13 +10569,14 @@ function ResourceAssignmentCard({
   assignment: DosAppResourceAssignment;
   compact?: boolean;
   onEditDates?: (assignment: DosAppResourceAssignment) => void;
+  onOpenGuidedResource?: (resource: DosResource) => void;
   onLogCheckIn?: (assignment: DosAppResourceAssignment) => void;
   onMarkComplete?: (assignment: DosAppResourceAssignment) => void;
   onMarkInProgress?: (assignment: DosAppResourceAssignment) => void;
   onPause?: (assignment: DosAppResourceAssignment) => void;
 }) {
   const resource = resourceAssignmentResource(assignment);
-  const href = resource?.path ?? "#";
+  const href = resource?.type === "guided_resource" ? "#" : resource?.path ?? "#";
   const downloadPath = resource?.downloadPath ?? null;
 
   return (
@@ -10194,7 +10616,14 @@ function ResourceAssignmentCard({
         </span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={href}>Read Online</a>
+        {resource?.type === "guided_resource" ? (
+          <button className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" onClick={() => onOpenGuidedResource?.(resource)} type="button">
+            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+            Continue
+          </button>
+        ) : (
+          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={href}>Read Online</a>
+        )}
         {downloadPath ? (
           <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#0F172A]" download href={downloadPath}>
             <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
@@ -10702,7 +11131,7 @@ function ResourceAssignmentSuccessSheet({
 }) {
   const [copyMessage, setCopyMessage] = useState("");
   const resource = getDosResourceBySlug(notice.resourceSlug);
-  const publicUrl = resource && typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource?.path ?? "";
+  const publicUrl = resource && resource.type !== "guided_resource" && typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource?.type === "guided_resource" ? "" : resource?.path ?? "";
 
   async function copyText(value: string, label: string) {
     try {
@@ -26894,6 +27323,7 @@ function MyRecordGrowthPanel({
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
+  onOpenGuidedResource,
   onOpenSheet,
   onPauseResourceAssignment,
   people,
@@ -26905,6 +27335,7 @@ function MyRecordGrowthPanel({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   people: DosAppPerson[];
@@ -26948,6 +27379,7 @@ function MyRecordGrowthPanel({
                 onLogCheckIn={onLogResourceCheckIn}
                 onMarkComplete={onMarkResourceAssignmentComplete}
                 onMarkInProgress={onMarkResourceAssignmentInProgress}
+                onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
                 onPause={onPauseResourceAssignment}
               />
             ))}
@@ -26962,7 +27394,7 @@ function MyRecordGrowthPanel({
             </summary>
             <div className="mt-3 grid gap-3">
               {completedAssignments.map((assignment) => (
-                <ResourceAssignmentCard assignment={assignment} compact key={assignment.id} />
+                <ResourceAssignmentCard assignment={assignment} compact key={assignment.id} onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)} />
               ))}
             </div>
           </details>
@@ -27864,6 +28296,7 @@ function MyRecordWorkspace({
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
+  onOpenGuidedResource,
   onPauseResourceAssignment,
   onQuickTab,
   onSave,
@@ -27886,6 +28319,7 @@ function MyRecordWorkspace({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
@@ -28259,6 +28693,7 @@ function MyRecordWorkspace({
           onLogResourceCheckIn={onLogResourceCheckIn}
           onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
           onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
+          onOpenGuidedResource={onOpenGuidedResource}
           onOpenSheet={openMyRecordSheet}
           onPauseResourceAssignment={onPauseResourceAssignment}
           people={people}
@@ -29924,6 +30359,7 @@ function PersonDetailOverlay({
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
+  onOpenGuidedResource,
   onMarkPrayerAnswered,
   onOpenPrayerResources,
   onOpenReview,
@@ -29969,6 +30405,7 @@ function PersonDetailOverlay({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
@@ -30602,6 +31039,7 @@ function PersonDetailOverlay({
                       onLogCheckIn={onLogResourceCheckIn}
                       onMarkComplete={onMarkResourceAssignmentComplete}
                       onMarkInProgress={onMarkResourceAssignmentInProgress}
+                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
                       onPause={onPauseResourceAssignment}
                     />
                   ))}
@@ -30620,6 +31058,7 @@ function PersonDetailOverlay({
                       compact
                       key={assignment.id}
                       onEditDates={onEditResourceAssignment}
+                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
                     />
                   ))}
                 </div>
@@ -31445,6 +31884,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
+  const [guidedResourceDetail, setGuidedResourceDetail] = useState<GuidedResourceDetailState>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const ministryLoggedMeetings = useMemo(
@@ -31600,6 +32040,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
   ), [selectedPrayerResourceSlug]);
+  const selectedGuidedResource = useMemo(() => (
+    guidedResourceDetail?.slug ? getDosResourceBySlug(guidedResourceDetail.slug) : null
+  ), [guidedResourceDetail?.slug]);
+  const guidedResourceProgressPersonId = guidedResourceDetail?.personId ?? myRecordPerson?.id ?? null;
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
   const selectedExternalCalendarEvent = useMemo(() => (
     externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
@@ -32046,7 +32490,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   useEffect(() => {
     setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
-  }, [activeTab, formMode, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupCreateOpen, isGroupInviteOpen, isGroupSettingsOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, guidedResourceDetail, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupCreateOpen, isGroupInviteOpen, isGroupSettingsOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isTableSearchOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function closeFirstLaunchWalkthrough() {
     window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
@@ -33083,6 +33527,37 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setResourceAssignmentNotice(null);
     setResourceAssignmentSheet({ assignment, kind: "check_in" });
+  }
+
+  function openGuidedResource(resource: DosResource, personId?: string | null) {
+    if (!isGuidedResource(resource)) {
+      return;
+    }
+
+    setErrorMessage("");
+    setGuidedResourceDetail({ personId: personId ?? null, slug: resource.slug });
+  }
+
+  async function saveGuidedResourceProgress(request: {
+    actionStep: string;
+    assignmentId?: string | null;
+    completed?: boolean;
+    personId: string;
+    prayerFocus: string;
+    reflection: string;
+    resourceSlug: string;
+    sessionId: string;
+  }) {
+    const result = await submitJson(
+      "/api/dos/app/guided-resource-progress",
+      request,
+      "POST",
+      false,
+    ) as { progress?: DosAppGuidedResourceProgress } | null;
+
+    if (result?.progress) {
+      setResourceAssignmentNotice(null);
+    }
   }
 
   async function handleResourceAssignmentSubmit(event: FormEvent<HTMLFormElement>) {
@@ -36002,6 +36477,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
+    && !guidedResourceDetail
     && !resourceAssignmentSheet
     && !resourceAssignmentNotice
     && !isProfileOpen
@@ -36030,6 +36506,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
+    && !guidedResourceDetail
     && !resourceAssignmentSheet
     && !resourceAssignmentNotice
     && !isProfileOpen
@@ -36406,6 +36883,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onLogResourceCheckIn={openResourceAssignmentCheckIn}
                     onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
                     onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
+                    onOpenGuidedResource={openGuidedResource}
                     onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
@@ -36505,7 +36983,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       tab={prayerWorkspaceTab}
                     />
                     <DesktopPrayerWorkspace
-                      actionsHidden={Boolean(formMode) || Boolean(selectedMeetingId) || Boolean(selectedReminderId) || isPrayerResourceLibraryOpen || Boolean(selectedPrayerResourceSlug)}
+                      actionsHidden={Boolean(formMode) || Boolean(selectedMeetingId) || Boolean(selectedReminderId) || isPrayerResourceLibraryOpen || Boolean(selectedPrayerResourceSlug) || Boolean(guidedResourceDetail)}
                       answeredPrayerByReminderId={answeredPrayerByReminderId}
                       groups={data.groups}
                       householdMembers={data.householdMembers}
@@ -36650,7 +37128,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </LibrarySection>
 
                       <LibrarySection title="Discipleship">
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosDiscipleshipResourceItems} workspaceSlug={data.workspace.slug} />
+                        <CatalogResourceList
+                          guidedResourceProgress={data.guidedResourceProgress}
+                          onAssign={openResourceAssignmentCreate}
+                          onOpenGuidedResource={(resource) => openGuidedResource(resource, myRecordPerson?.id ?? null)}
+                          progressPersonId={myRecordPerson?.id ?? null}
+                          resources={dosDiscipleshipResourceItems}
+                          workspaceSlug={data.workspace.slug}
+                        />
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">
@@ -36929,6 +37414,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
+            onOpenGuidedResource={openGuidedResource}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
@@ -37173,6 +37659,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setResourceAssignmentNotice(null);
               openPersonDetail(personId);
             }}
+          />
+        ) : null}
+
+        {selectedGuidedResource && isGuidedResource(selectedGuidedResource) ? (
+          <GuidedResourceDetailSheet
+            assignments={data.resourceAssignments}
+            errorMessage={errorMessage}
+            guidedResourceProgress={data.guidedResourceProgress}
+            isSubmitting={isSubmitting}
+            onAssign={(resource) => {
+              setGuidedResourceDetail(null);
+              openResourceAssignmentCreate(resource, guidedResourceProgressPersonId);
+            }}
+            onClose={() => setGuidedResourceDetail(null)}
+            onSaveProgress={saveGuidedResourceProgress}
+            personId={guidedResourceProgressPersonId}
+            resource={selectedGuidedResource}
           />
         ) : null}
 

@@ -25,6 +25,7 @@
     "test:dos-commitments-accountability": "node scripts/dos-commitments-accountability-regression.mjs",
     "test:dos-commitments-ui": "node scripts/dos-commitments-ui-regression.mjs",
     "test:dos-resource-assignments": "node scripts/dos-resource-assignments-regression.mjs",
+    "test:dos-guided-resources": "node scripts/dos-guided-resources-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",

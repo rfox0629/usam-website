@@ -450,9 +450,10 @@ export type DosAppGroupGathering = {
 
 export type DosAppGroupResource = {
   active: boolean;
+  catalogResourceSlug: string | null;
   description: string | null;
   id: string;
-  resourceType: "link" | "scripture" | "guide" | "note" | "video" | "other";
+  resourceType: "course" | "guided_resource" | "guide" | "link" | "note" | "other" | "podcast" | "reading_plan" | "scripture" | "video";
   sortOrder: number;
   title: string;
   url: string | null;
@@ -592,6 +593,22 @@ export type DosAppResourceAssignment = {
   resourceSlug: string;
   startDate: string;
   status: DosResourceAssignmentStatus;
+  updatedAt: string | null;
+  workspaceId: string;
+};
+
+export type DosAppGuidedResourceProgress = {
+  actionStep: string | null;
+  assignmentId: string | null;
+  completedAt: string | null;
+  createdAt: string | null;
+  createdByUserId: string | null;
+  id: string;
+  personId: string;
+  prayerFocus: string | null;
+  reflection: string | null;
+  resourceSlug: string;
+  sessionId: string;
   updatedAt: string | null;
   workspaceId: string;
 };
@@ -870,6 +887,7 @@ export type DosAppData = {
   fruit: DosAppFruit[];
   fruitEvents: DosAppFruitEvent[];
   groups: DosAppGroup[];
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
   householdMembers: DosAppHouseholdMember[];
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
@@ -1242,6 +1260,7 @@ type GroupAttendanceRow = {
 
 type GroupResourceRow = {
   active: boolean | null;
+  catalog_resource_slug?: string | null;
   description: string | null;
   group_id: string;
   id: string;
@@ -1377,6 +1396,22 @@ type ResourceAssignmentRow = {
   resource_slug: string;
   start_date: string;
   status: string | null;
+  updated_at: string | null;
+  workspace_id: string;
+};
+
+type GuidedResourceProgressRow = {
+  action_step: string | null;
+  assignment_id: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  created_by_user_id: string | null;
+  id: string;
+  person_id: string;
+  prayer_focus: string | null;
+  reflection: string | null;
+  resource_slug: string;
+  session_id: string;
   updated_at: string | null;
   workspace_id: string;
 };
@@ -2095,7 +2130,7 @@ function mapGroupAttendanceStatus(value: string | null | undefined): DosAppGroup
 }
 
 function mapGroupResourceType(value: string | null | undefined): DosAppGroupResource["resourceType"] {
-  if (value === "scripture" || value === "guide" || value === "note" || value === "video" || value === "other") {
+  if (value === "scripture" || value === "guide" || value === "reading_plan" || value === "guided_resource" || value === "course" || value === "podcast" || value === "note" || value === "video" || value === "other") {
     return value;
   }
 
@@ -3336,7 +3371,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       .order("starts_at", { ascending: true }),
     supabase
       .from("dos_group_resources")
-      .select("id, group_id, title, description, url, resource_type, sort_order, active")
+      .select("id, group_id, title, description, url, resource_type, catalog_resource_slug, sort_order, active")
       .in("group_id", groupIds)
       .eq("active", true)
       .order("sort_order", { ascending: true })
@@ -3358,11 +3393,20 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
         .order("starts_at", { ascending: true })
       : Promise.resolve(v2GatheringsResult),
   ]);
+  const groupResourcesResult = resourcesResult.error && isMissingColumnError(resourcesResult.error)
+    ? await supabase
+      .from("dos_group_resources")
+      .select("id, group_id, title, description, url, resource_type, sort_order, active")
+      .in("group_id", groupIds)
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true })
+    : resourcesResult;
 
   const relatedError = [
     membersResult.error,
     gatheringsResult.error,
-    resourcesResult.error,
+    groupResourcesResult.error,
   ].find(Boolean);
 
   if (relatedError) {
@@ -3399,7 +3443,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       gatherings: gatheringRows,
       groups: groupRows,
       members: (membersResult.data ?? []) as GroupMemberRow[],
-      resources: (resourcesResult.data ?? []) as GroupResourceRow[],
+      resources: (groupResourcesResult.data ?? []) as GroupResourceRow[],
     },
     error: null,
   };
@@ -3594,6 +3638,18 @@ async function loadResourceAssignmentsForWorkspace(supabase: SupabaseAdminClient
 
   return result.error && isMissingWorkflowTable(result.error, "dos_resource_assignments")
     ? { data: [] as ResourceAssignmentRow[], error: null }
+    : result;
+}
+
+async function loadGuidedResourceProgressForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_guided_resource_progress")
+    .select("id, workspace_id, resource_slug, session_id, person_id, assignment_id, completed_at, reflection, action_step, prayer_focus, created_by_user_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("updated_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_guided_resource_progress")
+    ? { data: [] as GuidedResourceProgressRow[], error: null }
     : result;
 }
 
@@ -3974,7 +4030,7 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -3995,6 +4051,7 @@ export async function loadDosAppData(
     loadAccountabilitySchedulesForWorkspace(supabase, workspace.id),
     loadAccountabilityCheckInsForWorkspace(supabase, workspace.id),
     loadResourceAssignmentsForWorkspace(supabase, workspace.id),
+    loadGuidedResourceProgressForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
@@ -4004,7 +4061,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || resourceAssignmentsResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || resourceAssignmentsResult.error || guidedResourceProgressResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -4026,6 +4083,7 @@ export async function loadDosAppData(
         ?? accountabilitySchedulesResult.error?.message
         ?? accountabilityCheckInsResult.error?.message
         ?? resourceAssignmentsResult.error?.message
+        ?? guidedResourceProgressResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? myRecordResult.error?.message
@@ -4080,6 +4138,7 @@ export async function loadDosAppData(
   const accountabilityCheckInRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.checkIns : [];
   const accountabilityCheckInCommitmentRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.links : [];
   const resourceAssignmentRows = featureFlags.commitmentsAccountability ? (resourceAssignmentsResult.data ?? []) as ResourceAssignmentRow[] : [];
+  const guidedResourceProgressRows = featureFlags.commitmentsAccountability ? (guidedResourceProgressResult.data ?? []) as GuidedResourceProgressRow[] : [];
   const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
   const rawPeopleById = new Map(((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => [person.id, person]));
   const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
@@ -4396,6 +4455,7 @@ export async function loadDosAppData(
       .sort((first, second) => activityDateValue(second.createdAt) - activityDateValue(first.createdAt));
     const resources = (groupResourcesByGroupId.get(group.id) ?? []).map((resource) => ({
       active: resource.active !== false,
+      catalogResourceSlug: resource.catalog_resource_slug ?? null,
       description: resource.description,
       id: resource.id,
       resourceType: mapGroupResourceType(resource.resource_type),
@@ -4832,6 +4892,21 @@ export async function loadDosAppData(
 
     return activityDateValue(first.dueDate ?? first.updatedAt ?? first.startDate) - activityDateValue(second.dueDate ?? second.updatedAt ?? second.startDate);
   });
+  const guidedResourceProgress: DosAppGuidedResourceProgress[] = guidedResourceProgressRows.map((progress) => ({
+    actionStep: cleanOptionalText(progress.action_step),
+    assignmentId: progress.assignment_id,
+    completedAt: progress.completed_at,
+    createdAt: progress.created_at,
+    createdByUserId: progress.created_by_user_id,
+    id: progress.id,
+    personId: progress.person_id,
+    prayerFocus: cleanOptionalText(progress.prayer_focus),
+    reflection: cleanOptionalText(progress.reflection),
+    resourceSlug: progress.resource_slug,
+    sessionId: progress.session_id,
+    updatedAt: progress.updated_at,
+    workspaceId: progress.workspace_id,
+  })).sort((first, second) => activityDateValue(second.updatedAt ?? second.createdAt ?? second.completedAt) - activityDateValue(first.updatedAt ?? first.createdAt ?? first.completedAt));
   const calendarNeedsReconnect = Boolean(calendarConnectionRow && isGoogleCalendarReconnectState(calendarWorkspaceSyncStateRow?.last_error));
   const calendarConnectionStatus: GoogleCalendarConnectionHealthStatus = calendarConnectionRow
     ? calendarNeedsReconnect
@@ -4890,6 +4965,7 @@ export async function loadDosAppData(
       fruit,
       fruitEvents,
       groups,
+      guidedResourceProgress,
       householdMembers,
       leaderReflections,
       meetings,

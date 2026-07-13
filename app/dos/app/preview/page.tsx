@@ -603,6 +603,7 @@ function buildDosPreviewDemoData(): DosAppData {
       resources: [
         {
           active: true,
+          catalogResourceSlug: null,
           description: "Verse anchor for the 2three2 rhythm.",
           id: "demo-group-resource-2timothy",
           resourceType: "scripture",
@@ -838,6 +839,7 @@ function buildDosPreviewDemoData(): DosAppData {
     fruit,
     fruitEvents,
     groups,
+    guidedResourceProgress: [],
     householdMembers: [
       {
         displayName: "Ryan Fox",

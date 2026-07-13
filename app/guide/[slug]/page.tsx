@@ -21,6 +21,8 @@ function resourceTypeLabel(resource: DosResource) {
       return "Challenge";
     case "prayer":
       return "Prayer";
+    case "guided_resource":
+      return "Guided Resource";
     case "reading_plan":
       return "Reading Plan";
     case "guide":

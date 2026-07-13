@@ -1,0 +1,26 @@
+<svg width="720" height="1080" viewBox="0 0 720 1080" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Marks of Discipleship guided resource cover</title>
+  <desc id="desc">A simple USA Missionaries guided resource cover for Marks of Discipleship.</desc>
+  <rect width="720" height="1080" fill="#0F172A"/>
+  <rect x="44" y="44" width="632" height="992" rx="32" fill="#F8FBFF"/>
+  <rect x="78" y="78" width="564" height="924" rx="24" fill="#FFFFFF" stroke="#DCEBFF" stroke-width="4"/>
+  <rect x="112" y="120" width="496" height="168" rx="20" fill="#EBF2FF"/>
+  <path d="M180 226C180 181.817 215.817 146 260 146H540V834H260C215.817 834 180 798.183 180 754V226Z" fill="#F8FBFF" stroke="#2563EB" stroke-width="8"/>
+  <path d="M260 146V834" stroke="#BFDBFE" stroke-width="8"/>
+  <path d="M308 226H492" stroke="#F59E0B" stroke-width="12" stroke-linecap="round"/>
+  <path d="M308 286H464" stroke="#BFDBFE" stroke-width="10" stroke-linecap="round"/>
+  <path d="M308 338H502" stroke="#BFDBFE" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="246" cy="226" r="18" fill="#F59E0B"/>
+  <circle cx="246" cy="286" r="18" fill="#2563EB"/>
+  <circle cx="246" cy="338" r="18" fill="#2563EB"/>
+  <text x="112" y="410" fill="#2563EB" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="4">GUIDED RESOURCE</text>
+  <text x="112" y="500" fill="#0F172A" font-family="Inter Tight, Inter, Arial, sans-serif" font-size="72" font-weight="800">Marks of</text>
+  <text x="112" y="580" fill="#0F172A" font-family="Inter Tight, Inter, Arial, sans-serif" font-size="72" font-weight="800">Discipleship</text>
+  <text x="112" y="650" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">A.W. Tozer</text>
+  <rect x="112" y="714" width="222" height="56" rx="28" fill="#FFF7ED"/>
+  <text x="144" y="751" fill="#C2410C" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="2">SIX WEEKS</text>
+  <rect x="112" y="818" width="496" height="2" fill="#E2E8F0"/>
+  <text x="112" y="880" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Session guide, reflections,</text>
+  <text x="112" y="918" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">leader notes, and next steps</text>
+  <text x="112" y="970" fill="#94A3B8" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="3">USA MISSIONARIES</text>
+</svg>
