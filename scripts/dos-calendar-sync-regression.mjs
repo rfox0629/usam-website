@@ -56,15 +56,17 @@ assert(
   "Month calendar must include logged/completed DOS table history, not scheduled-only meetings.",
 );
 assert(
-  client.includes(".filter((item) => dateSortValue(item.date) >= nowTime)") &&
-    client.includes("const selectedDayItems = itemsByDay.get(selectedDateKey) ?? []"),
-  "Upcoming and selected-day agenda filters must stay separate.",
+  client.includes("const selectedDayItems = itemsByDay.get(selectedDateKey) ?? []") &&
+    client.includes("const needsLoggingItems = filteredItems") &&
+    !client.includes("CalendarUpcomingSection"),
+  "Meetings page must keep the selected-day agenda and Needs Logging queue separate without a duplicate Upcoming strip.",
 );
 assert(
-  client.includes("function calendarItemNeedsReview") &&
-    client.includes('return item.meeting.meetingStatus === "scheduled";') &&
-    client.includes(".filter((item) => calendarItemNeedsReview(item, nowTime))"),
-  "Needs Review must only include actionable past items, not logged table history.",
+  client.includes("function calendarItemNeedsLogging") &&
+    client.includes('item.meeting.source !== "table" || item.meeting.meetingStatus !== "scheduled"') &&
+    client.includes("meetingNeedsLoggingEndTime(item.meeting)") &&
+    client.includes(".filter((item) => calendarItemNeedsLogging(item, nowTime))"),
+  "Needs Logging must only include past scheduled DOS meetings with deterministic table linkage.",
 );
 assert(
     client.includes("calendarDayCellTitle(item)") &&
@@ -89,10 +91,10 @@ assert(
 );
 assert(
   client.includes('activeTab !== "meetings"') &&
-    client.includes('meetingsView !== "calendar"') &&
+    !client.includes('meetingsView !== "calendar"') &&
     client.includes("calendarAutoSyncKeyRef") &&
     client.includes("handleSyncGoogleCalendar({ silent: true })"),
-  "Opening the Calendar tab must automatically refresh synchronized Google data.",
+  "Opening Meetings must automatically refresh synchronized Google data.",
 );
 
 if (process.exitCode) {

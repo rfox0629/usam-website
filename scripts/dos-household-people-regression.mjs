@@ -60,12 +60,20 @@ assert(
 );
 
 assert(
-  appClient.includes('if (person.fieldVisibility === "primary")') && appClient.includes("return showSecondary;"),
-  "Show Secondary / Household must reveal secondary and hidden household field people.",
+  appClient.includes('if (person.fieldVisibility === "primary")')
+    && appClient.includes('return showSecondary && person.fieldVisibility === "secondary";'),
+  "Show household & secondary must reveal secondary field people while keeping hidden contacts hidden.",
 );
 assert(
-  appClient.includes('people.filter((person) => person.fieldVisibility !== "primary").length'),
-  "Show Secondary / Household count must include every non-primary household/secondary person.",
+  appClient.includes('people.filter((person) => person.fieldVisibility === "secondary").length'),
+  "Show household & secondary count must include secondary contacts only.",
+);
+const desktopPeopleIndexSource = appClient.slice(appClient.indexOf("function DesktopPeopleIndex"), appClient.indexOf("function PersonCard"));
+assert(
+  desktopPeopleIndexSource.includes("lg:block")
+    && desktopPeopleIndexSource.includes("w-full min-w-0")
+    && !desktopPeopleIndexSource.includes("min-w-[980px]"),
+  "Desktop Field people index must avoid fixed-width horizontal scrolling at tablet and desktop widths.",
 );
 assert(
   appClient.includes("const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery)")

@@ -348,8 +348,10 @@ assertIncludes(
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
 assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
-assertIncludes(appClient, 'const dosMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must be registered in the shared DOS Apps/More launcher manifest.");
-assertIncludes(appClient, "dosMoreLauncherAppLabelSet.has(item.label)", "Desktop and mobile Apps launchers must filter through the shared manifest instead of an ad hoc label list.");
+assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must remain registered in the desktop DOS Apps/More launcher manifest.");
+assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
+assertIncludes(appClient, "dosDesktopMoreLauncherAppLabelSet.has(item.label)", "Desktop Apps launcher must filter through the desktop manifest instead of an ad hoc label list.");
+assertIncludes(appClient, "dosMobileMoreLauncherAppLabelSet.has(item.label)", "Mobile Apps launcher must filter through the mobile manifest instead of an ad hoc label list.");
 assertIncludes(appClient, 'data-dos-app-card={item.label}', "Apps launcher cards must expose a stable marker for production verification.");
 assertIncludes(appClient, 'label: "Groups"', "Groups launcher card must be registered with the Groups label.");
 assertIncludes(appClient, 'onClick: () => openMoreApp("groups")', "Groups launcher card must open the Groups workspace.");
@@ -475,12 +477,13 @@ assertIncludes(appClient, "No attendance has been recorded yet.", "Attendance em
 assertIncludes(appClient, "Record attendance after your next gathering.", "Attendance empty state must use the polished body.");
 assertIncludes(appClient, "No active prayer requests.", "Prayer empty state must use the polished title.");
 assertIncludes(appClient, "Prayer requests added during gatherings will automatically appear here.", "Prayer empty state must use the polished body.");
-assertIncludes(appClient, "Pray Today", "Prayer app must include the Pray Today hub section.");
-assertIncludes(appClient, "High Priority", "Prayer app must include the High Priority hub section.");
-assertIncludes(appClient, "Needs Follow-Up", "Prayer app must include the Needs Follow-Up hub section.");
-assertIncludes(appClient, "Group Prayers", "Prayer app must include the Group Prayers hub section.");
-assertIncludes(appClient, "Person Prayers", "Prayer app must include the Person Prayers hub section.");
-assertIncludes(appClient, "Answered Recently", "Prayer app must include the Answered Recently hub section.");
+assertIncludes(appClient, '{ label: "Prayers", value: "prayers" }', "Prayer app must include the Prayers tab.");
+assertIncludes(appClient, '{ label: "Prayer Team", value: "prayer_team" }', "Prayer app must include the Prayer Team tab.");
+assertIncludes(appClient, '{ label: "Answered", value: "answered" }', "Prayer app must include the Answered tab.");
+assertIncludes(appClient, "prayerRequestFilterOptions", "Prayer app must keep old prayer categories as secondary filters.");
+assertIncludes(appClient, '{ label: "High Priority", value: "high_priority" }', "Prayer app must include the High Priority filter.");
+assertIncludes(appClient, '{ label: "Needs Follow-Up", value: "needs_follow_up" }', "Prayer app must include the Needs Follow-Up filter.");
+assertIncludes(appClient, '{ label: "Group", value: "group" }', "Prayer app must include the Group filter.");
 assertIncludes(
   appClient,
   'onLogAsTable={() => openForm("meeting")}',

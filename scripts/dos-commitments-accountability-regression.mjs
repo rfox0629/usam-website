@@ -13,6 +13,12 @@ function assertIncludes(source, needle, label) {
   }
 }
 
+function assertNotIncludes(source, needle, label) {
+  if (source.includes(needle)) {
+    throw new Error(`${label}: found ${needle}`);
+  }
+}
+
 function assertMatches(source, pattern, label) {
   if (!pattern.test(source)) {
     throw new Error(`${label}: missing ${pattern}`);
@@ -72,11 +78,11 @@ if (!quickActionsMatch) {
   throw new Error("dashboard quick actions not found");
 }
 
-assertIncludes(quickActionsMatch[0], "commitmentsEnabled", "dashboard quick action is feature-gated");
 assertIncludes(quickActionsMatch[0], 'label: "Commitment"', "enabled dashboard quick action uses Commitment");
-assertIncludes(quickActionsMatch[0], 'label: "Pray Now"', "disabled dashboard quick action preserves Pray Now");
+assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick action does not fall back to Pray Now");
 
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard accountability card");
+assertIncludes(client, '<AccountabilityDashboardCard', "dashboard renders accountability card");
 assertIncludes(client, "PersonAccountabilitySummaryCard", "person overview accountability summary");
 assertIncludes(client, 'activeDetailTab === "commitments"', "person commitments tab");
 assertIncludes(client, "CommitmentsPanel", "person commitments panel");
