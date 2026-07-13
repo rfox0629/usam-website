@@ -5,11 +5,13 @@ import { notFound, redirect } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { dosResourceCatalog, getDosResourceBySlug, type DosAssessmentQuestion, type DosResource, type DosResourceSection, type DosResourceSectionItem } from "@/src/lib/dos/resource-catalog";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import { GuideBackToLibraryButton } from "./GuideBackToLibraryButton";
 import { ShareGuideButton } from "./ShareGuideButton";
 
 export const dynamicParams = true;
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+const newTestamentReadingPlanSlug = "new-testament-14-days";
 
 function resourceTypeLabel(resource: DosResource) {
   switch (resource.type) {
@@ -185,7 +187,11 @@ function AssessmentBlock({ resource }: { resource: DosResource }) {
   );
 }
 
-export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GuidePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const resource = getDosResourceBySlug(slug);
 
@@ -208,11 +214,14 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const canonicalUrl = `${getCanonicalSiteUrl()}${resource.path}`;
   const heroSubtitle = resource.content?.subtitle ?? resource.description;
   const hasReadingPlanActions = resource.type === "reading_plan";
+  const isNewTestamentReadingPlan = resource.slug === newTestamentReadingPlanSlug;
+  const showGuideFooterActions = resource.slug !== newTestamentReadingPlanSlug;
 
   return (
     <main className="min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_52%,#FFF4EC_100%)] text-[#0F172A]">
       <PrimaryNav active="dos" />
       <article className="mx-auto max-w-4xl px-5 pb-20 pt-28 md:px-8 md:pt-32">
+        {isNewTestamentReadingPlan ? <GuideBackToLibraryButton /> : null}
         <header className="rounded-[32px] border border-[#DCEBFF] bg-white/92 p-6 shadow-[0_20px_60px_rgba(37,99,235,0.08)] md:p-8">
           <div className="flex flex-wrap gap-2">
             <GuidePill>{resource.category}</GuidePill>
@@ -291,14 +300,13 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             </section>
           ) : null}
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-bold text-white" href="/dos">
-              Open DOS
-            </Link>
-            <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href="/mission">
-              Learn About The Mission
-            </Link>
-          </div>
+          {showGuideFooterActions ? (
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href="/mission">
+                Learn About The Mission
+              </Link>
+            </div>
+          ) : null}
         </div>
       </article>
     </main>

@@ -5053,11 +5053,13 @@ function CatalogResourceRow({
   onAssign,
   onClick,
   resource,
+  workspaceSlug,
 }: {
   actionLabel?: string;
   onAssign?: (resource: DosResource) => void;
   onClick?: () => void;
   resource: DosResource;
+  workspaceSlug?: string;
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
@@ -5072,6 +5074,7 @@ function CatalogResourceRow({
   const description = resource.type === "reading_plan"
     ? resource.content?.subtitle ?? resource.description
     : resource.description;
+  const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
 
   if (isFeaturedReadingPlan) {
     return (
@@ -5110,7 +5113,7 @@ function CatalogResourceRow({
           ) : null}
           <a
             className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            href={resource.path}
+            href={resourceHref}
           >
             Read Online
           </a>
@@ -5188,7 +5191,7 @@ function CatalogResourceRow({
           ) : null}
           <a
             className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            href={resource.path}
+            href={resourceHref}
           >
             Open
           </a>
@@ -5208,13 +5211,27 @@ function CatalogResourceRow({
   return (
     <a
       className="group flex min-h-[64px] items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#FFFFFF]"
-      href={resource.path}
+      href={resourceHref}
       rel={resource.path.endsWith(".pdf") ? "noopener noreferrer" : undefined}
       target={resource.path.endsWith(".pdf") ? "_blank" : undefined}
     >
       {rowContent}
     </a>
   );
+}
+
+function dosLibraryResourceHref(resource: DosResource, workspaceSlug?: string) {
+  if (resource.slug !== "new-testament-14-days") {
+    return resource.path;
+  }
+
+  const query = new URLSearchParams({ from: "dos-library" });
+
+  if (workspaceSlug) {
+    query.set("workspace", workspaceSlug);
+  }
+
+  return `${resource.path}?${query.toString()}`;
 }
 
 function resourceTypeLabel(resource: DosResource) {
@@ -5238,16 +5255,18 @@ function CatalogResourceList({
   actionLabel,
   onAssign,
   resources,
+  workspaceSlug,
 }: {
   actionLabel?: string;
   onAssign?: (resource: DosResource) => void;
   resources: readonly DosResource[];
+  workspaceSlug?: string;
 }) {
   return (
     <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
       <div className="divide-y divide-[#EBF2FF]">
         {resources.map((resource) => (
-          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} onAssign={onAssign} resource={resource} />
+          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} onAssign={onAssign} resource={resource} workspaceSlug={workspaceSlug} />
         ))}
       </div>
     </article>
@@ -31100,6 +31119,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
+    if (searchParams.get("view") !== "library") {
+      return;
+    }
+
+    setActiveTab("more");
+    setMoreAppView("library");
+  }, [searchParams]);
+
+  useEffect(() => {
     if (isPreview || !data.calendarConnection.connected) {
       return;
     }
@@ -35768,15 +35796,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <LibrarySection
                         title="Commands of Jesus"
                       >
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosCommandResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosCommandResourceItems} workspaceSlug={data.workspace.slug} />
                       </LibrarySection>
 
                       <LibrarySection title="Discipleship">
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosDiscipleshipResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosDiscipleshipResourceItems} workspaceSlug={data.workspace.slug} />
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosRelationshipResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosRelationshipResourceItems} workspaceSlug={data.workspace.slug} />
                       </LibrarySection>
 
                       <LibrarySection title="Prayer">
