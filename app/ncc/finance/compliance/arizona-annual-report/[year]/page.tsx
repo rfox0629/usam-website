@@ -10,8 +10,10 @@ import { FilingFieldsGrid } from "../../_components/FilingFieldsGrid";
 import { FilingWorkspacePanel } from "../../_components/FilingWorkspacePanel";
 import { ReminderSchedule } from "../../_components/ReminderSchedule";
 import { WorkflowStageTracker } from "../../_components/WorkflowStageTracker";
+import { requireAnyFinanceAccess } from "@/src/lib/finance-auth";
 import { listComplianceFilingDocuments } from "@/src/lib/compliance/documents";
 import { getComplianceFiling, isComplianceFilingsWriteEnabled, isValidArizonaAnnualReportYear } from "@/src/lib/compliance/filings";
+import { hasFinanceCapability } from "@/src/lib/finance-ops/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,12 @@ export default async function ArizonaAnnualReportPage({
 }: {
   params: Promise<{ year: string }>;
 }) {
+  const financeAccess = await requireAnyFinanceAccess();
+  const navScope = financeAccess.source === "finance_team_members" ? "finance-only" : "full";
+  const canUploadDocs = hasFinanceCapability(financeAccess.role, "upload_documents");
+  const canEditFilingFields = hasFinanceCapability(financeAccess.role, "edit_filing_fields");
+  const canRecordConfirmation = hasFinanceCapability(financeAccess.role, "record_filing_confirmation");
+
   const { year } = await params;
   const yearNumber = Number.parseInt(year, 10);
 
@@ -42,7 +50,7 @@ export default async function ArizonaAnnualReportPage({
   const writeEnabled = isComplianceFilingsWriteEnabled();
 
   return (
-    <NccShell active="finance" organization={getCurrentOrganization()} title={filing.filingName}>
+    <NccShell active="finance" navScope={navScope} organization={getCurrentOrganization()} title={filing.filingName}>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-stone-400">
@@ -65,19 +73,19 @@ export default async function ArizonaAnnualReportPage({
         <FilingFieldsGrid filing={filing} />
         <ReminderSchedule dueDateIso={filing.extendedDueDate ?? filing.originalDueDate} />
         <WorkflowStageTracker currentStage={filing.workflowStage} />
-        <FilingWorkspacePanel filing={filing} is990={false} writeEnabled={writeEnabled} />
+        <FilingWorkspacePanel filing={filing} is990={false} writeEnabled={writeEnabled && canEditFilingFields} />
         <ComplianceDocumentsPanel
           documents={documents}
           filingKey={filing.filingKey}
           isPersisted={filing.isPersisted}
           periodKey={filing.periodKey}
-          writeEnabled={writeEnabled}
+          writeEnabled={writeEnabled && canUploadDocs}
         />
         <FilingConfirmationForm
           alreadyFiled={filing.status === "filed"}
           filingKey={filing.filingKey}
           periodKey={filing.periodKey}
-          writeEnabled={writeEnabled && filing.isPersisted}
+          writeEnabled={writeEnabled && filing.isPersisted && canRecordConfirmation}
         />
         <AgentCapabilitiesPanel />
       </div>

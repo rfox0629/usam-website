@@ -477,6 +477,18 @@ export async function storeDraftWorkpaper(input: {
   }
 }
 
+export async function approveWorkpaper(workpaperId: string, reviewedBy: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("finance_draft_workpapers")
+    .update({ review_status: "approved", reviewed_by: reviewedBy })
+    .eq("id", workpaperId);
+
+  if (error) {
+    throw new Error(`Could not approve workpaper: ${error.message}`);
+  }
+}
+
 // --- 990 worksheets --------------------------------------------------
 
 export async function getWorksheet(filingId: string, worksheetType: WorksheetType): Promise<Record<string, unknown> | null> {
@@ -520,6 +532,12 @@ export async function saveWorksheet(input: {
 
 // --- Accountant package --------------------------------------------------
 
+/**
+ * Always inserted as "draft" -- only markAccountantPackageReady() (a
+ * separate, finance_owner-only action) may set status to "ready", per the
+ * role matrix calling that out as an owner-only capability distinct from
+ * generating the package itself.
+ */
 export async function recordAccountantPackage(input: {
   filingId: string;
   generatedBy: string;
@@ -532,7 +550,7 @@ export async function recordAccountantPackage(input: {
       filing_id: input.filingId,
       generated_by: input.generatedBy,
       manifest: input.manifest,
-      status: "ready",
+      status: "draft",
     })
     .select("id")
     .single();
@@ -542,4 +560,13 @@ export async function recordAccountantPackage(input: {
   }
 
   return (data as { id: string } | null)?.id ?? null;
+}
+
+export async function markAccountantPackageReady(packageId: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase.from("finance_accountant_packages").update({ status: "ready" }).eq("id", packageId);
+
+  if (error) {
+    throw new Error(`Could not mark package ready: ${error.message}`);
+  }
 }

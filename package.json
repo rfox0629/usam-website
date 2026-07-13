@@ -28,6 +28,8 @@
     "test:ncc-overhaul": "node scripts/ncc-overhaul-regression.mjs",
     "test:ncc-compliance": "node scripts/ncc-compliance-regression.mjs",
     "test:finance-ops": "tsx scripts/finance-ops-regression.ts",
+    "demo:finance-sample-package": "tsx scripts/finance-sample-package-demo.ts",
+    "test:finance-permissions": "tsx scripts/finance-permissions-regression.ts",
     "start": "next start"
   },
   "dependencies": {

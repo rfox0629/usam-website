@@ -91,6 +91,33 @@ Preview and Production share one database again, defeating the isolation this
 whole exercise exists to create. Each of the three rows above must be added
 *Preview-only*.
 
+### Proving the isolation is real
+
+Before running any write test, confirm staging and production are actually
+separate: create one throwaway record in staging (e.g. start tracking the
+Arizona filing for a test year like `2099`), then check the **production**
+Vercel deployment's `/ncc/finance/compliance` page and confirm that record
+does **not** appear there. Only proceed to the real test plan once this
+check passes.
+
+### Migration-applied flags (separate from the three variables above)
+
+Four independent feature flags gate writes for each new table set, all
+**Preview-only** until their tests pass:
+
+- `FINANCE_DOCUMENTS_MIGRATION_APPLIED`
+- `COMPLIANCE_FILINGS_MIGRATION_APPLIED`
+- `FINANCE_OPERATIONS_MIGRATION_APPLIED`
+- `FINANCE_PERMISSIONS_MIGRATION_APPLIED`
+
+Set each to `"true"` only after its corresponding migration has actually
+been applied to staging and its section of
+[docs/finance-migration-test-plan.md](finance-migration-test-plan.md) has
+passed — not all four at once "to save time." Reads work without these
+flags (they fail gracefully to seed defaults/empty lists when a table
+doesn't exist); the flags exist specifically to prevent writes from being
+attempted against a table that isn't there yet.
+
 ## After credentials are in place
 
 Once staging exists and Preview is pointed at it, the actual test plan is in

@@ -59,6 +59,7 @@ export function NccShell({
   active,
   children,
   description,
+  navScope = "full",
   organization,
   title,
 }: {
@@ -66,16 +67,23 @@ export function NccShell({
   active: string;
   children: ReactNode;
   description?: string;
+  navScope?: "finance-only" | "full";
   organization: CurrentOrganization;
   title: string;
 }) {
+  const visibleNavItems = navScope === "finance-only" ? nccNavItems.filter((item) => item.activeKey === "finance") : nccNavItems;
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-stone-800/80 bg-[#070707] px-4 py-5 md:flex md:flex-col">
         <NccBrandLockup organization={organization} />
 
+        {navScope === "finance-only" ? (
+          <p className="mt-4 text-[10px] uppercase tracking-[0.16em] text-stone-600">Finance Access Only</p>
+        ) : null}
+
         <nav className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto" aria-label="NCC department navigation">
-          {nccNavItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NccNavLink
               key={item.activeKey}
               active={active === item.activeKey}
@@ -87,13 +95,15 @@ export function NccShell({
         </nav>
 
         <div className="mt-4 flex flex-col gap-2 border-t border-stone-800/70 pt-4">
-          <Link
-            className="text-xs uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-[#C9A24A]"
-            href="/admin"
-            style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
-          >
-            Legacy Admin
-          </Link>
+          {navScope === "full" ? (
+            <Link
+              className="text-xs uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-[#C9A24A]"
+              href="/admin"
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+            >
+              Legacy Admin
+            </Link>
+          ) : null}
           <Link
             className="text-xs uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-[#C9A24A]"
             href="/"
@@ -117,7 +127,7 @@ export function NccShell({
             </Link>
           </div>
           <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="NCC mobile department navigation">
-            {nccNavItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.activeKey}
                 className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs transition-colors ${

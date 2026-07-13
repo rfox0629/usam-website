@@ -1,0 +1,201 @@
+{
+  "dedupeKeyCollisions": 0,
+  "documentClassifications": {
+    "Sample_Payroll_Summary.md": {
+      "category": "payroll_report",
+      "confidence": 0.6,
+      "reason": "Filename contains \"payroll\"."
+    },
+    "Sample_Board_Roster.md": {
+      "category": "board_record",
+      "confidence": 0.6,
+      "reason": "Filename contains \"board\"."
+    },
+    "Sample_Housing_Allowance_Approval.md": null,
+    "Sample_Arizona_Formation_Metadata.md": {
+      "category": "formation_document",
+      "confidence": 0.6,
+      "reason": "Filename contains \"formation\"."
+    },
+    "Sample_Donation_Summary.csv": {
+      "category": "donation_report",
+      "confidence": 0.6,
+      "reason": "Filename contains \"donation\"."
+    },
+    "random-notes.txt": null
+  },
+  "generatedAt": "2026-07-13T02:40:46.789Z",
+  "missingDocuments": [
+    "bank_statement",
+    "payroll_report",
+    "donation_report"
+  ],
+  "missingInformationQuestions": [
+    "Which form applies: 990-N, 990-EZ, or 990?",
+    "Can you provide: bank_statement?",
+    "Can you provide: payroll_report?",
+    "Can you provide: donation_report?",
+    "1 transaction(s) don't have an approved category yet -- can you confirm how they should be classified?"
+  ],
+  "note": "SYNTHETIC DEMO OUTPUT -- generated offline from docs/finance-sample-package/, no database involved.",
+  "payrollDetectedCount": 36,
+  "transactionCount": 87,
+  "unusualTransactions": [
+    "Synthetic Donor D - Major Gift",
+    "Unidentified Wire Transfer"
+  ],
+  "workpapers": {
+    "balance_sheet": {
+      "missingDataWarnings": [
+        "This is a cash-only skeleton, not a complete balance sheet -- it does not track fixed assets, receivables, payables, loans, or equity. An accountant must add those manually."
+      ],
+      "rows": [
+        {
+          "category": "Net Cash Position (Approved Transactions Only)",
+          "total": -60755
+        }
+      ],
+      "total": -60755
+    },
+    "contribution_summary": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Building Fund",
+          "total": 25000
+        },
+        {
+          "category": "Uncategorized",
+          "total": 18600
+        }
+      ],
+      "total": 43600
+    },
+    "expense_detail": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Payroll",
+          "total": 82200
+        },
+        {
+          "category": "Rent",
+          "total": 17400
+        },
+        {
+          "category": "Professional Services",
+          "total": 1800
+        },
+        {
+          "category": "Utilities",
+          "total": 1463
+        },
+        {
+          "category": "Insurance",
+          "total": 640
+        },
+        {
+          "category": "Travel",
+          "total": 540
+        },
+        {
+          "category": "Software",
+          "total": 267
+        },
+        {
+          "category": "Postage & Shipping",
+          "total": 45
+        }
+      ],
+      "total": 104355
+    },
+    "functional_expense_allocation": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Program",
+          "total": 76800
+        },
+        {
+          "category": "Management & General",
+          "total": 27555
+        }
+      ],
+      "total": 104355
+    },
+    "payroll_summary": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Payroll",
+          "total": 82200
+        }
+      ],
+      "total": 82200
+    },
+    "profit_and_loss": {
+      "missingDataWarnings": [
+        "Some imported transactions are not yet Approved and are excluded from this total."
+      ],
+      "rows": [
+        {
+          "category": "Total Revenue",
+          "total": 43600
+        },
+        {
+          "category": "Total Expense",
+          "total": -104355
+        },
+        {
+          "category": "Net",
+          "total": -60755
+        }
+      ],
+      "total": -60755
+    },
+    "restricted_fund_worksheet": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Building Fund",
+          "total": 25000
+        }
+      ],
+      "total": 25000
+    },
+    "revenue_summary": {
+      "missingDataWarnings": [],
+      "rows": [
+        {
+          "category": "Contributions",
+          "total": 43600
+        }
+      ],
+      "total": 43600
+    },
+    "uncategorized_transactions_report": {
+      "missingDataWarnings": [
+        "1 transaction(s) have no approved category."
+      ],
+      "rows": [
+        {
+          "category": "Uncategorized Transactions",
+          "total": 1
+        }
+      ],
+      "total": 9800
+    },
+    "year_end_cash_reconciliation": {
+      "missingDataWarnings": [
+        "Beginning and ending statement balances are not extracted automatically in this preview -- enter them manually to complete the reconciliation."
+      ],
+      "rows": [
+        {
+          "category": "Net Change From Approved Transactions",
+          "total": -60755
+        }
+      ],
+      "total": -60755
+    }
+  }
+}

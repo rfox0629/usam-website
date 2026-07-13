@@ -5,6 +5,7 @@ import { NccShell } from "../../_components/NccShell";
 import { getCurrentOrganization } from "../../_lib/organization-context";
 import { AgentCapabilitiesPanel } from "./_components/AgentCapabilitiesPanel";
 import { formatDate, statusLabels, statusTone } from "./_components/complianceLabels";
+import { requireAnyFinanceAccess } from "@/src/lib/finance-auth";
 import { listComplianceFilings } from "@/src/lib/compliance/filings";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,12 @@ function detailHrefFor(filingKey: string, periodKey: string) {
 }
 
 export default async function NccComplianceOverviewPage() {
+  const financeAccess = await requireAnyFinanceAccess();
+  const navScope = financeAccess.source === "finance_team_members" ? "finance-only" : "full";
   const filings = await listComplianceFilings();
 
   return (
-    <NccShell active="finance" organization={getCurrentOrganization()} title="Annual Compliance Center">
+    <NccShell active="finance" navScope={navScope} organization={getCurrentOrganization()} title="Annual Compliance Center">
       <div className="space-y-6">
         <p className="text-sm leading-6 text-stone-400">
           Tracks the organization&apos;s recurring statutory and tax filings end to end — due dates, readiness,

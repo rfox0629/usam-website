@@ -40,6 +40,7 @@ function formatCurrency(amount: number, type: "debit" | "credit") {
 
 export function TransactionsWorkspace({
   accounts,
+  canApprove,
   periodEnd,
   periodStart,
   taxYear,
@@ -47,6 +48,7 @@ export function TransactionsWorkspace({
   writeEnabled,
 }: {
   accounts: readonly FinancialAccount[];
+  canApprove: boolean;
   periodEnd: string;
   periodStart: string;
   taxYear: string;
@@ -307,11 +309,13 @@ export function TransactionsWorkspace({
                     onChange={(event) => handleReviewChange(transaction, { reviewStatus: event.target.value as ReviewStatus })}
                     value={transaction.reviewStatus}
                   >
-                    {reviewStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {reviewStatusLabels[status]}
-                      </option>
-                    ))}
+                    {reviewStatuses
+                      .filter((status) => status !== "approved" || canApprove || transaction.reviewStatus === "approved")
+                      .map((status) => (
+                        <option key={status} value={status}>
+                          {reviewStatusLabels[status]}
+                        </option>
+                      ))}
                   </select>
                   <AdminBadge tone={statusTone[transaction.reviewStatus]}>·</AdminBadge>
                 </div>

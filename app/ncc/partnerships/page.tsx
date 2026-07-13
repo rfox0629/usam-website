@@ -4,6 +4,7 @@ import { PartnersDocumentsAdmin } from "../../admin/partners-documents/PartnersD
 import { NccShell } from "../_components/NccShell";
 import { NccTabBar, type NccTab } from "../_components/NccTabs";
 import { getCurrentOrganization } from "../_lib/organization-context";
+import { requireFullNccAccess } from "../_lib/require-full-ncc-access";
 import { PARTNERS_DOCUMENT_GROUPS, listPartnersDocuments } from "@/src/lib/partners-documents";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,8 @@ export default async function NccPartnershipsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await requireFullNccAccess();
+
   const params = await searchParams;
   const currentTab = tabs.some((tab) => tab.key === params.tab) ? (params.tab as string) : "overview";
   const documents = await listPartnersDocuments();

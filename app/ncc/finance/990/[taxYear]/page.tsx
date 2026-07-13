@@ -18,8 +18,10 @@ import { MissingInfoQuestionsButton } from "../_components/MissingInfoQuestionsB
 import { TransactionsWorkspace } from "../_components/TransactionsWorkspace";
 import { GovernanceWorksheetPanel, OfficerCompensationPanel, ProgramAccomplishmentsPanel } from "../_components/WorksheetPanels";
 import { WorkpapersPanel } from "../_components/WorkpapersPanel";
+import { requireAnyFinanceAccess } from "@/src/lib/finance-auth";
 import { listComplianceFilingDocuments } from "@/src/lib/compliance/documents";
 import { getComplianceFiling, isComplianceFilingsWriteEnabled } from "@/src/lib/compliance/filings";
+import { financeReadScope, hasFinanceCapability } from "@/src/lib/finance-ops/roles";
 import {
   getWorksheet,
   isFinanceOperationsWriteEnabled,
@@ -59,6 +61,10 @@ function resolvePeriodForTaxYear(taxYear: string): { periodEnd: string; periodSt
   return { periodEnd: `${year}-12-31`, periodStart: `${year}-01-01` };
 }
 
+function RestrictedNotice({ reason }: { reason: string }) {
+  return <AdminEmptyState description={reason} title="Restricted" />;
+}
+
 export default async function Form990Page({
   params,
   searchParams,
@@ -66,6 +72,19 @@ export default async function Form990Page({
   params: Promise<{ taxYear: string }>;
   searchParams: Promise<SearchParams>;
 }) {
+  const financeAccess = await requireAnyFinanceAccess();
+  const navScope = financeAccess.source === "finance_team_members" ? "finance-only" : "full";
+  const readScope = financeReadScope(financeAccess.role);
+  const isRestrictedReader = readScope === "approved_and_non_sensitive_only";
+  const canViewPayroll = hasFinanceCapability(financeAccess.role, "view_payroll_and_donor_detail");
+  const canUploadDocs = hasFinanceCapability(financeAccess.role, "upload_documents");
+  const canImportTx = hasFinanceCapability(financeAccess.role, "import_transactions");
+  const canApproveTx = hasFinanceCapability(financeAccess.role, "approve_transactions");
+  const canApproveWorkpapers = hasFinanceCapability(financeAccess.role, "approve_workpapers");
+  const canEditWorksheets = hasFinanceCapability(financeAccess.role, "edit_worksheets");
+  const canEditFilingFields = hasFinanceCapability(financeAccess.role, "edit_filing_fields");
+  const canRecordConfirmation = hasFinanceCapability(financeAccess.role, "record_filing_confirmation");
+
   const { taxYear } = await params;
   const searchParamsResolved = await searchParams;
   const currentTab = tabs.some((tab) => tab.key === searchParamsResolved.tab) ? (searchParamsResolved.tab as string) : "profile";
@@ -80,7 +99,8 @@ export default async function Form990Page({
   const operationsWriteEnabled = isFinanceOperationsWriteEnabled();
   const { periodEnd, periodStart } = resolvePeriodForTaxYear(taxYear);
 
-  const documents = filing.id ? await listComplianceFilingDocuments(filing.id) : [];
+  const allDocuments = filing.id ? await listComplianceFilingDocuments(filing.id) : [];
+  const documents = canViewPayroll ? allDocuments : allDocuments.filter((doc) => doc.docCategory !== "payroll_report");
   const accounts = await listFinancialAccounts();
   const transactions = await listTransactions({ periodEnd, periodStart });
   const workpapers = filing.id ? await listWorkpapers(filing.id) : [];
@@ -93,7 +113,7 @@ export default async function Form990Page({
   const needsReviewCount = transactions.filter((transaction) => transaction.reviewStatus === "needs_review" || transaction.reviewStatus === "imported").length;
 
   return (
-    <NccShell active="finance" organization={getCurrentOrganization()} title={filing.filingName}>
+    <NccShell active="finance" navScope={navScope} organization={getCurrentOrganization()} title={filing.filingName}>
       <div className="space-y-6">
         <p className="text-sm text-stone-400">
           <Link className="text-[#E4C465] hover:underline" href="/ncc/finance/compliance">
@@ -132,7 +152,7 @@ export default async function Form990Page({
             <FilingFieldsGrid filing={filing} />
             <ReminderSchedule dueDateIso={filing.extendedDueDate ?? filing.originalDueDate} />
             <WorkflowStageTracker currentStage={filing.workflowStage} />
-            <FilingWorkspacePanel filing={filing} is990 writeEnabled={complianceWriteEnabled} />
+            <FilingWorkspacePanel filing={filing} is990 writeEnabled={complianceWriteEnabled && canEditFilingFields} />
           </div>
         ) : null}
 
@@ -142,27 +162,34 @@ export default async function Form990Page({
             filingKey={filing.filingKey}
             isPersisted={filing.isPersisted}
             periodKey={filing.periodKey}
-            writeEnabled={complianceWriteEnabled}
+            writeEnabled={complianceWriteEnabled && canUploadDocs}
           />
         ) : null}
 
         {currentTab === "transactions" ? (
-          <TransactionsWorkspace
-            accounts={accounts}
-            periodEnd={periodEnd}
-            periodStart={periodStart}
-            taxYear={taxYear}
-            transactions={transactions}
-            writeEnabled={operationsWriteEnabled}
-          />
+          isRestrictedReader ? (
+            <RestrictedNotice reason="Treasurer read-only access does not include raw bank transaction detail. Approved summary reports are available under Financial Statements." />
+          ) : (
+            <TransactionsWorkspace
+              accounts={accounts}
+              canApprove={canApproveTx}
+              periodEnd={periodEnd}
+              periodStart={periodStart}
+              taxYear={taxYear}
+              transactions={transactions}
+              writeEnabled={operationsWriteEnabled && canImportTx}
+            />
+          )
         ) : null}
 
         {currentTab === "statements" ? (
           <WorkpapersPanel
             availableTypes={["profit_and_loss", "balance_sheet", "revenue_summary", "contribution_summary", "expense_detail", "year_end_cash_reconciliation", "restricted_fund_worksheet", "uncategorized_transactions_report"]}
+            canApprove={canApproveWorkpapers}
             filingId={filing.id}
             periodEnd={periodEnd}
             periodStart={periodStart}
+            restrictToApproved={isRestrictedReader}
             taxYear={taxYear}
             title="Financial Statements (Draft)"
             workpapers={workpapers}
@@ -173,9 +200,11 @@ export default async function Form990Page({
         {currentTab === "functional-expenses" ? (
           <WorkpapersPanel
             availableTypes={["functional_expense_allocation"]}
+            canApprove={canApproveWorkpapers}
             filingId={filing.id}
             periodEnd={periodEnd}
             periodStart={periodStart}
+            restrictToApproved={isRestrictedReader}
             taxYear={taxYear}
             title="Functional-Expense Allocation"
             workpapers={workpapers}
@@ -184,27 +213,32 @@ export default async function Form990Page({
         ) : null}
 
         {currentTab === "payroll" ? (
-          <div className="space-y-6">
-            <WorkpapersPanel
-              availableTypes={["payroll_summary"]}
-              filingId={filing.id}
-              periodEnd={periodEnd}
-              periodStart={periodStart}
-              taxYear={taxYear}
-              title="Payroll Summary"
-              workpapers={workpapers}
-              writeEnabled={operationsWriteEnabled}
-            />
-            <OfficerCompensationPanel filingId={filing.id} initialData={officerCompensationData} taxYear={taxYear} writeEnabled={operationsWriteEnabled} />
-          </div>
+          canViewPayroll ? (
+            <div className="space-y-6">
+              <WorkpapersPanel
+                availableTypes={["payroll_summary"]}
+                canApprove={canApproveWorkpapers}
+                filingId={filing.id}
+                periodEnd={periodEnd}
+                periodStart={periodStart}
+                taxYear={taxYear}
+                title="Payroll Summary"
+                workpapers={workpapers}
+                writeEnabled={operationsWriteEnabled}
+              />
+              <OfficerCompensationPanel filingId={filing.id} initialData={officerCompensationData} taxYear={taxYear} writeEnabled={operationsWriteEnabled} />
+            </div>
+          ) : (
+            <RestrictedNotice reason="Payroll and officer-compensation detail is limited to Finance Owner and Accountant roles." />
+          )
         ) : null}
 
         {currentTab === "governance" ? (
-          <GovernanceWorksheetPanel filingId={filing.id} initialData={governanceData} taxYear={taxYear} writeEnabled={operationsWriteEnabled} />
+          <GovernanceWorksheetPanel filingId={filing.id} initialData={governanceData} taxYear={taxYear} writeEnabled={operationsWriteEnabled && canEditWorksheets} />
         ) : null}
 
         {currentTab === "program" ? (
-          <ProgramAccomplishmentsPanel filingId={filing.id} initialData={programAccomplishmentsData} taxYear={taxYear} writeEnabled={operationsWriteEnabled} />
+          <ProgramAccomplishmentsPanel filingId={filing.id} initialData={programAccomplishmentsData} taxYear={taxYear} writeEnabled={operationsWriteEnabled && canEditWorksheets} />
         ) : null}
 
         {currentTab === "questions" ? (
@@ -222,41 +256,49 @@ export default async function Form990Page({
         ) : null}
 
         {currentTab === "review" ? (
-          <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Approved Transactions</p>
-                <p className="mt-2 text-3xl font-bold text-stone-100">{approvedCount}</p>
+          isRestrictedReader ? (
+            <RestrictedNotice reason="Accountant Review surfaces raw transaction counts and is limited to Finance Owner, Accountant, and Bookkeeper roles." />
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Approved Transactions</p>
+                  <p className="mt-2 text-3xl font-bold text-stone-100">{approvedCount}</p>
+                </div>
+                <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Needs Review</p>
+                  <p className="mt-2 text-3xl font-bold text-stone-100">{needsReviewCount}</p>
+                </div>
+                <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Draft Workpapers</p>
+                  <p className="mt-2 text-3xl font-bold text-stone-100">{workpapers.length}</p>
+                </div>
               </div>
-              <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Needs Review</p>
-                <p className="mt-2 text-3xl font-bold text-stone-100">{needsReviewCount}</p>
-              </div>
-              <div className="border border-stone-800/75 bg-[#080808]/85 p-4">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-stone-400">Draft Workpapers</p>
-                <p className="mt-2 text-3xl font-bold text-stone-100">{workpapers.length}</p>
-              </div>
+              <AdminEmptyState
+                description="Accountant sign-off happens by moving the workflow stage to Human Approval or later on the Filing Profile tab, and is a real human action tracked on the filing record — not a status this page sets on its own."
+                title="How Sign-Off Works"
+              />
             </div>
-            <AdminEmptyState
-              description="Accountant sign-off happens by moving the workflow stage to Human Approval or later on the Filing Profile tab, and is a real human action tracked on the filing record — not a status this page sets on its own."
-              title="How Sign-Off Works"
-            />
-          </div>
+          )
         ) : null}
 
         {currentTab === "package" ? (
-          <AccountantPackagePanel
-            arizonaFiling={arizonaFiling}
-            documents={documents}
-            filingId={filing.id}
-            form990Filing={filing}
-            governanceData={governanceData}
-            officerCompensationData={officerCompensationData}
-            programAccomplishmentsData={programAccomplishmentsData}
-            taxYear={taxYear}
-            workpapers={workpapers}
-            writeEnabled={operationsWriteEnabled}
-          />
+          canViewPayroll ? (
+            <AccountantPackagePanel
+              arizonaFiling={arizonaFiling}
+              documents={documents}
+              filingId={filing.id}
+              form990Filing={filing}
+              governanceData={governanceData}
+              officerCompensationData={officerCompensationData}
+              programAccomplishmentsData={programAccomplishmentsData}
+              taxYear={taxYear}
+              workpapers={workpapers}
+              writeEnabled={operationsWriteEnabled}
+            />
+          ) : (
+            <RestrictedNotice reason="The accountant package includes payroll and officer-compensation detail, so generating it is limited to Finance Owner and Accountant roles." />
+          )
         ) : null}
 
         {currentTab === "confirmation" ? (
@@ -264,7 +306,7 @@ export default async function Form990Page({
             alreadyFiled={filing.status === "filed"}
             filingKey={filing.filingKey}
             periodKey={filing.periodKey}
-            writeEnabled={complianceWriteEnabled && filing.isPersisted}
+            writeEnabled={complianceWriteEnabled && filing.isPersisted && canRecordConfirmation}
           />
         ) : null}
 

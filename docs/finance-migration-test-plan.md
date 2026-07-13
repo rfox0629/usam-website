@@ -12,7 +12,10 @@ validation is complete.
    the full schema, not a subset).
 2. `20260711120000_finance_documents_foundation.sql`
 3. `20260713090000_compliance_filings_foundation.sql`
-4. `20260714090000_finance_operations_foundation.sql` (new — see below)
+4. `20260714090000_finance_operations_foundation.sql`
+5. `20260715090000_finance_team_permissions_foundation.sql` (new — real
+   Finance-scoped roles, see below; supersedes the "map onto admin/editor/viewer"
+   option this document originally proposed)
 
 ## Test checklist
 
@@ -29,32 +32,29 @@ validation is complete.
 | 9 | 990 unknown-field handling | Confirm a fresh `990`/`unknown` filing has `original_due_date IS NULL` and `extra.filingType/accountingYearEnd/extensionStatus = "Unknown"` until explicitly updated |
 | 10 | Confirmation-number requirement | Attempt `recordComplianceFilingConfirmation()` with an empty confirmation number (should be rejected by the action); attempt a raw SQL `update ... set status = 'filed'` without a confirmation number (should be rejected by the `compliance_filings_require_confirmation` trigger) |
 | 11 | Filing-receipt upload | Upload a document tagged `filing_receipt` category; confirm it's retrievable and distinct from source documents |
-| 12 | Unauthorized-access rejection | Attempt every write action while signed out / signed in as a non-`admin_users` account; confirm `getAdminAuthorization()` rejects before any Supabase call |
-| 13 | Treasurer read-only restrictions | See role model note below — requires the role itself to exist first |
-| 14 | Finance-owner and accountant permissions | Same — requires role definitions below |
+| 12 | Unauthorized-access rejection | Attempt every write action while signed out / signed in as a non-`admin_users`, non-`finance_team_members` account; confirm `resolveFinanceAccess()` rejects before any Supabase call |
+| 13 | Finance-owner login and permissions | Sign in as a `finance_team_members` row with `finance_role = 'finance_owner'` and no `admin_users` row at all; confirm `/ncc` loads with only the Finance nav item visible, `/ncc/partnerships` and every other department redirect to `/ncc/finance`, and every write action succeeds (upload, import, approve transactions, approve workpapers, invite a team member, mark a package ready, record a filing confirmation) |
+| 14 | Accountant login and permissions | Same account setup with `finance_role = 'accountant'`; confirm upload/import/categorize/approve-transactions/prepare+approve-workpapers/payroll-visibility all succeed, and confirm `manage_finance_team`, `record_filing_confirmation`, and `mark_package_ready` are rejected server-side even via direct action calls (not just hidden in the UI) |
+| 15 | Bookkeeper login and permissions | `finance_role = 'bookkeeper'`; confirm upload/import/suggest-categories/prepare-workpapers succeed; confirm setting a transaction's `review_status` to `approved` is rejected; confirm the Payroll & Compensation tab and payroll-tagged documents are inaccessible; confirm workpaper approval and team management are rejected |
+| 16 | Treasurer-readonly login and permissions | `finance_role = 'treasurer_readonly'`; confirm every write action is rejected; confirm the Transactions tab, Payroll & Compensation tab, and payroll/donation-report documents are not shown; confirm Financial Statements only shows workpapers with `review_status = 'approved'` |
+| 17 | Role-boundary bypass attempt | As bookkeeper, call `updateTransactionReviewAction` directly with `reviewStatus: "approved"` (bypassing the UI's dropdown filtering); confirm the server action still rejects it — this is the test that actually proves enforcement is server-side, not just hidden navigation |
 
-## Role model this test plan assumes (needs your confirmation)
+## Role model (built, not yet tested against a real database)
 
-The codebase's only role model today is `admin_users.role` (`admin` / `editor` /
-`viewer`), used identically across every department — there's no
-Finance-specific role yet. "Treasurer read-only," "Finance owner," and
-"accountant" aren't concepts that exist in `admin_users` today. Before test #13/14
-can mean anything, one of these needs to happen:
+Real Finance-scoped roles exist now: `finance_team_members`
+(organization-scoped, keyed by email — no `admin_users` row required),
+resolved via `src/lib/finance-auth.ts::resolveFinanceAccess()`, checked by
+`requireFinanceCapability()` in every Finance/Compliance server action. See
+[docs/finance-permission-model.md](finance-permission-model.md) for the full
+schema and role-matrix writeup.
 
-- **(a)** Map them onto the existing three roles (e.g. Treasurer → `viewer`,
-  Finance owner → `admin` or `editor`, accountant → a new `viewer`-scoped account)
-  and accept that "read-only" is enforced the same way it already is everywhere
-  else (`canEditAdminContent()` gates writes to `admin`/`editor`, `viewer` can only
-  read) — no schema change needed, ships immediately.
-- **(b)** Add real Finance-scoped permission grants (a `finance_permissions`
-  column on `admin_users`, mirroring the existing `prayer_permissions` precedent)
-  so "accountant" can, say, write transactions and workpapers but not touch
-  officer/statutory-agent data. This is a real schema decision and should be
-  reviewed on its own, not folded silently into the finance_operations migration.
-
-This test plan proceeds under **(a)** unless told otherwise, since it requires no
-new schema and matches how every other department in this codebase already
-enforces role-based write access.
+Existing `admin_users` staff (Ryan, other NCC admins/editors) get Finance
+access mapped from their existing global role (`admin` → `finance_owner`,
+`editor` → `accountant`, `viewer` → `treasurer_readonly`) with zero
+re-onboarding required. External accountants/bookkeepers/treasurers get
+access purely from `finance_team_members`, with no broader `/admin` or
+`/ncc` access at all — tests 13–16 above are what actually proves that
+boundary holds, not just that the roles exist.
 
 ## What "actual test evidence" will look like
 

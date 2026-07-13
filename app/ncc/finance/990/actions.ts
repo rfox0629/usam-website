@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { requireAnyFinanceAccess, requireFinanceCapability } from "@/src/lib/finance-auth";
 import {
+  approveWorkpaper,
   classifyDocumentByFilename,
   createFinancialAccount,
   detectPayrollTransaction,
@@ -22,6 +23,7 @@ import {
   importTransactionsFromCsv,
   isFinanceOperationsWriteEnabled,
   listTransactions,
+  markAccountantPackageReady,
   recordAccountantPackage,
   recordAiSuggestion,
   resolveUsamOrganizationId,
@@ -34,13 +36,10 @@ import {
   type WorkpaperType,
   type WorksheetType,
 } from "@/src/lib/finance-ops/db";
+import type { FinanceCapability } from "@/src/lib/finance-ops/roles";
 
-async function requireFinanceOperationsAccess() {
-  const authorization = await getAdminAuthorization();
-
-  if (!canEditAdminContent(authorization)) {
-    throw new Error("Admin access is required.");
-  }
+async function requireFinanceOperationsAccess(capability: FinanceCapability) {
+  const access = await requireFinanceCapability(capability);
 
   if (!isFinanceOperationsWriteEnabled()) {
     throw new Error(
@@ -48,7 +47,7 @@ async function requireFinanceOperationsAccess() {
     );
   }
 
-  return authorization;
+  return access;
 }
 
 export async function createFinancialAccountAction(input: {
@@ -57,7 +56,7 @@ export async function createFinancialAccountAction(input: {
   lastFour?: string;
   name: string;
 }) {
-  await requireFinanceOperationsAccess();
+  await requireFinanceOperationsAccess("import_transactions");
 
   const organizationId = await resolveUsamOrganizationId();
 
@@ -69,7 +68,7 @@ export async function createFinancialAccountAction(input: {
 }
 
 export async function importTransactionsAction(financialAccountId: string, taxYear: string, formData: FormData) {
-  const authorization = await requireFinanceOperationsAccess();
+  const access = await requireFinanceOperationsAccess("import_transactions");
   const file = formData.get("file");
 
   if (!(file instanceof File) || file.size <= 0) {
@@ -91,7 +90,7 @@ export async function importTransactionsAction(financialAccountId: string, taxYe
     csvText,
     fileName: file.name,
     financialAccountId,
-    importedBy: authorization.status === "authorized" ? authorization.email : "unknown",
+    importedBy: access.email,
     organizationId,
   });
 
@@ -100,6 +99,14 @@ export async function importTransactionsAction(financialAccountId: string, taxYe
   return result;
 }
 
+/**
+ * Approving a transaction (review_status = "approved") requires the
+ * approve_transactions capability -- everything else (needs_review,
+ * categorized, needs_information, excluded) only requires
+ * edit_transaction_categories, which bookkeeper also has. This is what
+ * actually enforces "bookkeeper can suggest/edit categories but cannot
+ * approve" at the data layer, not just in the UI.
+ */
 export async function updateTransactionReviewAction(
   taxYear: string,
   transactionId: string,
@@ -111,11 +118,12 @@ export async function updateTransactionReviewAction(
     reviewStatus: ReviewStatus;
   },
 ) {
-  const authorization = await requireFinanceOperationsAccess();
+  const requiredCapability: FinanceCapability = updates.reviewStatus === "approved" ? "approve_transactions" : "edit_transaction_categories";
+  const access = await requireFinanceOperationsAccess(requiredCapability);
 
   await updateTransactionReview(transactionId, {
     ...updates,
-    reviewedBy: authorization.status === "authorized" ? authorization.email : "unknown",
+    reviewedBy: access.email,
   });
 
   revalidatePath(`/ncc/finance/990/${taxYear}`);
@@ -129,7 +137,7 @@ export async function updateTransactionReviewAction(
  * nothing here can make a transaction look human-reviewed.
  */
 export async function runTransactionSuggestionsAction(taxYear: string, periodStart: string, periodEnd: string) {
-  await requireFinanceOperationsAccess();
+  await requireFinanceOperationsAccess("import_transactions");
 
   const transactions = await listTransactions({ periodEnd, periodStart });
   const unreviewed = transactions.filter((transaction) => transaction.reviewStatus === "imported");
@@ -188,6 +196,8 @@ const workpaperGenerators: Record<WorkpaperType, ((transactions: Awaited<ReturnT
   year_end_cash_reconciliation: generateYearEndCashReconciliation,
 };
 
+const payrollWorkpaperTypes: readonly WorkpaperType[] = ["payroll_summary"];
+
 export async function generateWorkpaperAction(
   filingId: string,
   taxYear: string,
@@ -195,7 +205,10 @@ export async function generateWorkpaperAction(
   periodStart: string,
   periodEnd: string,
 ) {
-  const authorization = await requireFinanceOperationsAccess();
+  // Payroll data is payroll-and-donor-sensitive per the role matrix -- bookkeeper
+  // may prepare every other workpaper type but not this one.
+  const capability: FinanceCapability = payrollWorkpaperTypes.includes(workpaperType) ? "view_payroll_and_donor_detail" : "prepare_workpapers";
+  const access = await requireFinanceOperationsAccess(capability);
   const generator = workpaperGenerators[workpaperType];
 
   if (!generator) {
@@ -209,12 +222,18 @@ export async function generateWorkpaperAction(
     data: { rows: result.rows, total: result.total },
     filingId,
     missingDataWarnings: result.missingDataWarnings,
-    preparedBy: authorization.status === "authorized" ? authorization.email : "unknown",
+    preparedBy: access.email,
     sourcePeriodEnd: periodEnd,
     sourcePeriodStart: periodStart,
     workpaperType,
   });
 
+  revalidatePath(`/ncc/finance/990/${taxYear}`);
+}
+
+export async function approveWorkpaperAction(workpaperId: string, taxYear: string) {
+  const access = await requireFinanceOperationsAccess("approve_workpapers");
+  await approveWorkpaper(workpaperId, access.email);
   revalidatePath(`/ncc/finance/990/${taxYear}`);
 }
 
@@ -224,12 +243,14 @@ export async function saveWorksheetAction(
   worksheetType: WorksheetType,
   data: Record<string, unknown>,
 ) {
-  const authorization = await requireFinanceOperationsAccess();
+  // officer_compensation is payroll-sensitive per the role matrix.
+  const capability: FinanceCapability = worksheetType === "officer_compensation" ? "view_payroll_and_donor_detail" : "edit_worksheets";
+  const access = await requireFinanceOperationsAccess(capability);
 
   await saveWorksheet({
     data,
     filingId,
-    updatedBy: authorization.status === "authorized" ? authorization.email : "unknown",
+    updatedBy: access.email,
     worksheetType,
   });
 
@@ -243,7 +264,7 @@ export async function draftMissingInformationQuestionsAction(
   periodStart: string,
   periodEnd: string,
 ) {
-  await requireFinanceOperationsAccess();
+  await requireAnyFinanceAccess();
 
   const transactions = await listTransactions({ periodEnd, periodStart });
   const uncategorizedCount = transactions.filter((transaction) => !transaction.approvedCategory).length;
@@ -256,30 +277,44 @@ export async function draftMissingInformationQuestionsAction(
 }
 
 export async function suggestDocumentCategoryAction(fileName: string) {
+  await requireAnyFinanceAccess();
   return classifyDocumentByFilename(fileName);
 }
 
 export async function identifyMissingDocumentsAction(uploadedCategories: readonly string[]) {
+  await requireAnyFinanceAccess();
   return identifyMissingMonthlyDocuments(uploadedCategories);
 }
 
 /**
  * Compiles a manifest of everything currently available for this filing
  * (workpapers, worksheets, documents, open questions) and records that a
- * package was generated. The actual bundle is rendered/downloaded
+ * package was generated, as a draft. The actual bundle is rendered/downloaded
  * client-side from data already on the page -- this action does not send
- * anything anywhere.
+ * anything anywhere. Includes payroll/donor-sensitive worksheets, so
+ * generating one requires view_payroll_and_donor_detail (accountant/owner,
+ * not bookkeeper).
  */
 export async function generateAccountantPackageAction(filingId: string, taxYear: string, manifest: Record<string, unknown>) {
-  const authorization = await requireFinanceOperationsAccess();
+  const access = await requireFinanceOperationsAccess("view_payroll_and_donor_detail");
 
   const packageId = await recordAccountantPackage({
     filingId,
-    generatedBy: authorization.status === "authorized" ? authorization.email : "unknown",
+    generatedBy: access.email,
     manifest,
   });
 
   revalidatePath(`/ncc/finance/990/${taxYear}`);
 
   return packageId;
+}
+
+/**
+ * The role matrix calls this out as finance_owner-only, distinct from
+ * generating the package draft itself (which accountant can also do).
+ */
+export async function markAccountantPackageReadyAction(packageId: string, taxYear: string) {
+  await requireFinanceOperationsAccess("mark_package_ready");
+  await markAccountantPackageReady(packageId);
+  revalidatePath(`/ncc/finance/990/${taxYear}`);
 }

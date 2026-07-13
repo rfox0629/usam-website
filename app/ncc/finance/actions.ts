@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { requireFinanceCapability } from "@/src/lib/finance-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { FINANCE_DOCUMENTS_BUCKET, isFinanceDocumentsWriteEnabled } from "@/src/lib/finance-documents";
 
@@ -26,11 +26,7 @@ function safeFileName(value: string) {
 }
 
 async function requireAdminClient() {
-  const authorization = await getAdminAuthorization();
-
-  if (!canEditAdminContent(authorization)) {
-    throw new Error("Admin access is required.");
-  }
+  await requireFinanceCapability("upload_documents");
 
   if (!isFinanceDocumentsWriteEnabled()) {
     throw new Error(

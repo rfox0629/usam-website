@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
+import { requireFinanceCapability } from "@/src/lib/finance-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
   COMPLIANCE_DOCUMENTS_BUCKET,
@@ -12,6 +12,7 @@ import {
   type ComplianceWorkflowStage,
 } from "@/src/lib/compliance/filings";
 import { complianceDocumentCategories, type ComplianceDocumentCategory } from "@/src/lib/compliance/documents";
+import type { FinanceCapability } from "@/src/lib/finance-ops/roles";
 
 const maxFileSize = 20 * 1024 * 1024;
 const allowedMimeTypes = new Set([
@@ -32,12 +33,8 @@ function safeFileName(value: string) {
     .slice(0, 150) || "document";
 }
 
-async function requireAdminClient() {
-  const authorization = await getAdminAuthorization();
-
-  if (!canEditAdminContent(authorization)) {
-    throw new Error("Admin access is required.");
-  }
+async function requireAdminClient(capability: FinanceCapability) {
+  await requireFinanceCapability(capability);
 
   if (!isComplianceFilingsWriteEnabled()) {
     throw new Error(
@@ -62,8 +59,8 @@ function revalidateFiling(filingKey: string, periodKey: string) {
   }
 }
 
-async function ensureFilingRow(filingKey: string, periodKey: string) {
-  const supabase = await requireAdminClient();
+async function ensureFilingRow(filingKey: string, periodKey: string, capability: FinanceCapability = "edit_filing_fields") {
+  const supabase = await requireAdminClient(capability);
   const seed = getSeedFiling(filingKey, periodKey);
 
   if (!seed) {
@@ -171,7 +168,7 @@ export async function recordComplianceFilingConfirmation(
   periodKey: string,
   input: { confirmationNumber: string; lastFiledDate: string },
 ) {
-  const supabase = await ensureFilingRow(filingKey, periodKey);
+  const supabase = await ensureFilingRow(filingKey, periodKey, "record_filing_confirmation");
   const confirmationNumber = input.confirmationNumber.trim();
 
   if (!confirmationNumber) {
@@ -201,7 +198,7 @@ export async function recordComplianceFilingConfirmation(
 }
 
 export async function uploadComplianceDocument(filingKey: string, periodKey: string, formData: FormData) {
-  const supabase = await ensureFilingRow(filingKey, periodKey);
+  const supabase = await ensureFilingRow(filingKey, periodKey, "upload_documents");
 
   const { data: filingRow, error: filingError } = await supabase
     .from("compliance_filings")
@@ -267,7 +264,7 @@ export async function uploadComplianceDocument(filingKey: string, periodKey: str
 }
 
 export async function deleteComplianceDocument(id: string, filingKey: string, periodKey: string) {
-  const supabase = await requireAdminClient();
+  const supabase = await requireAdminClient("upload_documents");
 
   const { data: existing, error: fetchError } = await supabase
     .from("compliance_filing_documents")

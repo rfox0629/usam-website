@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
+import { resolveFinanceAccess } from "@/src/lib/finance-auth";
 import { signOutAdmin } from "../login/actions";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -51,23 +52,43 @@ function NccBlocked({ detail, showSignOut = false, title }: { detail: string; sh
 export default async function NccLayout({ children }: { children: React.ReactNode }) {
   const authorization = await getAdminAuthorization();
 
-  if (authorization.status === "unauthenticated") {
-    redirect("/login?next=/ncc");
+  if (authorization.status === "authorized") {
+    return children;
   }
 
   if (authorization.status === "configuration_error") {
     return <NccBlocked detail={authorization.message} title="NCC Not Configured" />;
   }
 
-  if (authorization.status === "unauthorized") {
-    return (
-      <NccBlocked
-        detail={`${authorization.email} is signed in, but this email is not on the admin allowlist.`}
-        showSignOut
-        title="Unauthorized"
-      />
-    );
+  // Not a full admin_users session -- this is the entry point for
+  // Finance-only sessions (accountants, bookkeepers, treasurers) who hold no
+  // admin_users row at all. Every non-Finance page under /ncc independently
+  // re-checks getAdminAuthorization() and redirects finance-only sessions
+  // away (see app/ncc/_lib/require-full-ncc-access.ts) -- this layout only
+  // decides whether to let the request continue past the front door.
+  const financeAccess = await resolveFinanceAccess();
+
+  if (financeAccess.authorized) {
+    return children;
   }
 
-  return children;
+  if (authorization.status === "unauthenticated" && financeAccess.reason === "unauthenticated") {
+    redirect("/login?next=/ncc");
+  }
+
+  if (financeAccess.reason === "configuration_error") {
+    return <NccBlocked detail={financeAccess.message ?? "Configuration error."} title="NCC Not Configured" />;
+  }
+
+  return (
+    <NccBlocked
+      detail={
+        authorization.status === "unauthorized"
+          ? `${authorization.email} is signed in, but this email is not on the admin allowlist and has no Finance access.`
+          : "This account is signed in but has no NCC or Finance access."
+      }
+      showSignOut
+      title="Unauthorized"
+    />
+  );
 }

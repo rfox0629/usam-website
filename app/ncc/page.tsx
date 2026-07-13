@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdminMetricCard } from "../admin/_components/AdminUI";
 import { NccShell } from "./_components/NccShell";
 import { getCurrentOrganization } from "./_lib/organization-context";
+import { requireFullNccAccess } from "./_lib/require-full-ncc-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { listPartnersDocuments } from "@/src/lib/partners-documents";
 
@@ -69,6 +70,8 @@ async function loadHomeSections(): Promise<HomeSection[]> {
 }
 
 export default async function NccHomePage() {
+  await requireFullNccAccess();
+
   const sections = await loadHomeSections();
 
   return (

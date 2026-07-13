@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NccPlanned } from "../_components/NccPlanned";
+import { requireFullNccAccess } from "../_lib/require-full-ncc-access";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,9 @@ export const metadata: Metadata = {
   title: "People | National Command Center",
 };
 
-export default function NccPeoplePage() {
+export default async function NccPeoplePage() {
+  await requireFullNccAccess();
+
   return (
     <NccPlanned
       activeKey="people"
