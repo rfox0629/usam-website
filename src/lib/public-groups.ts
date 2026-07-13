@@ -83,7 +83,11 @@ export async function loadPublicGroup(slug: string): Promise<PublicGroup | null>
     .order("starts_at", { ascending: true })
     .limit(1);
   const nextGathering = gatherings?.[0];
-  const groupType = group.type === "running" ? "running group" : "discipleship group";
+  const groupType = group.name.toLowerCase().includes("2three2")
+    ? "2three2 activity group"
+    : group.type === "running"
+      ? "running group"
+      : "discipleship group";
 
   return {
     description: group.description ?? "A recurring discipleship rhythm.",

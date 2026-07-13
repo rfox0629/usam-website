@@ -23,12 +23,15 @@ const preview = read("app/dos/app/preview/page.tsx");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const householdMemberPeople = read("src/lib/dos/household-member-people.ts");
 const groupSeeds = read("src/lib/dos/group-seeds.ts");
+const groupsConfig = read("src/lib/dos/groups.ts");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
+const groupsV2Migration = read("supabase/migrations/20260712235050_dos_groups_simplification_shared_leadership.sql");
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
 const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const joinRequestsMigration = read("supabase/migrations/20260709160043_dos_group_join_requests.sql");
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
+const groupCreateRoute = read("app/api/dos/app/groups/route.ts");
 const groupJoinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupActions = read("app/groups/actions.ts");
@@ -225,6 +228,23 @@ assert(
 );
 assertIncludes(appClient, "function GroupsWorkspace", "Groups list workspace must render.");
 assertIncludes(appClient, "function GroupDetailWorkspace", "Groups detail workspace must render.");
+assertIncludes(appClient, "function GroupsWorkspaceV2", "Groups V2 list workspace must render behind the feature flag.");
+assertIncludes(appClient, "function GroupDetailWorkspaceV2", "Groups V2 detail workspace must render behind the feature flag.");
+assertIncludes(appClient, "isSimplifiedV2", "Groups V2 must be gated instead of replacing legacy immediately.");
+assertIncludes(appClient, "data.featureFlags.groupsSimplifiedV2 === true", "Groups V2 must be driven by the workspace feature flag.");
+assertIncludes(appClient, "groupV2DetailTabs", "Groups V2 must use its own simplified tab set.");
+for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
+  assertIncludes(appClient, `label: "${tab}"`, `Groups V2 must include ${tab} tab.`);
+}
+assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
+assertIncludes(appClient, "GroupCreateSheet", "Groups V2 must include a real New Group sheet.");
+assertIncludes(appClient, "dosGroupCreationTemplates", "Group creation must be limited to approved templates.");
+assertIncludes(appClient, "primaryLeaderPersonId", "Groups V2 must expose the primary leader concept.");
+assertIncludes(appClient, "coLeaderPersonIds", "Groups V2 must support co-leaders.");
+assertIncludes(appClient, "helperPersonIds", "Groups V2 must support helpers.");
+assertIncludes(appClient, "sharedLeadershipEnabled", "Groups V2 must expose shared leadership metadata.");
+assertIncludes(appClient, "const [role, setRole]", "Add Person must keep role state.");
+assertIncludes(appClient, "role,", "Add Person must carry a role through the UI payload.");
 assertIncludes(appClient, "My Groups", "Private DOS Groups must include My Groups.");
 assertIncludes(appClient, "All Groups", "Private DOS Groups must include All Groups.");
 assertIncludes(appClient, "GroupsSearchInput", "Private DOS Groups must include search.");
@@ -333,7 +353,58 @@ assertIncludes(
   "Log as Table should open the existing Table form instead of adding a new flow.",
 );
 
+assertIncludes(groupsConfig, 'dosGroupsSimplifiedFeatureFlag = "dos_groups_simplified_v2"', "Groups V2 feature flag key must be centralized.");
+assertIncludes(groupsConfig, '"mens_discipleship"', "Approved templates must include Men's Discipleship Group.");
+assertIncludes(groupsConfig, '"womens_discipleship"', "Approved templates must include Women's Discipleship Group.");
+for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
+  assertIncludes(groupsConfig, activity, `Approved 2three2 templates must include ${activity}.`);
+}
+for (const audience of ["men", "women", "coed"]) {
+  assertIncludes(groupsConfig, audience, `Approved templates must include ${audience} audience.`);
+}
+
+for (const column of [
+  "template_key",
+  "template_category",
+  "audience",
+  "activity_type",
+  "primary_leader_person_id",
+  "capacity",
+  "accepting_members",
+  "shared_leadership_enabled",
+  "settings",
+]) {
+  assertIncludes(groupsV2Migration, `add column if not exists ${column}`, `Groups V2 migration must add ${column}.`);
+}
+assertIncludes(groupsV2Migration, "create table if not exists public.dos_group_templates", "Groups V2 migration must create a template catalog.");
+assertIncludes(groupsV2Migration, "alter table public.dos_group_templates enable row level security", "Groups V2 templates must have RLS.");
+assertIncludes(groupsV2Migration, "revoke all on table public.dos_group_templates from anon", "Groups V2 templates must block anon access.");
+assertIncludes(groupsV2Migration, "grant select on table public.dos_group_templates to authenticated", "Authenticated DOS users must be able to read templates.");
+assertIncludes(groupsV2Migration, "grant select, insert, update, delete on table public.dos_group_templates to service_role", "Service role must manage templates.");
+assertIncludes(groupsV2Migration, "role in ('leader', 'co_leader', 'helper', 'member', 'guest')", "Groups V2 migration must add helper to shared leadership roles.");
+assertIncludes(groupsV2Migration, "'dos_groups_simplified_v2'", "Groups V2 migration must seed the rollout flag.");
+assertIncludes(groupsV2Migration, "public_slug = 'fox-family'", "Groups V2 rollout must target Ryan's canonical Fox Family workspace.");
+assertIncludes(groupsV2Migration, "where workspace_id = ryan_workspace_id", "Groups V2 rollout must be workspace scoped.");
+assertIncludes(groupsV2Migration, "ministry_event_id uuid references public.ministry_events(id)", "Group gatherings must only connect to ministry metrics through an explicit ministry event link.");
+assertIncludes(groupsV2Migration, "do not affect Field, Fruit, Table, or Circle metrics until explicitly logged", "Migration comments must preserve metric boundaries.");
+assert(
+  !groupsV2Migration.includes("missionary_field_people.profile_id"),
+  "Groups V2 migration must not rely on a non-existent missionary_field_people.profile_id auth mapping.",
+);
+
+assertIncludes(groupCreateRoute, "dosGroupsSimplifiedFeatureFlag", "New Group API must enforce the V2 feature flag.");
+assertIncludes(groupCreateRoute, "Groups V2 is not enabled for this workspace.", "New Group API must 403 for flag-off workspaces.");
+assertIncludes(groupCreateRoute, "isDosGroupTemplateKey", "New Group API must reject unapproved templates.");
+assertIncludes(groupCreateRoute, "primary_leader_person_id", "New Group API must persist primary leader.");
+assertIncludes(groupCreateRoute, "role: \"co_leader\"", "New Group API must persist co-leaders.");
+assertIncludes(groupCreateRoute, "role: \"helper\"", "New Group API must persist helpers.");
+assertIncludes(groupMembersRoute, 'role === "helper"', "Group member API must accept helper role.");
+assertIncludes(publicGroupsDirectoryPage, "2three2 Running", "Public groups directory must avoid generic 2three2 running labels.");
+assertIncludes(publicSingleGroupRoute, "return `2three2 ${publicGroupActivityLabel(group)}`", "Public group page must avoid generic 2three2 running labels.");
+
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
+assertIncludes(preview, "groupsSimplifiedV2: false", "DOS preview must keep Groups V2 disabled unless explicitly enabled.");
+assertIncludes(preview, "templateKey: \"2three2_running_men\"", "DOS preview group data must include V2 template metadata.");
 assertIncludes(preview, 'process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"', "DOS preview must stay token-available for production smoke checks unless explicitly disabled.");
 assert(!preview.includes('process.env.VERCEL_ENV === "preview"'), "DOS preview must not disappear in production when the valid demo token is supplied.");
 assertIncludes(preview, 'name: "2three2"', "DOS preview must render the featured 2three2 group.");

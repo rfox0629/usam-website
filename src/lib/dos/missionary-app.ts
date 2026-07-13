@@ -38,6 +38,7 @@ import {
   type DosCommitmentProgressState,
   type DosCommitmentStatus,
 } from "@/src/lib/dos/commitments-accountability";
+import { dosGroupsSimplifiedFeatureFlag } from "@/src/lib/dos/groups";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -402,10 +403,12 @@ export type DosAppGroupMember = {
   id: string;
   joinedAt: string | null;
   notes: string | null;
+  permissions: Record<string, boolean>;
   personId: string;
   personName: string;
-  role: "leader" | "co_leader" | "member" | "guest";
+  role: "leader" | "co_leader" | "helper" | "member" | "guest";
   status: "active" | "invited" | "removed";
+  title: string | null;
 };
 
 export type DosAppGroupAttendance = {
@@ -419,13 +422,21 @@ export type DosAppGroupAttendance = {
 };
 
 export type DosAppGroupGathering = {
+  actingLeaderPersonId: string | null;
   attendance: DosAppGroupAttendance[];
+  completedAt: string | null;
   description: string | null;
   endsAt: string | null;
+  fruitSummary: string | null;
   id: string;
   linkedTableEventId: string | null;
   location: string | null;
+  ministryEventId: string | null;
+  sharedFollowUp: string | null;
+  sharedNotes: string | null;
+  sharedPrayerSummary: string | null;
   startsAt: string;
+  startedAt: string | null;
   status: "scheduled" | "completed" | "canceled";
   title: string;
 };
@@ -441,7 +452,11 @@ export type DosAppGroupResource = {
 };
 
 export type DosAppGroup = {
+  acceptingMembers: boolean;
   active: boolean;
+  activityType: "running" | "walking" | "hiking" | "cycling" | "fitness" | null;
+  audience: "men" | "women" | "coed" | null;
+  capacity: number | null;
   defaultLocation: string | null;
   description: string | null;
   gatherings: DosAppGroupGathering[];
@@ -453,12 +468,17 @@ export type DosAppGroup = {
   members: DosAppGroupMember[];
   name: string;
   prayerRequests: DosAppPrayerRequest[];
+  primaryLeaderPersonId: string | null;
   resources: DosAppGroupResource[];
   rhythmLabel: string | null;
   scriptureReference: string | null;
   scriptureText: string | null;
+  settings: Record<string, unknown>;
+  sharedLeadershipEnabled: boolean;
   slug: string;
   tagline: string | null;
+  templateCategory: "discipleship" | "activity" | null;
+  templateKey: string | null;
   type: "discipleship" | "prayer" | "running" | "study" | "table" | "other";
   visibility: "private" | "workspace";
 };
@@ -519,6 +539,7 @@ export type DosAppRelationshipReminder = {
 
 export type DosAppFeatureFlags = {
   commitmentsAccountability: boolean;
+  groupsSimplifiedV2: boolean;
 };
 
 export type DosAppCommitmentUpdate = {
@@ -1127,18 +1148,27 @@ type PrayerRequestRow = {
 };
 
 type GroupRow = {
+  accepting_members?: boolean | null;
   active: boolean | null;
+  activity_type?: string | null;
+  audience?: string | null;
+  capacity?: number | null;
   default_location: string | null;
   description: string | null;
   id: string;
   image_url: string | null;
   leader_person_id: string | null;
   name: string;
+  primary_leader_person_id?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
+  settings?: Record<string, unknown> | null;
+  shared_leadership_enabled?: boolean | null;
   slug: string;
   tagline: string | null;
+  template_category?: string | null;
+  template_key?: string | null;
   type: string | null;
   visibility: string | null;
 };
@@ -1148,19 +1178,29 @@ type GroupMemberRow = {
   id: string;
   joined_at: string | null;
   notes: string | null;
+  permissions?: Record<string, boolean> | null;
   person_id: string;
   role: string | null;
   status: string | null;
+  title?: string | null;
 };
 
 type GroupGatheringRow = {
+  acting_leader_person_id?: string | null;
+  completed_at?: string | null;
   description: string | null;
   ends_at: string | null;
+  fruit_summary?: string | null;
   group_id: string;
   id: string;
   linked_table_event_id: string | null;
   location: string | null;
+  ministry_event_id?: string | null;
+  shared_follow_up?: string | null;
+  shared_notes?: string | null;
+  shared_prayer_summary?: string | null;
   starts_at: string;
+  started_at?: string | null;
   status: string | null;
   title: string;
 };
@@ -1955,11 +1995,27 @@ function mapGroupVisibility(value: string | null | undefined): DosAppGroup["visi
 }
 
 function mapGroupMemberRole(value: string | null | undefined): DosAppGroupMember["role"] {
-  if (value === "leader" || value === "co_leader" || value === "guest") {
+  if (value === "leader" || value === "co_leader" || value === "helper" || value === "guest") {
     return value;
   }
 
   return "member";
+}
+
+function mapGroupTemplateCategory(value: string | null | undefined): DosAppGroup["templateCategory"] {
+  return value === "activity" || value === "discipleship" ? value : null;
+}
+
+function mapGroupAudience(value: string | null | undefined): DosAppGroup["audience"] {
+  return value === "men" || value === "women" || value === "coed" ? value : null;
+}
+
+function mapGroupActivityType(value: string | null | undefined): DosAppGroup["activityType"] {
+  if (value === "running" || value === "walking" || value === "hiking" || value === "cycling" || value === "fitness") {
+    return value;
+  }
+
+  return null;
 }
 
 function mapGroupMemberStatus(value: string | null | undefined): DosAppGroupMember["status"] {
@@ -3181,12 +3237,22 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     members: [],
     resources: [],
   };
-  const groupsResult = await supabase
+  const baseGroupSelect = "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active";
+  const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings`;
+  const v2GroupsResult = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active")
+    .select(v2GroupSelect)
     .eq("workspace_id", workspaceId)
     .eq("active", true)
     .order("name", { ascending: true });
+  const groupsResult = v2GroupsResult.error && isMissingColumnError(v2GroupsResult.error)
+    ? await supabase
+      .from("dos_groups")
+      .select(baseGroupSelect)
+      .eq("workspace_id", workspaceId)
+      .eq("active", true)
+      .order("name", { ascending: true })
+    : v2GroupsResult;
 
   if (groupsResult.error) {
     return isMissingWorkflowTable(groupsResult.error, "dos_groups")
@@ -3201,15 +3267,19 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     return { data: emptyRows, error: null };
   }
 
-  const [membersResult, gatheringsResult, resourcesResult] = await Promise.all([
+  const baseMemberSelect = "id, group_id, person_id, role, status, joined_at, notes";
+  const v2MemberSelect = `${baseMemberSelect}, permissions, title`;
+  const baseGatheringSelect = "id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id";
+  const v2GatheringSelect = `${baseGatheringSelect}, acting_leader_person_id, shared_notes, shared_prayer_summary, shared_follow_up, fruit_summary, ministry_event_id, started_at, completed_at`;
+  const [v2MembersResult, v2GatheringsResult, resourcesResult] = await Promise.all([
     supabase
       .from("dos_group_members")
-      .select("id, group_id, person_id, role, status, joined_at, notes")
+      .select(v2MemberSelect)
       .in("group_id", groupIds)
       .order("joined_at", { ascending: true }),
     supabase
       .from("dos_group_gatherings")
-      .select("id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id")
+      .select(v2GatheringSelect)
       .in("group_id", groupIds)
       .order("starts_at", { ascending: true }),
     supabase
@@ -3219,6 +3289,22 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       .eq("active", true)
       .order("sort_order", { ascending: true })
       .order("title", { ascending: true }),
+  ]);
+  const [membersResult, gatheringsResult] = await Promise.all([
+    v2MembersResult.error && isMissingColumnError(v2MembersResult.error)
+      ? supabase
+        .from("dos_group_members")
+        .select(baseMemberSelect)
+        .in("group_id", groupIds)
+        .order("joined_at", { ascending: true })
+      : Promise.resolve(v2MembersResult),
+    v2GatheringsResult.error && isMissingColumnError(v2GatheringsResult.error)
+      ? supabase
+        .from("dos_group_gatherings")
+        .select(baseGatheringSelect)
+        .in("group_id", groupIds)
+        .order("starts_at", { ascending: true })
+      : Promise.resolve(v2GatheringsResult),
   ]);
 
   const relatedError = [
@@ -3903,6 +3989,7 @@ export async function loadDosAppData(
   const featureFlagRows = (featureFlagsResult.data ?? []) as WorkspaceFeatureFlagRow[];
   const featureFlags: DosAppFeatureFlags = {
     commitmentsAccountability: featureFlagRows.some((flag) => flag.flag_key === dosCommitmentsFeatureFlag && flag.enabled === true),
+    groupsSimplifiedV2: featureFlagRows.some((flag) => flag.flag_key === dosGroupsSimplifiedFeatureFlag && flag.enabled === true),
   };
   const commitmentRows = featureFlags.commitmentsAccountability ? commitmentsResult.data.commitments : [];
   const commitmentUpdateRows = featureFlags.commitmentsAccountability ? commitmentsResult.data.updates : [];
@@ -4177,12 +4264,15 @@ export async function loadDosAppData(
       id: member.id,
       joinedAt: member.joined_at,
       notes: member.notes,
+      permissions: member.permissions ?? {},
       personId: member.person_id,
       personName: peopleById.get(member.person_id) ?? "Field person",
       role: mapGroupMemberRole(member.role),
       status: mapGroupMemberStatus(member.status),
+      title: member.title ?? null,
     }));
     const gatherings = (groupGatheringsByGroupId.get(group.id) ?? []).map((gathering) => ({
+      actingLeaderPersonId: gathering.acting_leader_person_id ?? null,
       attendance: (groupAttendanceByGatheringId.get(gathering.id) ?? []).map((attendance) => ({
         firstTimeGuest: attendance.first_time_guest === true,
         gatheringId: attendance.gathering_id,
@@ -4192,12 +4282,19 @@ export async function loadDosAppData(
         personName: peopleById.get(attendance.person_id) ?? "Field person",
         status: mapGroupAttendanceStatus(attendance.status),
       })),
+      completedAt: gathering.completed_at ?? null,
       description: gathering.description,
       endsAt: gathering.ends_at,
+      fruitSummary: gathering.fruit_summary ?? null,
       id: gathering.id,
       linkedTableEventId: gathering.linked_table_event_id,
       location: gathering.location,
+      ministryEventId: gathering.ministry_event_id ?? null,
+      sharedFollowUp: gathering.shared_follow_up ?? null,
+      sharedNotes: gathering.shared_notes ?? null,
+      sharedPrayerSummary: gathering.shared_prayer_summary ?? null,
       startsAt: gathering.starts_at,
+      startedAt: gathering.started_at ?? null,
       status: mapGroupGatheringStatus(gathering.status),
       title: gathering.title,
     }));
@@ -4212,12 +4309,17 @@ export async function loadDosAppData(
       title: resource.title,
       url: resource.url,
     }));
-    const leaderName = group.leader_person_id
-      ? peopleById.get(group.leader_person_id) ?? null
+    const primaryLeaderPersonId = group.primary_leader_person_id ?? group.leader_person_id ?? null;
+    const leaderName = primaryLeaderPersonId
+      ? peopleById.get(primaryLeaderPersonId) ?? null
       : members.find((member) => member.role === "leader")?.personName ?? null;
 
     return {
+      acceptingMembers: group.accepting_members !== false,
       active: group.active !== false,
+      activityType: mapGroupActivityType(group.activity_type),
+      audience: mapGroupAudience(group.audience),
+      capacity: typeof group.capacity === "number" ? group.capacity : null,
       defaultLocation: group.default_location,
       description: group.description,
       gatherings,
@@ -4229,12 +4331,17 @@ export async function loadDosAppData(
       members,
       name: group.name,
       prayerRequests,
+      primaryLeaderPersonId,
       resources,
       rhythmLabel: group.rhythm_label,
       scriptureReference: group.scripture_reference,
       scriptureText: group.scripture_text,
+      settings: group.settings ?? {},
+      sharedLeadershipEnabled: group.shared_leadership_enabled === true,
       slug: group.slug,
       tagline: group.tagline,
+      templateCategory: mapGroupTemplateCategory(group.template_category),
+      templateKey: group.template_key ?? null,
       type: mapGroupType(group.type),
       visibility: mapGroupVisibility(group.visibility),
     };

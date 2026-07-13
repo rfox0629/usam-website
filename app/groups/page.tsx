@@ -16,6 +16,20 @@ type PublicDirectoryGroup = {
   type: string;
 };
 
+type PublicDirectoryGroupRow = {
+  activity_type?: string | null;
+  audience?: string | null;
+  default_location: string | null;
+  description: string | null;
+  id: string;
+  name: string;
+  rhythm_label: string | null;
+  scripture_reference: string | null;
+  slug: string;
+  tagline: string | null;
+  type: string | null;
+};
+
 const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
   {
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
@@ -26,7 +40,7 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     scriptureReference: "2 Timothy 2:22",
     slug: "2three2",
     tagline: "Run. Pray. Pursue.",
-    type: "Running Group",
+    type: "2three2 Running",
   },
   {
     description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
@@ -106,7 +120,23 @@ function formatPublicDirectoryDate(value: string | null | undefined) {
   }).format(date);
 }
 
-function publicGroupType(value: string | null | undefined, name = "") {
+function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | "audience" | "name" | "slug" | "type">) {
+  const value = group.type;
+  const name = group.name ?? "";
+  const activity = group.activity_type;
+
+  if (group.slug?.startsWith("2three2") || name.toLowerCase().includes("2three2")) {
+    const activityLabel = activity === "fitness"
+      ? "General Fitness"
+      : activity
+        ? activity.replace(/^\w/, (letter) => letter.toUpperCase())
+        : value === "running"
+          ? "Running"
+          : "Activity";
+
+    return `2three2 ${activityLabel}`;
+  }
+
   if (name.toLowerCase().includes("men")) {
     return "Men's Group";
   }
@@ -130,7 +160,7 @@ async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
   const supabase = createSupabaseAdminClient();
   const { data: groups, error } = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location")
+    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type")
     .eq("active", true)
     .order("name", { ascending: true });
 
@@ -139,7 +169,7 @@ async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
     return [];
   }
 
-  const groupRows = groups ?? [];
+  const groupRows = (groups ?? []) as PublicDirectoryGroupRow[];
   const groupIds = groupRows.map((group) => group.id).filter(Boolean);
   const nextGatheringsByGroupId = new Map<string, { location: string | null; starts_at: string | null; title: string | null }>();
 
@@ -182,7 +212,7 @@ async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
       scriptureReference: group.scripture_reference ?? "",
       slug: group.slug,
       tagline: group.tagline ?? "Discipleship happens in rhythms.",
-      type: publicGroupType(group.type, group.name),
+      type: publicGroupType(group),
     };
   });
 }

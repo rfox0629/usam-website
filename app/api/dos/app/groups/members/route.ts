@@ -64,15 +64,15 @@ function asMemberStatus(value: unknown) {
 function asMemberRole(value: unknown) {
   const role = asString(value);
 
-  return role === "leader" || role === "co_leader" || role === "guest" ? role : "member";
+  return role === "leader" || role === "co_leader" || role === "helper" || role === "guest" ? role : "member";
 }
 
 function memberStatus(row: MemberRow): "active" | "invited" | "removed" {
   return row.status === "invited" || row.status === "removed" ? row.status : "active";
 }
 
-function memberRole(row: MemberRow): "leader" | "co_leader" | "member" | "guest" {
-  return row.role === "leader" || row.role === "co_leader" || row.role === "guest" ? row.role : "member";
+function memberRole(row: MemberRow): "leader" | "co_leader" | "helper" | "member" | "guest" {
+  return row.role === "leader" || row.role === "co_leader" || row.role === "helper" || row.role === "guest" ? row.role : "member";
 }
 
 async function authorizeWrite() {

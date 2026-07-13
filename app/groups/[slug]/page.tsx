@@ -5,6 +5,8 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
 type PublicGroupRow = {
+  activity_type?: string | null;
+  audience?: string | null;
   default_location: string | null;
   description: string | null;
   id: string;
@@ -35,6 +37,8 @@ type PublicGroupContent = {
 
 const fallbackPublicGroups: Record<string, PublicGroupRow> = {
   "2three2": {
+    activity_type: "running",
+    audience: "men",
     default_location: "Lebanon Hills Trailhead, Eagan, MN",
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     id: "2three2",
@@ -139,7 +143,7 @@ async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null
   const supabase = createSupabaseAdminClient();
   const { data: group, error } = await supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
@@ -170,7 +174,7 @@ async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null
 }
 
 function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null): PublicGroupPageData {
-  const typeLabel = publicGroupType(group.type, group.name);
+  const typeLabel = publicGroupType(group);
   const content = contentForGroup(group);
   const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
   const scriptureReference = group.scripture_reference ?? "";
@@ -221,23 +225,25 @@ function groupShareImageUrl(value: string | null | undefined) {
 }
 
 function contentForGroup(group: PublicGroupRow): PublicGroupContent {
-  if (group.type === "running" || group.slug === "2three2") {
+  if (isTwoThreeTwoActivityGroup(group)) {
+    const activityLabel = publicGroupActivityLabel(group).toLowerCase();
+
     return {
-      scheduleIntro: "Every gathering follows a simple route. The miles are where prayer, Scripture, and honest conversation have room to breathe.",
-      scheduleTitle: "The Route",
+      scheduleIntro: "Every gathering follows a simple activity rhythm where prayer, Scripture, and honest conversation have room to breathe.",
+      scheduleTitle: "The Rhythm",
       typicalSchedule: [
         {
-          description: "Meet at the trailhead, check in, stretch, and pair up two-by-two.",
+          description: "Meet up, check in, and pair up two-by-two.",
           meta: "Start",
           title: "Gather",
         },
         {
           description: "Each pair prays for one another out loud and on the move.",
-          meta: "On the trail",
+          meta: "On the way",
           title: "Pray",
         },
         {
-          description: "Carry a short passage into the run and let it shape the conversation.",
+          description: "Carry a short passage into the activity and let it shape the conversation.",
           meta: "Turnaround",
           title: "Open Scripture",
         },
@@ -263,8 +269,8 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
       ],
       whoThisIsFor: [
         {
-          note: "All normal training paces are welcome. The route serves the people, not the other way around.",
-          title: "Men looking for a running group",
+          note: "The activity serves the people, not the other way around.",
+          title: `People looking for a ${activityLabel} group`,
         },
         {
           note: "Pursuit is the operative word. This group moves toward Jesus together.",
@@ -334,6 +340,31 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
   };
 }
 
+function isTwoThreeTwoActivityGroup(group: PublicGroupRow) {
+  return Boolean(
+    group.activity_type
+    || group.type === "running"
+    || group.slug?.startsWith("2three2")
+    || group.name.toLowerCase().includes("2three2"),
+  );
+}
+
+function publicActivityLabel(activity: string | null | undefined) {
+  if (activity === "fitness") {
+    return "General Fitness";
+  }
+
+  return activity ? activity.replace(/^\w/, (letter) => letter.toUpperCase()) : "Activity";
+}
+
+function publicGroupActivityLabel(group: PublicGroupRow) {
+  return group.activity_type
+    ? publicActivityLabel(group.activity_type)
+    : group.type === "running"
+      ? "Running"
+      : "Activity";
+}
+
 function nextGatheringDateParts(value: string | null | undefined) {
   if (!value) {
     return {
@@ -395,14 +426,22 @@ function nextGatheringTimeFor(group: PublicGroupRow) {
 }
 
 function nextGatheringTitleFor(group: PublicGroupRow) {
-  if (group.type === "running" || group.slug === "2three2") {
-    return "Saturday Run & Prayer";
+  if (isTwoThreeTwoActivityGroup(group)) {
+    return `Saturday ${publicGroupActivityLabel(group)} & Prayer`;
   }
 
   return group.name;
 }
 
-function publicGroupType(value: string | null | undefined, name: string) {
+function publicGroupType(group: PublicGroupRow) {
+  const value = group.type;
+  const name = group.name;
+  const activity = group.activity_type;
+
+  if (isTwoThreeTwoActivityGroup(group)) {
+    return `2three2 ${publicGroupActivityLabel(group)}`;
+  }
+
   if (name.toLowerCase().includes("men")) {
     return "Men's Group";
   }
