@@ -269,7 +269,6 @@ function VisionSection() {
 /* ---------------------------------------------------------------------- */
 
 const kitchenTablePathways = [
-  { label: "Kitchen Table Gospel", status: "In use today" },
   { label: "Commands of Jesus", status: "In use today" },
   { label: "Are You Really a Disciple?", status: "In development" },
   { label: "Testimony development", status: "In development" },
