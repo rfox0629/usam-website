@@ -391,6 +391,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
 
 const dosCommandResourceItems = getDosResourcesByCategory("Commands of Jesus");
 const dosAssessmentResourceItems = getDosAssessmentResources();
+const dosDiscipleshipResourceItems = getDosResourcesByCategory("Discipleship");
 const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
 
@@ -5037,10 +5038,16 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
+  const hasDownloadAction = Boolean(resource.downloadPath);
+  const iconContent = resource.emoji ? (
+    <span className="text-lg leading-none" aria-hidden="true">{resource.emoji}</span>
+  ) : (
+    <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+  );
   const rowContent = (
     <>
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
-        <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+        {iconContent}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -5048,13 +5055,20 @@ function CatalogResourceRow({
           <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             {typeLabel}
           </span>
+          {resource.estimatedDuration ? (
+            <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
+              {resource.estimatedDuration}
+            </span>
+          ) : null}
         </span>
         <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{resource.description}</span>
       </span>
-      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-        {actionLabel}
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-      </span>
+      {!hasDownloadAction ? (
+        <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+          {actionLabel}
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+        </span>
+      ) : null}
     </>
   );
 
@@ -5067,6 +5081,30 @@ function CatalogResourceRow({
       >
         {rowContent}
       </button>
+    );
+  }
+
+  if (hasDownloadAction) {
+    return (
+      <article className="px-3.5 py-3">
+        <div className="flex min-h-[56px] items-start gap-3">
+          {rowContent}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 pl-12">
+          <a
+            className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
+            href={resource.path}
+          >
+            Open
+          </a>
+          <a
+            className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+            href={resource.downloadPath}
+          >
+            Download PDF
+          </a>
+        </div>
+      </article>
     );
   }
 
@@ -5090,6 +5128,8 @@ function resourceTypeLabel(resource: DosResource) {
       return "Prayer";
     case "challenge":
       return "Challenge";
+    case "reading_plan":
+      return "Reading Plan";
     case "guide":
     case "teaching":
     default:
@@ -34937,6 +34977,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         title="Commands of Jesus"
                       >
                         <CatalogResourceList resources={dosCommandResourceItems} />
+                      </LibrarySection>
+
+                      <LibrarySection title="Discipleship">
+                        <CatalogResourceList resources={dosDiscipleshipResourceItems} />
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">

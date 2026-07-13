@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { dosResourceCatalog, getDosResourceBySlug, type DosAssessmentQuestion, type DosResource, type DosResourceSection, type DosResourceSectionItem } from "@/src/lib/dos/resource-catalog";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import { ShareGuideButton } from "./ShareGuideButton";
 
 export const dynamicParams = true;
 
@@ -16,6 +18,8 @@ function resourceTypeLabel(resource: DosResource) {
       return "Challenge";
     case "prayer":
       return "Prayer";
+    case "reading_plan":
+      return "Reading Plan";
     case "guide":
       return "Guide";
     case "teaching":
@@ -26,6 +30,13 @@ function resourceTypeLabel(resource: DosResource) {
 
 function publicGuideResources() {
   return dosResourceCatalog.filter((resource) => resource.path.startsWith("/guide/"));
+}
+
+function sectionId(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export function generateStaticParams() {
@@ -42,9 +53,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  const title = `${resource.title} | USA Missionaries`;
+  const description = resource.content?.seoDescription ?? resource.description;
+  const url = `${getCanonicalSiteUrl()}${resource.path}`;
+
   return {
-    title: `${resource.title} | USA Missionaries`,
-    description: resource.description,
+    alternates: {
+      canonical: url,
+    },
+    description,
+    openGraph: {
+      description,
+      siteName: "USA Missionaries",
+      title,
+      type: "article",
+      url,
+    },
+    title,
+    twitter: {
+      card: "summary",
+      description,
+      title,
+    },
   };
 }
 
@@ -84,7 +114,7 @@ function ResourceSectionItem({ item }: { item: DosResourceSectionItem }) {
 
 function ResourceSection({ section }: { section: DosResourceSection }) {
   return (
-    <section className="rounded-[28px] border border-[#EAF2FF] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.05)]">
+    <section className="scroll-mt-28 rounded-[28px] border border-[#EAF2FF] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.05)]" id={sectionId(section.title)}>
       <h2 className="text-2xl font-bold leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
         {section.title}
       </h2>
@@ -174,6 +204,10 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
     notFound();
   }
 
+  const canonicalUrl = `${getCanonicalSiteUrl()}${resource.path}`;
+  const heroSubtitle = resource.content?.subtitle ?? resource.description;
+  const hasReadingPlanActions = resource.type === "reading_plan";
+
   return (
     <main className="min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_52%,#FFF4EC_100%)] text-[#0F172A]">
       <PrimaryNav active="dos" />
@@ -186,10 +220,23 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <h1 className="mt-5 text-4xl font-bold leading-none text-[#0F172A] md:text-6xl" style={{ fontFamily: font.oswald }}>
             {resource.title}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-8 text-[#475569] md:text-lg">{resource.description}</p>
+          <p className="mt-4 max-w-2xl text-base leading-8 text-[#475569] md:text-lg">{heroSubtitle}</p>
           {resource.content?.body ? <p className="mt-5 rounded-2xl border border-[#EAF2FF] bg-[#F8FBFF] p-4 text-sm leading-7 text-[#0F172A]">{resource.content.body}</p> : null}
           {resource.content?.scripture ? (
             <p className="mt-4 text-sm font-bold leading-6 text-[#1D4ED8]">{resource.content.scripture}</p>
+          ) : null}
+          {hasReadingPlanActions ? (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]" href="#week-one">
+                Start Reading
+              </Link>
+              {resource.downloadPath ? (
+                <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href={resource.downloadPath}>
+                  Download PDF
+                </Link>
+              ) : null}
+              <ShareGuideButton title={resource.title} url={canonicalUrl} />
+            </div>
           ) : null}
         </header>
 
@@ -239,6 +286,13 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             <section className="rounded-[24px] border border-[#DCEBFF] bg-white/80 p-4 text-xs font-semibold leading-6 text-[#64748B]">
               {resource.content.attribution ? <p>{resource.content.attribution}</p> : null}
               {resource.content.credits ? <p className="mt-1">{resource.content.credits}</p> : null}
+            </section>
+          ) : null}
+
+          {resource.downloadPath?.includes("#pdf-download-placeholder") ? (
+            <section className="scroll-mt-28 rounded-[24px] border border-dashed border-[#BFDBFE] bg-white/80 p-5" id="pdf-download-placeholder">
+              <h2 className="text-xl font-bold leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Download PDF</h2>
+              <p className="mt-2 text-sm leading-7 text-[#475569]">The PDF download will be added here after the final plan is ready. For now, this page is the canonical reading plan.</p>
             </section>
           ) : null}
 
