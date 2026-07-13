@@ -20,7 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
@@ -29,6 +29,7 @@ import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   dosSendableResourceCategories,
   getDosAssessmentResources,
+  getDosResourceBySlug,
   getDosResourcesByCategory,
   getSendableDosResources,
   type DosResource,
@@ -81,6 +82,15 @@ import {
   slugFromGroupName,
   type DosGroupCreationTemplate,
 } from "@/src/lib/dos/groups";
+import {
+  addDaysToResourceAssignmentDateKey,
+  defaultResourceAssignmentDueDate,
+  dosResourceAssignmentFollowUpCadences,
+  resourceAssignmentCommitmentTitle,
+  todayResourceAssignmentDateKey,
+  type DosResourceAssignmentFollowUpCadence,
+  type DosResourceAssignmentStatus,
+} from "@/src/lib/dos/resource-assignments";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -979,6 +989,17 @@ type CommitmentSheetState =
   | { kind: "check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | null;
 type CommitmentNotice = { personId?: string | null; text: string; tone: "error" | "success" } | null;
+type ResourceAssignmentSheetState =
+  | { assignment?: DosAppResourceAssignment | null; kind: "assign"; personId?: string | null; resource: DosResource }
+  | { assignment: DosAppResourceAssignment; kind: "check_in" }
+  | null;
+type ResourceAssignmentNotice = {
+  assignmentId: string;
+  personId: string;
+  personalMessage: string | null;
+  resourceSlug: string;
+  text: string;
+} | null;
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "answered_recently" | "group_prayers" | "high_priority" | "needs_follow_up" | "person_prayers" | "pray_today";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -5065,10 +5086,12 @@ function catalogResourceIcon(icon: DosResourceIcon) {
 
 function CatalogResourceRow({
   actionLabel = "Open",
+  onAssign,
   onClick,
   resource,
 }: {
   actionLabel?: string;
+  onAssign?: (resource: DosResource) => void;
   onClick?: () => void;
   resource: DosResource;
 }) {
@@ -5076,6 +5099,7 @@ function CatalogResourceRow({
   const typeLabel = resourceTypeLabel(resource);
   const isFeaturedReadingPlan = resource.type === "reading_plan" && resource.featured && !onClick;
   const hasDownloadAction = Boolean(resource.downloadPath);
+  const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
   const iconContent = resource.emoji ? (
     <span className="text-lg leading-none" aria-hidden="true">{resource.emoji}</span>
   ) : (
@@ -5110,6 +5134,16 @@ function CatalogResourceRow({
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
+          {canAssignResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              onClick={() => onAssign?.(resource)}
+              type="button"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Assign
+            </button>
+          ) : null}
           <a
             className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
             href={resource.path}
@@ -5171,13 +5205,23 @@ function CatalogResourceRow({
     );
   }
 
-  if (hasDownloadAction) {
+  if (hasDownloadAction || canAssignResource) {
     return (
       <article className="px-3.5 py-3">
         <div className="flex min-h-[56px] items-start gap-3">
           {rowContent}
         </div>
         <div className="mt-3 flex flex-wrap gap-2 pl-12">
+          {canAssignResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              onClick={() => onAssign?.(resource)}
+              type="button"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Assign
+            </button>
+          ) : null}
           <a
             className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
             href={resource.path}
@@ -5228,16 +5272,18 @@ function resourceTypeLabel(resource: DosResource) {
 
 function CatalogResourceList({
   actionLabel,
+  onAssign,
   resources,
 }: {
   actionLabel?: string;
+  onAssign?: (resource: DosResource) => void;
   resources: readonly DosResource[];
 }) {
   return (
     <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
       <div className="divide-y divide-[#EBF2FF]">
         {resources.map((resource) => (
-          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} resource={resource} />
+          <CatalogResourceRow actionLabel={actionLabel} key={resource.id} onAssign={onAssign} resource={resource} />
         ))}
       </div>
     </article>
@@ -9929,6 +9975,20 @@ const accountabilityStatusLabels: Record<DosAccountabilityScheduleStatus, string
   paused: "Paused",
 };
 
+const resourceAssignmentStatusLabels: Record<DosResourceAssignmentStatus, string> = {
+  completed: "Completed",
+  in_progress: "In Progress",
+  not_started: "Not Started",
+  paused: "Paused",
+};
+
+const resourceAssignmentFollowUpCadenceLabels: Record<DosResourceAssignmentFollowUpCadence, string> = {
+  due_only: "Due date only",
+  midpoint_and_completion: "Midpoint and completion",
+  none: "No follow-up",
+  weekly: "Weekly",
+};
+
 const accountabilityDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function commitmentLatestUpdate(commitment: DosAppPersonCommitment) {
@@ -9951,6 +10011,172 @@ function commitmentLastDiscussedAt(
 
 function commitmentDueLabel(commitment: DosAppPersonCommitment) {
   return commitment.targetDate ? formatDate(commitment.targetDate) : "No target date";
+}
+
+function resourceAssignmentResource(assignment: DosAppResourceAssignment) {
+  return getDosResourceBySlug(assignment.resourceSlug);
+}
+
+function resourceAssignmentTitle(assignment: DosAppResourceAssignment) {
+  return resourceAssignmentResource(assignment)?.title ?? "Assigned Resource";
+}
+
+function resourceAssignmentTypeLabel(assignment: DosAppResourceAssignment) {
+  const resource = resourceAssignmentResource(assignment);
+
+  return resource ? resourceTypeLabel(resource) : "Resource";
+}
+
+function resourceAssignmentDueLabel(assignment: DosAppResourceAssignment) {
+  if (assignment.status === "completed" && assignment.completedAt) {
+    return `Completed ${formatDate(assignment.completedAt)}`;
+  }
+
+  if (!assignment.dueDate) {
+    return "No due date";
+  }
+
+  const dueValue = dateSortValue(assignment.dueDate);
+  const todayValue = dateSortValue(todayResourceAssignmentDateKey());
+
+  if (assignment.status !== "completed" && dueValue < todayValue) {
+    return `Overdue · ${formatDate(assignment.dueDate)}`;
+  }
+
+  if (assignment.dueDate === todayResourceAssignmentDateKey()) {
+    return "Due today";
+  }
+
+  return `Due ${formatDate(assignment.dueDate)}`;
+}
+
+function resourceAssignmentFollowUpLabel(assignment: DosAppResourceAssignment) {
+  if (assignment.status === "completed") {
+    return "Completion recorded";
+  }
+
+  if (!assignment.dueDate || assignment.followUpCadence === "none") {
+    return "No follow-up scheduled";
+  }
+
+  const today = todayResourceAssignmentDateKey();
+
+  if (dateSortValue(assignment.dueDate) < dateSortValue(today)) {
+    return "Overdue follow-up";
+  }
+
+  if (assignment.dueDate === today) {
+    return "Completion check-in";
+  }
+
+  if (assignment.followUpCadence === "midpoint_and_completion") {
+    const midpoint = addDaysToResourceAssignmentDateKey(assignment.startDate, Math.max(1, Math.floor((dateSortValue(assignment.dueDate) - dateSortValue(assignment.startDate)) / (2 * 24 * 60 * 60 * 1000))));
+
+    if (midpoint <= today) {
+      return "Midpoint check-in";
+    }
+  }
+
+  return resourceAssignmentFollowUpCadenceLabels[assignment.followUpCadence];
+}
+
+function resourceAssignmentStatusTone(status: DosResourceAssignmentStatus) {
+  if (status === "completed") {
+    return "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D]";
+  }
+
+  if (status === "paused") {
+    return "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]";
+  }
+
+  if (status === "in_progress") {
+    return "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
+  }
+
+  return "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
+}
+
+function ResourceAssignmentStatusPill({ status }: { status: DosResourceAssignmentStatus }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-[0.12em] ${resourceAssignmentStatusTone(status)}`} style={{ fontFamily: font.rajdhani }}>
+      {resourceAssignmentStatusLabels[status]}
+    </span>
+  );
+}
+
+function ResourceAssignmentCard({
+  assignment,
+  compact = false,
+  onEditDates,
+  onLogCheckIn,
+  onMarkComplete,
+  onMarkInProgress,
+  onPause,
+}: {
+  assignment: DosAppResourceAssignment;
+  compact?: boolean;
+  onEditDates?: (assignment: DosAppResourceAssignment) => void;
+  onLogCheckIn?: (assignment: DosAppResourceAssignment) => void;
+  onMarkComplete?: (assignment: DosAppResourceAssignment) => void;
+  onMarkInProgress?: (assignment: DosAppResourceAssignment) => void;
+  onPause?: (assignment: DosAppResourceAssignment) => void;
+}) {
+  const resource = resourceAssignmentResource(assignment);
+  const href = resource?.path ?? "#";
+  const downloadPath = resource?.downloadPath ?? null;
+
+  return (
+    <article className={`rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.045)] ${compact ? "p-3" : "p-3.5"}`}>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
+          <BookOpen className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1 text-sm font-black leading-5 text-[#0F172A]">{resourceAssignmentTitle(assignment)}</span>
+            <ResourceAssignmentStatusPill status={assignment.status} />
+          </span>
+          <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {resourceAssignmentTypeLabel(assignment)} · {resource?.estimatedDuration ?? "Resource"} · Assigned by {assignment.assignedByUserId ? "DOS user" : "DOS"}
+          </span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">
+            Started {formatDate(assignment.startDate)} · {resourceAssignmentDueLabel(assignment)}
+          </span>
+          {assignment.personalMessage ? (
+            <span className="mt-2 line-clamp-2 block text-sm leading-6 text-[#475569]">{assignment.personalMessage}</span>
+          ) : null}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-3">
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Follow-Up</span>
+          <span className="mt-1 block text-[#0F172A]">{resourceAssignmentFollowUpLabel(assignment)}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Commitment</span>
+          <span className="mt-1 block text-[#0F172A]">{assignment.linkedCommitmentId ? "Linked" : "Not linked"}</span>
+        </span>
+        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Updated</span>
+          <span className="mt-1 block text-[#0F172A]">{formatRelativeDate(assignment.updatedAt ?? assignment.createdAt ?? assignment.startDate)}</span>
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={href}>Read Online</a>
+        {downloadPath ? (
+          <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#0F172A]" download href={downloadPath}>
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+            PDF
+          </a>
+        ) : null}
+        {assignment.status === "not_started" && onMarkInProgress ? <CompactButton icon="commitment" onClick={() => onMarkInProgress(assignment)}>Start</CompactButton> : null}
+        {assignment.status !== "completed" && onMarkComplete ? <CompactButton icon="commitment" onClick={() => onMarkComplete(assignment)}>Complete</CompactButton> : null}
+        {assignment.status !== "completed" && onLogCheckIn ? <CompactButton icon="log" onClick={() => onLogCheckIn(assignment)}>Check-In</CompactButton> : null}
+        {assignment.status !== "completed" && onPause ? <CompactButton icon="bell" onClick={() => onPause(assignment)}>{assignment.status === "paused" ? "Resume" : "Pause"}</CompactButton> : null}
+        {onEditDates ? <CompactButton icon="settings" onClick={() => onEditDates(assignment)}>Edit Dates</CompactButton> : null}
+      </div>
+    </article>
+  );
 }
 
 function commitmentStatusTone(status: DosCommitmentStatus) {
@@ -10242,6 +10468,76 @@ function AccountabilityDashboardCard({
   );
 }
 
+function resourceAssignmentDashboardRows(assignments: DosAppResourceAssignment[], people: DosAppPerson[]) {
+  const personById = new Map(people.map((person) => [person.id, person]));
+  const today = todayResourceAssignmentDateKey();
+
+  return assignments
+    .filter((assignment) => assignment.status !== "completed")
+    .map((assignment) => ({
+      assignment,
+      bucket: assignment.dueDate && dateSortValue(assignment.dueDate) < dateSortValue(today)
+        ? "Overdue"
+        : assignment.dueDate === today
+          ? "Due Today"
+          : resourceAssignmentFollowUpLabel(assignment),
+      person: personById.get(assignment.personId) ?? null,
+    }))
+    .sort((first, second) => dateSortValue(first.assignment.dueDate ?? first.assignment.startDate) - dateSortValue(second.assignment.dueDate ?? second.assignment.startDate));
+}
+
+function ResourceAssignmentsDashboardCard({
+  assignments,
+  onOpenPerson,
+  people,
+}: {
+  assignments: DosAppResourceAssignment[];
+  onOpenPerson: (personId: string) => void;
+  people: DosAppPerson[];
+}) {
+  const rows = resourceAssignmentDashboardRows(assignments, people);
+  const active = assignments.filter((assignment) => assignment.status !== "completed").length;
+  const completed = assignments.filter((assignment) => assignment.status === "completed").length;
+  const overdue = rows.filter((row) => row.bucket === "Overdue").length;
+
+  return (
+    <DesktopPanel className="min-w-0" compact eyebrow="Assigned Resources">
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          ["Active", active],
+          ["Completed", completed],
+          ["Overdue", overdue],
+        ].map(([label, value]) => (
+          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
+            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+            <p className="mt-1 text-xl font-black text-[#0F172A]">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
+        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => (
+          <button
+            className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left last:border-b-0 hover:bg-[#F8FBFF]"
+            key={row.assignment.id}
+            onClick={() => onOpenPerson(row.assignment.personId)}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black text-[#0F172A]">{row.person?.name ?? "Field person"}</span>
+              <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{resourceAssignmentTitle(row.assignment)} · {row.bucket}</span>
+            </span>
+            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {resourceAssignmentStatusLabels[row.assignment.status]}
+            </span>
+          </button>
+        )) : (
+          <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No assigned resource follow-ups.</p>
+        )}
+      </div>
+    </DesktopPanel>
+  );
+}
+
 function PersonAccountabilitySummaryCard({
   checkIns,
   commitments,
@@ -10302,6 +10598,183 @@ function CommitmentSuccessSheet({
         ) : null}
         <AppButton onClick={onClose} tone="white">Done</AppButton>
       </div>
+    </Sheet>
+  );
+}
+
+function ResourceAssignmentSuccessSheet({
+  notice,
+  onClose,
+  onOpenPerson,
+}: {
+  notice: NonNullable<ResourceAssignmentNotice>;
+  onClose: () => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  const [copyMessage, setCopyMessage] = useState("");
+  const resource = getDosResourceBySlug(notice.resourceSlug);
+  const publicUrl = resource && typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource?.path ?? "";
+
+  async function copyText(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyMessage(`${label} copied.`);
+    } catch {
+      setCopyMessage(value);
+    }
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Resource Assigned">
+      <div className="grid gap-3">
+        <p className="rounded-[22px] border border-[#BBF7D0] bg-[#F7FEFA] px-4 py-3 text-sm font-semibold leading-6 text-[#15803D]">{notice.text}</p>
+        {resource ? (
+          <article className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+            <p className="text-sm font-black text-[#0F172A]">{resource.title}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{resourceTypeLabel(resource)} · {resource.estimatedDuration ?? "Resource"}</p>
+          </article>
+        ) : null}
+        {copyMessage ? <p className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-bold leading-5 text-[#1D4ED8]">{copyMessage}</p> : null}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {publicUrl ? <AppButton icon="send" onClick={() => void copyText(publicUrl, "Public link")} tone="white">Copy Public Link</AppButton> : null}
+          {notice.personalMessage ? <AppButton icon="log" onClick={() => void copyText(notice.personalMessage as string, "Message")} tone="white">Copy Message</AppButton> : null}
+          {resource?.downloadPath ? (
+            <a className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A]" download href={resource.downloadPath}>
+              <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+              Open PDF
+            </a>
+          ) : null}
+          <AppButton icon="people" onClick={() => onOpenPerson(notice.personId)} tone="black">Open Person Profile</AppButton>
+        </div>
+        <AppButton onClick={onClose} tone="white">Done</AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
+function ResourceAssignmentFormSheet({
+  assignment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  people,
+  personId,
+  resource,
+}: {
+  assignment?: DosAppResourceAssignment | null;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  people: DosAppPerson[];
+  personId?: string | null;
+  resource: DosResource;
+}) {
+  const selectedPersonId = personId ?? assignment?.personId ?? people[0]?.id ?? "";
+  const startDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
+  const dueDate = assignment?.dueDate ?? defaultResourceAssignmentDueDate(startDate, resource.assignmentDefaults?.durationDays);
+  const cadence = assignment?.followUpCadence ?? resource.assignmentDefaults?.followUpCadence ?? "midpoint_and_completion";
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Resource Assignment" : "Assign Resource"}>
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="resource_slug" type="hidden" value={resource.slug} />
+        {assignment ? <input name="id" type="hidden" value={assignment.id} /> : null}
+        <DosFormSection icon="library" title={resource.title}>
+          {!personId && !assignment ? (
+            <DosFormField label="Person">
+              <select className={FieldInputClass(false)} defaultValue={selectedPersonId} name="person_id" required>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>{person.name}</option>
+                ))}
+              </select>
+            </DosFormField>
+          ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Start Date">
+              <input className={FieldInputClass(false)} defaultValue={startDate} name="start_date" type="date" />
+            </DosFormField>
+            <DosFormField label="Due Date">
+              <input className={FieldInputClass(false)} defaultValue={dueDate} name="due_date" type="date" />
+            </DosFormField>
+          </div>
+          <DosFormField label="Follow-Up Cadence">
+            <select className={FieldInputClass(false)} defaultValue={cadence} name="follow_up_cadence">
+              {dosResourceAssignmentFollowUpCadences.map((option) => (
+                <option key={option} value={option}>{resourceAssignmentFollowUpCadenceLabels[option]}</option>
+              ))}
+            </select>
+          </DosFormField>
+          <DosFormField label="Personal Message">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={assignment?.personalMessage ?? resource.assignmentDefaults?.defaultMessage ?? ""} name="personal_message" />
+          </DosFormField>
+        </DosFormSection>
+        <DosFormSection icon="commitment" title="Linked Commitment">
+          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold leading-6 text-[#475569]">
+            {resourceAssignmentCommitmentTitle(resource.title)}
+          </p>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : assignment ? "Save Assignment" : "Assign Resource"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function ResourceAssignmentCheckInSheet({
+  assignment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  assignment: DosAppResourceAssignment;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const resource = resourceAssignmentResource(assignment);
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Resource Check-In">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="assignment_id" type="hidden" value={assignment.id} />
+        <DosFormSection icon="log" title={resource?.title ?? "Assigned Resource"}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DosFormField label="Date">
+              <input className={FieldInputClass(false)} defaultValue={todayResourceAssignmentDateKey()} name="date" type="date" />
+            </DosFormField>
+            <DosFormField label="Status Update">
+              <select className={FieldInputClass(false)} defaultValue="going_well" name="status_update">
+                <option value="going_well">Going well</option>
+                <option value="needs_encouragement">Needs encouragement</option>
+                <option value="in_progress">In progress</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+              </select>
+            </DosFormField>
+          </div>
+          <DosFormField label="Check-In Note">
+            <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="general_update" required />
+          </DosFormField>
+          <DosFormField label="Follow-Up">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="follow_up" />
+          </DosFormField>
+          <DosFormField label="Next Follow-Up Date">
+            <input className={FieldInputClass(false)} name="next_follow_up_date" type="date" />
+          </DosFormField>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
     </Sheet>
   );
 }
@@ -10640,6 +11113,7 @@ function DesktopHomeDashboard({
   pendingGroupJoinRequestItems = [],
   people,
   personTableStatsByPersonId,
+  resourceAssignments,
   upcomingItems,
 }: {
   accountabilitySchedules: DosAppAccountabilitySchedule[];
@@ -10673,6 +11147,7 @@ function DesktopHomeDashboard({
   pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
+  resourceAssignments: DosAppResourceAssignment[];
   upcomingItems: UpcomingTimelineItem[];
 }) {
   const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
@@ -10880,11 +11355,18 @@ function DesktopHomeDashboard({
         </DesktopPanel>
 
         {commitmentsEnabled ? (
-          <AccountabilityDashboardCard
-            onLogCheckIn={onLogAccountabilityCheckIn}
-            people={people}
-            schedules={accountabilitySchedules}
-          />
+          <>
+            <AccountabilityDashboardCard
+              onLogCheckIn={onLogAccountabilityCheckIn}
+              people={people}
+              schedules={accountabilitySchedules}
+            />
+            <ResourceAssignmentsDashboardCard
+              assignments={resourceAssignments}
+              onOpenPerson={onOpenPerson}
+              people={people}
+            />
+          </>
         ) : null}
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenWeeklyReport}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
@@ -26307,12 +26789,24 @@ function MyRecordMentorCard({
 }
 
 function MyRecordGrowthPanel({
+  assignments,
+  onEditResourceAssignment,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
+  onMarkResourceAssignmentInProgress,
   onOpenSheet,
+  onPauseResourceAssignment,
   people,
   profileName,
   record,
 }: {
+  assignments: DosAppResourceAssignment[];
+  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   people: DosAppPerson[];
   profileName: string;
   record: DosAppUserRecord;
@@ -26329,6 +26823,8 @@ function MyRecordGrowthPanel({
   const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived").slice(0, 4);
   const activeMentors = record.mentorRelationships.filter((mentor) => mentor.status === "active");
   const recentMentorMeetings = record.mentorMeetings.slice(0, 3);
+  const activeAssignments = assignments.filter((assignment) => assignment.status !== "completed");
+  const completedAssignments = assignments.filter((assignment) => assignment.status === "completed");
   const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
     ? "Add your MCode result so mentors can quickly understand your wiring."
     : visibleBooks.length === 0
@@ -26340,6 +26836,38 @@ function MyRecordGrowthPanel({
   return (
     <div className="grid gap-4">
       <p className="text-sm font-semibold text-[#64748B]">How is God shaping me?</p>
+      <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <SectionHeading title="Assigned Resources" />
+        {activeAssignments.length ? (
+          <div className="grid gap-3">
+            {activeAssignments.map((assignment) => (
+              <ResourceAssignmentCard
+                assignment={assignment}
+                key={assignment.id}
+                onEditDates={onEditResourceAssignment}
+                onLogCheckIn={onLogResourceCheckIn}
+                onMarkComplete={onMarkResourceAssignmentComplete}
+                onMarkInProgress={onMarkResourceAssignmentInProgress}
+                onPause={onPauseResourceAssignment}
+              />
+            ))}
+          </div>
+        ) : (
+          <SectionEmptyState text="Current reading plans and growth resources assigned to you will appear here." title="No assigned resources." />
+        )}
+        {completedAssignments.length ? (
+          <details className="rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              Completed Resources ({completedAssignments.length})
+            </summary>
+            <div className="mt-3 grid gap-3">
+              {completedAssignments.map((assignment) => (
+                <ResourceAssignmentCard assignment={assignment} compact key={assignment.id} />
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </section>
       <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -27231,7 +27759,12 @@ function MyRecordWorkspace({
   launchAction,
   meetings,
   onBack,
+  onEditResourceAssignment,
   onLaunchActionHandled,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
+  onMarkResourceAssignmentInProgress,
+  onPauseResourceAssignment,
   onQuickTab,
   onSave,
   onTabChange,
@@ -27239,6 +27772,7 @@ function MyRecordWorkspace({
   profileName,
   record,
   reminders,
+  resourceAssignments,
   tab,
 }: {
   errorMessage: string;
@@ -27247,7 +27781,12 @@ function MyRecordWorkspace({
   launchAction?: MyRecordLaunchAction | null;
   meetings: DosAppMeeting[];
   onBack: () => void;
+  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onLaunchActionHandled?: () => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
+  onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   onTabChange: (tab: MyRecordTab) => void;
@@ -27255,6 +27794,7 @@ function MyRecordWorkspace({
   profileName: string;
   record: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
+  resourceAssignments: DosAppResourceAssignment[];
   tab: MyRecordTab;
 }) {
   const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
@@ -27614,7 +28154,13 @@ function MyRecordWorkspace({
 
       {activeMyRecordTab === "growth" ? (
         <MyRecordGrowthPanel
+          assignments={resourceAssignments}
+          onEditResourceAssignment={onEditResourceAssignment}
+          onLogResourceCheckIn={onLogResourceCheckIn}
+          onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
+          onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
           onOpenSheet={openMyRecordSheet}
+          onPauseResourceAssignment={onPauseResourceAssignment}
           people={people}
           profileName={profileName}
           record={record}
@@ -29263,6 +29809,7 @@ function PersonDetailOverlay({
   leaderReflections,
   meetings,
   reminders,
+  resourceAssignments,
   onBack,
   onAddCommitment,
   onAddCommitmentUpdate,
@@ -29274,12 +29821,17 @@ function PersonDetailOverlay({
   onEditCommitment,
   onEdit,
   onLogAccountabilityCheckIn,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
+  onMarkResourceAssignmentInProgress,
   onMarkPrayerAnswered,
   onOpenPrayerResources,
   onOpenReview,
   onOpenMeeting,
   onLogMeeting,
   onPauseCommitment,
+  onPauseResourceAssignment,
+  onEditResourceAssignment,
   onScheduleMeeting,
   participantReviews,
   participantTestimonies,
@@ -29302,6 +29854,7 @@ function PersonDetailOverlay({
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   reminders: DosAppRelationshipReminder[];
+  resourceAssignments: DosAppResourceAssignment[];
   onBack: () => void;
   onAddCommitment: () => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
@@ -29313,12 +29866,17 @@ function PersonDetailOverlay({
   onEditCommitment: (commitment: DosAppPersonCommitment) => void;
   onEdit: () => void;
   onLogAccountabilityCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
   onPauseCommitment: (commitment: DosAppPersonCommitment) => void;
+  onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onScheduleMeeting: () => void;
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
@@ -29466,6 +30024,8 @@ function PersonDetailOverlay({
     .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
     .slice(0, 6);
   const latestGrowthDate = personGrowthMilestones[0]?.date ?? lastMeetingDate;
+  const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
+  const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
   const commitmentActivityItems = [
     ...commitments.map((commitment) => ({
       body: commitment.description || `${commitmentStatusLabels[commitment.status]} · ${commitmentDueLabel(commitment)}`,
@@ -29930,6 +30490,41 @@ function PersonDetailOverlay({
                 ))}
               </div>
             </DetailCard>
+
+            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assigned Resources">
+              {activeResourceAssignments.length ? (
+                <div className="grid gap-3">
+                  {activeResourceAssignments.map((assignment) => (
+                    <ResourceAssignmentCard
+                      assignment={assignment}
+                      key={assignment.id}
+                      onEditDates={onEditResourceAssignment}
+                      onLogCheckIn={onLogResourceCheckIn}
+                      onMarkComplete={onMarkResourceAssignmentComplete}
+                      onMarkInProgress={onMarkResourceAssignmentInProgress}
+                      onPause={onPauseResourceAssignment}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Assignable Library resources will appear here when a leader gives this person a growth resource." title="No active resources." />
+              )}
+            </DetailCard>
+
+            {completedResourceAssignments.length ? (
+              <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Completed Resources">
+                <div className="grid gap-3">
+                  {completedResourceAssignments.map((assignment) => (
+                    <ResourceAssignmentCard
+                      assignment={assignment}
+                      compact
+                      key={assignment.id}
+                      onEditDates={onEditResourceAssignment}
+                    />
+                  ))}
+                </div>
+              </DetailCard>
+            ) : null}
 
             <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
               <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
@@ -30748,6 +31343,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
+  const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
+  const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const ministryLoggedMeetings = useMemo(
@@ -30880,12 +31477,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedPersonCommitments = useMemo(() => (
     selectedPerson ? data.commitments.filter((commitment) => commitment.personId === selectedPerson.id) : []
   ), [data.commitments, selectedPerson]);
+  const selectedPersonResourceAssignments = useMemo(() => (
+    selectedPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === selectedPerson.id) : []
+  ), [data.resourceAssignments, selectedPerson]);
   const selectedPersonAccountabilitySchedules = useMemo(() => (
     selectedPerson ? data.accountabilitySchedules.filter((schedule) => schedule.personId === selectedPerson.id) : []
   ), [data.accountabilitySchedules, selectedPerson]);
   const selectedPersonAccountabilityCheckIns = useMemo(() => (
     selectedPerson ? data.accountabilityCheckIns.filter((checkIn) => checkIn.personId === selectedPerson.id) : []
   ), [data.accountabilityCheckIns, selectedPerson]);
+  const myRecordPerson = useMemo(() => {
+    const userEmail = data.workspace.userEmail?.trim().toLowerCase() ?? "";
+    const displayName = data.myRecord.displayName?.trim().toLowerCase() ?? data.workspace.userFullName?.trim().toLowerCase() ?? "";
+
+    return people.find((person) => userEmail && person.email?.trim().toLowerCase() === userEmail)
+      ?? people.find((person) => displayName && person.name.trim().toLowerCase() === displayName)
+      ?? null;
+  }, [data.myRecord.displayName, data.workspace.userEmail, data.workspace.userFullName, people]);
+  const myRecordResourceAssignments = useMemo(() => (
+    myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
+  ), [data.resourceAssignments, myRecordPerson]);
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
   ), [selectedPrayerResourceSlug]);
@@ -32328,6 +32939,123 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openAccountabilityCheckInForSchedule(schedule: DosAppAccountabilitySchedule) {
     openAccountabilityCheckIn(schedule.personId, schedule);
+  }
+
+  function openResourceAssignmentCreate(resource: DosResource, personId?: string | null) {
+    if (!commitmentsEnabled) {
+      setErrorMessage("Commitments and accountability are not enabled for this workspace.");
+      return;
+    }
+
+    if (!resource.assignable) {
+      setErrorMessage("This Library resource is not assignable yet.");
+      return;
+    }
+
+    setErrorMessage("");
+    setResourceAssignmentNotice(null);
+    setResourceAssignmentSheet({ kind: "assign", personId: personId ?? null, resource });
+  }
+
+  function openResourceAssignmentEdit(assignment: DosAppResourceAssignment) {
+    const resource = resourceAssignmentResource(assignment);
+
+    if (!resource) {
+      setErrorMessage("Assigned Library resource is not available.");
+      return;
+    }
+
+    setErrorMessage("");
+    setResourceAssignmentNotice(null);
+    setResourceAssignmentSheet({ assignment, kind: "assign", personId: assignment.personId, resource });
+  }
+
+  function openResourceAssignmentCheckIn(assignment: DosAppResourceAssignment) {
+    setErrorMessage("");
+    setResourceAssignmentNotice(null);
+    setResourceAssignmentSheet({ assignment, kind: "check_in" });
+  }
+
+  async function handleResourceAssignmentSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const id = String(formData.get("id") ?? "").trim();
+    const result = await submitJson(
+      "/api/dos/app/resource-assignments",
+      {
+        dueDate: String(formData.get("due_date") ?? ""),
+        followUpCadence: String(formData.get("follow_up_cadence") ?? ""),
+        id,
+        personId: String(formData.get("person_id") ?? ""),
+        personalMessage: String(formData.get("personal_message") ?? ""),
+        resourceSlug: String(formData.get("resource_slug") ?? ""),
+        startDate: String(formData.get("start_date") ?? ""),
+      },
+      id ? "PATCH" : "POST",
+      false,
+    ) as { assignment?: DosAppResourceAssignment } | null;
+
+    if (result?.assignment) {
+      setResourceAssignmentSheet(null);
+      setResourceAssignmentNotice({
+        assignmentId: result.assignment.id,
+        personId: result.assignment.personId,
+        personalMessage: result.assignment.personalMessage,
+        resourceSlug: result.assignment.resourceSlug,
+        text: id ? "Resource assignment updated." : "Resource assigned.",
+      });
+    }
+  }
+
+  async function setResourceAssignmentStatus(assignment: DosAppResourceAssignment, status: DosResourceAssignmentStatus) {
+    const result = await submitJson(
+      "/api/dos/app/resource-assignments",
+      {
+        id: assignment.id,
+        status,
+      },
+      "PATCH",
+      false,
+    ) as { assignment?: DosAppResourceAssignment } | null;
+
+    if (result?.assignment) {
+      setResourceAssignmentNotice({
+        assignmentId: result.assignment.id,
+        personId: result.assignment.personId,
+        personalMessage: result.assignment.personalMessage,
+        resourceSlug: result.assignment.resourceSlug,
+        text: status === "completed" ? "Resource completed." : status === "paused" ? "Resource paused." : "Resource updated.",
+      });
+    }
+  }
+
+  async function handleResourceAssignmentCheckInSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const result = await submitJson(
+      "/api/dos/app/resource-assignments/check-ins",
+      {
+        assignmentId: String(formData.get("assignment_id") ?? ""),
+        date: String(formData.get("date") ?? ""),
+        followUp: String(formData.get("follow_up") ?? ""),
+        generalUpdate: String(formData.get("general_update") ?? ""),
+        nextFollowUpDate: String(formData.get("next_follow_up_date") ?? ""),
+        statusUpdate: String(formData.get("status_update") ?? ""),
+      },
+      "POST",
+      false,
+    ) as { assignment?: DosAppResourceAssignment; checkIn?: DosAppAccountabilityCheckIn } | null;
+
+    if (result?.checkIn && result.assignment) {
+      setResourceAssignmentSheet(null);
+      setResourceAssignmentNotice({
+        assignmentId: result.assignment.id,
+        personId: result.assignment.personId,
+        personalMessage: result.assignment.personalMessage,
+        resourceSlug: result.assignment.resourceSlug,
+        text: "Resource check-in saved.",
+      });
+    }
   }
 
   async function handleCommitmentSubmit(event: FormEvent<HTMLFormElement>) {
@@ -35165,6 +35893,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
+    && !resourceAssignmentSheet
+    && !resourceAssignmentNotice
     && !isProfileOpen
     && !isActivitySheetOpen
     && !isUpcomingSheetOpen
@@ -35191,6 +35921,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
+    && !resourceAssignmentSheet
+    && !resourceAssignmentNotice
     && !isProfileOpen
     && !isActivitySheetOpen
     && !isUpcomingSheetOpen
@@ -35294,6 +36026,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
+                resourceAssignments={data.resourceAssignments}
                 upcomingItems={upcomingTimelineItems}
               />
               </>
@@ -35556,7 +36289,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     launchAction={myRecordLaunchAction}
                     meetings={data.meetings}
                     onBack={() => setMoreAppView(null)}
+                    onEditResourceAssignment={openResourceAssignmentEdit}
                     onLaunchActionHandled={() => setMyRecordLaunchAction(null)}
+                    onLogResourceCheckIn={openResourceAssignmentCheckIn}
+                    onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
+                    onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
+                    onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
                     onTabChange={setMyRecordTab}
@@ -35564,6 +36302,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     profileName={profileName}
                     record={data.myRecord}
                     reminders={data.reminders}
+                    resourceAssignments={myRecordResourceAssignments}
                     tab={myRecordTab}
                   />
                 ) : null}
@@ -35795,15 +36534,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <LibrarySection
                         title="Commands of Jesus"
                       >
-                        <CatalogResourceList resources={dosCommandResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosCommandResourceItems} />
                       </LibrarySection>
 
                       <LibrarySection title="Discipleship">
-                        <CatalogResourceList resources={dosDiscipleshipResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosDiscipleshipResourceItems} />
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">
-                        <CatalogResourceList resources={dosRelationshipResourceItems} />
+                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosRelationshipResourceItems} />
                       </LibrarySection>
 
                       <LibrarySection title="Prayer">
@@ -36059,6 +36798,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
               reminders={data.reminders}
+              resourceAssignments={selectedPersonResourceAssignments}
             onBack={() => setSelectedPersonId(null)}
             onAddCommitment={() => openCommitmentCreate(selectedPerson.id)}
             onAddCommitmentUpdate={openCommitmentUpdate}
@@ -36069,13 +36809,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onEdit={() => openPersonEdit(selectedPerson)}
             onEditCommitment={openCommitmentEdit}
             onEditReminder={openReminderEdit}
+            onEditResourceAssignment={openResourceAssignmentEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onLogAccountabilityCheckIn={(schedule) => openAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
+            onLogResourceCheckIn={openResourceAssignmentCheckIn}
+            onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
+            onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
+            onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -36305,6 +37050,40 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setCommitmentNotice(null);
               openPersonDetail(personId);
             }}
+          />
+        ) : null}
+
+        {resourceAssignmentNotice ? (
+          <ResourceAssignmentSuccessSheet
+            notice={resourceAssignmentNotice}
+            onClose={() => setResourceAssignmentNotice(null)}
+            onOpenPerson={(personId) => {
+              setResourceAssignmentNotice(null);
+              openPersonDetail(personId);
+            }}
+          />
+        ) : null}
+
+        {resourceAssignmentSheet?.kind === "assign" ? (
+          <ResourceAssignmentFormSheet
+            assignment={resourceAssignmentSheet.assignment ?? null}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setResourceAssignmentSheet(null)}
+            onSubmit={handleResourceAssignmentSubmit}
+            people={people}
+            personId={resourceAssignmentSheet.personId ?? resourceAssignmentSheet.assignment?.personId ?? null}
+            resource={resourceAssignmentSheet.resource}
+          />
+        ) : null}
+
+        {resourceAssignmentSheet?.kind === "check_in" ? (
+          <ResourceAssignmentCheckInSheet
+            assignment={resourceAssignmentSheet.assignment}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setResourceAssignmentSheet(null)}
+            onSubmit={handleResourceAssignmentCheckInSubmit}
           />
         ) : null}
 

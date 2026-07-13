@@ -31,6 +31,9 @@ assert(catalog.includes('downloadPath: "/guides/new-testament-14-days.pdf"'), "R
 assert(!catalog.includes("pdf-download-placeholder"), "Reading plan should not point at the placeholder PDF anchor.");
 assert(catalog.includes('estimatedDuration: "14 Days"'), "Reading plan should show 14 Days duration.");
 assert(catalog.includes("featured: true"), "Reading plan should be marked as featured.");
+assert(catalog.includes("assignable: true"), "Reading plan should be assignable.");
+assert(catalog.includes("durationDays: 14"), "Reading plan assignment default should be fourteen days.");
+assert(catalog.includes('followUpCadence: "midpoint_and_completion"'), "Reading plan assignment should default midpoint and completion follow-up.");
 assert(catalog.includes('status: "Sendable"'), "Reading plan should be marked Sendable.");
 assert(catalog.includes('tags: ["Bible", "New Testament", "Reading Plan", "Growth"]'), "Reading plan should include the requested tags.");
 assert(catalog.includes("Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ."), "Catalog should contain the public reading plan description.");
@@ -55,6 +58,8 @@ assert(dosClient.includes("<FileText"), "DOS Library PDF action should include a
 assert(dosClient.includes("download"), "DOS Library PDF action should request a download.");
 assert(libraryReadingPlanCard.includes("FEATURED"), "Featured reading plan card should show a FEATURED badge.");
 assert(libraryReadingPlanCard.includes("READING PLAN"), "Featured reading plan card should show a READING PLAN badge.");
+assert(libraryReadingPlanCard.includes("Assign"), "Featured reading plan card should expose the Assign action.");
+assert(libraryReadingPlanCard.includes("onAssign?.(resource)"), "Featured reading plan Assign action should call the Library assignment flow.");
 assert(libraryReadingPlanCard.includes("Read Online"), "Featured reading plan card should link to the canonical web page.");
 assert(libraryReadingPlanCard.includes("resource.path"), "Read Online should use the catalog path.");
 assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan card should keep the PDF action.");

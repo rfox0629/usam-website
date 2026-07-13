@@ -1,4 +1,5 @@
 import { dosPrayerResources } from "@/src/lib/dos/prayer-resources";
+import type { DosResourceAssignmentFollowUpCadence } from "@/src/lib/dos/resource-assignments";
 
 export type DosResourceCategory =
   | "Table Teachings"
@@ -26,6 +27,12 @@ export type DosResourceIcon =
   | "sparkles";
 
 export type DosResource = {
+  assignable?: boolean;
+  assignmentDefaults?: {
+    defaultMessage?: string;
+    durationDays?: number;
+    followUpCadence?: DosResourceAssignmentFollowUpCadence;
+  };
   category: DosResourceCategory;
   content?: {
     assessment?: {
@@ -666,6 +673,11 @@ const discipleshipResources = [
       subtitle: "Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ.",
     },
     description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
+    assignable: true,
+    assignmentDefaults: {
+      durationDays: 14,
+      followUpCadence: "midpoint_and_completion",
+    },
     downloadPath: "/guides/new-testament-14-days.pdf",
     estimatedDuration: "14 Days",
     featured: true,

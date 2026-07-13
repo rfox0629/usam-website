@@ -1036,6 +1036,7 @@ function buildDosPreviewDemoData(): DosAppData {
       workspaceId: demoWorkspaceId,
     },
     reminders,
+    resourceAssignments: [],
     tableInvitations: [],
     usamApplication: {
       applicationId: "demo-usam-application",
