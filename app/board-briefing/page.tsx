@@ -376,8 +376,7 @@ function CirclesDiagram() {
   return (
     <figure className="mt-8">
       <svg aria-labelledby="circles-title" className="mx-auto w-full max-w-md" role="img" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-        <title id="circles-title">Concentric circles of relational investment: 3, 12, 70, 120, and the wider field</title>
-        <circle cx="200" cy="200" fill="none" r="196" stroke="#2a2f36" strokeDasharray="3 5" strokeWidth="1.5" />
+        <title id="circles-title">Concentric circles of relational investment: 3, 12, 70, and 120</title>
         {rings.map((ring) => (
           <circle
             cx="200"
@@ -405,9 +404,6 @@ function CirclesDiagram() {
             My {ring.label}
           </text>
         ))}
-        <text fill="#8a8f97" fontFamily="'Rajdhani', sans-serif" fontSize="12" letterSpacing="1.5" textAnchor="middle" x="200" y="18">
-          THE WIDER FIELD
-        </text>
       </svg>
       <figcaption
         className="mt-3 flex flex-wrap justify-center gap-3 border-t border-stone-800 pt-3 text-center text-[11px] uppercase tracking-[0.18em] text-stone-500"
@@ -467,7 +463,7 @@ function StewardshipSection() {
             B. Circles of Investment
           </p>
           <p className="mt-2 text-[15px] leading-7 text-stone-400">
-            Time, engagement, commitments, and fruit help a leader see where deeper investment may be appropriate
+            Time, engagement, commitments, and fruit help a leader see where deeper investment may be appropriate.
             It&rsquo;s a discernment aid, never a substitute for prayer.
           </p>
           <CirclesDiagram />
