@@ -38,6 +38,12 @@ import {
   type DosCommitmentProgressState,
   type DosCommitmentStatus,
 } from "@/src/lib/dos/commitments-accountability";
+import {
+  isDosResourceAssignmentFollowUpCadence,
+  isDosResourceAssignmentStatus,
+  type DosResourceAssignmentFollowUpCadence,
+  type DosResourceAssignmentStatus,
+} from "@/src/lib/dos/resource-assignments";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -550,6 +556,24 @@ export type DosAppPersonCommitment = {
   workspaceId: string;
 };
 
+export type DosAppResourceAssignment = {
+  assignedByUserId: string | null;
+  completedAt: string | null;
+  createdAt: string | null;
+  dueDate: string | null;
+  followUpCadence: DosResourceAssignmentFollowUpCadence;
+  id: string;
+  linkedCommitmentId: string | null;
+  pausedAt: string | null;
+  personId: string;
+  personalMessage: string | null;
+  resourceSlug: string;
+  startDate: string;
+  status: DosResourceAssignmentStatus;
+  updatedAt: string | null;
+  workspaceId: string;
+};
+
 export type DosAppAccountabilitySchedule = {
   createdAt: string | null;
   createdByUserId: string | null;
@@ -836,6 +860,7 @@ export type DosAppData = {
   prayerRequests: DosAppPrayerRequest[];
   myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
+  resourceAssignments: DosAppResourceAssignment[];
   tableInvitations: DosTableInvitation[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
@@ -1297,6 +1322,24 @@ type AccountabilityCheckInCommitmentRow = {
   workspace_id: string;
 };
 
+type ResourceAssignmentRow = {
+  assigned_by_user_id: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  due_date: string | null;
+  follow_up_cadence: string | null;
+  id: string;
+  linked_commitment_id: string | null;
+  paused_at: string | null;
+  person_id: string;
+  personal_message: string | null;
+  resource_slug: string;
+  start_date: string;
+  status: string | null;
+  updated_at: string | null;
+  workspace_id: string;
+};
+
 type CommitmentsLoadRows = {
   commitments: CommitmentRow[];
   updates: CommitmentUpdateRow[];
@@ -1676,6 +1719,14 @@ function mapAccountabilityFrequency(value: string | null | undefined): DosAccoun
 
 function mapAccountabilityScheduleStatus(value: string | null | undefined): DosAccountabilityScheduleStatus {
   return value && isDosAccountabilityScheduleStatus(value) ? value : "active";
+}
+
+function mapResourceAssignmentStatus(value: string | null | undefined): DosResourceAssignmentStatus {
+  return value && isDosResourceAssignmentStatus(value) ? value : "not_started";
+}
+
+function mapResourceAssignmentFollowUpCadence(value: string | null | undefined): DosResourceAssignmentFollowUpCadence {
+  return value && isDosResourceAssignmentFollowUpCadence(value) ? value : "midpoint_and_completion";
 }
 
 function mapOutcomeTags(value: string[] | null | undefined): DosAppOutcomeTag[] {
@@ -3446,6 +3497,19 @@ async function loadAccountabilityCheckInsForWorkspace(supabase: SupabaseAdminCli
   };
 }
 
+async function loadResourceAssignmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_resource_assignments")
+    .select("id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("due_date", { ascending: true })
+    .order("updated_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_resource_assignments")
+    ? { data: [] as ResourceAssignmentRow[], error: null }
+    : result;
+}
+
 async function loadExternalCalendarEventsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const start = new Date();
   start.setDate(start.getDate() - 370);
@@ -3807,7 +3871,7 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -3827,6 +3891,7 @@ export async function loadDosAppData(
     loadCommitmentsForWorkspace(supabase, workspace.id),
     loadAccountabilitySchedulesForWorkspace(supabase, workspace.id),
     loadAccountabilityCheckInsForWorkspace(supabase, workspace.id),
+    loadResourceAssignmentsForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
@@ -3836,7 +3901,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || resourceAssignmentsResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -3857,6 +3922,7 @@ export async function loadDosAppData(
         ?? commitmentsResult.error?.message
         ?? accountabilitySchedulesResult.error?.message
         ?? accountabilityCheckInsResult.error?.message
+        ?? resourceAssignmentsResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
         ?? myRecordResult.error?.message
@@ -3909,6 +3975,7 @@ export async function loadDosAppData(
   const accountabilityScheduleRows = featureFlags.commitmentsAccountability ? (accountabilitySchedulesResult.data ?? []) as AccountabilityScheduleRow[] : [];
   const accountabilityCheckInRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.checkIns : [];
   const accountabilityCheckInCommitmentRows = featureFlags.commitmentsAccountability ? accountabilityCheckInsResult.data.links : [];
+  const resourceAssignmentRows = featureFlags.commitmentsAccountability ? (resourceAssignmentsResult.data ?? []) as ResourceAssignmentRow[] : [];
   const externalCalendarEventRows = (externalCalendarEventsResult.data ?? []) as ExternalCalendarEventRow[];
   const rawPeopleById = new Map(((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => [person.id, person]));
   const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
@@ -4054,6 +4121,16 @@ export async function loadDosAppData(
 
     if (latestDate) {
       latestActivityByPersonId.set(checkIn.person_id, latestDate);
+    }
+  });
+
+  resourceAssignmentRows.forEach((assignment) => {
+    const activityDate = latestActivityDate(assignment.updated_at, assignment.completed_at, assignment.paused_at, assignment.due_date, assignment.start_date, assignment.created_at);
+    const currentDate = latestActivityByPersonId.get(assignment.person_id);
+    const latestDate = latestActivityDate(activityDate, currentDate);
+
+    if (latestDate) {
+      latestActivityByPersonId.set(assignment.person_id, latestDate);
     }
   });
 
@@ -4604,6 +4681,33 @@ export async function loadDosAppData(
     progressUpdateId: link.progress_update_id,
     workspaceId: link.workspace_id,
   }));
+  const resourceAssignments: DosAppResourceAssignment[] = resourceAssignmentRows.map((assignment) => ({
+    assignedByUserId: assignment.assigned_by_user_id,
+    completedAt: assignment.completed_at,
+    createdAt: assignment.created_at,
+    dueDate: assignment.due_date,
+    followUpCadence: mapResourceAssignmentFollowUpCadence(assignment.follow_up_cadence),
+    id: assignment.id,
+    linkedCommitmentId: assignment.linked_commitment_id,
+    pausedAt: assignment.paused_at,
+    personId: assignment.person_id,
+    personalMessage: cleanOptionalText(assignment.personal_message),
+    resourceSlug: assignment.resource_slug,
+    startDate: assignment.start_date,
+    status: mapResourceAssignmentStatus(assignment.status),
+    updatedAt: assignment.updated_at,
+    workspaceId: assignment.workspace_id,
+  })).sort((first, second) => {
+    if (first.status !== "completed" && second.status === "completed") {
+      return -1;
+    }
+
+    if (first.status === "completed" && second.status !== "completed") {
+      return 1;
+    }
+
+    return activityDateValue(first.dueDate ?? first.updatedAt ?? first.startDate) - activityDateValue(second.dueDate ?? second.updatedAt ?? second.startDate);
+  });
   const calendarNeedsReconnect = Boolean(calendarConnectionRow && isGoogleCalendarReconnectState(calendarWorkspaceSyncStateRow?.last_error));
   const calendarConnectionStatus: GoogleCalendarConnectionHealthStatus = calendarConnectionRow
     ? calendarNeedsReconnect
@@ -4674,6 +4778,7 @@ export async function loadDosAppData(
       prayerRequests,
       myRecord,
       reminders,
+      resourceAssignments,
       tableInvitations,
       usamApplication,
       stats: {
