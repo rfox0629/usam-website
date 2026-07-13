@@ -1,5 +1,11 @@
 create extension if not exists pgcrypto;
 
+create schema if not exists private_dos;
+
+revoke all on schema private_dos from public;
+grant usage on schema private_dos to authenticated;
+grant usage on schema private_dos to service_role;
+
 create table if not exists public.dos_identity_links (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -16,7 +22,7 @@ create table if not exists public.dos_identity_links (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint dos_identity_links_status_check check (
-    verification_status in ('candidate', 'ambiguous', 'verified', 'rejected')
+    verification_status in ('candidate', 'ambiguous', 'verified', 'rejected', 'revoked', 'inactive')
   ),
   constraint dos_identity_links_method_not_empty check (length(btrim(verification_method)) > 0),
   constraint dos_identity_links_verified_at_check check (
@@ -78,7 +84,11 @@ create policy "DOS admins can manage identity links"
   using (public.is_dos_admin(array['admin', 'editor']))
   with check (public.is_dos_admin(array['admin', 'editor']));
 
-create or replace function public.current_dos_identity_person_ids(
+drop function if exists public.current_dos_identity_person_ids(uuid);
+drop function if exists public.can_view_dos_group(uuid, text[]);
+drop function if exists public.can_manage_dos_group(uuid, text[]);
+
+create or replace function private_dos.current_dos_identity_person_ids(
   target_workspace_id uuid default null
 )
 returns setof uuid
@@ -97,10 +107,10 @@ as $$
     );
 $$;
 
-grant execute on function public.current_dos_identity_person_ids(uuid) to authenticated;
-grant execute on function public.current_dos_identity_person_ids(uuid) to service_role;
+grant execute on function private_dos.current_dos_identity_person_ids(uuid) to authenticated;
+grant execute on function private_dos.current_dos_identity_person_ids(uuid) to service_role;
 
-create or replace function public.can_view_dos_group(
+create or replace function private_dos.can_view_dos_group(
   target_group_id uuid,
   allowed_roles text[] default array['leader', 'co_leader', 'helper', 'member', 'guest']
 )
@@ -128,10 +138,10 @@ as $$
     );
 $$;
 
-grant execute on function public.can_view_dos_group(uuid, text[]) to authenticated;
-grant execute on function public.can_view_dos_group(uuid, text[]) to service_role;
+grant execute on function private_dos.can_view_dos_group(uuid, text[]) to authenticated;
+grant execute on function private_dos.can_view_dos_group(uuid, text[]) to service_role;
 
-create or replace function public.can_manage_dos_group(
+create or replace function private_dos.can_manage_dos_group(
   target_group_id uuid,
   allowed_roles text[] default array['leader', 'co_leader', 'helper']
 )
@@ -159,53 +169,53 @@ as $$
     );
 $$;
 
-grant execute on function public.can_manage_dos_group(uuid, text[]) to authenticated;
-grant execute on function public.can_manage_dos_group(uuid, text[]) to service_role;
+grant execute on function private_dos.can_manage_dos_group(uuid, text[]) to authenticated;
+grant execute on function private_dos.can_manage_dos_group(uuid, text[]) to service_role;
 
 drop policy if exists "DOS linked group members can read groups" on public.dos_groups;
 create policy "DOS linked group members can read groups"
   on public.dos_groups
   for select
   to authenticated
-  using (public.can_view_dos_group(id));
+  using (private_dos.can_view_dos_group(id));
 
 drop policy if exists "DOS linked group leaders can manage groups" on public.dos_groups;
 create policy "DOS linked group leaders can manage groups"
   on public.dos_groups
   for update
   to authenticated
-  using (public.can_manage_dos_group(id, array['leader', 'co_leader']))
-  with check (public.can_manage_dos_group(id, array['leader', 'co_leader']));
+  using (private_dos.can_manage_dos_group(id, array['leader', 'co_leader']))
+  with check (private_dos.can_manage_dos_group(id, array['leader', 'co_leader']));
 
 drop policy if exists "DOS linked group members can read membership" on public.dos_group_members;
 create policy "DOS linked group members can read membership"
   on public.dos_group_members
   for select
   to authenticated
-  using (public.can_view_dos_group(group_id));
+  using (private_dos.can_view_dos_group(group_id));
 
 drop policy if exists "DOS linked group leaders can manage membership" on public.dos_group_members;
 create policy "DOS linked group leaders can manage membership"
   on public.dos_group_members
   for all
   to authenticated
-  using (public.can_manage_dos_group(group_id, array['leader', 'co_leader']))
-  with check (public.can_manage_dos_group(group_id, array['leader', 'co_leader']));
+  using (private_dos.can_manage_dos_group(group_id, array['leader', 'co_leader']))
+  with check (private_dos.can_manage_dos_group(group_id, array['leader', 'co_leader']));
 
 drop policy if exists "DOS linked group members can read gatherings" on public.dos_group_gatherings;
 create policy "DOS linked group members can read gatherings"
   on public.dos_group_gatherings
   for select
   to authenticated
-  using (public.can_view_dos_group(group_id));
+  using (private_dos.can_view_dos_group(group_id));
 
 drop policy if exists "DOS linked group leaders can manage gatherings" on public.dos_group_gatherings;
 create policy "DOS linked group leaders can manage gatherings"
   on public.dos_group_gatherings
   for all
   to authenticated
-  using (public.can_manage_dos_group(group_id))
-  with check (public.can_manage_dos_group(group_id));
+  using (private_dos.can_manage_dos_group(group_id))
+  with check (private_dos.can_manage_dos_group(group_id));
 
 drop policy if exists "DOS linked group members can read attendance" on public.dos_group_attendance;
 create policy "DOS linked group members can read attendance"
@@ -217,7 +227,7 @@ create policy "DOS linked group members can read attendance"
       select 1
       from public.dos_group_gatherings gatherings
       where gatherings.id = dos_group_attendance.gathering_id
-        and public.can_view_dos_group(gatherings.group_id)
+        and private_dos.can_view_dos_group(gatherings.group_id)
     )
   );
 
@@ -231,7 +241,7 @@ create policy "DOS linked group leaders can manage attendance"
       select 1
       from public.dos_group_gatherings gatherings
       where gatherings.id = dos_group_attendance.gathering_id
-        and public.can_manage_dos_group(gatherings.group_id)
+        and private_dos.can_manage_dos_group(gatherings.group_id)
     )
   )
   with check (
@@ -239,7 +249,7 @@ create policy "DOS linked group leaders can manage attendance"
       select 1
       from public.dos_group_gatherings gatherings
       where gatherings.id = dos_group_attendance.gathering_id
-        and public.can_manage_dos_group(gatherings.group_id)
+        and private_dos.can_manage_dos_group(gatherings.group_id)
     )
   );
 
@@ -248,15 +258,15 @@ create policy "DOS linked group members can read resources"
   on public.dos_group_resources
   for select
   to authenticated
-  using (public.can_view_dos_group(group_id));
+  using (private_dos.can_view_dos_group(group_id));
 
 drop policy if exists "DOS linked group leaders can manage resources" on public.dos_group_resources;
 create policy "DOS linked group leaders can manage resources"
   on public.dos_group_resources
   for all
   to authenticated
-  using (public.can_manage_dos_group(group_id))
-  with check (public.can_manage_dos_group(group_id));
+  using (private_dos.can_manage_dos_group(group_id))
+  with check (private_dos.can_manage_dos_group(group_id));
 
 comment on table public.dos_identity_links is
   'Canonical DOS identity bridge from authenticated auth.users to the verified Field person used for shared ministry objects. Candidate/ambiguous rows support safe manual verification before linking existing people.';
@@ -265,18 +275,18 @@ comment on column public.dos_identity_links.person_id is
   'Verified canonical DOS Field person for this authenticated user within a workspace. Shared objects such as Groups derive role permissions from this person.';
 
 comment on column public.dos_identity_links.verification_status is
-  'candidate and ambiguous never grant shared object permissions. Only verified links authorize shared leadership.';
+  'candidate, ambiguous, rejected, revoked, and inactive never grant shared object permissions. Only verified links authorize shared leadership.';
 
 comment on column public.dos_identity_links.match_reasons is
   'Evidence used for the link, such as profile_user_id, email_exact, phone_exact, created_viewer_person, or manual_admin.';
 
-comment on function public.current_dos_identity_person_ids(uuid) is
+comment on function private_dos.current_dos_identity_person_ids(uuid) is
   'Returns verified Field person ids for the authenticated DOS user, optionally scoped to one workspace.';
 
-comment on function public.can_view_dos_group(uuid, text[]) is
+comment on function private_dos.can_view_dos_group(uuid, text[]) is
   'Group-level read guard based on verified DOS identity links plus active group membership roles. Does not expose private records.';
 
-comment on function public.can_manage_dos_group(uuid, text[]) is
+comment on function private_dos.can_manage_dos_group(uuid, text[]) is
   'Group-level management guard based on verified DOS identity links plus active leader/co-leader/helper roles. Workspace membership alone does not grant shared group management.';
 
 do $$

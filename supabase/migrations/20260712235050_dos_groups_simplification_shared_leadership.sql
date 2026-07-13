@@ -117,28 +117,6 @@ create policy "DOS users can read active group templates"
     and public.is_dos_admin(array['admin', 'editor', 'viewer'])
   );
 
-create or replace function public.can_manage_dos_group(
-  target_group_id uuid,
-  allowed_roles text[] default array['leader', 'co_leader', 'helper']
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select public.is_dos_admin(array['admin', 'editor'])
-    or exists (
-      select 1
-      from public.dos_groups
-      where dos_groups.id = target_group_id
-        and public.can_access_dos_workspace(dos_groups.workspace_id, array['admin', 'editor'])
-    );
-$$;
-
-grant execute on function public.can_manage_dos_group(uuid, text[]) to authenticated;
-grant execute on function public.can_manage_dos_group(uuid, text[]) to service_role;
-
 do $$
 declare
   initial_beta_workspace_id uuid;
@@ -303,9 +281,6 @@ comment on column public.dos_group_members.permissions is
 
 comment on column public.dos_group_gatherings.ministry_event_id is
   'Optional explicit link to a ministry event/Table log. Group gatherings do not affect Field, Fruit, Table, or Circle metrics until explicitly logged.';
-
-comment on function public.can_manage_dos_group(uuid, text[]) is
-  'Workspace-level guard for group management. Role-specific leader access is enforced in the DOS API/UI until group members are linked to authenticated identities.';
 
 do $$
 begin

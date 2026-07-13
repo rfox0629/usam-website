@@ -166,6 +166,42 @@ function scrubSharedGroupPerson(person: DosAppPerson): DosAppPerson {
   };
 }
 
+function emptySharedGroupMyRecord(workspaceId: string): DosAppData["myRecord"] {
+  return {
+    assessmentResults: [],
+    createdAt: null,
+    currentSeasonFocus: null,
+    displayName: null,
+    externalAssessmentResults: [],
+    id: null,
+    journalEntries: [],
+    learningBooks: [],
+    lifePlan: null,
+    mentorMeetings: [],
+    mentorRelationships: [],
+    prayerLogs: [],
+    propheticWords: [],
+    updatedAt: null,
+    userId: null,
+    workspaceId,
+  };
+}
+
+function emptySharedGroupUsamApplication(application: DosAppData["usamApplication"]): DosAppData["usamApplication"] {
+  return {
+    applicationId: null,
+    appliedAt: null,
+    assignedAdminEmail: null,
+    organizationId: null,
+    organizationName: application.organizationName,
+    profileStatus: "draft",
+    publicProfileHref: "",
+    publicProfileLive: false,
+    reviewedAt: null,
+    status: "not_connected",
+  };
+}
+
 function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: string[]): DosAppData {
   const groupIdSet = new Set(sharedGroupIds);
   const groups = data.groups
@@ -202,7 +238,6 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     .filter((request) => request.groupId && groupIdSet.has(request.groupId) && isSharedGroupPrayerRequest(request));
 
   return {
-    ...data,
     accountabilityCheckInCommitments: [],
     accountabilityCheckIns: [],
     accountabilitySchedules: [],
@@ -220,18 +255,21 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     circles: null,
     commitments: [],
     externalCalendarEvents: [],
+    featureFlags: data.featureFlags,
     fruit: [],
     fruitEvents: [],
     groups,
     householdMembers: [],
     leaderReflections: [],
     meetings: [],
+    organizations: [],
     participantReviews: [],
     participantTestimonies: [],
     people,
     prayerLogs: [],
     prayerPartners: [],
     prayerRequests,
+    myRecord: emptySharedGroupMyRecord(data.workspace.id),
     reminders: [],
     stats: {
       approvedFruit: 0,
@@ -242,6 +280,8 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
       relationshipStewardship: relationshipModelCounts([]),
     },
     tableInvitations: [],
+    usamApplication: emptySharedGroupUsamApplication(data.usamApplication),
+    workspace: data.workspace,
   };
 }
 

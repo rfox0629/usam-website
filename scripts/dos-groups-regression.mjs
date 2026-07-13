@@ -145,8 +145,8 @@ assertIncludes(
 );
 assertIncludes(
   identityMigration,
-  "verification_status in ('candidate', 'ambiguous', 'verified', 'rejected')",
-  "Identity links must preserve ambiguous candidates instead of merging unsafely.",
+  "verification_status in ('candidate', 'ambiguous', 'verified', 'rejected', 'revoked', 'inactive')",
+  "Identity links must preserve inactive/revoked/ambiguous candidates instead of merging unsafely.",
 );
 assertIncludes(
   identityMigration,
@@ -170,18 +170,26 @@ assertIncludes(
 );
 assertIncludes(
   identityMigration,
-  "public.current_dos_identity_person_ids",
+  "private_dos.current_dos_identity_person_ids",
   "Database authorization must expose a verified identity-person resolver.",
 );
 assertIncludes(
   identityMigration,
-  "public.can_view_dos_group",
+  "private_dos.can_view_dos_group",
   "Database authorization must include group view checks based on verified identity.",
 );
 assertIncludes(
   identityMigration,
-  "public.can_manage_dos_group",
+  "private_dos.can_manage_dos_group",
   "Database authorization must include group management checks based on verified identity.",
+);
+assert(
+  !/create or replace function public\.(current_dos_identity_person_ids|can_view_dos_group|can_manage_dos_group)[\s\S]*?security definer/i.test(identityMigration),
+  "Security definer group/identity helper functions must not live in the exposed public schema.",
+);
+assert(
+  !groupsV2Migration.includes("create or replace function public.can_manage_dos_group"),
+  "Groups V2 migration must not create a broad public workspace-level can_manage_dos_group helper.",
 );
 assertIncludes(
   identityMigration,
@@ -287,10 +295,29 @@ assertIncludes(
   "filterDosAppDataForSharedGroups",
   "Shared group route access must filter the DOS payload before rendering.",
 );
+assert(
+  !dosWorkspaceRoute.includes("return {\n    ...data,"),
+  "Shared group route access must explicitly rebuild DosAppData instead of spreading the private workspace payload.",
+);
 assertIncludes(
   dosWorkspaceRoute,
   "notes: null",
   "Shared group route access must strip private person notes from the filtered payload.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "myRecord: emptySharedGroupMyRecord(data.workspace.id)",
+  "Shared group route access must not expose My Record data.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "organizations: []",
+  "Shared group route access must not expose workspace organization records.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "usamApplication: emptySharedGroupUsamApplication(data.usamApplication)",
+  "Shared group route access must not expose private USAM application metadata.",
 );
 assertIncludes(
   dosWorkspaceRoute,

@@ -36,7 +36,7 @@ The implemented chain is:
 
 `auth.users` -> `profiles` -> `dos_identity_links` -> `missionary_field_people` -> workspace/group/organization roles -> permissions.
 
-`dos_identity_links` is the canonical bridge. A verified link means this authenticated user is this Field person in this workspace. Candidate and ambiguous rows preserve possible matches without granting permissions.
+`dos_identity_links` is the canonical bridge. A verified link means this authenticated user is this Field person in this workspace. Candidate, ambiguous, rejected, revoked, and inactive rows preserve history or possible matches without granting permissions.
 
 ## Shared Ownership Model
 
@@ -78,11 +78,13 @@ When a user signs in, DOS resolves or creates their Field person and then verifi
 
 Server APIs now use `loadDosGroupRoleAccess()` for group member, settings, join-request, and pending-count operations. Database functions provide the same boundary:
 
-- `current_dos_identity_person_ids(workspace_id)`
-- `can_view_dos_group(group_id, roles)`
-- `can_manage_dos_group(group_id, roles)`
+- `private_dos.current_dos_identity_person_ids(workspace_id)`
+- `private_dos.can_view_dos_group(group_id, roles)`
+- `private_dos.can_manage_dos_group(group_id, roles)`
 
-The database RLS additions allow verified group members/leaders to read or manage shared group objects according to role. Workspace membership alone no longer grants shared group management.
+The database RLS additions allow verified group members/leaders to read or manage shared group objects according to role. Workspace membership alone no longer grants shared group management. The privileged helper functions live in the non-exposed `private_dos` schema with explicit `search_path = ''`, not in the exposed `public` API schema.
+
+When a verified group member can open a shared group without full workspace membership, the `/dos/[workspace]` route rebuilds a filtered DOS payload instead of spreading the full workspace payload. That filtered view includes only the accessible group rows, group-scoped people, and shareable group prayer requests. It clears My Record, Field-wide meetings, prayer partners, private prayer logs, private notes/reviews/testimonies, commitments, household members, organizations, USAM application metadata, table invitations, Fruit, and other private workspace surfaces.
 
 ## Metrics Model
 
@@ -94,3 +96,4 @@ Group gatherings remain one shared record. Attendance remains one row per partic
 - Helper role permissions are represented in the database and API guard but detailed per-action helper UX can be refined later.
 - Organizations and future shared features can reuse the same identity link, but their feature-specific policies still need to be added as those surfaces are built.
 - The live app still uses `missionary_field_people` as the operational canonical person. A future consolidation with the older `people` table should be a separate migration plan, not an implicit merge.
+- Live Ryan/Brandon beta validation has not been executed. See `docs/dos-groups-v2-shared-leadership-beta-validation.md`.
