@@ -7,6 +7,7 @@ import { AgentCapabilitiesPanel } from "../../_components/AgentCapabilitiesPanel
 import { ComplianceDocumentsPanel } from "../../_components/ComplianceDocumentsPanel";
 import { FilingConfirmationForm } from "../../_components/FilingConfirmationForm";
 import { FilingFieldsGrid } from "../../_components/FilingFieldsGrid";
+import { FilingProgressDashboard, type WorkflowStep } from "../../_components/FilingProgressDashboard";
 import { FilingWorkspacePanel } from "../../_components/FilingWorkspacePanel";
 import { ReminderSchedule } from "../../_components/ReminderSchedule";
 import { WorkflowStageTracker } from "../../_components/WorkflowStageTracker";
@@ -49,6 +50,27 @@ export default async function ArizonaAnnualReportPage({
   const documents = filing.id ? await listComplianceFilingDocuments(filing.id) : [];
   const writeEnabled = isComplianceFilingsWriteEnabled();
 
+  const workflowSteps: WorkflowStep[] = [
+    {
+      cta: filing.isPersisted ? null : { href: "#filing-details", label: "Start Tracking" },
+      detail: filing.isPersisted ? `Assigned to ${filing.assignedPerson ?? "no one yet"}` : "Not started",
+      status: filing.isPersisted ? "done" : "not_started",
+      title: "Start tracking this filing",
+    },
+    {
+      cta: { href: "#documents", label: "Upload Documents" },
+      detail: `${documents.length} document(s) on file`,
+      status: documents.length > 0 ? "done" : "not_started",
+      title: "Upload required documents",
+    },
+    {
+      cta: canRecordConfirmation ? { href: "#confirmation", label: "Record Confirmation" } : null,
+      detail: filing.status === "filed" ? `Filed ${filing.lastFiledDate ?? ""}, confirmation ${filing.confirmationNumber}` : "Not filed yet",
+      status: !canRecordConfirmation && filing.status !== "filed" ? "blocked" : filing.status === "filed" ? "done" : "not_started",
+      title: "File with the AZ Corporation Commission and record confirmation",
+    },
+  ];
+
   return (
     <NccShell active="finance" navScope={navScope} organization={getCurrentOrganization()} title={filing.filingName}>
       <div className="space-y-6">
@@ -70,23 +92,31 @@ export default async function ArizonaAnnualReportPage({
           </div>
         </div>
 
+        <FilingProgressDashboard periodLabel={`Filing year ${yearNumber}`} steps={workflowSteps} />
+
         <FilingFieldsGrid filing={filing} />
         <ReminderSchedule dueDateIso={filing.extendedDueDate ?? filing.originalDueDate} />
         <WorkflowStageTracker currentStage={filing.workflowStage} />
-        <FilingWorkspacePanel filing={filing} is990={false} writeEnabled={writeEnabled && canEditFilingFields} />
-        <ComplianceDocumentsPanel
-          documents={documents}
-          filingKey={filing.filingKey}
-          isPersisted={filing.isPersisted}
-          periodKey={filing.periodKey}
-          writeEnabled={writeEnabled && canUploadDocs}
-        />
-        <FilingConfirmationForm
-          alreadyFiled={filing.status === "filed"}
-          filingKey={filing.filingKey}
-          periodKey={filing.periodKey}
-          writeEnabled={writeEnabled && filing.isPersisted && canRecordConfirmation}
-        />
+        <div id="filing-details">
+          <FilingWorkspacePanel filing={filing} is990={false} writeEnabled={writeEnabled && canEditFilingFields} />
+        </div>
+        <div id="documents">
+          <ComplianceDocumentsPanel
+            documents={documents}
+            filingKey={filing.filingKey}
+            isPersisted={filing.isPersisted}
+            periodKey={filing.periodKey}
+            writeEnabled={writeEnabled && canUploadDocs}
+          />
+        </div>
+        <div id="confirmation">
+          <FilingConfirmationForm
+            alreadyFiled={filing.status === "filed"}
+            filingKey={filing.filingKey}
+            periodKey={filing.periodKey}
+            writeEnabled={writeEnabled && filing.isPersisted && canRecordConfirmation}
+          />
+        </div>
         <AgentCapabilitiesPanel />
       </div>
     </NccShell>

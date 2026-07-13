@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { adminFont, AdminBadge } from "../../../../admin/_components/AdminUI";
@@ -14,6 +15,7 @@ export function WorkpapersPanel({
   availableTypes,
   canApprove,
   filingId,
+  nextStep,
   periodEnd,
   periodStart,
   restrictToApproved,
@@ -25,6 +27,7 @@ export function WorkpapersPanel({
   availableTypes: readonly WorkpaperType[];
   canApprove?: boolean;
   filingId: string | null;
+  nextStep?: { href: string; label: string };
   periodEnd: string;
   periodStart: string;
   restrictToApproved?: boolean;
@@ -194,6 +197,17 @@ export function WorkpapersPanel({
           })}
         </div>
       )}
+
+      {nextStep && relevantWorkpapers.length > 0 && relevantWorkpapers.every((workpaper) => workpaper.reviewStatus === "approved") ? (
+        <div className="mt-4 border border-[#C9A24A]/35 bg-[#C9A24A]/[0.06] p-3">
+          <p className="text-sm text-stone-200">
+            All {title.toLowerCase()} are approved.{" "}
+            <Link className="font-semibold text-[#E4C465] hover:underline" href={nextStep.href}>
+              {nextStep.label} →
+            </Link>
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -9,6 +9,7 @@ import { AgentCapabilitiesPanel } from "../../compliance/_components/AgentCapabi
 import { ComplianceDocumentsPanel } from "../../compliance/_components/ComplianceDocumentsPanel";
 import { FilingConfirmationForm } from "../../compliance/_components/FilingConfirmationForm";
 import { FilingFieldsGrid } from "../../compliance/_components/FilingFieldsGrid";
+import { FilingProgressDashboard, type WorkflowStep } from "../../compliance/_components/FilingProgressDashboard";
 import { FilingWorkspacePanel } from "../../compliance/_components/FilingWorkspacePanel";
 import { ReminderSchedule } from "../../compliance/_components/ReminderSchedule";
 import { WorkflowStageTracker } from "../../compliance/_components/WorkflowStageTracker";
@@ -25,6 +26,7 @@ import { financeReadScope, hasFinanceCapability } from "@/src/lib/finance-ops/ro
 import {
   getWorksheet,
   isFinanceOperationsWriteEnabled,
+  listAccountantPackages,
   listFinancialAccounts,
   listTransactions,
   listWorkpapers,
@@ -108,9 +110,64 @@ export default async function Form990Page({
   const programAccomplishmentsData = filing.id ? (await getWorksheet(filing.id, "program_accomplishments")) ?? {} : {};
   const officerCompensationData = filing.id ? (await getWorksheet(filing.id, "officer_compensation")) ?? {} : {};
   const arizonaFiling = await getComplianceFiling("arizona-annual-report", "2026");
+  const packages = filing.id ? await listAccountantPackages(filing.id) : [];
 
   const approvedCount = transactions.filter((transaction) => transaction.reviewStatus === "approved").length;
   const needsReviewCount = transactions.filter((transaction) => transaction.reviewStatus === "needs_review" || transaction.reviewStatus === "imported").length;
+  const approvedWorkpaperCount = workpapers.filter((workpaper) => workpaper.reviewStatus === "approved").length;
+  const hasReadyPackage = packages.some((pkg) => pkg.status === "ready");
+  const hasAnyPackage = packages.length > 0;
+
+  const workflowSteps: WorkflowStep[] = [
+    {
+      cta: { href: `/ncc/finance/990/${taxYear}?tab=documents`, label: "Upload Documents" },
+      detail: `${documents.length} document(s) on file`,
+      status: documents.length > 0 ? "done" : "not_started",
+      title: "Upload source documents",
+    },
+    {
+      cta: { href: `/ncc/finance/990/${taxYear}?tab=transactions`, label: "Import Transactions" },
+      detail: `${transactions.length} transaction(s) imported`,
+      status: isRestrictedReader ? "blocked" : transactions.length > 0 ? "done" : "not_started",
+      title: "Import bank transactions",
+    },
+    {
+      cta: { href: `/ncc/finance/990/${taxYear}?tab=transactions`, label: "Review Transactions" },
+      detail: transactions.length === 0 ? "Import transactions first" : `${approvedCount} approved, ${needsReviewCount} still need review`,
+      status: isRestrictedReader
+        ? "blocked"
+        : transactions.length === 0
+          ? "not_started"
+          : needsReviewCount === 0
+            ? "done"
+            : "in_progress",
+      title: "Categorize and approve transactions",
+    },
+    {
+      cta: { href: `/ncc/finance/990/${taxYear}?tab=statements`, label: "Generate Workpapers" },
+      detail: `${workpapers.length} draft workpaper(s) generated`,
+      status: workpapers.length > 0 ? "done" : "not_started",
+      title: "Generate draft workpapers",
+    },
+    {
+      cta: { href: `/ncc/finance/990/${taxYear}?tab=statements`, label: "Approve Workpapers" },
+      detail: workpapers.length === 0 ? "Generate workpapers first" : `${approvedWorkpaperCount} of ${workpapers.length} approved`,
+      status: workpapers.length === 0 ? "not_started" : approvedWorkpaperCount === workpapers.length ? "done" : "in_progress",
+      title: "Accountant reviews and approves workpapers",
+    },
+    {
+      cta: canViewPayroll ? { href: `/ncc/finance/990/${taxYear}?tab=package`, label: "Generate Package" } : null,
+      detail: canViewPayroll ? (hasAnyPackage ? `${packages.length} package(s) generated` : "Not generated yet") : "Requires Finance Owner or Accountant",
+      status: !canViewPayroll ? "blocked" : hasReadyPackage ? "done" : hasAnyPackage ? "in_progress" : "not_started",
+      title: "Generate accountant package",
+    },
+    {
+      cta: canRecordConfirmation ? { href: `/ncc/finance/990/${taxYear}?tab=confirmation`, label: "Record Confirmation" } : null,
+      detail: filing.status === "filed" ? `Filed ${filing.lastFiledDate ?? ""}, confirmation ${filing.confirmationNumber}` : "Not filed yet",
+      status: !canRecordConfirmation && filing.status !== "filed" ? "blocked" : filing.status === "filed" ? "done" : "not_started",
+      title: "Accountant or officer files, confirmation recorded",
+    },
+  ];
 
   return (
     <NccShell active="finance" navScope={navScope} organization={getCurrentOrganization()} title={filing.filingName}>
@@ -144,6 +201,8 @@ export default async function Form990Page({
             human explicitly recording a real confirmation number on the Filing Confirmation tab.
           </p>
         </div>
+
+        <FilingProgressDashboard periodLabel={`Tax year ${taxYear}`} steps={workflowSteps} />
 
         <NccTabBar basePath={`/ncc/finance/990/${taxYear}`} currentTab={currentTab} tabs={tabs} />
 
@@ -187,6 +246,7 @@ export default async function Form990Page({
             availableTypes={["profit_and_loss", "balance_sheet", "revenue_summary", "contribution_summary", "expense_detail", "year_end_cash_reconciliation", "restricted_fund_worksheet", "uncategorized_transactions_report"]}
             canApprove={canApproveWorkpapers}
             filingId={filing.id}
+            nextStep={canViewPayroll ? { href: `/ncc/finance/990/${taxYear}?tab=package`, label: "Continue to Export Package" } : undefined}
             periodEnd={periodEnd}
             periodStart={periodStart}
             restrictToApproved={isRestrictedReader}
@@ -286,11 +346,13 @@ export default async function Form990Page({
           canViewPayroll ? (
             <AccountantPackagePanel
               arizonaFiling={arizonaFiling}
+              canMarkReady={hasFinanceCapability(financeAccess.role, "mark_package_ready")}
               documents={documents}
               filingId={filing.id}
               form990Filing={filing}
               governanceData={governanceData}
               officerCompensationData={officerCompensationData}
+              packages={packages}
               programAccomplishmentsData={programAccomplishmentsData}
               taxYear={taxYear}
               workpapers={workpapers}

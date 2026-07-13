@@ -2,30 +2,34 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { adminFont, AdminEmptyState } from "../../../../admin/_components/AdminUI";
-import { generateAccountantPackageAction } from "../actions";
+import { adminFont, AdminBadge, AdminEmptyState } from "../../../../admin/_components/AdminUI";
+import { generateAccountantPackageAction, markAccountantPackageReadyAction } from "../actions";
 import type { ComplianceFiling } from "@/src/lib/compliance/types";
 import type { ComplianceFilingDocument } from "@/src/lib/compliance/types";
-import type { DraftWorkpaper } from "@/src/lib/finance-ops/types";
+import type { AccountantPackageSummary, DraftWorkpaper } from "@/src/lib/finance-ops/types";
 
 export function AccountantPackagePanel({
   arizonaFiling,
+  canMarkReady,
   documents,
   filingId,
   form990Filing,
   governanceData,
   officerCompensationData,
+  packages,
   programAccomplishmentsData,
   taxYear,
   workpapers,
   writeEnabled,
 }: {
   arizonaFiling: ComplianceFiling | null;
+  canMarkReady: boolean;
   documents: readonly ComplianceFilingDocument[];
   filingId: string | null;
   form990Filing: ComplianceFiling;
   governanceData: Record<string, unknown>;
   officerCompensationData: Record<string, unknown>;
+  packages: readonly AccountantPackageSummary[];
   programAccomplishmentsData: Record<string, unknown>;
   taxYear: string;
   workpapers: readonly DraftWorkpaper[];
@@ -33,6 +37,7 @@ export function AccountantPackagePanel({
 }) {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [markingReadyId, setMarkingReadyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   function buildManifest() {
@@ -82,6 +87,20 @@ export function AccountantPackagePanel({
     }
   }
 
+  async function handleMarkReady(packageId: string) {
+    setError("");
+    setMarkingReadyId(packageId);
+
+    try {
+      await markAccountantPackageReadyAction(packageId, taxYear);
+      router.refresh();
+    } catch (thrown) {
+      setError(thrown instanceof Error ? thrown.message : "Could not mark package ready.");
+    } finally {
+      setMarkingReadyId(null);
+    }
+  }
+
   return (
     <section className="border border-stone-800/75 bg-[#080808]/85 p-5">
       <h2 className="text-sm font-bold uppercase tracking-[0.16em] text-stone-100" style={{ fontFamily: adminFont.rajdhani }}>
@@ -118,6 +137,32 @@ export function AccountantPackagePanel({
             description="Package generation is unavailable until the finance_operations migration is applied."
             title="Unavailable"
           />
+        </div>
+      ) : null}
+
+      {packages.length > 0 ? (
+        <div className="mt-5 divide-y divide-stone-900 border border-stone-800/75">
+          {packages.map((pkg) => (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3" key={pkg.id}>
+              <span className="text-sm text-stone-300">
+                Generated {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(pkg.generatedAt))}
+              </span>
+              <div className="flex items-center gap-2">
+                <AdminBadge tone={pkg.status === "ready" ? "green" : "amber"}>{pkg.status === "ready" ? "Ready" : "Draft"}</AdminBadge>
+                {pkg.status === "draft" && canMarkReady ? (
+                  <button
+                    className="inline-flex min-h-8 items-center justify-center border border-stone-700 px-3 text-[10px] uppercase tracking-[0.14em] text-stone-100 transition-colors hover:border-[#D4A63D] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={markingReadyId === pkg.id}
+                    onClick={() => handleMarkReady(pkg.id)}
+                    style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+                    type="button"
+                  >
+                    {markingReadyId === pkg.id ? "Marking..." : "Mark Ready"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
     </section>

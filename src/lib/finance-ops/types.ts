@@ -148,3 +148,9 @@ export type DraftWorkpaper = {
   sourcePeriodStart: string;
   workpaperType: WorkpaperType;
 };
+
+export type AccountantPackageSummary = {
+  generatedAt: string;
+  id: string;
+  status: "draft" | "ready";
+};

@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { dedupeKeyFor, parseTransactionCsv } from "./logic";
 import type {
+  AccountantPackageSummary,
   AiSuggestion,
   AiSuggestionType,
   DraftWorkpaper,
@@ -569,4 +570,27 @@ export async function markAccountantPackageReady(packageId: string): Promise<voi
   if (error) {
     throw new Error(`Could not mark package ready: ${error.message}`);
   }
+}
+
+export async function listAccountantPackages(filingId: string): Promise<AccountantPackageSummary[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("finance_accountant_packages")
+    .select("id, generated_at, status")
+    .eq("filing_id", filingId)
+    .order("generated_at", { ascending: false });
+
+  if (error || !data) {
+    if (error && !isMissingTable(error, "finance_accountant_packages")) {
+      console.error("Failed to list accountant packages:", error.message);
+    }
+
+    return [];
+  }
+
+  return (data as Array<{ generated_at: string; id: string; status: "draft" | "ready" }>).map((row) => ({
+    generatedAt: row.generated_at,
+    id: row.id,
+    status: row.status,
+  }));
 }

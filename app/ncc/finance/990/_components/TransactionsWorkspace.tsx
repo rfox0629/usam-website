@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -324,6 +325,17 @@ export function TransactionsWorkspace({
           </div>
         )}
       </section>
+
+      {transactions.length > 0 && transactions.every((transaction) => transaction.reviewStatus === "approved" || transaction.reviewStatus === "excluded") ? (
+        <section className="border border-[#C9A24A]/35 bg-[#C9A24A]/[0.06] p-4">
+          <p className="text-sm text-stone-200">
+            Every transaction for this period is approved or excluded.{" "}
+            <Link className="font-semibold text-[#E4C465] hover:underline" href={`/ncc/finance/990/${taxYear}?tab=statements`}>
+              Continue to Financial Statements →
+            </Link>
+          </p>
+        </section>
+      ) : null}
     </div>
   );
 }
