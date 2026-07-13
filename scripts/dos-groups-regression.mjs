@@ -24,6 +24,7 @@ const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const householdMemberPeople = read("src/lib/dos/household-member-people.ts");
 const groupSeeds = read("src/lib/dos/group-seeds.ts");
 const groupsConfig = read("src/lib/dos/groups.ts");
+const groupsV2RolloutDocs = read("docs/dos-groups-v2-rollout.md");
 const migration = read("supabase/migrations/20260707034007_dos_private_groups.sql");
 const groupsV2Migration = read("supabase/migrations/20260712235050_dos_groups_simplification_shared_leadership.sql");
 const realWorkspaceSeedMigration = read("supabase/migrations/20260707171021_seed_ryan_dos_groups.sql");
@@ -42,6 +43,10 @@ const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
 const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
 const publicSingleGroupRoute = `${publicGroupPage}\n${publicGroupPageTemplate}`;
 const validUuidFinalSegments = "[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const groupsV2BetaWorkspaceFixtures = [
+  { alias: "fox-family", initiallyEnabled: true, label: "Ryan", slug: "ryan-fox" },
+  { alias: "bond-family", initiallyEnabled: false, label: "Dirk", slug: "dirk-bond" },
+];
 
 for (const table of [
   "dos_groups",
@@ -232,6 +237,7 @@ assertIncludes(appClient, "function GroupsWorkspaceV2", "Groups V2 list workspac
 assertIncludes(appClient, "function GroupDetailWorkspaceV2", "Groups V2 detail workspace must render behind the feature flag.");
 assertIncludes(appClient, "isSimplifiedV2", "Groups V2 must be gated instead of replacing legacy immediately.");
 assertIncludes(appClient, "data.featureFlags.groupsSimplifiedV2 === true", "Groups V2 must be driven by the workspace feature flag.");
+assertIncludes(missionaryApp, "groupsSimplifiedV2: featureFlagRows.some((flag) => flag.flag_key === dosGroupsSimplifiedFeatureFlag && flag.enabled === true)", "Groups V2 must be derived from feature-flag rows, not user-specific workspace code.");
 assertIncludes(appClient, "groupV2DetailTabs", "Groups V2 must use its own simplified tab set.");
 for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
   assertIncludes(appClient, `label: "${tab}"`, `Groups V2 must include ${tab} tab.`);
@@ -354,6 +360,16 @@ assertIncludes(
 );
 
 assertIncludes(groupsConfig, 'dosGroupsSimplifiedFeatureFlag = "dos_groups_simplified_v2"', "Groups V2 feature flag key must be centralized.");
+assertIncludes(groupsV2RolloutDocs, "dos_groups_simplified_v2", "Groups V2 rollout doc must use the canonical feature flag.");
+assertIncludes(groupsV2RolloutDocs, "The implementation is shared for every DOS workspace", "Groups V2 rollout must document one shared implementation.");
+assertIncludes(groupsV2RolloutDocs, "dirk-bond", "Groups V2 rollout doc must document the Dirk beta enablement path.");
+assertIncludes(groupsV2RolloutDocs, "bond-family", "Groups V2 rollout doc must document Dirk's public workspace alias.");
+assertIncludes(groupsV2RolloutDocs, "Do not create separate Ryan and Dirk Groups components, APIs, or schemas.", "Groups V2 rollout must reject separate user-specific forks.");
+for (const fixture of groupsV2BetaWorkspaceFixtures) {
+  assertIncludes(groupsV2RolloutDocs, fixture.slug, `Groups V2 rollout doc must cover ${fixture.label}'s canonical workspace slug.`);
+  assertIncludes(groupsV2RolloutDocs, fixture.alias, `Groups V2 rollout doc must cover ${fixture.label}'s public workspace alias.`);
+}
+assertIncludes(groupsV2RolloutDocs, "Dirk workspace (`dirk-bond`, public alias `bond-family`): legacy Groups remains active.", "Dirk must remain legacy-only in the initial beta state.");
 assertIncludes(groupsConfig, '"mens_discipleship"', "Approved templates must include Men's Discipleship Group.");
 assertIncludes(groupsConfig, '"womens_discipleship"', "Approved templates must include Women's Discipleship Group.");
 for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
@@ -382,9 +398,15 @@ assertIncludes(groupsV2Migration, "revoke all on table public.dos_group_template
 assertIncludes(groupsV2Migration, "grant select on table public.dos_group_templates to authenticated", "Authenticated DOS users must be able to read templates.");
 assertIncludes(groupsV2Migration, "grant select, insert, update, delete on table public.dos_group_templates to service_role", "Service role must manage templates.");
 assertIncludes(groupsV2Migration, "role in ('leader', 'co_leader', 'helper', 'member', 'guest')", "Groups V2 migration must add helper to shared leadership roles.");
-assertIncludes(groupsV2Migration, "'dos_groups_simplified_v2'", "Groups V2 migration must seed the rollout flag.");
-assertIncludes(groupsV2Migration, "public_slug = 'fox-family'", "Groups V2 rollout must target Ryan's canonical Fox Family workspace.");
-assertIncludes(groupsV2Migration, "where workspace_id = ryan_workspace_id", "Groups V2 rollout must be workspace scoped.");
+assertIncludes(groupsV2Migration, "'dos_groups_simplified_v2'", "Groups V2 migration must seed the beta rollout flag.");
+assertIncludes(groupsV2Migration, '"rollout_stage":"initial_beta"', "Groups V2 migration metadata must describe the initial beta rollout.");
+assertIncludes(groupsV2Migration, '"next_step":"enable_dirk_via_dos_workspace_feature_flags"', "Groups V2 migration must document Dirk enablement as feature-flag configuration.");
+assertIncludes(groupsV2Migration, "public_slug = 'fox-family'", "Groups V2 initial beta seed must target Ryan's canonical Fox Family workspace.");
+assertIncludes(groupsV2Migration, "where workspace_id = initial_beta_workspace_id", "Groups V2 rollout must be workspace scoped.");
+assert(
+  !groupsV2Migration.includes("ryan_workspace_id"),
+  "Groups V2 migration should use beta rollout naming rather than Ryan-specific gate naming.",
+);
 assertIncludes(groupsV2Migration, "ministry_event_id uuid references public.ministry_events(id)", "Group gatherings must only connect to ministry metrics through an explicit ministry event link.");
 assertIncludes(groupsV2Migration, "do not affect Field, Fruit, Table, or Circle metrics until explicitly logged", "Migration comments must preserve metric boundaries.");
 assert(
@@ -395,6 +417,8 @@ assert(
 assertIncludes(groupCreateRoute, "dosGroupsSimplifiedFeatureFlag", "New Group API must enforce the V2 feature flag.");
 assertIncludes(groupCreateRoute, "Groups V2 is not enabled for this workspace.", "New Group API must 403 for flag-off workspaces.");
 assertIncludes(groupCreateRoute, "isDosGroupTemplateKey", "New Group API must reject unapproved templates.");
+assert(!groupCreateRoute.toLowerCase().includes("ryan"), "New Group API must not contain Ryan-specific logic.");
+assert(!groupCreateRoute.toLowerCase().includes("dirk"), "New Group API must not contain Dirk-specific logic.");
 assertIncludes(groupCreateRoute, "primary_leader_person_id", "New Group API must persist primary leader.");
 assertIncludes(groupCreateRoute, "role: \"co_leader\"", "New Group API must persist co-leaders.");
 assertIncludes(groupCreateRoute, "role: \"helper\"", "New Group API must persist helpers.");

@@ -141,9 +141,9 @@ grant execute on function public.can_manage_dos_group(uuid, text[]) to service_r
 
 do $$
 declare
-  ryan_workspace_id uuid;
+  initial_beta_workspace_id uuid;
   usam_organization_id uuid;
-  ryan_leader_person_id uuid;
+  initial_beta_primary_leader_person_id uuid;
 begin
   select id
   into usam_organization_id
@@ -195,8 +195,12 @@ begin
       active = true,
       updated_at = now();
 
+  -- Groups V2 rollout is controlled by dos_workspace_feature_flags, not by
+  -- workspace-specific UI branches. The initial allowlist enables Ryan for
+  -- migration and workflow validation only. To add Dirk after validation,
+  -- insert/update this same flag for the dirk-bond/bond-family workspace.
   select id
-  into ryan_workspace_id
+  into initial_beta_workspace_id
   from public.missionary_households
   where slug in ('ryan-fox', 'ryan-brooke-fox')
      or public_slug = 'fox-family'
@@ -208,11 +212,11 @@ begin
   end
   limit 1;
 
-  if ryan_workspace_id is not null then
+  if initial_beta_workspace_id is not null then
     select id
-    into ryan_leader_person_id
+    into initial_beta_primary_leader_person_id
     from public.missionary_field_people
-    where coalesce(workspace_id, household_id) = ryan_workspace_id
+    where coalesce(workspace_id, household_id) = initial_beta_workspace_id
       and coalesce(status, 'active') not in ('archived', 'deleted')
       and (
         lower(btrim(name)) = 'ryan fox'
@@ -236,10 +240,10 @@ begin
       metadata
     )
     values (
-      ryan_workspace_id,
+      initial_beta_workspace_id,
       'dos_groups_simplified_v2',
       true,
-      '{"initial_rollout":"ryan_workspace_only","legacy_preserved":true}'::jsonb
+      '{"rollout_stage":"initial_beta","enabled_for":"ryan_validation","legacy_preserved":true,"next_step":"enable_dirk_via_dos_workspace_feature_flags"}'::jsonb
     )
     on conflict (workspace_id, flag_key) do update
       set enabled = excluded.enabled,
@@ -265,12 +269,12 @@ begin
           when slug = '2three2' then 'running'
           else activity_type
         end,
-        primary_leader_person_id = coalesce(primary_leader_person_id, leader_person_id, ryan_leader_person_id),
+        primary_leader_person_id = coalesce(primary_leader_person_id, leader_person_id, initial_beta_primary_leader_person_id),
         shared_leadership_enabled = true,
         accepting_members = true,
         settings = settings || '{"privacy":"private_by_default","records":"shared_group_gatherings_private_person_notes"}'::jsonb,
         updated_at = now()
-    where workspace_id = ryan_workspace_id
+    where workspace_id = initial_beta_workspace_id
       and slug in ('2three2', 'tuesday-mens-group', 'wednesday-mens-group');
 
     update public.dos_group_members members
@@ -279,7 +283,7 @@ begin
         updated_at = now()
     from public.dos_groups groups
     where groups.id = members.group_id
-      and groups.workspace_id = ryan_workspace_id
+      and groups.workspace_id = initial_beta_workspace_id
       and groups.slug in ('2three2', 'tuesday-mens-group', 'wednesday-mens-group')
       and members.role = 'leader';
   end if;
