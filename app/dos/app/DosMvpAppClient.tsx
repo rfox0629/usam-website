@@ -5038,12 +5038,63 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
+  const isFeaturedReadingPlan = resource.type === "reading_plan" && resource.featured && !onClick;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const iconContent = resource.emoji ? (
     <span className="text-lg leading-none" aria-hidden="true">{resource.emoji}</span>
   ) : (
     <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
   );
+  const description = resource.type === "reading_plan"
+    ? resource.content?.subtitle ?? resource.description
+    : resource.description;
+
+  if (isFeaturedReadingPlan) {
+    return (
+      <article className="px-3.5 py-3.5">
+        <div className="flex items-start gap-3">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
+            <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
+                FEATURED
+              </span>
+              <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                READING PLAN
+              </span>
+            </div>
+            <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              <span>{`Type: ${typeLabel}`}</span>
+              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
+          <a
+            className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
+            href={resource.path}
+          >
+            Read Online
+          </a>
+          {resource.downloadPath ? (
+            <a
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+              download
+              href={resource.downloadPath}
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Download PDF
+            </a>
+          ) : null}
+        </div>
+      </article>
+    );
+  }
+
   const rowContent = (
     <>
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
@@ -5061,7 +5112,7 @@ function CatalogResourceRow({
             </span>
           ) : null}
         </span>
-        <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{resource.description}</span>
+        <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
       {!hasDownloadAction ? (
         <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
