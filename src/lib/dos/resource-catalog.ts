@@ -52,6 +52,7 @@ export type DosResource = {
   downloadPath?: string;
   emoji?: string;
   estimatedDuration?: string;
+  featured?: boolean;
   icon: DosResourceIcon;
   id: string;
   path: string;
@@ -666,8 +667,8 @@ const discipleshipResources = [
     },
     description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
     downloadPath: "/guides/new-testament-14-days.pdf",
-    emoji: "📖",
     estimatedDuration: "14 Days",
+    featured: true,
     icon: "bible",
     id: "discipleship-new-testament-14-days",
     path: "/guide/new-testament-14-days",
