@@ -667,8 +667,9 @@ function SaveStandardSection() {
 
         <PullQuote>Healthy ministries require healthy systems and healthy leaders.</PullQuote>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-3">
-          <BoardBriefingMedia alt="SAVE Standard website" id="save-standard-home" subject="SAVE Standard homepage" />
+        <BoardBriefingMedia alt="SAVE Standard website" className="mt-14" id="save-standard-home" subject="SAVE Standard homepage" />
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <BoardBriefingMedia alt="Dirk and Julia Bond" id="dirk-julia" subject="Dirk and Julia Bond" />
           <BoardBriefingMedia alt="Dirk and Julia Bond" id="dirk-julia-portrait" subject="Dirk and Julia Bond" />
         </div>
