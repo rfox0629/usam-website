@@ -96,7 +96,7 @@ function Section({
 
 function TagGrid({ items }: { items: string[] }) {
   return (
-    <div className="mt-8 grid grid-cols-1 gap-px bg-stone-800 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-8 grid grid-cols-1 gap-px bg-stone-800 sm:grid-cols-2">
       {items.map((item) => (
         <div className="bg-usam-black px-5 py-4 text-[14px] leading-6 text-stone-300" key={item}>
           {item}
