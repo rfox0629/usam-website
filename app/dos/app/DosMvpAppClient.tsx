@@ -5510,7 +5510,9 @@ function GuidedResourceDetailSheet({
   isSubmitting,
   onAssign,
   onClose,
+  onReviewNotes,
   onSaveProgress,
+  onStartNextResource,
   personId,
   resource,
 }: {
@@ -5520,6 +5522,7 @@ function GuidedResourceDetailSheet({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onClose: () => void;
+  onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
     assignmentId?: string | null;
@@ -5530,13 +5533,16 @@ function GuidedResourceDetailSheet({
     resourceSlug: string;
     sessionId: string;
   }) => Promise<void>;
+  onStartNextResource: () => void;
   personId?: string | null;
   resource: DosResource;
 }) {
+  const guidedResource = resource.content?.guidedResource ?? null;
   const sessions = guidedResourceSessions(resource);
   const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
   const progressBySession = guidedResourceProgressBySession(personProgress);
   const completion = guidedResourceCompletion({ personId, progress: guidedResourceProgress, resource });
+  const isJourneyComplete = completion.total > 0 && completion.completed === completion.total;
   const initialSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? sessions[0] ?? null;
   const [selectedSessionId, setSelectedSessionId] = useState(initialSession?.id ?? "");
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? initialSession;
@@ -5599,7 +5605,7 @@ function GuidedResourceDetailSheet({
                     </span>
                   ) : null}
                   <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    GUIDED RESOURCE
+                    GUIDED JOURNEY
                   </span>
                 </div>
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
@@ -5646,6 +5652,40 @@ function GuidedResourceDetailSheet({
             </div>
           </article>
 
+          {guidedResource?.whyChosen ? (
+            <section className="rounded-[24px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Why We Chose This Resource</p>
+              <p className="mt-2 text-sm leading-6 text-[#334155]">{guidedResource.whyChosen}</p>
+            </section>
+          ) : null}
+
+          {isJourneyComplete ? (
+            <section className="rounded-[24px] border border-[#BBF7D0] bg-[#F0FDF4] p-4">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#DCFCE7] text-[#15803D]">
+                  <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>Commissioning</p>
+                  <h4 className="mt-1 text-lg font-black leading-6 text-[#0F172A]">Continue in obedience and make disciples.</h4>
+                  <p className="mt-2 text-sm leading-6 text-[#475569]">
+                    This Journey is complete, but discipleship continues in daily obedience, faithful community, and helping others follow Jesus. Review what God highlighted, choose your next step, and keep multiplying what you have received.
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BBF7D0] bg-white px-4 text-xs font-black text-[#0F172A]" onClick={onReviewNotes} type="button">
+                      <StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Review My Notes
+                    </button>
+                    <button className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-[#15803D] px-4 text-xs font-black text-white" onClick={onStartNextResource} type="button">
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Start Next Resource
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           {!personId ? (
             <p className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-xs font-bold leading-5 text-[#C2410C]">
               Link your DOS user to a person record to save guided-resource progress in My Record.
@@ -5683,9 +5723,9 @@ function GuidedResourceDetailSheet({
               <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Selected Session</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Guided Journey Session</p>
                     <h4 className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{selectedSession.title}</h4>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{selectedSession.assignment}</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading Assignment: {selectedSession.assignment}</p>
                   </div>
                   {selectedProgress?.completedAt ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
@@ -5695,11 +5735,18 @@ function GuidedResourceDetailSheet({
                   ) : null}
                 </div>
                 <div className="grid gap-2 text-sm leading-6 text-[#475569]">
-                  <p><span className="font-black text-[#0F172A]">Big Idea:</span> {selectedSession.bigIdea}</p>
-                  <p><span className="font-black text-[#0F172A]">Key Scriptures:</span> {selectedSession.keyScriptures.join(", ")}</p>
+                  <p><span className="font-black text-[#0F172A]">Main Idea:</span> {selectedSession.bigIdea}</p>
+                  <p><span className="font-black text-[#0F172A]">Search the Scriptures:</span> {selectedSession.keyScriptures.join(", ")}</p>
                 </div>
+                {selectedSession.memoryVerse ? (
+                  <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Weekly Memory Verse</p>
+                    <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
+                    {selectedSession.memoryVerse.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{selectedSession.memoryVerse.note}</p> : null}
+                  </div>
+                ) : null}
                 <div className="grid gap-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discussion Questions</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
                   <ul className="grid gap-2">
                     {selectedSession.discussionQuestions.map((question) => (
                       <li className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
@@ -5707,13 +5754,14 @@ function GuidedResourceDetailSheet({
                   </ul>
                 </div>
                 <div className="grid gap-2 text-sm leading-6 text-[#475569]">
-                  <p><span className="font-black text-[#0F172A]">Personal Reflection:</span> {selectedSession.personalReflection}</p>
-                  <p><span className="font-black text-[#0F172A]">Action Step:</span> {selectedSession.actionStep}</p>
-                  <p><span className="font-black text-[#0F172A]">Prayer Focus:</span> {selectedSession.prayerFocus}</p>
+                  <p><span className="font-black text-[#0F172A]">Reflect Personally:</span> {selectedSession.personalReflection}</p>
+                  <p><span className="font-black text-[#0F172A]">Walk It Out:</span> {selectedSession.actionStep}</p>
+                  <p><span className="font-black text-[#0F172A]">Pray:</span> {selectedSession.prayerFocus}</p>
+                  {selectedSession.multiply ? <p><span className="font-black text-[#0F172A]">Multiply:</span> {selectedSession.multiply}</p> : null}
                 </div>
                 {selectedSession.leaderNotes ? (
                   <details className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Leader Notes</summary>
+                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
                     <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
                   </details>
                 ) : null}
@@ -5721,15 +5769,16 @@ function GuidedResourceDetailSheet({
                   event.preventDefault();
                   void saveProgress();
                 }}>
-                  <DosFormField label="My Reflection">
+                  <DosFormField label="Reflect Personally">
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
                   </DosFormField>
-                  <DosFormField label="My Action Step">
+                  <DosFormField label="Walk It Out">
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
                   </DosFormField>
-                  <DosFormField label="Prayer Focus">
+                  <DosFormField label="Pray">
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
                   </DosFormField>
+                  <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p>
                   {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting} type="submit">
@@ -38480,7 +38529,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openResourceAssignmentCreate(resource, guidedResourceProgressPersonId);
             }}
             onClose={() => setGuidedResourceDetail(null)}
+            onReviewNotes={() => {
+              setGuidedResourceDetail(null);
+              openMyRecordTab("learning");
+            }}
             onSaveProgress={saveGuidedResourceProgress}
+            onStartNextResource={() => {
+              setGuidedResourceDetail(null);
+              openMoreApp("library");
+            }}
             personId={guidedResourceProgressPersonId}
             resource={selectedGuidedResource}
           />
