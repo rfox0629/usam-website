@@ -3844,6 +3844,41 @@ function peopleImportKeys(person: Pick<PeopleImportRow, "email" | "name" | "phon
   ].filter(Boolean);
 }
 
+function findLikelyDuplicatePerson(
+  people: DosAppPerson[],
+  candidate: { email?: string; name?: string; phone?: string },
+): DosAppPerson | null {
+  const phoneKey = peopleImportPhoneKey(candidate.phone);
+  const emailKey = peopleImportEmailKey(candidate.email);
+  const nameKey = peopleImportNameKey(candidate.name);
+
+  if (phoneKey.length >= 7) {
+    const phoneMatch = people.find((person) => peopleImportPhoneKey(person.phone) === phoneKey);
+
+    if (phoneMatch) {
+      return phoneMatch;
+    }
+  }
+
+  if (emailKey) {
+    const emailMatch = people.find((person) => peopleImportEmailKey(person.email) === emailKey);
+
+    if (emailMatch) {
+      return emailMatch;
+    }
+  }
+
+  if (nameKey.length > 3) {
+    const nameMatch = people.find((person) => peopleImportNameKey(person.name) === nameKey);
+
+    if (nameMatch) {
+      return nameMatch;
+    }
+  }
+
+  return null;
+}
+
 function analyzePeopleImportRows(rows: PeopleImportRow[], existingPeople: DosAppPerson[]): PeopleImportAnalysis {
   const duplicateKeySet = new Set<string>();
   const duplicateRows: PeopleImportRow[] = [];
@@ -4214,11 +4249,11 @@ function VoiceTextarea({
         <button
           aria-label={buttonTitle}
           aria-pressed={isListening}
-          className={`absolute bottom-3 right-3 inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[360px]:px-0 ${
+          className={`absolute bottom-3 right-3 inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-full border px-2.5 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[360px]:px-0 ${
             isListening
               ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)]"
-              : "border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB] hover:border-[#2563EB] hover:bg-white"
-          } disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]`}
+              : "border-transparent bg-transparent text-[#94A3B8] hover:border-[#BFDBFE] hover:bg-[#EBF2FF] hover:text-[#2563EB]"
+          } disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-[#CBD5E1]`}
           disabled={disabled || !isSupported}
           onClick={toggleListening}
           title={buttonTitle}
@@ -4291,6 +4326,66 @@ function DosFormGrid({
   return (
     <div className={`grid gap-3 min-[380px]:grid-cols-2 ${className}`}>
       {children}
+    </div>
+  );
+}
+
+function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-0.5 text-[#DC2626]">
+      *
+    </span>
+  );
+}
+
+function OptionalTag() {
+  return (
+    <span className="ml-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
+      Optional
+    </span>
+  );
+}
+
+function DisclosureSection({
+  children,
+  defaultOpen = false,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  description?: string;
+  title: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <section className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white">
+      <button
+        aria-expanded={isOpen}
+        className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF]"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-bold text-[#0F172A]">{title}</span>
+          {description ? <span className="mt-0.5 block text-xs font-medium leading-5 text-[#64748B]">{description}</span> : null}
+        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
+          strokeWidth={1.9}
+        />
+      </button>
+      {isOpen ? <div className="grid gap-4 border-t border-[#EAF2FF] px-4 pb-4 pt-4">{children}</div> : null}
+    </section>
+  );
+}
+
+function StickyFormFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-1 rounded-b-[24px] border-t border-[#EAF2FF] bg-white/97 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur-sm md:rounded-b-[30px]">
+      <div className="grid gap-2">{children}</div>
     </div>
   );
 }
@@ -4537,7 +4632,7 @@ function DosFormToggleRow({
   defaultChecked?: boolean;
   description?: string;
   disabled?: boolean;
-  name: string;
+  name?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   title: string;
 }) {
@@ -16968,61 +17063,123 @@ function TableRolePicker({
 }
 
 function MeetingLeaderReflectionSection({
+  allPeople,
   followUpDateDefault,
   followUpNeededDefault = false,
+  followUpNoteDefault,
   notesDefault,
+  onOpenCommitment,
   onToggleOutcomeTag,
   prayerNeedsDefault,
+  primaryPersonId,
   selectedOutcomeTags,
+  selectedPersonIds,
 }: {
+  allPeople: DosAppPerson[];
   followUpDateDefault?: string | null;
   followUpNeededDefault?: boolean;
+  followUpNoteDefault?: string | null;
   notesDefault?: string | null;
+  onOpenCommitment?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
   prayerNeedsDefault?: string | null;
+  primaryPersonId?: string | null;
   selectedOutcomeTags: string[];
+  selectedPersonIds: string[];
 }) {
+  const [isFruitOpen, setIsFruitOpen] = useState(selectedOutcomeTags.length > 0);
+  const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));
   const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);
+  const [prayerPersonId, setPrayerPersonId] = useState(primaryPersonId || selectedPersonIds[0] || "");
 
   useEffect(() => {
     setIsFollowUpNeeded(followUpNeededDefault);
   }, [followUpNeededDefault]);
 
+  const attendeeOptions = selectedPersonIds
+    .map((personId) => allPeople.find((person) => person.id === personId))
+    .filter((person): person is DosAppPerson => Boolean(person));
+
+  const quickActions = [
+    !isFruitOpen ? { key: "fruit", label: "Add observed fruit", onClick: () => setIsFruitOpen(true) } : null,
+    !isPrayerOpen ? { key: "prayer", label: "Add prayer need", onClick: () => setIsPrayerOpen(true) } : null,
+    !isFollowUpNeeded ? { key: "followUp", label: "Add follow-up", onClick: () => setIsFollowUpNeeded(true) } : null,
+    onOpenCommitment ? { key: "commitment", label: "Add commitment", onClick: () => onOpenCommitment(primaryPersonId || selectedPersonIds[0] || null) } : null,
+  ].filter((action): action is { key: string; label: string; onClick: () => void } => Boolean(action));
+
   return (
     <>
-      <DosFormSection icon="fruit" title="What fruit did you see?">
-        {selectedOutcomeTags.map((tag) => (
-          <input key={tag} name="observed_fruit" type="hidden" value={tag} />
-        ))}
-        <ObservedFruitMultiSelect
-          onToggle={onToggleOutcomeTag}
-          selectedOutcomeTags={selectedOutcomeTags}
-        />
+      <DosFormSection description="Capture the conversation, important takeaways, and next actions." icon="log" title="Meeting Notes">
+        <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} />
       </DosFormSection>
-      <DosFormSection icon="prayer" title="Prayer Needs">
-        <DosFormField>
-          <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
-        </DosFormField>
-      </DosFormSection>
-      <DosFormSection icon="arrow" title="What needs follow up?">
-        <DosFormToggleRow
-          checked={isFollowUpNeeded}
-          description="Mark if this needs action soon."
-          name="follow_up_needed"
-          onChange={(event) => setIsFollowUpNeeded(event.currentTarget.checked)}
-          title="Follow Up Needed"
-        />
-        {isFollowUpNeeded ? (
+
+      {quickActions.length ? (
+        <div className="flex flex-wrap gap-2">
+          {quickActions.map((action) => (
+            <button
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+              key={action.key}
+              onClick={action.onClick}
+              type="button"
+            >
+              <span aria-hidden="true" className="text-sm leading-none">+</span>
+              {action.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {isFruitOpen ? (
+        <DosFormSection icon="fruit" title="Observed Fruit">
+          {selectedOutcomeTags.map((tag) => (
+            <input key={tag} name="observed_fruit" type="hidden" value={tag} />
+          ))}
+          <ObservedFruitMultiSelect
+            onToggle={onToggleOutcomeTag}
+            selectedOutcomeTags={selectedOutcomeTags}
+          />
+        </DosFormSection>
+      ) : null}
+
+      {isPrayerOpen ? (
+        <DosFormSection icon="prayer" title="Prayer Need">
+          {attendeeOptions.length > 1 ? (
+            <DosFormField label="Who is this for?">
+              <select className={FieldInputClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
+                {attendeeOptions.map((person) => (
+                  <option key={person.id} value={person.id}>{person.name}</option>
+                ))}
+              </select>
+            </DosFormField>
+          ) : (
+            <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
+          )}
+          <DosFormField>
+            <VoiceTextarea aria-label="Prayer Need" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
+          </DosFormField>
+        </DosFormSection>
+      ) : null}
+
+      {isFollowUpNeeded ? (
+        <DosFormSection icon="arrow" title="Follow Up">
+          <input name="follow_up_needed" type="hidden" value="on" />
+          <DosFormField label={<>What needs to happen?<RequiredMark /></>}>
+            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Send the article, check in after surgery..." required />
+          </DosFormField>
           <DosDateInput
             defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
             label="Due"
             name="follow_up_date"
           />
-        ) : null}
-      </DosFormSection>
-      <DosFormSection description="Record the conversation, important takeaways, commitments, and next actions." icon="log" title="Notes & Next Steps">
-        <MeetingCaptureNotes defaultValue={notesDefault} label="Notes & Next Steps" showLabel={false} />
-      </DosFormSection>
+          <button
+            className="justify-self-start text-xs font-semibold text-[#64748B] transition-colors hover:text-[#0F172A]"
+            onClick={() => setIsFollowUpNeeded(false)}
+            type="button"
+          >
+            Remove follow-up
+          </button>
+        </DosFormSection>
+      ) : null}
     </>
   );
 }
@@ -17119,22 +17276,32 @@ function MeetingPlanningReflectionSection({
 }
 
 function MeetingRoleReflectionSections({
+  allPeople,
   followUpDateDefault,
+  followUpNoteDefault,
   growthReflectionDefault,
   leaderReflectionDefault,
   notesDefault,
+  onOpenCommitment,
   onToggleOutcomeTag,
   planningReflectionDefault,
+  primaryPersonId,
   selectedOutcomeTags,
+  selectedPersonIds,
   tableRole,
 }: {
+  allPeople: DosAppPerson[];
   followUpDateDefault?: string | null;
+  followUpNoteDefault?: string | null;
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
   leaderReflectionDefault?: DosAppLeaderReflection | null;
   notesDefault?: string | null;
+  onOpenCommitment?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
+  primaryPersonId?: string | null;
   selectedOutcomeTags: string[];
+  selectedPersonIds: string[];
   tableRole: DosAppTableRole;
 }) {
   if (tableRoleIncludesPlanning(tableRole)) {
@@ -17145,12 +17312,17 @@ function MeetingRoleReflectionSections({
     <>
       {tableRoleIncludesMinistering(tableRole) ? (
         <MeetingLeaderReflectionSection
+          allPeople={allPeople}
           followUpDateDefault={followUpDateDefault}
           followUpNeededDefault={leaderReflectionDefault?.followUpNeeded}
+          followUpNoteDefault={followUpNoteDefault}
           notesDefault={notesDefault}
+          onOpenCommitment={onOpenCommitment}
           onToggleOutcomeTag={onToggleOutcomeTag}
           prayerNeedsDefault={leaderReflectionDefault?.prayerNeeds}
+          primaryPersonId={primaryPersonId}
           selectedOutcomeTags={selectedOutcomeTags}
+          selectedPersonIds={selectedPersonIds}
         />
       ) : null}
       {tableRoleIncludesGrowth(tableRole) ? (
@@ -17417,6 +17589,7 @@ function MeetingFormContent({
   durationDefault,
   errorMessage,
   followUpDateDefault,
+  followUpNoteDefault,
   growthReflectionDefault,
   householdMembers,
   includeReflectionFields = false,
@@ -17433,6 +17606,7 @@ function MeetingFormContent({
   onConversationFlowChange,
   onConversationResponse,
   onMinistryTeamQueryChange,
+  onOpenCommitment,
   onSubmit,
   onSupportingAttendeeQueryChange,
   onSupportingAttendeeSubRoleChange,
@@ -17472,6 +17646,7 @@ function MeetingFormContent({
   durationDefault?: number | string | null;
   errorMessage?: string;
   followUpDateDefault?: string | null;
+  followUpNoteDefault?: string | null;
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
   householdMembers: DosAppData["householdMembers"];
   includeReflectionFields?: boolean;
@@ -17488,6 +17663,7 @@ function MeetingFormContent({
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
   onConversationResponse: (questionId: string, value: DosConversationResponseValue | undefined) => void;
   onMinistryTeamQueryChange: (value: string) => void;
+  onOpenCommitment?: (personId: string | null) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSupportingAttendeeQueryChange: (value: string) => void;
   onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
@@ -17567,41 +17743,47 @@ function MeetingFormContent({
       <DosFormSection icon="meetings" title="Discipleship Role">
         <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
       </DosFormSection>
-      <DosFormSection icon="people" title="Ministry Team">
-        <MinistryTeamSelector
-          allPeople={allPeople}
-          householdMembers={householdMembers}
-          onPersonQueryChange={onMinistryTeamQueryChange}
-          onToggleMember={onToggleMinistryTeamMember}
-          onTogglePerson={onToggleMinistryTeamPerson}
-          people={ministryTeamPeopleOptions}
-          query={ministryTeamQuery}
-          selectedMemberIds={selectedMinistryTeamMemberIds}
-          selectedPersonIds={selectedMinistryTeamPersonIds}
-        />
-      </DosFormSection>
       <DosFormSection icon="people" title="Participants">
         {peopleSelector}
       </DosFormSection>
-      <DosFormSection icon="people" title="Supporting Attendees">
-        <SupportingAttendeeSelector
-          allPeople={allPeople}
-          disabledPersonIds={selectedPersonIds}
-          onQueryChange={onSupportingAttendeeQueryChange}
-          onSubRoleChange={onSupportingAttendeeSubRoleChange}
-          onToggle={onToggleSupportingAttendee}
-          people={supportingAttendeeOptions}
-          query={supportingAttendeeQuery}
-          selectedPersonIds={selectedSupportingAttendeeIds}
-          subRoles={supportingAttendeeSubRoles}
-        />
-      </DosFormSection>
+      <DisclosureSection
+        defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}
+        description="Ministry team members and supporting attendees."
+        title="Edit People"
+      >
+        <DosFormField label="Ministry Team">
+          <MinistryTeamSelector
+            allPeople={allPeople}
+            householdMembers={householdMembers}
+            onPersonQueryChange={onMinistryTeamQueryChange}
+            onToggleMember={onToggleMinistryTeamMember}
+            onTogglePerson={onToggleMinistryTeamPerson}
+            people={ministryTeamPeopleOptions}
+            query={ministryTeamQuery}
+            selectedMemberIds={selectedMinistryTeamMemberIds}
+            selectedPersonIds={selectedMinistryTeamPersonIds}
+          />
+        </DosFormField>
+        <DosFormField label="Supporting Attendees">
+          <SupportingAttendeeSelector
+            allPeople={allPeople}
+            disabledPersonIds={selectedPersonIds}
+            onQueryChange={onSupportingAttendeeQueryChange}
+            onSubRoleChange={onSupportingAttendeeSubRoleChange}
+            onToggle={onToggleSupportingAttendee}
+            people={supportingAttendeeOptions}
+            query={supportingAttendeeQuery}
+            selectedPersonIds={selectedSupportingAttendeeIds}
+            subRoles={supportingAttendeeSubRoles}
+          />
+        </DosFormField>
+      </DisclosureSection>
       {showDurationField && durationSelector ? (
         <DosFormSection icon="meetings" title="Duration">
           {durationSelector}
         </DosFormSection>
       ) : null}
-      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "What happened?"}>
+      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "Meeting Context"}>
         {meetingContextPicker}
         {conversationFlowPicker}
         {showConversationFlow && selectedConversationFlow !== "none" ? (
@@ -17616,13 +17798,18 @@ function MeetingFormContent({
       </DosFormSection>
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
+          allPeople={allPeople}
           followUpDateDefault={followUpDateDefault}
+          followUpNoteDefault={followUpNoteDefault}
           growthReflectionDefault={growthReflectionDefault}
           leaderReflectionDefault={reflectionDefault}
           notesDefault={notesDefault}
+          onOpenCommitment={onOpenCommitment}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
           planningReflectionDefault={planningReflectionDefault}
+          primaryPersonId={selectedPersonIds[0] ?? null}
           selectedOutcomeTags={selectedOutcomeTags ?? []}
+          selectedPersonIds={selectedPersonIds}
           tableRole={selectedTableRole}
         />
       ) : (
@@ -17632,7 +17819,9 @@ function MeetingFormContent({
       )}
       {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+      <StickyFormFooter>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+      </StickyFormFooter>
     </form>
   );
 }
@@ -17756,6 +17945,7 @@ function ScheduleMeetingForm({
 }) {
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
   const [scheduledDate, setScheduledDate] = useState(todayDateValue());
+  const [syncToGoogle, setSyncToGoogle] = useState(canSyncToGoogle);
 
   function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
     const form = event.currentTarget.form;
@@ -17775,17 +17965,8 @@ function ScheduleMeetingForm({
   }
 
   return (
-    <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title="Calendar">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isCalendarDisconnecting}
-          onDisconnect={onDisconnectCalendar}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
-        />
-      </DosFormSection>
-      <DosFormSection icon="people" title="People">
+    <form className="space-y-4" onSubmit={onSubmit}>
+      <DosFormSection icon="people" title="Person">
         <MeetingPeopleSelector
           allPeople={allPeople}
           isCreatingPerson={isCreatingPerson}
@@ -17796,12 +17977,6 @@ function ScheduleMeetingForm({
           query={meetingPeopleQuery}
           selectedPersonIds={selectedPersonIds}
         />
-      </DosFormSection>
-      <DosFormSection icon="meetings" title="What are you scheduling?">
-        <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
-      </DosFormSection>
-      <DosFormSection icon="meetings" title="Discipleship Role">
-        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
       </DosFormSection>
       <DosFormSection icon="calendar" title="Timing">
         <div>
@@ -17838,24 +18013,45 @@ function ScheduleMeetingForm({
           timeDefault="18:00"
           timeName="scheduled_time"
         />
-        <div>
-          <DosFormToggleRow
-            defaultChecked={canSyncToGoogle}
-            description={canSyncToGoogle ? "Create a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync." : "Connect Google Calendar to sync."}
-            disabled={!canSyncToGoogle}
-            name="google_sync_enabled"
-            title="Sync to Google"
-          />
-        </div>
       </DosFormSection>
-      <DosFormSection icon="log" title="Notes">
-        <DosFormField>
+      <DosFormSection icon="meetings" title="Meeting Context">
+        <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+      </DosFormSection>
+
+      <input name="google_sync_enabled" type="hidden" value={syncToGoogle ? "on" : ""} />
+      <DisclosureSection defaultOpen={false} description="Calendar sync, discipleship role, and notes." title="More Options">
+        <CalendarConnectionCard
+          calendarConnection={calendarConnection}
+          isDisconnecting={isCalendarDisconnecting}
+          onDisconnect={onDisconnectCalendar}
+          workspaceId={workspaceId}
+          workspaceSlug={workspaceSlug}
+        />
+        <DosFormToggleRow
+          checked={syncToGoogle}
+          description={canSyncToGoogle ? "Create a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync." : "Connect Google Calendar to sync."}
+          disabled={!canSyncToGoogle}
+          onChange={(event) => setSyncToGoogle(event.currentTarget.checked)}
+          title="Sync to Google"
+        />
+        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
+        <DosFormField label="Notes">
           <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
         </DosFormField>
-      </DosFormSection>
+      </DisclosureSection>
+
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Table"}</AppButton>
-      <AppButton disabled={isSubmitting} icon="log" onClick={onStartLogMeeting} tone="white">Log Table Instead</AppButton>
+      <StickyFormFooter>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Table"}</AppButton>
+        <button
+          className="min-h-9 text-center text-sm font-semibold text-[#2563EB] transition-colors hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting}
+          onClick={onStartLogMeeting}
+          type="button"
+        >
+          Log Table Instead
+        </button>
+      </StickyFormFooter>
     </form>
   );
 }
@@ -21661,186 +21857,6 @@ function RelationshipScorePicker({
   );
 }
 
-function AdditionalPersonInformation({
-  defaults = {},
-  householdDraft,
-  onHouseholdDraftChange,
-  isOpen,
-  onToggle,
-  showToggle = true,
-}: {
-  defaults?: PersonFormDefaults;
-  householdDraft: PersonHouseholdDraft;
-  onHouseholdDraftChange: (value: PersonHouseholdDraft) => void;
-  isOpen: boolean;
-  onToggle: () => void;
-  showToggle?: boolean;
-}) {
-  const updateSpouseDraft = (key: "spouseFirstName" | "spouseLastName", value: string) => {
-    onHouseholdDraftChange({
-      ...householdDraft,
-      [key]: value,
-    });
-  };
-
-  const updateChildDraft = (childId: string, key: "firstName" | "lastName", value: string) => {
-    onHouseholdDraftChange({
-      ...householdDraft,
-      children: householdDraft.children.map((child) => (
-        child.id === childId ? { ...child, [key]: value } : child
-      )),
-    });
-  };
-
-  const addChildDraft = () => {
-    onHouseholdDraftChange({
-      ...householdDraft,
-      children: [
-        ...householdDraft.children,
-        {
-          firstName: "",
-          id: `child-${Date.now()}-${householdDraft.children.length}`,
-          lastName: "",
-        },
-      ],
-    });
-  };
-
-  const removeChildDraft = (childId: string) => {
-    const remainingChildren = householdDraft.children.filter((child) => child.id !== childId);
-
-    onHouseholdDraftChange({
-      ...householdDraft,
-      children: remainingChildren.length ? remainingChildren : [blankChildDraft()],
-    });
-  };
-
-  const fields = (
-    <div className={showToggle ? "mt-5 grid gap-5 border-t border-[#EAF2FF] pt-5" : "grid gap-5"}>
-      <DosFormSection icon="people" title="Contact Information">
-        <DosFormField label="Email">
-          <input className={FieldInputClass()} defaultValue={defaults.email} name="email" placeholder="email@example.com" type="email" />
-        </DosFormField>
-        <DosFormField label="Home Address">
-          <input className={FieldInputClass()} defaultValue={defaults.homeAddress} name="home_address" placeholder="Street address" />
-        </DosFormField>
-        <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
-          <DosFormField label="City">
-            <input className={FieldInputClass()} defaultValue={defaults.city} name="city" />
-          </DosFormField>
-          <DosFormField label="State">
-            <input className={FieldInputClass()} defaultValue={defaults.state} maxLength={2} name="state" />
-          </DosFormField>
-          <DosFormField label="ZIP">
-            <input className={FieldInputClass()} defaultValue={defaults.zip} inputMode="numeric" name="zip" />
-          </DosFormField>
-        </div>
-        <DosFormGrid>
-          <DosFormField label="Church">
-            <input className={FieldInputClass()} defaultValue={defaults.church} name="church" placeholder="Church / community" />
-          </DosFormField>
-          <DosFormField label="Occupation">
-            <input className={FieldInputClass()} defaultValue={defaults.occupation} name="occupation" placeholder="What do they do?" />
-          </DosFormField>
-        </DosFormGrid>
-        <DosDateInput autoComplete="bday" defaultValue={defaults.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
-      </DosFormSection>
-      <DosFormSection icon="home" title="Household Information">
-        <details className="group overflow-hidden rounded-[20px] border border-[#D6E4F7] bg-white">
-          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="block text-sm font-bold text-[#0F172A]">Show household fields</span>
-              <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Household names are kept selectable for tables.</span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
-          </summary>
-          <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
-            <DosFormGrid>
-              <DosFormField label="Spouse First Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
-              </DosFormField>
-              <DosFormField label="Spouse Last Name">
-                <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
-              </DosFormField>
-            </DosFormGrid>
-            <DosDateInput defaultValue={defaults.anniversaryDate} label="Anniversary Date" name="anniversary_date" />
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <FieldLabel>Children</FieldLabel>
-                <button
-                  className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
-                  onClick={addChildDraft}
-                  type="button"
-                >
-                  + Child
-                </button>
-              </div>
-              <div className="grid gap-2">
-                {householdDraft.children.map((child, index) => (
-                  <div className="grid gap-2 rounded-[18px] border border-[#D6E4F7] bg-white p-2" key={child.id}>
-                    <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
-                      <DosFormField label="Child First Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
-                      </DosFormField>
-                      <DosFormField label="Child Last Name">
-                        <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
-                      </DosFormField>
-                      <button
-                        aria-label={`Remove child ${index + 1}`}
-                        className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[420px]:mt-5"
-                        onClick={() => removeChildDraft(child.id)}
-                        type="button"
-                      >
-                        <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </details>
-      </DosFormSection>
-      <DosFormSection icon="bell" title="Important Dates & Reminders">
-        <ImportantDatesReminderSection />
-      </DosFormSection>
-      <DosFormSection icon="log" title="Notes">
-        <DosFormField>
-          <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={defaults.notes} name="notes" />
-        </DosFormField>
-      </DosFormSection>
-    </div>
-  );
-
-  if (!showToggle) {
-    return (
-      <section className="grid gap-2">
-        {fields}
-      </section>
-    );
-  }
-
-  return (
-    <section className="rounded-[20px] border border-[#D6E4F7] bg-white p-4">
-      <button
-        aria-expanded={isOpen}
-        className="flex w-full items-center justify-between gap-3 text-left"
-        onClick={onToggle}
-        type="button"
-      >
-        <span>
-          <span className="block text-sm font-bold text-[#0F172A]">Additional Information</span>
-        </span>
-        <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${isOpen ? "rotate-45" : ""}`} aria-hidden="true">
-          +
-        </span>
-      </button>
-
-      {isOpen ? fields : null}
-    </section>
-  );
-}
-
 function ImportantDatesReminderSection() {
   const [tag, setTag] = useState<ImportantReminderTag>("prayer");
   const [repeat, setRepeat] = useState<ImportantReminderRepeat>(importantReminderRepeatForTag("prayer"));
@@ -21897,66 +21913,18 @@ function ImportantDatesReminderSection() {
   );
 }
 
-function PersonExtraDetails({
-  additionalDefaults,
-  detailsOpen,
-  householdDraft,
-  onHouseholdDraftChange,
-  onToggleDetails,
-  showToggle = true,
-}: {
-  additionalDefaults?: PersonFormDefaults;
-  detailsOpen: boolean;
-  householdDraft: PersonHouseholdDraft;
-  onHouseholdDraftChange: (value: PersonHouseholdDraft) => void;
-  onToggleDetails: () => void;
-  showToggle?: boolean;
-}) {
-  const fields = (
-    <AdditionalPersonInformation
-      defaults={additionalDefaults}
-      householdDraft={householdDraft}
-      isOpen
-      onHouseholdDraftChange={onHouseholdDraftChange}
-      onToggle={onToggleDetails}
-      showToggle={false}
-    />
-  );
-
-  if (!showToggle) {
-    return <section>{fields}</section>;
-  }
-
-  return (
-    <section className="space-y-3">
-      <button
-        aria-expanded={detailsOpen}
-        className="flex w-full items-center justify-between rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-left text-sm font-semibold text-[#2563EB] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-        onClick={onToggleDetails}
-        type="button"
-      >
-        <span>{detailsOpen ? "Hide Extra Details" : "Show Extra Details"}</span>
-        <span className={`text-lg leading-none text-[#94A3B8] transition-transform ${detailsOpen ? "rotate-45" : ""}`} aria-hidden="true">
-          +
-        </span>
-      </button>
-      {detailsOpen ? fields : null}
-    </section>
-  );
-}
-
 function PersonFormContent({
   additionalDefaults,
   buttonText,
-  detailsOpen,
   errorMessage,
   isSubmitting,
   nameDefault,
+  onOpenExistingPerson,
   onRelationshipChange,
   onDelete,
   onScoreChange,
   onSubmit,
-  onToggleDetails,
+  people,
   phoneDefault,
   relationshipModel,
   scoreValue,
@@ -21965,24 +21933,28 @@ function PersonFormContent({
 }: {
   additionalDefaults?: PersonFormDefaults;
   buttonText: string;
-  detailsOpen: boolean;
   errorMessage: string;
   isSubmitting: boolean;
   nameDefault?: string | null;
+  onOpenExistingPerson?: (person: DosAppPerson) => void;
   onRelationshipChange: (value: DosRelationshipModel) => void;
   onDelete?: () => void;
   onScoreChange: (value: RelationshipScoreValue) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onToggleDetails: () => void;
+  people?: DosAppPerson[];
   phoneDefault?: string | null;
   relationshipModel: DosRelationshipModel;
   scoreValue: RelationshipScoreValue;
   showDetailsToggle?: boolean;
   submittingText: string;
 }) {
+  const isEditMode = !showDetailsToggle;
   const [nameDraft, setNameDraft] = useState(() => splitNameParts(nameDefault));
   const [phoneDraft, setPhoneDraft] = useState(() => phoneDigitsOnly(phoneDefault));
   const [householdDraft, setHouseholdDraft] = useState<PersonHouseholdDraft>(() => householdDraftFromDefaults(additionalDefaults));
+  const [duplicateMatch, setDuplicateMatch] = useState<DosAppPerson | null>(null);
+  const [duplicateDismissed, setDuplicateDismissed] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setNameDraft(splitNameParts(nameDefault));
@@ -21997,80 +21969,242 @@ function PersonFormContent({
   }, [additionalDefaults?.childrenNames, additionalDefaults?.spouseName]);
 
   const composedName = joinNameParts(nameDraft.firstName, nameDraft.lastName);
-  const effectiveDetailsOpen = showDetailsToggle ? detailsOpen : true;
+
+  function runDuplicateCheck(emailValue: string) {
+    if (isEditMode || duplicateDismissed || !people?.length) {
+      return;
+    }
+
+    setDuplicateMatch(findLikelyDuplicatePerson(people, { email: emailValue, name: composedName, phone: phoneDraft }));
+  }
+
+  const updateSpouseDraft = (key: "spouseFirstName" | "spouseLastName", value: string) => {
+    setHouseholdDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateChildDraft = (childId: string, key: "firstName" | "lastName", value: string) => {
+    setHouseholdDraft((current) => ({
+      ...current,
+      children: current.children.map((child) => (child.id === childId ? { ...child, [key]: value } : child)),
+    }));
+  };
+
+  const addChildDraft = () => {
+    setHouseholdDraft((current) => ({
+      ...current,
+      children: [...current.children, { firstName: "", id: `child-${Date.now()}-${current.children.length}`, lastName: "" }],
+    }));
+  };
+
+  const removeChildDraft = (childId: string) => {
+    setHouseholdDraft((current) => {
+      const remainingChildren = current.children.filter((child) => child.id !== childId);
+
+      return { ...current, children: remainingChildren.length ? remainingChildren : [blankChildDraft()] };
+    });
+  };
+
+  const hasRelationshipData = Boolean(
+    additionalDefaults?.discipleshipRelationship
+    || (additionalDefaults?.fieldVisibility && additionalDefaults.fieldVisibility !== "primary")
+    || scoreValue !== 0,
+  );
+  const hasAddressData = Boolean(
+    additionalDefaults?.homeAddress
+    || additionalDefaults?.city
+    || additionalDefaults?.state
+    || additionalDefaults?.zip
+    || additionalDefaults?.church
+    || additionalDefaults?.occupation
+    || additionalDefaults?.birthday,
+  );
 
   return (
-    <form className="space-y-5" onSubmit={onSubmit}>
+    <form className="space-y-4" onSubmit={onSubmit}>
       <input name="name" type="hidden" value={composedName} />
       <input name="phone" type="hidden" value={phoneDraft} />
       <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
       <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
       <DosFormSection icon="people" title="Person">
         <DosFormGrid>
-          <DosFormField label="First Name">
+          <DosFormField label={<>First Name<RequiredMark /></>}>
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
           </DosFormField>
           <DosFormField label="Last Name">
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosFormField label="Phone">
+        <DosFormField label={<>Mobile Phone<RequiredMark /></>}>
           <input
             className={FieldInputClass()}
             inputMode="tel"
-            onChange={(event) => setPhoneDraft(phoneDigitsOnly(event.target.value))}
+            onBlur={() => runDuplicateCheck(emailInputRef.current?.value ?? "")}
+            onChange={(event) => {
+              setPhoneDraft(phoneDigitsOnly(event.target.value));
+              setDuplicateDismissed(false);
+            }}
             placeholder="(651) 456-8974"
             required
             type="tel"
             value={formatPhoneNumber(phoneDraft)}
           />
         </DosFormField>
+        <DosFormField label="Email">
+          <input
+            className={FieldInputClass()}
+            defaultValue={additionalDefaults?.email}
+            name="email"
+            onBlur={(event) => runDuplicateCheck(event.target.value)}
+            placeholder="email@example.com"
+            ref={emailInputRef}
+            type="email"
+          />
+        </DosFormField>
       </DosFormSection>
-      <DosFormSection icon="people" title="Field Visibility">
+
+      {duplicateMatch && !duplicateDismissed ? (
+        <div className="flex items-start gap-3 rounded-[18px] border border-[#FDE68A] bg-[#FFFBEB] p-3">
+          <div className="min-w-0 flex-1 text-sm leading-5 text-[#92400E]">
+            <p className="font-bold">This looks like an existing contact</p>
+            <p className="mt-0.5">{duplicateMatch.name} is already in your Field list.</p>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            {onOpenExistingPerson ? (
+              <button
+                className="rounded-full border border-[#F2C94C] bg-white px-3 py-1.5 text-xs font-bold text-[#92400E] transition-colors hover:bg-[#FFFBEB]"
+                onClick={() => onOpenExistingPerson(duplicateMatch)}
+                type="button"
+              >
+                View
+              </button>
+            ) : null}
+            <button
+              className="px-3 py-1 text-xs font-semibold text-[#92400E]/70 hover:text-[#92400E]"
+              onClick={() => setDuplicateDismissed(true)}
+              type="button"
+            >
+              Not a duplicate
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <DisclosureSection defaultOpen={isEditMode || hasRelationshipData} description="Type, context, and how engaged they are." title="Relationship & Ministry">
         <FormOptionSelect
           defaultValue={additionalDefaults?.fieldVisibility ?? "primary"}
-          label="Discipleship Role"
+          label="Discipleship Role Visibility"
           name="field_visibility"
           options={fieldVisibilityOptions}
         />
-      </DosFormSection>
-      <DosFormSection icon="people" title="Relationship Type">
-        <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
-      </DosFormSection>
-      <DosFormSection icon="people" title="Relationship Context">
-        <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
-      </DosFormSection>
-      <DosFormSection icon="people" title="Discipleship Relationship">
+        <DosFormField label="Relationship Type">
+          <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
+        </DosFormField>
+        <DosFormField label="Relationship Context">
+          <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
+        </DosFormField>
         <FormOptionSelect
           defaultValue={additionalDefaults?.discipleshipRelationship ?? ""}
-          label="Context"
+          label="Discipleship Relationship"
           name="discipleship_relationship"
           options={discipleshipRelationshipOptions}
         />
-      </DosFormSection>
-      <DosFormSection icon="fruit" title="Engagement Level">
-        <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
-      </DosFormSection>
-      <PersonExtraDetails
-        additionalDefaults={additionalDefaults}
-        detailsOpen={effectiveDetailsOpen}
-        householdDraft={householdDraft}
-        onHouseholdDraftChange={setHouseholdDraft}
-        onToggleDetails={onToggleDetails}
-        showToggle={showDetailsToggle}
-      />
+        <DosFormField label="Engagement Level">
+          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+        </DosFormField>
+      </DisclosureSection>
+
+      <DisclosureSection defaultOpen={isEditMode || hasHouseholdDetails(additionalDefaults ?? {})} description="Spouse and children, kept selectable for tables." title="Household & Family">
+        <DosFormGrid>
+          <DosFormField label="Spouse First Name">
+            <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
+          </DosFormField>
+          <DosFormField label="Spouse Last Name">
+            <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
+          </DosFormField>
+        </DosFormGrid>
+        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" name="anniversary_date" />
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <FieldLabel>Children</FieldLabel>
+            <button
+              className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
+              onClick={addChildDraft}
+              type="button"
+            >
+              + Child
+            </button>
+          </div>
+          <div className="grid gap-2">
+            {householdDraft.children.map((child, index) => (
+              <div className="grid gap-2 rounded-[18px] border border-[#E2E8F0] bg-white p-2" key={child.id}>
+                <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
+                  <DosFormField label="Child First Name">
+                    <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
+                  </DosFormField>
+                  <DosFormField label="Child Last Name">
+                    <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
+                  </DosFormField>
+                  <button
+                    aria-label={`Remove child ${index + 1}`}
+                    className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[420px]:mt-5"
+                    onClick={() => removeChildDraft(child.id)}
+                    type="button"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </DisclosureSection>
+
+      <DisclosureSection defaultOpen={isEditMode || hasAddressData} description="Address, church, birthday, and other details." title="Address & Details">
+        <DosFormField label="Home Address">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.homeAddress} name="home_address" placeholder="Street address" />
+        </DosFormField>
+        <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
+          <DosFormField label="City">
+            <input className={FieldInputClass()} defaultValue={additionalDefaults?.city} name="city" />
+          </DosFormField>
+          <DosFormField label="State">
+            <input className={FieldInputClass()} defaultValue={additionalDefaults?.state} maxLength={2} name="state" />
+          </DosFormField>
+          <DosFormField label="ZIP">
+            <input className={FieldInputClass()} defaultValue={additionalDefaults?.zip} inputMode="numeric" name="zip" />
+          </DosFormField>
+        </div>
+        <DosFormGrid>
+          <DosFormField label="Church">
+            <input className={FieldInputClass()} defaultValue={additionalDefaults?.church} name="church" placeholder="Church / community" />
+          </DosFormField>
+          <DosFormField label="Occupation">
+            <input className={FieldInputClass()} defaultValue={additionalDefaults?.occupation} name="occupation" placeholder="What do they do?" />
+          </DosFormField>
+        </DosFormGrid>
+        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
+      </DisclosureSection>
+
+      <ImportantDatesReminderSection />
+
+      <DisclosureSection defaultOpen={isEditMode && Boolean(additionalDefaults?.notes)} title="Notes">
+        <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={additionalDefaults?.notes} name="notes" />
+      </DisclosureSection>
+
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
-      {onDelete ? (
-        <button
-          className="mt-2 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
-          onClick={onDelete}
-          type="button"
-        >
-          Delete Person
-        </button>
-      ) : null}
+      <StickyFormFooter>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+        {onDelete ? (
+          <button
+            className="mt-1 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting}
+            onClick={onDelete}
+            type="button"
+          >
+            Delete Person
+          </button>
+        ) : null}
+      </StickyFormFooter>
     </form>
   );
 }
@@ -30560,7 +30694,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
   const [isCirclesOpen, setIsCirclesOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isAdditionalPersonInfoOpen, setIsAdditionalPersonInfoOpen] = useState(false);
   const [isCreatingMeetingPerson, setIsCreatingMeetingPerson] = useState(false);
   const [isPeopleImportOpen, setIsPeopleImportOpen] = useState(false);
   const [isPeopleSearchOpen, setIsPeopleSearchOpen] = useState(false);
@@ -31294,7 +31427,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function closeForm() {
     setErrorMessage("");
     setFormMode(null);
-    setIsAdditionalPersonInfoOpen(false);
     setReviewLinkMeetingId(null);
     setReviewShareMessage("");
     setTestimonyLinkMeetingId(null);
@@ -31316,7 +31448,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setFormMode(mode);
-    setIsAdditionalPersonInfoOpen(false);
     if (mode === "meeting") {
       setSelectedMeetingId(null);
       setSelectedMeetingReviewRecipientId(null);
@@ -32100,7 +32231,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openPersonEdit(person: DosAppPerson) {
     setErrorMessage("");
     setFormMode("editPerson");
-    setIsAdditionalPersonInfoOpen(false);
     setSelectedRelationshipModel(relationshipModelForPerson(person));
     setSelectedRelationshipScore(relationshipScoreFromEngagementLevel(person.engagementLevel));
   }
@@ -32112,7 +32242,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingReviewRecipientId(null);
     setErrorMessage("");
     setFormMode("meeting");
-    setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft([personId]);
   }
 
@@ -32126,7 +32255,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedExternalCalendarEventId(null);
     setErrorMessage("");
     setFormMode("meeting");
-    setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft(personIds);
     setSelectedMeetingContext(meetingType ?? "kitchen_table");
   }
@@ -32139,7 +32267,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
-    setIsAdditionalPersonInfoOpen(false);
     resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
   }
 
@@ -32484,7 +32611,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     setErrorMessage("");
     setFormMode("editMeeting");
-    setIsAdditionalPersonInfoOpen(false);
     setLoggingScheduledMeetingId(meeting.id);
     setConversationResponses({});
     setMeetingPeopleQuery("");
@@ -32543,7 +32669,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setLoggingScheduledMeetingId(null);
     setFormMode("editMeeting");
-    setIsAdditionalPersonInfoOpen(false);
     setConversationResponses(meeting.conversationFlowKey !== "none" ? meeting.conversationResponses : {});
     setMeetingPeopleQuery("");
     setSelectedConversationFlow(data.workspace.isUsamWorkspace ? meeting.conversationFlowKey : "none");
@@ -32706,10 +32831,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     meetingId,
     personIds,
     prayerNeeds,
+    primaryPersonId: explicitPrimaryPersonId,
   }: {
     meetingId: string;
     personIds: string[];
     prayerNeeds: string;
+    primaryPersonId?: string | null;
   }) {
     const requestText = prayerNeeds.trim();
 
@@ -32717,10 +32844,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
-    const primaryPersonId = personIds.length === 1 ? personIds[0] : null;
+    const primaryPersonId = explicitPrimaryPersonId || (personIds.length === 1 ? personIds[0] : null);
     const linkedPeople = personIds
       .map((personId) => people.find((person) => person.id === personId))
       .filter((person): person is DosAppPerson => Boolean(person));
+    const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
 
     try {
       return await createPrayerRequest({
@@ -32731,7 +32859,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         personTags: linkedPeople.map((person) => person.name),
         priority: "normal",
         request: requestText,
-        title: primaryPersonId ? `Prayer for ${linkedPeople[0]?.name ?? "Table participant"}` : "Prayer from Table",
+        title: primaryPerson ? `Prayer for ${primaryPerson.name}` : "Prayer from Table",
         visibility: "private",
       });
     } catch {
@@ -33131,12 +33259,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   async function saveTableFollowUpReminder({
     followUpDate,
     followUpNeeded,
+    followUpNote,
     meetingId,
     notes,
     personIds,
   }: {
     followUpDate: string;
     followUpNeeded: boolean;
+    followUpNote?: string;
     meetingId: string;
     notes: string;
     personIds: string[];
@@ -33162,12 +33292,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return false;
     }
 
+    const trimmedFollowUpNote = followUpNote?.trim() ?? "";
     const reminderDate = /^\d{4}-\d{2}-\d{2}$/.test(followUpDate) ? followUpDate : dateValueFromToday(1);
     const result = await submitJson("/api/dos/app/reminders", {
       googleSyncEnabled: false,
       google_sync_enabled: false,
       id: existingReminder?.id,
-      notes: joinTableFollowUpReminderMetadata(notes, meetingId),
+      notes: joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId),
       personId,
       person_id: personId,
       recurrence: "none",
@@ -33175,7 +33306,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminder_date: reminderDate,
       reminderType: "follow_up",
       reminder_type: "follow_up",
-      title: "Follow up from Table",
+      title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Follow up from Table",
     }, existingReminder ? "PATCH" : "POST", false);
 
     return Boolean(result);
@@ -33821,7 +33952,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const observedFruit = formObservedFruit(formData);
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const followUpDate = String(formData.get("follow_up_date") ?? "");
+    const followUpNote = String(formData.get("follow_up_note") ?? "");
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
+    const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
     const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
       meetingNotes.trim()
@@ -33863,8 +33996,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           }
 
           if (prayerNeeds.trim()) {
+            const primaryPersonId = prayerNeedsPersonId || (selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null);
             const newPrayerNeedId = String(reflectionResult.id ?? `local-${result.id}`);
-            const primaryPersonId = selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null;
             const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
 
             setLocalPrayerNeeds((current) => [
@@ -33882,6 +34015,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               meetingId: String(result.id),
               personIds: selectedMeetingPersonIds,
               prayerNeeds,
+              primaryPersonId,
             });
           }
         }
@@ -33890,6 +34024,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           const reminderSaved = await saveTableFollowUpReminder({
             followUpDate,
             followUpNeeded,
+            followUpNote,
             meetingId: String(result.id),
             notes: meetingNotes,
             personIds: selectedMeetingPersonIds,
@@ -33970,8 +34105,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const observedFruit = formObservedFruit(formData);
     const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
     const followUpDate = String(formData.get("follow_up_date") ?? "");
+    const followUpNote = String(formData.get("follow_up_note") ?? "");
     const nextStep = latestReflection?.nextStep ?? "";
     const prayerNeeds = includesReflectionFields ? String(formData.get("prayer_needs") ?? "") : latestReflection?.prayerNeeds ?? "";
+    const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = formData.has("spiritual_openness") ? String(formData.get("spiritual_openness") ?? "") : latestReflection?.spiritualOpenness ?? "";
     const meetingNotes = String(formData.get("notes") ?? "");
     const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
@@ -34047,6 +34184,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           const reminderSaved = await saveTableFollowUpReminder({
             followUpDate,
             followUpNeeded: shouldUseLeaderReflection && followUpNeeded,
+            followUpNote,
             meetingId: selectedMeeting.id,
             notes: meetingNotes,
             personIds: selectedMeetingPersonIds,
@@ -34088,8 +34226,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }
 
         if (prayerNeeds.trim()) {
+          const primaryPersonId = prayerNeedsPersonId || (selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null);
           const newPrayerNeedId = String(reflectionResult.id ?? `local-${selectedMeeting.id}`);
-          const primaryPersonId = selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null;
           const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
 
           setLocalPrayerNeeds((current) => [
@@ -34107,6 +34245,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             meetingId: selectedMeeting.id,
             personIds: selectedMeetingPersonIds,
             prayerNeeds,
+            primaryPersonId,
           });
         }
       }
@@ -34115,6 +34254,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         const reminderSaved = await saveTableFollowUpReminder({
           followUpDate,
           followUpNeeded: shouldUseLeaderReflection && followUpNeeded,
+          followUpNote,
           meetingId: selectedMeeting.id,
           notes: meetingNotes,
           personIds: selectedMeetingPersonIds,
@@ -36592,13 +36732,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <Sheet onClose={closeForm} showEyebrow={false} title="Add Person">
           <PersonFormContent
             buttonText="Add Person"
-            detailsOpen={isAdditionalPersonInfoOpen}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
+            onOpenExistingPerson={(person) => {
+              setSelectedPersonId(person.id);
+              openPersonEdit(person);
+            }}
             onRelationshipChange={setSelectedRelationshipModel}
             onScoreChange={setSelectedRelationshipScore}
             onSubmit={handlePersonSubmit}
-            onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
+            people={people}
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}
             submittingText="Saving..."
@@ -36611,7 +36754,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
             buttonText="Save Person"
-            detailsOpen={isAdditionalPersonInfoOpen}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
@@ -36619,7 +36761,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onRelationshipChange={setSelectedRelationshipModel}
             onScoreChange={setSelectedRelationshipScore}
             onSubmit={handleEditPersonSubmit}
-            onToggleDetails={() => setIsAdditionalPersonInfoOpen((current) => !current)}
             phoneDefault={selectedPerson.phone}
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}
@@ -36652,6 +36793,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onConversationFlowChange={handleConversationFlowChange}
             onConversationResponse={handleConversationResponse}
             onMinistryTeamQueryChange={setMinistryTeamQuery}
+            onOpenCommitment={(personId) => setCommitmentSheet({ kind: "commitment", personId })}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onSubmit={handleMeetingSubmit}
             onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
@@ -36749,6 +36891,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
               errorMessage={errorMessage}
               followUpDateDefault={followUpReminderDefault?.reminderDate}
+              followUpNoteDefault={followUpReminderDefault?.title}
               growthReflectionDefault={selectedMeeting.growthReflection}
               householdMembers={data.householdMembers}
               includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
@@ -36764,6 +36907,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onConversationFlowChange={handleConversationFlowChange}
               onConversationResponse={handleConversationResponse}
               onMinistryTeamQueryChange={setMinistryTeamQuery}
+              onOpenCommitment={(personId) => setCommitmentSheet({ kind: "commitment", personId })}
               onPeopleQueryChange={setMeetingPeopleQuery}
               onSubmit={handleEditMeetingSubmit}
               onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
