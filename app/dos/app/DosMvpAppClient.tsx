@@ -4436,10 +4436,10 @@ function DisclosureSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <section className="overflow-hidden rounded-[20px] border border-[#E2E8F0] bg-white">
+    <section className="rounded-[20px] border border-[#E2E8F0] bg-white">
       <button
         aria-expanded={isOpen}
-        className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF]"
+        className={`flex min-h-[52px] w-full items-center justify-between gap-3 rounded-t-[20px] px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] ${isOpen ? "" : "rounded-b-[20px]"}`}
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
@@ -4453,7 +4453,7 @@ function DisclosureSection({
           strokeWidth={1.9}
         />
       </button>
-      {isOpen ? <div className="grid gap-4 border-t border-[#EAF2FF] px-4 pb-4 pt-4">{children}</div> : null}
+      {isOpen ? <div className="grid gap-4 rounded-b-[20px] border-t border-[#EAF2FF] px-4 pb-4 pt-4">{children}</div> : null}
     </section>
   );
 }
