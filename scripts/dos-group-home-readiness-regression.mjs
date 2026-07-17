@@ -35,6 +35,7 @@ function assertBefore(source, first, second, message) {
 }
 
 const migration = read("supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql");
+const prayerMigration = read("supabase/migrations/20260707132434_dos_unified_prayer_context.sql");
 const packageJson = read("package.json");
 const publicDirectory = read("app/groups/page.tsx");
 const publicPage = read("app/groups/[slug]/page.tsx");
@@ -109,6 +110,13 @@ assertNotMatches(migration, /\btruncate\b/i, "Migration must not truncate data."
 assertNotMatches(migration, /\bdelete\s+from\s+public\./i, "Migration must not destructively delete public data.");
 assertNotIncludes(migration, "dos_group_routes", "Route placeholder must not add route tables.");
 assertNotIncludes(migration, "route_id", "Route placeholder must not add gathering route foreign keys.");
+assertIncludes(prayerMigration, "add column if not exists group_id uuid references public.dos_groups", "Unified prayer context must add group_id before Group Home prayer can ship.");
+assertBefore(
+  prayerMigration,
+  "add constraint prayer_requests_visibility_check",
+  "update public.prayer_requests",
+  "Unified prayer context must widen visibility constraints before normalizing existing public prayer rows.",
+);
 
 assertIncludes(publicPage, "accepting_members", "Public group page must load accepting_members.");
 assertIncludes(publicPage, "acceptingRequests: group.accepting_members !== false", "Public group model must expose closed-group state.");

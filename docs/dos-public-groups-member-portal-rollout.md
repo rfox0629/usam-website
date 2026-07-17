@@ -18,10 +18,11 @@ Do not merge, deploy, apply the migration, send live member invitations, send li
    - `dos_group_members`
    - `dos_group_gatherings`
    - `prayer_requests` group fields and visibility behavior
-5. Apply `supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql` in staging first.
-6. Run the validation scripts from this document against staging.
-7. Review staging data manually.
-8. Apply to production only after staging smoke passes and rollout owner approval is recorded.
+5. If `20260707132434_dos_unified_prayer_context.sql` is not recorded remotely, apply and record it before the Group Home migration. Group Home prayer depends on `prayer_requests.group_id`, `gathering_id`, and group visibility states.
+6. Apply `supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql` in staging first.
+7. Run the validation scripts from this document against staging.
+8. Review staging data manually.
+9. Apply to production only after staging smoke passes and rollout owner approval is recorded.
 
 ## Required Environment Variables
 

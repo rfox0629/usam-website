@@ -8,6 +8,22 @@ alter table public.prayer_requests
   add column if not exists priority text not null default 'normal',
   add column if not exists follow_up_at timestamptz;
 
+alter table public.prayer_requests
+  drop constraint if exists prayer_requests_visibility_check,
+  drop constraint if exists prayer_requests_status_check,
+  drop constraint if exists prayer_requests_priority_check,
+  drop constraint if exists prayer_requests_source_check;
+
+alter table public.prayer_requests
+  add constraint prayer_requests_visibility_check
+  check (visibility in ('private', 'group_members', 'group_leaders', 'organization', 'public_profile', 'team', 'public')),
+  add constraint prayer_requests_status_check
+  check (status in ('active', 'answered', 'archived', 'covered', 'open')),
+  add constraint prayer_requests_priority_check
+  check (priority in ('low', 'normal', 'high', 'urgent')),
+  add constraint prayer_requests_source_check
+  check (source in ('public_form', 'admin_added', 'dos', 'dos_group', 'dos_table', 'prayer_team'));
+
 update public.prayer_requests
 set
   workspace_id = coalesce(workspace_id, household_id, related_household_id, related_missionary_profile_id),
@@ -51,26 +67,6 @@ alter table public.prayer_requests
   alter column visibility set default 'private',
   alter column status set default 'active',
   alter column priority set default 'normal';
-
-alter table public.prayer_requests
-  drop constraint if exists prayer_requests_visibility_check,
-  drop constraint if exists prayer_requests_status_check,
-  drop constraint if exists prayer_requests_priority_check;
-
-alter table public.prayer_requests
-  add constraint prayer_requests_visibility_check
-  check (visibility in ('private', 'group_members', 'group_leaders', 'organization', 'public_profile', 'team', 'public')),
-  add constraint prayer_requests_status_check
-  check (status in ('active', 'answered', 'archived', 'covered', 'open')),
-  add constraint prayer_requests_priority_check
-  check (priority in ('low', 'normal', 'high', 'urgent'));
-
-alter table public.prayer_requests
-  drop constraint if exists prayer_requests_source_check;
-
-alter table public.prayer_requests
-  add constraint prayer_requests_source_check
-  check (source in ('public_form', 'admin_added', 'dos', 'dos_group', 'dos_table', 'prayer_team'));
 
 create index if not exists prayer_requests_workspace_status_priority_idx
   on public.prayer_requests(workspace_id, status, priority, follow_up_at, created_at desc);
