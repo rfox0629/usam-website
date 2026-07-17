@@ -24,6 +24,7 @@ import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberVi
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
 type PublicGroupRow = {
+  accepting_members?: boolean | null;
   activity_type?: string | null;
   audience?: string | null;
   default_location: string | null;
@@ -43,7 +44,7 @@ type PublicGroupRow = {
 };
 
 type GatheringRow = {
-  location: string | null;
+  location?: string | null;
   starts_at: string | null;
   title: string | null;
 };
@@ -58,6 +59,7 @@ type PublicGroupContent = {
 
 const fallbackPublicGroups: Record<string, PublicGroupRow> = {
   "2three2": {
+    accepting_members: true,
     activity_type: "running",
     audience: "men",
     default_location: "Lebanon Hills Trailhead, Eagan, MN",
@@ -211,7 +213,7 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
   const site = siteResolution.site ?? fallbackUsamPublicSite;
   const groupQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, public_site_id, public_status")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, public_site_id, public_status")
     .eq("slug", slug)
     .eq("active", true);
   const { data: group, error } = siteResolution.schemaReady && site.id
@@ -227,7 +229,7 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
     if (missingPublicSiteSchema(error)) {
       const legacyResult = await supabase
         .from("dos_groups")
-        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type")
+        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
@@ -258,7 +260,7 @@ async function loadPublicGroupGatheringData(
   const [gatheringsResult, leaderNames] = await Promise.all([
     supabase
       .from("dos_group_gatherings")
-      .select("title, starts_at, location")
+      .select("title, starts_at")
       .eq("group_id", group.id)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString())
@@ -283,19 +285,20 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
   const anchor = scriptureAnchor(scriptureReference);
   const nextGatheringTitle = nextGathering?.title ?? nextGatheringTitleFor(group);
   const nextGatheringTime = dateParts.time || nextGatheringTimeFor(group);
-  const location = group.default_location ?? nextGathering?.location ?? "Location TBD";
+  const publicLocation = group.default_location ?? "Location shared after leader confirmation";
 
   return {
+    acceptingRequests: group.accepting_members !== false,
     anchorMark: anchor.mark,
     anchorSubtext: anchor.subtext,
     description: group.description ?? "A recurring discipleship rhythm connected with USA Missionaries.",
     id: group.id,
     leaders,
-    location,
+    location: publicLocation,
     manageHref: null,
     name: group.name,
     nextGatheringDay: dateParts.weekday || nextGatheringDayFor(group),
-    nextGatheringLocation: nextGathering?.location ?? location,
+    nextGatheringLocation: publicLocation,
     nextGatheringMonth: dateParts.month || "Soon",
     nextGatheringNumber: dateParts.day || "TBD",
     nextGatheringTime,

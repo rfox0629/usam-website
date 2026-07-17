@@ -122,7 +122,7 @@ async function mapPublicGroup(
 ) {
   const { data: gatherings } = await supabase
     .from("dos_group_gatherings")
-    .select("title, starts_at, location")
+    .select("title, starts_at")
     .eq("group_id", group.id)
     .eq("status", "scheduled")
     .gte("starts_at", new Date().toISOString())
@@ -137,10 +137,10 @@ async function mapPublicGroup(
 
   return {
     description: group.description ?? "A recurring discipleship rhythm.",
-    location: group.default_location ?? nextGathering?.location ?? "Location TBD",
+    location: group.default_location ?? "Location shared after leader confirmation",
     name: group.name,
     nextGathering: nextGathering ? `${nextGathering.title} · ${formatPublicGroupDate(nextGathering.starts_at)}` : "Upcoming gathering TBD",
-    nextGatheringLocation: nextGathering?.location ?? group.default_location ?? "Location TBD",
+    nextGatheringLocation: group.default_location ?? "Location shared after leader confirmation",
     rhythm: group.rhythm_label ?? "Recurring",
     scriptureReference: group.scripture_reference ?? "",
     scriptureText: group.scripture_text ?? "",

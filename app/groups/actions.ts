@@ -80,7 +80,7 @@ export async function submitGroupJoinRequest(formData: FormData) {
   const site = siteResolution.site;
   const groupQuery = supabase
     .from("dos_groups")
-    .select("id, workspace_id, organization_id, public_site_id, slug, name")
+    .select("id, workspace_id, organization_id, public_site_id, slug, name, accepting_members")
     .eq("slug", slug)
     .eq("active", true);
   const { data: group, error: groupError } = siteResolution.schemaReady && site?.id
@@ -96,13 +96,17 @@ export async function submitGroupJoinRequest(formData: FormData) {
     if (groupError && missingPublicSiteSchema(groupError)) {
       const legacyGroupResult = await supabase
         .from("dos_groups")
-        .select("id, workspace_id, organization_id, slug, name")
+        .select("id, workspace_id, organization_id, slug, name, accepting_members")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
 
       if (legacyGroupResult.error || !legacyGroupResult.data) {
         redirectToGroup(slug, "unavailable");
+      }
+
+      if (legacyGroupResult.data.accepting_members === false) {
+        redirectToGroup(legacyGroupResult.data.slug, "unavailable");
       }
 
       const sourcePath = sourcePathFor(legacyGroupResult.data.slug, formString(formData, "sourcePath"));
@@ -163,6 +167,10 @@ export async function submitGroupJoinRequest(formData: FormData) {
     }
 
     redirectToGroup(slug, "unavailable");
+  }
+
+  if (group.accepting_members === false) {
+    redirectToGroup(group.slug, "unavailable");
   }
 
   const sourcePath = sourcePathFor(group.slug, formString(formData, "sourcePath"));

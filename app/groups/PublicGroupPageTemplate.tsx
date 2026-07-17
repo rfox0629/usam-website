@@ -3,6 +3,7 @@ import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 
 export type PublicGroupPageData = {
+  acceptingRequests: boolean;
   anchorMark: string;
   anchorSubtext: string;
   description: string;
@@ -79,9 +80,15 @@ export function PublicGroupPageTemplate({
               <PublicFact label="Scripture" value={group.scriptureReference || "Discipleship rhythm"} />
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
-              <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-xs font-black uppercase tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
-                Request to Join
-              </a>
+              {group.acceptingRequests ? (
+                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-xs font-black uppercase tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
+                  Request to Join
+                </a>
+              ) : (
+                <span className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/15 px-5 text-xs font-black uppercase tracking-[0.18em] text-white/58">
+                  Requests Closed
+                </span>
+              )}
               <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
                 Sign In
               </a>
@@ -115,10 +122,10 @@ export function PublicGroupPageTemplate({
         <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.85fr)] lg:items-start">
           <div className="rounded-2xl border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">Group Home</p>
-            <h2 className="mt-2 text-2xl font-black text-[#0F172A]">Join the rhythm.</h2>
+            <h2 className="mt-2 text-2xl font-black text-[#0F172A]">{group.acceptingRequests ? "Join the rhythm." : "Stay connected."}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{group.description}</p>
           </div>
-          <JoinRequestPanel group={group} requestState={requestState} />
+          {group.acceptingRequests ? <JoinRequestPanel group={group} requestState={requestState} /> : <JoinClosedPanel />}
         </div>
       </section>
     </main>
@@ -162,6 +169,10 @@ function JoinRequestPanel({
   group: PublicGroupPageData;
   requestState: RequestState;
 }) {
+  if (!group.acceptingRequests) {
+    return <JoinClosedPanel />;
+  }
+
   if (requestState === "received") {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
@@ -195,6 +206,14 @@ function JoinRequestPanel({
         Request to Join
       </button>
     </form>
+  );
+}
+
+function JoinClosedPanel() {
+  return (
+    <div className="rounded-2xl border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
+      <p className="text-sm font-black text-[#0F172A]">This group is not accepting new requests right now.</p>
+    </div>
   );
 }
 

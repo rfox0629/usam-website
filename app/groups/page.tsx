@@ -227,12 +227,12 @@ async function loadPublicDirectoryData(hostname: string): Promise<PublicDirector
 
 async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<PublicDirectoryGroup[]> {
   const groupIds = groupRows.map((group) => group.id).filter(Boolean);
-  const nextGatheringsByGroupId = new Map<string, { location: string | null; starts_at: string | null; title: string | null }>();
+  const nextGatheringsByGroupId = new Map<string, { starts_at: string | null; title: string | null }>();
 
   if (groupIds.length) {
     const { data: gatherings, error: gatheringsError } = await supabase
       .from("dos_group_gatherings")
-      .select("group_id, title, starts_at, location")
+      .select("group_id, title, starts_at")
       .in("group_id", groupIds)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString())
@@ -248,7 +248,6 @@ async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase
       }
 
       nextGatheringsByGroupId.set(gathering.group_id, {
-        location: gathering.location ?? null,
         starts_at: gathering.starts_at ?? null,
         title: gathering.title ?? null,
       });
@@ -261,7 +260,7 @@ async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase
 
     return {
       description: group.description ?? "A recurring discipleship rhythm.",
-      location: nextGathering?.location ?? group.default_location ?? "Location TBD",
+      location: group.default_location ?? "Location shared after leader confirmation",
       name: group.name,
       nextGathering: nextGathering ? `${nextGathering.title ?? "Next gathering"} · ${nextGatheringDate || "Time TBD"}` : "Upcoming gathering TBD",
       rhythm: group.rhythm_label ?? "Recurring",

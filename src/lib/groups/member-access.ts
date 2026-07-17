@@ -585,6 +585,18 @@ export async function claimGroupMemberAccessToken(
   }
 
   const sessionToken = newSessionToken();
+  const updateTime = nowIso();
+  const sessionRevocationResult = await supabase
+    .from("dos_group_member_sessions")
+    .update({ revoked_at: updateTime })
+    .eq("member_identity_id", identity.id)
+    .eq("group_id", identity.group_id)
+    .is("revoked_at", null);
+
+  if (sessionRevocationResult.error) {
+    return { error: sessionRevocationResult.error.message };
+  }
+
   const sessionResult = await supabase
     .from("dos_group_member_sessions")
     .insert({
@@ -600,8 +612,6 @@ export async function claimGroupMemberAccessToken(
   if (sessionResult.error) {
     return { error: sessionResult.error.message };
   }
-
-  const updateTime = nowIso();
 
   await Promise.all([
     supabase

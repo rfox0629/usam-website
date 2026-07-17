@@ -305,6 +305,12 @@ export async function signOutGroupMember(formData: FormData) {
     await revokeGroupMemberSession(createSupabaseAdminClient(), sessionToken);
   }
 
-  cookieStore.delete(groupMemberSessionCookieName);
+  cookieStore.set(groupMemberSessionCookieName, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/groups",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
   redirect(publicGroupPath(slug || "group"));
 }
