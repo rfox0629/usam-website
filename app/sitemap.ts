@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
 import { getMissionaryDirectory } from "@/src/lib/missionaries/queries";
-import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
 
 const staticRoutes = [
   { path: "/", priority: 1 },
@@ -13,8 +14,15 @@ const staticRoutes = [
 ] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = getCanonicalSiteUrl();
+  const headerList = await headers();
+  const site = getCanonicalDomainSiteForHostname(headerList.get("x-forwarded-host") ?? headerList.get("host"));
+  const siteUrl = site.canonicalOrigin;
   const lastModified = new Date();
+
+  if (site.key !== "usam") {
+    return [];
+  }
+
   const missionaries = await getMissionaryDirectory();
 
   return [
