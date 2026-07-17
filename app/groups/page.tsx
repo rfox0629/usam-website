@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import {
+  fallbackUsamPublicSite,
+  missingPublicSiteSchema,
+  publicGroupPath,
+  requestHostname,
+  resolvePublicSiteForHost,
+  type PublicSiteConfig,
+} from "@/src/lib/groups/public-site";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PublicDirectoryGroup = {
@@ -14,6 +23,11 @@ type PublicDirectoryGroup = {
   slug: string;
   tagline: string;
   type: string;
+};
+
+type PublicDirectoryData = {
+  groups: PublicDirectoryGroup[];
+  site: PublicSiteConfig;
 };
 
 type PublicDirectoryGroupRow = {
@@ -66,39 +80,50 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
   },
 ];
 
-const groupsTitle = "Groups | USA Missionaries";
 const groupsDescription = "Find discipleship groups connected to USA Missionaries.";
 const groupsShareImage = "/images/usam/groups-share.png";
-const groupsUrl = `${getCanonicalSiteUrl()}/groups`;
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const headersList = await headers();
+  const host = requestHostname(headersList);
+  const site = isSupabaseAdminConfigured()
+    ? (await resolvePublicSiteForHost(createSupabaseAdminClient(), host)).site ?? fallbackUsamPublicSite
+    : fallbackUsamPublicSite;
+  const url = site.id
+    ? `https://${site.hostname}${site.basePath}`
+    : `${getCanonicalSiteUrl()}/groups`;
+  const title = `Groups | ${site.displayName}`;
+  const description = `Find discipleship groups connected to ${site.displayName}.`;
+
+  return {
   alternates: {
-    canonical: groupsUrl,
+    canonical: url,
   },
-  description: groupsDescription,
+  description,
   openGraph: {
-    description: groupsDescription,
+    description,
     images: [
       {
-        alt: "USA Missionaries Discipleship Groups",
+        alt: `${site.displayName} Discipleship Groups`,
         height: 630,
         url: groupsShareImage,
         width: 1200,
       },
     ],
-    siteName: "USA Missionaries",
-    title: groupsTitle,
+    siteName: site.displayName,
+    title,
     type: "website",
-    url: groupsUrl,
+    url,
   },
-  title: groupsTitle,
+  title,
   twitter: {
     card: "summary_large_image",
-    description: groupsDescription,
+    description,
     images: [groupsShareImage],
-    title: groupsTitle,
+    title,
   },
-};
+  };
+}
 
 function formatPublicDirectoryDate(value: string | null | undefined) {
   if (!value) {
@@ -152,24 +177,55 @@ function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | 
   return "Discipleship Group";
 }
 
-async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
+async function loadPublicDirectoryData(hostname: string): Promise<PublicDirectoryData> {
   if (!isSupabaseAdminConfigured()) {
-    return fallbackPublicDirectoryGroups;
+    return {
+      groups: fallbackPublicDirectoryGroups,
+      site: fallbackUsamPublicSite,
+    };
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: groups, error } = await supabase
+  const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
+  const site = siteResolution.site ?? fallbackUsamPublicSite;
+  const publicQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type")
+    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type, public_site_id, public_status")
     .eq("active", true)
     .order("name", { ascending: true });
+  const { data: groups, error } = siteResolution.schemaReady && site.id
+    ? await publicQuery
+      .eq("public_site_id", site.id)
+      .eq("public_status", "published")
+    : siteResolution.allowLegacyGlobalGroups
+      ? await publicQuery
+      : { data: [], error: null };
 
   if (error) {
+    if (missingPublicSiteSchema(error)) {
+      const legacyResult = await supabase
+        .from("dos_groups")
+        .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type")
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      return {
+        groups: legacyResult.error ? fallbackPublicDirectoryGroups : await mapDirectoryGroups((legacyResult.data ?? []) as PublicDirectoryGroupRow[], supabase),
+        site,
+      };
+    }
+
     console.warn("[Public Groups] Unable to load directory", error.message);
-    return [];
+    return { groups: [], site };
   }
 
   const groupRows = (groups ?? []) as PublicDirectoryGroupRow[];
+  const mappedGroups = await mapDirectoryGroups(groupRows, supabase);
+
+  return { groups: mappedGroups, site };
+}
+
+async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<PublicDirectoryGroup[]> {
   const groupIds = groupRows.map((group) => group.id).filter(Boolean);
   const nextGatheringsByGroupId = new Map<string, { location: string | null; starts_at: string | null; title: string | null }>();
 
@@ -218,7 +274,8 @@ async function loadPublicDirectoryGroups(): Promise<PublicDirectoryGroup[]> {
 }
 
 export default async function PublicGroupsDirectoryPage() {
-  const groups = await loadPublicDirectoryGroups();
+  const headersList = await headers();
+  const { groups, site } = await loadPublicDirectoryData(requestHostname(headersList));
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
@@ -228,12 +285,12 @@ export default async function PublicGroupsDirectoryPage() {
             <div className="relative isolate bg-[#06111F] px-5 py-10 text-white sm:px-8 lg:px-10">
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_82%_18%,rgba(248,197,106,0.28),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0),rgba(2,6,23,0.72))]" aria-hidden="true" />
               <Link className="inline-flex items-center gap-3" href="/">
-                <Image alt="USA Missionaries" className="h-8 w-8 rounded-sm object-contain" height={32} priority src="/brand/logo/usam-website-logo.png" width={32} />
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">USA Missionaries Groups</span>
+                <Image alt={site.displayName} className="h-8 w-8 rounded-sm object-contain" height={32} priority src={site.logoUrl ?? "/brand/logo/usam-website-logo.png"} width={32} />
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Groups</span>
               </Link>
               <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none tracking-tight sm:text-5xl">Find a discipleship rhythm.</h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-white/78">
-                Explore public discipleship rhythms connected with USA Missionaries and request information from a group leader.
+                Explore public discipleship rhythms connected with {site.displayName} and request information from a group leader.
               </p>
             </div>
           </header>
@@ -242,7 +299,7 @@ export default async function PublicGroupsDirectoryPage() {
               {groups.map((group) => (
                 <Link
                   className="flex min-h-[260px] flex-col rounded-[24px] border border-[#DCEBFF] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF]"
-                  href={`/groups/${group.slug}`}
+                  href={publicGroupPath(group.slug, site)}
                   key={group.slug}
                 >
                   <span className="flex items-start justify-between gap-3">
@@ -270,7 +327,7 @@ export default async function PublicGroupsDirectoryPage() {
         <footer className="pt-6 text-center text-xs font-bold text-[#64748B]">
           Powered by{" "}
           <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
-            USA Missionaries
+            {site.displayName}
           </Link>
         </footer>
       </section>

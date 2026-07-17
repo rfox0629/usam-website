@@ -1,4 +1,5 @@
 import { PrimaryNav } from "@/components/PrimaryNav";
+import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 
 export type PublicGroupPageData = {
@@ -19,6 +20,10 @@ export type PublicGroupPageData = {
   scriptureReference: string;
   scriptureText: string;
   shareImageUrl?: string | null;
+  siteBasePath: string;
+  siteHostname: string | null;
+  siteLogoUrl: string | null;
+  siteName: string;
   slug: string;
   tagline: string;
   typeLabel: string;
@@ -47,6 +52,8 @@ export function PublicGroupPageTemplate({
   group: PublicGroupPageData;
   requestState: RequestState;
 }) {
+  const groupPath = publicGroupPath(group.slug, { basePath: group.siteBasePath });
+
   return (
     <main className="min-h-screen bg-[#0B0D10] text-[#F5F3EE]">
       <PrimaryNav active="dos" />
@@ -60,7 +67,7 @@ export function PublicGroupPageTemplate({
           <div className="min-w-0">
             <div className="flex items-center gap-4">
               <span className="h-px w-11 bg-[#C2A14E]" />
-              <span className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C2A14E]">{[group.scriptureReference, group.typeLabel].filter(Boolean).join(" · ")}</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#C2A14E]">{[group.siteName, group.typeLabel].filter(Boolean).join(" · ")}</span>
             </div>
             <h1 className="mt-7 max-w-4xl text-6xl font-black leading-[0.92] tracking-normal text-[#F5F3EE] sm:text-7xl lg:text-8xl">
               <GroupName name={group.name} />
@@ -80,8 +87,8 @@ export function PublicGroupPageTemplate({
               <a className="inline-flex min-h-12 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-6 text-xs font-black uppercase tracking-[0.2em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
                 Join Group
               </a>
-              <a className="inline-flex min-h-12 items-center justify-center rounded-sm border border-white/20 px-6 text-xs font-black uppercase tracking-[0.2em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href="#gathering">
-                Next Gathering
+              <a className="inline-flex min-h-12 items-center justify-center rounded-sm border border-white/20 px-6 text-xs font-black uppercase tracking-[0.2em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
+                Member Sign In
               </a>
             </div>
           </div>
@@ -100,7 +107,7 @@ export function PublicGroupPageTemplate({
       <section className="border-b border-white/10 bg-[#12151A]">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-8 px-5 py-8 sm:px-8 lg:px-10">
           <p className="max-w-3xl text-base leading-8 text-white/65">
-            <strong className="font-semibold text-white">{group.name}</strong> {group.description}
+            <strong className="font-semibold text-white">{group.name}</strong> is a {group.typeLabel.toLowerCase()} connected with {group.siteName}. {group.description}
           </p>
           <div className="flex gap-2" aria-label="Two by two">
             {[0, 1, 2, 3].map((item) => (
@@ -290,7 +297,7 @@ function JoinRequestPanel({
   return (
     <form action={submitGroupJoinRequest} className="mx-auto mt-8 grid max-w-2xl gap-4 rounded-2xl border border-white/12 bg-[#12151A] p-5 text-left shadow-[0_20px_70px_rgba(0,0,0,0.28)] sm:grid-cols-2 sm:p-6">
       <input name="groupSlug" type="hidden" value={group.slug} />
-      <input name="sourcePath" type="hidden" value={`/groups/${group.slug}`} />
+      <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
       {errorText ? <p className="rounded-xl border border-[#C2A14E]/30 bg-[#C2A14E]/10 px-4 py-3 text-sm font-semibold text-[#F5F3EE] sm:col-span-2">{errorText}</p> : null}
       <JoinInput autoComplete="given-name" label="First Name" name="firstName" required />
       <JoinInput autoComplete="family-name" label="Last Name" name="lastName" required />

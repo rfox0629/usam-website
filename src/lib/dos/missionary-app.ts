@@ -409,6 +409,12 @@ export type DosAppPrayerRequest = {
 export type DosAppGroupMember = {
   id: string;
   joinedAt: string | null;
+  memberAccess?: {
+    status: "invited" | "not_invited" | "revoked" | "verified";
+    verifiedAt: string | null;
+    verifiedEmail: string | null;
+    verifiedPhone: string | null;
+  } | null;
   notes: string | null;
   permissions: Record<string, boolean>;
   personId: string;
@@ -1229,6 +1235,17 @@ type GroupMemberRow = {
   title?: string | null;
 };
 
+type GroupMemberIdentityRow = {
+  group_id: string;
+  group_member_id: string;
+  id: string;
+  person_id: string;
+  status: string | null;
+  verified_at: string | null;
+  verified_email: string | null;
+  verified_phone: string | null;
+};
+
 type GroupGatheringRow = {
   acting_leader_person_id?: string | null;
   completed_at?: string | null;
@@ -1274,6 +1291,7 @@ type GroupLoadRows = {
   attendance: GroupAttendanceRow[];
   gatherings: GroupGatheringRow[];
   groups: GroupRow[];
+  identities: GroupMemberIdentityRow[];
   members: GroupMemberRow[];
   resources: GroupResourceRow[];
 };
@@ -2111,6 +2129,27 @@ function mapGroupMemberStatus(value: string | null | undefined): DosAppGroupMemb
   }
 
   return "active";
+}
+
+function groupMemberAccessSummary(identity: GroupMemberIdentityRow | undefined): DosAppGroupMember["memberAccess"] {
+  if (!identity) {
+    return null;
+  }
+
+  const status = identity.status === "verified"
+    ? "verified"
+    : identity.status === "revoked" || identity.status === "inactive"
+      ? "revoked"
+      : identity.status === "invited"
+        ? "invited"
+        : "not_invited";
+
+  return {
+    status,
+    verifiedAt: identity.verified_at,
+    verifiedEmail: identity.verified_email,
+    verifiedPhone: identity.verified_phone,
+  };
 }
 
 function mapGroupGatheringStatus(value: string | null | undefined): DosAppGroupGathering["status"] {
@@ -3321,6 +3360,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     attendance: [],
     gatherings: [],
     groups: [],
+    identities: [],
     members: [],
     resources: [],
   };
@@ -3358,7 +3398,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
   const v2MemberSelect = `${baseMemberSelect}, permissions, title`;
   const baseGatheringSelect = "id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id";
   const v2GatheringSelect = `${baseGatheringSelect}, acting_leader_person_id, shared_notes, shared_prayer_summary, shared_follow_up, fruit_summary, ministry_event_id, started_at, completed_at`;
-  const [v2MembersResult, v2GatheringsResult, resourcesResult] = await Promise.all([
+  const [v2MembersResult, v2GatheringsResult, resourcesResult, identitiesResult] = await Promise.all([
     supabase
       .from("dos_group_members")
       .select(v2MemberSelect)
@@ -3376,6 +3416,10 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       .eq("active", true)
       .order("sort_order", { ascending: true })
       .order("title", { ascending: true }),
+    supabase
+      .from("dos_group_member_identities")
+      .select("id, group_id, group_member_id, person_id, verified_email, verified_phone, status, verified_at")
+      .in("group_id", groupIds),
   ]);
   const [membersResult, gatheringsResult] = await Promise.all([
     v2MembersResult.error && isMissingColumnError(v2MembersResult.error)
@@ -3402,11 +3446,15 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       .order("sort_order", { ascending: true })
       .order("title", { ascending: true })
     : resourcesResult;
+  const groupIdentitiesResult = identitiesResult.error && isMissingWorkflowTable(identitiesResult.error, "dos_group_member_identities")
+    ? { data: [] as GroupMemberIdentityRow[], error: null }
+    : identitiesResult;
 
   const relatedError = [
     membersResult.error,
     gatheringsResult.error,
     groupResourcesResult.error,
+    groupIdentitiesResult.error,
   ].find(Boolean);
 
   if (relatedError) {
@@ -3414,6 +3462,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       "dos_group_members",
       "dos_group_gatherings",
       "dos_group_resources",
+      "dos_group_member_identities",
     ].some((tableName) => isMissingWorkflowTable(relatedError, tableName));
 
     return missingGroupsTable
@@ -3442,6 +3491,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       attendance: (attendanceResult.data ?? []) as GroupAttendanceRow[],
       gatherings: gatheringRows,
       groups: groupRows,
+      identities: (groupIdentitiesResult.data ?? []) as GroupMemberIdentityRow[],
       members: (membersResult.data ?? []) as GroupMemberRow[],
       resources: (groupResourcesResult.data ?? []) as GroupResourceRow[],
     },
@@ -4113,6 +4163,7 @@ export async function loadDosAppData(
   const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
   const groupRows = groupsResult.data.groups;
   const groupMemberRows = groupsResult.data.members;
+  const groupIdentityRows = groupsResult.data.identities;
   const groupGatheringRows = groupsResult.data.gatherings;
   const groupAttendanceRows = groupsResult.data.attendance;
   const groupResourceRows = groupsResult.data.resources;
@@ -4368,6 +4419,7 @@ export async function loadDosAppData(
     };
   });
   const groupMembersByGroupId = new Map<string, GroupMemberRow[]>();
+  const groupIdentitiesByMemberId = new Map<string, GroupMemberIdentityRow>();
   const groupGatheringsByGroupId = new Map<string, GroupGatheringRow[]>();
   const groupAttendanceByGatheringId = new Map<string, GroupAttendanceRow[]>();
   const groupPrayerRequestsByGroupId = new Map<string, DosAppPrayerRequest[]>();
@@ -4378,6 +4430,10 @@ export async function loadDosAppData(
 
     rows.push(member);
     groupMembersByGroupId.set(member.group_id, rows);
+  });
+
+  groupIdentityRows.forEach((identity) => {
+    groupIdentitiesByMemberId.set(identity.group_member_id, identity);
   });
 
   groupGatheringRows.forEach((gathering) => {
@@ -4416,6 +4472,7 @@ export async function loadDosAppData(
     const members = (groupMembersByGroupId.get(group.id) ?? []).map((member) => ({
       id: member.id,
       joinedAt: member.joined_at,
+      memberAccess: groupMemberAccessSummary(groupIdentitiesByMemberId.get(member.id)),
       notes: member.notes,
       permissions: member.permissions ?? {},
       personId: member.person_id,

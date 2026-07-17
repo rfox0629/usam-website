@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import {
+  fallbackUsamPublicSite,
+  missingPublicSiteSchema,
+  publicGroupPath,
+  requestHostname,
+  resolvePublicSiteForHost,
+  type PublicSiteConfig,
+} from "@/src/lib/groups/public-site";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
@@ -13,6 +22,8 @@ type PublicGroupRow = {
   image_url: string | null;
   name: string;
   organization_id: string | null;
+  public_site_id?: string | null;
+  public_status?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
@@ -66,7 +77,8 @@ const fallbackGatherings: Record<string, GatheringRow> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const group = await loadPublicGroup(slug);
+  const headersList = await headers();
+  const group = await loadPublicGroup(slug, requestHostname(headersList));
 
   if (!group) {
     return {
@@ -75,9 +87,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const title = `${group.name} | USA Missionaries`;
-  const description = group.description || "A recurring discipleship rhythm connected with USA Missionaries.";
-  const url = `${getCanonicalSiteUrl()}/groups/${group.slug}`;
+  const title = `${group.name} | ${group.siteName}`;
+  const description = group.description || `A recurring discipleship rhythm connected with ${group.siteName}.`;
+  const url = group.siteHostname
+    ? `https://${group.siteHostname}${publicGroupPath(group.slug, { basePath: group.siteBasePath })}`
+    : `${getCanonicalSiteUrl()}/groups/${group.slug}`;
   const image = groupShareImageUrl(group.shareImageUrl);
 
   return {
@@ -95,7 +109,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
           width: 1200,
         },
       ],
-      siteName: "USA Missionaries",
+      siteName: group.siteName,
       title,
       type: "website",
       url,
@@ -118,7 +132,8 @@ export default async function PublicGroupPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  const group = await loadPublicGroup(slug);
+  const headersList = await headers();
+  const group = await loadPublicGroup(slug, requestHostname(headersList));
 
   if (!group) {
     notFound();
@@ -133,22 +148,46 @@ export default async function PublicGroupPage({
   return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
-async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null> {
+async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGroupPageData | null> {
   if (!isSupabaseAdminConfigured()) {
     const fallback = fallbackPublicGroups[slug];
 
-    return fallback ? toPublicGroupData(fallback, fallbackGatherings[slug] ?? null) : null;
+    return fallback ? toPublicGroupData(fallback, fallbackGatherings[slug] ?? null, fallbackUsamPublicSite) : null;
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: group, error } = await supabase
+  const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
+  const site = siteResolution.site ?? fallbackUsamPublicSite;
+  const groupQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, public_site_id, public_status")
     .eq("slug", slug)
-    .eq("active", true)
-    .maybeSingle();
+    .eq("active", true);
+  const { data: group, error } = siteResolution.schemaReady && site.id
+    ? await groupQuery
+      .eq("public_site_id", site.id)
+      .eq("public_status", "published")
+      .maybeSingle()
+    : siteResolution.allowLegacyGlobalGroups
+      ? await groupQuery.maybeSingle()
+      : { data: null, error: null };
 
   if (error) {
+    if (missingPublicSiteSchema(error)) {
+      const legacyResult = await supabase
+        .from("dos_groups")
+        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type")
+        .eq("slug", slug)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (legacyResult.error || !legacyResult.data) {
+        return null;
+      }
+
+      return loadPublicGroupGatheringData(supabase, legacyResult.data as PublicGroupRow, site);
+    }
+
     console.warn("[Public Group] Unable to load group", error.message);
     return null;
   }
@@ -157,6 +196,14 @@ async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null
     return null;
   }
 
+  return loadPublicGroupGatheringData(supabase, group as PublicGroupRow, site);
+}
+
+async function loadPublicGroupGatheringData(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  group: PublicGroupRow,
+  site: PublicSiteConfig,
+) {
   const { data: gatherings, error: gatheringsError } = await supabase
     .from("dos_group_gatherings")
     .select("title, starts_at, location")
@@ -170,10 +217,10 @@ async function loadPublicGroup(slug: string): Promise<PublicGroupPageData | null
     console.warn("[Public Group] Unable to load next gathering", gatheringsError.message);
   }
 
-  return toPublicGroupData(group as PublicGroupRow, gatherings?.[0] ?? null);
+  return toPublicGroupData(group, gatherings?.[0] ?? null, site);
 }
 
-function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null): PublicGroupPageData {
+function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null, site: PublicSiteConfig): PublicGroupPageData {
   const typeLabel = publicGroupType(group);
   const content = contentForGroup(group);
   const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
@@ -202,6 +249,10 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     scriptureText: group.scripture_text ?? "",
     shareImageUrl: group.image_url,
     slug: group.slug,
+    siteBasePath: site.basePath,
+    siteHostname: site.id ? site.hostname : null,
+    siteLogoUrl: site.logoUrl,
+    siteName: site.displayName,
     tagline: group.tagline ?? "Discipleship happens in rhythms.",
     typeLabel,
     typicalSchedule: content.typicalSchedule,

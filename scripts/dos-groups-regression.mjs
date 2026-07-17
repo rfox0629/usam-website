@@ -722,8 +722,8 @@ assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form m
 assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
 assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
 assert(exists("public/images/usam/groups-share.png"), "Default Groups social share image must exist.");
-assertIncludes(publicGroupsDirectoryPage, "Groups | USA Missionaries", "Public groups directory must set a specific metadata title.");
-assertIncludes(publicGroupsDirectoryPage, "Find discipleship groups connected to USA Missionaries.", "Public groups directory must set a specific metadata description.");
+assertIncludes(publicGroupsDirectoryPage, "Groups | ${site.displayName}", "Public groups directory metadata must use the resolved public site.");
+assertIncludes(publicGroupsDirectoryPage, "Find discipleship groups connected to ${site.displayName}.", "Public groups directory metadata must describe the resolved public site.");
 assertIncludes(publicGroupsDirectoryPage, "/images/usam/groups-share.png", "Public groups directory must use the default Groups social image.");
 assertIncludes(publicGroupsDirectoryPage, "summary_large_image", "Public groups directory must configure Twitter large image metadata.");
 assertIncludes(publicGroupPage, "image_url", "Public group metadata must support a group-specific public image when present.");
@@ -746,7 +746,7 @@ assert(
 assertIncludes(publicGroupsDirectoryPage, ".from(\"dos_groups\")", "Public groups directory must resolve from real group data.");
 assertIncludes(publicGroupsDirectoryPage, ".eq(\"active\", true)", "Public groups directory must only list active groups.");
 assertIncludes(publicGroupsDirectoryPage, "fallbackPublicDirectoryGroups", "Public groups directory must have safe local fallback data.");
-assertIncludes(publicGroupsDirectoryPage, "href={`/groups/${group.slug}`}", "Public groups directory cards must link to public group pages.");
+assertIncludes(publicGroupsDirectoryPage, "publicGroupPath(group.slug, site)", "Public groups directory cards must link through the public-site base path.");
 assertIncludes(publicGroupsDirectoryPage, "Powered by", "Public groups directory must include the powered-by footer.");
 assert(
   !publicGroupsDirectoryPage.includes("dos_group_members"),

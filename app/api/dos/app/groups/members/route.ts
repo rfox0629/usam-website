@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { createGroupMemberAccessInvitation } from "@/src/lib/groups/member-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type GroupMemberPayload = {
+  action?: unknown;
   email?: unknown;
   groupId?: unknown;
   group_id?: unknown;
@@ -247,6 +249,61 @@ export async function POST(request: Request) {
       { error: groupAccess.message },
       { status: groupAccess.status === "not_found" ? 404 : groupAccess.status === "forbidden" ? 403 : 500 },
     );
+  }
+
+  const action = asString(payload.action);
+
+  if (action === "send_member_access") {
+    const personId = asString(payload.personId) || asString(payload.person_id);
+    const memberId = asString(payload.memberId) || asString(payload.member_id);
+
+    if (!isUuid(personId)) {
+      return NextResponse.json({ error: "Group member not found." }, { status: 404 });
+    }
+
+    let memberQuery = supabase
+      .from("dos_group_members")
+      .select("id, person_id, role, status, joined_at, notes")
+      .eq("group_id", groupId)
+      .eq("person_id", personId);
+
+    if (isUuid(memberId)) {
+      memberQuery = memberQuery.eq("id", memberId);
+    }
+
+    const memberResult = await memberQuery.maybeSingle();
+
+    if (memberResult.error) {
+      return NextResponse.json({ error: memberResult.error.message }, { status: 500 });
+    }
+
+    if (!memberResult.data || memberResult.data.status !== "active") {
+      return NextResponse.json({ error: "Active group membership is required before member access can be invited." }, { status: 409 });
+    }
+
+    const invitationResult = await createGroupMemberAccessInvitation(supabase, {
+      createdByUserId: authResult.authorization.userId,
+      email: asNullableString(payload.email),
+      groupId,
+      memberId: memberResult.data.id,
+      personId,
+      phone: asNullableString(payload.phone),
+    });
+
+    if (invitationResult.error || invitationResult.missingSchema || !invitationResult.invitation) {
+      return NextResponse.json({
+        error: invitationResult.error ?? "Member access is not configured yet.",
+      }, { status: invitationResult.missingSchema ? 501 : 400 });
+    }
+
+    return NextResponse.json({
+      memberAccess: {
+        accessUrl: invitationResult.invitation.accessUrl,
+        expiresAt: invitationResult.invitation.expiresAt,
+        status: "invited",
+      },
+      ok: true,
+    });
   }
 
   const existingPersonResult = await resolveExistingPerson(supabase, workspaceId, payload);

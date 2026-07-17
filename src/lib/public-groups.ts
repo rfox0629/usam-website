@@ -1,4 +1,9 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import {
+  fallbackUsamPublicSite,
+  missingPublicSiteSchema,
+  resolvePublicSiteForHost,
+} from "@/src/lib/groups/public-site";
 
 export type PublicGroup = {
   description: string;
@@ -52,20 +57,44 @@ function formatPublicGroupDate(value: string | null | undefined) {
   }).format(date);
 }
 
-export async function loadPublicGroup(slug: string): Promise<PublicGroup | null> {
+export async function loadPublicGroup(slug: string, hostname = fallbackUsamPublicSite.hostname): Promise<PublicGroup | null> {
   if (!isSupabaseAdminConfigured()) {
     return fallbackPublicGroups[slug] ?? null;
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: group, error } = await supabase
+  const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
+  const site = siteResolution.site ?? fallbackUsamPublicSite;
+  const groupQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, public_site_id, public_status")
     .eq("slug", slug)
-    .eq("active", true)
-    .maybeSingle();
+    .eq("active", true);
+  const { data: group, error } = siteResolution.schemaReady && site.id
+    ? await groupQuery
+      .eq("public_site_id", site.id)
+      .eq("public_status", "published")
+      .maybeSingle()
+    : siteResolution.allowLegacyGlobalGroups
+      ? await groupQuery.maybeSingle()
+      : { data: null, error: null };
 
   if (error) {
+    if (missingPublicSiteSchema(error)) {
+      const legacyResult = await supabase
+        .from("dos_groups")
+        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location")
+        .eq("slug", slug)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (legacyResult.error || !legacyResult.data) {
+        return null;
+      }
+
+      return mapPublicGroup(supabase, legacyResult.data);
+    }
+
     console.warn("[Public Group] Unable to load group", error.message);
     return null;
   }
@@ -74,6 +103,23 @@ export async function loadPublicGroup(slug: string): Promise<PublicGroup | null>
     return null;
   }
 
+  return mapPublicGroup(supabase, group);
+}
+
+async function mapPublicGroup(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  group: {
+    default_location: string | null;
+    description: string | null;
+    id: string;
+    name: string;
+    rhythm_label: string | null;
+    scripture_reference: string | null;
+    scripture_text: string | null;
+    tagline: string | null;
+    type: string | null;
+  },
+) {
   const { data: gatherings } = await supabase
     .from("dos_group_gatherings")
     .select("title, starts_at, location")

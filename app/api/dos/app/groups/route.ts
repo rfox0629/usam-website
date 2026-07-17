@@ -9,6 +9,10 @@ import {
   isDosGroupTemplateKey,
   slugFromGroupName,
 } from "@/src/lib/dos/groups";
+import {
+  missingPublicSiteSchema,
+  resolveDefaultPublicSiteForWorkspace,
+} from "@/src/lib/groups/public-site";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type GroupCreatePayload = {
@@ -38,6 +42,8 @@ type GroupRow = {
   leader_person_id: string | null;
   name: string;
   primary_leader_person_id: string | null;
+  public_site_id?: string | null;
+  public_status?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
@@ -249,7 +255,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Selected leader is not in this workspace." }, { status: 400 });
   }
 
-  const groupRecord = {
+  const defaultPublicSiteResult = await resolveDefaultPublicSiteForWorkspace(supabase, workspaceId);
+
+  if (defaultPublicSiteResult.error) {
+    return NextResponse.json({ error: defaultPublicSiteResult.error.message }, { status: 500 });
+  }
+
+  const baseGroupRecord = {
     accepting_members: true,
     active: true,
     activity_type: template.activityType,
@@ -278,12 +290,28 @@ export async function POST(request: Request) {
     visibility: asVisibility(payload.visibility),
     workspace_id: workspaceId,
   };
+  const groupRecord = {
+    ...baseGroupRecord,
+    organization_id: defaultPublicSiteResult.organizationId,
+    public_site_id: defaultPublicSiteResult.site?.id ?? null,
+    public_status: defaultPublicSiteResult.site?.id ? "published" : "draft",
+  };
 
-  const { data: createdGroup, error: createError } = await supabase
+  let createResult = await supabase
     .from("dos_groups")
     .insert(groupRecord)
     .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, primary_leader_person_id, template_key, template_category, audience, activity_type, capacity, accepting_members, shared_leadership_enabled, settings, active")
     .single();
+
+  if (missingPublicSiteSchema(createResult.error)) {
+    createResult = await supabase
+      .from("dos_groups")
+      .insert(baseGroupRecord)
+      .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, primary_leader_person_id, template_key, template_category, audience, activity_type, capacity, accepting_members, shared_leadership_enabled, settings, active")
+      .single();
+  }
+
+  const { data: createdGroup, error: createError } = createResult;
 
   if (createError) {
     return NextResponse.json({ error: createError.message }, { status: 500 });

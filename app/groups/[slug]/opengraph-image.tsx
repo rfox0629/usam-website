@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { headers } from "next/headers";
 import { ImageResponse } from "next/og";
 import { loadPublicGroup } from "@/src/lib/public-groups";
+import { requestHostname } from "@/src/lib/groups/public-site";
 
 export const runtime = "nodejs";
 export const alt = "USA Missionaries Discipleship Group";
@@ -10,7 +12,8 @@ export const contentType = "image/png";
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const group = await loadPublicGroup(slug);
+  const headersList = await headers();
+  const group = await loadPublicGroup(slug, requestHostname(headersList));
 
   const logoBuffer = await readFile(join(process.cwd(), "public/brand/logo/usam-website-logo.png"));
   const logoSrc = `data:image/png;base64,${logoBuffer.toString("base64")}`;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canWriteDosActivity, getDosAuthorization, type DosAuthorization } from "@/src/lib/dos/auth";
 import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
+import { createGroupMemberAccessInvitation } from "@/src/lib/groups/member-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type JoinRequestPayload = {
@@ -396,6 +397,14 @@ async function acceptJoinRequest(
   }
 
   const member = writeResult.data as MemberRow;
+  const memberAccessResult = await createGroupMemberAccessInvitation(supabase, {
+    createdByUserId: authorization.userId,
+    email: joinRequest.email,
+    groupId,
+    memberId: member.id,
+    personId: person.id,
+    phone: joinRequest.phone,
+  });
 
   return {
     alreadyMember: Boolean(existingMemberResult.data && existingMemberResult.data.status !== "removed"),
@@ -414,6 +423,16 @@ async function acceptJoinRequest(
       name: person.name,
       phone: person.phone ?? "",
     },
+    memberAccess: memberAccessResult.invitation
+      ? {
+        accessUrl: memberAccessResult.invitation.accessUrl,
+        expiresAt: memberAccessResult.invitation.expiresAt,
+        status: "invited",
+      }
+      : {
+        error: memberAccessResult.error ?? (memberAccessResult.missingSchema ? "Member access migration has not been applied." : "Member access invitation was not created."),
+        status: "not_invited",
+      },
   };
 }
 

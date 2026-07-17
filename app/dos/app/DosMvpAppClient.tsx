@@ -244,6 +244,15 @@ type GroupMemberRemoveResult = {
   member?: DosAppGroupMember;
   ok?: boolean;
 };
+type GroupMemberAccessResult = {
+  error?: string;
+  memberAccess?: {
+    accessUrl: string;
+    expiresAt: string;
+    status: "invited";
+  };
+  ok?: boolean;
+};
 type GroupPersonMatch = {
   email: string | null;
   id: string;
@@ -277,6 +286,7 @@ type GroupJoinRequestsResult = {
 type GroupJoinRequestAction = "accept" | "decline" | "review";
 type GroupJoinRequestActionResult = GroupMemberAddResult & {
   error?: string;
+  memberAccess?: GroupMemberAccessResult["memberAccess"] | { error?: string; status: "not_invited" };
   ok?: boolean;
   possiblePersonMatches?: GroupPersonMatch[];
   request?: GroupJoinRequest;
@@ -8885,6 +8895,24 @@ function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
   return "Pending";
 }
 
+function groupMemberAccessLabel(member: DosAppGroupMember) {
+  const status = member.memberAccess?.status;
+
+  if (status === "verified") {
+    return "Verified";
+  }
+
+  if (status === "invited") {
+    return "Invited";
+  }
+
+  if (status === "revoked") {
+    return "Revoked";
+  }
+
+  return "Not Invited";
+}
+
 function GroupMembersTab({
   group,
   isPreview,
@@ -8906,7 +8934,9 @@ function GroupMembersTab({
   const [submittingJoinRequest, setSubmittingJoinRequest] = useState<string | null>(null);
   const [joinRequestPersonChoices, setJoinRequestPersonChoices] = useState<Record<string, string>>({});
   const [memberRemovalMessage, setMemberRemovalMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [memberPendingRemovalId, setMemberPendingRemovalId] = useState<string | null>(null);
+  const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const visibleMembers = group.members.filter((member) => member.status !== "removed");
 
@@ -9022,6 +9052,48 @@ function GroupMembersTab({
       setMemberRemovalMessage({ text: error instanceof Error ? error.message : "Unable to remove this member.", tone: "error" });
     } finally {
       setRemovingMemberId(null);
+    }
+  }
+
+  async function sendMemberAccess(member: DosAppGroupMember) {
+    if (isPreview) {
+      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setSendingMemberAccessId(member.id);
+    setMemberAccessMessage(null);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          action: "send_member_access",
+          groupId: group.id,
+          memberId: member.id,
+          personId: member.personId,
+          workspaceId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as GroupMemberAccessResult;
+
+      if (!response.ok || !result.memberAccess?.accessUrl) {
+        throw new Error(result.error ?? "Unable to create member access link.");
+      }
+
+      try {
+        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
+        setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
+      } catch {
+        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
+      }
+    } catch (error) {
+      setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
+    } finally {
+      setSendingMemberAccessId(null);
     }
   }
 
@@ -9171,6 +9243,16 @@ function GroupMembersTab({
             {memberRemovalMessage.text}
           </p>
         ) : null}
+        {memberAccessMessage ? (
+          <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            memberAccessMessage.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {memberAccessMessage.text}
+          </p>
+        ) : null}
         {visibleMembers.length ? (
           <div className="grid gap-2">
             {visibleMembers.map((member) => {
@@ -9182,10 +9264,18 @@ function GroupMembersTab({
                   <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)} · {groupMemberAccessLabel(member)}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
+                      <button
+                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={member.status !== "active" || sendingMemberAccessId === member.id}
+                        onClick={() => void sendMemberAccess(member)}
+                        type="button"
+                      >
+                        {sendingMemberAccessId === member.id ? "Creating..." : "Access Link"}
+                      </button>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-2.5 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isLeader || removingMemberId === member.id}
@@ -33811,7 +33901,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     if (result.member) {
       const message = result.alreadyMember
         ? `${result.member.personName} is already in this group.`
-        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+        : result.memberAccess && "accessUrl" in result.memberAccess
+          ? `${result.member.personName} added. Member access link is ready.`
+          : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
 
       setGroupsNotice(message);
       router.refresh();

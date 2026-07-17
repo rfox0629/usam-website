@@ -1,0 +1,93 @@
+import { existsSync, readFileSync } from "node:fs";
+
+function read(path) {
+  return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+function exists(path) {
+  return existsSync(new URL(`../${path}`, import.meta.url));
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function assertIncludes(source, needle, message) {
+  assert(source.includes(needle), message);
+}
+
+function assertNotIncludes(source, needle, message) {
+  assert(!source.includes(needle), message);
+}
+
+const migration = read("supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql");
+const memberAccess = read("src/lib/groups/member-access.ts");
+const memberPage = read("app/groups/[slug]/member/page.tsx");
+const memberActions = read("app/groups/[slug]/member/actions.ts");
+const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const joinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
+const membersRoute = read("app/api/dos/app/groups/members/route.ts");
+const missionaryApp = read("src/lib/dos/missionary-app.ts");
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
+
+for (const table of [
+  "dos_group_member_identities",
+  "dos_group_member_access_tokens",
+  "dos_group_member_sessions",
+  "dos_group_rsvps",
+  "dos_group_updates",
+  "dos_group_member_notification_preferences",
+  "dos_group_notification_deliveries",
+]) {
+  assertIncludes(migration, `create table if not exists public.${table}`, `Migration must create ${table}.`);
+  assertIncludes(migration, `alter table public.${table} enable row level security`, `${table} must have RLS enabled.`);
+  assertIncludes(migration, `revoke all on table public.${table} from anon`, `${table} must revoke anon access.`);
+  assertIncludes(migration, `grant select, insert, update, delete on table public.${table} to service_role`, `${table} must be service-route managed.`);
+}
+
+assertIncludes(migration, "token_hash text not null", "Access tokens must store hashes.");
+assertIncludes(migration, "session_token_hash text not null", "Sessions must store hashes.");
+assertNotIncludes(migration, "token text not null", "Migration must not store plaintext member tokens.");
+assertIncludes(migration, "dos_group_rsvps_gathering_person_unique", "RSVPs must update per gathering/person instead of duplicating.");
+assertIncludes(migration, "response in ('going', 'not_going', 'maybe')", "RSVP responses must be constrained.");
+assertIncludes(migration, "visibility in ('public', 'group_members', 'leaders')", "Group updates must have scoped visibility.");
+assertIncludes(migration, "notification_type in", "Notification preferences must be typed.");
+
+assert(exists("app/groups/[slug]/member/page.tsx"), "Member portal page must exist.");
+assert(exists("app/groups/[slug]/member/access/route.ts"), "Member access claim route must exist.");
+assertIncludes(memberAccess, "createHash(\"sha256\")", "Member access helper must hash tokens.");
+assertIncludes(memberAccess, "randomBytes", "Member access helper must generate random tokens.");
+assertIncludes(memberAccess, "createGroupMemberAccessInvitation", "Member access helper must create invitations.");
+assertIncludes(memberAccess, "claimGroupMemberAccessToken", "Member access helper must claim tokens.");
+assertIncludes(memberAccess, "loadGroupMemberPortalData", "Member access helper must load portal data through active membership checks.");
+assertIncludes(memberAccess, "memberIsActive", "Member portal must require active membership.");
+assertIncludes(memberAccess, "groupIsMemberAccessible", "Member portal must require active group/member access.");
+assertIncludes(memberAccess, "Boolean(group && group.active !== false", "Member access must not treat missing groups as accessible.");
+assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links must resolve through public_sites when available.");
+assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
+assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+
+assertIncludes(memberPage, "Next Gathering", "Member portal must show next gathering.");
+assertIncludes(memberPage, "Save RSVP", "Member portal must support RSVP.");
+assertIncludes(memberPage, "Send Prayer Request", "Member portal must support prayer submission.");
+assertIncludes(memberPage, "Save Preferences", "Member portal must support notification preferences.");
+assertIncludes(memberActions, ".from(\"dos_group_rsvps\")", "Member RSVP action must use dos_group_rsvps.");
+assertIncludes(memberActions, ".upsert(", "RSVP/preferences actions must update existing records.");
+assertIncludes(memberActions, ".from(\"prayer_requests\")", "Member prayer must reuse prayer_requests.");
+assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member prayer must default to leaders-only visibility.");
+assertIncludes(memberActions, "requestGroupMemberAccess", "Member portal must provide low-friction access request.");
+
+assertIncludes(joinRequestsRoute, "createGroupMemberAccessInvitation", "Accepting a join request must prepare member access.");
+assertIncludes(membersRoute, "send_member_access", "Leader members API must support resending member access.");
+assertIncludes(membersRoute, "loadDosGroupRoleAccess", "Member access resend must remain leader-authorized.");
+assertIncludes(missionaryApp, "memberAccess", "DOS payload must expose compact member access summary.");
+assertIncludes(appClient, "Access Link", "Leader UI must expose a compact member access control.");
+assertIncludes(appClient, "groupMemberAccessLabel", "Leader UI must display member access status.");
+
+assertIncludes(architectureDoc, "Plain tokens are never stored", "Architecture doc must document token storage safety.");
+assertIncludes(architectureDoc, "Lightweight members do not receive a DOS workspace", "Architecture doc must preserve product boundary.");
+
+console.log("dos-group-member-portal-regression: all checks passed.");
