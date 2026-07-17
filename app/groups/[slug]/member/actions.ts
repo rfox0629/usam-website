@@ -38,6 +38,10 @@ function normalizeEmail(value: string) {
 }
 
 function redirectToMember(slug: string, state: string): never {
+  redirect(`${publicGroupPath(slug)}?state=${state}`);
+}
+
+function redirectToSignIn(slug: string, state: string): never {
   redirect(`${publicGroupPath(slug)}/member?state=${state}`);
 }
 
@@ -228,11 +232,11 @@ export async function requestGroupMemberAccess(formData: FormData) {
   const email = normalizeEmail(formString(formData, "email"));
 
   if (!slug || !emailPattern.test(email)) {
-    redirectToMember(slug || "group", "access-requested");
+    redirectToSignIn(slug || "group", "access-requested");
   }
 
   if (!isSupabaseAdminConfigured()) {
-    redirectToMember(slug, "access-requested");
+    redirectToSignIn(slug, "access-requested");
   }
 
   const supabase = createSupabaseAdminClient();
@@ -254,7 +258,7 @@ export async function requestGroupMemberAccess(formData: FormData) {
       : { data: null, error: null };
 
   if (groupResult.error && !missingPublicSiteSchema(groupResult.error)) {
-    redirectToMember(slug, "access-requested");
+    redirectToSignIn(slug, "access-requested");
   }
 
   if (!groupResult.error && groupResult.data && groupResult.data.member_access_enabled !== false) {
@@ -289,7 +293,7 @@ export async function requestGroupMemberAccess(formData: FormData) {
     }
   }
 
-  redirectToMember(slug, "access-requested");
+  redirectToSignIn(slug, "access-requested");
 }
 
 export async function signOutGroupMember(formData: FormData) {
@@ -302,5 +306,5 @@ export async function signOutGroupMember(formData: FormData) {
   }
 
   cookieStore.delete(groupMemberSessionCookieName);
-  redirect(`${publicGroupPath(slug || "group")}/member`);
+  redirect(publicGroupPath(slug || "group"));
 }

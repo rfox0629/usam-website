@@ -708,12 +708,12 @@ for (const privatePublicTerm of [
     `Public group route must not expose private admin term: ${privatePublicTerm}.`,
   );
 }
-assertIncludes(publicSingleGroupRoute, "What to Expect", "Public group route must include What to Expect.");
-assertIncludes(publicSingleGroupRoute, "Typical Schedule", "Public group route must include Typical Schedule.");
-assertIncludes(publicSingleGroupRoute, "Who This Is For", "Public group route must include Who This Is For.");
+assertIncludes(publicSingleGroupRoute, "Group Home", "Public group route must present the canonical Group Home.");
 assertIncludes(publicSingleGroupRoute, "Next Gathering", "Public group route must include Next Gathering.");
-assertIncludes(publicSingleGroupRoute, "Request Information", "Public group route must include Request Information.");
-assertIncludes(publicSingleGroupRoute, "Join Group", "Public group route must include Join Group.");
+assertIncludes(publicSingleGroupRoute, "Leaders", "Public group route must show group leaders.");
+assertIncludes(publicSingleGroupRoute, "Request to Join", "Public group route must include Request to Join.");
+assertIncludes(publicSingleGroupRoute, "Sign In", "Public group route must include Sign In.");
+assertIncludes(publicSingleGroupRoute, "Manage in DOS", "Authorized leaders must get a single Manage in DOS action.");
 assertIncludes(publicSingleGroupRoute, "Request received. A group leader will follow up.", "Public group route must include the requested success state.");
 assertIncludes(publicSingleGroupRoute, "submitGroupJoinRequest", "Public group route must submit the live join request action.");
 assertIncludes(publicSingleGroupRoute, 'name="firstName"', "Public group join form must include First Name.");

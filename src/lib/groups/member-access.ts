@@ -4,12 +4,14 @@ import { createHash, randomBytes } from "node:crypto";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { missingPublicSiteSchema, publicGroupPath } from "@/src/lib/groups/public-site";
+import { isRouteBuilderEligibleGroup } from "@/src/lib/groups/route-builder";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 type GroupRow = {
   accepting_members?: boolean | null;
   active: boolean | null;
+  activity_type?: string | null;
   default_location: string | null;
   description: string | null;
   id: string;
@@ -23,6 +25,7 @@ type GroupRow = {
   slug: string;
   tagline: string | null;
   template_category?: string | null;
+  template_key?: string | null;
   type: string | null;
   workspace_id: string;
 };
@@ -160,8 +163,10 @@ export type GroupMemberPortalData = {
     location: string;
     name: string;
     rhythm: string;
+    routeBuilderEligible: boolean;
     slug: string;
     tagline: string;
+    type: string;
   };
   identity: {
     email: string | null;
@@ -684,7 +689,7 @@ export async function loadGroupMemberPortalData(
       .maybeSingle(),
     supabase
       .from("dos_groups")
-      .select("id, workspace_id, organization_id, public_site_id, public_status, name, slug, description, tagline, type, template_category, rhythm_label, default_location, active, accepting_members, member_access_enabled, member_visible_location_mode")
+      .select("id, workspace_id, organization_id, public_site_id, public_status, name, slug, description, tagline, type, template_category, template_key, activity_type, rhythm_label, default_location, active, accepting_members, member_access_enabled, member_visible_location_mode")
       .eq("id", session.group_id)
       .eq("slug", input.slug)
       .maybeSingle(),
@@ -807,8 +812,17 @@ export async function loadGroupMemberPortalData(
         location,
         name: group.name,
         rhythm: group.rhythm_label ?? "Recurring",
+        routeBuilderEligible: isRouteBuilderEligibleGroup({
+          activityType: group.activity_type,
+          name: group.name,
+          slug: group.slug,
+          templateCategory: group.template_category,
+          templateKey: group.template_key,
+          type: group.type,
+        }),
         slug: group.slug,
         tagline: group.tagline ?? "Discipleship happens in rhythms.",
+        type: groupTypeLabel(group),
       },
       identity: {
         email: identity.verified_email ?? normalizeEmail(person.email),

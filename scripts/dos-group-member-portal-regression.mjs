@@ -25,6 +25,7 @@ function assertNotIncludes(source, needle, message) {
 const migration = read("supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql");
 const memberAccess = read("src/lib/groups/member-access.ts");
 const memberPage = read("app/groups/[slug]/member/page.tsx");
+const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
 const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
 const joinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
@@ -56,7 +57,7 @@ assertIncludes(migration, "response in ('going', 'not_going', 'maybe')", "RSVP r
 assertIncludes(migration, "visibility in ('public', 'group_members', 'leaders')", "Group updates must have scoped visibility.");
 assertIncludes(migration, "notification_type in", "Notification preferences must be typed.");
 
-assert(exists("app/groups/[slug]/member/page.tsx"), "Member portal page must exist.");
+assert(exists("app/groups/[slug]/member/page.tsx"), "Group Home sign-in bridge must exist.");
 assert(exists("app/groups/[slug]/member/access/route.ts"), "Member access claim route must exist.");
 assertIncludes(memberAccess, "createHash(\"sha256\")", "Member access helper must hash tokens.");
 assertIncludes(memberAccess, "randomBytes", "Member access helper must generate random tokens.");
@@ -70,10 +71,15 @@ assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links mus
 assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
 assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
 
-assertIncludes(memberPage, "Next Gathering", "Member portal must show next gathering.");
-assertIncludes(memberPage, "Save RSVP", "Member portal must support RSVP.");
-assertIncludes(memberPage, "Send Prayer Request", "Member portal must support prayer submission.");
-assertIncludes(memberPage, "Save Preferences", "Member portal must support notification preferences.");
+assertIncludes(memberPage, "Group Home", "Member sign-in bridge must use Group Home language.");
+assertNotIncludes(memberPage, "Member Portal", "Member sign-in bridge must not present a separate portal.");
+assertIncludes(memberHomeView, "Next Gathering", "Approved member Group Home must prioritize next gathering.");
+assertIncludes(memberHomeView, "Save RSVP", "Approved member Group Home must support RSVP.");
+assertIncludes(memberHomeView, "Latest Update", "Approved member Group Home must show the latest update.");
+assertIncludes(memberHomeView, "Send Prayer Request", "Approved member Group Home must support prayer submission.");
+assertIncludes(memberHomeView, "Keep Me Updated", "Approved member Group Home must use friendly update language.");
+assertIncludes(memberHomeView, "Save Updates", "Approved member Group Home must save update preferences.");
+assertNotIncludes(memberHomeView, "Notification Preferences", "Approved member Group Home must avoid technical notification preference language.");
 assertIncludes(memberActions, ".from(\"dos_group_rsvps\")", "Member RSVP action must use dos_group_rsvps.");
 assertIncludes(memberActions, ".upsert(", "RSVP/preferences actions must update existing records.");
 assertIncludes(memberActions, ".from(\"prayer_requests\")", "Member prayer must reuse prayer_requests.");

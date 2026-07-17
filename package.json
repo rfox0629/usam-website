@@ -10,6 +10,7 @@
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",
     "test:dos-public-sites": "node scripts/dos-public-sites-regression.mjs",
     "test:dos-group-member-portal": "node scripts/dos-group-member-portal-regression.mjs",
+    "test:dos-group-home-ux": "node scripts/dos-group-home-ux-regression.mjs",
     "test:dos-identity-security": "node scripts/dos-identity-security-regression.mjs",
     "test:dos-ministry-events": "node scripts/dos-ministry-event-visibility-regression.mjs",
     "test:dos-fruit-guard": "node scripts/dos-fruit-guard-regression.mjs",

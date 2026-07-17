@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import {
+  groupMemberSessionCookieName,
+  loadGroupMemberPortalData,
+} from "@/src/lib/groups/member-access";
+import {
+  loadManageGroupHref,
+  loadPublicGroupLeaderNames,
+} from "@/src/lib/groups/group-home-access";
 import {
   fallbackUsamPublicSite,
   missingPublicSiteSchema,
@@ -11,6 +20,7 @@ import {
   type PublicSiteConfig,
 } from "@/src/lib/groups/public-site";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
 type PublicGroupRow = {
@@ -141,18 +151,59 @@ export default async function PublicGroupPage({
 
   const query = searchParams ? await searchParams : {};
   const requestParam = Array.isArray(query.request) ? query.request[0] : query.request;
+  const stateParam = Array.isArray(query.state) ? query.state[0] : query.state;
   const requestState = requestParam === "received" || requestParam === "missing" || requestParam === "unavailable" || requestParam === "error"
     ? requestParam
     : null;
+  const [memberHomeResult, manageHref] = await Promise.all([
+    loadMemberGroupHome(slug),
+    loadManageHrefForGroup(group.id),
+  ]);
 
-  return <PublicGroupPageTemplate group={group} requestState={requestState} />;
+  if (memberHomeResult.data) {
+    return (
+      <GroupHomeMemberView
+        data={memberHomeResult.data}
+        manageHref={manageHref}
+        message={groupHomeStateMessage(typeof stateParam === "string" ? stateParam : null)}
+      />
+    );
+  }
+
+  return <PublicGroupPageTemplate group={{ ...group, manageHref }} requestState={requestState} />;
+}
+
+async function loadMemberGroupHome(slug: string) {
+  if (!isSupabaseAdminConfigured()) {
+    return { data: null };
+  }
+
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
+
+  if (!sessionToken) {
+    return { data: null };
+  }
+
+  return loadGroupMemberPortalData(createSupabaseAdminClient(), {
+    sessionToken,
+    slug,
+  });
+}
+
+async function loadManageHrefForGroup(groupId: string) {
+  if (!isSupabaseAdminConfigured()) {
+    return null;
+  }
+
+  return loadManageGroupHref(createSupabaseAdminClient(), groupId);
 }
 
 async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGroupPageData | null> {
   if (!isSupabaseAdminConfigured()) {
     const fallback = fallbackPublicGroups[slug];
 
-    return fallback ? toPublicGroupData(fallback, fallbackGatherings[slug] ?? null, fallbackUsamPublicSite) : null;
+    return fallback ? toPublicGroupData(fallback, fallbackGatherings[slug] ?? null, fallbackUsamPublicSite, ["Ryan Fox"]) : null;
   }
 
   const supabase = createSupabaseAdminClient();
@@ -204,23 +255,27 @@ async function loadPublicGroupGatheringData(
   group: PublicGroupRow,
   site: PublicSiteConfig,
 ) {
-  const { data: gatherings, error: gatheringsError } = await supabase
-    .from("dos_group_gatherings")
-    .select("title, starts_at, location")
-    .eq("group_id", group.id)
-    .eq("status", "scheduled")
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(1);
+  const [gatheringsResult, leaderNames] = await Promise.all([
+    supabase
+      .from("dos_group_gatherings")
+      .select("title, starts_at, location")
+      .eq("group_id", group.id)
+      .eq("status", "scheduled")
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(1),
+    loadPublicGroupLeaderNames(supabase, group.id),
+  ]);
+  const { data: gatherings, error: gatheringsError } = gatheringsResult;
 
   if (gatheringsError) {
     console.warn("[Public Group] Unable to load next gathering", gatheringsError.message);
   }
 
-  return toPublicGroupData(group, gatherings?.[0] ?? null, site);
+  return toPublicGroupData(group, gatherings?.[0] ?? null, site, leaderNames);
 }
 
-function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null, site: PublicSiteConfig): PublicGroupPageData {
+function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null, site: PublicSiteConfig, leaders: string[] = []): PublicGroupPageData {
   const typeLabel = publicGroupType(group);
   const content = contentForGroup(group);
   const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
@@ -234,7 +289,10 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     anchorMark: anchor.mark,
     anchorSubtext: anchor.subtext,
     description: group.description ?? "A recurring discipleship rhythm connected with USA Missionaries.",
+    id: group.id,
+    leaders,
     location,
+    manageHref: null,
     name: group.name,
     nextGatheringDay: dateParts.weekday || nextGatheringDayFor(group),
     nextGatheringLocation: nextGathering?.location ?? location,

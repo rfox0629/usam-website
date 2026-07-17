@@ -1,4 +1,4 @@
-# DOS Public Groups Member Portal Architecture
+# DOS Public Groups Group Home Architecture
 
 ## Current Architecture
 
@@ -56,7 +56,7 @@ Existing public token patterns include review/table invitation links and Supabas
 - Claiming a token creates a hashed, httpOnly cookie-backed `dos_group_member_sessions` record.
 - Access is checked against active identity, active membership, active group, and session expiry every request.
 
-## Member Model
+## Group Home Member Model
 
 Lightweight members do not receive a DOS workspace.
 
@@ -70,12 +70,12 @@ Added foundations:
 - `dos_group_member_notification_preferences`
 - `dos_group_notification_deliveries`
 
-The member portal lives at `/groups/[slug]/member` and shows only group-scoped member data.
+The canonical Group Home lives at `/groups/[slug]`. The `/groups/[slug]/member` route remains as a secure sign-in bridge, but authenticated members return to `/groups/[slug]` for the actual group experience. The Group Home shows only group-scoped member data.
 
 ## Authorization Matrix
 
 - Public visitor: public group info and join request only.
-- Active lightweight member: own group portal, own RSVP, member-visible updates/resources/prayer, own preferences/history.
+- Active lightweight member: own Group Home, own RSVP, member-visible updates/resources/prayer, own update preferences.
 - Helper: existing limited shared group permissions only.
 - Co-leader: existing shared group management.
 - Primary leader: group management and member-access links.
@@ -108,6 +108,46 @@ The member portal lives at `/groups/[slug]/member` and shows only group-scoped m
 7. Enable email delivery only after templates, suppression rules, and consent language are reviewed.
 8. Promote migration/code to production without enabling SMS or scheduled notifications.
 
+## Deferred Route Builder
+
+The current branch only adds a compact, disabled placeholder for appropriate 2three2 activity groups. It does not add route tables, map SDKs, route calculations, provider integrations, GPX files, elevation logic, or location tracking.
+
+Likely future model:
+
+`dos_group_routes`
+
+- `id`
+- `organization_id`
+- `group_id`
+- `created_by_identity_id`
+- `name`
+- `activity_type`
+- `provider`
+- `encoded_path` or provider route reference
+- `start_label`
+- `end_label`
+- `distance_meters`
+- `estimated_duration_seconds`
+- `elevation_gain_meters`, nullable
+- `visibility`
+- `status`
+- `created_at`
+- `updated_at`
+
+`dos_group_gatherings`
+
+- optional `route_id`
+
+Conceptual rules:
+
+- A route is reusable.
+- A gathering may reference one route.
+- Route visibility can be leader-only or member-visible.
+- Routes belong to the shared group context, not a leader's private workspace.
+- Public visitors should not automatically receive exact route or location data.
+- Route-building is limited to appropriate 2three2 activity templates: running, walking, hiking, cycling, and route-based general fitness.
+- Future map-provider integration requires API-key restrictions, billing controls, quotas, and privacy review before implementation.
+
 ## Not Yet Activated
 
 - Custom-domain administration UI.
@@ -115,3 +155,4 @@ The member portal lives at `/groups/[slug]/member` and shows only group-scoped m
 - Automated scheduled notification sending.
 - SMS one-time codes.
 - Full leader announcement composer.
+- Route creation, route sharing, map-provider integration, route navigation, and live location features.

@@ -83,6 +83,11 @@ import {
   type DosGroupCreationTemplate,
 } from "@/src/lib/dos/groups";
 import {
+  isRouteBuilderEligibleGroup,
+  routeBuilderComingSoonLabel,
+  routeBuilderComingSoonStatus,
+} from "@/src/lib/groups/route-builder";
+import {
   addDaysToResourceAssignmentDateKey,
   defaultResourceAssignmentDueDate,
   dosResourceAssignmentFollowUpCadences,
@@ -7929,6 +7934,7 @@ function GroupDetailWorkspace({
         attendanceSummary={attendanceSummary}
         elapsedLabel={elapsedLabel}
         gathering={workflowGathering}
+        group={group}
         notes={gatheringNotes}
         onEnd={openEndWizard}
         onNotesChange={setGatheringNotes}
@@ -8005,6 +8011,7 @@ function GroupGatheringWorkflowBanner({
   attendanceSummary,
   elapsedLabel,
   gathering,
+  group,
   notes,
   onEnd,
   onNotesChange,
@@ -8018,6 +8025,7 @@ function GroupGatheringWorkflowBanner({
   attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
   elapsedLabel: string | null;
   gathering: DosAppGroupGathering | null;
+  group: DosAppGroup;
   notes: string;
   onEnd: () => void;
   onNotesChange: (value: string) => void;
@@ -8028,6 +8036,7 @@ function GroupGatheringWorkflowBanner({
   workflowPanel: GroupWorkflowPanel;
 }) {
   const isActive = Boolean(activeGathering);
+  const showRouteBuilder = isRouteBuilderEligibleGroup(group);
 
   return (
     <section className={`rounded-[22px] border p-3 shadow-[0_14px_34px_rgba(37,99,235,0.06)] md:rounded-[24px] md:p-4 ${isActive ? "border-[#93C5FD] bg-[#EFF6FF]" : "border-[#DCEBFF] bg-white"}`}>
@@ -8063,6 +8072,7 @@ function GroupGatheringWorkflowBanner({
           <GroupWorkflowMetric label="Attendance Progress" value={`${attendanceSummary.marked}/${attendanceSummary.total} marked`} />
         </div>
       </div>
+      {showRouteBuilder ? <GroupRouteBuilderPlaceholder className="mt-3" /> : null}
       {workflowPanel === "notes" ? (
         <label className="mt-4 block">
           <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Notes</span>
@@ -8075,6 +8085,21 @@ function GroupGatheringWorkflowBanner({
         </label>
       ) : null}
     </section>
+  );
+}
+
+function GroupRouteBuilderPlaceholder({ className = "" }: { className?: string }) {
+  return (
+    <div aria-disabled="true" className={`rounded-[18px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] p-3 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Route</p>
+        <span className="rounded-full border border-[#BFDBFE] bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {routeBuilderComingSoonStatus}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-black text-[#0F172A]" style={{ fontFamily: font.oswald }}>{routeBuilderComingSoonLabel}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Plan and share the route for this gathering.</p>
+    </div>
   );
 }
 
@@ -33267,12 +33292,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
-    if (searchParams.get("view") !== "library") {
+    const requestedView = normalizeMoreAppView(searchParams.get("view") as MoreAppView | null);
+
+    if (!requestedView) {
       return;
     }
 
     setActiveTab("more");
-    setMoreAppView("library");
+    setMoreAppView(requestedView);
   }, [searchParams]);
 
   useEffect(() => {

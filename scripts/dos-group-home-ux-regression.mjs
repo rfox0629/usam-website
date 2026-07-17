@@ -1,0 +1,99 @@
+import { readFileSync } from "node:fs";
+
+function read(path) {
+  return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function assertIncludes(source, needle, message) {
+  assert(source.includes(needle), message);
+}
+
+function assertNotIncludes(source, needle, message) {
+  assert(!source.includes(needle), message);
+}
+
+function assertBefore(source, first, second, message) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+
+  assert(firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex, message);
+}
+
+const packageJson = read("package.json");
+const publicGroupPage = read("app/groups/[slug]/page.tsx");
+const publicTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
+const memberPage = read("app/groups/[slug]/member/page.tsx");
+const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberActions = read("app/groups/[slug]/member/actions.ts");
+const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
+const memberAccess = read("src/lib/groups/member-access.ts");
+const groupHomeAccess = read("src/lib/groups/group-home-access.ts");
+const routeBuilder = read("src/lib/groups/route-builder.ts");
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
+
+assertIncludes(publicGroupPage, "loadGroupMemberPortalData", "Canonical public group page must adapt for authenticated members.");
+assertIncludes(publicGroupPage, "GroupHomeMemberView", "Canonical public group page must render the approved member Group Home.");
+assertIncludes(publicGroupPage, "loadManageGroupHref", "Canonical public group page must resolve leader Manage in DOS access.");
+assertIncludes(memberAccessRoute, "publicGroupPath(result.groupSlug ?? slug)}?state=signed-in", "Access claim should send members to the canonical Group Home.");
+assertIncludes(memberPage, "redirect(`${groupPath}", "Valid member sessions on /member should redirect to the canonical Group Home.");
+
+assertIncludes(publicTemplate, "Group Home", "Public visitor page must use Group Home language.");
+assertIncludes(publicTemplate, "Request to Join", "Public visitor page must keep the join action.");
+assertIncludes(publicTemplate, "Sign In", "Public visitor page must keep the sign-in action.");
+assertIncludes(publicTemplate, "Leaders", "Public visitor page must show leaders.");
+assertIncludes(publicTemplate, "Manage in DOS", "Authorized leaders must see Manage in DOS.");
+assertNotIncludes(publicTemplate, "Typical Schedule", "Public visitor page must remove the old long schedule section.");
+assertNotIncludes(publicTemplate, "What You Are Signing Up For", "Public visitor page must remove repeated explanatory sections.");
+assertNotIncludes(publicTemplate, "Member Portal", "Public visitor page must not present a member portal.");
+assertNotIncludes(publicTemplate, "Member Dashboard", "Public visitor page must not present a dashboard.");
+
+assertIncludes(memberHomeView, "Group Home", "Approved member view must use Group Home language.");
+assertBefore(memberHomeView, "Group Home", ">Next Gathering</p>", "Member view must start with compact group identity before the next gathering.");
+assertBefore(memberHomeView, ">Next Gathering</p>", "Save RSVP", "Member view must prioritize RSVP after next gathering.");
+assertBefore(memberHomeView, "Save RSVP", ">Latest Update</p>", "Latest update should follow RSVP.");
+assertBefore(memberHomeView, ">Latest Update</p>", ">Prayer</p>", "Prayer should follow latest update.");
+assertBefore(memberHomeView, ">Prayer</p>", ">Resources</p>", "Resources should follow prayer.");
+assertBefore(memberHomeView, ">Resources</p>", ">Keep Me Updated</p>", "Keep Me Updated should be last among core member sections.");
+assertNotIncludes(memberHomeView, "Attendance", "Approved member Group Home must not show attendance history.");
+assertNotIncludes(memberHomeView, "Workspace", "Approved member Group Home must not expose workspace language.");
+assertNotIncludes(memberHomeView, "Internal", "Approved member Group Home must not expose internal language.");
+assertIncludes(memberHomeView, "data.updates[0]", "Approved member view must feature one latest update.");
+assertIncludes(memberHomeView, "data.updates.slice(1)", "Earlier updates must be secondary.");
+assertIncludes(memberAccess, ".in(\"visibility\", [\"public\", \"group_members\"])", "Member updates must be member-visible or public only.");
+assertIncludes(memberAccess, ".eq(\"visibility\", \"group_members\")", "Member prayer list must show only group-member shared prayer.");
+assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member-submitted prayer must remain leader-only by default.");
+
+assertIncludes(groupHomeAccess, "loadPublicGroupLeaderNames", "Public Group Home must load leader names through a server helper.");
+assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Manage in DOS must remain leader authorized.");
+
+for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
+  assertIncludes(routeBuilder, activity, `Route placeholder eligibility must include ${activity}.`);
+}
+assertIncludes(routeBuilder, "includes(\"2three2\")", "Route placeholder must be limited to 2three2 templates.");
+assertIncludes(routeBuilder, "is2three2Template\n    &&", "Non-2three2 groups must not pass route placeholder eligibility.");
+assertIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member route placeholder must be clear and non-functional.");
+assertIncludes(memberHomeView, "aria-disabled=\"true\"", "Member route placeholder must be non-functional and accessible.");
+assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering experience must include the route placeholder.");
+assertIncludes(appClient, "Plan and share the route for this gathering.", "Leader route placeholder must use restrained future copy.");
+assertIncludes(appClient, "aria-disabled=\"true\"", "Leader route placeholder must be non-functional and accessible.");
+
+for (const forbidden of ["maps.googleapis", "google.maps", "@googlemaps", "mapbox", "leaflet"]) {
+  assertNotIncludes(packageJson, forbidden, `No map provider dependency should be added: ${forbidden}.`);
+  assertNotIncludes(routeBuilder, forbidden, `Route placeholder helper must not add provider code: ${forbidden}.`);
+  assertNotIncludes(memberHomeView, forbidden, `Member Group Home must not add provider code: ${forbidden}.`);
+  assertNotIncludes(architectureDoc, forbidden, `Architecture doc must stay provider-neutral: ${forbidden}.`);
+}
+
+assertIncludes(architectureDoc, "Deferred Route Builder", "Architecture doc must describe the deferred route builder.");
+assertIncludes(architectureDoc, "dos_group_routes", "Architecture doc must name the future route model.");
+assertIncludes(architectureDoc, "A route is reusable", "Architecture doc must clarify reusable routes.");
+assertIncludes(architectureDoc, "Public visitors should not automatically receive exact route or location data", "Architecture doc must preserve public privacy.");
+
+console.log("dos-group-home-ux-regression: all checks passed.");

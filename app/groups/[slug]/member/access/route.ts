@@ -24,7 +24,7 @@ export async function GET(
     return NextResponse.redirect(new URL(`${publicGroupPath(slug)}/member?state=access-expired`, url.origin));
   }
 
-  const response = NextResponse.redirect(new URL(`${publicGroupPath(result.groupSlug ?? slug)}/member?state=signed-in`, url.origin));
+  const response = NextResponse.redirect(new URL(`${publicGroupPath(result.groupSlug ?? slug)}?state=signed-in`, url.origin));
   response.cookies.set(groupMemberSessionCookieName, result.sessionToken, {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 30,
