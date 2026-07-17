@@ -33292,14 +33292,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
-    const requestedView = normalizeMoreAppView(searchParams.get("view") as MoreAppView | null);
+    if (searchParams.get("view") !== "library") {
+      const requestedView = normalizeMoreAppView(searchParams.get("view") as MoreAppView | null);
 
-    if (!requestedView) {
+      if (!requestedView) {
+        return;
+      }
+
+      setActiveTab("more");
+      setMoreAppView(requestedView);
       return;
     }
 
     setActiveTab("more");
-    setMoreAppView(requestedView);
+    setMoreAppView("library");
   }, [searchParams]);
 
   useEffect(() => {
