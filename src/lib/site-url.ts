@@ -1,4 +1,6 @@
-const canonicalProductionSiteUrl = "https://usamissionaries.org";
+import { domainSites } from "@/src/lib/domain-sites";
+
+const canonicalProductionSiteUrl = domainSites.usam.canonicalOrigin;
 
 const siteUrlEnvKeys = [
   "NEXT_PUBLIC_SITE_URL",

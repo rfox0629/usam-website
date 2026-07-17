@@ -5,7 +5,9 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import {
   clarityProjectId,
+  analyticsCrossDomainHosts,
   gaMeasurementId,
+  isClarityAnalyticsPath,
   isAnalyticsEnabled,
   isPublicAnalyticsPath,
   trackPageView,
@@ -18,10 +20,11 @@ export function AnalyticsScripts() {
   const search = searchParams.toString();
   const path = pathname || "/";
   const pagePath = search ? `${path}?${search}` : path;
-  const shouldRunAnalytics = isAnalyticsEnabled() && isPublicAnalyticsPath(pathname);
+  const shouldRunGoogleAnalytics = isAnalyticsEnabled() && Boolean(gaMeasurementId) && isPublicAnalyticsPath(pathname);
+  const shouldRunClarity = isAnalyticsEnabled() && Boolean(clarityProjectId) && isClarityAnalyticsPath(pathname);
 
   useEffect(() => {
-    if (!shouldRunAnalytics) {
+    if (!shouldRunGoogleAnalytics) {
       return;
     }
 
@@ -36,15 +39,15 @@ export function AnalyticsScripts() {
 
     lastTrackedPathRef.current = pagePath;
     trackPageView(pagePath);
-  }, [pagePath, shouldRunAnalytics]);
+  }, [pagePath, shouldRunGoogleAnalytics]);
 
-  if (!shouldRunAnalytics) {
+  if (!shouldRunGoogleAnalytics && !shouldRunClarity) {
     return null;
   }
 
   return (
     <>
-      {gaMeasurementId ? (
+      {shouldRunGoogleAnalytics ? (
         <>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
@@ -55,11 +58,23 @@ export function AnalyticsScripts() {
               __html: `
                 window.dataLayer = window.dataLayer || [];
                 window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
+                window.__usamAnalyticsHostname = (window.location.hostname || '').toLowerCase();
+                window.__usamAnalyticsBrand = ({
+                  'usamissionaries.org': 'usam',
+                  'www.usamissionaries.org': 'usam',
+                  'kitchentablegospel.org': 'kitchen_table_gospel',
+                  'www.kitchentablegospel.org': 'kitchen_table_gospel',
+                  'discipleshipoperatingsystem.com': 'dos',
+                  'www.discipleshipoperatingsystem.com': 'dos'
+                })[window.__usamAnalyticsHostname] || 'usam';
+                window.gtag('set', 'linker', { domains: ${JSON.stringify(analyticsCrossDomainHosts)} });
                 window.gtag('js', new Date());
                 window.gtag('config', ${JSON.stringify(gaMeasurementId)}, {
                   page_location: window.location.href,
                   page_path: window.location.pathname + window.location.search,
-                  page_title: document.title
+                  page_title: document.title,
+                  site_brand: window.__usamAnalyticsBrand,
+                  site_hostname: window.__usamAnalyticsHostname || 'unknown'
                 });
               `,
             }}
@@ -69,7 +84,7 @@ export function AnalyticsScripts() {
         </>
       ) : null}
 
-      {clarityProjectId ? (
+      {shouldRunClarity ? (
         <Script
           dangerouslySetInnerHTML={{
             __html: `

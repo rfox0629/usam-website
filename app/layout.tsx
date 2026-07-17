@@ -3,10 +3,12 @@ import { Suspense } from "react";
 import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
+import { VercelWebAnalytics } from "../components/VercelWebAnalytics";
+import { domainSites } from "@/src/lib/domain-sites";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 
-const siteName = "USA Missionaries";
-const siteDescription = "The Mission Is Active";
+const siteName = domainSites.usam.siteName;
+const siteDescription = domainSites.usam.description;
 const canonicalSiteUrl = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
@@ -45,6 +47,9 @@ export default function RootLayout({
       >
         <Suspense fallback={null}>
           <AnalyticsScripts />
+        </Suspense>
+        <Suspense fallback={null}>
+          <VercelWebAnalytics />
         </Suspense>
         <div className="flex-1">
           {children}
