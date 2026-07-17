@@ -7363,6 +7363,7 @@ function GroupDetailWorkspaceV2({
         </div>
       </section>
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
+      {isRouteBuilderEligibleGroup(group) ? <GroupRouteBuilderPlaceholder /> : null}
       <GroupDetailTabBar onChange={onTabChange} tab={selectedTab} tabs={groupV2DetailTabs} />
       {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} onCopyPublicLink={onCopyPublicLink} onEditGroup={onEditGroup} onInvite={onInvite} onViewPublicGroup={onViewPublicGroup} /> : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}

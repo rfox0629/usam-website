@@ -148,8 +148,11 @@ export function GroupTemplateArtwork({
   const visual = groupTemplateVisual(input);
   const isHero = size === "hero";
   const isMember = size === "member";
+  const hasLongLine = visual.lines.some((line) => line.length >= 11);
   const minHeight = isHero ? "min-h-[15rem]" : isMember ? "min-h-[9rem]" : "min-h-[8.5rem]";
-  const lineSize = isHero ? "text-4xl sm:text-5xl" : isMember ? "text-2xl" : "text-xl";
+  const lineSize = isHero
+    ? hasLongLine ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl"
+    : isMember ? "text-2xl" : "text-xl";
 
   return (
     <div className={`relative isolate overflow-hidden rounded-lg border border-[#C2A14E]/28 bg-[#080A0D] ${minHeight} ${className}`}>

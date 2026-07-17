@@ -12,6 +12,7 @@ export type PublicGroupPageData = {
   leaders: string[];
   location: string;
   manageHref: string | null;
+  memberAccessEnabled: boolean;
   name: string;
   nextGatheringDay: string;
   nextGatheringLocation: string;
@@ -96,9 +97,11 @@ export function PublicGroupPageTemplate({
                   Requests Closed
                 </span>
               )}
-              <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
-                Member Sign In
-              </a>
+              {group.memberAccessEnabled ? (
+                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
+                  Member Sign In
+                </a>
+              ) : null}
               {group.manageHref ? (
                 <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/10 px-5 text-xs font-black uppercase tracking-[0.18em] text-white/65 transition-colors hover:border-white/25 hover:text-white" href={group.manageHref}>
                   Manage in DOS

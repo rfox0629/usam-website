@@ -54,6 +54,7 @@ assertIncludes(directory, "GroupTemplateArtwork input={group}", "Directory cards
 assertNotIncludes(directory, "line-clamp-3", "Directory cards should avoid paragraph-heavy copy.");
 
 assertIncludes(publicTemplate, "Member Sign In", "Public group page must use member-friendly sign-in copy.");
+assertIncludes(publicTemplate, "group.memberAccessEnabled ?", "Member Sign In must render only when member access is enabled.");
 assertIncludes(publicTemplate, "Manage in DOS", "Leader-only management action must remain available when authorized.");
 assertIncludes(publicTemplate, "GroupTemplateArtwork", "Public group hero must include generated template artwork.");
 assertIncludes(publicTemplate, "group.manageHref ?", "Manage in DOS must remain conditional.");

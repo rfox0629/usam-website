@@ -31,6 +31,7 @@ type PublicGroupRow = {
   description: string | null;
   id: string;
   image_url: string | null;
+  member_access_enabled?: boolean | null;
   name: string;
   organization_id: string | null;
   public_site_id?: string | null;
@@ -66,6 +67,7 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = {
     description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     id: "2three2",
     image_url: "/images/usam/2three2-share.png",
+    member_access_enabled: true,
     name: "2three2",
     organization_id: null,
     rhythm_label: "Weekly · Saturday · 7:00 AM",
@@ -213,7 +215,7 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
   const site = siteResolution.site ?? fallbackUsamPublicSite;
   const groupQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, public_site_id, public_status")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, member_access_enabled, public_site_id, public_status")
     .eq("slug", slug)
     .eq("active", true);
   const { data: group, error } = siteResolution.schemaReady && site.id
@@ -229,7 +231,7 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
     if (missingPublicSiteSchema(error)) {
       const legacyResult = await supabase
         .from("dos_groups")
-        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members")
+        .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, member_access_enabled")
         .eq("slug", slug)
         .eq("active", true)
         .maybeSingle();
@@ -296,6 +298,7 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     leaders,
     location: publicLocation,
     manageHref: null,
+    memberAccessEnabled: group.member_access_enabled === true,
     name: group.name,
     nextGatheringDay: dateParts.weekday || nextGatheringDayFor(group),
     nextGatheringLocation: publicLocation,
