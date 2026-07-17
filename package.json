@@ -34,6 +34,9 @@
     "test:dos-guided-resources": "node scripts/dos-guided-resources-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
+    "test:dos-field-contact-form": "node scripts/dos-field-contact-form-regression.mjs",
+    "test:dos-schedule-meeting-form": "node scripts/dos-schedule-meeting-form-regression.mjs",
+    "test:dos-log-meeting-form": "node scripts/dos-log-meeting-form-regression.mjs",
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",
     "start": "next start"
   },

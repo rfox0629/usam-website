@@ -39,12 +39,12 @@ assert(
 );
 
 assert(
-  leaderReflectionSectionBlock.includes("title=\"Notes & Next Steps\"")
-    && leaderReflectionSectionBlock.includes("Record the conversation, important takeaways, commitments, and next actions.")
-    && leaderReflectionSectionBlock.includes("label=\"Notes & Next Steps\"")
+  leaderReflectionSectionBlock.includes("title=\"Meeting Notes\"")
+    && leaderReflectionSectionBlock.includes("Capture the conversation, important takeaways, and next actions.")
+    && leaderReflectionSectionBlock.includes("label=\"Meeting Notes\"")
     && appClient.includes("name=\"notes\"")
     && !leaderReflectionSectionBlock.includes("name=\"next_step\""),
-  "Log Table form must use one canonical Notes & Next Steps field instead of a separate Next Steps field.",
+  "Log Table form must use one canonical Meeting Notes field instead of a separate Next Steps field.",
 );
 
 assert(
@@ -58,7 +58,7 @@ assert(
 
 assert(
   appClient.includes("function tableFollowUpReminderForMeeting(reminders: DosAppRelationshipReminder[], meetingId: string)")
-    && appClient.includes("joinTableFollowUpReminderMetadata(notes, meetingId)")
+    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId)")
     && appClient.includes("async function saveTableFollowUpReminder")
     && appClient.includes("name=\"follow_up_date\""),
   "Follow-Up Needed must create/update/delete one Table-linked relationship_reminder with a due date.",
