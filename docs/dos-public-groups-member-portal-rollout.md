@@ -139,7 +139,7 @@ Use `@example.test` contact data. Do not create production users for readiness r
 Cover these group states:
 
 - Tuesday Men's Group
-- 2three2 Running
+- Running Group
 - 2three2 Walking
 - same slug under a second fake public site
 - no next gathering
@@ -162,7 +162,7 @@ Before real members:
 3. Verify public page shows public-safe location only.
 4. Verify a closed group does not render a join form.
 5. Verify unknown/private/archived slugs do not expose content.
-6. Sign in as an authorized leader and verify one secondary `Manage in DOS` action appears.
+6. Sign in as an authorized leader and verify no public management action appears.
 7. Sign in as an unrelated authenticated user and verify no management action appears.
 8. Claim a staging-only member access link and verify `/groups/[slug]` renders Group Home.
 9. RSVP `going`, `maybe`, and `not_going`; verify only one RSVP row exists for the member/gathering.

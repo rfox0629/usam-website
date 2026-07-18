@@ -184,9 +184,16 @@ for (const stateChangingAction of [
   assert(actionIndex >= 0 && requireIndex > actionIndex, `${stateChangingAction} must require an active member session.`);
 }
 
-assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Manage in DOS must remain leader/co-leader only.");
-assertIncludes(publicPage, "loadManageHrefForGroup(group.id)", "Public Group Home must resolve leader management access server-side.");
-assertIncludes(publicTemplate, "Manage in DOS", "Leader action must be present but explicit.");
+assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Management helper must remain leader/co-leader only.");
+assertNotIncludes(publicPage, "loadManageHrefForGroup(group.id)", "Public Group Home must not resolve leader management access.");
+assertNotIncludes(publicPage, "loadManageGroupHref", "Public Group Home must not import management-link access.");
+assertNotIncludes(publicTemplate, "Manage in DOS", "Public Group Home must not render a DOS management action.");
+assertNotIncludes(memberHomeView, "Manage in DOS", "Member Group Home must not render a DOS management action.");
+assertIncludes(publicPage, "groupDisplayTimeZone", "Public Group Home must use the shared group display timezone.");
+assertIncludes(publicDirectory, "groupDisplayTimeZone", "Public directory must use the shared group display timezone.");
+assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must use the shared group display timezone.");
+assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group display timezone.");
+assertNotIncludes(publicPage, "nextGatheringTimeFor", "Public Group Home must not invent next-gathering times from rhythm text.");
 assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering workflow must show the disabled route placeholder.");
 assertIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home route placeholder must be non-functional.");
 assertIncludes(memberHomeView, "aria-disabled=\"true\"", "Member route placeholder must expose disabled state.");

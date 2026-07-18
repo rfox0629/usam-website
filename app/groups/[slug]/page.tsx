@@ -7,10 +7,7 @@ import {
   groupMemberSessionCookieName,
   loadGroupMemberPortalData,
 } from "@/src/lib/groups/member-access";
-import {
-  loadManageGroupHref,
-  loadPublicGroupLeaderNames,
-} from "@/src/lib/groups/group-home-access";
+import { loadPublicGroupLeaderNames } from "@/src/lib/groups/group-home-access";
 import {
   fallbackUsamPublicSite,
   missingPublicSiteSchema,
@@ -19,6 +16,7 @@ import {
   resolvePublicSiteForHost,
   type PublicSiteConfig,
 } from "@/src/lib/groups/public-site";
+import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
@@ -85,7 +83,7 @@ const fallbackGatherings: Record<string, GatheringRow> = {
   "2three2": {
     location: "Lebanon Hills Trailhead, Eagan, MN",
     starts_at: null,
-    title: "Saturday Run & Prayer",
+    title: "Next gathering TBD",
   },
 };
 
@@ -159,22 +157,18 @@ export default async function PublicGroupPage({
   const requestState = requestParam === "received" || requestParam === "missing" || requestParam === "unavailable" || requestParam === "error"
     ? requestParam
     : null;
-  const [memberHomeResult, manageHref] = await Promise.all([
-    loadMemberGroupHome(slug),
-    loadManageHrefForGroup(group.id),
-  ]);
+  const memberHomeResult = await loadMemberGroupHome(slug);
 
   if (memberHomeResult.data) {
     return (
       <GroupHomeMemberView
         data={memberHomeResult.data}
-        manageHref={manageHref}
         message={groupHomeStateMessage(typeof stateParam === "string" ? stateParam : null)}
       />
     );
   }
 
-  return <PublicGroupPageTemplate group={{ ...group, manageHref }} requestState={requestState} />;
+  return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
 async function loadMemberGroupHome(slug: string) {
@@ -193,14 +187,6 @@ async function loadMemberGroupHome(slug: string) {
     sessionToken,
     slug,
   });
-}
-
-async function loadManageHrefForGroup(groupId: string) {
-  if (!isSupabaseAdminConfigured()) {
-    return null;
-  }
-
-  return loadManageGroupHref(createSupabaseAdminClient(), groupId);
 }
 
 async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGroupPageData | null> {
@@ -283,10 +269,11 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
   const typeLabel = publicGroupType(group);
   const content = contentForGroup(group);
   const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
+  const hasDatedGathering = Boolean(dateParts.day);
   const scriptureReference = group.scripture_reference ?? "";
   const anchor = scriptureAnchor(scriptureReference);
-  const nextGatheringTitle = nextGathering?.title ?? nextGatheringTitleFor(group);
-  const nextGatheringTime = dateParts.time || nextGatheringTimeFor(group);
+  const nextGatheringTitle = nextGathering?.title ?? "Next gathering TBD";
+  const nextGatheringTime = hasDatedGathering ? dateParts.time : "Time TBD";
   const publicLocation = group.default_location ?? "Location shared after leader confirmation";
 
   return {
@@ -297,13 +284,12 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     id: group.id,
     leaders,
     location: publicLocation,
-    manageHref: null,
     memberAccessEnabled: group.member_access_enabled === true,
     name: group.name,
-    nextGatheringDay: dateParts.weekday || nextGatheringDayFor(group),
+    nextGatheringDay: hasDatedGathering ? dateParts.weekday : "See rhythm",
     nextGatheringLocation: publicLocation,
-    nextGatheringMonth: dateParts.month || "Soon",
-    nextGatheringNumber: dateParts.day || "TBD",
+    nextGatheringMonth: hasDatedGathering ? dateParts.month : "Soon",
+    nextGatheringNumber: hasDatedGathering ? dateParts.day : "TBD",
     nextGatheringTime,
     nextGatheringTitle,
     rhythm: group.rhythm_label ?? "Recurring",
@@ -502,50 +488,11 @@ function nextGatheringDateParts(value: string | null | undefined) {
   }
 
   return {
-    day: new Intl.DateTimeFormat("en-US", { day: "numeric" }).format(date),
-    month: new Intl.DateTimeFormat("en-US", { month: "long" }).format(date),
-    time: new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date),
-    weekday: new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date),
+    day: new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: groupDisplayTimeZone }).format(date),
+    month: new Intl.DateTimeFormat("en-US", { month: "long", timeZone: groupDisplayTimeZone }).format(date),
+    time: new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: groupDisplayTimeZone }).format(date),
+    weekday: new Intl.DateTimeFormat("en-US", { timeZone: groupDisplayTimeZone, weekday: "long" }).format(date),
   };
-}
-
-function nextGatheringDayFor(group: PublicGroupRow) {
-  if (group.rhythm_label?.toLowerCase().includes("tuesday")) {
-    return "Tuesday";
-  }
-
-  if (group.rhythm_label?.toLowerCase().includes("wednesday")) {
-    return "Wednesday";
-  }
-
-  if (group.rhythm_label?.toLowerCase().includes("saturday")) {
-    return "Saturday";
-  }
-
-  return "Upcoming";
-}
-
-function nextGatheringTimeFor(group: PublicGroupRow) {
-  const rhythm = group.rhythm_label ?? "";
-  const timeMatch = rhythm.match(/\b\d{1,2}:\d{2}\s?(?:AM|PM)\b/i);
-
-  if (timeMatch) {
-    return timeMatch[0].replace(/\s+/, " ");
-  }
-
-  if (rhythm.toLowerCase().includes("evening")) {
-    return "Evening";
-  }
-
-  return "Time TBD";
-}
-
-function nextGatheringTitleFor(group: PublicGroupRow) {
-  if (isTwoThreeTwoActivityGroup(group)) {
-    return `Saturday ${publicGroupActivityLabel(group)} & Prayer`;
-  }
-
-  return group.name;
 }
 
 function publicGroupType(group: PublicGroupRow) {
@@ -554,7 +501,7 @@ function publicGroupType(group: PublicGroupRow) {
   const activity = group.activity_type;
 
   if (isTwoThreeTwoActivityGroup(group)) {
-    return `2three2 ${publicGroupActivityLabel(group)}`;
+    return `${publicGroupActivityLabel(group)} Group`;
   }
 
   if (name.toLowerCase().includes("men")) {

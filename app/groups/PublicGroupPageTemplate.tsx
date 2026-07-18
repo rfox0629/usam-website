@@ -1,4 +1,4 @@
-import { PrimaryNav } from "@/components/PrimaryNav";
+import Link from "next/link";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
@@ -11,7 +11,6 @@ export type PublicGroupPageData = {
   id: string;
   leaders: string[];
   location: string;
-  manageHref: string | null;
   memberAccessEnabled: boolean;
   name: string;
   nextGatheringDay: string;
@@ -63,7 +62,7 @@ export function PublicGroupPageTemplate({
 
   return (
     <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
-      <PrimaryNav active="dos" />
+      <PublicGroupHeader group={group} />
       <section className="relative isolate overflow-hidden border-b border-[#C2A14E]/18 bg-[#080A0D]">
         <div
           aria-hidden="true"
@@ -72,15 +71,10 @@ export function PublicGroupPageTemplate({
         <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-64 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
         <div className="mx-auto grid max-w-6xl gap-4 px-5 py-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_21rem] lg:px-10 lg:py-8">
           <div className="min-w-0 rounded-lg border border-white/10 bg-[#111418]/76 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-sm border border-[#C2A14E]/42 bg-[#C2A14E]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{group.siteName}</span>
-              <span className="rounded-sm border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/55">{group.typeLabel}</span>
-            </div>
-            <h1 className="mt-4 text-5xl font-black leading-none text-white sm:text-6xl">
+            <h1 className="text-5xl font-black leading-none text-white sm:text-6xl">
               <GroupName name={group.name} />
             </h1>
             <p className="mt-3 text-lg font-black text-[#F8C56A]">{group.tagline}</p>
-            <p className="mt-2 text-sm font-semibold text-white/70">{leaderText}</p>
             <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-white/72 sm:grid-cols-2">
               <PublicFact label="When" value={group.rhythm} />
               <PublicFact label="Where" value={group.location} />
@@ -100,11 +94,6 @@ export function PublicGroupPageTemplate({
               {group.memberAccessEnabled ? (
                 <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
                   Member Sign In
-                </a>
-              ) : null}
-              {group.manageHref ? (
-                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/10 px-5 text-xs font-black uppercase tracking-[0.18em] text-white/65 transition-colors hover:border-white/25 hover:text-white" href={group.manageHref}>
-                  Manage in DOS
                 </a>
               ) : null}
             </div>
@@ -131,17 +120,58 @@ export function PublicGroupPageTemplate({
         </div>
       </section>
 
+      <WhatToExpectSection group={group} />
+
       <section className="bg-[#F6F4EF] px-5 py-8 text-[#0F172A] sm:px-8 lg:px-10" id="join">
-        <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.85fr)] lg:items-start">
-          <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#A47F2A]">Group Home</p>
-            <h2 className="mt-2 text-2xl font-black text-[#0F172A]">{group.acceptingRequests ? "Join the rhythm." : "Stay connected."}</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{group.tagline}</p>
-          </div>
+        <div className="mx-auto max-w-3xl">
           {group.acceptingRequests ? <JoinRequestPanel group={group} requestState={requestState} /> : <JoinClosedPanel />}
         </div>
       </section>
+
+      <footer className="border-t border-white/10 bg-[#080A0D] px-5 py-6 text-center text-xs font-bold text-white/45 sm:px-8 lg:px-10">
+        Powered by{" "}
+        <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+          {group.siteName}
+        </Link>
+      </footer>
     </main>
+  );
+}
+
+function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
+  return (
+    <header className="border-b border-white/10 bg-[#080A0D]">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 lg:px-10">
+        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={group.siteBasePath || "/groups"}>
+          {group.siteName} Groups
+        </Link>
+        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={group.siteBasePath || "/groups"}>
+          All Groups
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function WhatToExpectSection({ group }: { group: PublicGroupPageData }) {
+  return (
+    <section className="bg-[#F6F4EF] px-5 py-8 text-[#0F172A] sm:px-8 lg:px-10">
+      <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)] lg:items-start">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#A47F2A]">What to Expect</p>
+          <h2 className="mt-2 text-2xl font-black text-[#0F172A]">{group.scheduleTitle}</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{group.scheduleIntro}</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {group.whatToExpect.map((item) => (
+            <article className="rounded-lg border border-[#E7D8B0] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)]" key={item.title}>
+              <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{item.note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -206,6 +236,10 @@ function JoinRequestPanel({
     <form action={submitGroupJoinRequest} className="grid gap-3 rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] sm:grid-cols-2">
       <input name="groupSlug" type="hidden" value={group.slug} />
       <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
+      <div className="sm:col-span-2">
+        <h2 className="text-2xl font-black text-[#0F172A]">Request to Join</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to group leaders.</p>
+      </div>
       {errorText ? <p className="rounded-lg border border-[#F8C56A]/45 bg-[#FFF8E8] px-3 py-2 text-sm font-bold text-[#7A4B00] sm:col-span-2">{errorText}</p> : null}
       <JoinInput autoComplete="given-name" label="First Name" name="firstName" required />
       <JoinInput autoComplete="family-name" label="Last Name" name="lastName" required />
@@ -225,7 +259,8 @@ function JoinRequestPanel({
 function JoinClosedPanel() {
   return (
     <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-      <p className="text-sm font-black text-[#0F172A]">This group is not accepting new requests right now.</p>
+      <h2 className="text-2xl font-black text-[#0F172A]">Requests Closed</h2>
+      <p className="mt-2 text-sm font-black text-[#64748B]">This group is not accepting new requests right now.</p>
     </div>
   );
 }

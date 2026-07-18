@@ -87,6 +87,7 @@ import {
   routeBuilderComingSoonLabel,
   routeBuilderComingSoonStatus,
 } from "@/src/lib/groups/route-builder";
+import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import {
   addDaysToResourceAssignmentDateKey,
   defaultResourceAssignmentDueDate,
@@ -1408,7 +1409,7 @@ function parseDisplayDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-const dosDisplayTimeZone = "America/Chicago";
+const dosDisplayTimeZone = groupDisplayTimeZone;
 const dosDisplayDatePartsFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
   month: "2-digit",
@@ -6929,35 +6930,33 @@ function GroupLogoMark({
   large?: boolean;
 }) {
   const sizeClassName = large ? "h-36 w-full min-[560px]:h-44" : "h-28 w-full min-[640px]:h-32 min-[640px]:w-56";
-  const isLongName = group.name.length > 12;
+  const isLongName = group.name.length > (large ? 16 : 12);
   const headlineClassName = large
-    ? isLongName ? "text-[32px] min-[560px]:text-[38px]" : "text-[42px] min-[560px]:text-[48px]"
-    : isLongName ? "text-[23px] min-[640px]:text-[26px]" : "text-[32px]";
-
-  if (group.imageUrl) {
-    return (
-      <img
-        alt=""
-        className={`${sizeClassName} shrink-0 rounded-[18px] object-cover ring-1 ring-[#D6E4F7]`}
-        src={group.imageUrl}
-      />
-    );
-  }
+    ? isLongName ? "text-[30px] min-[560px]:text-[36px]" : "text-[42px] min-[560px]:text-[48px]"
+    : isLongName ? "text-[22px] min-[640px]:text-[25px]" : "text-[32px]";
+  const markText = group.templateCategory === "activity" ? "2:22" : "GO";
 
   return (
     <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] bg-[#0B1120] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_18%,rgba(37,99,235,0.3),transparent_30%),linear-gradient(135deg,#060B16_0%,#0B1120_54%,#1E293B_100%)]" />
       <div className="absolute inset-x-6 bottom-0 h-px bg-[#F8C56A]/45" />
-      <div className="absolute right-4 top-4 rounded-full border border-[#F8C56A]/25 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
-        {groupTypeLabel(group)}
-      </div>
-      <div className="relative flex h-full flex-col justify-end p-4">
-        <span className={`${headlineClassName} block max-w-[88%] font-black leading-none tracking-[-0.035em] text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
-          {group.name}
-        </span>
-        <span className="mt-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
-          {group.tagline ?? "Pursue together"}
-        </span>
+      <div className="relative flex h-full min-h-0 flex-col justify-between gap-3 p-4">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <span className="min-w-0 break-words text-[9px] font-black uppercase tracking-[0.14em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
+            {groupTemplateDisplayLabel(group)}
+          </span>
+          <span className="shrink-0 rounded-full border border-[#F8C56A]/25 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
+            {markText}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <span className={`${headlineClassName} block break-words font-black leading-none text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+            {group.name}
+          </span>
+          <span className="mt-2 line-clamp-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
+            {group.tagline ?? "Pursue together"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -6983,7 +6982,7 @@ function groupTypeLabel(group: DosAppGroup) {
   }
 
   if (group.type === "table") {
-    return "Table";
+    return "Meeting";
   }
 
   return "Discipleship";
@@ -7185,7 +7184,7 @@ function groupTemplateDisplayLabel(group: DosAppGroup) {
         ? group.activityType.replace(/^\w/, (letter) => letter.toUpperCase())
         : "Activity";
 
-    return `2three2 ${activity}`;
+    return `${activity} Group`;
   }
 
   if (group.templateKey === "mens_discipleship") {
@@ -7199,12 +7198,8 @@ function groupTemplateDisplayLabel(group: DosAppGroup) {
   return groupTypeLabel(group);
 }
 
-function groupCapacityLabel(group: DosAppGroup) {
-  if (!group.capacity) {
-    return "No capacity set";
-  }
-
-  return `${group.memberCount}/${group.capacity} members`;
+function groupLeaderCountLabel(count: number) {
+  return `${count} ${count === 1 ? "leader" : "leaders"}`;
 }
 
 function groupOpenPrayerCount(group: DosAppGroup) {
@@ -7351,8 +7346,8 @@ function GroupsWorkspaceV2({
                   <span className="mt-3 grid gap-1.5 text-[11px] font-bold text-[#64748B] sm:grid-cols-2 lg:grid-cols-4">
                     <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "Rhythm TBD"}</span>
                     <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
-                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupCapacityLabel(group)}</span>
-                    <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{leaders.length || 0} leaders</span>
+                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
+                    <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLeaderCountLabel(leaders.length)}</span>
                   </span>
                 </span>
                 <ChevronRight className="mt-2 h-5 w-5 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
@@ -7445,12 +7440,12 @@ function GroupDetailWorkspaceV2({
               <div className="flex flex-wrap gap-2">
                 <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
                 <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
-                <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log Table" onClick={onLogAsTable} />
+                <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log Meeting" onClick={onLogAsTable} />
               </div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <GroupV2StatCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Rhythm" value={group.rhythmLabel ?? "Not set"} />
-              <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="People" value={groupCapacityLabel(group)} />
+              <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
               <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${groupOpenPrayerCount(group)} active`} />
               <GroupV2StatCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next" value={formatGroupGatheringTime(nextGathering)} />
             </div>
@@ -7491,11 +7486,11 @@ function GroupOverviewTabV2({
       <DesktopPanel eyebrow="Overview" title="Group Snapshot">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <GroupV2StatCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next Gathering" value={nextGathering ? formatGroupGatheringTime(nextGathering) : "Not scheduled"} />
-          <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupCapacityLabel(group)} />
+          <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
           <GroupV2StatCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Requests" value="Review in People" />
           <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${groupOpenPrayerCount(group)} active`} />
           <GroupV2StatCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Gatherings" value={`${groupCompletedGatherings(group).length} completed`} />
-          <GroupV2StatCard icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leaders" value={`${leaders.length || 0} active`} />
+          <GroupV2StatCard icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leaders" value={groupLeaderCountLabel(leaders.length)} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
@@ -7966,7 +7961,7 @@ function GroupDetailWorkspace({
         body: fruitDrafts.length ? fruitDrafts.join(", ") : "No fruit tags selected.",
         id: `activity-fruit-${Date.now()}`,
         meta: "Just now",
-        title: "Table logged",
+        title: "Meeting logged",
       },
       ...current,
     ]);
@@ -7982,7 +7977,7 @@ function GroupDetailWorkspace({
     { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Public Link", onClick: onCopyPublicLink },
     { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public Page", onClick: onViewPublicGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
-    { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log as Table", onClick: onLogAsTable },
+    { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log Meeting", onClick: onLogAsTable },
   ];
 
   return (
@@ -8578,7 +8573,7 @@ function GroupGatheringCompleteScreen() {
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>Gathering Completed</p>
       <h3 className="mt-2 text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Gathering Completed</h3>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {["Attendance Recorded", "Prayer Updated", "Fruit Recorded", "Table Logged", "Group History Updated"].map((item) => (
+        {["Attendance Recorded", "Prayer Updated", "Fruit Recorded", "Meeting Logged", "Group History Updated"].map((item) => (
           <div className="rounded-[16px] bg-white/82 p-3" key={item}>
             <CheckCircle2 className="h-4 w-4 text-[#16A34A]" aria-hidden="true" strokeWidth={2} />
             <p className="mt-2 text-sm font-black text-[#0F172A]">{item}</p>
@@ -10172,7 +10167,7 @@ function GroupGatheringRow({
         <GroupPill tone={gathering.status === "completed" ? "green" : gathering.status === "canceled" ? "gray" : "blue"}>{gathering.status}</GroupPill>
       </div>
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
-      {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked Table log</p> : null}
+      {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
     </div>
   );
 }
@@ -36330,7 +36325,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     void (async () => {
       const result = await submitJson("/api/dos/app/meetings", {
-        // TODO: Later allow scheduling with a planned conversation flow; capture responses during Log Table.
+        // TODO: Later allow scheduling with a planned conversation flow; capture responses during Log Meeting.
         conversationFlowKey: "none",
         conversationResponses: {},
         fieldPersonIds: selectedMeetingPersonIds,

@@ -40,15 +40,21 @@ const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.
 
 assertIncludes(publicGroupPage, "loadGroupMemberPortalData", "Canonical public group page must adapt for authenticated members.");
 assertIncludes(publicGroupPage, "GroupHomeMemberView", "Canonical public group page must render the approved member Group Home.");
-assertIncludes(publicGroupPage, "loadManageGroupHref", "Canonical public group page must resolve leader Manage in DOS access.");
+assertNotIncludes(publicGroupPage, "loadManageGroupHref", "Canonical public group page must not resolve public management links.");
+assertNotIncludes(publicGroupPage, "loadManageHrefForGroup", "Canonical public group page must not render public management links.");
 assertIncludes(memberAccessRoute, "publicGroupPath(result.groupSlug ?? slug)}?state=signed-in", "Access claim should send members to the canonical Group Home.");
 assertIncludes(memberPage, "redirect(`${groupPath}", "Valid member sessions on /member should redirect to the canonical Group Home.");
 
-assertIncludes(publicTemplate, "Group Home", "Public visitor page must use Group Home language.");
+assertIncludes(publicTemplate, "PublicGroupHeader", "Public visitor page must use the minimal Groups header.");
+assertNotIncludes(publicTemplate, "PrimaryNav", "Public visitor page must not use the full public nav.");
 assertIncludes(publicTemplate, "Request to Join", "Public visitor page must keep the join action.");
-assertIncludes(publicTemplate, "Sign In", "Public visitor page must keep the sign-in action.");
+assertIncludes(publicTemplate, "Member Sign In", "Public visitor page must keep the sign-in action.");
 assertIncludes(publicTemplate, "Leaders", "Public visitor page must show leaders.");
-assertIncludes(publicTemplate, "Manage in DOS", "Authorized leaders must see Manage in DOS.");
+assertNotIncludes(publicTemplate, "Manage in DOS", "Public visitor page must not expose DOS management actions.");
+assertNotIncludes(publicTemplate, "group.manageHref", "Public visitor page must not carry management hrefs.");
+assertBefore(publicTemplate, "<WhatToExpectSection group={group} />", "id=\"join\"", "Public visitor page must restore What to Expect before the join form.");
+assertIncludes(publicTemplate, "group.whatToExpect.map", "Public visitor page must render the concise What to Expect rhythm items.");
+assertNotIncludes(publicTemplate, "Join the rhythm.", "Public visitor page must remove the redundant lower join card.");
 assertNotIncludes(publicTemplate, "Typical Schedule", "Public visitor page must remove the old long schedule section.");
 assertNotIncludes(publicTemplate, "What You Are Signing Up For", "Public visitor page must remove repeated explanatory sections.");
 assertNotIncludes(publicTemplate, "Member Portal", "Public visitor page must not present a member portal.");
@@ -64,6 +70,7 @@ assertBefore(memberHomeView, ">Resources</p>", ">Keep Me Updated</p>", "Keep Me 
 assertNotIncludes(memberHomeView, "Attendance", "Approved member Group Home must not show attendance history.");
 assertNotIncludes(memberHomeView, "Workspace", "Approved member Group Home must not expose workspace language.");
 assertNotIncludes(memberHomeView, "Internal", "Approved member Group Home must not expose internal language.");
+assertNotIncludes(memberHomeView, "Manage in DOS", "Approved member Group Home must not expose DOS management actions.");
 assertIncludes(memberHomeView, "data.updates[0]", "Approved member view must feature one latest update.");
 assertIncludes(memberHomeView, "data.updates.slice(1)", "Earlier updates must be secondary.");
 assertIncludes(memberAccess, ".in(\"visibility\", [\"public\", \"group_members\"])", "Member updates must be member-visible or public only.");
@@ -71,7 +78,13 @@ assertIncludes(memberAccess, ".eq(\"visibility\", \"group_members\")", "Member p
 assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member-submitted prayer must remain leader-only by default.");
 
 assertIncludes(groupHomeAccess, "loadPublicGroupLeaderNames", "Public Group Home must load leader names through a server helper.");
-assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Manage in DOS must remain leader authorized.");
+assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Management helper must remain leader authorized outside the public Group Home.");
+
+assertIncludes(publicGroupPage, "groupDisplayTimeZone", "Public Group Home must format gatherings in the shared group timezone.");
+assertIncludes(publicGroupPage, "Time TBD", "Public Group Home must avoid inventing a next-gathering time from rhythm copy.");
+assertNotIncludes(publicGroupPage, "nextGatheringTimeFor", "Public Group Home must not parse rhythm text into next-gathering time.");
+assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must format gatherings in the shared group timezone.");
+assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group timezone.");
 
 for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
   assertIncludes(routeBuilder, activity, `Route placeholder eligibility must include ${activity}.`);

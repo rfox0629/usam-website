@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
+import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import {
   routeBuilderComingSoonLabel,
   routeBuilderComingSoonStatus,
@@ -15,7 +16,6 @@ import {
 
 type GroupHomeMemberViewProps = {
   data: GroupMemberPortalData;
-  manageHref?: string | null;
   message?: string | null;
 };
 
@@ -70,6 +70,7 @@ function formatDate(value: string) {
 
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
+    timeZone: groupDisplayTimeZone,
   }).format(date);
 }
 
@@ -81,6 +82,7 @@ function formatTime(value: string) {
   }
 
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: groupDisplayTimeZone,
     timeStyle: "short",
   }).format(date);
 }
@@ -119,7 +121,6 @@ function RouteBuilderPlaceholder({ tone = "member" }: { tone?: "leader" | "membe
 
 export function GroupHomeMemberView({
   data,
-  manageHref = null,
   message = null,
 }: GroupHomeMemberViewProps) {
   const nextGathering = data.nextGathering;
@@ -152,11 +153,6 @@ export function GroupHomeMemberView({
                 <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{data.group.tagline || data.group.type}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {manageHref ? (
-                  <Link className="inline-flex min-h-10 items-center justify-center rounded-sm border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-3 text-xs font-black text-[#F8C56A]" href={manageHref}>
-                    Manage in DOS
-                  </Link>
-                ) : null}
                 <form action={signOutGroupMember}>
                   <input name="slug" type="hidden" value={data.group.slug} />
                   <button className="inline-flex min-h-10 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72" type="submit">
@@ -286,6 +282,12 @@ export function GroupHomeMemberView({
             </button>
           </form>
         </section>
+        <footer className="pb-2 text-center text-xs font-bold text-white/42">
+          Powered by{" "}
+          <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="/groups">
+            USA Missionaries Groups
+          </Link>
+        </footer>
       </div>
     </main>
   );

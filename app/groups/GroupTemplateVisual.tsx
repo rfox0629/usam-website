@@ -17,10 +17,6 @@ function normalizeText(value: string | null | undefined) {
   return value?.trim() ?? "";
 }
 
-function titleCase(value: string) {
-  return value.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function activityWord(input: GroupTemplateInput) {
   const text = `${input.slug} ${input.name} ${input.type ?? ""} ${input.tagline ?? ""}`.toLowerCase();
 
@@ -52,6 +48,26 @@ function taglineLines(value: string | null | undefined) {
     .map((part) => `${part.toUpperCase()}.`);
 }
 
+function activityLabel(action: string) {
+  if (action === "RUN") {
+    return "Running Group";
+  }
+
+  if (action === "WALK") {
+    return "Walking Group";
+  }
+
+  if (action === "HIKE") {
+    return "Hiking Group";
+  }
+
+  if (action === "RIDE") {
+    return "Cycling Group";
+  }
+
+  return "Activity Group";
+}
+
 export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVisual {
   const text = `${input.slug} ${input.name} ${input.type ?? ""} ${input.tagline ?? ""}`.toLowerCase();
   const action = activityWord(input);
@@ -60,7 +76,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
   if (action) {
     return {
       accent: action === "RUN" ? "amber" : "blue",
-      label: `2three2 ${titleCase(action.toLowerCase())}`,
+      label: activityLabel(action),
       lines: [action, "PRAY", "PURSUE"].map((line) => `${line}.`),
       mark: "2:22",
       tone: "activity",
@@ -163,9 +179,9 @@ export function GroupTemplateArtwork({
       <div aria-hidden="true" className={`absolute inset-0 -z-20 bg-gradient-to-br ${accentClass(visual.accent)}`} />
       <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-24 bg-[linear-gradient(100deg,transparent,rgba(248,197,106,0.24),transparent)]" />
       <div className="flex h-full min-h-[inherit] flex-col justify-between p-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{visual.label}</p>
-          <span className="rounded-sm border border-[#C2A14E]/35 bg-black/28 px-2 py-1 text-[10px] font-black text-[#F8C56A]">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <p className="min-w-0 break-words text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{visual.label}</p>
+          <span className="shrink-0 rounded-sm border border-[#C2A14E]/35 bg-black/28 px-2 py-1 text-[10px] font-black text-[#F8C56A]">
             {visual.mark}
           </span>
         </div>

@@ -23,6 +23,9 @@ const directory = read("app/groups/page.tsx");
 const publicTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const visualSystem = read("app/groups/GroupTemplateVisual.tsx");
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const routeAwareFooter = read("components/RouteAwareSiteFooter.tsx");
+const groupLogoMark = appClient.slice(appClient.indexOf("function GroupLogoMark"), appClient.indexOf("function groupTypeLabel"));
 
 assertIncludes(packageJson, "test:dos-group-home-visual", "Package scripts must expose the visual regression check.");
 
@@ -47,17 +50,26 @@ for (const source of [directory, publicTemplate, memberHomeView, visualSystem]) 
 assertIncludes(visualSystem, "GroupTemplateArtwork", "Generated template artwork component must exist.");
 assertIncludes(visualSystem, "formatLeaderLine", "Leader attribution helper must exist.");
 assertIncludes(visualSystem, "Led by", "Leader attribution must use public-friendly language.");
+assertIncludes(visualSystem, "Running Group", "Generated activity artwork must avoid redundant 2three2 running labels.");
+assertNotIncludes(visualSystem, "2three2 ${titleCase", "Generated artwork must not repeat 2three2 in the activity label.");
 assertIncludes(directory, "formatLeaderLine(group.leaders)", "Directory cards must show leader attribution.");
 assertIncludes(directory, "loadPublicGroupLeaderNames", "Directory must load public leader names through the server helper.");
 assertIncludes(directory, "Public rhythms. Leader operated. Organization published.", "Directory hero must describe organization-owned groups.");
 assertIncludes(directory, "GroupTemplateArtwork input={group}", "Directory cards must use generated template artwork.");
+assertIncludes(directory, "Running Group", "Directory cards must avoid redundant 2three2 running labels.");
 assertNotIncludes(directory, "line-clamp-3", "Directory cards should avoid paragraph-heavy copy.");
+assertIncludes(routeAwareFooter, 'pathname?.startsWith("/groups")', "Groups routes must suppress the full site footer.");
 
 assertIncludes(publicTemplate, "Member Sign In", "Public group page must use member-friendly sign-in copy.");
 assertIncludes(publicTemplate, "group.memberAccessEnabled ?", "Member Sign In must render only when member access is enabled.");
-assertIncludes(publicTemplate, "Manage in DOS", "Leader-only management action must remain available when authorized.");
+assertNotIncludes(publicTemplate, "Manage in DOS", "Public group page must not render DOS management actions.");
+assertNotIncludes(publicTemplate, "group.manageHref", "Public group page must not carry management hrefs.");
+assertNotIncludes(publicTemplate, "PrimaryNav", "Public group page must use the minimal Groups header.");
+assertIncludes(publicTemplate, "PublicGroupHeader", "Public group page must render the minimal Groups header.");
+assertIncludes(publicTemplate, "What to Expect", "Public group page must restore the concise What to Expect section.");
+assertNotIncludes(publicTemplate, "Join the rhythm.", "Public group page must remove the redundant lower join card.");
+assertIncludes(publicTemplate, "Powered by", "Public group page must render a minimal footer.");
 assertIncludes(publicTemplate, "GroupTemplateArtwork", "Public group hero must include generated template artwork.");
-assertIncludes(publicTemplate, "group.manageHref ?", "Manage in DOS must remain conditional.");
 assertIncludes(publicTemplate, "Leaders", "Public group hero must keep leader attribution visible.");
 assertNotIncludes(publicTemplate, "Typical Schedule", "Public group page must stay out of old content-heavy sections.");
 
@@ -67,6 +79,13 @@ assertIncludes(memberHomeView, "Save RSVP", "Member Group Home must preserve RSV
 assertIncludes(memberHomeView, "Keep Me Updated", "Member Group Home must preserve update preferences.");
 assertNotIncludes(memberHomeView, "Member Portal", "Member Group Home must not use portal language.");
 assertNotIncludes(memberHomeView, "Dashboard", "Member Group Home must not use dashboard language.");
+assertNotIncludes(memberHomeView, "Manage in DOS", "Member Group Home must not render DOS management actions.");
+
+assertIncludes(groupLogoMark, "groupTemplateDisplayLabel(group)", "Internal group cards must use the generated-card label system.");
+assertIncludes(groupLogoMark, "break-words", "Internal group card title and badge text must wrap instead of overlapping.");
+assertNotIncludes(groupLogoMark, "group.imageUrl", "Internal group cards must not render uploaded 2three2 logo artwork.");
+assertNotIncludes(groupLogoMark, "<img", "Internal group cards must use generated artwork, not image tags.");
+assertIncludes(appClient, "return `${activity} Group`", "Internal activity cards must avoid redundant 2three2 running labels.");
 
 for (const forbiddenPublicTerm of [
   "Save RSVP",

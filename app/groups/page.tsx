@@ -12,6 +12,7 @@ import {
   resolvePublicSiteForHost,
   type PublicSiteConfig,
 } from "@/src/lib/groups/public-site";
+import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
@@ -58,7 +59,7 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     scriptureReference: "2 Timothy 2:22",
     slug: "2three2",
     tagline: "Run. Pray. Pursue.",
-    type: "2three2 Running",
+    type: "Running Group",
   },
   {
     description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
@@ -146,6 +147,7 @@ function formatPublicDirectoryDate(value: string | null | undefined) {
     hour: "numeric",
     minute: "2-digit",
     month: "short",
+    timeZone: groupDisplayTimeZone,
     weekday: "long",
   }).format(date);
 }
@@ -164,7 +166,7 @@ function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | 
           ? "Running"
           : "Activity";
 
-    return `2three2 ${activityLabel}`;
+    return `${activityLabel} Group`;
   }
 
   if (name.toLowerCase().includes("men")) {
@@ -318,11 +320,8 @@ export default async function PublicGroupsDirectoryPage() {
                 >
                   <GroupTemplateArtwork input={group} />
                   <span className="flex flex-1 flex-col p-4">
-                    <span className="flex items-start justify-between gap-3">
-                      <span className="rounded-sm border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#F8C56A]">{group.type}</span>
-                      {group.scriptureReference ? <span className="text-xs font-black text-white/52">{group.scriptureReference}</span> : null}
-                    </span>
-                    <span className="mt-4 block text-2xl font-black leading-tight text-white">{group.name}</span>
+                    {group.scriptureReference ? <span className="text-xs font-black text-white/52">{group.scriptureReference}</span> : null}
+                    <span className={group.scriptureReference ? "mt-4 block text-2xl font-black leading-tight text-white" : "block text-2xl font-black leading-tight text-white"}>{group.name}</span>
                     <span className="mt-1 block text-sm font-black text-[#F8C56A]">{group.tagline}</span>
                     <span className="mt-3 block text-sm font-semibold text-white/70">{formatLeaderLine(group.leaders)}</span>
                     <span className="mt-auto grid gap-2 pt-5 text-sm font-bold text-white">

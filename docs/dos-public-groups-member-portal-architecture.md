@@ -52,7 +52,7 @@ There are three supported states for `/groups/[slug]`.
 | --- | --- | --- | --- |
 | Public visitor | No valid member cookie | Public group page | Organization branding, group name, type/tagline, general rhythm, public-safe location, leaders, next-gathering public timing, Request to Join, Member Sign In |
 | Approved lightweight member | Valid member session cookie | Group Home | Compact group identity, next gathering, RSVP, latest update, prayer, resources, update preferences, sign out |
-| Authorized DOS leader | Verified DOS identity with leader/co-leader role | Public page plus secondary action | Same public/member-safe page plus a subtle Manage in DOS action |
+| Authorized DOS leader | Verified DOS identity with leader/co-leader role | DOS workspace | Operational controls remain inside DOS, not on public Group Home |
 
 The `/groups/[slug]/member` route is only a sign-in bridge. Valid member sessions redirect back to `/groups/[slug]`.
 
@@ -111,7 +111,7 @@ Members can see only their active group, their own RSVP/preferences, member-visi
 
 ## Leader Behavior
 
-Leaders and co-leaders keep operational controls inside DOS. The public Group Home may show one secondary `Manage in DOS` action when `loadDosGroupRoleAccess` authorizes `leader` or `co_leader`.
+Leaders and co-leaders keep operational controls inside DOS. The public Group Home does not render management actions; leaders manage groups from the DOS workspace.
 
 Helpers, unrelated authenticated users, members of another group, and leaders from another organization must not receive the same management access.
 
@@ -188,7 +188,7 @@ Email preferences can be saved now. SMS remains disabled until consent language,
 - Public visitor: public group info and join request only.
 - Active lightweight member: own Group Home and own actions only.
 - Helper: existing limited shared group permissions only.
-- Co-leader: existing shared group management and Manage in DOS.
+- Co-leader: existing shared group management inside DOS.
 - Primary leader: group management, join-request review, and member-access link actions.
 - Organization admin: future public-site/policy control; no automatic private leader notes.
 - Service role: database access only through server-side application authorization.
