@@ -1651,6 +1651,10 @@ function nextGroupGathering(group: DosAppGroup) {
   return groupUpcomingGatherings(group)[0] ?? sortedGroupGatherings(group).filter((gathering) => gathering.status !== "canceled").at(-1) ?? null;
 }
 
+function nextUpcomingGroupGathering(group: DosAppGroup) {
+  return groupUpcomingGatherings(group)[0] ?? null;
+}
+
 function formatGroupGatheringTime(gathering: DosAppGroupGathering | null) {
   if (!gathering) {
     return "Not scheduled";
@@ -1664,6 +1668,10 @@ function formatGroupGatheringTime(gathering: DosAppGroupGathering | null) {
 
 function groupMemberCountLabel(count: number) {
   return `${count} ${count === 1 ? "member" : "members"}`;
+}
+
+function groupCapacitySettingLabel(capacity: number | null) {
+  return typeof capacity === "number" && capacity > 0 ? `${capacity}` : "No limit";
 }
 
 function groupSearchText(group: DosAppGroup) {
@@ -7211,7 +7219,6 @@ function groupCompletedGatherings(group: DosAppGroup) {
 }
 
 function groupRecentActivityRows(group: DosAppGroup) {
-  const upcoming = nextGroupGathering(group);
   const prayers = group.prayerRequests
     .filter((request) => request.status !== "archived")
     .slice(0, 2)
@@ -7230,16 +7237,8 @@ function groupRecentActivityRows(group: DosAppGroup) {
       id: `gathering-${gathering.id}`,
       title: "Gathering completed",
     }));
-  const scheduled = upcoming
-    ? [{
-      body: `${upcoming.title} · ${formatGroupGatheringTime(upcoming)}`,
-      date: "Upcoming",
-      id: `upcoming-${upcoming.id}`,
-      title: "Next gathering",
-    }]
-    : [];
 
-  return [...scheduled, ...prayers, ...completed].slice(0, 4);
+  return [...prayers, ...completed].slice(0, 4);
 }
 
 function GroupV2StatCard({
@@ -7397,6 +7396,7 @@ function GroupDetailWorkspaceV2({
   onSchedule,
   onTabChange,
   onViewPublicGroup,
+  pendingRequestCount,
   tab,
   workspaceId,
 }: {
@@ -7414,51 +7414,97 @@ function GroupDetailWorkspaceV2({
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onViewPublicGroup: () => void;
+  pendingRequestCount: number;
   tab: GroupDetailTab;
   workspaceId: string;
 }) {
   const selectedTab = normalizeGroupV2Tab(tab);
-  const nextGathering = nextGroupGathering(group);
+  const nextGathering = nextUpcomingGroupGathering(group);
+  const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
+  const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
+  const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Meeting" : "Log Meeting";
+  const nextGatheringSummary = nextGathering
+    ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
+    : "Not scheduled";
+  const moreActions = [
+    { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Group", onClick: onEditGroup },
+    { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
+    { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Link", onClick: onCopyPublicLink },
+    { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Public Page", onClick: onViewPublicGroup },
+    ...(!isPreview && group.active ? [{ icon: <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Archive", onClick: onEditGroup }] : []),
+  ];
+
+  function runMoreAction(action: () => void) {
+    setIsMoreActionsOpen(false);
+    action();
+  }
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
       <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
-      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)]">
-        <div className="grid gap-4 p-4 md:grid-cols-[180px_minmax(0,1fr)] md:p-5">
-          <GroupLogoMark group={group} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap gap-2">
-                  <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
-                  <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
-                  <GroupPill tone={group.visibility === "private" ? "green" : "blue"}>{group.visibility === "private" ? "Private" : "Workspace"}</GroupPill>
-                </div>
-                <h1 className="mt-2 text-3xl font-black leading-none tracking-[-0.04em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{group.name}</h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</p>
-              </div>
+      <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
+        <div className="grid gap-3 p-3.5 sm:grid-cols-[168px_minmax(0,1fr)] md:p-4">
+          <div className="max-w-[220px] sm:max-w-none">
+            <GroupLogoMark group={group} />
+          </div>
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="min-w-0">
               <div className="flex flex-wrap gap-2">
-                <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
-                <GroupQuickAction icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Schedule" onClick={onSchedule} />
-                <GroupQuickAction icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Log Meeting" onClick={onLogAsTable} />
+                <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
+                <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
+              </div>
+              <h1 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A] md:text-[30px]" style={{ fontFamily: font.oswald }}>{group.name}</h1>
+              <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</p>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
+                <span className="inline-flex min-w-0 items-center gap-1.5"><Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "Rhythm TBD"}</span>
+                <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
+                <span className="inline-flex min-w-0 items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />Next: {nextGatheringSummary}</span>
+                <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLeaderCountLabel(leaders.length)}</span>
               </div>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <GroupV2StatCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Rhythm" value={group.rhythmLabel ?? "Not set"} />
-              <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
-              <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${groupOpenPrayerCount(group)} active`} />
-              <GroupV2StatCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next" value={formatGroupGatheringTime(nextGathering)} />
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <GroupQuickAction
+                icon={meetingActionLabel === "Start Meeting" ? <Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                label={meetingActionLabel}
+                onClick={onLogAsTable}
+                tone="primary"
+              />
+              <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
+              <GroupQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="More" onClick={() => setIsMoreActionsOpen(true)} />
             </div>
           </div>
         </div>
       </section>
-      {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
-      {isRouteBuilderEligibleGroup(group) ? <GroupRouteBuilderPlaceholder /> : null}
       <GroupDetailTabBar onChange={onTabChange} tab={selectedTab} tabs={groupV2DetailTabs} />
-      {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} onCopyPublicLink={onCopyPublicLink} onEditGroup={onEditGroup} onInvite={onInvite} onViewPublicGroup={onViewPublicGroup} /> : null}
+      {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
+      {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
+      {isMoreActionsOpen ? (
+        <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
+          <div className="grid gap-2">
+            {moreActions.map((action) => (
+              <button
+                className={`flex min-h-12 items-center justify-between rounded-[18px] border px-4 text-left text-sm font-black transition-colors ${
+                  action.label === "Archive"
+                    ? "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] hover:bg-[#FEE2E2]"
+                    : "border-[#DCEBFF] bg-white text-[#0F172A] hover:bg-[#F8FBFF]"
+                }`}
+                key={action.label}
+                onClick={() => runMoreAction(action.onClick)}
+                type="button"
+              >
+                <span className="inline-flex items-center gap-3">
+                  <span className={action.label === "Archive" ? "text-[#B91C1C]" : "text-[#2563EB]"}>{action.icon}</span>
+                  {action.label}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
     </div>
   );
 }
@@ -7466,41 +7512,29 @@ function GroupDetailWorkspaceV2({
 function GroupOverviewTabV2({
   group,
   nextGathering,
-  onCopyPublicLink,
-  onEditGroup,
-  onInvite,
-  onViewPublicGroup,
+  pendingRequestCount,
 }: {
   group: DosAppGroup;
   nextGathering: DosAppGroupGathering | null;
-  onCopyPublicLink: () => void;
-  onEditGroup: () => void;
-  onInvite: () => void;
-  onViewPublicGroup: () => void;
+  pendingRequestCount: number;
 }) {
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
   const recentActivity = groupRecentActivityRows(group);
 
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-      <DesktopPanel eyebrow="Overview" title="Group Snapshot">
+    <div className="grid gap-3">
+      <DesktopPanel eyebrow="Overview" title="Status">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <GroupV2StatCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next Gathering" value={nextGathering ? formatGroupGatheringTime(nextGathering) : "Not scheduled"} />
+          <GroupOverviewNextGatheringCard gathering={nextGathering} />
           <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
-          <GroupV2StatCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Requests" value="Review in People" />
-          <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer" value={`${groupOpenPrayerCount(group)} active`} />
-          <GroupV2StatCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Gatherings" value={`${groupCompletedGatherings(group).length} completed`} />
+          <GroupV2StatCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Pending Requests" value={`${pendingRequestCount} pending`} />
+          <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active Prayer" value={`${groupOpenPrayerCount(group)} active`} />
+          <GroupV2StatCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Completed Gatherings" value={`${groupCompletedGatherings(group).length} completed`} />
           <GroupV2StatCard icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leaders" value={groupLeaderCountLabel(leaders.length)} />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
-          <GroupQuickAction icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Edit Group" onClick={onEditGroup} />
-          <GroupQuickAction icon={<Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Copy Link" onClick={onCopyPublicLink} />
-          <GroupQuickAction icon={<ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Public Page" onClick={onViewPublicGroup} />
-        </div>
       </DesktopPanel>
-      <DesktopPanel eyebrow="Activity" title="Recent Activity">
-        {recentActivity.length ? (
+      {recentActivity.length ? (
+        <DesktopPanel eyebrow="Activity" title="Recent Activity">
           <div className="grid gap-2">
             {recentActivity.map((item) => (
               <div className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={item.id}>
@@ -7512,10 +7546,22 @@ function GroupOverviewTabV2({
               </div>
             ))}
           </div>
-        ) : (
-          <SectionEmptyState text="Gatherings, prayer, and follow-ups will appear here." title="No activity yet." />
-        )}
-      </DesktopPanel>
+        </DesktopPanel>
+      ) : null}
+    </div>
+  );
+}
+
+function GroupOverviewNextGatheringCard({ gathering }: { gathering: DosAppGroupGathering | null }) {
+  return (
+    <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-white px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
+      <div className="flex items-center gap-2 text-[#2563EB]">
+        <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        <p className="truncate text-[10px] font-black uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>Next Gathering</p>
+      </div>
+      <p className="mt-2 truncate text-sm font-black text-[#0F172A]">{gathering?.title ?? "Not scheduled"}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering ? formatGroupGatheringTime(gathering) : "Schedule in Gatherings"}</p>
+      {gathering?.location ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering.location}</p> : null}
     </div>
   );
 }
@@ -7648,6 +7694,7 @@ function GroupsWorkspace({
           onSchedule={onSchedule}
           onTabChange={onDetailTabChange}
           onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
+          pendingRequestCount={pendingRequestCounts[selectedGroup.id] ?? 0}
           tab={selectedTab}
           workspaceId={workspaceId}
         />
@@ -8170,7 +8217,7 @@ function GroupGatheringWorkflowBanner({
           <textarea
             className="mt-2 min-h-24 w-full rounded-[18px] border border-[#BFDBFE] bg-white p-3 text-sm leading-6 text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
             onChange={(event) => onNotesChange(event.target.value)}
-            placeholder="Capture what happened, what needs follow-up, and anything to carry into the Table log."
+            placeholder="Capture what happened, what needs follow-up, and anything to carry into the meeting log."
             value={notes}
           />
         </label>
@@ -8179,9 +8226,15 @@ function GroupGatheringWorkflowBanner({
   );
 }
 
-function GroupRouteBuilderPlaceholder({ className = "" }: { className?: string }) {
+function GroupRouteBuilderPlaceholder({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   return (
-    <div aria-disabled="true" className={`rounded-[18px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] p-3 ${className}`}>
+    <div aria-disabled="true" className={`rounded-[18px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] ${compact ? "p-3" : "p-4"} ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Route</p>
         <span className="rounded-full border border-[#BFDBFE] bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
@@ -8304,7 +8357,7 @@ function GroupEndGatheringWizard({
         ) : (
           <div className="space-y-4">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {["Save attendance", "Save prayer requests", "Save fruit", "Save follow-ups", "Create/update Table log", "Update person timelines", "Update group history"].map((item) => (
+              {["Save attendance", "Save prayer requests", "Save fruit", "Save follow-ups", "Create/update meeting log", "Update person timelines", "Update group history"].map((item) => (
                 <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item}>
                   <p className="text-sm font-black text-[#0F172A]">{item}</p>
                 </div>
@@ -8656,7 +8709,7 @@ function defaultGroupActivityItems(group: DosAppGroup): GroupActivityItem[] {
       title: "Gathering scheduled",
     }] : []),
     {
-      body: "Attendance, prayer, fruit, follow-ups, and Table logs will appear as gatherings are completed.",
+      body: "Attendance, prayer, fruit, follow-ups, and meeting logs will appear as gatherings are completed.",
       id: `activity-history-${group.id}`,
       meta: "Ready",
       title: "Group history ready",
@@ -10150,9 +10203,11 @@ function GroupSettingsSheet({
 }
 
 function GroupGatheringRow({
+  children,
   compact = false,
   gathering,
 }: {
+  children?: ReactNode;
   compact?: boolean;
   gathering: DosAppGroupGathering;
 }) {
@@ -10168,22 +10223,30 @@ function GroupGatheringRow({
       </div>
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
       {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
+      {children}
     </div>
   );
 }
 
 function GroupGatheringsTab({ group }: { group: DosAppGroup }) {
   const gatherings = sortedGroupGatherings(group);
+  const nextGathering = nextUpcomingGroupGathering(group);
+  const showRouteBuilder = isRouteBuilderEligibleGroup(group);
 
   return (
     <DesktopPanel eyebrow="Gatherings" title="Schedule">
       {gatherings.length ? (
         <div className="grid gap-2">
-          {gatherings.map((gathering) => <GroupGatheringRow gathering={gathering} key={gathering.id} />)}
+          {gatherings.map((gathering) => (
+            <GroupGatheringRow gathering={gathering} key={gathering.id}>
+              {showRouteBuilder && nextGathering?.id === gathering.id ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
+            </GroupGatheringRow>
+          ))}
         </div>
       ) : (
         <p className="text-sm text-[#64748B]">No gatherings scheduled.</p>
       )}
+      {showRouteBuilder && !nextGathering ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
     </DesktopPanel>
   );
 }
@@ -10361,12 +10424,13 @@ function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () =>
         {[
           ["Visibility", group.visibility === "private" ? "Private" : "Public-shareable"],
           ["Status", group.active ? "Active" : "Inactive"],
-          ["Type", group.type],
+          ["Type", groupTemplateDisplayLabel(group)],
           ["Shared leadership", group.sharedLeadershipEnabled ? "Enabled" : "Off"],
+          ["Capacity", groupCapacitySettingLabel(group.capacity)],
           ["Public URL", `/groups/${group.slug}`],
           ["Scripture", group.scriptureReference ?? "Not set"],
           ["Default location", group.defaultLocation ?? "Location TBD"],
-          ["Table link", "Gatherings can link to Table logs"],
+          ["Meeting link", "Gatherings can link to meeting logs"],
         ].map(([label, value]) => (
           <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={label}>
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</p>

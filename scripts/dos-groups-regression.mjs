@@ -49,6 +49,18 @@ const publicGroupPageTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
 const dosAppCompatibilityRoute = read("app/dos/app/page.tsx");
 const publicSingleGroupRoute = `${publicGroupPage}\n${publicGroupPageTemplate}`;
+const groupDetailV2Source = appClient.slice(
+  appClient.indexOf("function GroupDetailWorkspaceV2"),
+  appClient.indexOf("function GroupOverviewTabV2"),
+);
+const groupOverviewV2Source = appClient.slice(
+  appClient.indexOf("function GroupOverviewTabV2"),
+  appClient.indexOf("function GroupOverviewNextGatheringCard"),
+);
+const groupGatheringsTabSource = appClient.slice(
+  appClient.indexOf("function GroupGatheringsTab"),
+  appClient.indexOf("function GroupAttendanceTab"),
+);
 const validUuidFinalSegments = "[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const groupsV2BetaWorkspaceFixtures = [
   { alias: "fox-family", initiallyEnabled: true, label: "Ryan", slug: "ryan-fox" },
@@ -377,6 +389,35 @@ for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
   assertIncludes(appClient, `label: "${tab}"`, `Groups V2 must include ${tab} tab.`);
 }
 assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
+assertIncludes(groupDetailV2Source, "nextUpcomingGroupGathering(group)", "Groups V2 detail must use true upcoming gatherings instead of a past fallback.");
+assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail header must choose Start Meeting or Log Meeting from current gathering state.");
+assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
+assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
+assertIncludes(groupDetailV2Source, 'label="More"', "Groups V2 detail header must collapse secondary actions into More.");
+assertIncludes(groupDetailV2Source, 'label: "Edit Group"', "Groups V2 More menu must include Edit Group.");
+assertIncludes(groupDetailV2Source, 'label: "Schedule"', "Groups V2 More menu must include Schedule.");
+assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
+assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
+assertIncludes(groupDetailV2Source, 'label: "Archive"', "Groups V2 More menu must include authorized archive access.");
+assertIncludes(groupDetailV2Source, "<GroupDetailTabBar", "Groups V2 tabs must render immediately after the compact group header.");
+assertNotIncludes(groupDetailV2Source, "isRouteBuilderEligibleGroup(group) ? <GroupRouteBuilderPlaceholder", "Groups V2 must not render Route Builder as a standalone section above tabs.");
+assertNotIncludes(groupDetailV2Source, 'tone={group.visibility === "private" ? "green" : "blue"}', "Groups V2 detail header must not show the old Workspace visibility badge.");
+assertIncludes(groupOverviewV2Source, 'title="Status"', "Groups V2 Overview must be status-focused.");
+assertIncludes(groupOverviewV2Source, "GroupOverviewNextGatheringCard", "Groups V2 Overview must include Next Gathering status.");
+assertIncludes(groupOverviewV2Source, 'label="Members"', "Groups V2 Overview must include actual member count status.");
+assertIncludes(groupOverviewV2Source, 'label="Pending Requests"', "Groups V2 Overview must include pending request status.");
+assertIncludes(groupOverviewV2Source, 'label="Active Prayer"', "Groups V2 Overview must include active prayer status.");
+assertIncludes(groupOverviewV2Source, 'label="Completed Gatherings"', "Groups V2 Overview must include completed gatherings status.");
+assertIncludes(groupOverviewV2Source, 'label="Leaders"', "Groups V2 Overview must include leader status.");
+assertNotIncludes(groupOverviewV2Source, "GroupQuickAction", "Groups V2 Overview must not repeat header actions.");
+assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview must not own public link actions.");
+assertIncludes(groupGatheringsTabSource, "nextUpcomingGroupGathering(group)", "Groups V2 Gatherings tab must scope contextual workflow to the true next gathering.");
+assertIncludes(groupGatheringsTabSource, "nextGathering?.id === gathering.id", "Groups V2 Route Builder must attach to the next eligible gathering row.");
+assertIncludes(groupGatheringsTabSource, '<GroupRouteBuilderPlaceholder className="mt-3" compact />', "Groups V2 Route Builder must render compactly inside Gatherings.");
+assertIncludes(appClient, "groupCapacitySettingLabel", "Groups V2 must keep capacity labeling in settings/editing contexts.");
+assertIncludes(appClient, '["Capacity", groupCapacitySettingLabel(group.capacity)]', "Groups V2 Settings must show capacity as settings metadata.");
+assertIncludes(appClient, '["Meeting link", "Gatherings can link to meeting logs"]', "Groups V2 Settings must use Meeting language for linked logs.");
+assertNotIncludes(appClient, "No capacity set", "Groups UI must never show capacity text under People or Members.");
 assertIncludes(appClient, "GroupCreateSheet", "Groups V2 must include a real New Group sheet.");
 assertIncludes(appClient, "dosGroupCreationTemplates", "Group creation must be limited to approved templates.");
 assertIncludes(appClient, "primaryLeaderPersonId", "Groups V2 must expose the primary leader concept.");
