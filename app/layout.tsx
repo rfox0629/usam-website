@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
 import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
@@ -51,6 +52,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <VercelWebAnalytics />
         </Suspense>
+        <SpeedInsights />
         <div className="flex-1">
           {children}
         </div>
