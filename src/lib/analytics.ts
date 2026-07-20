@@ -28,6 +28,7 @@ export const excludedAnalyticsRoutePrefixes = [
   "/auth",
   "/application",
   "/applications",
+  "/board-briefing",
   "/login",
   "/join",
   "/missionary-intake",

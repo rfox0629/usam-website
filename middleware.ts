@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { PARTNERS_ACCESS_COOKIE_NAME, isPartnersAccessTokenValid } from "@/src/lib/partners-access";
 import {
+  BOARD_BRIEFING_ACCESS_COOKIE_NAME,
+  isBoardBriefingAccessTokenValid,
+} from "@/src/lib/board-briefing-access";
+import {
   domainRouteHeader,
   domainSiteRoutePrefix,
   getAlternateDomainSiteByHostname,
@@ -9,7 +13,7 @@ import {
 } from "@/src/lib/domain-sites";
 
 export const config = {
-  matcher: ["/", "/domain-sites/:path*", "/partners"],
+  matcher: ["/", "/domain-sites/:path*", "/partners", "/board-briefing"],
 };
 
 export async function middleware(request: NextRequest) {
@@ -36,6 +40,17 @@ export async function middleware(request: NextRequest) {
         },
       });
     }
+  }
+
+  if (pathname === "/board-briefing") {
+    const token = request.cookies.get(BOARD_BRIEFING_ACCESS_COOKIE_NAME)?.value;
+    const hasAccess = await isBoardBriefingAccessTokenValid(token);
+
+    if (hasAccess) {
+      return NextResponse.next();
+    }
+
+    return NextResponse.rewrite(new URL("/board-briefing/gate", request.url));
   }
 
   if (pathname !== "/partners") {

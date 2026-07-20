@@ -15,6 +15,7 @@ export function RouteAwareSiteFooter() {
 
   if (
     pathname?.startsWith("/dos")
+    || pathname?.startsWith("/board-briefing")
     || pathname?.startsWith(domainSiteRoutePrefix)
     || Boolean(getAlternateDomainSiteByHostname(hostname))
   ) {

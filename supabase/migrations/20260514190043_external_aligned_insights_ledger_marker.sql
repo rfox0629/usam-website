@@ -1,0 +1,23 @@
+-- LEDGER MARKER ONLY -- NOT AN APPLICATION MIGRATION.
+--
+-- This version (20260514190043) is already recorded as applied in the
+-- shared production Supabase project (dbupuphezeqkiolprrlg / usam-website).
+--
+-- The schema it originally created (public.aligned_insights_inquiries) is
+-- NOT owned or used by the usam-website application. Its own original SQL
+-- explicitly tags rows with source = 'alignedinsights.tech', a different
+-- brand/site. A separate Supabase project ("alignedinsights-website")
+-- exists in this same Supabase organization. There are zero references to
+-- aligned_insights_inquiries, or to "alignedinsights" in any form,
+-- anywhere in this repository's app/, src/, or commit history.
+--
+-- This file exists solely so the Supabase CLI's local migration history
+-- matches the remote ledger for this shared database -- so that
+-- `supabase migration list` and `supabase db push` behave correctly for
+-- migrations this repository DOES own, without being blocked by a version
+-- this repository does not own.
+--
+-- This file must never be edited to add real DDL. It must not recreate,
+-- alter, or remove the external schema described above. If that schema
+-- needs to change, it must be done from the alignedinsights-website
+-- project/repository that actually owns it, not from here.
