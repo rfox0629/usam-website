@@ -61,6 +61,10 @@ const groupGatheringsTabSource = appClient.slice(
   appClient.indexOf("function GroupGatheringsTab"),
   appClient.indexOf("function GroupAttendanceTab"),
 );
+const groupWorkflowBannerSource = appClient.slice(
+  appClient.indexOf("function GroupGatheringWorkflowBanner"),
+  appClient.indexOf("function GroupRouteBuilderPlaceholder"),
+);
 const validUuidFinalSegments = "[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const groupsV2BetaWorkspaceFixtures = [
   { alias: "fox-family", initiallyEnabled: true, label: "Ryan", slug: "ryan-fox" },
@@ -414,6 +418,7 @@ assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview
 assertIncludes(groupGatheringsTabSource, "nextUpcomingGroupGathering(group)", "Groups V2 Gatherings tab must scope contextual workflow to the true next gathering.");
 assertIncludes(groupGatheringsTabSource, "nextGathering?.id === gathering.id", "Groups V2 Route Builder must attach to the next eligible gathering row.");
 assertIncludes(groupGatheringsTabSource, '<GroupRouteBuilderPlaceholder className="mt-3" compact />', "Groups V2 Route Builder must render compactly inside Gatherings.");
+assertNotIncludes(groupWorkflowBannerSource, "GroupRouteBuilderPlaceholder", "Groups Route Builder must not render above tabs or inside the standalone workflow banner.");
 assertIncludes(appClient, "groupCapacitySettingLabel", "Groups V2 must keep capacity labeling in settings/editing contexts.");
 assertIncludes(appClient, '["Capacity", groupCapacitySettingLabel(group.capacity)]', "Groups V2 Settings must show capacity as settings metadata.");
 assertIncludes(appClient, '["Meeting link", "Gatherings can link to meeting logs"]', "Groups V2 Settings must use Meeting language for linked logs.");
