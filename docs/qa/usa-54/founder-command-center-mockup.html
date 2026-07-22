@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>USA-54 Founder Command Center Mockup</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --gold: #d4a63d;
+        --ink: #0c0a09;
+        --muted: #78716c;
+        --line: #e7e5e4;
+        --soft: #fafaf9;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #ffffff;
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .mockup {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .nav {
+        background: #050505;
+        color: #f5f5f4;
+        padding: 24px 18px;
+      }
+
+      .brand {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        padding-bottom: 22px;
+        border-bottom: 1px solid #292524;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .mark {
+        width: 9px;
+        height: 9px;
+        margin-top: 5px;
+        rotate: 45deg;
+        background: var(--gold);
+      }
+
+      .nav-group {
+        margin-top: 28px;
+      }
+
+      .nav-label {
+        margin: 0 0 10px;
+        color: #78716c;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .nav-link {
+        display: block;
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #a8a29e;
+        font-size: 14px;
+      }
+
+      .nav-link.active {
+        color: #e4c465;
+        background: rgba(212, 166, 61, 0.1);
+      }
+
+      .workspace {
+        padding: 32px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 36px;
+        line-height: 1;
+      }
+
+      .sub {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .refresh,
+      .button {
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 24px;
+      }
+
+      .tile,
+      .panel,
+      .row,
+      .runner {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgba(28, 25, 23, 0.04);
+      }
+
+      .tile {
+        padding: 18px;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .value {
+        margin-top: 8px;
+        font-size: 30px;
+        font-weight: 800;
+      }
+
+      .detail {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .section {
+        margin-top: 28px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .pill {
+        display: inline-flex;
+        min-height: 26px;
+        align-items: center;
+        border: 1px solid #fcd34d;
+        border-radius: 999px;
+        background: #fffbeb;
+        color: #92400e;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .live {
+        border-color: #a7f3d0;
+        background: #ecfdf5;
+        color: #047857;
+      }
+
+      .muted {
+        border-color: #e7e5e4;
+        background: #fafaf9;
+        color: #78716c;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .review-title {
+        margin-top: 10px;
+        font-size: 22px;
+      }
+
+      .review-meta {
+        display: grid;
+        grid-template-columns: 160px minmax(0, 1fr);
+        gap: 16px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid #f5f5f4;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .approve {
+        border-color: transparent;
+        background: var(--gold);
+      }
+
+      .work {
+        gap: 8px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1.2fr 120px 120px 1fr 1fr;
+        align-items: center;
+        gap: 12px;
+        padding: 13px;
+      }
+
+      .runner-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 310px;
+      }
+
+      .runner {
+        padding: 16px;
+      }
+
+      .runner-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .bot {
+        display: inline-grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #ffffff;
+      }
+
+      dl {
+        display: grid;
+        gap: 12px;
+        margin: 18px 0 0;
+        font-size: 14px;
+      }
+
+      dt {
+        color: var(--muted);
+      }
+
+      dd {
+        margin: 4px 0 0;
+        font-weight: 700;
+      }
+
+      .brief {
+        grid-template-columns: 0.9fr 1.1fr;
+        margin-top: 28px;
+      }
+
+      .brief-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .activity {
+        display: grid;
+        gap: 10px;
+      }
+
+      .activity-row {
+        display: grid;
+        grid-template-columns: 110px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid #f5f5f4;
+        border-radius: 8px;
+        background: var(--soft);
+        padding: 12px;
+      }
+
+      .mobile-frame {
+        display: none;
+      }
+
+      @media (max-width: 860px) {
+        .mockup {
+          display: block;
+        }
+
+        .nav {
+          display: none;
+        }
+
+        .workspace {
+          padding: 18px;
+        }
+
+        .topbar {
+          align-items: start;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        h1 {
+          font-size: 28px;
+          line-height: 1.05;
+          max-width: 100%;
+        }
+
+        .refresh {
+          align-self: start;
+        }
+
+        .metrics,
+        .runner-grid,
+        .brief,
+        .brief-grid,
+        .review-meta,
+        .actions,
+        .row,
+        .activity-row {
+          grid-template-columns: 1fr;
+        }
+
+        .row {
+          align-items: start;
+        }
+
+        .mobile-frame {
+          display: block;
+          margin-bottom: 16px;
+          border-radius: 12px;
+          background: #050505;
+          color: #ffffff;
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="mockup">
+      <aside class="nav">
+        <div class="brand"><span class="mark"></span><span>National Command<br />Center</span></div>
+        <div class="nav-group">
+          <p class="nav-label">Main</p>
+          <span class="nav-link">Command Center</span>
+          <span class="nav-link active">Operations Center</span>
+          <span class="nav-link">Organizations</span>
+        </div>
+        <div class="nav-group">
+          <p class="nav-label">Operations</p>
+          <span class="nav-link">Support</span>
+          <span class="nav-link">Profiles</span>
+          <span class="nav-link">Finance</span>
+        </div>
+      </aside>
+      <section class="workspace">
+        <div class="mobile-frame">National Command Center - Operations Center</div>
+        <header class="topbar">
+          <div>
+            <h1>Founder Command Center</h1>
+            <p class="sub">Visibility, review, runner capacity.</p>
+          </div>
+          <button class="refresh">Refresh</button>
+        </header>
+
+        <section class="grid metrics">
+          <div class="tile"><p class="label">Needs My Attention</p><p class="value">1</p><p class="detail">Usable review packages only</p></div>
+          <div class="tile"><p class="label">Working Now</p><p class="value">4</p><p class="detail">Across pinned categories</p></div>
+          <div class="tile"><p class="label">Blocked</p><p class="value">0</p><p class="detail">True blockers only</p></div>
+          <div class="tile"><p class="label">Best Runner</p><p class="value">Codex</p><p class="detail">Available - no recent limit event</p></div>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Needs My Attention</h2><span class="pill live">Live</span></div>
+          <article class="panel">
+            <span class="pill live">Live</span>
+            <p class="label" style="margin-top: 10px;">NCC / Operations Center</p>
+            <h3 class="review-title">USA-54: Founder Command Center</h3>
+            <p class="detail">Protected preview and review package are ready.</p>
+            <div class="review-meta">
+              <div><p class="label">Review Time</p><strong>8 minutes</strong></div>
+              <div><p class="label">Decision</p><strong>Approve V1 direction or request changes before merge.</strong></div>
+            </div>
+            <div class="actions">
+              <button class="button approve">Approve</button>
+              <button class="button">Request Changes</button>
+              <button class="button">Hold</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>Active Work</h2><span class="pill live">Live</span></div>
+          <div class="grid work">
+            <div class="row"><strong>AI Workforce / Automation</strong><span class="pill">Working</span><span>Codex</span><span class="detail">USA-68 updated 3:32 PM</span><strong>Cooldown handling</strong></div>
+            <div class="row"><strong>NCC / Operations Center</strong><span class="pill">Review</span><span>Codex</span><span class="detail">USA-54 preview ready</span><strong>Founder decision</strong></div>
+            <div class="row"><strong>Public Website / Marketing</strong><span class="pill muted">Planned</span><span>Unknown</span><span class="detail">No active packet</span><strong>No active milestone</strong></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head"><h2>AI Workforce Capacity</h2><span class="pill live">Available</span></div>
+          <div class="grid runner-grid">
+            <article class="runner">
+              <div class="runner-head"><div><span class="bot">AI</span><h3>Claude</h3></div><span class="pill">Cooling Down</span></div>
+              <dl><div><dt>Current issue</dt><dd>None</dd></div><div><dt>Recent limit event</dt><dd>Limit hit at 2:41 PM</dd></div><div><dt>Cooldown/reset</dt><dd>3:32 PM</dd></div><div><dt>Usage</dt><dd>Exact remaining allowance unavailable</dd></div></dl>
+            </article>
+            <article class="runner">
+              <div class="runner-head"><div><span class="bot">AI</span><h3>Codex</h3></div><span class="pill live">Available</span></div>
+              <dl><div><dt>Current issue</dt><dd>USA-54</dd></div><div><dt>Recent limit event</dt><dd>No recent limit event</dd></div><div><dt>Cooldown/reset</dt><dd>None reported</dd></div><div><dt>Usage</dt><dd>Exact remaining allowance unavailable</dd></div></dl>
+            </article>
+            <article class="runner">
+              <div class="runner-head"><div><span class="bot">DX</span><h3>Dispatcher</h3></div><span class="pill live">Working</span></div>
+              <dl><div><dt>Current issue</dt><dd>Queue monitor</dd></div><div><dt>Recent limit event</dt><dd>None</dd></div><div><dt>Last successful run</dt><dd>3:18 PM</dd></div></dl>
+            </article>
+            <article class="runner" style="background: var(--soft);">
+              <h3>Runner Override</h3>
+              <p class="detail">Next eligible work packet only.</p>
+              <dl><div><dt>Selected</dt><dd>Codex</dd></div><div><dt>State</dt><dd>Queued for dispatcher</dd></div></dl>
+              <div class="actions" style="grid-template-columns: repeat(2, 1fr);"><button class="button">Choose Claude</button><button class="button">Choose Codex</button></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="grid brief">
+          <article class="panel">
+            <div class="section-head"><h2>Today</h2><span class="pill live">Live</span></div>
+            <div class="grid brief-grid">
+              <div><p class="label">Completed Today</p><p class="detail">USA-64 dispatcher pickup restored</p></div>
+              <div><p class="label">Working Now</p><p class="detail">USA-54 command center</p></div>
+              <div><p class="label">Waiting Review</p><p class="detail">USA-54 founder review</p></div>
+              <div><p class="label">Blocked</p><p class="detail">None reported</p></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="section-head"><h2>Recent Activity</h2></div>
+            <div class="activity">
+              <div class="activity-row"><span class="label">Preview</span><div><strong>USA-54 review ready</strong><p class="detail">Protected preview published</p></div><span class="pill live">Live</span></div>
+              <div class="activity-row"><span class="label">Runner</span><div><strong>Claude cooldown ended</strong><p class="detail">Dispatcher marked runner available</p></div><span class="pill live">Available</span></div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
