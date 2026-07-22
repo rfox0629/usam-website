@@ -5,6 +5,7 @@ import {
   domainRouteHeader,
   domainSiteRoutePrefix,
   getAlternateDomainSiteByHostname,
+  isDirectDomainSitePreviewAllowed,
   normalizeHostname,
 } from "@/src/lib/domain-sites";
 
@@ -16,7 +17,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = normalizeHostname(request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
 
-  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader)) {
+  if (
+    pathname.startsWith(domainSiteRoutePrefix)
+    && !request.headers.get(domainRouteHeader)
+    && !isDirectDomainSitePreviewAllowed()
+  ) {
     return new NextResponse("Not Found", { status: 404 });
   }
 

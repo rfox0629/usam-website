@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-07-22T15:18:11.662Z",
+  "baseUrl": "http://localhost:30165",
+  "consoleErrors": [],
+  "linkFailures": [],
+  "report": [
+    {
+      "surface": "ecosystem",
+      "viewport": "desktop",
+      "title": "Ecosystem | USA Missionaries",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    },
+    {
+      "surface": "ecosystem",
+      "viewport": "mobile",
+      "title": "Ecosystem | USA Missionaries",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    },
+    {
+      "surface": "kitchen-table-gospel",
+      "viewport": "desktop",
+      "title": "Kitchen Table Gospel",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    },
+    {
+      "surface": "kitchen-table-gospel",
+      "viewport": "mobile",
+      "title": "Kitchen Table Gospel",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    },
+    {
+      "surface": "discipleship-operating-system",
+      "viewport": "desktop",
+      "title": "Discipleship Operating System",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    },
+    {
+      "surface": "discipleship-operating-system",
+      "viewport": "mobile",
+      "title": "Discipleship Operating System",
+      "hasH1": true,
+      "imageAltMissing": 0,
+      "overflowX": false
+    }
+  ],
+  "supportingChurchesVisible": false
+}

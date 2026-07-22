@@ -11,6 +11,7 @@ const staticRoutes = [
   { path: "/join", priority: 0.7 },
   { path: "/prayer", priority: 0.6 },
   { path: "/briefing", priority: 0.6 },
+  { path: "/ecosystem", priority: 0.6 },
 ] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

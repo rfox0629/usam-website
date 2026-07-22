@@ -2,6 +2,7 @@
 
 import { Analytics, type BeforeSendEvent } from "@vercel/analytics/next";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { isPublicAnalyticsPath } from "@/src/lib/analytics";
 
 const sensitiveQueryParamPattern = /(?:access|code|email|key|message|name|phone|prayer|refresh|secret|session|token)/i;
@@ -41,8 +42,15 @@ function beforeSend(event: BeforeSendEvent) {
 
 export function VercelWebAnalytics() {
   const pathname = usePathname();
+  const [shouldRenderAnalytics, setShouldRenderAnalytics] = useState(false);
 
-  if (!isPublicAnalyticsPath(pathname)) {
+  useEffect(() => {
+    const isLocalhost = ["127.0.0.1", "localhost"].includes(window.location.hostname);
+
+    setShouldRenderAnalytics(!isLocalhost && isPublicAnalyticsPath(pathname));
+  }, [pathname]);
+
+  if (!shouldRenderAnalytics) {
     return null;
   }
 

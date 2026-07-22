@@ -30,7 +30,7 @@ export const domainSites = {
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: "A USA Missionaries-developed discipleship rhythm for meeting, ministering, and multiplying like Jesus.",
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
@@ -41,7 +41,7 @@ export const domainSites = {
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
+    description: "Ministry technology from USA Missionaries for memory, prayer, meetings, commitments, and follow-through.",
     faviconPath: "/favicon.ico",
     key: "discipleship-operating-system",
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
@@ -101,4 +101,8 @@ export function getAlternateDomainSiteByHostname(hostname?: string | null) {
   const site = getDomainSiteByHostname(hostname);
 
   return site && site.key !== "usam" ? site : null;
+}
+
+export function isDirectDomainSitePreviewAllowed() {
+  return process.env.VERCEL_ENV !== "production";
 }
