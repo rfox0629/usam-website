@@ -1,15 +1,19 @@
 const path = require("path");
 
-const apexRedirectHosts = [
+const canonicalRedirectHosts = [
   ["www.usamissionaries.org", "usamissionaries.org"],
-  ["www.kitchentablegospel.org", "kitchentablegospel.org"],
-  ["www.discipleshipoperatingsystem.com", "discipleshipoperatingsystem.com"],
+  ["usamissionaries.com", "usamissionaries.org"],
+  ["www.usamissionaries.com", "usamissionaries.org"],
+  ["kitchentablegospel.org", "www.kitchentablegospel.org"],
+  ["ktgospel.com", "www.kitchentablegospel.org"],
+  ["www.ktgospel.com", "www.kitchentablegospel.org"],
+  ["discipleshipoperatingsystem.com", "www.discipleshipoperatingsystem.com"],
 ];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
-    const redirects = apexRedirectHosts.map(([sourceHost, destinationHost]) => ({
+    const redirects = canonicalRedirectHosts.map(([sourceHost, destinationHost]) => ({
       source: "/:path*",
       has: [
         {

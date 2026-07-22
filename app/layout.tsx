@@ -5,30 +5,10 @@ import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
 import { VercelWebAnalytics } from "../components/VercelWebAnalytics";
+import { buildDomainSiteMetadata } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
-import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 
-const siteName = domainSites.usam.siteName;
-const siteDescription = domainSites.usam.description;
-const canonicalSiteUrl = getCanonicalSiteUrl();
-
-export const metadata: Metadata = {
-  metadataBase: new URL(canonicalSiteUrl),
-  title: siteName,
-  description: siteDescription,
-  openGraph: {
-    description: siteDescription,
-    siteName,
-    title: siteName,
-    type: "website",
-    url: canonicalSiteUrl,
-  },
-  twitter: {
-    card: "summary",
-    description: siteDescription,
-    title: siteName,
-  },
-};
+export const metadata: Metadata = buildDomainSiteMetadata(domainSites.usam);
 
 export default function RootLayout({
   children,
