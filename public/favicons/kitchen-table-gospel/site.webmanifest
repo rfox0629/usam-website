@@ -3,7 +3,7 @@
   "short_name": "KTG",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F5F5F4",
+  "background_color": "#C2A14E",
   "theme_color": "#C2A14E",
   "icons": [
     {

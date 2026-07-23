@@ -2,18 +2,18 @@ import { mkdirSync, writeFileSync, copyFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
+import sharp from "sharp";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(repoRoot, "public");
 const faviconsDir = path.join(publicDir, "favicons");
+const usamLogoPath = path.join(publicDir, "brand/logo/usam-website-logo.png");
 
 const colors = {
   black: "#0D0D0D",
-  cream: "#F5F5F4",
   dosBlue: "#378ADD",
   dosNavy: "#070D14",
   gold: "#C2A14E",
-  stone: "#A8A29E",
   white: "#FFFFFF",
 };
 
@@ -50,7 +50,8 @@ const sites = [
     key: "usam",
     label: "USAM",
     name: "USA Missionaries",
-    render: drawUsamIcon,
+    renderPng: renderUsamIconPng,
+    renderRgba: renderUsamIconRgba,
     shortName: "USAM",
     svg: usamSvg,
     themeColor: colors.black,
@@ -67,7 +68,7 @@ const sites = [
     themeColor: colors.dosNavy,
   },
   {
-    backgroundColor: colors.cream,
+    backgroundColor: colors.gold,
     directory: "kitchen-table-gospel",
     key: "kitchen-table-gospel",
     label: "KTG",
@@ -79,18 +80,17 @@ const sites = [
   },
 ];
 
-function main() {
+async function main() {
   for (const site of sites) {
     const siteDir = path.join(faviconsDir, site.directory);
     mkdirSync(siteDir, { recursive: true });
 
-    writeFileSync(path.join(siteDir, "favicon.svg"), site.svg());
+    writeFileSync(path.join(siteDir, "favicon.svg"), await site.svg());
 
     const icoImages = [];
 
     for (const [filename, size] of pngSizes) {
-      const image = renderIcon(site, size);
-      const png = encodePng(size, size, image);
+      const png = await renderIconPng(site, size);
       writeFileSync(path.join(siteDir, filename), png);
 
       if (filename.startsWith("favicon-")) {
@@ -131,7 +131,7 @@ function main() {
     `${JSON.stringify(buildManifest(dosSite, "/favicons/dos", "/dos"), null, 2)}\n`,
   );
 
-  writeReviewImages();
+  await writeReviewImages();
 }
 
 function buildManifest(site, iconBasePath, startUrl) {
@@ -159,19 +159,54 @@ function buildManifest(site, iconBasePath, startUrl) {
   };
 }
 
-function renderIcon(site, size) {
+async function renderIconPng(site, size) {
+  if (site.renderPng) {
+    return site.renderPng(size);
+  }
+
+  return encodePng(size, size, renderVectorIcon(site, size));
+}
+
+async function renderIcon(site, size) {
+  if (site.renderRgba) {
+    return site.renderRgba(size);
+  }
+
+  return renderVectorIcon(site, size);
+}
+
+function renderVectorIcon(site, size) {
   const viewBox = site.key === "dos" ? 52 : 64;
   const canvas = new VectorCanvas(size, size, viewBox, viewBox, 4);
   site.render(canvas);
   return canvas.toRgba();
 }
 
-function drawUsamIcon(canvas) {
-  canvas.roundedRect(0, 0, 64, 64, 9, colors.white);
-  canvas.roundedRect(4, 4, 56, 56, 6, colors.black);
-  canvas.rect(17, 30.9, 30, 2.3, colors.gold);
-  drawCenteredText(canvas, "US", 32, 8.7, 4.55, colors.white, 3.8);
-  drawCenteredText(canvas, "AM", 32, 34.4, 4.55, colors.white, 3.8);
+async function renderUsamIconPng(size) {
+  const canvas = new VectorCanvas(size, size, 64, 64, 4);
+  canvas.roundedRect(0, 0, 64, 64, 8.5, colors.black);
+
+  const inset = size <= 16 ? 0 : Math.max(1, Math.round(size * 0.03125));
+  const logoSize = size - inset * 2;
+  const background = encodePng(size, size, canvas.toRgba());
+  const logo = await sharp(usamLogoPath)
+    .resize(logoSize, logoSize, { fit: "fill" })
+    .png()
+    .toBuffer();
+
+  return sharp(background)
+    .composite([{ input: logo, left: inset, top: inset }])
+    .png()
+    .toBuffer();
+}
+
+async function renderUsamIconRgba(size) {
+  const data = await sharp(await renderUsamIconPng(size))
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+
+  return Uint8ClampedArray.from(data);
 }
 
 function drawDosIcon(canvas) {
@@ -182,27 +217,25 @@ function drawDosIcon(canvas) {
 }
 
 function drawKitchenTableGospelIcon(canvas) {
-  canvas.roundedRect(0, 0, 64, 64, 9, colors.black);
-  canvas.roundedRect(4, 4, 56, 56, 7, colors.cream);
-  canvas.roundedRect(10, 17, 44, 12, 4, colors.gold);
-  canvas.rect(13, 29, 38, 4.6, colors.black);
-  canvas.rect(18, 32.5, 7.5, 19.5, colors.black);
-  canvas.rect(38.5, 32.5, 7.5, 19.5, colors.black);
-  canvas.roundedRect(15, 50, 34, 4, 2, colors.gold);
+  canvas.roundedRect(0, 0, 64, 64, 9, colors.gold);
+  canvas.polygon([
+    [17, 22],
+    [47, 22],
+    [55, 34],
+    [9, 34],
+  ], colors.black);
+  canvas.rect(15, 35, 5.5, 18, colors.black);
+  canvas.rect(25, 35, 4, 11, colors.black);
+  canvas.rect(35, 35, 4, 11, colors.black);
+  canvas.rect(43.5, 35, 5.5, 18, colors.black);
 }
 
-function usamSvg() {
-  const glyphs = [
-    ...glyphRects("US", 32 - textWidth("US", 4.55, 3.8) / 2, 8.7, 4.55, 3.8, colors.white),
-    ...glyphRects("AM", 32 - textWidth("AM", 4.55, 3.8) / 2, 34.4, 4.55, 3.8, colors.white),
-  ].join("");
+async function usamSvg() {
+  const png = await renderUsamIconPng(64);
 
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="USA Missionaries">',
-    `<rect width="64" height="64" rx="9" fill="${colors.white}"/>`,
-    `<rect x="4" y="4" width="56" height="56" rx="6" fill="${colors.black}"/>`,
-    `<rect x="17" y="30.9" width="30" height="2.3" fill="${colors.gold}"/>`,
-    glyphs,
+    `<image width="64" height="64" href="data:image/png;base64,${png.toString("base64")}"/>`,
     "</svg>\n",
   ].join("");
 }
@@ -221,18 +254,17 @@ function dosSvg() {
 function kitchenTableGospelSvg() {
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kitchen Table Gospel">',
-    `<rect width="64" height="64" rx="9" fill="${colors.black}"/>`,
-    `<rect x="4" y="4" width="56" height="56" rx="7" fill="${colors.cream}"/>`,
-    `<rect x="10" y="17" width="44" height="12" rx="4" fill="${colors.gold}"/>`,
-    `<rect x="13" y="29" width="38" height="4.6" fill="${colors.black}"/>`,
-    `<rect x="18" y="32.5" width="7.5" height="19.5" fill="${colors.black}"/>`,
-    `<rect x="38.5" y="32.5" width="7.5" height="19.5" fill="${colors.black}"/>`,
-    `<rect x="15" y="50" width="34" height="4" rx="2" fill="${colors.gold}"/>`,
+    `<rect width="64" height="64" rx="9" fill="${colors.gold}"/>`,
+    `<path d="M17 22H47L55 34H9L17 22Z" fill="${colors.black}"/>`,
+    `<rect x="15" y="35" width="5.5" height="18" fill="${colors.black}"/>`,
+    `<rect x="25" y="35" width="4" height="11" fill="${colors.black}"/>`,
+    `<rect x="35" y="35" width="4" height="11" fill="${colors.black}"/>`,
+    `<rect x="43.5" y="35" width="5.5" height="18" fill="${colors.black}"/>`,
     "</svg>\n",
   ].join("");
 }
 
-function writeReviewImages() {
+async function writeReviewImages() {
   const reviewDir = path.join(faviconsDir, "review");
   mkdirSync(reviewDir, { recursive: true });
 
@@ -240,10 +272,13 @@ function writeReviewImages() {
   brandCanvas.rect(0, 0, 1040, 360, "#EDEAE3");
   [170, 424, 678].forEach((x, index) => {
     const site = sites[index];
-    const image = renderIcon(site, 192);
-    brandCanvas.blit(image, 192, 192, x, 56);
     drawCenteredText(brandCanvas, site.label, x + 96, 282, 8, colors.black, 5);
   });
+  for (let index = 0; index < sites.length; index += 1) {
+    const x = [170, 424, 678][index];
+    const image = await renderIcon(sites[index], 192);
+    brandCanvas.blit(image, 192, 192, x, 56);
+  }
   writeFileSync(path.join(reviewDir, "brand-comparison.png"), encodePng(1040, 360, brandCanvas.toRgba()));
 
   const scaleCanvas = new VectorCanvas(760, 360, 760, 360, 1);
@@ -268,7 +303,7 @@ function writeReviewImages() {
     for (const column of columns) {
       scaleCanvas.roundedRect(column.x - 48, row.y - 48, 96, 96, 6, "#FFFFFF");
       scaleCanvas.roundedRect(column.x - 47, row.y - 47, 94, 94, 5, "#F7F5EF");
-      const image = renderIcon(column.site, row.size);
+      const image = await renderIcon(column.site, row.size);
       scaleCanvas.blit(image, row.size, row.size, column.x - row.size / 2, row.y - row.size / 2);
     }
   }
@@ -310,6 +345,17 @@ class VectorCanvas {
   circle(cx, cy, radius, color) {
     this.fillShape(cx - radius, cy - radius, radius * 2, radius * 2, color, (px, py) => (
       (px - cx) ** 2 + (py - cy) ** 2 <= radius ** 2
+    ));
+  }
+
+  polygon(points, color) {
+    const minX = Math.min(...points.map(([x]) => x));
+    const maxX = Math.max(...points.map(([x]) => x));
+    const minY = Math.min(...points.map(([, y]) => y));
+    const maxY = Math.max(...points.map(([, y]) => y));
+
+    this.fillShape(minX, minY, maxX - minX, maxY - minY, color, (px, py) => (
+      isPointInPolygon(px, py, points)
     ));
   }
 
@@ -477,27 +523,6 @@ function drawBlockText(canvas, text, x, y, cellSize, color, gap = cellSize) {
   }
 }
 
-function glyphRects(text, x, y, cellSize, gap, color) {
-  const rects = [];
-  let cursorX = x;
-
-  for (const character of text) {
-    const pattern = glyphs[character];
-
-    for (let row = 0; row < pattern.length; row += 1) {
-      for (let column = 0; column < pattern[row].length; column += 1) {
-        if (pattern[row][column] === "1") {
-          rects.push(`<rect x="${round(cursorX + column * cellSize)}" y="${round(y + row * cellSize)}" width="${round(cellSize * 0.88)}" height="${round(cellSize * 0.88)}" fill="${color}"/>`);
-        }
-      }
-    }
-
-    cursorX += pattern[0].length * cellSize + gap;
-  }
-
-  return rects;
-}
-
 function textWidth(text, cellSize, gap = cellSize) {
   return [...text].reduce((width, character, index) => {
     const pattern = glyphs[character];
@@ -608,8 +633,28 @@ function degreesToRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
 
+function isPointInPolygon(x, y, points) {
+  let inside = false;
+
+  for (let index = 0, previousIndex = points.length - 1; index < points.length; previousIndex = index, index += 1) {
+    const [currentX, currentY] = points[index];
+    const [previousX, previousY] = points[previousIndex];
+    const intersects = ((currentY > y) !== (previousY > y))
+      && (x < ((previousX - currentX) * (y - currentY)) / (previousY - currentY) + currentX);
+
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
 function round(value) {
   return Number.parseFloat(value.toFixed(3));
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
