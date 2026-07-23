@@ -167,7 +167,7 @@ function Header() {
             KITCHEN TABLE GOSPEL
           </span>
           <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ fontFamily: font.rajdhani, color: ktg.amberSoft }}>
-            A USA Missionaries Ministry
+            An initiative of USA Missionaries
           </span>
         </a>
 
@@ -377,6 +377,8 @@ function CommandPill({ icon: Icon, label }: { icon: LucideIcon; label: string })
   );
 }
 
+const places = ["Homes", "Groups", "Churches", "Workplaces", "Everyday Relationships"] as const;
+
 const modelSteps = [
   {
     n: "01",
@@ -398,6 +400,12 @@ const modelSteps = [
   },
   {
     n: "04",
+    icon: HeartHandshake,
+    title: "ENCOURAGE",
+    body: "Care doesn't end when the table does. Follow up, show up, and carry each other's week.",
+  },
+  {
+    n: "05",
     icon: GitBranch,
     title: "MULTIPLY",
     body: "Train someone at your table to gather one of their own. Repeat, city by city.",
@@ -431,7 +439,7 @@ export function KitchenTableGospelPage() {
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-16 px-6 py-16 md:grid-cols-2 md:items-center md:px-10">
           <div>
             <Reveal>
-              <Eyebrow>A USA Missionaries Ministry</Eyebrow>
+              <Eyebrow>An initiative of USA Missionaries</Eyebrow>
             </Reveal>
             <Reveal delay={100}>
               <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-stone-100 sm:text-5xl md:text-6xl" style={{ fontFamily: font.oswald }}>
@@ -583,12 +591,12 @@ export function KitchenTableGospelPage() {
       <section id="model" className="border-y px-6 py-24 md:px-10 md:py-32" style={{ borderColor: ktg.panelBorder, background: ktg.bgAlt }}>
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <SectionHeading eyebrow="The Model" headline="Gather. Learn. Confess. Multiply.">
+            <SectionHeading eyebrow="The Model" headline="Gather. Learn. Confess. Encourage. Multiply.">
               <p>Simple enough for a kitchen table. Reproducible enough for a nation.</p>
             </SectionHeading>
           </Reveal>
 
-          <div className="mt-14 grid gap-px sm:grid-cols-2 lg:grid-cols-4" style={{ background: ktg.panelBorder }}>
+          <div className="mt-14 grid gap-px sm:grid-cols-2 lg:grid-cols-5" style={{ background: ktg.panelBorder }}>
             {modelSteps.map((step, i) => (
               <Reveal key={step.n} delay={i * 130}>
                 <div className="h-full p-7" style={{ background: ktg.bg }}>
@@ -651,6 +659,15 @@ export function KitchenTableGospelPage() {
             <SectionHeading eyebrow="Not a Stage" headline="These Are Real Tables.">
               <p>Not stock photos. Just ordinary believers, ordinary homes, and the gospel worked out together.</p>
             </SectionHeading>
+          </Reveal>
+
+          <Reveal delay={100}>
+            <p
+              className="mt-8 text-center text-xs font-semibold uppercase tracking-[0.22em] text-stone-500"
+              style={{ fontFamily: font.rajdhani }}
+            >
+              {places.join(" · ")}
+            </p>
           </Reveal>
 
           <Reveal delay={180}>
@@ -717,7 +734,7 @@ export function KitchenTableGospelPage() {
               Kitchen Table Gospel
             </p>
             <p className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              A ministry of{" "}
+              An initiative of{" "}
               <Link href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-300">
                 USA Missionaries
               </Link>
