@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowUpRight,
   BookOpen,
   Building2,
   Church,
@@ -24,22 +25,37 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  PublicFormGrid,
+  PublicFormHeader,
+  PublicFormMessage,
+  PublicFormSection,
+  PublicFormShell,
+  PublicSelect,
+  PublicSubmitButton,
+  PublicTextarea,
+  PublicTextInput,
+} from "@/components/forms/PublicForm";
+import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 // Kitchen Table Gospel keeps the USAM brand family (Oswald / Rajdhani / Inter, dark
-// canvas, uppercase tactical labels) but shifts the accent from cool USAM gold to a
-// warmer amber/terracotta so the table — not a command post — is the visual anchor.
+// canvas, uppercase tactical labels) but trades USAM's gold for a warm wine red: the
+// color of the cup shared at the table, distinct from USAM gold and DOS blue, still
+// warm and trustworthy within the same family.
 const ktg = {
   bg: "#160F0A",
   bgAlt: "#100A06",
   panel: "#1E140D",
-  panelBorder: "rgba(232,196,140,0.14)",
-  amber: "#D9924A",
-  amberSoft: "#E8B074",
-  amberDim: "rgba(217,146,74,0.5)",
-  rust: "#B85A2E",
+  panelBorder: "rgba(230,196,180,0.14)",
+  accent: "#9A2F35",
+  accentSoft: "#D98B8C",
+  accentDim: "rgba(154,47,53,0.5)",
+  accentDeep: "#6B1F24",
   cream: "#F3E4CC",
 };
 
@@ -74,9 +90,9 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <p
       className="mb-4 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em]"
-      style={{ fontFamily: font.rajdhani, color: ktg.amberSoft }}
+      style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}
     >
-      <span className="h-px w-8" style={{ background: ktg.amberDim }} />
+      <span className="h-px w-8" style={{ background: ktg.accentDim }} />
       {children}
     </p>
   );
@@ -107,6 +123,30 @@ function SectionHeading({
   );
 }
 
+function ctaVisuals(variant: "primary" | "secondary") {
+  const className =
+    variant === "primary"
+      ? "inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all duration-300"
+      : "inline-flex items-center justify-center gap-2 border px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all duration-300";
+  const style: React.CSSProperties =
+    variant === "primary"
+      ? { fontFamily: font.rajdhani, background: ktg.accent, color: ktg.cream }
+      : { fontFamily: font.rajdhani, borderColor: ktg.accentDim, color: ktg.cream };
+
+  return { className, style };
+}
+
+function ctaHoverHandlers(variant: "primary" | "secondary") {
+  return {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+      if (variant === "secondary") e.currentTarget.style.background = "rgba(154,47,53,0.12)";
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+      if (variant === "secondary") e.currentTarget.style.background = "transparent";
+    },
+  };
+}
+
 function CTAButton({
   children,
   variant = "primary",
@@ -118,30 +158,234 @@ function CTAButton({
   href?: string;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }) {
-  const className =
-    variant === "primary"
-      ? "inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all duration-300"
-      : "inline-flex items-center justify-center gap-2 border px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all duration-300";
-  const style: React.CSSProperties =
-    variant === "primary"
-      ? { fontFamily: font.rajdhani, background: ktg.amber, color: "#180F08" }
-      : { fontFamily: font.rajdhani, borderColor: ktg.amberDim, color: ktg.cream };
+  const { className, style } = ctaVisuals(variant);
 
   return (
-    <a
-      href={href}
-      onClick={onClick}
-      className={className}
-      style={style}
-      onMouseEnter={(e) => {
-        if (variant === "secondary") e.currentTarget.style.background = "rgba(217,146,74,0.1)";
-      }}
-      onMouseLeave={(e) => {
-        if (variant === "secondary") e.currentTarget.style.background = "transparent";
-      }}
-    >
+    <a href={href} onClick={onClick} className={className} style={style} {...ctaHoverHandlers(variant)}>
       {children}
     </a>
+  );
+}
+
+const tableIntentOptions = ["Join a table", "Host a table", "Get trained", "Partner with the movement"] as const;
+type TableIntent = typeof tableIntentOptions[number];
+
+// Submits through the same public form pipeline every other USAM lead form uses
+// (/api/form-submissions -> Supabase form_submissions -> the support team's admin
+// inbox at /admin/support-team). formType stays "general" so this ships without a
+// schema change; payload.source distinguishes Kitchen Table Gospel submissions.
+function JoinTheTableModal({
+  children,
+  defaultIntent,
+  variant = "primary",
+}: {
+  children: React.ReactNode;
+  defaultIntent?: TableIntent;
+  variant?: "primary" | "secondary";
+}) {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState<"error" | "idle" | "success">("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  function openModal() {
+    setStatus("idle");
+    setErrorMessage("");
+    setIsOpen(true);
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    // Honeypot: a field real visitors never see or fill. Bots that fill every field
+    // trip it, so we quietly show success without sending anything to Supabase.
+    if (getString(formData, "website")) {
+      form.reset();
+      setStatus("success");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus("idle");
+    setErrorMessage("");
+
+    const firstName = getString(formData, "first_name");
+    const lastName = getString(formData, "last_name");
+    const email = getString(formData, "email");
+    const phone = getString(formData, "phone");
+    const city = getString(formData, "city");
+    const state = getString(formData, "state");
+    const intent = getString(formData, "intent");
+    const message = getString(formData, "message");
+    const sourcePage = typeof window === "undefined"
+      ? pathname || "/"
+      : `${window.location.pathname}${window.location.search}`;
+
+    try {
+      await submitPublicForm({
+        email,
+        firstName,
+        formType: "general",
+        lastName,
+        message,
+        payload: {
+          city,
+          email,
+          first_name: firstName,
+          intent,
+          last_name: lastName,
+          message,
+          phone,
+          source: "kitchen_table_gospel",
+          source_page: sourcePage,
+          state,
+        },
+        phone,
+        sourcePage,
+      });
+
+      form.reset();
+      setStatus("success");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to submit this form.");
+      setStatus("error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const { className: triggerClassName, style: triggerStyle } = ctaVisuals(variant);
+
+  const modal = isOpen && isMounted ? createPortal(
+    <div
+      className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 px-4 py-6 backdrop-blur-sm sm:px-5 md:py-10"
+      onMouseDown={() => setIsOpen(false)}
+      role="presentation"
+    >
+      <div className="flex min-h-full items-start justify-center py-4 md:items-center md:py-8">
+        <div
+          aria-labelledby="join-the-table-title"
+          aria-modal="true"
+          className="relative w-full"
+          onMouseDown={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <PublicFormShell size="standard">
+            <button
+              aria-label="Close join the table form"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#9A2F35] hover:text-stone-950"
+              onClick={() => setIsOpen(false)}
+              type="button"
+            >
+              &times;
+            </button>
+
+            <div className="space-y-4">
+              <PublicFormHeader
+                description="Tell us a little about yourself and how you want to be part of Kitchen Table Gospel. A real person from our team will follow up, not an automated reply."
+                eyebrow="Join the Table"
+                title={<span id="join-the-table-title">Pull Up a Chair</span>}
+              />
+
+              {status === "success" ? (
+                <PublicFormMessage>
+                  Thank you. Someone from our team will reach out soon to help you take the next step.
+                </PublicFormMessage>
+              ) : (
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                  <div aria-hidden="true" className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden">
+                    <label htmlFor="ktg-website">Leave this field blank</label>
+                    <input autoComplete="off" id="ktg-website" name="website" tabIndex={-1} type="text" />
+                  </div>
+
+                  <PublicFormSection title="Contact Information">
+                    <PublicFormGrid>
+                      <PublicTextInput autoComplete="given-name" label="First name" name="first_name" required />
+                      <PublicTextInput autoComplete="family-name" label="Last name" name="last_name" required />
+                      <PublicTextInput autoComplete="email" label="Email" name="email" required type="email" />
+                      <PublicTextInput autoComplete="tel" label="Phone" name="phone" type="tel" />
+                    </PublicFormGrid>
+                  </PublicFormSection>
+
+                  <PublicFormSection title="Location">
+                    <PublicFormGrid>
+                      <PublicTextInput autoComplete="address-level2" label="City" name="city" />
+                      <PublicTextInput autoComplete="address-level1" label="State" name="state" />
+                    </PublicFormGrid>
+                  </PublicFormSection>
+
+                  <PublicFormSection title="How do you want to be involved?">
+                    <PublicSelect defaultValue={defaultIntent ?? ""} label="I want to" name="intent" required>
+                      <option value="">Select one</option>
+                      {tableIntentOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </PublicSelect>
+                    <div className="mt-4">
+                      <PublicTextarea label="Anything you want us to know? (optional)" name="message" rows={3} />
+                    </div>
+                  </PublicFormSection>
+
+                  {status === "error" ? (
+                    <PublicFormMessage tone="error">
+                      {errorMessage || "Something went wrong. Please try again."}
+                    </PublicFormMessage>
+                  ) : null}
+
+                  <PublicFormSection title="Submit">
+                    <PublicSubmitButton disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting..." : "Submit"}
+                    </PublicSubmitButton>
+                  </PublicFormSection>
+                </form>
+              )}
+            </div>
+          </PublicFormShell>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <>
+      <button
+        className={triggerClassName}
+        onClick={openModal}
+        style={triggerStyle}
+        type="button"
+        {...ctaHoverHandlers(variant)}
+      >
+        {children}
+      </button>
+      {modal}
+    </>
   );
 }
 
@@ -161,15 +405,28 @@ function Header() {
       className="fixed inset-x-0 top-0 z-50 w-full border-b"
       style={{ background: "rgba(22,15,10,0.92)", borderColor: ktg.panelBorder, backdropFilter: "blur(12px)" }}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 md:px-10">
-        <a href="#top" className="flex flex-col leading-none">
-          <span className="text-lg font-bold tracking-[0.08em] text-stone-100 md:text-xl" style={{ fontFamily: font.oswald }}>
-            KITCHEN TABLE GOSPEL
-          </span>
-          <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ fontFamily: font.rajdhani, color: ktg.amberSoft }}>
-            An initiative of USA Missionaries
-          </span>
-        </a>
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col leading-none">
+            <a href="#top" className="text-lg font-bold tracking-[0.08em] text-stone-100 md:text-xl" style={{ fontFamily: font.oswald }}>
+              KITCHEN TABLE GOSPEL
+            </a>
+            <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}>
+              An initiative of{" "}
+              <a href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-100">
+                USA Missionaries
+              </a>
+            </span>
+          </div>
+          <a
+            href="https://usamissionaries.org"
+            className="hidden shrink-0 items-center gap-1.5 border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-300 transition-colors duration-200 hover:text-stone-100 sm:inline-flex"
+            style={{ borderColor: ktg.panelBorder, fontFamily: font.rajdhani }}
+          >
+            USA Missionaries
+            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+          </a>
+        </div>
 
         <nav className="ml-auto hidden md:flex" aria-label="Primary navigation">
           <ul className="flex items-center gap-8 lg:gap-10">
@@ -188,7 +445,7 @@ function Header() {
         </nav>
 
         <div className="hidden md:block">
-          <CTAButton href="#join">Host a Table</CTAButton>
+          <JoinTheTableModal defaultIntent="Host a table">Host a Table</JoinTheTableModal>
         </div>
 
         <button
@@ -206,6 +463,15 @@ function Header() {
       {open ? (
         <nav className="border-t md:hidden" style={{ borderColor: ktg.panelBorder }} aria-label="Mobile navigation">
           <div className="mx-auto flex w-full max-w-7xl flex-col px-6 py-3">
+            <a
+              href="https://usamissionaries.org"
+              onClick={() => setOpen(false)}
+              className="flex min-h-[48px] items-center gap-2 border-b py-3 text-[13px] uppercase tracking-[0.16em] text-stone-400"
+              style={{ borderColor: ktg.panelBorder, fontFamily: font.rajdhani, fontWeight: 600 }}
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" style={{ color: ktg.accentSoft }} />
+              Visit USA Missionaries
+            </a>
             {navItems.map((item) => (
               <a
                 key={item.href}
@@ -218,9 +484,7 @@ function Header() {
               </a>
             ))}
             <div className="py-4">
-              <CTAButton href="#join" onClick={() => setOpen(false)}>
-                Host a Table
-              </CTAButton>
+              <JoinTheTableModal defaultIntent="Host a table">Host a Table</JoinTheTableModal>
             </div>
           </div>
         </nav>
@@ -229,29 +493,31 @@ function Header() {
   );
 }
 
-function NationTableMap() {
-  const gold = ktg.amber;
-  // Illustrative points spread across a 0-960 x 0-560 viewBox behind the USA outline.
-  // Not a literal atlas — a visual cue that one table's pattern is meant to repeat everywhere.
-  const nodes: Array<[number, number]> = [
+function NationTableMap({ variant = "vision" }: { variant?: "hero" | "vision" }) {
+  const accent = ktg.accent;
+  const showFuture = variant === "vision";
+  // Minnesota, calibrated to where /usa-outline-clean.png actually lands inside this
+  // 960x560 viewBox at the placement below (x=20 y=10 w=920 h=512). This is the one
+  // real, active origin point. Everything else is explicitly a future goal, not a
+  // current location, and is only drawn in the "vision" variant.
+  const origin: [number, number] = [547, 120];
+  const futureNodes: Array<[number, number]> = [
     [210, 140], [150, 230], [230, 340], [300, 420], [360, 200], [420, 300],
     [470, 150], [520, 260], [560, 380], [610, 190], [650, 300], [700, 240],
-    [740, 340], [780, 170], [560, 130], [330, 260], [480, 420], [640, 400],
-    [260, 180], [400, 120],
+    [740, 340], [780, 170], [330, 260], [480, 420], [640, 400], [260, 180], [400, 120],
   ];
-  const origin: [number, number] = [430, 250];
-  const spokes = nodes.slice(0, 8);
+  const spokes = futureNodes.slice(0, 8);
 
   return (
     <svg viewBox="0 0 960 560" className="h-auto w-full overflow-visible" aria-hidden="true">
       <defs>
         <radialGradient id="ktgGlow" cx="50%" cy="50%" r="55%">
-          <stop offset="0%" stopColor={gold} stopOpacity={0.24} />
-          <stop offset="55%" stopColor={gold} stopOpacity={0.06} />
-          <stop offset="100%" stopColor={gold} stopOpacity={0} />
+          <stop offset="0%" stopColor={accent} stopOpacity={0.24} />
+          <stop offset="55%" stopColor={accent} stopOpacity={0.06} />
+          <stop offset="100%" stopColor={accent} stopOpacity={0} />
         </radialGradient>
         <filter id="ktgTint">
-          <feFlood floodColor={gold} result="fill" />
+          <feFlood floodColor={accent} result="fill" />
           <feComposite in="fill" in2="SourceAlpha" operator="in" result="tinted" />
           <feComponentTransfer in="tinted">
             <feFuncA type="linear" slope="0.62" />
@@ -259,7 +525,7 @@ function NationTableMap() {
         </filter>
       </defs>
 
-      <ellipse cx={origin[0]} cy={origin[1]} rx={260} ry={170} fill="url(#ktgGlow)">
+      <ellipse cx={origin[0]} cy={origin[1]} rx={showFuture ? 260 : 150} ry={showFuture ? 170 : 100} fill="url(#ktgGlow)">
         <animate attributeName="opacity" values="0.6;1;0.6" dur="6s" repeatCount="indefinite" />
       </ellipse>
 
@@ -274,46 +540,62 @@ function NationTableMap() {
         filter="url(#ktgTint)"
       />
 
-      {spokes.map(([x, y], i) => (
+      {showFuture ? spokes.map(([x, y], i) => (
         <line
           key={`spoke-${i}`}
           x1={origin[0]}
           y1={origin[1]}
           x2={x}
           y2={y}
-          stroke={gold}
+          stroke={accent}
           strokeWidth={0.6}
-          strokeOpacity={0.28}
+          strokeOpacity={0.22}
           strokeDasharray="3,7"
         >
           <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="3.2s" repeatCount="indefinite" />
         </line>
-      ))}
+      )) : null}
 
-      {nodes.map(([x, y], i) => (
+      {showFuture ? futureNodes.map(([x, y], i) => (
         <g key={`node-${i}`}>
-          <circle cx={x} cy={y} r={2.4} fill={gold} opacity={0.75}>
-            <animate attributeName="opacity" values="0.35;0.9;0.35" dur={`${2.4 + i * 0.25}s`} repeatCount="indefinite" />
+          <circle cx={x} cy={y} r={2.2} fill="none" stroke={accent} strokeWidth={1} opacity={0.5}>
+            <animate attributeName="opacity" values="0.28;0.65;0.28" dur={`${2.4 + i * 0.25}s`} repeatCount="indefinite" />
           </circle>
-          <circle cx={x} cy={y} r={7} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.32}>
+          <circle cx={x} cy={y} r={7} fill="none" stroke={accent} strokeWidth={0.4} opacity={0.26}>
             <animate attributeName="r" values="5;14;5" dur={`${3 + i * 0.3}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.3;0;0.3" dur={`${3 + i * 0.3}s`} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.26;0;0.26" dur={`${3 + i * 0.3}s`} repeatCount="indefinite" />
           </circle>
         </g>
-      ))}
+      )) : null}
 
-      <circle cx={origin[0]} cy={origin[1]} r={13} fill={ktg.bg} stroke={gold} strokeWidth={1.4} />
-      <circle cx={origin[0]} cy={origin[1]} r={4} fill={gold} />
+      {/* Minnesota: the one real, active origin point, not a future node */}
+      <circle cx={origin[0]} cy={origin[1]} r={18} fill="none" stroke={accent} strokeWidth={1} opacity={0.45}>
+        <animate attributeName="r" values="14;22;14" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.55;0.05;0.55" dur="3s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={origin[0]} cy={origin[1]} r={9} fill={ktg.bg} stroke={accent} strokeWidth={1.8} />
+      <circle cx={origin[0]} cy={origin[1]} r={3.5} fill={accent} />
+
+      <line x1={origin[0] + 7} y1={origin[1] - 7} x2={origin[0] + 32} y2={origin[1] - 28} stroke={accent} strokeWidth={1} strokeOpacity={0.65} />
       <text
-        x={origin[0]}
-        y={origin[1] + 42}
-        textAnchor="middle"
+        x={origin[0] + 38}
+        y={origin[1] - 24}
         fill={ktg.cream}
-        fontSize={13}
-        letterSpacing="0.28em"
+        fontSize={16}
+        letterSpacing="0.08em"
+        style={{ fontFamily: font.oswald, fontWeight: 700 }}
+      >
+        MINNESOTA
+      </text>
+      <text
+        x={origin[0] + 38}
+        y={origin[1] - 6}
+        fill={ktg.accentSoft}
+        fontSize={11}
+        letterSpacing="0.02em"
         style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
       >
-        IT STARTS HERE
+        Where the first tables launched
       </text>
     </svg>
   );
@@ -337,11 +619,11 @@ function PatternCard({
       <div className="h-full border p-7" style={{ background: ktg.panel, borderColor: ktg.panelBorder }}>
         <div
           className="mb-5 inline-flex h-11 w-11 items-center justify-center border"
-          style={{ borderColor: ktg.amberDim, color: ktg.amberSoft }}
+          style={{ borderColor: ktg.accentDim, color: ktg.accentSoft }}
         >
           <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ fontFamily: font.rajdhani, color: ktg.amberSoft }}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}>
           {reference}
         </p>
         <h3 className="mt-2 text-xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
@@ -371,7 +653,7 @@ function CommandPill({ icon: Icon, label }: { icon: LucideIcon; label: string })
       className="flex items-center gap-3 border px-4 py-3"
       style={{ background: ktg.panel, borderColor: ktg.panelBorder }}
     >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.7} style={{ color: ktg.amberSoft }} />
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.7} style={{ color: ktg.accentSoft }} />
       <span className="text-sm font-semibold text-stone-200">{label}</span>
     </div>
   );
@@ -384,7 +666,7 @@ const modelSteps = [
     n: "01",
     icon: Users,
     title: "GATHER",
-    body: "Around a real table, in a real home. No stage, no platform — just chairs pulled close.",
+    body: "Around a real table, in a real home. No stage, no platform, just chairs pulled close.",
   },
   {
     n: "02",
@@ -415,7 +697,7 @@ const modelSteps = [
 function VisionStat({ icon: Icon, value, label }: { icon: LucideIcon; value: string; label: string }) {
   return (
     <div className="border p-8 text-center" style={{ background: ktg.panel, borderColor: ktg.panelBorder }}>
-      <Icon className="mx-auto h-6 w-6" aria-hidden="true" strokeWidth={1.6} style={{ color: ktg.amberSoft }} />
+      <Icon className="mx-auto h-6 w-6" aria-hidden="true" strokeWidth={1.6} style={{ color: ktg.accentSoft }} />
       <p className="mt-4 text-4xl font-bold text-stone-100 md:text-5xl" style={{ fontFamily: font.oswald }}>
         {value}
       </p>
@@ -433,7 +715,7 @@ export function KitchenTableGospelPage() {
 
       {/* HERO */}
       <section className="relative flex min-h-screen items-center overflow-hidden pt-28">
-        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 30%, rgba(217,146,74,0.08) 0%, transparent 55%)` }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 30%, rgba(154,47,53,0.1) 0%, transparent 55%)` }} />
         <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(180deg, ${ktg.bgAlt} 0%, ${ktg.bg} 45%, ${ktg.bgAlt} 100%)` }} />
 
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-16 px-6 py-16 md:grid-cols-2 md:items-center md:px-10">
@@ -451,7 +733,7 @@ export function KitchenTableGospelPage() {
             <Reveal delay={220}>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-stone-400 md:text-lg">
                 Jesus turned kitchens and dining rooms into classrooms, confession booths, and launching pads. Kitchen
-                Table Gospel exists to help ordinary believers do what he did — learn, obey, and teach the commands of
+                Table Gospel exists to help ordinary believers do what he did: learn, obey, and teach the commands of
                 Jesus around a real table, with real people.
               </p>
             </Reveal>
@@ -462,22 +744,22 @@ export function KitchenTableGospelPage() {
               >
                 &ldquo;Go and make disciples&hellip; teaching them to obey everything I have commanded you.&rdquo;
                 <br />
-                <span style={{ color: ktg.amberSoft }}>MATTHEW 28:19&ndash;20</span>
+                <span style={{ color: ktg.accentSoft }}>MATTHEW 28:19&ndash;20</span>
               </p>
             </Reveal>
             <Reveal delay={440}>
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                 <CTAButton href="#pattern">See the Pattern of Jesus</CTAButton>
-                <CTAButton variant="secondary" href="#join">
+                <JoinTheTableModal defaultIntent="Host a table" variant="secondary">
                   Host a Table
-                </CTAButton>
+                </JoinTheTableModal>
               </div>
             </Reveal>
           </div>
 
           <Reveal delay={300}>
             <div className="relative mx-auto max-w-md md:max-w-none">
-              <NationTableMap />
+              <NationTableMap variant="hero" />
             </div>
           </Reveal>
         </div>
@@ -488,7 +770,7 @@ export function KitchenTableGospelPage() {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="From Table to Nations" headline="We Are Not Reinventing Discipleship.">
-              <p>We are returning to the way Jesus practiced it — again and again, around ordinary tables and in ordinary homes.</p>
+              <p>We are returning to the way Jesus practiced it, again and again, around ordinary tables and in ordinary homes.</p>
             </SectionHeading>
           </Reveal>
 
@@ -522,10 +804,10 @@ export function KitchenTableGospelPage() {
       <section id="commission" className="border-y px-6 py-24 md:px-10 md:py-32" style={{ borderColor: ktg.panelBorder, background: ktg.bgAlt }}>
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="Matthew 28:19–20" headline="Teach Them to Obey — Not Just Go, Not Just Baptize.">
+            <SectionHeading eyebrow="Matthew 28:19–20" headline="Teach Them to Obey: Not Just Go, Not Just Baptize.">
               <p>
                 The Great Commission does not end at the water. It ends when ordinary believers can actually teach one
-                another to obey what Jesus commanded — and that requires a place to practice, not just a place to listen.
+                another to obey what Jesus commanded, and that requires a place to practice, not just a place to listen.
               </p>
             </SectionHeading>
           </Reveal>
@@ -541,7 +823,7 @@ export function KitchenTableGospelPage() {
                 <div key={step.label} className="p-6 text-center md:p-8" style={{ background: ktg.bg }}>
                   <p
                     className="text-lg font-bold uppercase tracking-tight md:text-xl"
-                    style={{ fontFamily: font.oswald, color: step.accent ? ktg.amberSoft : "#f5f5f4" }}
+                    style={{ fontFamily: font.oswald, color: step.accent ? ktg.accentSoft : "#f5f5f4" }}
                   >
                     {step.label}
                   </p>
@@ -565,7 +847,7 @@ export function KitchenTableGospelPage() {
           <Reveal>
             <SectionHeading eyebrow="The Problem" headline="You Can't Teach What You've Never Practiced.">
               <p>
-                Most believers have heard hundreds of sermons about the commands of Jesus — and never sat in a room
+                Most believers have heard hundreds of sermons about the commands of Jesus, and never sat in a room
                 where someone helped them actually obey one. Kitchen Table Gospel exists to close that gap.
               </p>
             </SectionHeading>
@@ -581,7 +863,7 @@ export function KitchenTableGospelPage() {
 
           <Reveal delay={280}>
             <p className="mt-10 text-center text-sm font-semibold uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              These are the commands of Jesus. A table is where you learn to keep them — and teach them.
+              These are the commands of Jesus. A table is where you learn to keep them, and teach them.
             </p>
           </Reveal>
         </div>
@@ -601,10 +883,10 @@ export function KitchenTableGospelPage() {
               <Reveal key={step.n} delay={i * 130}>
                 <div className="h-full p-7" style={{ background: ktg.bg }}>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold tracking-[0.2em]" style={{ fontFamily: font.rajdhani, color: ktg.amberSoft }}>
+                    <span className="text-xs font-bold tracking-[0.2em]" style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}>
                       {step.n}
                     </span>
-                    <step.icon className="h-4 w-4" aria-hidden="true" strokeWidth={1.7} style={{ color: ktg.amberSoft }} />
+                    <step.icon className="h-4 w-4" aria-hidden="true" strokeWidth={1.7} style={{ color: ktg.accentSoft }} />
                   </div>
                   <h3 className="mt-4 text-xl font-bold tracking-wide text-stone-100" style={{ fontFamily: font.oswald }}>
                     {step.title}
@@ -623,7 +905,7 @@ export function KitchenTableGospelPage() {
           <Reveal>
             <SectionHeading eyebrow="The Vision" headline="Thousands of Tables. Every State.">
               <p>
-                Not one organization running every table — thousands of ordinary believers trained, equipped, and
+                Not one organization running every table. Thousands of ordinary believers trained, equipped, and
                 sent to host tables of their own, in every state and in the major cities within them.
               </p>
             </SectionHeading>
@@ -631,21 +913,25 @@ export function KitchenTableGospelPage() {
 
           <Reveal delay={150}>
             <div className="mt-14 mx-auto max-w-3xl">
-              <NationTableMap />
+              <NationTableMap variant="vision" />
+              <p className="mt-6 text-center text-xs leading-relaxed text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                Minnesota is where this began, and where tables are active today. Every other point marks where we
+                are asking God to send trained believers next, not a place we are already working.
+              </p>
             </div>
           </Reveal>
 
           <Reveal delay={250}>
             <div className="mt-14 grid gap-5 sm:grid-cols-3">
-              <VisionStat icon={MapPin} value="50" label="States Reached" />
+              <VisionStat icon={MapPin} value="50" label="States in the Vision" />
               <VisionStat icon={Building2} value="3+" label="Major Cities per State" />
-              <VisionStat icon={Users} value="1,000s" label="Believers Trained & Sent" />
+              <VisionStat icon={Users} value="1,000s" label="Believers to Train & Send" />
             </div>
           </Reveal>
 
           <Reveal delay={350}>
             <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-stone-500">
-              This is the goal we are building toward — ordinary Christians leading reproducible, table-based
+              This is the goal we are building toward. Ordinary Christians leading reproducible, table-based
               discipleship where they already live, work, and eat.
             </p>
           </Reveal>
@@ -699,7 +985,7 @@ export function KitchenTableGospelPage() {
       <section id="join" className="px-6 py-28 md:px-10 md:py-36">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="mx-auto h-px w-12" style={{ background: ktg.amberDim }} />
+            <div className="mx-auto h-px w-12" style={{ background: ktg.accentDim }} />
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-10 text-4xl font-bold tracking-tight text-stone-100 md:text-6xl" style={{ fontFamily: font.oswald }}>
@@ -714,15 +1000,33 @@ export function KitchenTableGospelPage() {
           </Reveal>
           <Reveal delay={340}>
             <div className="mt-10 flex flex-col flex-wrap items-center justify-center gap-4 sm:flex-row">
-              <CTAButton href={`mailto:${contactEmail}?subject=I%20want%20to%20start%20a%20Kitchen%20Table`}>
+              <JoinTheTableModal>
                 <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                Host or Join a Table
-              </CTAButton>
+                Join or Host a Table
+              </JoinTheTableModal>
               <CTAButton variant="secondary" href="/guides/kitchen-table-gospel.pdf">
                 <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                Download the Guide
+                View the Table Conversation Guide
               </CTAButton>
             </div>
+          </Reveal>
+          <Reveal delay={420}>
+            <p className="mx-auto mt-5 max-w-md text-xs leading-relaxed text-stone-500">
+              The Table Conversation Guide is the full presentation we use to walk someone through the gospel at a
+              real table: Jesus&apos;s own table stories, the Great Commission, and a guided check-in. It is built
+              for hosts and leaders to use one-on-one, not a casual read.
+            </p>
+          </Reveal>
+          <Reveal delay={480}>
+            <p className="mt-8 text-xs uppercase tracking-[0.2em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
+              Prefer email?{" "}
+              <a
+                href={`mailto:${contactEmail}?subject=I%20want%20to%20start%20a%20Kitchen%20Table`}
+                className="underline decoration-dotted underline-offset-4 hover:text-stone-400"
+              >
+                {contactEmail}
+              </a>
+            </p>
           </Reveal>
         </div>
       </section>
