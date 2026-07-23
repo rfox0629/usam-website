@@ -37,12 +37,15 @@ assert(shell.includes("surface?: \"dark\" | \"light\""), "AdminShell should supp
 
 assert(page.includes("surface=\"light\""), "Founder Command Center should render on the white admin surface.");
 assert(page.includes("Needs My Attention"), "Needs My Attention section is required.");
-assert(page.includes("Active Work"), "Active Work section is required.");
-assert(page.includes("AI Workforce Capacity"), "AI Workforce Capacity section is required.");
+assert(page.includes("Open Work"), "Open Work running list is required.");
+assert(page.includes("Completed Recently"), "Completed Recently section is required.");
+assert(page.includes("Runner Health"), "Runner Health section is required.");
 assert(page.includes("Today"), "Today brief is required.");
-assert(page.includes("Recent Activity"), "Recent Activity section is required.");
 assert(page.includes("No raw logs, secrets, shell controls, or unrestricted execution controls are exposed."), "Safety footer is required.");
 
+assert(!page.includes("Active Work"), "Simplified V1 should not use the old Active Work section label.");
+assert(!page.includes("AI Workforce Capacity"), "Runner health should not dominate the page as AI Workforce Capacity.");
+assert(!page.includes("Recent Activity"), "Completed Recently should replace noisy recent activity UI.");
 assert(!page.includes("Start Something New"), "V1 must not include a Start Something New workflow.");
 assert(!page.includes("<textarea"), "V1 must not include an embedded chat or large instruction box.");
 assert(!page.includes("chat box"), "V1 should not describe an embedded chat box.");
@@ -51,6 +54,9 @@ assert(!page.match(/\b\d{2}% remaining\b/i), "Do not hardcode inferred runner ca
 assert(data.includes("usageRemainingPercent") && data.includes("usageSource"), "Exact usage percentages must require a provider/account source.");
 assert(data.includes("parseReviewPackage") && data.includes("decisionRequested") && data.includes("estimatedReviewTime"), "Review items must require a decision and review time.");
 assert(data.includes("filter((url) => !url.includes(\"linear.app/\"))"), "Needs My Attention must not use bare Linear issue links as review packages.");
+assert(data.includes("buildCompletedRecently"), "Completed Recently data should be derived separately.");
+assert(data.includes("blockerForIssue"), "Open Work rows should expose blockers when present.");
+assert(data.includes("filter((issue) => issue.status !== \"Complete\")"), "Open Work must exclude completed issues.");
 
 assert(actions.includes("canEditAdminContent"), "Server actions must enforce admin/editor authorization.");
 assert(actions.includes("appendOperationsCenterAction"), "Server actions should write to the safe dispatcher outbox.");

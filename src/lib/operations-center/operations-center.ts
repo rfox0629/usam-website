@@ -39,13 +39,25 @@ export type ReviewItem = {
 
 export type ActiveWorkItem = {
   assignedRunner: string;
+  blocker: string;
   category: string;
   currentProject: string;
   dataSource: DataSourceStatus;
   detailHref?: string;
+  issueId: string;
   mostRecentUpdate: string;
   nextMilestone: string;
   status: WorkStatus;
+};
+
+export type CompletedWorkItem = {
+  completedAt: string;
+  dataSource: DataSourceStatus;
+  detail: string;
+  href?: string;
+  issueId: string;
+  product: string;
+  title: string;
 };
 
 export type RunnerCapacity = {
@@ -89,6 +101,7 @@ export type RunnerOverrideState = {
 
 export type OperationsCenterData = {
   activeWork: ActiveWorkItem[];
+  completedRecently: CompletedWorkItem[];
   dataNotes: string[];
   dispatcherSource: DataSourceStatus;
   generatedAt: string;
@@ -183,6 +196,8 @@ const CATEGORY_DEFINITIONS = [
     title: "SAVE Standard",
   },
 ] as const;
+
+export const OPERATIONS_CENTER_CATEGORIES = CATEGORY_DEFINITIONS.map((category) => category.title);
 
 const ISSUE_CATEGORY_HINTS: Record<string, string> = {
   "USA-50": "AI Workforce / Automation",
@@ -310,12 +325,6 @@ function isToday(value: string) {
   }
 
   return todayKey(date) === todayKey(new Date());
-}
-
-function titleIncludes(issue: LinearIssue, keywords: readonly string[]) {
-  const haystack = `${issue.identifier} ${issue.title} ${issue.description} ${issue.projectName} ${issue.labels.join(" ")}`.toLowerCase();
-
-  return keywords.some((keyword) => haystack.includes(keyword));
 }
 
 function categoryForIssue(issue: Pick<LinearIssue, "description" | "identifier" | "labels" | "projectName" | "title">) {
@@ -528,6 +537,7 @@ function normalizeActiveWork(value: unknown): ActiveWorkItem | null {
   const raw = toRecord(value);
   const category = cleanText(raw.category, "", 80);
   const status = cleanText(raw.status, "Planned", 40);
+  const issueId = cleanText(raw.issueId ?? raw.issue ?? raw.identifier, "Untracked", 24).toUpperCase();
 
   if (!category || !CATEGORY_DEFINITIONS.some((definition) => definition.title === category)) {
     return null;
@@ -535,10 +545,12 @@ function normalizeActiveWork(value: unknown): ActiveWorkItem | null {
 
   return {
     assignedRunner: cleanText(raw.assignedRunner ?? raw.runner, "Unknown", 60),
+    blocker: cleanText(raw.blocker ?? raw.blockedBy, "", 140),
     category,
     currentProject: cleanText(raw.currentProject ?? raw.project ?? raw.title, "No tracked work packet", 140),
     dataSource: normalizeSource(raw.dataSource ?? raw.source),
     detailHref: safeUrl(raw.detailHref ?? raw.url) || undefined,
+    issueId,
     mostRecentUpdate: cleanText(raw.mostRecentUpdate ?? raw.update, "No meaningful update reported", 180),
     nextMilestone: cleanText(raw.nextMilestone ?? raw.next, "Awaiting next milestone", 160),
     status: normalizeWorkStatus(status, status),
@@ -808,42 +820,138 @@ function nextMilestoneForIssue(issue: LinearIssue) {
   return "Runner pickup";
 }
 
+function blockerForIssue(issue: LinearIssue) {
+  if (issue.status !== "Blocked") {
+    return "";
+  }
+
+  return cleanText(
+    firstMatchingLine(issue.description, ["true blocker", "blocked by", "blocker", "blocked"]),
+    "Open blocker noted in Linear",
+    140,
+  );
+}
+
+function latestUpdateForIssue(issue: LinearIssue) {
+  if (issue.status === "Review") {
+    return parseReviewPackage(issue)
+      ? `Usable review package ready ${formatDateTime(issue.updatedAt)}`
+      : `In review without a usable package ${formatDateTime(issue.updatedAt)}`;
+  }
+
+  if (issue.status === "Blocked") {
+    return blockerForIssue(issue);
+  }
+
+  if (issue.status === "Working") {
+    return `Work in progress as of ${formatDateTime(issue.updatedAt)}`;
+  }
+
+  if (issue.status === "Waiting") {
+    return `Waiting state updated ${formatDateTime(issue.updatedAt)}`;
+  }
+
+  if (issue.status === "Queued") {
+    return `Queued for runner pickup ${formatDateTime(issue.updatedAt)}`;
+  }
+
+  return `Updated ${formatDateTime(issue.updatedAt)}`;
+}
+
 function buildActiveWork(issues: LinearIssue[], dispatcherItems: ActiveWorkItem[]) {
-  return CATEGORY_DEFINITIONS.map((category) => {
-    const dispatcherItem = dispatcherItems.find((item) => item.category === category.title);
+  const byIssue = new Map<string, ActiveWorkItem>();
 
-    if (dispatcherItem) {
-      return dispatcherItem;
-    }
+  issues
+    .filter((issue) => issue.status !== "Complete")
+    .forEach((issue) => {
+      byIssue.set(issue.identifier, {
+        assignedRunner: issue.assigneeName,
+        blocker: blockerForIssue(issue),
+        category: issue.category,
+        currentProject: issue.title,
+        dataSource: "live",
+        detailHref: issue.url,
+        issueId: issue.identifier,
+        mostRecentUpdate: latestUpdateForIssue(issue),
+        nextMilestone: nextMilestoneForIssue(issue),
+        status: issue.status,
+      });
+    });
 
-    const categoryIssues = issues
-      .filter((issue) => issue.category === category.title || titleIncludes(issue, category.keywords))
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    const activeIssue = categoryIssues.find((issue) => issue.status !== "Complete") ?? categoryIssues[0];
-
-    if (!activeIssue) {
-      return {
-        assignedRunner: "Unknown",
-        category: category.title,
-        currentProject: "No tracked work packet",
-        dataSource: "unavailable" as DataSourceStatus,
-        mostRecentUpdate: "Awaiting Linear or dispatcher signal",
-        nextMilestone: "No active milestone",
-        status: "Planned" as WorkStatus,
-      };
-    }
-
-    return {
-      assignedRunner: activeIssue.assigneeName,
-      category: category.title,
-      currentProject: `${activeIssue.identifier}: ${activeIssue.title}`,
-      dataSource: "live" as DataSourceStatus,
-      detailHref: activeIssue.url,
-      mostRecentUpdate: `Updated ${formatDateTime(activeIssue.updatedAt)}`,
-      nextMilestone: nextMilestoneForIssue(activeIssue),
-      status: activeIssue.status,
-    };
+  dispatcherItems.forEach((item) => {
+    byIssue.set(item.issueId || `${item.category}:${item.currentProject}`, item);
   });
+
+  const statusRank: Record<WorkStatus, number> = {
+    Blocked: 0,
+    Review: 1,
+    Working: 2,
+    Waiting: 3,
+    Queued: 4,
+    Planned: 5,
+    Complete: 6,
+  };
+
+  return Array.from(byIssue.values())
+    .filter((item) => item.status !== "Complete")
+    .sort((a, b) => {
+      const statusSort = statusRank[a.status] - statusRank[b.status];
+
+      if (statusSort !== 0) {
+        return statusSort;
+      }
+
+      return a.category.localeCompare(b.category) || a.issueId.localeCompare(b.issueId);
+    });
+}
+
+function completionActivityIssueId(item: RecentActivityItem) {
+  const match = `${item.title} ${item.detail}`.match(/\bUSA-\d+\b/i);
+
+  return match ? match[0].toUpperCase() : "Milestone";
+}
+
+function buildCompletedRecently(issues: LinearIssue[], dispatcherActivity: RecentActivityItem[]): CompletedWorkItem[] {
+  const completionWords = ["complete", "completed", "finished", "review ready", "preview published"];
+  const byIssue = new Map<string, CompletedWorkItem>();
+
+  dispatcherActivity
+    .filter((item) => {
+      const text = `${item.label} ${item.title} ${item.detail}`.toLowerCase();
+
+      return completionWords.some((word) => text.includes(word));
+    })
+    .forEach((item) => {
+      const issueId = completionActivityIssueId(item);
+
+      byIssue.set(`${issueId}:${item.timestamp}`, {
+        completedAt: item.timestamp,
+        dataSource: item.dataSource,
+        detail: item.detail,
+        href: item.href,
+        issueId,
+        product: "Operations",
+        title: item.title,
+      });
+    });
+
+  issues
+    .filter((issue) => issue.status === "Complete" && issue.updatedAt)
+    .forEach((issue) => {
+      byIssue.set(issue.identifier, {
+        completedAt: issue.updatedAt,
+        dataSource: "live",
+        detail: `${issue.projectName} - completed in Linear`,
+        href: issue.url,
+        issueId: issue.identifier,
+        product: issue.category,
+        title: issue.title,
+      });
+    });
+
+  return Array.from(byIssue.values())
+    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+    .slice(0, 6);
 }
 
 function buildTodayBrief(issues: LinearIssue[], reviewItems: ReviewItem[], dispatcherToday?: Partial<TodayBrief>): TodayBrief {
@@ -956,6 +1064,7 @@ export async function getOperationsCenterData(): Promise<OperationsCenterData> {
 
   return {
     activeWork: buildActiveWork(linear.issues, dispatcher.activeWork),
+    completedRecently: buildCompletedRecently(linear.issues, dispatcher.recentActivity),
     dataNotes,
     dispatcherSource: dispatcher.status,
     generatedAt: dispatcher.generatedAt || new Date().toISOString(),

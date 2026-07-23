@@ -4,7 +4,6 @@ export default function OperationsCenterLoading() {
   return (
     <AdminShell
       active="operations-center"
-      description="Visibility, review, runner capacity."
       surface="light"
       title="Founder Command Center"
     >
@@ -14,12 +13,10 @@ export default function OperationsCenterLoading() {
             <div className="h-28 animate-pulse rounded-lg border border-stone-200 bg-stone-100" key={index} />
           ))}
         </div>
-        <div className="h-52 animate-pulse rounded-lg border border-stone-200 bg-stone-100" />
-        <div className="grid gap-3 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div className="h-64 animate-pulse rounded-lg border border-stone-200 bg-stone-100" key={index} />
-          ))}
-        </div>
+        <div className="h-28 animate-pulse rounded-lg border border-stone-200 bg-stone-100" />
+        <div className="h-56 animate-pulse rounded-lg border border-stone-200 bg-stone-100" />
+        <div className="h-72 animate-pulse rounded-lg border border-stone-200 bg-stone-100" />
+        <div className="h-40 animate-pulse rounded-lg border border-stone-200 bg-stone-100" />
       </div>
     </AdminShell>
   );

@@ -20,29 +20,32 @@
 
 ## Principles Applied
 
-1. Put the founder decision queue first.
-   The page starts with Needs My Attention and shows only usable review packages. A Linear status alone is not enough. The item must have a non-Linear review/preview link, an estimated review time, and an exact decision request.
+1. Treat the page as an executive inbox.
+   The screen answers four questions first: what needs Ryan, what is open, what is blocked, and what just finished. Counts are compact, and detailed explanation stays out of the main flow.
 
-2. Separate portfolio view from issue detail.
-   Active Work is grouped by pinned executive product/department categories. Each row shows only current packet, status, runner, meaningful update, and next milestone. Details stay behind Linear or preview links.
+2. Put the founder decision queue first.
+   Needs My Attention shows only usable review packages. A Linear status alone is not enough. The item must have a non-Linear review/preview link, an estimated review time, and an exact decision request.
 
-3. Keep capacity truthful.
-   Runner cards show exact remaining usage only when a provider/account source supplies a percentage. Otherwise the copy states that exact remaining allowance is unavailable and reports observed status only.
+3. Use an Open Work running list.
+   Open Work uses Linear-style rows grouped by product/department. Each row shows issue ID, title, product, status, runner, meaningful update, and blocker. Completed items are removed from this list.
 
-4. Make readiness obvious.
-   Large status labels and source pills mark `Live`, `Available`, `Estimated`, or `Unavailable`. Review buttons appear only on review-ready items.
+4. Separate completion from activity.
+   Completed Recently is a short list of meaningful completions. It does not show poll logs or generic update noise.
 
-5. Reduce cognitive load.
-   The one-page structure uses an inverted pyramid: executive metrics, attention queue, active work, AI capacity, Today, then Recent Activity. No charts, fake capacity meters, noisy poll logs, chat box, or large explanatory cards.
+5. Keep runner health secondary and truthful.
+   Claude, Codex, and dispatcher health are compact footer rows. Exact remaining usage appears only when a provider/account source supplies a percentage. Otherwise the copy states that exact remaining allowance is unavailable and reports observed status only.
 
-6. Preserve the operating model.
+6. Make readiness obvious.
+   Status labels and source pills mark `Live`, `Available`, `Estimated`, or `Unavailable`. Review buttons appear only on review-ready items.
+
+7. Preserve the operating model.
    Linear remains the hidden system of record, dispatcher remains the execution engine, and ChatGPT threads remain strategy/deep-discussion spaces. V1 only provides visibility, review, and concise controls.
 
-7. Keep controls safe.
+8. Keep controls safe.
    Approve, Request Changes, Hold, and runner override write sanitized server-side outbox entries. They do not mutate Linear directly, start shell commands, or expose secrets/raw logs.
 
-8. Design for desktop and mobile.
-   Desktop uses a black left nav and white main workspace. Mobile stacks each row/card with no forced horizontal scrolling.
+9. Design for desktop and mobile.
+   Desktop uses a black left nav and white main workspace. Mobile stacks each row with no forced horizontal scrolling.
 
 ## Tracked Issue Audit Set
 

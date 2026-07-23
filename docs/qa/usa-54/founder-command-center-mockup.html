@@ -12,6 +12,8 @@
         --muted: #78716c;
         --line: #e7e5e4;
         --soft: #fafaf9;
+        --red-soft: #fef2f2;
+        --red: #b91c1c;
       }
 
       * {
@@ -107,12 +109,6 @@
         line-height: 1;
       }
 
-      .sub {
-        margin-top: 8px;
-        color: var(--muted);
-        font-size: 15px;
-      }
-
       .refresh,
       .button {
         border: 1px solid #d6d3d1;
@@ -124,28 +120,47 @@
         font-weight: 700;
       }
 
+      .approve {
+        border-color: transparent;
+        background: var(--gold);
+      }
+
       .grid {
         display: grid;
         gap: 14px;
       }
 
-      .metrics {
+      .stats {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        margin-top: 24px;
+        margin-top: 22px;
       }
 
-      .tile,
+      .stat,
       .panel,
-      .row,
-      .runner {
+      .strip {
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: 8px;
         background: #ffffff;
         box-shadow: 0 8px 24px rgba(28, 25, 23, 0.04);
       }
 
-      .tile {
-        padding: 18px;
+      .stat {
+        padding: 14px;
+      }
+
+      .stat.amber {
+        border-color: #fde68a;
+        background: #fffbeb;
+      }
+
+      .stat.red {
+        border-color: #fecaca;
+        background: var(--red-soft);
+      }
+
+      .stat.green {
+        border-color: #a7f3d0;
+        background: #ecfdf5;
       }
 
       .label {
@@ -157,19 +172,19 @@
       }
 
       .value {
-        margin-top: 8px;
-        font-size: 30px;
+        margin-top: 6px;
+        font-size: 28px;
         font-weight: 800;
       }
 
       .detail {
-        margin-top: 8px;
+        margin-top: 6px;
         color: var(--muted);
         font-size: 14px;
       }
 
       .section {
-        margin-top: 28px;
+        margin-top: 26px;
       }
 
       .section-head {
@@ -177,7 +192,13 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
+      }
+
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .pill {
@@ -202,26 +223,45 @@
       }
 
       .muted {
-        border-color: #e7e5e4;
-        background: #fafaf9;
-        color: #78716c;
+        border-color: var(--line);
+        background: var(--soft);
+        color: var(--muted);
+      }
+
+      .blocked {
+        border-color: #fecaca;
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .strip {
+        margin-top: 18px;
+        padding: 14px;
+        background: var(--soft);
+      }
+
+      .brief-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
       }
 
       .panel {
-        padding: 18px;
+        overflow: hidden;
+      }
+
+      .review {
+        padding: 16px;
       }
 
       .review-title {
-        margin-top: 10px;
+        margin-top: 8px;
         font-size: 22px;
       }
 
       .review-meta {
         display: grid;
-        grid-template-columns: 160px minmax(0, 1fr);
+        grid-template-columns: 150px minmax(0, 1fr);
         gap: 16px;
-        margin-top: 18px;
-        padding-top: 16px;
+        padding: 14px 16px;
         border-top: 1px solid #f5f5f4;
       }
 
@@ -229,98 +269,92 @@
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
-        margin-top: 18px;
+        padding: 12px;
+        border-top: 1px solid #f5f5f4;
       }
 
-      .approve {
-        border-color: transparent;
-        background: var(--gold);
-      }
-
-      .work {
-        gap: 8px;
-      }
-
-      .row {
+      .table-head,
+      .work-row,
+      .done-row {
         display: grid;
-        grid-template-columns: 1.2fr 120px 120px 1fr 1fr;
         align-items: center;
         gap: 12px;
-        padding: 13px;
+        padding: 12px 16px;
       }
 
-      .runner-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) 310px;
+      .table-head {
+        background: var(--soft);
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
       }
 
-      .runner {
-        padding: 16px;
+      .work-head,
+      .work-row {
+        grid-template-columns: 86px 1.2fr 0.9fr 100px 100px 1fr 0.9fr;
       }
 
-      .runner-head {
+      .done-head,
+      .done-row {
+        grid-template-columns: 86px 1.25fr 0.85fr 130px 1fr;
+      }
+
+      .group-head {
         display: flex;
-        align-items: start;
         justify-content: space-between;
+        gap: 16px;
+        padding: 10px 16px;
+        border-top: 1px solid var(--line);
+        background: rgba(250, 250, 249, 0.8);
+      }
+
+      .work-row,
+      .done-row {
+        border-top: 1px solid #f5f5f4;
+        font-size: 14px;
+      }
+
+      .work-row.blocker {
+        background: var(--red-soft);
+      }
+
+      .runner-layout {
+        grid-template-columns: minmax(0, 1fr) 310px;
+      }
+
+      .runner-row {
+        display: grid;
+        grid-template-columns: 132px 116px 1fr 1fr 1fr;
         gap: 12px;
+        align-items: center;
+        padding: 13px 16px;
+        border-top: 1px solid #f5f5f4;
+        font-size: 14px;
       }
 
       .bot {
         display: inline-grid;
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
         place-items: center;
         border-radius: 50%;
         background: var(--ink);
         color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
       }
 
-      dl {
-        display: grid;
-        gap: 12px;
-        margin: 18px 0 0;
-        font-size: 14px;
-      }
-
-      dt {
-        color: var(--muted);
-      }
-
-      dd {
-        margin: 4px 0 0;
-        font-weight: 700;
-      }
-
-      .brief {
-        grid-template-columns: 0.9fr 1.1fr;
-        margin-top: 28px;
-      }
-
-      .brief-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
-      }
-
-      .activity {
-        display: grid;
-        gap: 10px;
-      }
-
-      .activity-row {
-        display: grid;
-        grid-template-columns: 110px 1fr auto;
-        gap: 12px;
-        align-items: center;
-        border: 1px solid #f5f5f4;
-        border-radius: 8px;
-        background: var(--soft);
-        padding: 12px;
+      .override {
+        padding: 16px;
       }
 
       .mobile-frame {
         display: none;
       }
 
-      @media (max-width: 860px) {
+      @media (max-width: 900px) {
         .mockup {
           display: block;
         }
@@ -333,6 +367,15 @@
           padding: 18px;
         }
 
+        .mobile-frame {
+          display: block;
+          margin-bottom: 16px;
+          border-radius: 12px;
+          background: #050505;
+          color: #ffffff;
+          padding: 14px;
+        }
+
         .topbar {
           align-items: start;
           flex-direction: column;
@@ -342,35 +385,25 @@
         h1 {
           font-size: 28px;
           line-height: 1.05;
-          max-width: 100%;
         }
 
-        .refresh {
-          align-self: start;
-        }
-
-        .metrics,
-        .runner-grid,
-        .brief,
+        .stats,
         .brief-grid,
         .review-meta,
         .actions,
-        .row,
-        .activity-row {
+        .runner-layout {
           grid-template-columns: 1fr;
         }
 
-        .row {
-          align-items: start;
+        .table-head {
+          display: none;
         }
 
-        .mobile-frame {
-          display: block;
-          margin-bottom: 16px;
-          border-radius: 12px;
-          background: #050505;
-          color: #ffffff;
-          padding: 14px;
+        .work-row,
+        .done-row,
+        .runner-row {
+          grid-template-columns: 1fr;
+          align-items: start;
         }
       }
     </style>
@@ -395,30 +428,40 @@
       <section class="workspace">
         <div class="mobile-frame">National Command Center - Operations Center</div>
         <header class="topbar">
-          <div>
-            <h1>Founder Command Center</h1>
-            <p class="sub">Visibility, review, runner capacity.</p>
-          </div>
+          <h1>Founder Command Center</h1>
           <button class="refresh">Refresh</button>
         </header>
 
-        <section class="grid metrics">
-          <div class="tile"><p class="label">Needs My Attention</p><p class="value">1</p><p class="detail">Usable review packages only</p></div>
-          <div class="tile"><p class="label">Working Now</p><p class="value">4</p><p class="detail">Across pinned categories</p></div>
-          <div class="tile"><p class="label">Blocked</p><p class="value">0</p><p class="detail">True blockers only</p></div>
-          <div class="tile"><p class="label">Best Runner</p><p class="value">Codex</p><p class="detail">Available - no recent limit event</p></div>
+        <section class="grid stats">
+          <div class="stat amber"><p class="label">Needs Review</p><p class="value">1</p><p class="detail">usable packages</p></div>
+          <div class="stat"><p class="label">Open Work</p><p class="value">8</p><p class="detail">4 working now</p></div>
+          <div class="stat red"><p class="label">Blocked</p><p class="value">1</p><p class="detail">true blockers</p></div>
+          <div class="stat green"><p class="label">Completed</p><p class="value">3</p><p class="detail">meaningful completions</p></div>
+        </section>
+
+        <section class="strip">
+          <div class="section-head"><h2>Today</h2><span class="pill live">Live</span></div>
+          <div class="grid brief-grid">
+            <div><p class="label">Completed</p><p class="detail">USA-64 dispatcher pickup restored</p></div>
+            <div><p class="label">Working</p><p class="detail">USA-54 simplified V1; USA-68 cooldown pause</p></div>
+            <div><p class="label">Review</p><p class="detail">USA-54 founder review package</p></div>
+            <div><p class="label">Blocked</p><p class="detail">USA-63 waiting for credential access</p></div>
+            <div><p class="label">Change</p><p class="detail">Founder asked for executive inbox hierarchy</p></div>
+          </div>
         </section>
 
         <section class="section">
-          <div class="section-head"><h2>Needs My Attention</h2><span class="pill live">Live</span></div>
+          <div class="section-head"><h2>Needs My Attention</h2><div class="pills"><span class="pill live">Live</span><span class="pill live">Available</span></div></div>
           <article class="panel">
-            <span class="pill live">Live</span>
-            <p class="label" style="margin-top: 10px;">NCC / Operations Center</p>
-            <h3 class="review-title">USA-54: Founder Command Center</h3>
-            <p class="detail">Protected preview and review package are ready.</p>
+            <div class="review">
+              <span class="label">NCC / Operations Center</span>
+              <span class="pill live" style="margin-left: 8px;">Live</span>
+              <h3 class="review-title">USA-54: Founder Command Center</h3>
+              <p class="detail">Protected preview and simplified review package are ready.</p>
+            </div>
             <div class="review-meta">
-              <div><p class="label">Review Time</p><strong>8 minutes</strong></div>
-              <div><p class="label">Decision</p><strong>Approve V1 direction or request changes before merge.</strong></div>
+              <div><p class="label">Review Time</p><strong>6 minutes</strong></div>
+              <div><p class="label">Decision</p><strong>Approve the simplified V1 direction, or request specific changes before merge.</strong></div>
             </div>
             <div class="actions">
               <button class="button approve">Approve</button>
@@ -429,55 +472,46 @@
         </section>
 
         <section class="section">
-          <div class="section-head"><h2>Active Work</h2><span class="pill live">Live</span></div>
-          <div class="grid work">
-            <div class="row"><strong>AI Workforce / Automation</strong><span class="pill">Working</span><span>Codex</span><span class="detail">USA-68 updated 3:32 PM</span><strong>Cooldown handling</strong></div>
-            <div class="row"><strong>NCC / Operations Center</strong><span class="pill">Review</span><span>Codex</span><span class="detail">USA-54 preview ready</span><strong>Founder decision</strong></div>
-            <div class="row"><strong>Public Website / Marketing</strong><span class="pill muted">Planned</span><span>Unknown</span><span class="detail">No active packet</span><strong>No active milestone</strong></div>
+          <div class="section-head">
+            <h2>Open Work</h2>
+            <div class="pills"><span class="pill muted">8 open</span><span class="pill muted">AI Workforce / Automation: 4</span><span class="pill muted">NCC / Operations Center: 2</span></div>
+          </div>
+          <div class="panel">
+            <div class="table-head work-head"><span>Issue</span><span>Title</span><span>Product</span><span>Status</span><span>Runner</span><span>Update</span><span>Blocker</span></div>
+            <div class="group-head"><strong>AI Workforce / Automation</strong><span class="detail">4 open</span></div>
+            <div class="work-row"><strong>USA-68</strong><span>Runner cooldown pause</span><span>AI Workforce / Automation</span><span class="pill">Working</span><span>Codex</span><span>Cooldown handling in progress</span><span class="detail">None</span></div>
+            <div class="work-row blocker"><strong>USA-63</strong><span>Preview access recovery</span><span>AI Workforce / Automation</span><span class="pill blocked">Blocked</span><span>Dispatcher</span><span>Credential access required</span><strong style="color: var(--red);">Founder credential access needed</strong></div>
+            <div class="group-head"><strong>NCC / Operations Center</strong><span class="detail">2 open</span></div>
+            <div class="work-row"><strong>USA-54</strong><span>Founder Command Center</span><span>NCC / Operations Center</span><span class="pill">Review</span><span>Codex</span><span>Usable review package ready</span><span class="detail">None</span></div>
+            <div class="work-row"><strong>USA-55</strong><span>Morning brief generator</span><span>NCC / Operations Center</span><span class="pill muted">Queued</span><span>Unknown</span><span>Queued for runner pickup</span><span class="detail">None</span></div>
           </div>
         </section>
 
         <section class="section">
-          <div class="section-head"><h2>AI Workforce Capacity</h2><span class="pill live">Available</span></div>
-          <div class="grid runner-grid">
-            <article class="runner">
-              <div class="runner-head"><div><span class="bot">AI</span><h3>Claude</h3></div><span class="pill">Cooling Down</span></div>
-              <dl><div><dt>Current issue</dt><dd>None</dd></div><div><dt>Recent limit event</dt><dd>Limit hit at 2:41 PM</dd></div><div><dt>Cooldown/reset</dt><dd>3:32 PM</dd></div><div><dt>Usage</dt><dd>Exact remaining allowance unavailable</dd></div></dl>
-            </article>
-            <article class="runner">
-              <div class="runner-head"><div><span class="bot">AI</span><h3>Codex</h3></div><span class="pill live">Available</span></div>
-              <dl><div><dt>Current issue</dt><dd>USA-54</dd></div><div><dt>Recent limit event</dt><dd>No recent limit event</dd></div><div><dt>Cooldown/reset</dt><dd>None reported</dd></div><div><dt>Usage</dt><dd>Exact remaining allowance unavailable</dd></div></dl>
-            </article>
-            <article class="runner">
-              <div class="runner-head"><div><span class="bot">DX</span><h3>Dispatcher</h3></div><span class="pill live">Working</span></div>
-              <dl><div><dt>Current issue</dt><dd>Queue monitor</dd></div><div><dt>Recent limit event</dt><dd>None</dd></div><div><dt>Last successful run</dt><dd>3:18 PM</dd></div></dl>
-            </article>
-            <article class="runner" style="background: var(--soft);">
-              <h3>Runner Override</h3>
-              <p class="detail">Next eligible work packet only.</p>
-              <dl><div><dt>Selected</dt><dd>Codex</dd></div><div><dt>State</dt><dd>Queued for dispatcher</dd></div></dl>
-              <div class="actions" style="grid-template-columns: repeat(2, 1fr);"><button class="button">Choose Claude</button><button class="button">Choose Codex</button></div>
-            </article>
+          <div class="section-head"><h2>Completed Recently</h2></div>
+          <div class="panel">
+            <div class="table-head done-head"><span>Issue</span><span>Title</span><span>Product</span><span>Finished</span><span>Note</span></div>
+            <div class="done-row"><strong>USA-64</strong><span>Dispatcher outage restore</span><span>AI Workforce / Automation</span><span>Jul 22, 3:08 PM</span><span>Automatic pickup restored</span></div>
+            <div class="done-row"><strong>USA-60</strong><span>Preview pipeline</span><span>AI Workforce / Automation</span><span>Jul 22, 2:44 PM</span><span>Protected preview workflow validated</span></div>
           </div>
         </section>
 
-        <section class="grid brief">
-          <article class="panel">
-            <div class="section-head"><h2>Today</h2><span class="pill live">Live</span></div>
-            <div class="grid brief-grid">
-              <div><p class="label">Completed Today</p><p class="detail">USA-64 dispatcher pickup restored</p></div>
-              <div><p class="label">Working Now</p><p class="detail">USA-54 command center</p></div>
-              <div><p class="label">Waiting Review</p><p class="detail">USA-54 founder review</p></div>
-              <div><p class="label">Blocked</p><p class="detail">None reported</p></div>
+        <section class="section grid runner-layout">
+          <div>
+            <div class="section-head"><h2>Runner Health</h2><span class="pill live">Available</span></div>
+            <div class="panel">
+              <div class="runner-row"><span><span class="bot">AI</span> Claude</span><span class="pill">Cooling Down</span><span>None reported</span><span>Limit hit at 2:41 PM<br /><span class="detail">Reset: 3:32 PM</span></span><span>Use Codex for large build<br /><span class="detail">Exact remaining allowance unavailable</span></span></div>
+              <div class="runner-row"><span><span class="bot">CX</span> Codex</span><span class="pill live">Working</span><span>USA-54</span><span>No recent limit event<br /><span class="detail">Reset: None reported</span></span><span>Best available for next large build<br /><span class="detail">Exact remaining allowance unavailable</span></span></div>
+              <div class="runner-row"><span><span class="bot">DX</span> Dispatcher</span><span class="pill live">Available</span><span>Queue monitor</span><span>No limit event<br /><span class="detail">Reset: Not metered</span></span><span>Keep queue running<br /><span class="detail">Last successful run 3:18 PM</span></span></div>
             </div>
-          </article>
-          <article class="panel">
-            <div class="section-head"><h2>Recent Activity</h2></div>
-            <div class="activity">
-              <div class="activity-row"><span class="label">Preview</span><div><strong>USA-54 review ready</strong><p class="detail">Protected preview published</p></div><span class="pill live">Live</span></div>
-              <div class="activity-row"><span class="label">Runner</span><div><strong>Claude cooldown ended</strong><p class="detail">Dispatcher marked runner available</p></div><span class="pill live">Available</span></div>
-            </div>
-          </article>
+          </div>
+          <aside class="panel override">
+            <h3>Runner Override</h3>
+            <p class="detail">Next eligible work packet only.</p>
+            <p class="detail"><strong>Selected:</strong> Codex</p>
+            <p class="detail"><strong>State:</strong> Queued for dispatcher</p>
+            <div class="grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 14px;"><button class="button">Choose Claude</button><button class="button">Choose Codex</button></div>
+          </aside>
         </section>
       </section>
     </main>
