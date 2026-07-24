@@ -19,8 +19,13 @@ export const config = {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = normalizeHostname(request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
+  // Vercel preview deployments have no custom domain, so a founder/reviewer opening a
+  // /domain-sites/* path directly can never send a matching Host header. Preview builds
+  // (VERCEL_ENV === "preview") skip the header gate so those pages are reviewable;
+  // production keeps strict hostname-only routing.
+  const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
 
-  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader)) {
+  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader) && !isPreviewDeployment) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
