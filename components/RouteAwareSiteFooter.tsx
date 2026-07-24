@@ -7,10 +7,16 @@ import { SiteFooter } from "./SiteFooter";
 
 export function RouteAwareSiteFooter() {
   const pathname = usePathname();
-  const [hostname, setHostname] = useState("");
+  const [clientRoute, setClientRoute] = useState<{
+    hasDomainSitePage: boolean;
+    hostname: string;
+  } | null>(null);
 
   useEffect(() => {
-    setHostname(window.location.hostname);
+    setClientRoute({
+      hasDomainSitePage: Boolean(document.querySelector("[data-domain-site]")),
+      hostname: window.location.hostname,
+    });
   }, []);
 
   if (
@@ -19,7 +25,9 @@ export function RouteAwareSiteFooter() {
     || pathname?.startsWith("/vision")
     || pathname?.startsWith("/board-briefing")
     || pathname?.startsWith(domainSiteRoutePrefix)
-    || Boolean(getAlternateDomainSiteByHostname(hostname))
+    || (clientRoute === null && pathname === "/")
+    || clientRoute?.hasDomainSitePage
+    || Boolean(getAlternateDomainSiteByHostname(clientRoute?.hostname))
   ) {
     return null;
   }

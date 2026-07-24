@@ -1,0 +1,39 @@
+{
+  "source": "/Users/ryanfox/Desktop/dos-v4.html",
+  "sourceSha256": "8204fc735e7a8b8a0a7b76b4981a19764cbdaed72239bca966eeaa88a016ceaf",
+  "localProductionRoute": {
+    "hostRoutedRootStatus": 200,
+    "hostRoutedRootRewrite": "/domain-sites/discipleship-operating-system",
+    "directDomainRouteWithoutPreviewStatus": 404,
+    "privateDosStatus": 200
+  },
+  "metadata": [
+    "canonical",
+    "description",
+    "Open Graph",
+    "Twitter",
+    "noindex pending founder DNS approval"
+  ],
+  "contentChecks": [
+    "one H1",
+    "DOS V4 hero headline",
+    "#378ADD accent",
+    "circular DOS mark",
+    "Powered by USA Missionaries footer attribution",
+    "USA Missionaries links stay same tab",
+    "no private /dos, /admin, /api, /review, /vision, or /partners links",
+    "no component-level font imports",
+    "no em dashes"
+  ],
+  "responsiveChecks": [
+    "desktop and mobile CSS breakpoints present",
+    "mobile menu has aria-controls and aria-expanded",
+    "hero visual has role and aria-label",
+    "global USA Missionaries footer suppressed for DOS domain-site pages"
+  ],
+  "screenshots": {
+    "desktop": "docs/qa/usa-36/dos-v4-desktop-1440.png",
+    "mobile": "docs/qa/usa-36/dos-v4-mobile-390.png",
+    "note": "PNG review assets are present, but this runner could not capture fresh browser screenshots because local Chromium failed with a macOS MachPort sandbox error, the managed browser connector reported no available browser, Chrome control was unavailable, Playwright WebKit was not installed and its install hung, and Quick Look thumbnailing was sandbox-blocked."
+  }
+}

@@ -41,12 +41,12 @@ export const domainSites = {
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
-    faviconPath: "/favicon.ico",
+    description: "DOS is a ministry memory and accountability system: one clear, simple place for the people you're discipling, the prayers you've promised, and the rhythms you share.",
+    faviconPath: "/icons/dos-table-icon-1024.png",
     key: "discipleship-operating-system",
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
     siteName: "Discipleship Operating System",
-    title: "Discipleship Operating System",
+    title: "DOS | Never lose a person or a moment that matters",
     titleTemplate: "%s | Discipleship Operating System",
   },
 } as const satisfies Record<DomainSiteKey, DomainSiteConfig>;
