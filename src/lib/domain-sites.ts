@@ -8,9 +8,22 @@ export type DomainSiteConfig = {
   key: DomainSiteKey;
   rootPath: string;
   siteName: string;
+  socialImage: {
+    alt: string;
+    height: number;
+    path: string;
+    width: number;
+  };
   title: string;
   titleTemplate: string;
 };
+
+const usamSocialImage = {
+  alt: "USA Missionaries field landscape",
+  height: 916,
+  path: "/images/usam/default-hero-background.png",
+  width: 1718,
+} as const;
 
 export const domainRouteHeader = "x-usam-domain-route";
 export const domainSiteRoutePrefix = "/domain-sites";
@@ -24,28 +37,41 @@ export const domainSites = {
     key: "usam",
     rootPath: "/",
     siteName: "USA Missionaries",
+    socialImage: usamSocialImage,
     title: "USA Missionaries",
     titleTemplate: "%s | USA Missionaries",
   },
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: "A USA Missionaries initiative helping people gather around tables, share the Gospel, pray together, and move conversations toward discipleship.",
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
     siteName: "Kitchen Table Gospel",
+    socialImage: {
+      alt: "Kitchen Table Gospel gathering around a table",
+      height: 1536,
+      path: "/images/vision/kitchen-table-01.jpg",
+      width: 2048,
+    },
     title: "Kitchen Table Gospel",
     titleTemplate: "%s | Kitchen Table Gospel",
   },
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
+    description: "A USA Missionaries product/initiative helping disciple makers care for people, tables, fruit, and next steps.",
     faviconPath: "/favicon.ico",
     key: "discipleship-operating-system",
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
     siteName: "Discipleship Operating System",
+    socialImage: {
+      alt: "Discipleship Operating System mobile interface preview",
+      height: 1450,
+      path: "/images/vision/dos-circles.jpg",
+      width: 750,
+    },
     title: "Discipleship Operating System",
     titleTemplate: "%s | Discipleship Operating System",
   },

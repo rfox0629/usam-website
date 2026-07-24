@@ -10,7 +10,7 @@ import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
   title: "DOS Preview | USA Missionaries",
-  description: "A protected preview of the Disciple Operating System for invited USA Missionaries partners.",
+  description: "A protected preview of the Discipleship Operating System for invited USA Missionaries partners.",
 };
 
 export const dynamic = "force-dynamic";
@@ -290,12 +290,12 @@ export default async function SystemPreviewPage({
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
 
   if (!hasAccess) {
-    redirect("/system?access=1");
+    redirect("/ecosystem");
   }
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0D0D0D] text-stone-100">
-      <PrimaryNav active="dos" />
+      <PrimaryNav active="ecosystem" />
 
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:70px_70px]" />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(194,161,78,0.1),transparent_24%),radial-gradient(circle_at_84%_22%,rgba(194,161,78,0.06),transparent_22%),linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.72)_90%)]" />
@@ -303,7 +303,7 @@ export default async function SystemPreviewPage({
       <section className="relative px-4 pb-20 pt-24 sm:px-6 md:pb-24 md:pt-32">
         <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div className="min-w-0 max-w-[720px]">
-            <Eyebrow>Disciple Operating System</Eyebrow>
+            <Eyebrow>Discipleship Operating System</Eyebrow>
             <h1
               className="mt-7 max-w-[720px] break-words text-[clamp(2.15rem,10vw,2.55rem)] font-bold uppercase leading-[0.94] tracking-tight text-stone-100 sm:text-[clamp(2.75rem,7vw,5rem)] sm:leading-[0.92]"
               style={{ fontFamily: font.oswald }}
@@ -325,7 +325,7 @@ export default async function SystemPreviewPage({
               <ImproveDosFeedbackModal />
               <AccessLogoutButton
                 className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-stone-300 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
-                redirectTo="/system"
+                redirectTo="/ecosystem"
               >
                 Exit System
               </AccessLogoutButton>

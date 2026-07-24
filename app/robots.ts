@@ -2,6 +2,35 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
 
+const privateRouteDisallowList = [
+  "/admin",
+  "/admin/",
+  "/api",
+  "/api/",
+  "/auth",
+  "/auth/",
+  "/board-briefing",
+  "/board-briefing/",
+  "/dos",
+  "/dos/",
+  "/vision",
+  "/vision/",
+  "/login",
+  "/missionary-intake",
+  "/ncc",
+  "/ncc/",
+  "/partners",
+  "/partners/",
+  "/prayer/apply",
+  "/review",
+  "/review/",
+  "/system/preview",
+  "/system/preview/",
+  "/testimony",
+  "/testimony/",
+  "/update-password",
+];
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headerList = await headers();
   const site = getCanonicalDomainSiteForHostname(headerList.get("x-forwarded-host") ?? headerList.get("host"));
@@ -12,7 +41,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       host: siteUrl,
       rules: [
         {
-          disallow: "/",
+          allow: "/",
+          disallow: privateRouteDisallowList,
           userAgent: "*",
         },
       ],
@@ -25,32 +55,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: [
       {
         allow: "/",
-        disallow: [
-          "/admin",
-          "/admin/",
-          "/api",
-          "/api/",
-          "/auth",
-          "/auth/",
-          "/board-briefing",
-          "/board-briefing/",
-          "/dos",
-          "/dos/",
-          "/vision",
-          "/vision/",
-          "/login",
-          "/missionary-intake",
-          "/ncc",
-          "/ncc/",
-          "/partners",
-          "/partners/",
-          "/prayer/apply",
-          "/review",
-          "/review/",
-          "/testimony",
-          "/testimony/",
-          "/update-password",
-        ],
+        disallow: privateRouteDisallowList,
         userAgent: "*",
       },
     ],

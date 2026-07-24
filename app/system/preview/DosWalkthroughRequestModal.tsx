@@ -138,8 +138,8 @@ export function DosWalkthroughRequestModal({
 
             <div className="space-y-4">
               <PublicFormHeader
-                description="Tell us a little about your team and what you would like to see. We will follow up to schedule a walkthrough of the Disciple Operating System."
-                eyebrow="Disciple Operating System"
+                description="Tell us a little about your team and what you would like to see. We will follow up to schedule a walkthrough of the Discipleship Operating System."
+                eyebrow="Discipleship Operating System"
                 title={<span id="dos-walkthrough-title">Request a Walkthrough</span>}
               />
 

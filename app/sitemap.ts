@@ -5,6 +5,7 @@ import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
 
 const staticRoutes = [
   { path: "/", priority: 1 },
+  { path: "/ecosystem", priority: 0.9 },
   { path: "/missionaries", priority: 0.9 },
   { path: "/support", priority: 0.8 },
   { path: "/financialfreedom", priority: 0.7 },
@@ -20,7 +21,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
 
   if (site.key !== "usam") {
-    return [];
+    return [
+      {
+        changeFrequency: "weekly" as const,
+        lastModified,
+        priority: 1,
+        url: siteUrl,
+      },
+    ];
   }
 
   const missionaries = await getMissionaryDirectory();

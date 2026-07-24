@@ -66,11 +66,11 @@ const publicPages: PublicPageRow[] = [
     status: "Live",
   },
   {
-    id: "system",
-    owner: "System/Auth",
-    pageName: "System",
-    route: "/system",
-    status: "Protected",
+    id: "ecosystem",
+    owner: "USA Missionaries",
+    pageName: "Ecosystem",
+    route: "/ecosystem",
+    status: "Live",
   },
   {
     id: "financial-freedom",
@@ -143,7 +143,7 @@ const publicFormsBase = [
     formType: "system_waitlist",
     inboxHref: "/admin/support?type=system_waitlist",
     ownerInbox: "Support",
-    publicRoute: "/system",
+    publicRoute: "/ecosystem",
   },
   {
     formName: "DOS Walkthrough Request",
@@ -166,7 +166,7 @@ const accessGates: AccessGateRow[] = [
     actionHref: "/admin/settings",
     actionLabel: "Manage",
     gateName: "System Access Code",
-    route: "/system",
+    route: "/system/preview",
     status: "Protected",
   },
   {
