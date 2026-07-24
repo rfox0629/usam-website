@@ -27,8 +27,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = normalizeHostname(request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
   const alternateDomainSite = getAlternateDomainSiteByHostname(hostname);
+  const isPreviewEnv = process.env.VERCEL_ENV === "preview";
 
-  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader)) {
+  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader) && !isPreviewEnv) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
