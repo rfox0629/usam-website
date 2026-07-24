@@ -44,18 +44,18 @@ import { getString, submitPublicForm } from "@/components/forms/submitPublicForm
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 // Kitchen Table Gospel keeps the USAM brand family (Oswald / Rajdhani / Inter, dark
-// canvas, uppercase tactical labels) but trades USAM's gold for a warm wine red: the
-// color of the cup shared at the table, distinct from USAM gold and DOS blue, still
-// warm and trustworthy within the same family.
+// canvas, uppercase tactical labels) and uses the founder-approved DOS blue as its
+// accent. Distinctness from DOS comes from the warm cream/brown surfaces, table
+// symbolism, and relational copy, not from a second bright brand color.
 const ktg = {
   bg: "#160F0A",
   bgAlt: "#100A06",
   panel: "#1E140D",
   panelBorder: "rgba(230,196,180,0.14)",
-  accent: "#9A2F35",
-  accentSoft: "#D98B8C",
-  accentDim: "rgba(154,47,53,0.5)",
-  accentDeep: "#6B1F24",
+  accent: "#378ADD",
+  accentSoft: "#9CC7EF",
+  accentDim: "rgba(55,138,221,0.5)",
+  accentDeep: "#255F97",
   cream: "#F3E4CC",
 };
 
@@ -139,7 +139,7 @@ function ctaVisuals(variant: "primary" | "secondary") {
 function ctaHoverHandlers(variant: "primary" | "secondary") {
   return {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      if (variant === "secondary") e.currentTarget.style.background = "rgba(154,47,53,0.12)";
+      if (variant === "secondary") e.currentTarget.style.background = "rgba(55,138,221,0.12)";
     },
     onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
       if (variant === "secondary") e.currentTarget.style.background = "transparent";
@@ -297,7 +297,7 @@ function JoinTheTableModal({
           <PublicFormShell size="standard">
             <button
               aria-label="Close join the table form"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#9A2F35] hover:text-stone-950"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#378ADD] hover:text-stone-950"
               onClick={() => setIsOpen(false)}
               type="button"
             >
@@ -715,7 +715,7 @@ export function KitchenTableGospelPage() {
 
       {/* HERO */}
       <section className="relative flex min-h-screen items-center overflow-hidden pt-28">
-        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 30%, rgba(154,47,53,0.1) 0%, transparent 55%)` }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 30%, rgba(55,138,221,0.1) 0%, transparent 55%)` }} />
         <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(180deg, ${ktg.bgAlt} 0%, ${ktg.bg} 45%, ${ktg.bgAlt} 100%)` }} />
 
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-16 px-6 py-16 md:grid-cols-2 md:items-center md:px-10">
