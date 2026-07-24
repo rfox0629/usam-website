@@ -30,7 +30,7 @@ export const domainSites = {
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: "Practical, table-shaped discipleship: learning, obeying, and teaching the commands of Jesus in real relationships.",
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
