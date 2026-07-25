@@ -1,5 +1,2 @@
-import { redirect } from "next/navigation";
-
-export default function SystemRedirectPage() {
-  redirect("/ecosystem");
-}
+export { metadata } from "./SystemPage";
+export { default } from "./SystemPage";

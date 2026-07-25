@@ -770,8 +770,8 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Reveal><SectionHeading align="left" overline="ECOSYSTEM" headline="THE ECOSYSTEM IS TAKING SHAPE"><p>Initiatives, tools, and strategic relationships connected around disciple making.</p></SectionHeading></Reveal>
-              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/ecosystem">View the Ecosystem</CTAButton></div></Reveal>
+              <Reveal><SectionHeading align="left" overline="SYSTEM" headline="THE SYSTEM IS TAKING SHAPE"><p>Initiatives, tools, and strategic relationships connected around disciple making.</p></SectionHeading></Reveal>
+              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
           </div>

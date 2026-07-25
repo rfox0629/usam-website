@@ -89,7 +89,7 @@ function HeroSection() {
           className="mt-6 max-w-3xl text-[clamp(2.3rem,6vw,3.75rem)] font-bold leading-[1.05] text-stone-100"
           style={{ fontFamily: font.oswald }}
         >
-          Building a National Ecosystem of <span className="text-usam-gold">Disciple-Making</span> Ministries
+          Building a National System of <span className="text-usam-gold">Disciple-Making</span> Ministries
         </h1>
         <p className="mt-7 max-w-2xl text-xl leading-8 text-stone-400">
           USA Missionaries helps aligned ministries partner, integrate, and scale together while preserving the
@@ -282,7 +282,7 @@ const levels = [
     title: "Strategic Partner",
   },
   {
-    best: "Ministries that want to reduce administrative burden and operate inside a shared ministry ecosystem while retaining their unique calling.",
+    best: "Ministries that want to reduce administrative burden and operate inside a shared ministry system while retaining their unique calling.",
     body: "An Integrated Ministry keeps its ministry focus and public identity while sharing significant operational infrastructure with USA Missionaries. This may include accounting, donor management, technology, DOS, communications, administration, volunteer systems, and reporting.",
     featured: true,
     label: "Level Two",
@@ -1152,7 +1152,7 @@ function CtaSection() {
         <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-stone-400">
           Partnership begins with prayer, trust, and honest conversation. USA Missionaries is not looking to rush
           ministries into a structure. We are looking for aligned leaders who want to build a stronger
-          disciple-making ecosystem together.
+          disciple-making system together.
         </p>
         <div className="mt-9 flex flex-wrap justify-center gap-3">
           <a

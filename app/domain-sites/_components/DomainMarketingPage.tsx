@@ -10,10 +10,10 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const usamHref = domainSites.usam.canonicalOrigin;
 const usamNavHrefs = {
   briefing: `${usamHref}/briefing`,
-  ecosystem: `${usamHref}/ecosystem`,
   mission: usamHref,
   prayer: `${usamHref}/prayer`,
   support: `${usamHref}/support`,
+  system: `${usamHref}/system`,
 } as const;
 
 type DomainMarketingPageProps = {
@@ -60,7 +60,7 @@ export function DomainMarketingPage({
     <>
       <main className="min-h-screen overflow-hidden bg-[#0D0D0D] text-stone-100">
         <PrimaryNav
-          active="ecosystem"
+          active="system"
           brandHref={usamHref}
           hrefOverrides={usamNavHrefs}
         />
@@ -99,10 +99,10 @@ export function DomainMarketingPage({
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
                   className={`inline-flex min-h-12 items-center justify-center gap-2 border ${accentClass.border} ${accentClass.soft} px-5 text-center text-xs font-bold uppercase tracking-[0.22em] ${accentClass.text} transition-colors duration-200 hover:bg-white/[0.04]`}
-                  href={`${usamHref}/ecosystem`}
+                  href={`${usamHref}/system`}
                   style={{ fontFamily: font.rajdhani }}
                 >
-                  USA Missionaries Ecosystem
+                  USA Missionaries System
                   <ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
                 </Link>
                 <Link
@@ -131,7 +131,7 @@ export function DomainMarketingPage({
                   <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={1.8} />
                 </div>
                 <p className="text-sm leading-6 text-stone-300">
-                  Sent and covered by USA Missionaries, connected to shared ecosystem navigation.
+                  Sent and covered by USA Missionaries, connected to shared System navigation.
                 </p>
               </div>
             </div>

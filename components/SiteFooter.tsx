@@ -4,7 +4,7 @@ import { domainSites } from "@/src/lib/domain-sites";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 const footerLinks = [
-  { href: "/ecosystem", label: "Ecosystem" },
+  { href: "/system", label: "System" },
   { href: domainSites["kitchen-table-gospel"].canonicalOrigin, label: "Kitchen Table Gospel" },
   { href: domainSites["discipleship-operating-system"].canonicalOrigin, label: "DOS" },
   { href: "https://mor-mn.com/", label: "MOR" },
@@ -28,7 +28,7 @@ export function SiteFooter() {
           </span>
         </div>
         <div className="max-w-3xl text-left md:text-right">
-          <nav aria-label="Ecosystem footer navigation">
+          <nav aria-label="System footer navigation">
             <ul className="flex flex-wrap gap-x-5 gap-y-2 md:justify-end">
               {footerLinks.map((link) => (
                 <li key={link.href}>

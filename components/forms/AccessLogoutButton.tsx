@@ -24,7 +24,7 @@ export function AccessLogoutButton({
       await fetch("/api/access/logout", {
         method: "POST",
       });
-      router.push(redirectTo ?? "/ecosystem");
+      router.push(redirectTo ?? "/system");
       router.refresh();
     } finally {
       setIsLoggingOut(false);

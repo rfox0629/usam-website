@@ -37,8 +37,8 @@ const nextConfig = {
     }
 
     redirects.push({
-      source: "/system",
-      destination: "/ecosystem",
+      source: "/ecosystem",
+      destination: "/system",
       permanent: true,
     });
 

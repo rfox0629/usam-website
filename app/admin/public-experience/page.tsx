@@ -66,10 +66,10 @@ const publicPages: PublicPageRow[] = [
     status: "Live",
   },
   {
-    id: "ecosystem",
+    id: "system",
     owner: "USA Missionaries",
-    pageName: "Ecosystem",
-    route: "/ecosystem",
+    pageName: "System",
+    route: "/system",
     status: "Live",
   },
   {
@@ -143,7 +143,7 @@ const publicFormsBase = [
     formType: "system_waitlist",
     inboxHref: "/admin/support?type=system_waitlist",
     ownerInbox: "Support",
-    publicRoute: "/ecosystem",
+    publicRoute: "/system",
   },
   {
     formName: "DOS Walkthrough Request",

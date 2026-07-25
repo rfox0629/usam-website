@@ -5,7 +5,7 @@ import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
 
 const staticRoutes = [
   { path: "/", priority: 1 },
-  { path: "/ecosystem", priority: 0.9 },
+  { path: "/system", priority: 0.9 },
   { path: "/missionaries", priority: 0.9 },
   { path: "/support", priority: 0.8 },
   { path: "/financialfreedom", priority: 0.7 },

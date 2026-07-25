@@ -7,7 +7,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const navItems = [
   { key: "mission", label: "Mission", href: "/" },
   { key: "briefing", label: "Briefing", href: "/briefing" },
-  { key: "ecosystem", label: "Ecosystem", href: "/ecosystem" },
+  { key: "system", label: "System", href: "/system" },
   { key: "prayer", label: "Prayer", href: "/prayer" },
   { key: "support", label: "Support", href: "/support" },
 ] as const;

@@ -23,7 +23,7 @@ export default async function KitchenTableGospelDomainPage() {
       highlights={[
         "Primary public Kitchen Table Gospel marketing URL: kitchentablegospel.org.",
         "This domain stays distinct while remaining clearly connected to USA Missionaries.",
-        "Visitors can return to USA Missionaries through the shared ecosystem navigation.",
+        "Visitors can return to USA Missionaries through the shared System navigation.",
       ]}
       icon={Table2}
       site={site}

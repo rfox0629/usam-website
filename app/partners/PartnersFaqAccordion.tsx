@@ -13,7 +13,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "Will we lose our ministry name?",
     answer:
-      "No, not unless your leadership decides that is best. At the Strategic Partner and Integrated Ministry levels, your name and public identity are entirely yours. Even in full integration, ministries commonly continue under their existing name as a DBA or division, presented as “A Ministry of USA Missionaries.” Your name carries your history, and that history is an asset to the whole ecosystem.",
+      "No, not unless your leadership decides that is best. At the Strategic Partner and Integrated Ministry levels, your name and public identity are entirely yours. Even in full integration, ministries commonly continue under their existing name as a DBA or division, presented as “A Ministry of USA Missionaries.” Your name carries your history, and that history is an asset to the whole system.",
   },
   {
     question: "Will our board still have a role?",
@@ -63,7 +63,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "What role does DOS play?",
     answer:
-      "DOS, the Discipleship Operating System, is the shared technology backbone of the ecosystem. It handles referrals between ministries, follow-up workflows, discipleship tracking, prayer requests, events, testimonies, and outcome reporting. In practice, DOS is what makes a coordinated discipleship journey possible: when a missionary refers someone to Ministry of Reconciliation, DOS carries the context so no one falls through the cracks.",
+      "DOS, the Discipleship Operating System, is the shared technology backbone of the system. It handles referrals between ministries, follow-up workflows, discipleship tracking, prayer requests, events, testimonies, and outcome reporting. In practice, DOS is what makes a coordinated discipleship journey possible: when a missionary refers someone to Ministry of Reconciliation, DOS carries the context so no one falls through the cracks.",
   },
   {
     question: "Can this model scale to other states?",

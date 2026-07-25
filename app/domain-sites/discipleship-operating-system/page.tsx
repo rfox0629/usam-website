@@ -23,7 +23,7 @@ export default async function DiscipleshipOperatingSystemDomainPage() {
       highlights={[
         "Primary public DOS marketing URL: discipleshipoperatingsystem.com.",
         "The private DOS application remains under /dos and is not part of this marketing page.",
-        "Visitors can return to USA Missionaries through the shared ecosystem navigation.",
+        "Visitors can return to USA Missionaries through the shared System navigation.",
       ]}
       icon={MonitorCheck}
       site={site}
