@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowRight, ExternalLink, Handshake, MonitorCheck, Network, Table2 } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { domainSites } from "@/src/lib/domain-sites";
+import { RiverOfMinistries } from "./RiverOfMinistries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const canonicalUrl = `${domainSites.usam.canonicalOrigin}/system`;
@@ -71,51 +72,6 @@ const partnerCard = {
   title: "Ministry of Reconciliation (MOR)",
 } as const;
 
-const riverTributaries = [
-  {
-    begin: "0s",
-    color: "url(#riverGold)",
-    d: "M54 118 C170 96 222 144 328 170 C420 192 478 214 568 228",
-    dot: "#F2C766",
-    duration: "8s",
-    id: "kitchen-table-gospel",
-    label: "Kitchen Table Gospel",
-    strokeWidth: 3.2,
-  },
-  {
-    begin: "-2.5s",
-    color: "url(#riverBlue)",
-    d: "M82 258 C192 232 284 254 374 246 C448 240 508 238 568 228",
-    dot: "#7FB8F0",
-    duration: "9.2s",
-    id: "discipleship-operating-system",
-    label: "DOS",
-    strokeWidth: 3.4,
-  },
-  {
-    begin: "-1.4s",
-    color: "url(#riverStone)",
-    d: "M116 384 C230 332 318 336 404 306 C468 284 512 254 568 228",
-    dot: "#D6D3D1",
-    duration: "10.5s",
-    id: "strategic-partners",
-    label: "Strategic Partners",
-    strokeWidth: 2.8,
-  },
-  {
-    begin: "-4.8s",
-    color: "url(#riverAmberBlue)",
-    d: "M274 458 C362 398 430 380 492 326 C526 296 548 258 568 228",
-    dot: "#E8D8AA",
-    duration: "11s",
-    id: "local-ministries",
-    label: "Local Ministries",
-    strokeWidth: 2.6,
-  },
-] as const;
-
-const riverMainPath = "M568 228 C658 222 704 244 774 282 C868 334 982 340 1146 268";
-
 const accentStyles = {
   blue: {
     badgeMutedText: "text-[#7FB8F0]/75",
@@ -146,7 +102,7 @@ function SystemLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RiverOfMinistries() {
+function RiverOfMinistriesSection() {
   return (
     <section className="relative overflow-hidden border-y border-stone-900/80 px-6 py-16 md:py-24">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(194,161,78,0.09),transparent_28%),radial-gradient(circle_at_72%_62%,rgba(55,138,221,0.12),transparent_30%)]" />
@@ -168,173 +124,13 @@ function RiverOfMinistries() {
           </p>
         </div>
 
-        <div className="relative mt-10 overflow-hidden border border-stone-800/80 bg-[#070707] shadow-[0_28px_90px_rgba(0,0,0,0.4)]">
+        <div className="relative mt-10 overflow-hidden border border-stone-800/80 bg-[#070707] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.4)] md:p-7">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:58px_58px]" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
-
-          <svg
-            aria-hidden="true"
-            className="relative h-[360px] w-full md:h-[440px]"
-            preserveAspectRatio="xMidYMid slice"
-            viewBox="0 0 1200 520"
-          >
-            <defs>
-              <linearGradient id="riverGold" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#5B4820" stopOpacity="0.2" />
-                <stop offset="58%" stopColor="#C2A14E" stopOpacity="0.82" />
-                <stop offset="100%" stopColor="#F2C766" />
-              </linearGradient>
-              <linearGradient id="riverBlue" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#12304D" stopOpacity="0.24" />
-                <stop offset="62%" stopColor="#378ADD" stopOpacity="0.82" />
-                <stop offset="100%" stopColor="#9CC8F4" />
-              </linearGradient>
-              <linearGradient id="riverStone" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#292524" stopOpacity="0.15" />
-                <stop offset="62%" stopColor="#A8A29E" stopOpacity="0.62" />
-                <stop offset="100%" stopColor="#E7E5E4" />
-              </linearGradient>
-              <linearGradient id="riverAmberBlue" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#5B4820" stopOpacity="0.18" />
-                <stop offset="52%" stopColor="#C2A14E" stopOpacity="0.72" />
-                <stop offset="100%" stopColor="#7FB8F0" />
-              </linearGradient>
-              <linearGradient id="riverMain" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#C2A14E" />
-                <stop offset="46%" stopColor="#E8D8AA" />
-                <stop offset="100%" stopColor="#378ADD" />
-              </linearGradient>
-              <radialGradient id="riverNode">
-                <stop offset="0%" stopColor="#FFF7D6" />
-                <stop offset="42%" stopColor="#C2A14E" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#378ADD" stopOpacity="0" />
-              </radialGradient>
-              <filter id="riverGlow" x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation="4" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-
-            <rect fill="url(#riverNode)" height="420" opacity="0.18" width="420" x="392" y="34" />
-            <path
-              className="river-main"
-              d={riverMainPath}
-              fill="none"
-              filter="url(#riverGlow)"
-              opacity="0.82"
-              stroke="url(#riverMain)"
-              strokeLinecap="round"
-              strokeWidth="16"
-              vectorEffect="non-scaling-stroke"
-            />
-            <path
-              d={riverMainPath}
-              fill="none"
-              opacity="0.58"
-              stroke="#FFF7D6"
-              strokeLinecap="round"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-
-            {riverTributaries.map((stream) => (
-              <g key={stream.id}>
-                <path
-                  className="river-tributary"
-                  d={stream.d}
-                  fill="none"
-                  id={`river-${stream.id}`}
-                  opacity="0.9"
-                  stroke={stream.color}
-                  strokeLinecap="round"
-                  strokeWidth={stream.strokeWidth}
-                  vectorEffect="non-scaling-stroke"
-                />
-                <circle className="river-dot" fill={stream.dot} r="5.5">
-                  <animateMotion begin={stream.begin} dur={stream.duration} repeatCount="indefinite">
-                    <mpath href={`#river-${stream.id}`} />
-                  </animateMotion>
-                </circle>
-                <circle className="river-dot" fill={stream.dot} opacity="0.72" r="3.5">
-                  <animateMotion begin={`-${parseFloat(stream.duration) / 2}s`} dur={stream.duration} repeatCount="indefinite">
-                    <mpath href={`#river-${stream.id}`} />
-                  </animateMotion>
-                </circle>
-              </g>
-            ))}
-
-            <circle className="river-dot" fill="#FFF7D6" r="7">
-              <animateMotion begin="-1s" dur="7.5s" repeatCount="indefinite">
-                <mpath href="#river-main-flow" />
-              </animateMotion>
-            </circle>
-            <circle className="river-dot" fill="#7FB8F0" opacity="0.86" r="5">
-              <animateMotion begin="-4s" dur="7.5s" repeatCount="indefinite">
-                <mpath href="#river-main-flow" />
-              </animateMotion>
-            </circle>
-            <path d={riverMainPath} fill="none" id="river-main-flow" opacity="0" stroke="transparent" />
-
-            <circle cx="568" cy="228" fill="url(#riverNode)" filter="url(#riverGlow)" r="30" />
-            <circle cx="568" cy="228" fill="#FFF7D6" r="4.8" />
-          </svg>
-
-          <div className="relative grid gap-px border-t border-stone-900 bg-stone-900/70 sm:grid-cols-4">
-            {riverTributaries.map((stream) => (
-              <div className="bg-black/55 px-4 py-3" key={stream.id}>
-                <p
-                  className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400"
-                  style={{ fontFamily: font.rajdhani }}
-                >
-                  {stream.label}
-                </p>
-              </div>
-            ))}
+          <div className="relative">
+            <RiverOfMinistries />
           </div>
         </div>
-
-        <style>{`
-          .river-tributary {
-            stroke-dasharray: 1 13;
-            animation: riverPulse 6.4s ease-in-out infinite;
-          }
-
-          .river-main {
-            animation: riverMainPulse 7.8s ease-in-out infinite;
-          }
-
-          @keyframes riverPulse {
-            0%, 100% {
-              opacity: 0.48;
-            }
-            50% {
-              opacity: 0.96;
-            }
-          }
-
-          @keyframes riverMainPulse {
-            0%, 100% {
-              opacity: 0.64;
-            }
-            50% {
-              opacity: 0.92;
-            }
-          }
-
-          @media (prefers-reduced-motion: reduce) {
-            .river-tributary,
-            .river-main {
-              animation: none;
-            }
-
-            .river-dot {
-              display: none;
-            }
-          }
-        `}</style>
       </div>
     </section>
   );
@@ -467,7 +263,7 @@ export default function SystemPage() {
         </div>
       </section>
 
-      <RiverOfMinistries />
+      <RiverOfMinistriesSection />
 
       <section className="border-y border-stone-900/80 px-6 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
