@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (alternateDomainSite && !alternateDomainPassthroughPaths.has(pathname)) {
+  if (alternateDomainSite && !request.headers.get(domainRouteHeader) && !alternateDomainPassthroughPaths.has(pathname)) {
     return NextResponse.redirect(new URL(`${domainSites.usam.canonicalOrigin}${pathname}${request.nextUrl.search}`), 308);
   }
 
