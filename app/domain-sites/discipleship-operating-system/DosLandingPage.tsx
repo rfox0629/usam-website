@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const USAM_URL = "https://usamissionaries.org";
-const REQUEST_ACCESS_HREF = "mailto:ryan@usamissionaries.org?subject=DOS%20Access";
-const WALKTHROUGH_HREF = "mailto:ryan@usamissionaries.org?subject=DOS%20Walkthrough";
+const DOS_MARKETING_SOURCE = "dos_marketing";
+
+const interestOptions = [
+  "Learn more about DOS",
+  "Schedule a walkthrough",
+  "Request early access",
+  "Explore DOS for an organization",
+] as const;
+
+type RequestStatus = "error" | "idle" | "success";
 
 const dosV4Css = `
 .dos-v4{
@@ -54,10 +63,11 @@ const dosV4Css = `
 .dos-v4 .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
 .dos-v4 header .logo .word{color:#fff}
 .dos-v4 header .logo .full{color:#7E92A5}
-.dos-v4 .nav-links{display:flex;gap:1.55rem;list-style:none;align-items:center}
-.dos-v4 .nav-links a{font-size:.88rem;font-weight:500;text-decoration:none;color:#9DB0C2;white-space:nowrap}
-.dos-v4 .nav-links a:hover{color:#fff}
+.dos-v4 .nav-actions{display:flex;align-items:center;gap:.85rem}
+.dos-v4 .return-link{font-size:.88rem;font-weight:500;text-decoration:none;color:#9DB0C2;white-space:nowrap}
+.dos-v4 .return-link:hover{color:#fff}
 .dos-v4 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;font-weight:600;font-size:.95rem;padding:.78rem 1.5rem;border-radius:10px;transition:background .18s,color .18s,border-color .18s,box-shadow .18s,transform .18s}
+.dos-v4 button.btn{font-family:inherit;cursor:pointer}
 .dos-v4 .btn-primary{background:var(--blue);color:#fff;border:1px solid var(--blue)}
 .dos-v4 .btn-primary:hover{background:var(--blue-hi);border-color:var(--blue-hi);box-shadow:0 8px 24px rgba(55,138,221,.35)}
 .dos-v4 .btn-ghost-d{border:1px solid rgba(255,255,255,.22);color:#fff;background:transparent}
@@ -65,13 +75,8 @@ const dosV4Css = `
 .dos-v4 .btn-ghost-l{border:1px solid var(--line);color:var(--ink);background:#fff}
 .dos-v4 .btn-ghost-l:hover{border-color:var(--ink)}
 .dos-v4 .nav .btn{padding:.52rem 1.1rem;font-size:.88rem}
-.dos-v4 .menu-btn{display:none;background:transparent;border:1px solid var(--dline);color:#fff;border-radius:9px;padding:.5rem .75rem;font:inherit;font-size:.86rem;font-weight:500;cursor:pointer}
-@media (max-width:940px){.dos-v4 .nav-links,.dos-v4 .nav .btn-primary{display:none}.dos-v4 .menu-btn{display:block}}
-.dos-v4 .mobile-menu{display:none;border-top:1px solid var(--dline);background:var(--black)}
-.dos-v4 .mobile-menu.open{display:block}
-@media (min-width:941px){.dos-v4 .mobile-menu{display:none!important}}
-.dos-v4 .mobile-menu ul{list-style:none;padding:1rem clamp(1.25rem,5vw,3rem) 1.4rem;display:grid;gap:.95rem}
-.dos-v4 .mobile-menu a{text-decoration:none;font-weight:500;color:#D7E1EA}
+@media (max-width:640px){.dos-v4 .nav{gap:.65rem}.dos-v4 .nav-actions{gap:.55rem}.dos-v4 .return-link{font-size:.74rem}.dos-v4 .nav .btn{padding:.48rem .72rem;font-size:.78rem}}
+@media (max-width:360px){.dos-v4 .return-link{font-size:.7rem}.dos-v4 .nav .btn{padding:.44rem .6rem;font-size:.74rem}}
 
 .dos-v4 .hero{
   background:
@@ -161,6 +166,22 @@ const dosV4Css = `
 .dos-v4 .promise p{font-size:.94rem;color:#93A5B6;margin-top:.55rem;line-height:1.6}
 .dos-v4 .system .guard{margin-top:2rem;font-size:.9rem;color:#7E92A5;max-width:40rem}
 
+.dos-v4 .fruit{padding:clamp(4.5rem,10vh,7rem) 0;background:#fff;border-bottom:1px solid var(--line)}
+.dos-v4 .fruit-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(280px,4fr);gap:clamp(2.5rem,6vw,5rem);align-items:center}
+@media (max-width:820px){.dos-v4 .fruit-grid{grid-template-columns:1fr}.dos-v4 .fruit-visual{order:-1}}
+.dos-v4 .fruit h2{font-size:clamp(2.1rem,4.4vw,3.2rem);color:var(--ink);max-width:13ch;margin-top:.9rem}
+.dos-v4 .fruit p{font-size:1.12rem;color:var(--muted);line-height:1.7;max-width:39rem;margin-top:1.3rem}
+.dos-v4 .fruit-visual{position:relative;min-height:280px;display:grid;place-items:center}
+.dos-v4 .fruit-ring{position:relative;width:min(100%,310px);aspect-ratio:1;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,rgba(55,138,221,.1),transparent 55%)}
+.dos-v4 .fruit-ring::before,.dos-v4 .fruit-ring::after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(55,138,221,.26)}
+.dos-v4 .fruit-ring::before{inset:13%}
+.dos-v4 .fruit-ring::after{inset:28%}
+.dos-v4 .fruit-core{position:relative;z-index:1;display:grid;place-items:center;width:94px;height:94px;border-radius:50%;background:var(--blue);color:#fff;text-align:center;font-family:'Rajdhani',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;box-shadow:0 18px 42px rgba(55,138,221,.28)}
+.dos-v4 .fruit-note{position:absolute;z-index:2;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font-size:.78rem;font-weight:650;padding:.38rem .78rem;box-shadow:0 12px 28px rgba(14,24,34,.08)}
+.dos-v4 .fruit-note.one{top:18%;left:2%}
+.dos-v4 .fruit-note.two{right:0;top:46%}
+.dos-v4 .fruit-note.three{bottom:17%;left:14%}
+
 .dos-v4 .intel{background:#FAFBFC;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:clamp(5rem,11vh,8rem) 0}
 .dos-v4 .intel h2{font-size:clamp(2.1rem,4.4vw,3.2rem);color:var(--ink);max-width:16ch;margin-top:.9rem}
 .dos-v4 .intel .lede{margin-top:1.3rem;color:var(--muted);font-size:1.12rem;max-width:38rem;line-height:1.7}
@@ -211,6 +232,29 @@ const dosV4Css = `
 .dos-v4 footer .logo .word{color:#fff}
 .dos-v4 footer .logo .full{color:#5F7488}
 
+.dos-v4 .modal-backdrop{position:fixed;inset:0;z-index:100;background:rgba(7,13,20,.82);backdrop-filter:blur(12px);overflow-y:auto;padding:1.2rem}
+.dos-v4 .modal-shell{min-height:100%;display:flex;align-items:center;justify-content:center}
+.dos-v4 .modal-panel{position:relative;width:min(100%,720px);border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);box-shadow:0 28px 80px rgba(0,0,0,.35);padding:clamp(1.3rem,4vw,2.2rem)}
+.dos-v4 .modal-close{position:absolute;right:1rem;top:1rem;width:38px;height:38px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font:inherit;font-size:1.35rem;line-height:1;cursor:pointer}
+.dos-v4 .modal-close:hover{border-color:var(--ink);color:var(--ink)}
+.dos-v4 .modal-header{padding-right:3rem}
+.dos-v4 .modal-header h2{font-size:clamp(1.75rem,4vw,2.45rem);max-width:none;margin-top:.6rem;color:var(--ink)}
+.dos-v4 .modal-header p{font-size:.98rem;color:var(--muted);max-width:35rem;margin-top:.8rem;line-height:1.65}
+.dos-v4 .request-form{display:grid;gap:1rem;margin-top:1.5rem}
+.dos-v4 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:640px){.dos-v4 .form-grid{grid-template-columns:1fr}.dos-v4 .modal-backdrop{padding:.8rem}.dos-v4 .modal-panel{padding:1.2rem}.dos-v4 .modal-header{padding-right:2.7rem}}
+.dos-v4 .field{display:grid;gap:.35rem}
+.dos-v4 .field span{font-size:.78rem;font-weight:650;color:var(--ink)}
+.dos-v4 .field input,.dos-v4 .field select,.dos-v4 .field textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:.94rem;padding:.72rem .82rem}
+.dos-v4 .field textarea{min-height:118px;resize:vertical}
+.dos-v4 .field input:focus,.dos-v4 .field select:focus,.dos-v4 .field textarea:focus{outline:2px solid rgba(55,138,221,.35);border-color:var(--blue)}
+.dos-v4 .field.full{grid-column:1 / -1}
+.dos-v4 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.dos-v4 .privacy-note{font-size:.82rem;color:var(--muted);margin:0}
+.dos-v4 .form-actions{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap}
+.dos-v4 .form-message{border:1px solid rgba(55,138,221,.28);border-radius:8px;background:var(--blue-tint);color:var(--ink);padding:.95rem 1rem;font-size:.94rem;line-height:1.55}
+.dos-v4 .form-message.error{border-color:rgba(185,28,28,.26);background:#FEF2F2;color:#7F1D1D}
+
 .dos-v4 .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
 .dos-v4 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.dos-v4 .reveal{opacity:1;transform:none;transition:none}}
@@ -227,7 +271,10 @@ function DosMark({ size = 30 }: { size?: number }) {
 }
 
 export function DosLandingPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isRequestOpen, setIsRequestOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<RequestStatus>("idle");
 
   useEffect(() => {
     const revealTargets = Array.from(document.querySelectorAll<HTMLElement>(".dos-v4 .reveal"));
@@ -251,6 +298,87 @@ export function DosLandingPage() {
     return () => observer?.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!isRequestOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsRequestOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isRequestOpen]);
+
+  function openRequestForm() {
+    setErrorMessage("");
+    setRequestStatus("idle");
+    setIsRequestOpen(true);
+  }
+
+  async function handleRequestSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setIsSubmitting(true);
+    setRequestStatus("idle");
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = getString(formData, "email");
+    const firstName = getString(formData, "first_name");
+    const lastName = getString(formData, "last_name");
+    const message = getString(formData, "message");
+    const organization = getString(formData, "organization");
+    const phone = getString(formData, "phone");
+    const primaryInterest = getString(formData, "primary_interest");
+    const role = getString(formData, "role");
+    const website = getString(formData, "website");
+
+    try {
+      await submitPublicForm({
+        email,
+        firstName,
+        formType: "dos_walkthrough_request",
+        lastName,
+        message,
+        payload: {
+          email,
+          first_name: firstName,
+          form_name: "DOS Request Information",
+          last_name: lastName,
+          message,
+          organization_or_ministry_name: organization,
+          phone,
+          primary_interest: primaryInterest,
+          role,
+          source: DOS_MARKETING_SOURCE,
+          source_path: typeof window === "undefined" ? "" : window.location.pathname,
+        },
+        phone,
+        sourcePage: DOS_MARKETING_SOURCE,
+        website,
+      });
+
+      form.reset();
+      setRequestStatus("success");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to submit this request.");
+      setRequestStatus("error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className="dos-v4" data-domain-site="discipleship-operating-system">
       <style dangerouslySetInnerHTML={{ __html: dosV4Css }} />
@@ -264,32 +392,11 @@ export function DosLandingPage() {
               <span className="full" style={{ display: "block" }}>Discipleship Operating System</span>
             </span>
           </a>
-          <ul className="nav-links">
-            <li><a href="#story">Why DOS</a></li>
-            <li><a href="#memory">Ministry Memory</a></li>
-            <li><a href="#intelligence">Intelligence</a></li>
-            <li><a href={USAM_URL}>USA Missionaries</a></li>
-          </ul>
-          <a className="btn btn-primary" href="#access">Request Access</a>
-          <button
-            aria-controls="mmenu"
-            aria-expanded={mobileOpen}
-            className="menu-btn"
-            onClick={() => setMobileOpen((value) => !value)}
-            type="button"
-          >
-            Menu
-          </button>
+          <div className="nav-actions">
+            <a className="return-link" href={USAM_URL}>USA Missionaries</a>
+            <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
+          </div>
         </div>
-        <nav className={`mobile-menu${mobileOpen ? " open" : ""}`} id="mmenu">
-          <ul>
-            <li><a href="#story" onClick={() => setMobileOpen(false)}>Why DOS</a></li>
-            <li><a href="#memory" onClick={() => setMobileOpen(false)}>Ministry Memory</a></li>
-            <li><a href="#intelligence" onClick={() => setMobileOpen(false)}>Intelligence</a></li>
-            <li><a href={USAM_URL} onClick={() => setMobileOpen(false)}>USA Missionaries</a></li>
-            <li><a href="#access" onClick={() => setMobileOpen(false)}><strong>Request Access</strong></a></li>
-          </ul>
-        </nav>
       </header>
 
       <main id="top">
@@ -300,8 +407,7 @@ export function DosLandingPage() {
               <h1 className="reveal">Never lose a person or a <span className="hl">moment that matters.</span></h1>
               <p className="lede reveal">DOS is one clear, simple place for the people you&apos;re discipling, the prayers you&apos;ve promised, and the rhythms you share, so nothing meaningful slips away.</p>
               <div className="cta-row reveal">
-                <a className="btn btn-primary" href="#access">Request Access</a>
-                <a className="btn btn-ghost-d" href="#story">See Why It Exists</a>
+                <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
               </div>
               <p className="micro reveal">AVAILABLE BY REQUEST &middot; NO PUBLIC PRICING &middot; NO NOISE</p>
             </div>
@@ -377,6 +483,24 @@ export function DosLandingPage() {
           </div>
         </section>
 
+        <section className="fruit" id="fruit">
+          <div className="wrap fruit-grid">
+            <div>
+              <p className="eyebrow reveal">Visible growth over time</p>
+              <h2 className="reveal">You Will Know Them by Their Fruit</h2>
+              <p className="reveal">Ministry is more than meetings, notes, and activity. Jesus taught that a tree is known by its fruit. DOS helps ministries remember what happened, follow through faithfully, and see whether discipleship is producing real growth over time.</p>
+            </div>
+            <div className="fruit-visual reveal" aria-hidden="true">
+              <div className="fruit-ring">
+                <span className="fruit-core">Fruit Over Time</span>
+              </div>
+              <span className="fruit-note one">Remember</span>
+              <span className="fruit-note two">Follow Through</span>
+              <span className="fruit-note three">Discern Growth</span>
+            </div>
+          </div>
+        </section>
+
         <section className="intel" id="intelligence">
           <div className="wrap">
             <p className="eyebrow reveal">Intelligent by design</p>
@@ -439,8 +563,7 @@ export function DosLandingPage() {
             <h2 className="reveal">Built to multiply.</h2>
             <p className="reveal">&quot;Go therefore and make disciples of all nations.&quot; That command is the reason DOS exists: every person remembered, every promise kept, every disciple equipped to make disciples. DOS is not designed to help you become more productive. It is designed to help you faithfully fulfill the Great Commission.</p>
             <div className="cta-row reveal">
-              <a className="btn btn-primary" href={REQUEST_ACCESS_HREF}>Request Access</a>
-              <a className="btn btn-ghost-d" href={WALKTHROUGH_HREF}>Schedule a Walkthrough</a>
+              <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
             </div>
             <p className="micro reveal">NO SELF-SERVICE SIGNUP &middot; NO CREDIT CARD &middot; A CONVERSATION FIRST</p>
           </div>
@@ -457,14 +580,116 @@ export function DosLandingPage() {
             </span>
           </a>
           <nav aria-label="Footer">
-            <a href="#story">Why DOS</a>
-            <a href="#memory">Ministry Memory</a>
-            <a href="#intelligence">Intelligence</a>
-            <a href={REQUEST_ACCESS_HREF}>Contact</a>
+            <button className="btn btn-ghost-d" onClick={openRequestForm} type="button">Request Information</button>
             <a href={USAM_URL}>Powered by USA Missionaries</a>
           </nav>
         </div>
       </footer>
+
+      {isRequestOpen ? (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => setIsRequestOpen(false)}
+          role="presentation"
+        >
+          <div className="modal-shell">
+            <div
+              aria-describedby="request-information-description"
+              aria-labelledby="request-information-title"
+              aria-modal="true"
+              className="modal-panel"
+              onMouseDown={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <button
+                aria-label="Close Request Information form"
+                className="modal-close"
+                onClick={() => setIsRequestOpen(false)}
+                type="button"
+              >
+                &times;
+              </button>
+              <div className="modal-header">
+                <p className="eyebrow">DOS</p>
+                <h2 id="request-information-title">Request Information</h2>
+                <p id="request-information-description">Tell us where DOS may fit. Someone from USA Missionaries will follow up with more information.</p>
+              </div>
+
+              {requestStatus === "success" ? (
+                <div className="request-form">
+                  <div className="form-message">
+                    Thank you. Someone from USA Missionaries will follow up with more information about DOS.
+                  </div>
+                  <div className="form-actions">
+                    <button className="btn btn-primary" onClick={() => setIsRequestOpen(false)} type="button">Close</button>
+                  </div>
+                </div>
+              ) : (
+                <form className="request-form" onSubmit={handleRequestSubmit}>
+                  <div className="hp" aria-hidden="true">
+                    <label>
+                      Website
+                      <input autoComplete="off" name="website" tabIndex={-1} type="text" />
+                    </label>
+                  </div>
+                  <div className="form-grid">
+                    <label className="field">
+                      <span>First name</span>
+                      <input autoComplete="given-name" autoFocus name="first_name" required type="text" />
+                    </label>
+                    <label className="field">
+                      <span>Last name</span>
+                      <input autoComplete="family-name" name="last_name" required type="text" />
+                    </label>
+                    <label className="field">
+                      <span>Email</span>
+                      <input autoComplete="email" name="email" required type="email" />
+                    </label>
+                    <label className="field">
+                      <span>Phone</span>
+                      <input autoComplete="tel" name="phone" type="tel" />
+                    </label>
+                    <label className="field">
+                      <span>Organization or ministry name</span>
+                      <input autoComplete="organization" name="organization" type="text" />
+                    </label>
+                    <label className="field">
+                      <span>Role</span>
+                      <input autoComplete="organization-title" name="role" type="text" />
+                    </label>
+                    <label className="field full">
+                      <span>Primary interest</span>
+                      <select defaultValue="" name="primary_interest" required>
+                        <option disabled value="">Select one</option>
+                        {interestOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field full">
+                      <span>Message</span>
+                      <textarea name="message" rows={4} />
+                    </label>
+                  </div>
+
+                  {requestStatus === "error" ? (
+                    <div className="form-message error">
+                      {errorMessage || "Something went wrong. Please try again."}
+                    </div>
+                  ) : null}
+
+                  <p className="privacy-note">Your information is used only so USA Missionaries can follow up about DOS.</p>
+                  <div className="form-actions">
+                    <button className="btn btn-primary" disabled={isSubmitting} type="submit">
+                      {isSubmitting ? "Submitting..." : "Submit Request"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

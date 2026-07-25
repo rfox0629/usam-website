@@ -15,6 +15,7 @@ type PublicFormPayload = {
   phone?: unknown;
   priority?: unknown;
   sourcePage?: unknown;
+  website?: unknown;
 };
 
 const allowedFormTypes = [
@@ -84,6 +85,10 @@ export async function POST(request: Request) {
   const email = asString(body.email).toLowerCase();
   const firstName = asString(body.firstName);
   const lastName = asString(body.lastName);
+
+  if (asString(body.website)) {
+    return NextResponse.json({ id: null, ok: true, spam: true });
+  }
 
   if (!formType) {
     return NextResponse.json({ error: "Invalid form type." }, { status: 400 });
