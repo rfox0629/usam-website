@@ -295,7 +295,7 @@ export default async function SystemPreviewPage({
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0D0D0D] text-stone-100">
-      <PrimaryNav active="dos" />
+      <PrimaryNav active="system" />
 
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[length:70px_70px]" />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(194,161,78,0.1),transparent_24%),radial-gradient(circle_at_84%_22%,rgba(194,161,78,0.06),transparent_22%),linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.72)_90%)]" />

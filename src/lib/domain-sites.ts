@@ -8,9 +8,22 @@ export type DomainSiteConfig = {
   key: DomainSiteKey;
   rootPath: string;
   siteName: string;
+  socialImage: {
+    alt: string;
+    height: number;
+    path: string;
+    width: number;
+  };
   title: string;
   titleTemplate: string;
 };
+
+const usamSocialImage = {
+  alt: "USA Missionaries field landscape",
+  height: 916,
+  path: "/images/usam/default-hero-background.png",
+  width: 1718,
+} as const;
 
 export const domainRouteHeader = "x-usam-domain-route";
 export const domainSiteRoutePrefix = "/domain-sites";
@@ -24,29 +37,42 @@ export const domainSites = {
     key: "usam",
     rootPath: "/",
     siteName: "USA Missionaries",
+    socialImage: usamSocialImage,
     title: "USA Missionaries",
     titleTemplate: "%s | USA Missionaries",
   },
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: "Practical, table-shaped discipleship: learning, obeying, and teaching the commands of Jesus in real relationships.",
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
     siteName: "Kitchen Table Gospel",
+    socialImage: {
+      alt: "Kitchen Table Gospel gathering around a table",
+      height: 1536,
+      path: "/images/vision/kitchen-table-01.jpg",
+      width: 2048,
+    },
     title: "Kitchen Table Gospel",
     titleTemplate: "%s | Kitchen Table Gospel",
   },
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
-    faviconPath: "/favicon.ico",
+    description: "DOS is a ministry memory and accountability system: one clear, simple place for the people you're discipling, the prayers you've promised, and the rhythms you share.",
+    faviconPath: "/icons/dos-table-icon-1024.png",
     key: "discipleship-operating-system",
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
     siteName: "Discipleship Operating System",
-    title: "Discipleship Operating System",
+    socialImage: {
+      alt: "Discipleship Operating System mobile interface preview",
+      height: 1450,
+      path: "/images/vision/dos-circles.jpg",
+      width: 750,
+    },
+    title: "DOS | Never lose a person or a moment that matters",
     titleTemplate: "%s | Discipleship Operating System",
   },
 } as const satisfies Record<DomainSiteKey, DomainSiteConfig>;

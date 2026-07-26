@@ -23,6 +23,7 @@ type SubmitPublicFormInput = {
   phone?: string;
   priority?: "high" | "low" | "normal" | "urgent";
   sourcePage: string;
+  website?: string;
 };
 
 export async function submitPublicForm(input: SubmitPublicFormInput) {
@@ -39,7 +40,7 @@ export async function submitPublicForm(input: SubmitPublicFormInput) {
     throw new Error(typeof result.error === "string" ? result.error : "Unable to submit this form.");
   }
 
-  return result as { assignedTeam?: string; id?: string; ok?: boolean };
+  return result as { assignedTeam?: string; id?: null | string; ok?: boolean; spam?: boolean };
 }
 
 export function getString(formData: FormData, name: string) {

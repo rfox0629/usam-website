@@ -36,6 +36,12 @@ const nextConfig = {
       });
     }
 
+    redirects.push({
+      source: "/ecosystem",
+      destination: "/system",
+      permanent: true,
+    });
+
     return redirects;
   },
   experimental: {

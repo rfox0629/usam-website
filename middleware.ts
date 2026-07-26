@@ -8,31 +8,38 @@ import {
 import {
   domainRouteHeader,
   domainSiteRoutePrefix,
+  domainSites,
   getAlternateDomainSiteByHostname,
   normalizeHostname,
 } from "@/src/lib/domain-sites";
 
 export const config = {
-  matcher: ["/", "/domain-sites/:path*", "/partners", "/vision", "/board-briefing"],
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\..*).*)",
+    "/robots.txt",
+    "/sitemap.xml",
+  ],
 };
+
+const alternateDomainPassthroughPaths = new Set(["/robots.txt", "/sitemap.xml"]);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = normalizeHostname(request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
+  const alternateDomainSite = getAlternateDomainSiteByHostname(hostname);
+  const isPreviewDeployment = process.env.VERCEL_ENV === "preview";
 
-  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader)) {
+  if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader) && !isPreviewDeployment) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
   if (pathname === "/") {
-    const domainSite = getAlternateDomainSiteByHostname(hostname);
-
-    if (domainSite) {
+    if (alternateDomainSite) {
       const url = request.nextUrl.clone();
       const requestHeaders = new Headers(request.headers);
 
-      requestHeaders.set(domainRouteHeader, domainSite.key);
-      url.pathname = domainSite.rootPath;
+      requestHeaders.set(domainRouteHeader, alternateDomainSite.key);
+      url.pathname = alternateDomainSite.rootPath;
 
       return NextResponse.rewrite(url, {
         request: {
@@ -40,6 +47,10 @@ export async function middleware(request: NextRequest) {
         },
       });
     }
+  }
+
+  if (alternateDomainSite && !request.headers.get(domainRouteHeader) && !alternateDomainPassthroughPaths.has(pathname)) {
+    return NextResponse.redirect(new URL(`${domainSites.usam.canonicalOrigin}${pathname}${request.nextUrl.search}`), 308);
   }
 
   if (pathname === "/board-briefing") {
