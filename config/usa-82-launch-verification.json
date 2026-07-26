@@ -1,0 +1,112 @@
+{
+  "issueId": "USA-82",
+  "name": "USA-82 route-specific launch verification",
+  "purpose": "Trusted-host publisher expected-content checks for System V1, System V2, DOS, and Kitchen Table Gospel must be route-specific.",
+  "textMatching": "case-insensitive",
+  "excludedLaunchDependencies": [
+    {
+      "issueId": "USA-80",
+      "reason": "River of Ministries animation is post-launch and must not block USA-82.",
+      "contentMarkers": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "system-v1",
+      "host": "usamissionaries.org",
+      "path": "/system/v1",
+      "rendersExperience": "system-v1",
+      "expectedContent": [
+        "INFRASTRUCTURE IS BEING BUILT",
+        "JOIN THE WAITING LIST",
+        "ENTER WITH ACCESS CODE"
+      ],
+      "forbiddenContent": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "system-v2",
+      "host": "usamissionaries.org",
+      "path": "/system/v2",
+      "rendersExperience": "system-v2",
+      "expectedContent": [
+        "USA Missionaries System",
+        "One Mission.",
+        "Distinct Doors.",
+        "Two Initiatives.",
+        "One Disciple-Making Path."
+      ],
+      "forbiddenContent": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "system",
+      "host": "usamissionaries.org",
+      "path": "/system",
+      "rendersExperience": "system-v2",
+      "safeResolution": "serves-v2",
+      "expectedContent": [
+        "USA Missionaries System",
+        "One Mission.",
+        "Distinct Doors.",
+        "Two Initiatives.",
+        "One Disciple-Making Path."
+      ],
+      "forbiddenContent": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "dos",
+      "host": "discipleshipoperatingsystem.com",
+      "path": "/",
+      "directPreviewPath": "/domain-sites/discipleship-operating-system",
+      "rendersExperience": "discipleship-operating-system",
+      "expectedContent": [
+        "Discipleship Operating System",
+        "The operating system for intentional discipleship",
+        "Never lose a person or a moment that matters.",
+        "Request Information",
+        "USA Missionaries"
+      ],
+      "forbiddenContent": [
+        "Kitchen Table Gospel",
+        "Join the Table",
+        "INFRASTRUCTURE IS BEING BUILT",
+        "RIVER OF MINISTRIES"
+      ]
+    },
+    {
+      "id": "kitchen-table-gospel",
+      "host": "kitchentablegospel.org",
+      "path": "/",
+      "directPreviewPath": "/domain-sites/kitchen-table-gospel",
+      "rendersExperience": "kitchen-table-gospel",
+      "expectedContent": [
+        "Kitchen Table Gospel",
+        "An initiative of USA Missionaries",
+        "Discipleship Doesn't Start on a Stage.",
+        "Join the Table",
+        "Pull Up a Chair"
+      ],
+      "forbiddenContent": [
+        "Discipleship Operating System",
+        "Request Information",
+        "INFRASTRUCTURE IS BEING BUILT",
+        "RIVER OF MINISTRIES"
+      ]
+    }
+  ]
+}
