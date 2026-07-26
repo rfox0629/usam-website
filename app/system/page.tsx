@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { PrimaryNav } from "../../components/PrimaryNav";
 import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { WaitingListCTA } from "./WaitingListCTA";
+import { RiverOfMinistries } from "./RiverOfMinistries";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
@@ -209,6 +210,31 @@ export default async function SystemPage({
                 <p className="mt-3 text-sm leading-6 text-stone-300">{card.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-stone-900/80 px-6 py-16 md:py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="max-w-2xl">
+            <BriefingLabel>ONE RIVER, ONE MISSION</BriefingLabel>
+            <h2
+              className="mt-6 text-4xl font-bold uppercase leading-tight text-stone-100 md:text-5xl"
+              style={{ fontFamily: font.oswald }}
+            >
+              Many Streams.
+              <br />
+              One River.
+            </h2>
+            <p className="mt-7 max-w-xl text-base leading-8 text-stone-300 md:text-lg">
+              Many streams are moving, each carrying its own story, calling, and purpose. USA Missionaries is
+              helping bring those streams together into one river, flowing with greater unity, strength, and
+              Kingdom purpose.
+            </p>
+          </div>
+
+          <div className="mt-14 md:mt-16">
+            <RiverOfMinistries />
           </div>
         </div>
       </section>
