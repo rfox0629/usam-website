@@ -290,7 +290,7 @@ export default async function SystemPreviewPage({
   const hasAccess = verifyAccessToken(cookieStore.get(USAM_ACCESS_COOKIE_NAME)?.value);
 
   if (!hasAccess) {
-    redirect("/system");
+    redirect("/system/v1?access=1");
   }
 
   return (
@@ -325,7 +325,7 @@ export default async function SystemPreviewPage({
               <ImproveDosFeedbackModal />
               <AccessLogoutButton
                 className="inline-flex min-h-12 items-center justify-center border border-stone-700 bg-transparent px-6 text-center text-xs uppercase tracking-[0.24em] text-stone-100 transition-colors hover:border-stone-300 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
-                redirectTo="/system"
+                redirectTo="/system/v1"
               >
                 Exit System
               </AccessLogoutButton>

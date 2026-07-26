@@ -20,10 +20,12 @@ export function WaitingListCTA({
   hasAccess = false,
   initialAccessOpen = false,
   initialWaitlistOpen = false,
+  sourcePage = "/system/v1",
 }: {
   hasAccess?: boolean;
   initialAccessOpen?: boolean;
   initialWaitlistOpen?: boolean;
+  sourcePage?: string;
 }) {
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(initialWaitlistOpen);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,7 +86,7 @@ export function WaitingListCTA({
           role: getString(formData, "role"),
         },
         phone: getString(formData, "phone"),
-        sourcePage: "/system",
+        sourcePage,
       });
 
       form.reset();
@@ -116,7 +118,7 @@ export function WaitingListCTA({
           onSecondaryClick={openWaitlistModal}
           redirectPath="/system/preview"
           secondaryLabel="Join Waiting List"
-          sourcePage="/system"
+          sourcePage={sourcePage}
           triggerClassName="inline-flex min-h-12 w-full items-center justify-center border border-stone-600 bg-transparent px-7 py-3 text-center text-xs uppercase leading-5 tracking-[0.26em] text-stone-100 transition-all duration-300 hover:border-stone-300 hover:bg-white/[0.04] sm:w-[250px] lg:w-auto"
           triggerLabel="Enter With Access Code"
           type="system"

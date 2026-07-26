@@ -1,2 +1,5 @@
-export { metadata } from "./SystemPage";
-export { default } from "./SystemPage";
+import { redirect } from "next/navigation";
+
+export default function SystemRedirectPage() {
+  redirect("/system/v2");
+}

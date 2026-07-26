@@ -36,11 +36,18 @@ const nextConfig = {
       });
     }
 
-    redirects.push({
-      source: "/ecosystem",
-      destination: "/system",
-      permanent: true,
-    });
+    redirects.push(
+      {
+        source: "/system",
+        destination: "/system/v2",
+        permanent: false,
+      },
+      {
+        source: "/ecosystem",
+        destination: "/system/v2",
+        permanent: true,
+      },
+    );
 
     return redirects;
   },

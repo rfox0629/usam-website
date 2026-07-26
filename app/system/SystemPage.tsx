@@ -4,10 +4,9 @@ import Link from "next/link";
 import { ArrowDown, ArrowRight, ExternalLink, Handshake, MonitorCheck, Network, Table2 } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { domainSites } from "@/src/lib/domain-sites";
-import { RiverOfMinistries } from "./RiverOfMinistries";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-const canonicalUrl = `${domainSites.usam.canonicalOrigin}/system`;
+const canonicalUrl = `${domainSites.usam.canonicalOrigin}/system/v2`;
 const socialImage = "/images/usam/default-hero-background.png";
 
 export const metadata: Metadata = {
@@ -26,16 +25,16 @@ export const metadata: Metadata = {
       },
     ],
     siteName: domainSites.usam.siteName,
-    title: "System | USA Missionaries",
+    title: "System V2 | USA Missionaries",
     type: "website",
     url: canonicalUrl,
   },
-  title: "System | USA Missionaries",
+  title: "System V2 | USA Missionaries",
   twitter: {
     card: "summary_large_image",
     description: "Kitchen Table Gospel, DOS, and strategic partners connected through the USA Missionaries System.",
     images: [socialImage],
-    title: "System | USA Missionaries",
+    title: "System V2 | USA Missionaries",
   },
 };
 
@@ -99,40 +98,6 @@ function SystemLabel({ children }: { children: React.ReactNode }) {
     >
       {children}
     </p>
-  );
-}
-
-function RiverOfMinistriesSection() {
-  return (
-    <section className="relative overflow-hidden border-y border-stone-900/80 px-6 py-16 md:py-24">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(194,161,78,0.09),transparent_28%),radial-gradient(circle_at_72%_62%,rgba(55,138,221,0.12),transparent_30%)]" />
-      <div className="relative mx-auto max-w-6xl">
-        <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-end">
-          <div>
-            <SystemLabel>River of Ministries</SystemLabel>
-            <h2
-              className="mt-5 text-4xl font-bold uppercase leading-tight text-stone-100 md:text-5xl"
-              style={{ fontFamily: font.oswald }}
-            >
-              Many Streams.
-              <br />
-              One Movement.
-            </h2>
-          </div>
-          <p className="max-w-2xl text-base leading-7 text-stone-300 md:text-lg md:leading-8 lg:justify-self-end">
-            USA Missionaries helps aligned ministries move together without flattening their callings. Each stream keeps its distinct work while joining a shared disciple-making current.
-          </p>
-        </div>
-
-        <div className="relative mt-10 overflow-hidden border border-stone-800/80 bg-[#070707] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.4)] md:p-7">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:58px_58px]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
-          <div className="relative">
-            <RiverOfMinistries />
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -262,8 +227,6 @@ export default function SystemPage() {
           </div>
         </div>
       </section>
-
-      <RiverOfMinistriesSection />
 
       <section className="border-y border-stone-900/80 px-6 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
