@@ -12,6 +12,7 @@ import {
   KeyRound,
   Landmark,
   Lock,
+  Mail,
   MessageSquare,
   Network,
   Settings,
@@ -44,6 +45,7 @@ const adminNavGroups = [
     items: [
       { activeKey: "prayer", href: "/admin/prayer", icon: Heart, label: "Prayer" },
       { activeKey: "support", href: "/admin/support", icon: HandHeart, label: "Support" },
+      { activeKey: "communications", href: "/admin/communications", icon: Mail, label: "Communications" },
       { activeKey: "applications", href: "/admin/applications", icon: ClipboardList, label: "Applications" },
       { activeKey: "missionary-profiles", href: "/admin/profiles", icon: IdCard, label: "Profiles" },
       { activeKey: "finance", href: "/admin/finance", icon: Landmark, label: "Finance" },
