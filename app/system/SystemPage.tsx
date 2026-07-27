@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: canonicalUrl,
   },
-  description: "The USA Missionaries System connects Kitchen Table Gospel, the Discipleship Operating System, and strategic ministry partners.",
+  description: "The USA Missionaries System includes two connected disciple-making initiatives: Kitchen Table Gospel and the Discipleship Operating System.",
   openGraph: {
-    description: "Kitchen Table Gospel, DOS, and strategic partners connected through the USA Missionaries System.",
+    description: "Kitchen Table Gospel and the Discipleship Operating System are connected USA Missionaries initiatives.",
     images: [
       {
         alt: "USA Missionaries System",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   title: "System | USA Missionaries",
   twitter: {
     card: "summary_large_image",
-    description: "Kitchen Table Gospel, DOS, and strategic partners connected through the USA Missionaries System.",
+    description: "Kitchen Table Gospel and the Discipleship Operating System are connected USA Missionaries initiatives.",
     images: [socialImage],
     title: "System | USA Missionaries",
   },
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 const coreInitiatives = [
   {
     accent: "gold",
-    body: "Kitchen Table Gospel is where the System starts: people gather around tables, share the Gospel with clarity, and pray together. It is a USA Missionaries initiative, sent and covered by USA Missionaries.",
+    body: "Kitchen Table Gospel was developed and implemented by USA Missionaries as a simple, relational approach to making disciples around tables, conversations, prayer, and obedience.",
     cta: "Open Kitchen Table Gospel",
     href: domainSites["kitchen-table-gospel"].canonicalOrigin,
     icon: Table2,
@@ -51,23 +51,23 @@ const coreInitiatives = [
   },
   {
     accent: "blue",
-    body: "The Discipleship Operating System carries those table conversations forward: it helps disciple makers track people, tables, fruit, and next steps without losing the relationship. It is a USA Missionaries product/initiative, sent and covered by USA Missionaries.",
+    body: "The Discipleship Operating System was developed and implemented by USA Missionaries to give disciple makers practical tools, structure, and visibility as relationships and next steps grow.",
     cta: "Open DOS",
     href: domainSites["discipleship-operating-system"].canonicalOrigin,
     icon: MonitorCheck,
-    label: "USA Missionaries Product/Initiative",
+    label: "USA Missionaries Initiative",
     step: "Continue",
     title: "Discipleship Operating System",
   },
 ] as const;
 
 const partnerCard = {
-  body: "MOR is an independent ministry with its own leadership and website, listed here as a current strategic relationship. This card does not imply MOR is owned by USA Missionaries or that its website has been rebuilt inside USAM.",
+  body: "Ministry of Reconciliation is a strategic partner of USA Missionaries, helping people experience freedom, healing, reconciliation, and ongoing discipleship.",
   cta: "Visit MOR",
   href: "https://mor-mn.com/",
   icon: Handshake,
-  label: "Strategic Partner",
-  meta: "Current relationship: Category 1 strategic partner",
+  label: "STRATEGIC PARTNER",
+  meta: "CURRENT PARTNERSHIP: STRATEGIC PARTNER",
   title: "Ministry of Reconciliation (MOR)",
 } as const;
 
@@ -168,29 +168,26 @@ export default function SystemPage() {
           <div className="max-w-3xl">
             <SystemLabel>USA Missionaries System</SystemLabel>
             <h1
-              className="mt-7 text-5xl font-bold uppercase leading-[0.92] text-stone-100 sm:text-6xl md:text-7xl lg:text-8xl"
+              className="mt-7 text-4xl font-bold uppercase leading-[0.92] text-stone-100 sm:text-6xl md:text-7xl"
               style={{ fontFamily: font.oswald }}
             >
               One Mission.
               <br />
-              Distinct Doors.
+              Two Initiatives.
             </h1>
           </div>
 
           <div className="max-w-2xl lg:justify-self-end">
             <p className="text-lg leading-8 text-stone-200 md:text-xl md:leading-9">
-              USA Missionaries is the sending and covering organization behind this system: public ministry initiatives, practical tools, and strategic relationships serving one mission.
+              USA Missionaries has developed two connected initiatives to help Christians live out the Great Commission: Kitchen Table Gospel provides the disciple-making approach, and the Discipleship Operating System provides the practical tools to support it.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <span className="inline-flex border border-usam-gold/35 bg-usam-gold/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-usam-gold" style={{ fontFamily: font.rajdhani }}>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <a className="inline-flex min-h-12 max-w-full items-center justify-center border border-usam-gold/35 bg-usam-gold/10 px-4 py-2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-usam-gold transition-colors duration-200 hover:bg-usam-gold/15 sm:w-auto" href={domainSites["kitchen-table-gospel"].canonicalOrigin} style={{ fontFamily: font.rajdhani }}>
                 Kitchen Table Gospel
-              </span>
-              <span className="inline-flex border border-[#378ADD]/35 bg-[#378ADD]/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#7FB8F0]" style={{ fontFamily: font.rajdhani }}>
-                DOS
-              </span>
-              <span className="inline-flex border border-stone-700 bg-black/30 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-stone-300" style={{ fontFamily: font.rajdhani }}>
-                Strategic Partners
-              </span>
+              </a>
+              <a className="inline-flex min-h-12 max-w-full items-center justify-center border border-[#378ADD]/35 bg-[#378ADD]/10 px-4 py-2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[#7FB8F0] transition-colors duration-200 hover:bg-[#378ADD]/15 sm:w-auto" href={domainSites["discipleship-operating-system"].canonicalOrigin} style={{ fontFamily: font.rajdhani }}>
+                Discipleship Operating System
+              </a>
             </div>
           </div>
         </div>
@@ -199,17 +196,17 @@ export default function SystemPage() {
       <section className="px-6 py-16 md:py-24">
         <div className="mx-auto max-w-6xl">
           <div className="max-w-3xl">
-            <SystemLabel>Sent and Covered by USA Missionaries</SystemLabel>
+            <SystemLabel>Developed by USA Missionaries</SystemLabel>
             <h2
               className="mt-5 text-4xl font-bold uppercase leading-tight text-stone-100 md:text-5xl"
               style={{ fontFamily: font.oswald }}
             >
               Two Initiatives.
               <br />
-              One Disciple-Making Path.
+              One Disciple-Making Mission.
             </h2>
             <p className="mt-5 text-base leading-7 text-stone-300 md:text-lg md:leading-8">
-              Kitchen Table Gospel and the Discipleship Operating System are not separate products. They are two USA Missionaries initiatives that work in sequence: Kitchen Table Gospel starts the Gospel conversation, and DOS carries that relationship forward so no person, table, or next step gets lost.
+              Kitchen Table Gospel provides a simple, relational approach to making disciples. The Discipleship Operating System provides the tools, structure, and visibility needed to help that work grow.
             </p>
           </div>
 
@@ -231,14 +228,14 @@ export default function SystemPage() {
       <section className="border-y border-stone-900/80 px-6 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
           <div className="max-w-3xl">
-            <SystemLabel>Strategic Partner</SystemLabel>
+            <SystemLabel>Strategic Ministry Partner</SystemLabel>
             <h2
               className="mt-5 text-4xl font-bold uppercase leading-tight text-stone-100 md:text-5xl"
               style={{ fontFamily: font.oswald }}
             >
-              Independent. Not Owned.
+              Partnering For Restoration
               <br />
-              Still In The System.
+              And Discipleship.
             </h2>
           </div>
 
@@ -317,7 +314,7 @@ export default function SystemPage() {
               <div className="flex items-start gap-4">
                 <Network className="mt-1 h-5 w-5 shrink-0 text-usam-gold" aria-hidden="true" strokeWidth={1.8} />
                 <p className="text-sm leading-7 text-stone-300">
-                  The dedicated DOS and Kitchen Table Gospel domains are served from the same codebase and carry USA Missionaries System navigation, so visitors never lose their way back. MOR remains an external, independent website.
+                  The dedicated DOS and Kitchen Table Gospel domains are served from the same codebase and carry USA Missionaries System navigation, so visitors can move between the connected initiatives clearly. MOR is linked as a strategic ministry partner.
                 </p>
               </div>
             </div>

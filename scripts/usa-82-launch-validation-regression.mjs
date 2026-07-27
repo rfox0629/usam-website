@@ -83,9 +83,9 @@ const riverMarkers = ["RIVER OF MINISTRIES", "MANY STREAMS.", "ONE MOVEMENT."];
 const v2Markers = [
   "USA Missionaries System",
   "One Mission.",
-  "Distinct Doors.",
   "Two Initiatives.",
-  "One Disciple-Making Path.",
+  "Developed By USA Missionaries",
+  "One Disciple-Making Mission.",
 ];
 const legacyMarkers = [
   "INFRASTRUCTURE IS BEING BUILT",
