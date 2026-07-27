@@ -6,7 +6,7 @@ import { loadPublicGroup } from "@/src/lib/public-groups";
 import { requestHostname } from "@/src/lib/groups/public-site";
 
 export const runtime = "nodejs";
-export const alt = "USA Missionaries Discipleship Group";
+export const alt = "USA Missionaries Discipleship Community";
 export const size = { height: 630, width: 1200 };
 export const contentType = "image/png";
 

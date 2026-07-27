@@ -62,7 +62,7 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = {
     activity_type: "running",
     audience: "men",
     default_location: "Lebanon Hills Trailhead, Eagan, MN",
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+    description: "A men's discipleship community where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     id: "2three2",
     image_url: "/images/usam/2three2-share.png",
     member_access_enabled: true,
@@ -94,8 +94,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!group) {
     return {
-      description: "Find discipleship groups connected to USA Missionaries.",
-      title: "Group | USA Missionaries",
+      description: "Find discipleship communities connected to USA Missionaries.",
+      title: "Community | USA Missionaries",
     };
   }
 
@@ -103,7 +103,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description = group.description || `A recurring discipleship rhythm connected with ${group.siteName}.`;
   const url = group.siteHostname
     ? `https://${group.siteHostname}${publicGroupPath(group.slug, { basePath: group.siteBasePath })}`
-    : `${getCanonicalSiteUrl()}/groups/${group.slug}`;
+    : `${getCanonicalSiteUrl()}${publicGroupPath(group.slug)}`;
   const image = groupShareImageUrl(group.shareImageUrl);
 
   return {
@@ -115,7 +115,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description,
       images: [
         {
-          alt: `${group.name} discipleship group`,
+          alt: `${group.name} discipleship community`,
           height: 630,
           url: image,
           width: 1200,
@@ -356,7 +356,7 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
       ],
       whatToExpect: [
         {
-          note: "Same rhythm each week. Show up and the group is there.",
+          note: "Same rhythm each week. Show up and the community is there.",
           title: "A steady recurring rhythm",
         },
         {
@@ -371,10 +371,10 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
       whoThisIsFor: [
         {
           note: "The activity serves the people, not the other way around.",
-          title: `People looking for a ${activityLabel} group`,
+          title: `People looking for a ${activityLabel} community`,
         },
         {
-          note: "Pursuit is the operative word. This group moves toward Jesus together.",
+          note: "Pursuit is the operative word. This community moves toward Jesus together.",
           title: "Those pursuing Christ together",
         },
         {
@@ -405,7 +405,7 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
         title: "Pray",
       },
       {
-        description: "Name one next step and one way the group can follow up.",
+        description: "Name one next step and one way the community can follow up.",
         meta: "Send",
         title: "Share Next Steps",
       },
@@ -420,7 +420,7 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
         title: "Simple discipleship",
       },
       {
-        note: "A group leader will help you know what to expect before you come.",
+        note: "A community leader will help you know what to expect before you come.",
         title: "A clear first step",
       },
     ],
@@ -501,30 +501,30 @@ function publicGroupType(group: PublicGroupRow) {
   const activity = group.activity_type;
 
   if (isTwoThreeTwoActivityGroup(group)) {
-    return `${publicGroupActivityLabel(group)} Group`;
+    return `${publicGroupActivityLabel(group)} Community`;
   }
 
   if (name.toLowerCase().includes("men")) {
-    return "Men's Group";
+    return "Men's Community";
   }
 
   if (value === "running") {
-    return "Running Group";
+    return "Running Community";
   }
 
   if (value === "mens" || value === "men" || value === "discipleship") {
-    return "Discipleship Group";
+    return "Discipleship Community";
   }
 
   if (value === "prayer") {
-    return "Prayer Group";
+    return "Prayer Community";
   }
 
   if (value === "study") {
     return "Bible Study";
   }
 
-  return "Discipleship Group";
+  return "Discipleship Community";
 }
 
 function scriptureAnchor(reference: string) {
@@ -533,7 +533,7 @@ function scriptureAnchor(reference: string) {
   if (!match) {
     return {
       mark: "GO",
-      subtext: "Groups",
+      subtext: "Community",
     };
   }
 

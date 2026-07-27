@@ -308,6 +308,20 @@ export async function signOutGroupMember(formData: FormData) {
   cookieStore.set(groupMemberSessionCookieName, "", {
     httpOnly: true,
     maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+  cookieStore.set(groupMemberSessionCookieName, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/community",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+  cookieStore.set(groupMemberSessionCookieName, "", {
+    httpOnly: true,
+    maxAge: 0,
     path: "/groups",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

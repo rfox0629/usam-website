@@ -367,16 +367,16 @@ assertIncludes(
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
-assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
-assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must remain registered in the desktop DOS Apps/More launcher manifest.");
-assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
+assertIncludes(appClient, 'label: "Community"', "Community must appear under More as its own item.");
+assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Community must remain registered in the desktop DOS Apps/More launcher manifest.");
+assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
 assertIncludes(appClient, "dosDesktopMoreLauncherAppLabelSet.has(item.label)", "Desktop Apps launcher must filter through the desktop manifest instead of an ad hoc label list.");
 assertIncludes(appClient, "dosMobileMoreLauncherAppLabelSet.has(item.label)", "Mobile Apps launcher must filter through the mobile manifest instead of an ad hoc label list.");
 assertIncludes(appClient, 'data-dos-app-card={item.label}', "Apps launcher cards must expose a stable marker for production verification.");
-assertIncludes(appClient, 'label: "Groups"', "Groups launcher card must be registered with the Groups label.");
+assertIncludes(appClient, 'label: "Community"', "Community launcher card must be registered with the Community label.");
 assertIncludes(appClient, 'onClick: () => openMoreApp("groups")', "Groups launcher card must open the Groups workspace.");
-assertIncludes(appClient, 'const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups")', "Desktop launcher must explicitly verify the Groups card registration.");
-assertIncludes(appClient, 'const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups")', "Mobile launcher must explicitly verify the Groups card registration.");
+assertIncludes(appClient, 'const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Community")', "Desktop launcher must explicitly verify the Community card registration.");
+assertIncludes(appClient, 'const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Community")', "Mobile launcher must explicitly verify the Community card registration.");
 assert(
   !appClient.includes("Groups - My Record"),
   "Groups and My Record must not be combined into one navigation item.",
@@ -398,7 +398,7 @@ assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail head
 assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
 assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
 assertIncludes(groupDetailV2Source, 'label="More"', "Groups V2 detail header must collapse secondary actions into More.");
-assertIncludes(groupDetailV2Source, 'label: "Edit Group"', "Groups V2 More menu must include Edit Group.");
+assertIncludes(groupDetailV2Source, 'label: "Edit Community"', "Groups V2 More menu must include Edit Community.");
 assertIncludes(groupDetailV2Source, 'label: "Schedule"', "Groups V2 More menu must include Schedule.");
 assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
 assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
@@ -423,7 +423,7 @@ assertIncludes(appClient, "groupCapacitySettingLabel", "Groups V2 must keep capa
 assertIncludes(appClient, '["Capacity", groupCapacitySettingLabel(group.capacity)]', "Groups V2 Settings must show capacity as settings metadata.");
 assertIncludes(appClient, '["Meeting link", "Gatherings can link to meeting logs"]', "Groups V2 Settings must use Meeting language for linked logs.");
 assertNotIncludes(appClient, "No capacity set", "Groups UI must never show capacity text under People or Members.");
-assertIncludes(appClient, "GroupCreateSheet", "Groups V2 must include a real New Group sheet.");
+assertIncludes(appClient, "GroupCreateSheet", "Groups V2 must include a real New Community sheet.");
 assertIncludes(appClient, "dosGroupCreationTemplates", "Group creation must be limited to approved templates.");
 assertIncludes(appClient, "primaryLeaderPersonId", "Groups V2 must expose the primary leader concept.");
 assertIncludes(appClient, "coLeaderPersonIds", "Groups V2 must support co-leaders.");
@@ -431,10 +431,10 @@ assertIncludes(appClient, "helperPersonIds", "Groups V2 must support helpers.");
 assertIncludes(appClient, "sharedLeadershipEnabled", "Groups V2 must expose shared leadership metadata.");
 assertIncludes(appClient, "const [role, setRole]", "Add Person must keep role state.");
 assertIncludes(appClient, "role,", "Add Person must carry a role through the UI payload.");
-assertIncludes(appClient, "My Groups", "Private DOS Groups must include My Groups.");
-assertIncludes(appClient, "All Groups", "Private DOS Groups must include All Groups.");
+assertIncludes(appClient, "My Community", "Private DOS Community must include My Community.");
+assertIncludes(appClient, "All Community", "Private DOS Community must include All Community.");
 assertIncludes(appClient, "GroupsSearchInput", "Private DOS Groups must include search.");
-assertIncludes(appClient, "New Group", "Private DOS Groups must expose New Group.");
+assertIncludes(appClient, "New Community", "Private DOS Community must expose New Community.");
 assertIncludes(appClient, "Copy Public Directory Link", "Private DOS Groups must expose public directory copy without becoming the public directory.");
 assertIncludes(appClient, "onCopyPublicDirectoryLink", "Private DOS Groups must wire public directory link copying.");
 assertIncludes(appClient, "xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)]", "Desktop group detail header must preserve a sensible text column width.");
@@ -466,12 +466,12 @@ for (const tab of [
 }
 assertIncludes(appClient, "Discipleship happens in rhythms.", "Groups intro must use the cross-group hero title.");
 assertIncludes(appClient, "Build consistent rhythms of discipleship through weekly gatherings, prayer, accountability, and community.", "Groups intro must use the cross-group hero description.");
-assertIncludes(appClient, "Featured Group", "Groups intro must label the featured group section.");
+assertIncludes(appClient, "Featured Community", "Groups intro must label the featured community section.");
 assertIncludes(appClient, "Log Meeting", "Group detail must expose Log Meeting.");
 assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gathering.");
 assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
-assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
-assertIncludes(appClient, 'label: "Add to Group"', "Group detail action must be renamed Add to Group.");
+assertIncludes(appClient, "Add to Community", "Group Invite must label the action as Add to Community.");
+assertIncludes(appClient, 'label: "Add to Community"', "Group detail action must be renamed Add to Community.");
 assertIncludes(appClient, "Pending Requests", "Private DOS Groups members tab must show pending public join requests.");
 assertIncludes(appClient, "/api/dos/app/groups/join-requests", "Private DOS Groups must load pending requests through the authenticated review API.");
 assertIncludes(appClient, "reviewJoinRequest", "Private DOS Groups must let leaders review pending group requests.");
@@ -483,10 +483,10 @@ assertIncludes(appClient, "/api/dos/app/groups/members", "Group Invite must call
 assertIncludes(appClient, "groupMemberAdditions", "Group Invite must update group members locally after adding.");
 assertIncludes(appClient, "setGroupDetailTab(\"members\")", "Group Invite success must switch to Members.");
 assertIncludes(appClient, "GroupSettingsSheet", "Group Settings must open an edit sheet.");
-assertIncludes(appClient, "Edit Group", "Group Settings must expose Edit Group.");
+assertIncludes(appClient, "Edit Community", "Group Settings must expose Edit Community.");
 assertIncludes(appClient, "/api/dos/app/groups/settings", "Group Settings must call the settings API route.");
 assertIncludes(appClient, "Apply location changes to future scheduled gatherings", "Group Settings must use an inline future gathering location checkbox.");
-assertIncludes(appClient, "Archive group", "Group Settings must archive instead of hard delete.");
+assertIncludes(appClient, "Archive community", "Group Settings must archive instead of hard delete.");
 assertIncludes(appClient, "Public-shareable", "Group Settings must expose public-shareable visibility copy.");
 assertIncludes(appClient, "type GroupRhythmSlot", "Group Settings must support multiple weekly rhythm rows.");
 assertIncludes(appClient, "formatGroupRhythmLabel", "Group Settings must generate the rhythm label from selected days and times.");
@@ -521,8 +521,8 @@ assertIncludes(appClient, "Recent Prayer Requests", "Group dashboard must includ
 assertIncludes(appClient, "Recent Fruit", "Group dashboard must include recent fruit.");
 assertIncludes(appClient, "Recent Activity", "Group dashboard must include recent activity.");
 assertIncludes(appClient, "Upcoming Follow Ups", "Group dashboard must include upcoming follow-ups.");
-assertIncludes(appClient, "Group Health", "Group dashboard must include a health snapshot.");
-assertIncludes(appClient, "Momentum", "Group health must include momentum.");
+assertIncludes(appClient, "Community Health", "Group dashboard must include a health snapshot with Community copy.");
+assertIncludes(appClient, "Momentum", "Community health must include momentum.");
 assertIncludes(appClient, "No attendance has been recorded yet.", "Attendance empty state must use the polished title.");
 assertIncludes(appClient, "Record attendance after your next gathering.", "Attendance empty state must use the polished body.");
 assertIncludes(appClient, "No active prayer requests.", "Prayer empty state must use the polished title.");
@@ -597,7 +597,7 @@ assert(
 );
 
 assertIncludes(groupCreateRoute, "dosGroupsSimplifiedFeatureFlag", "New Group API must enforce the V2 feature flag.");
-assertIncludes(groupCreateRoute, "Groups V2 is not enabled for this workspace.", "New Group API must 403 for flag-off workspaces.");
+assertIncludes(groupCreateRoute, "Community is not enabled for this workspace.", "New Group API must 403 for flag-off workspaces with user-facing Community copy.");
 assertIncludes(groupCreateRoute, "isDosGroupTemplateKey", "New Group API must reject unapproved templates.");
 assert(!groupCreateRoute.toLowerCase().includes("ryan"), "New Group API must not contain Ryan-specific logic.");
 assert(!groupCreateRoute.toLowerCase().includes("dirk"), "New Group API must not contain Dirk-specific logic.");
@@ -605,8 +605,8 @@ assertIncludes(groupCreateRoute, "primary_leader_person_id", "New Group API must
 assertIncludes(groupCreateRoute, "role: \"co_leader\"", "New Group API must persist co-leaders.");
 assertIncludes(groupCreateRoute, "role: \"helper\"", "New Group API must persist helpers.");
 assertIncludes(groupMembersRoute, 'role === "helper"', "Group member API must accept helper role.");
-assertIncludes(publicGroupsDirectoryPage, "Running Group", "Public groups directory must avoid redundant 2three2 running labels.");
-assertIncludes(publicSingleGroupRoute, "return `${publicGroupActivityLabel(group)} Group`", "Public group page must avoid redundant 2three2 running labels.");
+assertIncludes(publicGroupsDirectoryPage, "Running Community", "Public community directory must avoid redundant 2three2 running labels.");
+assertIncludes(publicSingleGroupRoute, "return `${publicGroupActivityLabel(group)} Community`", "Public community page must avoid redundant 2three2 running labels.");
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
 assertIncludes(preview, "groupsSimplifiedV2: false", "DOS preview must keep Groups V2 disabled unless explicitly enabled.");
@@ -723,8 +723,10 @@ assertIncludes(appClient, "Accept & Link", "DOS Pending Requests must make match
 assertIncludes(appClient, "onRemoveMember", "DOS group members tab must wire a private remove-member action.");
 assertIncludes(appClient, "Remove Member", "DOS group members tab must show an inline remove confirmation.");
 assertIncludes(appClient, "Their Person record stays in Field.", "DOS group member removal must explain that Person data is preserved.");
-assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must revalidate the public groups directory after edits.");
-assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must revalidate the public group page after edits.");
+assertIncludes(groupSettingsRoute, "revalidatePath(\"/community\")", "Group Settings must revalidate the canonical public community directory after edits.");
+assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must keep revalidating the legacy public groups directory after edits.");
+assertIncludes(groupSettingsRoute, "revalidatePath(`/community/${group.slug}`)", "Group Settings must revalidate the canonical public community page after edits.");
+assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must keep revalidating the legacy public group page after edits.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
 assertIncludes(publicGroupPage, ".from(\"dos_groups\")", "Public group route must resolve from real group data.");
 assertIncludes(publicGroupPage, ".eq(\"slug\", slug)", "Public group route must resolve groups by slug.");
@@ -750,7 +752,7 @@ for (const privatePublicTerm of [
   "Attendance",
   "Settings",
   "Start Gathering",
-  "Add to Group",
+  "Add to Community",
   "Log Meeting",
 ]) {
   assert(
@@ -758,13 +760,13 @@ for (const privatePublicTerm of [
     `Public group route must not expose private admin term: ${privatePublicTerm}.`,
   );
 }
-assertIncludes(publicSingleGroupRoute, "PublicGroupHeader", "Public group route must present the minimal Groups header.");
+assertIncludes(publicSingleGroupRoute, "PublicGroupHeader", "Public group route must present the minimal Community header.");
 assertIncludes(publicSingleGroupRoute, "Next Gathering", "Public group route must include Next Gathering.");
 assertIncludes(publicSingleGroupRoute, "Leaders", "Public group route must show group leaders.");
 assertIncludes(publicSingleGroupRoute, "Request to Join", "Public group route must include Request to Join.");
 assertIncludes(publicSingleGroupRoute, "Sign In", "Public group route must include Sign In.");
 assertNotIncludes(publicSingleGroupRoute, "Manage in DOS", "Public Group Home must not expose DOS management actions.");
-assertIncludes(publicSingleGroupRoute, "Request received. A group leader will follow up.", "Public group route must include the requested success state.");
+assertIncludes(publicSingleGroupRoute, "Request received. A community leader will follow up.", "Public group route must include the requested success state.");
 assertIncludes(publicSingleGroupRoute, "submitGroupJoinRequest", "Public group route must submit the live join request action.");
 assertIncludes(publicSingleGroupRoute, 'name="firstName"', "Public group join form must include First Name.");
 assertIncludes(publicSingleGroupRoute, 'name="lastName"', "Public group join form must include Last Name.");
@@ -772,8 +774,8 @@ assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form m
 assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
 assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
 assert(exists("public/images/usam/groups-share.png"), "Default Groups social share image must exist.");
-assertIncludes(publicGroupsDirectoryPage, "Groups | ${site.displayName}", "Public groups directory metadata must use the resolved public site.");
-assertIncludes(publicGroupsDirectoryPage, "Find discipleship groups connected to ${site.displayName}.", "Public groups directory metadata must describe the resolved public site.");
+assertIncludes(publicGroupsDirectoryPage, "Community | ${site.displayName}", "Public community directory metadata must use the resolved public site.");
+assertIncludes(publicGroupsDirectoryPage, "Find discipleship communities connected to ${site.displayName}.", "Public community directory metadata must describe the resolved public site.");
 assertIncludes(publicGroupsDirectoryPage, "/images/usam/groups-share.png", "Public groups directory must use the default Groups social image.");
 assertIncludes(publicGroupsDirectoryPage, "summary_large_image", "Public groups directory must configure Twitter large image metadata.");
 assertIncludes(publicGroupPage, "image_url", "Public group metadata must support a group-specific public image when present.");
@@ -784,8 +786,8 @@ assert(
   !publicGroupsDirectoryPage.includes("the-table-source") && !publicGroupPage.includes("the-table-source"),
   "Public groups metadata must not point at the Table graphic.",
 );
-assertNotIncludes(publicGroupPageTemplate, "PrimaryNav", "Public group template must use the minimal Groups header.");
-assertIncludes(publicGroupPageTemplate, "PublicGroupHeader", "Public group template must render the minimal Groups header.");
+assertNotIncludes(publicGroupPageTemplate, "PrimaryNav", "Public group template must use the minimal Community header.");
+assertIncludes(publicGroupPageTemplate, "PublicGroupHeader", "Public group template must render the minimal Community header.");
 assertIncludes(publicGroupPageTemplate, "Powered by", "Public group template must render the minimal powered-by footer.");
 assert(
   !publicGroupPageTemplate.includes("PublicGroupNav"),
@@ -813,7 +815,7 @@ for (const privateDirectoryTerm of [
   "Attendance",
   "Settings",
   "Start Gathering",
-  "Add to Group",
+  "Add to Community",
   "Log Meeting",
 ]) {
   assert(
@@ -871,8 +873,10 @@ assert(
   "Join request action must not create DOS Person records directly.",
 );
 
-assert(exists("app/groups/page.tsx"), "Groups must create the public directory route.");
-assert(exists("app/groups/[slug]/page.tsx"), "Groups must create the public share route.");
+assert(exists("app/community/page.tsx"), "Community must create the canonical public directory route.");
+assert(exists("app/community/[slug]/page.tsx"), "Community must create the canonical public share route.");
+assert(exists("app/groups/page.tsx"), "Groups must keep the public directory compatibility route.");
+assert(exists("app/groups/[slug]/page.tsx"), "Groups must keep the public share compatibility route.");
 assert(exists("app/groups/PublicGroupPageTemplate.tsx"), "Groups must use a reusable public group page template.");
 assert(exists("app/groups/actions.ts"), "Groups must create a live public join request action.");
 assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create the authenticated member add route.");

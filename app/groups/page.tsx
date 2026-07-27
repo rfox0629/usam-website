@@ -8,6 +8,7 @@ import {
   fallbackUsamPublicSite,
   missingPublicSiteSchema,
   publicGroupPath,
+  publicGroupsDirectoryPath,
   requestHostname,
   resolvePublicSiteForHost,
   type PublicSiteConfig,
@@ -50,7 +51,7 @@ type PublicDirectoryGroupRow = {
 
 const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
   {
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+    description: "A men's discipleship community where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     leaders: ["Ryan Fox"],
     location: "Lebanon Hills Trailhead, Eagan, MN",
     name: "2three2",
@@ -59,31 +60,31 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     scriptureReference: "2 Timothy 2:22",
     slug: "2three2",
     tagline: "Run. Pray. Pursue.",
-    type: "Running Group",
+    type: "Running Community",
   },
   {
     description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
     leaders: ["Ryan Fox"],
     location: "Location TBD",
-    name: "Tuesday Men's Group",
+    name: "Tuesday Men's Community",
     nextGathering: "Tuesdays at 6:00 AM",
     rhythm: "Weekly · Tuesday · 6:00 AM",
     scriptureReference: "",
     slug: "tuesday-mens-group",
     tagline: "Grow together.",
-    type: "Men's Group",
+    type: "Men's Community",
   },
   {
     description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
     leaders: ["Ryan Fox"],
     location: "Location TBD",
-    name: "Wednesday Men's Group",
+    name: "Wednesday Men's Community",
     nextGathering: "Wednesday evenings",
     rhythm: "Weekly · Wednesday · Evening",
     scriptureReference: "",
     slug: "wednesday-mens-group",
     tagline: "Brotherhood. Prayer. Discipleship.",
-    type: "Men's Group",
+    type: "Men's Community",
   },
 ];
 
@@ -95,11 +96,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const site = isSupabaseAdminConfigured()
     ? (await resolvePublicSiteForHost(createSupabaseAdminClient(), host)).site ?? fallbackUsamPublicSite
     : fallbackUsamPublicSite;
+  const directoryPath = publicGroupsDirectoryPath(site);
   const url = site.id
-    ? `https://${site.hostname}${site.basePath}`
-    : `${getCanonicalSiteUrl()}/groups`;
-  const title = `Groups | ${site.displayName}`;
-  const description = `Find discipleship groups connected to ${site.displayName}.`;
+    ? `https://${site.hostname}${directoryPath}`
+    : `${getCanonicalSiteUrl()}${directoryPath}`;
+  const title = `Community | ${site.displayName}`;
+  const description = `Find discipleship communities connected to ${site.displayName}.`;
 
   return {
   alternates: {
@@ -110,7 +112,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     images: [
       {
-        alt: `${site.displayName} Discipleship Groups`,
+        alt: `${site.displayName} Discipleship Community`,
         height: 630,
         url: groupsShareImage,
         width: 1200,
@@ -166,22 +168,22 @@ function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | 
           ? "Running"
           : "Activity";
 
-    return `${activityLabel} Group`;
+    return `${activityLabel} Community`;
   }
 
   if (name.toLowerCase().includes("men")) {
-    return "Men's Group";
+    return "Men's Community";
   }
 
   if (value === "running") {
-    return "Running Group";
+    return "Running Community";
   }
 
   if (value === "mens" || value === "men") {
-    return "Men's Group";
+    return "Men's Community";
   }
 
-  return "Discipleship Group";
+  return "Discipleship Community";
 }
 
 async function loadPublicDirectoryData(hostname: string): Promise<PublicDirectoryData> {
@@ -302,9 +304,9 @@ export default async function PublicGroupsDirectoryPage() {
             <div className="relative isolate px-5 py-7 text-white sm:px-8 lg:px-10">
               <Link className="inline-flex items-center gap-3" href="/">
                 <Image alt={site.displayName} className="h-8 w-8 rounded-sm object-contain" height={32} priority src={site.logoUrl ?? "/brand/logo/usam-website-logo.png"} width={32} />
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Groups</span>
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Community</span>
               </Link>
-              <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none text-white sm:text-5xl">Groups by {site.displayName}.</h1>
+              <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none text-white sm:text-5xl">Community by {site.displayName}.</h1>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
                 Public rhythms. Leader operated. Organization published.
               </p>
@@ -341,8 +343,8 @@ export default async function PublicGroupsDirectoryPage() {
             </section>
           ) : (
             <section className="rounded-lg border border-white/10 bg-[#111418] p-6 text-sm leading-6 text-white/65 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-              <p className="font-black text-white">No public groups yet.</p>
-              <p className="mt-1 text-white/65">Groups will appear here when they are ready to share publicly.</p>
+              <p className="font-black text-white">No public communities yet.</p>
+              <p className="mt-1 text-white/65">Communities will appear here when they are ready to share publicly.</p>
             </section>
           )}
         </div>

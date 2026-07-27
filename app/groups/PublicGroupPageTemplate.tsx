@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { publicGroupPath } from "@/src/lib/groups/public-site";
+import { publicGroupPath, publicGroupsDirectoryPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
@@ -142,11 +142,11 @@ function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
   return (
     <header className="border-b border-white/10 bg-[#080A0D]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 lg:px-10">
-        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={group.siteBasePath || "/groups"}>
-          {group.siteName} Groups
+        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={publicGroupsDirectoryPath({ basePath: group.siteBasePath })}>
+          {group.siteName} Community
         </Link>
-        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={group.siteBasePath || "/groups"}>
-          All Groups
+        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={publicGroupsDirectoryPath({ basePath: group.siteBasePath })}>
+          All Community
         </Link>
       </div>
     </header>
@@ -219,7 +219,7 @@ function JoinRequestPanel({
   if (requestState === "received") {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-        <p className="text-sm font-black text-emerald-700">Request received. A group leader will follow up.</p>
+        <p className="text-sm font-black text-emerald-700">Request received. A community leader will follow up.</p>
       </div>
     );
   }
@@ -227,7 +227,7 @@ function JoinRequestPanel({
   const errorText = requestState === "missing"
     ? "Add your name and email before submitting."
     : requestState === "unavailable"
-      ? "This group request form is temporarily unavailable."
+      ? "This community request form is temporarily unavailable."
       : requestState === "error"
         ? "Something went wrong. Please try again."
         : "";
@@ -238,7 +238,7 @@ function JoinRequestPanel({
       <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
       <div className="sm:col-span-2">
         <h2 className="text-2xl font-black text-[#0F172A]">Request to Join</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to group leaders.</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to community leaders.</p>
       </div>
       {errorText ? <p className="rounded-lg border border-[#F8C56A]/45 bg-[#FFF8E8] px-3 py-2 text-sm font-bold text-[#7A4B00] sm:col-span-2">{errorText}</p> : null}
       <JoinInput autoComplete="given-name" label="First Name" name="firstName" required />
@@ -260,7 +260,7 @@ function JoinClosedPanel() {
   return (
     <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
       <h2 className="text-2xl font-black text-[#0F172A]">Requests Closed</h2>
-      <p className="mt-2 text-sm font-black text-[#64748B]">This group is not accepting new requests right now.</p>
+      <p className="mt-2 text-sm font-black text-[#64748B]">This community is not accepting new requests right now.</p>
     </div>
   );
 }

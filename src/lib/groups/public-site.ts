@@ -53,7 +53,9 @@ export type PublicSiteResolution = {
   site: PublicSiteConfig | null;
 };
 
-export const defaultPublicGroupsBasePath = "/groups";
+export const canonicalPublicCommunityBasePath = "/community";
+export const legacyPublicGroupsBasePath = "/groups";
+export const defaultPublicGroupsBasePath = legacyPublicGroupsBasePath;
 
 export const fallbackUsamPublicSite: PublicSiteConfig = {
   basePath: defaultPublicGroupsBasePath,
@@ -112,10 +114,17 @@ export function isCanonicalPublicHostname(hostname: string) {
   return normalizeHostname(hostname) === canonicalHostname();
 }
 
-export function publicGroupPath(slug: string, site: Pick<PublicSiteConfig, "basePath"> | null = null) {
+export function publicGroupsDirectoryPath(site: Pick<PublicSiteConfig, "basePath"> | null = null) {
   const basePath = site?.basePath || defaultPublicGroupsBasePath;
+  const routeBasePath = basePath === legacyPublicGroupsBasePath
+    ? canonicalPublicCommunityBasePath
+    : basePath;
 
-  return `${basePath.replace(/\/+$/, "")}/${slug}`;
+  return routeBasePath.replace(/\/+$/, "") || canonicalPublicCommunityBasePath;
+}
+
+export function publicGroupPath(slug: string, site: Pick<PublicSiteConfig, "basePath"> | null = null) {
+  return `${publicGroupsDirectoryPath(site)}/${slug}`;
 }
 
 export function missingPublicSiteSchema(error: { code?: string; message?: string } | null | undefined) {

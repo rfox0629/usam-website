@@ -294,10 +294,10 @@ function safeLocationForMember(group: GroupRow, gathering?: Pick<GatheringRow, "
 
 function groupTypeLabel(group: GroupRow) {
   if (group.template_category === "activity" || group.type === "running") {
-    return "Activity group";
+    return "Activity community";
   }
 
-  return "Discipleship group";
+  return "Discipleship community";
 }
 
 async function groupAccessUrl(
@@ -390,7 +390,7 @@ export async function createGroupMemberAccessInvitation(
 
     return missingPublicSiteSchema(error)
       ? { missingSchema: true }
-      : { error: error?.message ?? "Unable to load group member." };
+      : { error: error?.message ?? "Unable to load community member." };
   }
 
   const group = groupResult.data as Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug"> | null;
@@ -398,11 +398,11 @@ export async function createGroupMemberAccessInvitation(
   const person = personResult.data as PersonRow | null;
 
   if (!group || !groupIsMemberAccessible(group)) {
-    return { error: "Member access is not enabled for this group." };
+    return { error: "Member access is not enabled for this community." };
   }
 
   if (!memberIsActive(member)) {
-    return { error: "Active group membership is required before member access can be invited." };
+    return { error: "Active community membership is required before member access can be invited." };
   }
 
   if (!person) {
@@ -539,7 +539,7 @@ export async function claimGroupMemberAccessToken(
   const accessToken = tokenResult.data as AccessTokenRow | null;
 
   if (!accessToken || accessToken.status !== "active" || isExpired(accessToken.expires_at)) {
-    return { error: "This member access link has expired. Request a new one from your group leader." };
+    return { error: "This member access link has expired. Request a new one from your community leader." };
   }
 
   const identityResult = await supabase
@@ -581,7 +581,7 @@ export async function claimGroupMemberAccessToken(
   const member = memberResult.data as MemberRow | null;
 
   if (!groupIsMemberAccessible(group) || !memberIsActive(member)) {
-    return { error: "Your group membership is no longer active." };
+    return { error: "Your community membership is no longer active." };
   }
 
   const sessionToken = newSessionToken();

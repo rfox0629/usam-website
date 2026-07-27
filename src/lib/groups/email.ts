@@ -40,7 +40,7 @@ function formatDate(value: string) {
 export function buildGroupJoinRequestNotificationEmail(input: SendGroupJoinRequestNotificationInput) {
   const subject = `New request to join ${input.groupName}`;
   const details = [
-    ["Group", input.groupName],
+    ["Community", input.groupName],
     ["Name", input.requesterName],
     ["Email", input.requesterEmail],
     ["Phone", input.requesterPhone || "Not provided"],
@@ -54,7 +54,7 @@ export function buildGroupJoinRequestNotificationEmail(input: SendGroupJoinReque
   ].join("\n");
   const html = `
     <div style="font-family: Arial, sans-serif; color: #171717; line-height: 1.6;">
-      <h1 style="font-size: 24px;">New group join request</h1>
+      <h1 style="font-size: 24px;">New community join request</h1>
       <table cellpadding="8" cellspacing="0" style="border-collapse: collapse;">
         ${details.map(([label, value]) => (
           `<tr><td style="font-weight: bold; vertical-align: top;">${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`
@@ -82,7 +82,7 @@ export async function sendGroupJoinRequestNotification(input: SendGroupJoinReque
   const recipients = input.facilitatorEmails.filter(Boolean);
 
   if (!resendApiKey || !from || !recipients.length) {
-    console.info("Group join request notification skipped: email provider or facilitator contact is not configured.");
+    console.info("Community join request notification skipped: email provider or facilitator contact is not configured.");
     return {
       provider: "placeholder",
       status: "skipped",
@@ -107,7 +107,7 @@ export async function sendGroupJoinRequestNotification(input: SendGroupJoinReque
 
   if (!response.ok) {
     const message = await response.text().catch(() => "");
-    throw new Error(`Group join request notification failed: ${response.status} ${message}`.trim());
+    throw new Error(`Community join request notification failed: ${response.status} ${message}`.trim());
   }
 
   return {

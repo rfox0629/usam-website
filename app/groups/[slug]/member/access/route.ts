@@ -28,7 +28,7 @@ export async function GET(
   response.cookies.set(groupMemberSessionCookieName, result.sessionToken, {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 30,
-    path: "/groups",
+    path: "/",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });

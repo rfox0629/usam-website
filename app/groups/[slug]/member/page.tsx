@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Group Home Sign In | DOS",
+  title: "Community Home Sign In | DOS",
 };
 
 type PageProps = {
@@ -26,7 +26,7 @@ type PageProps = {
 
 async function loadPortal(slug: string) {
   if (!isSupabaseAdminConfigured()) {
-    return { error: "Group Home is temporarily unavailable." };
+    return { error: "Community Home is temporarily unavailable." };
   }
 
   const cookieStore = await cookies();
@@ -54,11 +54,11 @@ export default async function GroupHomeSignInPage({ params, searchParams }: Page
     <main className="min-h-screen bg-[#0B0D10] px-4 py-6 text-[#F5F3EE] sm:px-6">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-xl flex-col justify-center">
         <Link className="text-xs font-black uppercase tracking-[0.2em] text-[#C2A14E]" href={groupPath}>
-          Back to Group
+          Back to Community
         </Link>
         <section className="mt-5 rounded-2xl border border-white/12 bg-[#12151A] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.28)]">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#C2A14E]">Group Home</p>
-          <h1 className="mt-3 text-3xl font-black tracking-normal text-white">Sign in to your group.</h1>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#C2A14E]">Community Home</p>
+          <h1 className="mt-3 text-3xl font-black tracking-normal text-white">Sign in to your community.</h1>
           {message ? <p className="mt-4 rounded-xl border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-4 py-3 text-sm font-semibold leading-6 text-[#F5F3EE]">{message}</p> : null}
           <form action={requestGroupMemberAccess} className="mt-5 grid gap-3">
             <input name="slug" type="hidden" value={slug} />

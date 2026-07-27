@@ -50,22 +50,22 @@ function taglineLines(value: string | null | undefined) {
 
 function activityLabel(action: string) {
   if (action === "RUN") {
-    return "Running Group";
+    return "Running Community";
   }
 
   if (action === "WALK") {
-    return "Walking Group";
+    return "Walking Community";
   }
 
   if (action === "HIKE") {
-    return "Hiking Group";
+    return "Hiking Community";
   }
 
   if (action === "RIDE") {
-    return "Cycling Group";
+    return "Cycling Community";
   }
 
-  return "Activity Group";
+  return "Activity Community";
 }
 
 export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVisual {
@@ -86,7 +86,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
   if (text.includes("women")) {
     return {
       accent: "rose",
-      label: "Women's Group",
+      label: "Women's Community",
       lines: tagline.length ? tagline : ["GROW.", "PRAY.", "TOGETHER."],
       mark: "GO",
       tone: "community",
@@ -96,7 +96,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
   if (tagline.some((line) => line.includes("BROTHERHOOD"))) {
     return {
       accent: "amber",
-      label: "Men's Group",
+      label: "Men's Community",
       lines: tagline,
       mark: "GO",
       tone: "community",
@@ -106,7 +106,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
   if (text.includes("men")) {
     return {
       accent: "amber",
-      label: "Men's Group",
+      label: "Men's Community",
       lines: tagline.length ? tagline : ["GROW TOGETHER."],
       mark: "GO",
       tone: "community",
@@ -115,7 +115,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
 
   return {
     accent: "blue",
-    label: normalizeText(input.type) || "Discipleship Group",
+    label: normalizeText(input.type).replace(/\bGroup\b/g, "Community") || "Discipleship Community",
     lines: tagline.length ? tagline : ["GATHER.", "PRAY.", "GO."],
     mark: "GO",
     tone: "discipleship",
@@ -126,7 +126,7 @@ export function formatLeaderLine(leaders: string[]) {
   const visibleLeaders = leaders.map((leader) => leader.trim()).filter(Boolean);
 
   if (!visibleLeaders.length) {
-    return "Led by group leaders";
+    return "Led by community leaders";
   }
 
   if (visibleLeaders.length === 1) {
