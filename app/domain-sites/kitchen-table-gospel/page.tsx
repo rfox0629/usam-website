@@ -10,9 +10,9 @@ export const metadata = buildDomainSiteMetadata(site, { noIndex: true });
 export default async function KitchenTableGospelDomainPage() {
   await requireDomainRoute(site.key);
 
-  const ecosystemHref = process.env.VERCEL_ENV === "production"
-    ? "https://usamissionaries.org/ecosystem"
-    : "/ecosystem";
+  const isProduction = process.env.VERCEL_ENV === "production";
+  const ecosystemHref = isProduction ? "https://usamissionaries.org/ecosystem" : "/ecosystem";
+  const siteHref = isProduction ? "/" : site.rootPath;
 
-  return <KitchenTableGospelSite ecosystemHref={ecosystemHref} />;
+  return <KitchenTableGospelSite ecosystemHref={ecosystemHref} siteHref={siteHref} />;
 }

@@ -1,57 +1,48 @@
 {
-  "generatedAt": "2026-07-22T15:18:11.662Z",
-  "baseUrl": "http://localhost:30165",
-  "consoleErrors": [],
-  "linkFailures": [],
-  "report": [
+  "generatedAt": "2026-07-22T16:05:00.000Z",
+  "repairPass": true,
+  "dosSource": {
+    "path": "dos.html",
+    "sha1": "27386e33ceafb4f54a3f93738bbd25307d4142a1",
+    "servedBy": "app/domain-sites/discipleship-operating-system/route.ts",
+    "visualChangeScope": "The route serves dos.html directly and changes only href attributes for preview navigation."
+  },
+  "validation": [
     {
-      "surface": "ecosystem",
-      "viewport": "desktop",
-      "title": "Ecosystem | USA Missionaries",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
+      "command": "npm run build",
+      "status": "passed",
+      "notes": "Next build and TypeScript passed. Existing warnings remain: middleware filename deprecation and missing local Supabase env during static generation."
     },
     {
-      "surface": "ecosystem",
-      "viewport": "mobile",
-      "title": "Ecosystem | USA Missionaries",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
+      "command": "git diff --check",
+      "status": "passed"
     },
     {
-      "surface": "kitchen-table-gospel",
-      "viewport": "desktop",
-      "title": "Kitchen Table Gospel",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
-    },
-    {
-      "surface": "kitchen-table-gospel",
-      "viewport": "mobile",
-      "title": "Kitchen Table Gospel",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
-    },
-    {
-      "surface": "discipleship-operating-system",
-      "viewport": "desktop",
-      "title": "Discipleship Operating System",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
-    },
-    {
-      "surface": "discipleship-operating-system",
-      "viewport": "mobile",
-      "title": "Discipleship Operating System",
-      "hasH1": true,
-      "imageAltMissing": 0,
-      "overflowX": false
+      "command": "./node_modules/.bin/tsc --jsx react-jsx --module commonjs --target ES2022 --moduleResolution node --esModuleInterop --skipLibCheck --outDir /tmp/usa65-render-ktg src/components/domain-sites/KitchenTableGospelSite.tsx",
+      "status": "passed",
+      "notes": "KTG component compiled independently for static render inspection."
     }
   ],
+  "screenshots": {
+    "refreshed": false,
+    "blockedBy": [
+      "next dev could not bind a local port in the sandbox: listen EPERM on 0.0.0.0:3000 and 127.0.0.1:3000.",
+      "Playwright Chromium launch failed under macOS sandbox mach-port permissions.",
+      "The Browser connector reported no available in-app or Chrome browser bindings.",
+      "qlmanage thumbnail rendering failed sandbox initialization."
+    ],
+    "existingFilesAreStale": [
+      "docs/qa/usa-65/ecosystem-desktop.png",
+      "docs/qa/usa-65/ecosystem-mobile.png",
+      "docs/qa/usa-65/kitchen-table-gospel-desktop.png",
+      "docs/qa/usa-65/kitchen-table-gospel-mobile.png",
+      "docs/qa/usa-65/discipleship-operating-system-desktop.png",
+      "docs/qa/usa-65/discipleship-operating-system-mobile.png"
+    ],
+    "requiredAfterEnvironmentUnblocks": [
+      "Regenerate desktop and mobile screenshots for /ecosystem, /domain-sites/kitchen-table-gospel, and /domain-sites/discipleship-operating-system.",
+      "Generate side-by-side desktop and mobile screenshots comparing dos.html to the served DOS preview route."
+    ]
+  },
   "supportingChurchesVisible": false
 }
