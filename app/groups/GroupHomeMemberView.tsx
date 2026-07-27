@@ -142,14 +142,14 @@ export function GroupHomeMemberView({
           className="absolute inset-0 -z-30 opacity-28 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
         />
         <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-56 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
-        <header className="grid gap-3 rounded-lg border border-[#C2A14E]/22 bg-[#111418]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:grid-cols-[minmax(0,1fr)_17rem]">
+        <header className="grid min-w-0 gap-3 rounded-lg border border-[#C2A14E]/22 bg-[#111418]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="flex flex-col justify-between gap-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
                   Group Home
                 </Link>
-                <h1 className="mt-2 text-3xl font-black leading-none text-white sm:text-4xl">{data.group.name}</h1>
+                <h1 className="mt-2 break-words text-3xl font-black leading-none text-white sm:text-4xl">{data.group.name}</h1>
                 <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{data.group.tagline || data.group.type}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -285,7 +285,7 @@ export function GroupHomeMemberView({
         <footer className="pb-2 text-center text-xs font-bold text-white/42">
           Powered by{" "}
           <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="/groups">
-            USA Missionaries Groups
+            USA Missionaries Community
           </Link>
         </footer>
       </div>
@@ -295,9 +295,9 @@ export function GroupHomeMemberView({
 
 function GroupHomeFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
+    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{label}</p>
-      <p className="mt-1 text-sm font-black leading-5 text-white">{value}</p>
+      <p className="mt-1 break-words text-sm font-black leading-5 text-white">{value}</p>
     </div>
   );
 }

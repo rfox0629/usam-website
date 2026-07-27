@@ -356,16 +356,16 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
       ],
       whatToExpect: [
         {
-          note: "Same rhythm each week. Show up and the group is there.",
-          title: "A steady recurring rhythm",
+          note: "Same rhythm each week. Show up and the Community is there.",
+          title: "Meet",
         },
         {
-          note: "Paired two-by-two so nobody runs alone and nobody prays alone.",
-          title: "Prayer and accountability",
+          note: "Paired two-by-two so nobody runs alone and nobody follows Jesus alone.",
+          title: "Connect",
         },
         {
-          note: "A simple check-in during the week. Honest, direct, and encouraging.",
-          title: "Simple follow-up",
+          note: "Pray out loud for one another and leave with a clear next step.",
+          title: "Pray",
         },
       ],
       whoThisIsFor: [
@@ -413,15 +413,15 @@ function contentForGroup(group: PublicGroupRow): PublicGroupContent {
     whatToExpect: [
       {
         note: "A consistent place to pursue Jesus with other people.",
-        title: "A steady recurring rhythm",
+        title: "Meet",
       },
       {
-        note: "Scripture, prayer, accountability, and real follow-up.",
-        title: "Simple discipleship",
+        note: "Scripture, accountability, and real follow-up in a steady Community rhythm.",
+        title: "Connect",
       },
       {
-        note: "A group leader will help you know what to expect before you come.",
-        title: "A clear first step",
+        note: "Pray together and leave with one practical step of obedience.",
+        title: "Pray",
       },
     ],
     whoThisIsFor: [
@@ -533,7 +533,7 @@ function scriptureAnchor(reference: string) {
   if (!match) {
     return {
       mark: "GO",
-      subtext: "Groups",
+      subtext: "Community",
     };
   }
 
