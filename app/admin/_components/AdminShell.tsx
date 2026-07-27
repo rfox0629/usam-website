@@ -54,6 +54,7 @@ const adminNavGroups = [
   },
   {
     items: [
+      { activeKey: "operations-center", href: "/admin/operations", icon: Activity, label: "Operations" },
       { activeKey: "uploads", href: "/admin/uploads", icon: Upload, label: "Uploads" },
       { activeKey: "settings", href: "/admin/settings", icon: Settings, label: "Settings" },
     ],

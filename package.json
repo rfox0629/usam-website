@@ -38,6 +38,7 @@
     "test:dos-schedule-meeting-form": "node scripts/dos-schedule-meeting-form-regression.mjs",
     "test:dos-log-meeting-form": "node scripts/dos-log-meeting-form-regression.mjs",
     "test:dos-disclosure-section-overflow": "node scripts/dos-disclosure-section-overflow-regression.mjs",
+    "test:operations-center-registry": "node scripts/operations-center-registry-regression.mjs",
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",
     "start": "next start"
   },

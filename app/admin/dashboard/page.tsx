@@ -533,6 +533,7 @@ function QuickActionsBar() {
   const actions = [
     { href: "/admin/organizations", label: "Organizations" },
     { href: usamOrganizationHubHref, label: "USA Missionaries" },
+    { href: "/admin/operations", label: "Operations" },
     { href: "/admin/missionary-profiles?tab=fruit", label: "Review Fruit" },
     { href: "/admin/prayer", label: "Prayer Requests" },
     { href: "/admin/support", label: "Support" },
