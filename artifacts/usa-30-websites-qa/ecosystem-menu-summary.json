@@ -1,0 +1,66 @@
+{
+  "desktopLinks": [
+    {
+      "text": "Mission",
+      "href": "/"
+    },
+    {
+      "text": "Briefing",
+      "href": "/briefing"
+    },
+    {
+      "text": "Ecosystem",
+      "href": "/discipleship-operating-system"
+    },
+    {
+      "text": "USA MissionariesMissionary sending",
+      "href": "/"
+    },
+    {
+      "text": "Kitchen Table GospelTable discipleship",
+      "href": "/kitchen-table-gospel"
+    },
+    {
+      "text": "Discipleship Operating SystemOperating layer",
+      "href": "/discipleship-operating-system"
+    },
+    {
+      "text": "Prayer",
+      "href": "/prayer"
+    },
+    {
+      "text": "Support",
+      "href": "/support"
+    }
+  ],
+  "mobileLinks": [
+    {
+      "text": "Mission",
+      "href": "/"
+    },
+    {
+      "text": "Briefing",
+      "href": "/briefing"
+    },
+    {
+      "text": "USAMMissionary sending",
+      "href": "/"
+    },
+    {
+      "text": "Kitchen TableTable discipleship",
+      "href": "/kitchen-table-gospel"
+    },
+    {
+      "text": "DOSOperating layer",
+      "href": "/discipleship-operating-system"
+    },
+    {
+      "text": "Prayer",
+      "href": "/prayer"
+    },
+    {
+      "text": "Support",
+      "href": "/support"
+    }
+  ]
+}

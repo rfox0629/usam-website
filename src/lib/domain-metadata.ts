@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import type { DomainSiteConfig } from "@/src/lib/domain-sites";
 
 export function buildDomainSiteMetadata(site: DomainSiteConfig, { noIndex = false } = {}): Metadata {
+  const canonicalUrl = site.publicCanonicalUrl ?? site.canonicalOrigin;
+
   return {
     alternates: {
-      canonical: site.canonicalOrigin,
+      canonical: canonicalUrl,
     },
     description: site.description,
     icons: {
@@ -16,7 +18,7 @@ export function buildDomainSiteMetadata(site: DomainSiteConfig, { noIndex = fals
       siteName: site.siteName,
       title: site.title,
       type: "website",
-      url: site.canonicalOrigin,
+      url: canonicalUrl,
     },
     robots: noIndex
       ? {

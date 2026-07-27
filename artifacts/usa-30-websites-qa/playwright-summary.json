@@ -1,0 +1,333 @@
+{
+  "results": [
+    {
+      "page": "/discipleship-operating-system",
+      "viewport": "desktop",
+      "status": 200,
+      "durationMs": 1329,
+      "screenshot": "/Users/ryanfox/Documents/GitHub/usam-website-usa-30-websites-qa/artifacts/usa-30-websites-qa/dos-desktop.png",
+      "title": "Discipleship Operating System | USA Missionaries",
+      "canonical": "https://usamissionaries.org/discipleship-operating-system",
+      "description": "The Discipleship Operating System is the technology tool inside the USA Missionaries ecosystem for ministry memory, prayer, accountability, Bible engagement, disciple making, and practical follow-up.",
+      "ogImage": "https://usamissionaries.org/images/usam/2three2-share.png",
+      "twitterCard": "summary_large_image",
+      "h1Count": 1,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Discipleship Operating System"
+        },
+        {
+          "tag": "h2",
+          "text": "Less Forgotten Ministry.More Faithful Follow-Through."
+        },
+        {
+          "tag": "h3",
+          "text": "Ministry Memory"
+        },
+        {
+          "tag": "h3",
+          "text": "Prayer"
+        },
+        {
+          "tag": "h3",
+          "text": "Accountability"
+        },
+        {
+          "tag": "h3",
+          "text": "Bible Engagement"
+        },
+        {
+          "tag": "h3",
+          "text": "Disciple Making"
+        },
+        {
+          "tag": "h3",
+          "text": "Practical Follow-Up"
+        },
+        {
+          "tag": "h2",
+          "text": "A Quiet Tool For The Work Between Tables."
+        },
+        {
+          "tag": "h3",
+          "text": "Ministry Memory"
+        },
+        {
+          "tag": "h3",
+          "text": "Prayer + Accountability"
+        },
+        {
+          "tag": "h3",
+          "text": "Bible + Follow-Up"
+        },
+        {
+          "tag": "h2",
+          "text": "Covering For The Mission.Tools For The Field."
+        }
+      ],
+      "linkCount": 14,
+      "emptyLinkNames": [],
+      "imagesMissingAlt": [],
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "hasHorizontalOverflow": false,
+      "privateTerms": [],
+      "fullDosNavTerms": [],
+      "internalLinks": [
+        "/",
+        "/",
+        "/briefing",
+        "/discipleship-operating-system",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system",
+        "/prayer",
+        "/support",
+        "/briefing",
+        "/support",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system"
+      ]
+    },
+    {
+      "page": "/discipleship-operating-system",
+      "viewport": "mobile",
+      "status": 200,
+      "durationMs": 819,
+      "screenshot": "/Users/ryanfox/Documents/GitHub/usam-website-usa-30-websites-qa/artifacts/usa-30-websites-qa/dos-mobile.png",
+      "title": "Discipleship Operating System | USA Missionaries",
+      "canonical": "https://usamissionaries.org/discipleship-operating-system",
+      "description": "The Discipleship Operating System is the technology tool inside the USA Missionaries ecosystem for ministry memory, prayer, accountability, Bible engagement, disciple making, and practical follow-up.",
+      "ogImage": "https://usamissionaries.org/images/usam/2three2-share.png",
+      "twitterCard": "summary_large_image",
+      "h1Count": 1,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Discipleship Operating System"
+        },
+        {
+          "tag": "h2",
+          "text": "Less Forgotten Ministry.More Faithful Follow-Through."
+        },
+        {
+          "tag": "h3",
+          "text": "Ministry Memory"
+        },
+        {
+          "tag": "h3",
+          "text": "Prayer"
+        },
+        {
+          "tag": "h3",
+          "text": "Accountability"
+        },
+        {
+          "tag": "h3",
+          "text": "Bible Engagement"
+        },
+        {
+          "tag": "h3",
+          "text": "Disciple Making"
+        },
+        {
+          "tag": "h3",
+          "text": "Practical Follow-Up"
+        },
+        {
+          "tag": "h2",
+          "text": "A Quiet Tool For The Work Between Tables."
+        },
+        {
+          "tag": "h3",
+          "text": "Ministry Memory"
+        },
+        {
+          "tag": "h3",
+          "text": "Prayer + Accountability"
+        },
+        {
+          "tag": "h3",
+          "text": "Bible + Follow-Up"
+        },
+        {
+          "tag": "h2",
+          "text": "Covering For The Mission.Tools For The Field."
+        }
+      ],
+      "linkCount": 14,
+      "emptyLinkNames": [],
+      "imagesMissingAlt": [],
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "hasHorizontalOverflow": false,
+      "privateTerms": [],
+      "fullDosNavTerms": [],
+      "internalLinks": [
+        "/",
+        "/",
+        "/briefing",
+        "/discipleship-operating-system",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system",
+        "/prayer",
+        "/support",
+        "/briefing",
+        "/support",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system"
+      ]
+    },
+    {
+      "page": "/kitchen-table-gospel",
+      "viewport": "desktop",
+      "status": 200,
+      "durationMs": 1268,
+      "screenshot": "/Users/ryanfox/Documents/GitHub/usam-website-usa-30-websites-qa/artifacts/usa-30-websites-qa/ktg-desktop.png",
+      "title": "Kitchen Table Gospel | USA Missionaries",
+      "canonical": "https://usamissionaries.org/kitchen-table-gospel",
+      "description": "Kitchen Table Gospel is the table-based movement and methodology USA Missionaries uses to help believers meet, minister, and multiply.",
+      "ogImage": "https://usamissionaries.org/images/vision/kitchen-table-01.jpg",
+      "twitterCard": "summary_large_image",
+      "h1Count": 1,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Kitchen TableGospel"
+        },
+        {
+          "tag": "h2",
+          "text": "One mission.One method in motion."
+        },
+        {
+          "tag": "h2",
+          "text": "Meet.Minister.Multiply."
+        },
+        {
+          "tag": "h3",
+          "text": "Sit where life is already happening."
+        },
+        {
+          "tag": "h3",
+          "text": "Listen, pray, and bring the Gospel near."
+        },
+        {
+          "tag": "h3",
+          "text": "Leave people with a next faithful step."
+        },
+        {
+          "tag": "h2",
+          "text": "Enough metricsto care well."
+        },
+        {
+          "tag": "h2",
+          "text": "Help carry the Gospelback to the table."
+        }
+      ],
+      "linkCount": 16,
+      "emptyLinkNames": [],
+      "imagesMissingAlt": [],
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "hasHorizontalOverflow": false,
+      "privateTerms": [],
+      "fullDosNavTerms": [],
+      "internalLinks": [
+        "/",
+        "/",
+        "/briefing",
+        "/discipleship-operating-system",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system",
+        "/prayer",
+        "/support",
+        "/briefing",
+        "/support",
+        "/briefing",
+        "/support",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system"
+      ]
+    },
+    {
+      "page": "/kitchen-table-gospel",
+      "viewport": "mobile",
+      "status": 200,
+      "durationMs": 859,
+      "screenshot": "/Users/ryanfox/Documents/GitHub/usam-website-usa-30-websites-qa/artifacts/usa-30-websites-qa/ktg-mobile.png",
+      "title": "Kitchen Table Gospel | USA Missionaries",
+      "canonical": "https://usamissionaries.org/kitchen-table-gospel",
+      "description": "Kitchen Table Gospel is the table-based movement and methodology USA Missionaries uses to help believers meet, minister, and multiply.",
+      "ogImage": "https://usamissionaries.org/images/vision/kitchen-table-01.jpg",
+      "twitterCard": "summary_large_image",
+      "h1Count": 1,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Kitchen TableGospel"
+        },
+        {
+          "tag": "h2",
+          "text": "One mission.One method in motion."
+        },
+        {
+          "tag": "h2",
+          "text": "Meet.Minister.Multiply."
+        },
+        {
+          "tag": "h3",
+          "text": "Sit where life is already happening."
+        },
+        {
+          "tag": "h3",
+          "text": "Listen, pray, and bring the Gospel near."
+        },
+        {
+          "tag": "h3",
+          "text": "Leave people with a next faithful step."
+        },
+        {
+          "tag": "h2",
+          "text": "Enough metricsto care well."
+        },
+        {
+          "tag": "h2",
+          "text": "Help carry the Gospelback to the table."
+        }
+      ],
+      "linkCount": 16,
+      "emptyLinkNames": [],
+      "imagesMissingAlt": [],
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "hasHorizontalOverflow": false,
+      "privateTerms": [],
+      "fullDosNavTerms": [],
+      "internalLinks": [
+        "/",
+        "/",
+        "/briefing",
+        "/discipleship-operating-system",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system",
+        "/prayer",
+        "/support",
+        "/briefing",
+        "/support",
+        "/briefing",
+        "/support",
+        "/",
+        "/kitchen-table-gospel",
+        "/discipleship-operating-system"
+      ]
+    }
+  ],
+  "brokenLinks": []
+}

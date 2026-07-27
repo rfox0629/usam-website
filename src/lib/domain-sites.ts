@@ -1,3 +1,5 @@
+import { ecosystemPageByKey } from "@/src/lib/ecosystem";
+
 export type DomainSiteKey = "usam" | "kitchen-table-gospel" | "discipleship-operating-system";
 
 export type DomainSiteConfig = {
@@ -6,6 +8,7 @@ export type DomainSiteConfig = {
   description: string;
   faviconPath: string;
   key: DomainSiteKey;
+  publicCanonicalUrl?: string;
   rootPath: string;
   siteName: string;
   title: string;
@@ -30,9 +33,10 @@ export const domainSites = {
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: ecosystemPageByKey["kitchen-table-gospel"].description,
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
+    publicCanonicalUrl: ecosystemPageByKey["kitchen-table-gospel"].canonicalUrl,
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
     siteName: "Kitchen Table Gospel",
     title: "Kitchen Table Gospel",
@@ -41,9 +45,10 @@ export const domainSites = {
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
+    description: ecosystemPageByKey["discipleship-operating-system"].description,
     faviconPath: "/favicon.ico",
     key: "discipleship-operating-system",
+    publicCanonicalUrl: ecosystemPageByKey["discipleship-operating-system"].canonicalUrl,
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
     siteName: "Discipleship Operating System",
     title: "Discipleship Operating System",

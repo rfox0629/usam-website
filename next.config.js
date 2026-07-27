@@ -1,9 +1,8 @@
 const path = require("path");
+const ecosystemRoutes = require("./src/data/ecosystem-routes.json");
 
 const apexRedirectHosts = [
   ["www.usamissionaries.org", "usamissionaries.org"],
-  ["www.kitchentablegospel.org", "kitchentablegospel.org"],
-  ["www.discipleshipoperatingsystem.com", "discipleshipoperatingsystem.com"],
 ];
 
 /** @type {import('next').NextConfig} */
@@ -20,6 +19,24 @@ const nextConfig = {
       destination: `https://${destinationHost}/:path*`,
       permanent: true,
     }));
+
+    if (process.env.ENABLE_ECOSYSTEM_DOMAIN_REDIRECTS === "true") {
+      ecosystemRoutes.externalDomainRedirects.forEach((redirectConfig) => {
+        redirectConfig.sourceHosts.forEach((sourceHost) => {
+          redirects.push({
+            source: "/:path*",
+            has: [
+              {
+                type: "host",
+                value: sourceHost,
+              },
+            ],
+            destination: redirectConfig.destination,
+            permanent: true,
+          });
+        });
+      });
+    }
 
     if (process.env.ENABLE_NEW_DOMAIN_REDIRECT === "true") {
       // Backward compatibility only: send old cutover-host traffic to the canonical production host.

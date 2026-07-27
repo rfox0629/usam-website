@@ -1,6 +1,6 @@
 # Domain Routing and Analytics Foundation
 
-Last audited: 2026-07-17
+Last audited: 2026-07-20
 
 ## Scope
 
@@ -54,9 +54,13 @@ Do not remove or overwrite MX, SPF, DKIM, DMARC, Google verification, or unrelat
 
 ## Implemented Architecture
 
-- `www` canonical redirects are configured in `next.config.js` for all requested domains.
-- Apex domains are canonical.
+- `www.usamissionaries.org` canonicalizes to `usamissionaries.org`.
+- `usamissionaries.org` remains the canonical production host.
 - `new.usamissionaries.org` remains behind the existing `ENABLE_NEW_DOMAIN_REDIRECT` flag.
+- External ecosystem-domain redirects are prepared behind `ENABLE_ECOSYSTEM_DOMAIN_REDIRECTS=true`:
+  - `kitchentablegospel.org` and `www.kitchentablegospel.org` -> `https://usamissionaries.org/kitchen-table-gospel`
+  - `discipleshipoperatingsystem.com` and `www.discipleshipoperatingsystem.com` -> `https://usamissionaries.org/discipleship-operating-system`
+- Do not enable `ENABLE_ECOSYSTEM_DOMAIN_REDIRECTS`, attach domains, or change DNS without Founder Approval.
 - Middleware rewrites only `/` for active non-USAM brand hostnames:
   - `kitchentablegospel.org/` -> guarded internal Kitchen Table Gospel placeholder
   - `discipleshipoperatingsystem.com/` -> guarded internal DOS placeholder
@@ -64,24 +68,39 @@ Do not remove or overwrite MX, SPF, DKIM, DMARC, Google verification, or unrelat
 - Direct browser requests to `/domain-sites/...` return 404 unless middleware injected the internal route header.
 - The existing USAM homepage remains the default for `usamissionaries.org/` and unknown hosts.
 
-Temporary brand placeholders are intentionally `noindex` and robots-disallowed until approved final pages replace them.
+Temporary brand placeholders remain guarded, `noindex`, and robots-disallowed until approved final pages replace them or the redirect flag is activated.
+
+## USA-38 Ecosystem Routing Decision
+
+Canonical USAM routes:
+
+- `https://usamissionaries.org/kitchen-table-gospel`
+- `https://usamissionaries.org/discipleship-operating-system`
+
+`/dos` remains private product access and is still excluded from public analytics and robots indexing.
+
+`/system` remains live as the legacy System overview and protected preview entry. It does not redirect in this pass because access and preview flows still depend on `/system` and `/system/preview`. SEO canonical metadata on `/system` points to `/discipleship-operating-system`, and `/system/preview` is excluded from analytics and robots indexing.
+
+The public navigation and footer use an "Our Ecosystem" treatment linking USA Missionaries, Kitchen Table Gospel, and DOS without linking to private `/dos`.
 
 ## Required Manual Vercel/DNS Steps
 
 Do these only after explicit approval:
 
-1. In Vercel, add `kitchentablegospel.org` and `www.kitchentablegospel.org` to `usam-website`.
-2. In Vercel, add `discipleshipoperatingsystem.com` and `www.discipleshipoperatingsystem.com` to `usam-website`.
-3. Decide what to do with `thelords.army`, because it is currently attached to `army-website`:
+1. Receive Founder Approval for external-domain redirect activation.
+2. Set `ENABLE_ECOSYSTEM_DOMAIN_REDIRECTS=true` for the intended Vercel environment.
+3. In Vercel, add `kitchentablegospel.org` and `www.kitchentablegospel.org` to `usam-website`.
+4. In Vercel, add `discipleshipoperatingsystem.com` and `www.discipleshipoperatingsystem.com` to `usam-website`.
+5. Decide what to do with `thelords.army`, because it is currently attached to `army-website`:
    - keep it on `army-website`, or
    - move/reattach it to `usam-website`, then add hostname routing and `www.thelords.army` in a separate approved change.
-4. Use the Vercel dashboard as the source of truth for exact DNS targets.
-5. For each domain using external DNS, Vercel generally expects an apex `A` record and a `www` `CNAME`; copy the precise values from the dashboard.
-6. For KTG and DOS, replace only the Squarespace web records when ready:
+6. Use the Vercel dashboard as the source of truth for exact DNS targets.
+7. For each domain using external DNS, Vercel generally expects an apex `A` record and a `www` `CNAME`; copy the precise values from the dashboard.
+8. For KTG and DOS, replace only the Squarespace web records when ready:
    - Apex: replace the four Squarespace A records with Vercel's provided apex A record.
    - `www`: replace `ext-sq.squarespace.com` with Vercel's provided CNAME.
-7. For `thelords.army`, resolve the Vercel project conflict first. If moved to this project, implement its hostname route in code, add/verify `www.thelords.army`, redeploy, and apply its required DNS record.
-8. Wait for DNS propagation, then verify with:
+9. For `thelords.army`, resolve the Vercel project conflict first. If moved to this project, implement its hostname route in code, add/verify `www.thelords.army`, redeploy, and apply its required DNS record.
+10. Wait for DNS propagation, then verify with:
    - `vercel domains inspect <domain>`
    - `vercel domains verify <domain>`
    - `dig A <domain>`
@@ -230,15 +249,16 @@ Implemented:
 - Brand metadata config is centralized in `src/lib/domain-sites.ts`.
 - Metadata builder is centralized in `src/lib/domain-metadata.ts`.
 - USAM root metadata still canonicalizes to `https://usamissionaries.org`.
-- Placeholder brand pages canonicalize to their own apex origins and are `noindex`.
+- Prepared external domain redirects canonicalize KTG and DOS traffic to the USAM pages above when `ENABLE_ECOSYSTEM_DOMAIN_REDIRECTS=true`.
+- Hidden placeholder brand pages are `noindex` and now point canonical metadata to the USAM canonical pages.
 - `robots.txt` is hostname-aware:
   - USAM keeps the existing public allowlist with private-route disallows.
   - Pending brand domains return `Disallow: /`.
 - `sitemap.xml` is hostname-aware:
-  - USAM returns the current static and missionary profile sitemap.
+  - USAM returns the current static sitemap, the two ecosystem canonical routes, and missionary profile sitemap entries.
   - Pending brand domains return an empty sitemap until approved public pages exist.
 
-Final brand launches should replace the placeholder pages and add domain-specific sitemap entries.
+USA-36 and USA-37 own the body content for `/discipleship-operating-system` and `/kitchen-table-gospel`. Merge those page branches before treating the new sitemap entries as fully crawlable production routes.
 
 ## References
 

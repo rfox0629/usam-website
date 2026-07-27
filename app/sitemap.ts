@@ -2,9 +2,11 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { getMissionaryDirectory } from "@/src/lib/missionaries/queries";
 import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
+import { publicEcosystemPages } from "@/src/lib/ecosystem";
 
 const staticRoutes = [
   { path: "/", priority: 1 },
+  ...publicEcosystemPages.map((page) => ({ path: page.href, priority: page.sitemapPriority })),
   { path: "/missionaries", priority: 0.9 },
   { path: "/support", priority: 0.8 },
   { path: "/financialfreedom", priority: 0.7 },
