@@ -1,0 +1,7 @@
+/control/
+/locks/
+/logs/
+/state/
+/tmp/
+/worktrees/
+/config/dispatcher.config.json

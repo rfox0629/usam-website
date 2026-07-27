@@ -1,0 +1,90 @@
+{
+  "testMode": true,
+  "linear": {
+    "apiUrl": "https://api.linear.app/graphql",
+    "teamKey": "USA",
+    "pollFirst": 30,
+    "statusTodo": "Todo",
+    "statusInProgress": "In Progress",
+    "statusInReview": "In Review",
+    "labelReadyForDispatcher": "Ready for Dispatcher",
+    "labelReadyForCodex": "Ready for Codex",
+    "labelReadyForClaude": "Ready for Claude",
+    "blockedLabels": ["Blocked", "Needs Discussion"]
+  },
+  "git": {
+    "repositoryPath": "/Users/ryanfox/Documents/GitHub/usam-website",
+    "baseRef": "origin/main",
+    "branchPrefix": "dispatcher",
+    "fetchBeforeWorktree": true
+  },
+  "pollIntervalMs": 30000,
+  "credentialRetryMs": 300000,
+  "heartbeatIntervalMs": 15000,
+  "lockStaleAfterMs": 2700000,
+  "runnerTimeoutMs": 1800000,
+  "maxRetries": 1,
+  "concurrency": {
+    "globalMax": 2,
+    "refillOnWorkerExit": true
+  },
+  "maxWorkers": {
+    "codex": 2,
+    "claude": 2
+  },
+  "queue": {
+    "reviewCeiling": 6,
+    "reviewCountFirst": 50,
+    "urgentLabels": ["Urgent", "P0", "P1", "High Priority"]
+  },
+  "resources": {
+    "enabled": true,
+    "diskPath": "/Users/ryanfox/USAM-Automation",
+    "minFreeDiskGb": 20,
+    "minFreeMemoryMb": 512,
+    "maxLoadPerCpu": 1.8,
+    "maxLoadAvg1": null,
+    "maxActiveBuilds": 1,
+    "activeBuildMode": "resourceClass"
+  },
+  "routing": {
+    "allowFallbackReroute": false,
+    "fastTrackLabels": ["Fast Track"],
+    "productionTrackLabels": ["Production Track"]
+  },
+  "conflicts": {
+    "usePathPrefixes": true,
+    "useConflictKeys": true,
+    "useWorktreeStatus": true
+  },
+  "runners": {
+    "codex": {
+      "protocol": "codex",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "args": [
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json"
+      ]
+    },
+    "claude": {
+      "protocol": "claude",
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@anthropic-ai/claude-code",
+        "-p",
+        "--permission-mode",
+        "acceptEdits",
+        "--output-format",
+        "text"
+      ]
+    }
+  },
+  "pauses": {
+    "global": false,
+    "codex": false,
+    "claude": false
+  }
+}
