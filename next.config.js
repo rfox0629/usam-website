@@ -43,6 +43,9 @@ const nextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  outputFileTracingIncludes: {
+    "/system/dos-v4": ["./dos.html"],
+  },
   turbopack: {
     root: path.join(__dirname),
   },

@@ -94,6 +94,18 @@
     font-weight: 700;
     letter-spacing: 0.18em;
     font-size: 14px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .brand:hover {
+    color: var(--amber);
+  }
+  .footer-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .footer-link:hover {
+    color: var(--text);
   }
   .brand-diamond {
     width: 14px;
@@ -885,10 +897,10 @@
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="brand">
+  <a class="brand" href="/" aria-label="Back to USA Missionaries">
     <div class="brand-diamond"></div>
     <span>USA MISSIONARIES</span>
-  </div>
+  </a>
   <ul class="nav-links">
     <li><a href="#">MISSION</a></li>
     <li><a href="#">BRIEFING</a></li>
@@ -1226,11 +1238,12 @@
 <!-- FOOTER -->
 <footer class="footer">
   <div class="wrap footer-inner">
-    <div class="brand">
+    <a class="brand" href="/" aria-label="Back to USA Missionaries">
       <div class="brand-diamond"></div>
       <span>USA MISSIONARIES</span>
-    </div>
+    </a>
     <div class="footer-text">DOS · Disciple Operating System · v0.1</div>
+    <a class="footer-text footer-link" href="/">Powered by USA Missionaries</a>
     <div class="footer-text">© 2026</div>
   </div>
 </footer>
