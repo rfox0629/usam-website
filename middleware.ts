@@ -8,12 +8,15 @@ import {
 import {
   domainRouteHeader,
   domainSiteRoutePrefix,
+  domainSites,
   getAlternateDomainSiteByHostname,
   normalizeHostname,
 } from "@/src/lib/domain-sites";
 
 export const config = {
-  matcher: ["/", "/domain-sites/:path*", "/partners", "/vision", "/board-briefing"],
+  matcher: [
+    "/((?!_next/static|_next/image|apple-touch-icon.png|brand/|dos.webmanifest|favicon.ico|favicon-16x16.png|favicon-32x32.png|favicon-48x48.png|guides/|icon-192.png|icon-512.png|icons/|images/|.*\\..*).*)",
+  ],
 };
 
 export async function middleware(request: NextRequest) {
@@ -24,10 +27,10 @@ export async function middleware(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  if (pathname === "/") {
-    const domainSite = getAlternateDomainSiteByHostname(hostname);
+  const domainSite = getAlternateDomainSiteByHostname(hostname);
 
-    if (domainSite) {
+  if (domainSite) {
+    if (pathname === "/") {
       const url = request.nextUrl.clone();
       const requestHeaders = new Headers(request.headers);
 
@@ -40,6 +43,13 @@ export async function middleware(request: NextRequest) {
         },
       });
     }
+
+    const url = request.nextUrl.clone();
+
+    url.protocol = "https:";
+    url.host = new URL(domainSites.usam.canonicalOrigin).host;
+
+    return NextResponse.redirect(url, 308);
   }
 
   if (pathname === "/board-briefing") {

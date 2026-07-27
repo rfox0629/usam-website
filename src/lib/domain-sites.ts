@@ -8,6 +8,12 @@ export type DomainSiteConfig = {
   key: DomainSiteKey;
   rootPath: string;
   siteName: string;
+  socialImage?: {
+    alt: string;
+    height: number;
+    path: string;
+    width: number;
+  };
   title: string;
   titleTemplate: string;
 };
@@ -24,28 +30,46 @@ export const domainSites = {
     key: "usam",
     rootPath: "/",
     siteName: "USA Missionaries",
+    socialImage: {
+      alt: "USA Missionaries mountain landscape.",
+      height: 916,
+      path: "/images/usam/default-hero-background.png",
+      width: 1718,
+    },
     title: "USA Missionaries",
     titleTemplate: "%s | USA Missionaries",
   },
   "kitchen-table-gospel": {
     analyticsBrand: "kitchen_table_gospel",
     canonicalOrigin: "https://kitchentablegospel.org",
-    description: "Kitchen Table Gospel public site placeholder.",
+    description: "Kitchen Table Gospel is a USA Missionaries initiative for clear, table-centered gospel conversations.",
     faviconPath: "/favicon.ico",
     key: "kitchen-table-gospel",
     rootPath: `${domainSiteRoutePrefix}/kitchen-table-gospel`,
     siteName: "Kitchen Table Gospel",
+    socialImage: {
+      alt: "Kitchen Table Gospel gathering.",
+      height: 1536,
+      path: "/images/vision/kitchen-table-01.jpg",
+      width: 2048,
+    },
     title: "Kitchen Table Gospel",
     titleTemplate: "%s | Kitchen Table Gospel",
   },
   "discipleship-operating-system": {
     analyticsBrand: "dos",
     canonicalOrigin: "https://discipleshipoperatingsystem.com",
-    description: "Discipleship Operating System public site placeholder.",
+    description: "Discipleship Operating System is a USA Missionaries product for follow up, prayer, and disciple-making movement.",
     faviconPath: "/favicon.ico",
     key: "discipleship-operating-system",
     rootPath: `${domainSiteRoutePrefix}/discipleship-operating-system`,
     siteName: "Discipleship Operating System",
+    socialImage: {
+      alt: "Discipleship Operating System meeting screen.",
+      height: 1150,
+      path: "/images/vision/dos-meetings.jpg",
+      width: 750,
+    },
     title: "Discipleship Operating System",
     titleTemplate: "%s | Discipleship Operating System",
   },

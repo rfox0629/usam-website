@@ -7,7 +7,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const navItems = [
   { key: "mission", label: "Mission", href: "/" },
   { key: "briefing", label: "Briefing", href: "/briefing" },
-  { key: "dos", label: "System", href: "/system" },
+  { key: "ecosystem", label: "Ecosystem", href: "/ecosystem" },
   { key: "prayer", label: "Prayer", href: "/prayer" },
   { key: "support", label: "Support", href: "/support" },
 ] as const;
@@ -16,7 +16,9 @@ type NavKey = (typeof navItems)[number]["key"];
 
 type PrimaryNavProps = {
   active?: NavKey;
+  brandHref?: string;
   fixed?: boolean;
+  hrefOverrides?: Partial<Record<NavKey, string>>;
   labelOverrides?: Partial<Record<NavKey, string>>;
   minimal?: boolean;
 };
@@ -53,7 +55,14 @@ function NavLink({
   );
 }
 
-export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = false }: PrimaryNavProps) {
+export function PrimaryNav({
+  active,
+  brandHref = "/",
+  fixed = false,
+  hrefOverrides,
+  labelOverrides,
+  minimal = false,
+}: PrimaryNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -66,7 +75,7 @@ export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = fa
       style={{ backdropFilter: "blur(12px)" }}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-7 py-3 md:px-10 md:py-3.5">
-        <Link href="/" className="flex min-h-[32px] items-center gap-3.5 md:gap-4">
+        <Link href={brandHref} className="flex min-h-[32px] items-center gap-3.5 md:gap-4">
           <img
             src="/brand/logo/usam-website-logo.png"
             alt="USA Missionaries"
@@ -87,7 +96,7 @@ export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = fa
                 {navItems.map((item) => (
                   <li key={item.key} className="flex-none">
                     <NavLink
-                      href={item.href}
+                      href={hrefOverrides?.[item.key] ?? item.href}
                       label={labelOverrides?.[item.key] ?? item.label}
                       active={active === item.key}
                     />
@@ -120,7 +129,7 @@ export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = fa
             {navItems.map((item) => (
               <NavLink
                 key={item.key}
-                href={item.href}
+                href={hrefOverrides?.[item.key] ?? item.href}
                 label={labelOverrides?.[item.key] ?? item.label}
                 active={active === item.key}
                 mobile

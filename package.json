@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
+    "test:ecosystem-public": "node scripts/ecosystem-public-regression.mjs",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",

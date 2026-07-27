@@ -221,7 +221,7 @@ export default async function GuidePage({
 
   return (
     <main className="min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_52%,#FFF4EC_100%)] text-[#0F172A]">
-      <PrimaryNav active="dos" />
+      <PrimaryNav active="ecosystem" />
       <article className="mx-auto max-w-4xl px-5 pb-20 pt-28 md:px-8 md:pt-32">
         {isNewTestamentReadingPlan ? <GuideBackToLibraryButton /> : null}
         <header className="rounded-[32px] border border-[#DCEBFF] bg-white/92 p-6 shadow-[0_20px_60px_rgba(37,99,235,0.08)] md:p-8">

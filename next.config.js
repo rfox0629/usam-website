@@ -9,17 +9,24 @@ const apexRedirectHosts = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
-    const redirects = apexRedirectHosts.map(([sourceHost, destinationHost]) => ({
-      source: "/:path*",
-      has: [
-        {
-          type: "host",
-          value: sourceHost,
-        },
-      ],
-      destination: `https://${destinationHost}/:path*`,
-      permanent: true,
-    }));
+    const redirects = [
+      {
+        source: "/system",
+        destination: "/ecosystem",
+        permanent: true,
+      },
+      ...apexRedirectHosts.map(([sourceHost, destinationHost]) => ({
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: sourceHost,
+          },
+        ],
+        destination: `https://${destinationHost}/:path*`,
+        permanent: true,
+      })),
+    ];
 
     if (process.env.ENABLE_NEW_DOMAIN_REDIRECT === "true") {
       // Backward compatibility only: send old cutover-host traffic to the canonical production host.

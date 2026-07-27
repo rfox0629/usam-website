@@ -18,6 +18,25 @@ export function SiteFooter() {
           </span>
         </div>
         <div className="max-w-3xl text-left md:text-right">
+          <nav
+            aria-label="Footer ecosystem navigation"
+            className="mb-4 flex flex-wrap gap-x-5 gap-y-2 md:justify-end"
+          >
+            {[
+              { href: "/ecosystem", label: "Ecosystem" },
+              { href: "https://kitchentablegospel.org", label: "Kitchen Table Gospel" },
+              { href: "https://discipleshipoperatingsystem.com", label: "DOS" },
+            ].map((item) => (
+              <a
+                className="text-[11px] uppercase tracking-[0.18em] text-stone-500 transition-colors hover:text-usam-gold"
+                href={item.href}
+                key={item.href}
+                style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
           <p
             className="text-xs uppercase tracking-[0.18em] text-stone-400"
             style={{ fontFamily: font.rajdhani }}

@@ -10,6 +10,7 @@ import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 
 const siteName = domainSites.usam.siteName;
 const siteDescription = domainSites.usam.description;
+const siteSocialImage = domainSites.usam.socialImage;
 const canonicalSiteUrl = getCanonicalSiteUrl();
 
 export const metadata: Metadata = {
@@ -18,14 +19,25 @@ export const metadata: Metadata = {
   description: siteDescription,
   openGraph: {
     description: siteDescription,
+    images: siteSocialImage
+      ? [
+          {
+            alt: siteSocialImage.alt,
+            height: siteSocialImage.height,
+            url: siteSocialImage.path,
+            width: siteSocialImage.width,
+          },
+        ]
+      : undefined,
     siteName,
     title: siteName,
     type: "website",
     url: canonicalSiteUrl,
   },
   twitter: {
-    card: "summary",
+    card: siteSocialImage ? "summary_large_image" : "summary",
     description: siteDescription,
+    images: siteSocialImage ? [siteSocialImage.path] : undefined,
     title: siteName,
   },
 };

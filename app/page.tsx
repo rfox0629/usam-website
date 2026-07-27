@@ -765,13 +765,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* DOS */}
+      {/* ECOSYSTEM */}
       <section className="py-28 md:py-40 px-6" style={{background:"#0D0D0D"}}>
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Reveal><SectionHeading align="left" overline="SYSTEM LAYER" headline="THE INFRASTRUCTURE IS BEING BUILT"><p>A system designed to equip operators, track movement, and support multiplication at scale.</p></SectionHeading></Reveal>
-              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/system">View the System</CTAButton></div></Reveal>
+              <Reveal><SectionHeading align="left" overline="ECOSYSTEM" headline="CONNECTED TOOLS FOR DISCIPLESHIP"><p>Kitchen Table Gospel, DOS, and strategic partners help move people from encounter to follow up and multiplication.</p></SectionHeading></Reveal>
+              <Reveal delay={200}><div className="mt-8"><CTAButton variant="secondary" href="/ecosystem">View the Ecosystem</CTAButton></div></Reveal>
             </div>
             <Reveal delay={300}><DOSPanel/></Reveal>
           </div>
