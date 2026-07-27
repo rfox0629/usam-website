@@ -917,7 +917,7 @@ const boardMembers = [
   {
     bio: "Formerly Chief Compliance Officer and COO of a national financial services company that processed payments for thousands of nonprofits; implemented SOC 2 compliance, corporate policy, and risk management frameworks. Currently COO at a national recruiting firm; brings deep expertise in compliance, systems, and operational excellence.",
     name: "Brandon Murphy",
-    photo: "/images/board/brandon-murphy.webp",
+    photo: "/images/board/brandon-murphy-crop.webp",
     title: "Vice President",
   },
   {
@@ -929,7 +929,7 @@ const boardMembers = [
   {
     bio: "Oversees administrative governance and communications. Strong organizational leadership and ministry coordination experience, ensuring accurate records, board transparency, and smooth operations.",
     name: "Brooke Fox",
-    photo: "/images/board/brooke-fox.webp",
+    photo: "/images/board/brooke-fox-crop.webp",
     title: "Secretary",
   },
 ] as const;
