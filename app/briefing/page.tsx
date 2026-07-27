@@ -47,7 +47,7 @@ function VideoPlaceholderCard() {
 const featuredEncounter = {
   quote:
     "We both felt the evening opened our eyes to the spiritual battle going on inside our home. After we prayed for freedom from lies of the enemy, I literally felt lighter.",
-  attribution: "KITCHEN TABLE ENCOUNTER, FEBRUARY 2026",
+  attribution: "KITCHEN TABLE ENCOUNTER, 2026",
 } as const;
 
 type FieldReport = {
@@ -60,76 +60,88 @@ const fieldReports: readonly FieldReport[] = [
   {
     quote:
       "I can't thank you enough for coming. It was such a blessing... An answer to prayer, really. Glory to God for the words Ryan spoke to my husband. I believe with faith that last night was a pivotal point for him.",
-    attribution: "KITCHEN TABLE ENCOUNTER, JANUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "ENCOURAGEMENT",
   },
   {
     quote:
       "Our kitchen table night exceeded anything we could have imagined. We left stirred up to seek Jesus more deeply and embrace the gifts of the Spirit. This ministry is exactly what America needs.",
-    attribution: "KITCHEN TABLE ENCOUNTER, FEBRUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "DISCIPLESHIP",
   },
   {
     quote:
       "We are praying for you guys. Our nation needs Jesus NOW. May your mission be amplified and shared until ALL have heard.",
-    attribution: "KITCHEN TABLE ENCOUNTER, MARCH 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "Last night was amazing. I am still thinking about it. I couldn't sleep because I was thinking of so many people you could meet with.",
-    attribution: "KITCHEN TABLE ENCOUNTER, JANUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "BREAKTHROUGH",
   },
   {
     quote:
       "What struck me most was how life-giving our time together was. Ryan and Brooke are authentic and humble servants of the Lord. Our meeting was like a spiritual checkup that was needed.",
-    attribution: "KITCHEN TABLE ENCOUNTER, FEBRUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "I have been Christian most of my life and have never experienced discipleship in this way. The Lord impressed His heart for His children upon me as we sat unrushed with no agenda other than to experience His love.",
-    attribution: "KITCHEN TABLE ENCOUNTER, MARCH 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "TABLE ENCOUNTER",
   },
   {
     quote:
       "The prayers specifically for us were so beautiful and things we felt the Holy Spirit stirring in us. How God is working in your lives is so awesome.",
-    attribution: "KITCHEN TABLE ENCOUNTER, JANUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "Matt had a vision the next morning. He was truly touched and it sparked a new level of faith for him.",
-    attribution: "KITCHEN TABLE ENCOUNTER, FEBRUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "It was a privilege to hear what the Lord has done in the two of you. We left encouraged, challenged, and with a desire to go higher and dig deeper.",
-    attribution: "KITCHEN TABLE ENCOUNTER, MARCH 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "ENCOURAGEMENT",
   },
   {
     quote:
       "We both felt the evening opened our eyes to the spiritual battle going on inside our home. After we prayed for freedom from lies of the enemy, I literally felt lighter.",
-    attribution: "KITCHEN TABLE ENCOUNTER, JANUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "PRAYER FOR FREEDOM",
   },
   {
     quote:
       "Being vulnerable allowed God to work and move in our meeting. Something very much needed in the body of Christ that cannot be done on a Sunday. Very intimate.",
-    attribution: "KITCHEN TABLE ENCOUNTER, FEBRUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "This was a confirmation on what God is wanting to do in the homes. He is wanting to transform us from Sunday Christians to everyday Christians.",
-    attribution: "KITCHEN TABLE ENCOUNTER, MARCH 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
   },
   {
     quote:
       "Hope. Our marriage is very rocky right now. This brought me hope. The world would call me a fool for still being in this marriage but it felt good to hear that God's truth is the opposite.",
-    attribution: "KITCHEN TABLE ENCOUNTER, JANUARY 2026",
+    attribution: "KITCHEN TABLE ENCOUNTER, 2026",
     tag: "RESTORATION",
   },
 ] as const;
+
+function yearOnlyDateLabel(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    const yearMatch = value.match(/\b\d{4}\b/);
+
+    return yearMatch?.[0] ?? value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", { year: "numeric" }).format(date);
+}
 
 const fieldReportCardStyles = [
   "p-6 md:p-7 lg:col-span-7",
@@ -254,7 +266,7 @@ function AssignmentsCompletedSection() {
 
           <div className="flex flex-col justify-center p-6 md:p-10">
             <div className="flex flex-wrap gap-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/42" style={{ fontFamily: font.rajdhani }}>
-              <span>{assignmentArticle.date}</span>
+              <span>{yearOnlyDateLabel(assignmentArticle.date)}</span>
               <span className="text-usam-gold">//</span>
               <span>{assignmentArticle.author}</span>
             </div>

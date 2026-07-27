@@ -32,12 +32,29 @@ export const metadata: Metadata = {
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
+<<<<<<< HEAD
 const isDemoPreviewRouteEnabled =
   process.env.VERCEL_ENV === "preview"
   || process.env.NODE_ENV !== "production"
   || process.env.DOS_ENABLE_DEMO_PREVIEW === "true";
 type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">
   & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "recorder" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "timezone">>;
+=======
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
+const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
+  actionStep: null,
+  followUpNeeded: false,
+  mentorAssignment: null,
+  scriptures: null,
+  whatGodTaught: null,
+};
+const emptyPlanningReflection: DosAppMeeting["planningReflection"] = {
+  actionItems: null,
+  decisions: null,
+  followUp: null,
+};
+>>>>>>> origin/codex/public-launch-cleanup
 
 function LockedPreviewScreen() {
   return (
@@ -66,6 +83,7 @@ function LockedPreviewScreen() {
 
 function buildDemoReview(status: DosAppMeeting["review"]["status"] = "not_sent", stoodOut: string | null = null): DosAppMeeting["review"] {
   return {
+    overallRating: status === "not_sent" ? null : "very_meaningful",
     sharePermission: status === "approved" ? "internal" : null,
     status,
     stoodOut,
@@ -79,14 +97,18 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
   return {
     googleSyncEnabled: false,
     googleSyncStatus: null,
+    growthReflection: emptyGrowthReflection,
     meetingStatus: "logged",
     ministryEventId: null,
     ministryTeam: [],
     participants: [],
+    planningReflection: emptyPlanningReflection,
     recorder: null,
+    reviewLinks: [],
     scheduledEndAt: null,
     scheduledStartAt: null,
     supportingAttendees: [],
+    tableRole: "ministering",
     timezone: "America/Chicago",
     ...meeting,
   };
@@ -98,6 +120,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "City Chapel",
       createdAt: "2026-05-06T09:15:00-05:00",
       email: "george.jenko@example.com",
+      discipleshipRelationship: "mentee",
       discipleshipStage: "disciple_maker",
       engagementLevel: "High",
       fieldVisibility: "primary",
@@ -119,6 +142,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "Redemption Church",
       createdAt: "2026-05-08T11:00:00-05:00",
       email: "brooke.fox@example.com",
+      discipleshipRelationship: "peer",
       discipleshipStage: "walking_with",
       engagementLevel: "High",
       fieldVisibility: "primary",
@@ -137,6 +161,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: null,
       createdAt: "2026-05-10T14:45:00-05:00",
       email: "tim.tran@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "exploring",
       engagementLevel: "Medium",
       fieldVisibility: "primary",
@@ -155,6 +180,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: null,
       createdAt: "2026-05-12T10:10:00-05:00",
       email: "naomi.lee@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "exploring",
       engagementLevel: "Medium",
       fieldVisibility: "primary",
@@ -173,6 +199,7 @@ function buildDosPreviewDemoData(): DosAppData {
       church: "Grace Fellowship",
       createdAt: "2026-05-23T15:20:00-05:00",
       email: "caleb.rivera@example.com",
+      discipleshipRelationship: null,
       discipleshipStage: "not_started",
       engagementLevel: "Low",
       fieldVisibility: "primary",
@@ -334,6 +361,14 @@ function buildDosPreviewDemoData(): DosAppData {
       recommendedResources: [],
       review: buildDemoReview("approved", "George is growing in confidence and Brooke is actively investing."),
       source: "table",
+      growthReflection: {
+        actionStep: "Practice the gospel outline once this week.",
+        followUpNeeded: false,
+        mentorAssignment: null,
+        scriptures: "Luke 10",
+        whatGodTaught: "Mutual practice made the next conversation feel simple and repeatable.",
+      },
+      tableRole: "mutual_discipleship",
       title: "Discipleship Practice",
       type: "discipleship",
       updatedAt: "2026-05-19T20:10:00-05:00",
@@ -429,10 +464,15 @@ function buildDosPreviewDemoData(): DosAppData {
       feltHeard: "yes",
       id: "demo-participant-review-tim",
       meetingId: "demo-meeting-table-george-brooke-tim",
+      overallRating: "very_meaningful",
       outcomeTags: ["Encouragement", "Discipling"],
       personId: "demo-person-tim-tran",
       status: "approved",
       submittedAt: "2026-05-25T21:10:00-05:00",
+      submittedEmail: null,
+      submittedFirstName: "Tim",
+      submittedLastName: "Tran",
+      submittedName: "Tim Tran",
       wouldMeetAgain: true,
       wouldMeetAgainResponse: "yes",
     },
@@ -597,6 +637,45 @@ function buildDosPreviewDemoData(): DosAppData {
       },
     ],
     prayerRequests: [],
+    myRecord: {
+      assessmentResults: [
+        {
+          answers: {
+            "connect-with-god": 8,
+            "respect-love": 9,
+            "time-together": 7,
+            trust: 8,
+            understood: 7,
+          },
+          assessmentName: "Marriage Assessment",
+          assessmentResourceId: "relationship-marriage-assessment",
+          assessmentSlug: "marriage-assessment",
+          categoryScores: [
+            { id: "respect-love", maxScore: 10, percentage: 90, score: 9, title: "How respected or loved do you feel in the relationship?" },
+            { id: "connect-with-god", maxScore: 10, percentage: 80, score: 8, title: "How well do I help you connect with God?" },
+          ],
+          completedAt: demoTimestamp,
+          createdAt: demoTimestamp,
+          id: "demo-my-record-assessment",
+          maxScore: 150,
+          overallScore: 39,
+          percentage: 26,
+          updatedAt: demoTimestamp,
+          visibility: "private",
+        },
+      ],
+      createdAt: demoTimestamp,
+      currentSeasonFocus: "Abide before activity.",
+      displayName: "Ryan Fox",
+      id: "demo-my-record",
+      journalEntries: [],
+      mentorMeetings: [],
+      mentorRelationships: [],
+      prayerLogs: [],
+      updatedAt: demoTimestamp,
+      userId: "demo-user-ryan",
+      workspaceId: demoWorkspaceId,
+    },
     reminders,
     tableInvitations: [],
     usamApplication: {

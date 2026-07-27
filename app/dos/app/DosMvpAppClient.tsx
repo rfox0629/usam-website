@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronRight, Church, Clock, Coffee, Droplet, ExternalLink, FileImage, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,13 +20,20 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
+<<<<<<< HEAD
 import type { DosAppAssessmentResult, DosAppCalendarConnection, DosAppData, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
+=======
+import type { DosAppCalendarConnection, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserJournalEntry, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
+>>>>>>> origin/codex/public-launch-cleanup
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
+import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   dosSendableResourceCategories,
+  getDosAssessmentResources,
   getDosResourcesByCategory,
   getSendableDosResources,
   type DosResource,
@@ -70,8 +77,9 @@ const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
-type MoreAppView = "apps" | "fruit" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
+type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
+type MyRecordTab = "assessments" | "journal" | "mentors" | "overview" | "prayer" | "timeline";
 type LocalPrayerNeed = {
   createdAt: string;
   id: string;
@@ -223,6 +231,7 @@ type DesktopNavItem =
   | { icon: IconName; label: string; type: "tab"; value: ActiveTab };
 
 const desktopDashboardNavItem: DesktopNavItem = { icon: "apps", label: "Dashboard", type: "tab", value: "home" };
+const desktopMyRecordNavItem: DesktopNavItem = { icon: "people", label: "My Record", type: "moreApp", value: "my_record" };
 
 const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }> = [
   {
@@ -236,6 +245,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "More",
     items: [
+      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
       { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
       { icon: "library", label: "Library", type: "moreApp", value: "library" },
       { icon: "log", label: "Reports", type: "moreApp", value: "reports" },
@@ -246,6 +256,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
 ];
 
 const dosCommandResourceItems = getDosResourcesByCategory("Commands of Jesus");
+const dosAssessmentResourceItems = getDosAssessmentResources();
 const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
 
@@ -259,6 +270,13 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
   { helper: "Several people", label: "Group", value: "group" },
   { helper: "Training rhythm", label: "Discipleship", value: "discipleship" },
   { helper: "Something else", label: "Other", value: "other" },
+];
+
+const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
+  { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
+  { helper: "Someone is pouring into me.", label: "Being Mentored", value: "being_mentored" },
+  { helper: "We are sharpening each other.", label: "Mutual Discipleship", value: "mutual_discipleship" },
+  { helper: "We are aligning next steps.", label: "Leadership / Planning", value: "leadership_planning" },
 ];
 
 const conversationFlowOptions: ReadonlyArray<{ helper?: string; label: string; value: DosConversationFlowKey }> = [
@@ -283,6 +301,19 @@ const fieldVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppFieldV
   { label: "Primary Field Contact", value: "primary" },
   { label: "Secondary / Household Participant", value: "secondary" },
   { label: "Hidden from Field", value: "hidden" },
+];
+
+const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: DosAppDiscipleshipRelationship | "" }> = [
+  { label: "Not set", value: "" },
+  { label: "Mentor", value: "mentor" },
+  { label: "Mentee", value: "mentee" },
+  { label: "Peer", value: "peer" },
+  { label: "Pastor", value: "pastor" },
+  { label: "Coach", value: "coach" },
+  { label: "Spiritual Parent", value: "spiritual_parent" },
+  { label: "Family", value: "family" },
+  { label: "Friend", value: "friend" },
+  { label: "Other", value: "other" },
 ];
 
 function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
@@ -658,10 +689,10 @@ type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = "all" | CircleFocusView;
 type MeetingsView = "calendar" | "invite";
 type MeetingCalendarViewMode = "month" | "week";
-type FruitView = "activity" | "forms" | "impact";
+type FruitView = "activity" | "forms" | "impact" | "reviews";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
-type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer";
+type PersonDetailTab = "activity" | "fruit" | "overview" | "prayer" | "reviews";
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "my_requests" | "partners" | "praying_for";
 type FormMode = "editMeeting" | "editPerson" | "fruit" | "meeting" | "meetingNotes" | "person" | "reminder" | "scheduleMeeting" | null;
@@ -805,6 +836,7 @@ type PersonFormDefaults = {
   childrenNames?: string;
   church?: string;
   city?: string;
+  discipleshipRelationship?: DosAppDiscipleshipRelationship | "";
   email?: string;
   engagementScore?: RelationshipScoreValue;
   fieldVisibility?: DosAppFieldVisibility;
@@ -1424,8 +1456,99 @@ function meetingTypeLabel(value: string) {
   return meetingTypeOptions.find((option) => option.value === value)?.label ?? "Table";
 }
 
+function normalizeTableRole(value: FormDataEntryValue | string | null | undefined): DosAppTableRole {
+  const nextValue = String(value ?? "");
+
+  return tableRoleOptions.some((option) => option.value === nextValue) ? nextValue as DosAppTableRole : "ministering";
+}
+
+function tableRoleDisplayLabel(value: DosAppTableRole) {
+  return tableRoleOptions.find((option) => option.value === value)?.label ?? "Ministering";
+}
+
+function tableRoleIncludesMinistering(value: DosAppTableRole) {
+  return value === "ministering" || value === "mutual_discipleship";
+}
+
+function tableRoleIncludesGrowth(value: DosAppTableRole) {
+  return value === "being_mentored" || value === "mutual_discipleship";
+}
+
+function tableRoleIncludesPlanning(value: DosAppTableRole) {
+  return value === "leadership_planning";
+}
+
+function tableRoleParticipantLabel(meeting: DosAppMeeting) {
+  return formatDosParticipantTitle(meeting.participantNames, "");
+}
+
+function tableRoleActivityLabel(meeting: DosAppMeeting) {
+  const participantLabel = tableRoleParticipantLabel(meeting);
+
+  switch (meeting.tableRole) {
+    case "being_mentored":
+      return participantLabel ? `Mentored by ${participantLabel}` : "Being Mentored";
+    case "mutual_discipleship":
+      return participantLabel ? `Mutual Discipleship with ${participantLabel}` : "Mutual Discipleship";
+    case "leadership_planning":
+      return `Leadership Planning with ${participantLabel || "Team"}`;
+    case "ministering":
+    default:
+      return participantLabel ? `Ministered to ${participantLabel}` : "Ministering";
+  }
+}
+
 function meetingActivityTitle(meeting: DosAppMeeting) {
-  return meeting.source === "connection" ? meeting.title : meetingTypeLabel(meeting.type);
+  return meeting.source === "connection" ? meeting.title : tableRoleActivityLabel(meeting);
+}
+
+function meetingHasGrowthReflection(meeting: DosAppMeeting) {
+  const reflection = meeting.growthReflection;
+
+  return Boolean(
+    reflection.whatGodTaught?.trim()
+    || reflection.scriptures?.trim()
+    || reflection.actionStep?.trim()
+    || reflection.mentorAssignment?.trim()
+    || reflection.followUpNeeded,
+  );
+}
+
+function meetingHasPlanningReflection(meeting: DosAppMeeting) {
+  const reflection = meeting.planningReflection;
+
+  return Boolean(
+    reflection.decisions?.trim()
+    || reflection.actionItems?.trim()
+    || reflection.followUp?.trim(),
+  );
+}
+
+function formTextValue(formData: FormData, name: string, fallback?: string | null) {
+  return formData.has(name) ? String(formData.get(name) ?? "") : fallback ?? "";
+}
+
+function tableRoleReflectionPayload(formData: FormData, tableRole: DosAppTableRole, fallbackMeeting?: DosAppMeeting | null) {
+  const growthFallback = fallbackMeeting?.growthReflection;
+  const planningFallback = fallbackMeeting?.planningReflection;
+  const includesGrowthReflection = tableRoleIncludesGrowth(tableRole);
+  const includesPlanningReflection = tableRoleIncludesPlanning(tableRole);
+
+  return {
+    growthActionStep: includesGrowthReflection ? formTextValue(formData, "growth_action_step", growthFallback?.actionStep) : "",
+    growthFollowUpNeeded: includesGrowthReflection
+      ? formData.has("growth_follow_up_needed")
+        ? formData.get("growth_follow_up_needed") === "on"
+        : growthFallback?.followUpNeeded === true
+      : false,
+    growthMentorAssignment: includesGrowthReflection ? formTextValue(formData, "growth_mentor_assignment", growthFallback?.mentorAssignment) : "",
+    growthScriptures: includesGrowthReflection ? formTextValue(formData, "growth_scriptures", growthFallback?.scriptures) : "",
+    growthWhatGodTaught: includesGrowthReflection ? formTextValue(formData, "growth_what_god_taught", growthFallback?.whatGodTaught) : "",
+    planningActionItems: includesPlanningReflection ? formTextValue(formData, "planning_action_items", planningFallback?.actionItems) : "",
+    planningDecisions: includesPlanningReflection ? formTextValue(formData, "planning_decisions", planningFallback?.decisions) : "",
+    planningFollowUp: includesPlanningReflection ? formTextValue(formData, "planning_follow_up", planningFallback?.followUp) : "",
+    tableRole,
+  };
 }
 
 function reminderTypeLabel(value: DosAppRelationshipReminder["reminderType"]) {
@@ -1799,7 +1922,7 @@ function reviewStatusLabel(value: DosAppReviewStatus) {
     not_sent: "Not Sent",
     pending: "Pending",
     private: "Private",
-    submitted: "Submitted",
+    submitted: "Review received",
   }[value];
 }
 
@@ -1899,11 +2022,11 @@ function normalizeFieldVisibility(value: FormDataEntryValue | string | null | un
 }
 
 function showPersonInFieldList(person: DosAppPerson, showSecondary: boolean) {
-  if (person.fieldVisibility === "hidden") {
-    return false;
+  if (person.fieldVisibility === "primary") {
+    return true;
   }
 
-  return person.fieldVisibility === "primary" || (showSecondary && person.fieldVisibility === "secondary");
+  return showSecondary;
 }
 
 function phoneDigitsOnly(value: string | null | undefined) {
@@ -1983,6 +2106,7 @@ function personFormDefaults(person?: DosAppPerson | null): PersonFormDefaults {
   const defaults: PersonFormDefaults = {
     childrenNames: person.childrenNames ?? "",
     church: person.church ?? "",
+    discipleshipRelationship: person.discipleshipRelationship ?? "",
     email: person.email ?? "",
     engagementScore: relationshipScoreFromEngagementLevel(person.engagementLevel),
     fieldVisibility: person.fieldVisibility,
@@ -2145,14 +2269,20 @@ function statusLabel(value: string | null | undefined) {
   return status ? status.charAt(0).toUpperCase() + status.slice(1) : "New";
 }
 
+function discipleshipRelationshipLabel(value: DosAppDiscipleshipRelationship | null | undefined) {
+  return discipleshipRelationshipOptions.find((option) => option.value === value)?.label ?? null;
+}
+
 function relationshipLine(person: DosAppPerson) {
   const model = personRelationshipModel(person);
+  const discipleshipRelationship = discipleshipRelationshipLabel(person.discipleshipRelationship);
 
   return [
     relationshipTypePillLabel(person),
     relationshipContextLabel(model.relationshipContext),
     discipleshipStageLabel(model.discipleshipStage),
-  ].join(" · ");
+    discipleshipRelationship,
+  ].filter(Boolean).join(" · ");
 }
 
 function relationshipTypePillLabel(person: DosAppPerson) {
@@ -2446,9 +2576,118 @@ function meetingParticipantTitle(meeting: DosAppMeeting, people: DosAppPerson[])
   return formatDosParticipantTitle(meetingParticipantNames(meeting, people), "");
 }
 
+type SubmittedReviewListItem = {
+  date: string | null;
+  id: string;
+  kind: "quick_review" | "testimony_review";
+  meetingId: string;
+  overallRating: string | null;
+  personId: string | null;
+  personName: string;
+  review?: DosAppParticipantReview;
+  reviewType: "Quick Review" | "Testimony Review";
+  submittedBy: string;
+  summary: string;
+  testimony?: DosAppParticipantTestimony;
+};
+
+function submittedReviewPersonName(
+  personId: string | null,
+  meetingId: string,
+  people: DosAppPerson[],
+  meetingsById: Map<string, DosAppMeeting>,
+) {
+  if (personId) {
+    return personName(people, personId);
+  }
+
+  const meeting = meetingsById.get(meetingId);
+
+  return meeting ? meetingParticipantTitle(meeting, people) || "Linked Table" : "Unlinked person";
+}
+
+function submittedQuickReviewName(review: DosAppParticipantReview, fallback: string) {
+  const splitName = [
+    cleanIdentitySegment(review.submittedFirstName),
+    cleanIdentitySegment(review.submittedLastName),
+  ].filter(Boolean).join(" ").trim();
+
+  return splitName
+    || cleanIdentitySegment(review.submittedName)
+    || cleanIdentitySegment(review.submittedEmail)
+    || fallback;
+}
+
+function submittedTestimonyName(testimony: DosAppParticipantTestimony, fallback: string) {
+  return cleanIdentitySegment(testimony.submittedName)
+    || cleanIdentitySegment(testimony.publicDisplayName)
+    || cleanIdentitySegment(testimony.submittedEmail)
+    || fallback;
+}
+
+function buildSubmittedReviewItems({
+  meetings,
+  participantReviews,
+  participantTestimonies,
+  people,
+}: {
+  meetings: DosAppMeeting[];
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
+  people: DosAppPerson[];
+}) {
+  const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]));
+  const quickReviews: SubmittedReviewListItem[] = participantReviews
+    .filter((review) => isSubmittedStatus(review.status))
+    .map((review) => {
+      const person = submittedReviewPersonName(review.personId, review.meetingId, people, meetingsById);
+      const overallRating = quickReviewOverallRatingLabel(review.overallRating);
+
+      return {
+        date: review.submittedAt,
+        id: `quick-review-${review.id}`,
+        kind: "quick_review",
+        meetingId: review.meetingId,
+        overallRating,
+        personId: review.personId,
+        personName: person,
+        review,
+        reviewType: "Quick Review",
+        submittedBy: submittedQuickReviewName(review, person),
+        summary: review.comments?.trim() || (overallRating ? `Overall: ${overallRating}` : "Quick Review submitted."),
+      };
+    });
+  const testimonyReviews: SubmittedReviewListItem[] = participantTestimonies
+    .filter((testimony) => isSubmittedStatus(testimony.status))
+    .map((testimony) => {
+      const person = submittedReviewPersonName(testimony.personId, testimony.meetingId, people, meetingsById);
+
+      return {
+        date: testimony.submittedAt,
+        id: `testimony-review-${testimony.id}`,
+        kind: "testimony_review",
+        meetingId: testimony.meetingId,
+        overallRating: null,
+        personId: testimony.personId,
+        personName: person,
+        reviewType: "Testimony Review",
+        submittedBy: submittedTestimonyName(testimony, person),
+        summary: testimony.whatChanged?.trim() || testimony.story?.trim() || "Testimony Review submitted.",
+        testimony,
+      };
+    });
+
+  return [...quickReviews, ...testimonyReviews]
+    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
+}
+
 function meetingFallbackTitle(meeting: DosAppMeeting) {
   const context = meetingActivityTitle(meeting);
   const normalizedContext = context.toLowerCase();
+
+  if (meeting.source === "table") {
+    return context;
+  }
 
   if (normalizedContext.includes("table")) {
     return context;
@@ -5223,6 +5462,36 @@ type DosAppCatalogSection = {
   label: string;
 };
 
+const dosGroupsSummary = [
+  {
+    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+    href: "/groups/2three2",
+    name: "2three2",
+    rhythm: "Weekly · Saturday · 7:00 AM",
+    scripture: "2 Timothy 2:22",
+    tagline: "Run. Pray. Pursue.",
+    type: "Running Group",
+  },
+  {
+    description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
+    href: "",
+    name: "Tuesday Men's Group",
+    rhythm: "Weekly · Tuesday · 6:00 AM",
+    scripture: "",
+    tagline: "Grow together.",
+    type: "Men's Group",
+  },
+  {
+    description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
+    href: "",
+    name: "Wednesday Men's Group",
+    rhythm: "Weekly · Wednesday · Evening",
+    scripture: "",
+    tagline: "Brotherhood. Prayer. Discipleship.",
+    type: "Men's Group",
+  },
+] as const;
+
 function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
   return (
     <button
@@ -5255,6 +5524,56 @@ function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
         ))}
       </div>
     </DesktopPanel>
+  );
+}
+
+function GroupsWorkspace({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
+        <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_260px] md:items-center">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Discipleship Rhythms</p>
+            <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+              Discipleship happens in rhythms.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
+              Build consistent rhythms through weekly gatherings, prayer, accountability, and community.
+            </p>
+          </div>
+          <div className="rounded-[20px] border border-[#102033] bg-[#06111F] p-4 text-white shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Featured Group</p>
+            <p className="mt-2 text-3xl font-black leading-none text-[#F8C56A]" style={{ fontFamily: font.oswald }}>2three2</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-white/72">Run. Pray. Pursue.</p>
+          </div>
+        </div>
+      </section>
+      <div className="grid gap-3 md:grid-cols-3">
+        {dosGroupsSummary.map((group) => (
+          <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]" key={group.name}>
+            <div className="flex items-start justify-between gap-3">
+              <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                {group.type}
+              </span>
+              <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                Private
+              </span>
+            </div>
+            <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>{group.name}</h3>
+            <p className="mt-1 text-sm font-bold text-[#2563EB]">{group.tagline}</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group.rhythm}</p>
+            {group.scripture ? <p className="mt-2 text-sm font-bold text-[#0F172A]">{group.scripture}</p> : null}
+            <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#64748B]">{group.description}</p>
+            {group.href ? (
+              <Link className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" href={group.href}>
+                View Public
+              </Link>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -5376,14 +5695,18 @@ function DesktopHomeDashboard({
   fruitEvents,
   fruitItems,
   loggedMeetings,
+  meetings,
   onOpenFruit,
   onOpenMeeting,
   onOpenPerson,
   onOpenReports,
+  onOpenReview,
+  onOpenReviews,
   onOpenTable,
   onOpenTableCalendar,
   onViewField,
   participantReviews = [],
+  participantTestimonies = [],
   people,
   personTableStatsByPersonId,
   upcomingItems,
@@ -5392,21 +5715,33 @@ function DesktopHomeDashboard({
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
+  meetings: DosAppMeeting[];
   onOpenFruit: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
   onOpenReports: () => void;
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+  onOpenReviews: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onViewField: () => void;
   participantReviews?: DosAppParticipantReview[];
+  participantTestimonies?: DosAppParticipantTestimony[];
   people: DosAppPerson[];
   personTableStatsByPersonId: Map<string, PersonTableStats>;
   upcomingItems: UpcomingTimelineItem[];
 }) {
   const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0);
   const totalPeopleMet = new Set(loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds)).size;
-  const totalReviews = participantReviews.filter((review) => isSubmittedStatus(review.status)).length;
+  const submittedReviewItems = buildSubmittedReviewItems({
+    meetings,
+    participantReviews,
+    participantTestimonies,
+    people,
+  });
+  const totalReviews = submittedReviewItems.length;
+  const newestReview = submittedReviewItems[0] ?? null;
+  const recentReviewItems = submittedReviewItems.slice(0, 3);
   const circleCounts = {
     my3: circleGroups.three.length,
     my12: circleGroups.twelve.length,
@@ -5490,7 +5825,7 @@ function DesktopHomeDashboard({
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total tables", value: loggedMeetings.length },
     { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total hours logged", value: formatDashboardDuration(totalDurationMinutes) },
     { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: totalPeopleMet },
-    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", value: totalReviews },
+    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", onClick: onOpenReviews, value: totalReviews },
   ];
   const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 6).map((item, index) => {
     const previewDate = !item.meeting && item.icon === "birthday" ? upcomingDashboardPreviewDate(index) : null;
@@ -5615,7 +5950,7 @@ function DesktopHomeDashboard({
         </DesktopPanel>
       </div>
 
-      <div className="grid gap-3 min-[1180px]:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <div className="grid gap-3 min-[1180px]:grid-cols-3">
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
           <div className="grid">
             {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
@@ -5659,21 +5994,87 @@ function DesktopHomeDashboard({
             )}
           </div>
         </DesktopPanel>
+
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReviews}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Reviews">
+          <div className="grid gap-1">
+            {recentReviewItems.length ? recentReviewItems.map((item) => (
+              <article className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  {item.kind === "testimony_review" ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.personName}</span>
+                  <span className="mt-1 block truncate text-xs text-[#475569]">{item.reviewType} · {formatDate(item.date)}</span>
+                </span>
+                <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
+              </article>
+            )) : (
+              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No reviews submitted yet.</p>
+            )}
+          </div>
+        </DesktopPanel>
       </div>
 
       <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Table</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {tableActivityMetrics.map((metric) => (
-            <div className="flex min-h-[96px] min-w-0 flex-col justify-between rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={metric.label}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                {metric.icon}
-              </span>
-              <span className="mt-3 min-w-0">
-                <span className="block truncate text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
-                <span className="mt-1.5 block text-[10px] font-black uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-              </span>
-            </div>
-          ))}
+          {tableActivityMetrics.map((metric) => {
+            const metricContent = (
+              <>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                  {metric.icon}
+                </span>
+                <span className="mt-3 min-w-0">
+                  <span className="block truncate text-xl font-black leading-none tracking-[-0.02em] text-[#0F172A]">{metric.value}</span>
+                  <span className="mt-1.5 block text-[10px] font-black uppercase leading-tight tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                </span>
+              </>
+            );
+
+            const isInteractiveMetric = Boolean(metric.onClick);
+
+            return (
+              <article
+                aria-label={isInteractiveMetric ? "Open reviews" : undefined}
+                className={`min-h-[96px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 ${
+                  isInteractiveMetric
+                    ? "cursor-pointer transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30"
+                    : ""
+                }`}
+                key={metric.label}
+                onClick={metric.onClick}
+                onKeyDown={isInteractiveMetric ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    metric.onClick?.();
+                  }
+                } : undefined}
+                role={isInteractiveMetric ? "button" : undefined}
+                tabIndex={isInteractiveMetric ? 0 : undefined}
+              >
+                <div className="flex min-w-0 flex-col justify-between">
+                  {metricContent}
+                </div>
+                {metric.label === "Total reviews" && newestReview ? (
+                  <div className="mt-3 rounded-[14px] border border-[#DCEBFF] bg-white px-2.5 py-2">
+                    <p className="truncate text-[11px] font-semibold leading-4 text-[#475569]">
+                      Newest: <span className="font-bold text-[#0F172A]">{newestReview.personName}</span>
+                    </p>
+                    <button
+                      className="mt-1 inline-flex text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenReview(newestReview);
+                      }}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      type="button"
+                    >
+                      View
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </DesktopPanel>
 
@@ -6714,6 +7115,7 @@ const defaultAvailabilitySettings: AvailabilitySettings = defaultDosTableInvitat
 
 const fruitViewTabs: ReadonlyArray<SegmentedTabOption<FruitView>> = [
   { label: "Activity", value: "activity" },
+  { label: "Reviews", value: "reviews" },
   { label: "Impact", value: "impact" },
   { label: "Forms", value: "forms" },
 ];
@@ -6752,6 +7154,15 @@ const prayerWorkspaceTabs: ReadonlyArray<SegmentedTabOption<PrayerWorkspaceTab>>
   { label: "Praying For", value: "praying_for" },
   { label: "My Requests", value: "my_requests" },
   { label: "Prayer Partners", value: "partners" },
+];
+
+const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Journal", value: "journal" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Mentors", value: "mentors" },
+  { label: "Assessments", value: "assessments" },
+  { label: "Timeline", value: "timeline" },
 ];
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
@@ -11460,6 +11871,26 @@ function MeetingCaptureNotes({
   );
 }
 
+function TableRolePicker({
+  onChange,
+  value,
+}: {
+  onChange: (value: DosAppTableRole) => void;
+  value: DosAppTableRole;
+}) {
+  return (
+    <>
+      <input name="table_role" type="hidden" value={value} />
+      <CompactOptionSelect
+        label="What best describes your role at this table?"
+        onChange={(nextValue) => onChange(normalizeTableRole(nextValue))}
+        options={tableRoleOptions}
+        value={value}
+      />
+    </>
+  );
+}
+
 function MeetingLeaderReflectionSection({
   followUpNeededDefault = false,
   notesDefault,
@@ -11489,6 +11920,11 @@ function MeetingLeaderReflectionSection({
           <VoiceTextarea aria-label="Prayer Needs" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
         </DosFormField>
       </DosFormSection>
+      <DosFormSection icon="arrow" title="Next Steps">
+        <DosFormField>
+          <VoiceTextarea aria-label="Next Steps" className={`${FieldTextareaClass(false)} min-h-20`} name="next_step" />
+        </DosFormField>
+      </DosFormSection>
       <DosFormSection icon="arrow" title="What needs follow up?">
         <DosFormToggleRow
           defaultChecked={followUpNeededDefault}
@@ -11500,6 +11936,132 @@ function MeetingLeaderReflectionSection({
       <DosFormSection icon="log" title="Notes">
         <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
       </DosFormSection>
+    </>
+  );
+}
+
+function MeetingGrowthReflectionSection({
+  defaultValue,
+}: {
+  defaultValue?: DosAppMeeting["growthReflection"] | null;
+}) {
+  return (
+    <>
+      <DosFormSection icon="log" title="Growth Reflection">
+        <DosFormField label="What did God teach you?">
+          <VoiceTextarea
+            aria-label="What did God teach you?"
+            className={`${FieldTextareaClass(true)} min-h-24`}
+            defaultValue={defaultValue?.whatGodTaught ?? ""}
+            name="growth_what_god_taught"
+            required
+          />
+        </DosFormField>
+        <DosFormField label="What Scriptures were discussed?">
+          <VoiceTextarea
+            aria-label="What Scriptures were discussed?"
+            className={`${FieldTextareaClass(true)} min-h-20`}
+            defaultValue={defaultValue?.scriptures ?? ""}
+            name="growth_scriptures"
+          />
+        </DosFormField>
+        <DosFormField label="What action will you take?">
+          <VoiceTextarea
+            aria-label="What action will you take?"
+            className={`${FieldTextareaClass(true)} min-h-20`}
+            defaultValue={defaultValue?.actionStep ?? ""}
+            name="growth_action_step"
+            required
+          />
+        </DosFormField>
+        <DosFormField label="Did your mentor give you an assignment?">
+          <VoiceTextarea
+            aria-label="Did your mentor give you an assignment?"
+            className={`${FieldTextareaClass(true)} min-h-20`}
+            defaultValue={defaultValue?.mentorAssignment ?? ""}
+            name="growth_mentor_assignment"
+          />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="arrow" title="Follow-Up">
+        <DosFormToggleRow
+          defaultChecked={defaultValue?.followUpNeeded === true}
+          name="growth_follow_up_needed"
+          title="Follow-up needed?"
+        />
+      </DosFormSection>
+    </>
+  );
+}
+
+function MeetingPlanningReflectionSection({
+  defaultValue,
+}: {
+  defaultValue?: DosAppMeeting["planningReflection"] | null;
+}) {
+  return (
+    <DosFormSection icon="log" title="Planning Notes">
+      <DosFormField label="Decisions made">
+        <VoiceTextarea
+          aria-label="Decisions made"
+          className={`${FieldTextareaClass(true)} min-h-24`}
+          defaultValue={defaultValue?.decisions ?? ""}
+          name="planning_decisions"
+          required
+        />
+      </DosFormField>
+      <DosFormField label="Action items">
+        <VoiceTextarea
+          aria-label="Action items"
+          className={`${FieldTextareaClass(true)} min-h-24`}
+          defaultValue={defaultValue?.actionItems ?? ""}
+          name="planning_action_items"
+          required
+        />
+      </DosFormField>
+      <DosFormField label="Follow-up">
+        <VoiceTextarea
+          aria-label="Follow-up"
+          className={`${FieldTextareaClass(true)} min-h-20`}
+          defaultValue={defaultValue?.followUp ?? ""}
+          name="planning_follow_up"
+        />
+      </DosFormField>
+    </DosFormSection>
+  );
+}
+
+function MeetingRoleReflectionSections({
+  growthReflectionDefault,
+  notesDefault,
+  onToggleOutcomeTag,
+  planningReflectionDefault,
+  selectedOutcomeTags,
+  tableRole,
+}: {
+  growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
+  notesDefault?: string | null;
+  onToggleOutcomeTag: (tag: string) => void;
+  planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
+  selectedOutcomeTags: string[];
+  tableRole: DosAppTableRole;
+}) {
+  if (tableRoleIncludesPlanning(tableRole)) {
+    return <MeetingPlanningReflectionSection defaultValue={planningReflectionDefault} />;
+  }
+
+  return (
+    <>
+      {tableRoleIncludesMinistering(tableRole) ? (
+        <MeetingLeaderReflectionSection
+          notesDefault={notesDefault}
+          onToggleOutcomeTag={onToggleOutcomeTag}
+          selectedOutcomeTags={selectedOutcomeTags}
+        />
+      ) : null}
+      {tableRoleIncludesGrowth(tableRole) ? (
+        <MeetingGrowthReflectionSection defaultValue={growthReflectionDefault} />
+      ) : null}
     </>
   );
 }
@@ -11760,6 +12322,7 @@ function MeetingFormContent({
   dateDefault,
   durationDefault,
   errorMessage,
+  growthReflectionDefault,
   householdMembers,
   includeReflectionFields = false,
   isCreatingPerson = false,
@@ -11778,6 +12341,7 @@ function MeetingFormContent({
   onSubmit,
   onSupportingAttendeeQueryChange,
   onSupportingAttendeeSubRoleChange,
+  onTableRoleChange,
   onToggleFollowUpAction,
   onToggleMinistryTeamMember,
   onToggleMinistryTeamPerson,
@@ -11785,6 +12349,7 @@ function MeetingFormContent({
   onTogglePerson,
   onToggleSupportingAttendee,
   onPeopleQueryChange,
+  planningReflectionDefault,
   recommendedResources,
   scheduledEndAtDefault,
   scheduledStartAtDefault,
@@ -11795,6 +12360,7 @@ function MeetingFormContent({
   selectedOutcomeTags,
   selectedPersonIds,
   selectedSupportingAttendeeIds,
+  selectedTableRole,
   showConversationFlow = true,
   showDurationField = false,
   showScheduledTiming = false,
@@ -11810,6 +12376,7 @@ function MeetingFormContent({
   dateDefault: string;
   durationDefault?: number | string | null;
   errorMessage?: string;
+  growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
   householdMembers: DosAppData["householdMembers"];
   includeReflectionFields?: boolean;
   isCreatingPerson?: boolean;
@@ -11828,6 +12395,7 @@ function MeetingFormContent({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSupportingAttendeeQueryChange: (value: string) => void;
   onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
+  onTableRoleChange: (value: DosAppTableRole) => void;
   onToggleFollowUpAction: (actionId: string) => void;
   onToggleMinistryTeamMember: (memberId: string) => void;
   onToggleMinistryTeamPerson: (personId: string) => void;
@@ -11835,6 +12403,7 @@ function MeetingFormContent({
   onTogglePerson: (personId: string) => void;
   onToggleSupportingAttendee: (personId: string) => void;
   onPeopleQueryChange: (value: string) => void;
+  planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
   recommendedResources: DosRecommendedResource[];
   scheduledEndAtDefault?: string | null;
   scheduledStartAtDefault?: string | null;
@@ -11845,6 +12414,7 @@ function MeetingFormContent({
   selectedOutcomeTags?: string[];
   selectedPersonIds: string[];
   selectedSupportingAttendeeIds: string[];
+  selectedTableRole: DosAppTableRole;
   showConversationFlow?: boolean;
   showDurationField?: boolean;
   showScheduledTiming?: boolean;
@@ -11880,6 +12450,7 @@ function MeetingFormContent({
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
   const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
   const scheduledDurationDefault = durationMinutesFromDateRange(scheduledStartAtDefault, scheduledEndAtDefault);
+  const showRoleReflectionFields = includeReflectionFields || selectedTableRole !== "ministering";
 
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
@@ -11896,6 +12467,9 @@ function MeetingFormContent({
         ) : (
           <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
         )}
+      </DosFormSection>
+      <DosFormSection icon="meetings" title="Discipleship Role">
+        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
       </DosFormSection>
       <DosFormSection icon="people" title="Ministry Team">
         <MinistryTeamSelector
@@ -11944,13 +12518,23 @@ function MeetingFormContent({
           />
         ) : null}
       </DosFormSection>
+<<<<<<< HEAD
       {includeReflectionFields ? (
         <MeetingLeaderReflectionSection
           followUpNeededDefault={reflectionDefault?.followUpNeeded}
           notesDefault={notesDefault}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
           prayerNeedsDefault={reflectionDefault?.prayerNeeds}
+=======
+      {showRoleReflectionFields ? (
+        <MeetingRoleReflectionSections
+          growthReflectionDefault={growthReflectionDefault}
+          notesDefault={notesDefault}
+          onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
+          planningReflectionDefault={planningReflectionDefault}
+>>>>>>> origin/codex/public-launch-cleanup
           selectedOutcomeTags={selectedOutcomeTags ?? []}
+          tableRole={selectedTableRole}
         />
       ) : (
         <DosFormSection icon="log" title="Notes">
@@ -12051,9 +12635,11 @@ function ScheduleMeetingForm({
   onPeopleQueryChange,
   onStartLogMeeting,
   onSubmit,
+  onTableRoleChange,
   onTogglePerson,
   selectedMeetingContext,
   selectedPersonIds,
+  selectedTableRole,
   workspaceId,
   workspaceSlug,
 }: {
@@ -12071,9 +12657,11 @@ function ScheduleMeetingForm({
   onPeopleQueryChange: (value: string) => void;
   onStartLogMeeting: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onTableRoleChange: (value: DosAppTableRole) => void;
   onTogglePerson: (personId: string) => void;
   selectedMeetingContext: DosAppMeetingType;
   selectedPersonIds: string[];
+  selectedTableRole: DosAppTableRole;
   workspaceId: string;
   workspaceSlug: string;
 }) {
@@ -12122,6 +12710,9 @@ function ScheduleMeetingForm({
       </DosFormSection>
       <DosFormSection icon="meetings" title="What are you scheduling?">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
+      </DosFormSection>
+      <DosFormSection icon="meetings" title="Discipleship Role">
+        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
       </DosFormSection>
       <DosFormSection icon="calendar" title="Timing">
         <div>
@@ -16324,6 +16915,14 @@ function PersonFormContent({
       <DosFormSection icon="people" title="Relationship Context">
         <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
       </DosFormSection>
+      <DosFormSection icon="people" title="Discipleship Relationship">
+        <FormOptionSelect
+          defaultValue={additionalDefaults?.discipleshipRelationship ?? ""}
+          label="Context"
+          name="discipleship_relationship"
+          options={discipleshipRelationshipOptions}
+        />
+      </DosFormSection>
       <DosFormSection icon="fruit" title="Engagement Level">
         <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
       </DosFormSection>
@@ -16400,6 +16999,7 @@ function SectionEmptyState({
   );
 }
 
+<<<<<<< HEAD
 function AssessmentResultPlaceholderCard({
   href,
   title,
@@ -16524,10 +17124,111 @@ function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone })
 
   return (
     <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
+=======
+const myRecordJournalTags = ["Prayer", "Scripture", "Worship", "Repentance", "Direction", "Thanksgiving"] as const;
+
+type MyRecordSavePayload = Record<string, unknown>;
+
+function formatRecordDuration(minutes: number) {
+  if (minutes <= 0) {
+    return "0m";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (!hours) {
+    return `${remainingMinutes}m`;
+  }
+
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function myRecordDateValue(value: string | null | undefined) {
+  return dateSortValue(value);
+}
+
+function latestMyRecordDate(...values: Array<string | null | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value))
+    .sort((first, second) => myRecordDateValue(second) - myRecordDateValue(first))[0] ?? null;
+}
+
+function personNameById(people: DosAppPerson[]) {
+  return new Map(people.map((person) => [person.id, person.name]));
+}
+
+function MyRecordTabBar({
+  onChange,
+  value,
+}: {
+  onChange: (tab: MyRecordTab) => void;
+  value: MyRecordTab;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-[22px] bg-[#E2E8F0] p-1 shadow-inner shadow-white/60 min-[520px]:grid-cols-3 xl:grid-cols-6">
+      {myRecordTabs.map((tab) => (
+        <button
+          aria-pressed={value === tab.value}
+          className={`min-h-9 rounded-[18px] px-2 text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+            value === tab.value
+              ? "bg-white text-[#0F172A] shadow-[0_8px_18px_rgba(42,37,29,0.08)]"
+              : "text-[#64748B] hover:text-[#0F172A]"
+          }`}
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MyRecordMetricCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-[20px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+          {icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
+          <span className="mt-1 block truncate text-sm font-black text-[#0F172A]">{value}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MyRecordActivityRow({
+  body,
+  date,
+  icon,
+  title,
+}: {
+  body?: string | null;
+  date: string | null;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
+>>>>>>> origin/codex/public-launch-cleanup
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
+<<<<<<< HEAD
         <span className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="min-w-0 flex-1 text-sm font-bold leading-5 text-[#0F172A]">{milestone.title}</span>
           <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">
@@ -16538,11 +17239,1122 @@ function GrowthMilestoneRow({ milestone }: { milestone: PersonGrowthMilestone })
           {milestone.source}
         </span>
         <span className="mt-1 line-clamp-2 block text-sm leading-6 text-[#64748B]">{milestone.description}</span>
+=======
+        <span className="block truncate text-sm font-bold leading-5 text-[#0F172A]">{title}</span>
+        {body ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{body}</span> : null}
+        <span className="mt-2 inline-flex rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          {formatDate(date)}
+        </span>
+>>>>>>> origin/codex/public-launch-cleanup
       </span>
     </article>
   );
 }
 
+<<<<<<< HEAD
+=======
+function MyRecordTimerControls({
+  elapsedMinutes,
+  isRunning,
+  onReset,
+  onStart,
+  onStop,
+}: {
+  elapsedMinutes: number | null;
+  isRunning: boolean;
+  onReset: () => void;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  return (
+    <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-xs font-bold text-[#0F172A]">Timer</span>
+          <span className="mt-0.5 block text-xs leading-5 text-[#64748B]">
+            {isRunning ? "Timer running" : elapsedMinutes ? `${elapsedMinutes} minutes ready` : "Optional helper for this entry"}
+          </span>
+        </span>
+        <span className="flex shrink-0 gap-2">
+          {isRunning ? (
+            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-bold text-white" onClick={onStop} type="button">
+              <Square className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+              Stop
+            </button>
+          ) : (
+            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={onStart} type="button">
+              <Clock className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={2} />
+              Start
+            </button>
+          )}
+          {elapsedMinutes ? (
+            <button className="inline-flex min-h-9 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B]" onClick={onReset} type="button">
+              Reset
+            </button>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MyRecordJournalForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isRunning = timerStartedAt !== null;
+
+  function toggleTag(tag: string) {
+    setSelectedTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]);
+  }
+
+  function stopTimer() {
+    if (!timerStartedAt) {
+      return;
+    }
+
+    setTimerMinutes(Math.max(1, Math.round((Date.now() - timerStartedAt) / 60_000)));
+    setTimerStartedAt(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        biblePassage: String(formData.get("bible_passage") ?? ""),
+        date: String(formData.get("date") ?? todayDateValue()),
+        kind: "journal",
+        lordHighlight: String(formData.get("lord_highlight") ?? ""),
+        minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
+        notes: String(formData.get("notes") ?? ""),
+        prayerResponse: String(formData.get("prayer_response") ?? ""),
+        tags: selectedTags,
+      }, "journal");
+
+      if (saved) {
+        formRef.current?.reset();
+        setSelectedTags([]);
+        setTimerStartedAt(null);
+        setTimerMinutes(null);
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="library" title="Quiet Time">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Time Spent">
+            <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <MyRecordTimerControls
+          elapsedMinutes={timerMinutes}
+          isRunning={isRunning}
+          onReset={() => {
+            setTimerStartedAt(null);
+            setTimerMinutes(null);
+          }}
+          onStart={() => setTimerStartedAt(Date.now())}
+          onStop={stopTimer}
+        />
+        <DosFormField label="Bible Passage">
+          <input className={FieldInputClass()} name="bible_passage" placeholder="John 15, Psalm 23, Romans 8" />
+        </DosFormField>
+        <DosFormField label="Notes / Reflection">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Write what you noticed." />
+        </DosFormField>
+        <DosFormField label="What did the Lord highlight?">
+          <VoiceTextarea className={FieldTextareaClass()} name="lord_highlight" placeholder="Capture the main highlight." />
+        </DosFormField>
+        <DosFormField label="Prayer Response / Next Step">
+          <VoiceTextarea className={FieldTextareaClass()} name="prayer_response" placeholder="How will you respond?" />
+        </DosFormField>
+      </DosFormSection>
+      <DosFormSection icon="fruit" title="Tags">
+        <div className="grid grid-cols-2 gap-2 min-[520px]:grid-cols-3">
+          {myRecordJournalTags.map((tag) => {
+            const selected = selectedTags.includes(tag);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`min-h-10 rounded-2xl border px-3 text-left text-xs font-bold ${
+                  selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-white text-[#475569]"
+                }`}
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                type="button"
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Journal Entry"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordPrayerForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const isRunning = timerStartedAt !== null;
+
+  function stopTimer() {
+    if (!timerStartedAt) {
+      return;
+    }
+
+    setTimerMinutes(Math.max(1, Math.round((Date.now() - timerStartedAt) / 60_000)));
+    setTimerStartedAt(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        answeredStatus: String(formData.get("answered_status") ?? "open"),
+        date: String(formData.get("date") ?? todayDateValue()),
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        kind: "prayer",
+        minutesSpent: Number.isFinite(minutes) ? minutes : timerMinutes ?? 0,
+        notes: String(formData.get("notes") ?? ""),
+        prayerFocus: String(formData.get("prayer_focus") ?? ""),
+      }, "prayer");
+
+      if (saved) {
+        formRef.current?.reset();
+        setTimerStartedAt(null);
+        setTimerMinutes(null);
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="prayer" title="Prayer Time">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Time Spent">
+            <input className={FieldInputClass()} defaultValue={timerMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <MyRecordTimerControls
+          elapsedMinutes={timerMinutes}
+          isRunning={isRunning}
+          onReset={() => {
+            setTimerStartedAt(null);
+            setTimerMinutes(null);
+          }}
+          onStart={() => setTimerStartedAt(Date.now())}
+          onStop={stopTimer}
+        />
+        <DosFormField label="Prayer Focus">
+          <input className={FieldInputClass()} name="prayer_focus" placeholder="Family, direction, healing, a person, a team" />
+        </DosFormField>
+        <FormOptionSelect
+          label="Answered Status"
+          name="answered_status"
+          options={[
+            { label: "Open", value: "open" },
+            { label: "Watching", value: "watching" },
+            { label: "Answered", value: "answered" },
+          ]}
+        />
+        <FormOptionSelect
+          label="Person Prayed For"
+          name="field_person_id"
+          options={[
+            { label: "Not linked", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What did you pray through?" />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Prayer Time"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordMentorRelationshipForm({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void (async () => {
+      const saved = await onSave({
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        kind: "mentor_relationship",
+        mentorName: String(formData.get("mentor_name") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+        relationshipLabel: String(formData.get("relationship_label") ?? ""),
+      }, "mentors");
+
+      if (saved) {
+        formRef.current?.reset();
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="people" title="Add Mentor">
+        <FormOptionSelect
+          label="Existing Field Contact"
+          name="field_person_id"
+          options={[
+            { label: "Manual mentor", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField helper="Use this when the mentor is not in Field yet." label="Manual Name">
+          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
+        <DosFormField label="Relationship">
+          <input className={FieldInputClass()} name="relationship_label" placeholder="Pastor, coach, spiritual father, peer" />
+        </DosFormField>
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="What role do they play in your walk?" />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Add Mentor"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordMentorMeetingForm({
+  errorMessage,
+  isSubmitting,
+  mentors,
+  onSave,
+  people,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  mentors: DosAppUserMentorRelationship[];
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  people: DosAppPerson[];
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+
+    void (async () => {
+      const saved = await onSave({
+        actionSteps: String(formData.get("action_steps") ?? ""),
+        counselReceived: String(formData.get("counsel_received") ?? ""),
+        date: String(formData.get("date") ?? todayDateValue()),
+        discussed: String(formData.get("discussed") ?? ""),
+        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        followUpDate: String(formData.get("follow_up_date") ?? ""),
+        kind: "mentor_meeting",
+        mentorName: String(formData.get("mentor_name") ?? ""),
+        minutesSpent: Number.isFinite(minutes) ? minutes : 0,
+        notes: String(formData.get("notes") ?? ""),
+        relationshipId: String(formData.get("relationship_id") ?? ""),
+      }, "mentors");
+
+      if (saved) {
+        formRef.current?.reset();
+      }
+    })();
+  }
+
+  return (
+    <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <DosFormSection icon="people" title="Mentor Meeting">
+        <DosFormGrid>
+          <DosDateInput defaultValue={todayDateValue()} label="Date" name="date" />
+          <DosFormField label="Duration">
+            <input className={FieldInputClass()} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
+          </DosFormField>
+        </DosFormGrid>
+        <FormOptionSelect
+          label="Saved Mentor"
+          name="relationship_id"
+          options={[
+            { label: "Choose or add below", value: "" },
+            ...mentors.filter((mentor) => mentor.status === "active").map((mentor) => ({
+              helper: mentor.relationshipLabel ?? undefined,
+              label: mentor.mentorName,
+              value: mentor.id,
+            })),
+          ]}
+        />
+        <FormOptionSelect
+          label="Field Contact"
+          name="field_person_id"
+          options={[
+            { label: "Not linked", value: "" },
+            ...people.map((person) => ({
+              helper: relationshipLine(person),
+              label: person.name,
+              value: person.id,
+            })),
+          ]}
+        />
+        <DosFormField helper="Use this if you did not select a saved mentor." label="Manual Mentor Name">
+          <input className={FieldInputClass()} name="mentor_name" placeholder="Mentor name" />
+        </DosFormField>
+        <DosFormField label="What was discussed?">
+          <VoiceTextarea className={FieldTextareaClass()} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
+        </DosFormField>
+        <DosFormField label="Counsel Received">
+          <VoiceTextarea className={FieldTextareaClass()} name="counsel_received" placeholder="What counsel or correction was given?" />
+        </DosFormField>
+        <DosFormField label="Action Steps">
+          <VoiceTextarea className={FieldTextareaClass()} name="action_steps" placeholder="What will you obey or follow up on?" />
+        </DosFormField>
+        <DosDateInput label="Follow-up Date" name="follow_up_date" />
+        <DosFormField label="Notes">
+          <VoiceTextarea className={FieldTextareaClass()} name="notes" placeholder="Private notes." />
+        </DosFormField>
+      </DosFormSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Log Mentor Meeting"}</AppButton>
+    </form>
+  );
+}
+
+const myRecordReportRanges = [
+  { label: "7 Days", value: "7d" },
+  { label: "30 Days", value: "30d" },
+  { label: "Quarter", value: "quarter" },
+  { label: "YTD", value: "ytd" },
+] as const;
+
+const myRecordFutureSharingRoles = ["Mentor", "Spouse", "Board Member", "Accountability Partner", "Pastor", "Custom Viewer"] as const;
+const myRecordFutureShareableSections = [
+  "Quiet Time",
+  "Prayer",
+  "Journal",
+  "Mentor Meetings",
+  "Assessments",
+  "Ministry Activity",
+  "Fruit",
+  "Answered Prayers",
+  "Goals",
+  "Next Steps",
+] as const;
+
+type MyRecordReportRange = typeof myRecordReportRanges[number]["value"];
+
+function myRecordRangeStart(range: MyRecordReportRange) {
+  const date = new Date();
+
+  if (range === "7d") {
+    date.setDate(date.getDate() - 6);
+  } else if (range === "30d") {
+    date.setDate(date.getDate() - 29);
+  } else if (range === "quarter") {
+    const currentMonth = date.getMonth();
+    date.setMonth(currentMonth - 2, 1);
+  } else {
+    date.setMonth(0, 1);
+  }
+
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function isMyRecordDateInRange(value: string | null | undefined, range: MyRecordReportRange) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+
+  return Number.isFinite(parsed.getTime()) && parsed >= myRecordRangeStart(range);
+}
+
+function latestMyRecordAssessmentResult(results: DosAppUserAssessmentResult[]) {
+  return [...results].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))[0] ?? null;
+}
+
+function myRecordAssessmentTrend(result: DosAppUserAssessmentResult, results: DosAppUserAssessmentResult[]) {
+  const sameAssessment = results
+    .filter((item) => item.assessmentSlug === result.assessmentSlug)
+    .sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt));
+  const currentIndex = sameAssessment.findIndex((item) => item.id === result.id);
+  const previous = currentIndex >= 0 ? sameAssessment[currentIndex + 1] : null;
+
+  if (!previous) {
+    return "First result";
+  }
+
+  const delta = Math.round(result.percentage - previous.percentage);
+
+  if (delta === 0) {
+    return "No change";
+  }
+
+  return delta > 0 ? `+${delta}% from last time` : `${delta}% from last time`;
+}
+
+function MyRecordAssessmentResultCard({
+  result,
+  trend,
+  onRetake,
+}: {
+  result: DosAppUserAssessmentResult;
+  trend: string;
+  onRetake?: () => void;
+}) {
+  return (
+    <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-[#0F172A]">{result.assessmentName}</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
+            {formatDate(result.completedAt)} · Private
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#ECFDF5] px-3 py-1 text-xs font-black text-[#047857]">
+          {Math.round(result.percentage)}%
+        </span>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {[
+          ["Score", `${result.overallScore}/${result.maxScore}`],
+          ["Trend", trend],
+          ["Visibility", "Private"],
+        ].map(([label, value]) => (
+          <span className="rounded-full bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#475569]" key={label}>
+            <span className="font-black text-[#0F172A]">{label}:</span> {value}
+          </span>
+        ))}
+      </div>
+      {result.categoryScores.length ? (
+        <div className="mt-4 grid gap-2">
+          {result.categoryScores.map((category) => (
+            <div className="min-w-0 rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] p-3" key={category.id}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-xs font-bold text-[#0F172A]">{category.title}</span>
+                <span className="shrink-0 text-xs font-black text-[#2563EB]">{category.score}/{category.maxScore}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+                <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(100, Math.max(0, category.percentage))}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {onRetake ? (
+        <button className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={onRetake} type="button">
+          <RefreshCw className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+          Retake
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
+function MyRecordAssessmentForm({
+  assessment,
+  errorMessage,
+  isSubmitting,
+  onSave,
+}: {
+  assessment: DosResource;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+}) {
+  const definition = assessment.content?.assessment;
+  const questions = definition?.questions ?? [];
+  const maxScore = Math.max(definition?.maxScore ?? 0, questions.length * 10);
+  const initialAnswers = useMemo(() => Object.fromEntries(questions.map((question) => [question.id, 5])), [questions]);
+  const [answers, setAnswers] = useState<Record<string, number>>(initialAnswers);
+  const overallScore = Object.values(answers).reduce((sum, score) => sum + score, 0);
+  const percentage = maxScore ? Math.round((overallScore / maxScore) * 100) : 0;
+
+  useEffect(() => {
+    setAnswers(initialAnswers);
+  }, [initialAnswers]);
+
+  function setAnswer(questionId: string, value: string) {
+    const numericValue = Number.parseInt(value, 10);
+
+    setAnswers((current) => ({
+      ...current,
+      [questionId]: Math.min(10, Math.max(0, Number.isFinite(numericValue) ? numericValue : 0)),
+    }));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    void onSave({
+      answers,
+      assessmentSlug: assessment.slug,
+      kind: "assessment_result",
+    }, "assessments");
+  }
+
+  return (
+    <form className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-[#0F172A]">{assessment.title}</p>
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">{assessment.description}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#EBF2FF] px-3 py-1 text-xs font-black text-[#2563EB]">{percentage}%</span>
+      </div>
+      <div className="grid gap-3">
+        {questions.map((question, index) => (
+          <label className="grid gap-2 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={question.id}>
+            <span className="flex min-w-0 items-start justify-between gap-3">
+              <span className="min-w-0 text-sm font-bold leading-5 text-[#0F172A]">{index + 1}. {question.prompt}</span>
+              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-[#2563EB]">{answers[question.id] ?? 0}/10</span>
+            </span>
+            {question.note ? <span className="text-xs leading-5 text-[#64748B]">{question.note}</span> : null}
+            <input
+              className="h-2 w-full accent-[#2563EB]"
+              max={10}
+              min={0}
+              onChange={(event) => setAnswer(question.id, event.target.value)}
+              type="range"
+              value={answers[question.id] ?? 0}
+            />
+          </label>
+        ))}
+      </div>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Assessment"}</AppButton>
+    </form>
+  );
+}
+
+function MyRecordAssessmentsPanel({
+  errorMessage,
+  isSubmitting,
+  onSave,
+  record,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  record: DosAppUserRecord;
+}) {
+  const [selectedSlug, setSelectedSlug] = useState(dosAssessmentResourceItems[0]?.slug ?? "");
+  const selectedAssessment = dosAssessmentResourceItems.find((assessment) => assessment.slug === selectedSlug) ?? dosAssessmentResourceItems[0] ?? null;
+  const latestResultsBySlug = useMemo(() => {
+    const map = new Map<string, DosAppUserAssessmentResult>();
+
+    for (const result of [...record.assessmentResults].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))) {
+      if (!map.has(result.assessmentSlug)) {
+        map.set(result.assessmentSlug, result);
+      }
+    }
+
+    return map;
+  }, [record.assessmentResults]);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+      <section className="grid gap-4 self-start">
+        <div className="grid gap-2">
+          <SectionHeading title="Available Assessments" />
+          {dosAssessmentResourceItems.length ? (
+            <div className="grid gap-2">
+              {dosAssessmentResourceItems.map((assessment) => {
+                const latest = latestResultsBySlug.get(assessment.slug);
+
+                return (
+                  <button
+                    className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
+                      selectedAssessment?.slug === assessment.slug
+                        ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
+                        : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)]"
+                    }`}
+                    key={assessment.id}
+                    onClick={() => setSelectedSlug(assessment.slug)}
+                    type="button"
+                  >
+                    <span className="flex min-w-0 items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-[#0F172A]">{assessment.title}</span>
+                        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{assessment.description}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-[#2563EB]">
+                        {latest ? `${Math.round(latest.percentage)}%` : "Start"}
+                      </span>
+                    </span>
+                    {latest ? <span className="mt-3 block text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Last taken {formatDate(latest.completedAt)}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <SectionEmptyState text="Assessment resources added to the DOS Library will appear here." title="No assessments available yet." />
+          )}
+        </div>
+        {selectedAssessment ? <MyRecordAssessmentForm assessment={selectedAssessment} errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} /> : null}
+      </section>
+      <section className="grid gap-4 self-start">
+        <div className="grid gap-2">
+          <SectionHeading title="Historical Results" />
+          {record.assessmentResults.length ? (
+            <div className="grid gap-3">
+              {record.assessmentResults.map((result) => (
+                <MyRecordAssessmentResultCard
+                  key={result.id}
+                  onRetake={() => setSelectedSlug(result.assessmentSlug)}
+                  result={result}
+                  trend={myRecordAssessmentTrend(result, record.assessmentResults)}
+                />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState text="Completed assessments will save privately to My Record with score, percentage, breakdown, and trend." title="No assessment history yet." />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MyRecordReportPanel({
+  fruit,
+  meetings,
+  people,
+  record,
+}: {
+  fruit: DosAppFruit[];
+  meetings: DosAppMeeting[];
+  people: DosAppPerson[];
+  record: DosAppUserRecord;
+}) {
+  const [range, setRange] = useState<MyRecordReportRange>("30d");
+  const quietMinutes = record.journalEntries.filter((entry) => isMyRecordDateInRange(entry.date, range)).reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const prayerMinutes = record.prayerLogs.filter((log) => isMyRecordDateInRange(log.prayedAt, range)).reduce((sum, log) => sum + log.minutesSpent, 0);
+  const mentorMeetings = record.mentorMeetings.filter((meeting) => isMyRecordDateInRange(meeting.meetingDate, range)).length;
+  const assessmentsCompleted = record.assessmentResults.filter((result) => isMyRecordDateInRange(result.completedAt, range)).length;
+  const ministryTables = meetings.filter((meeting) => meeting.source === "table" && isMyRecordDateInRange(meeting.date, range));
+  const peopleMinisteredTo = new Set(ministryTables.flatMap((meeting) => meeting.fieldPersonIds)).size || people.filter((person) => isMyRecordDateInRange(person.lastActivityAt, range)).length;
+  const fruitObserved = fruit.filter((item) => isMyRecordDateInRange(item.testimonyDate ?? item.updatedAt, range)).length;
+
+  return (
+    <section className="grid gap-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <SectionHeading title="Personal Report" />
+          <p className="mt-1 text-sm leading-6 text-[#64748B]">A private date-range snapshot. PDF exports and share links stay future work.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-1 rounded-[18px] bg-[#E2E8F0] p-1 min-[520px]:grid-cols-4">
+        {myRecordReportRanges.map((option) => (
+          <button
+            aria-pressed={range === option.value}
+            className={`min-h-9 rounded-[14px] px-2 text-xs font-bold ${range === option.value ? "bg-white text-[#0F172A] shadow-sm" : "text-[#64748B]"}`}
+            key={option.value}
+            onClick={() => setRange(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
+        <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" value={formatRecordDuration(quietMinutes)} />
+        <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time" value={formatRecordDuration(prayerMinutes)} />
+        <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meetings" value={`${mentorMeetings}`} />
+        <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value={`${assessmentsCompleted}`} />
+        <MyRecordMetricCard icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTables.length}`} />
+        <MyRecordMetricCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruitObserved}`} />
+        <MyRecordMetricCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="People Ministered" value={`${peopleMinisteredTo}`} />
+      </div>
+    </section>
+  );
+}
+
+type MyRecordTimelineItem = {
+  body: string | null;
+  date: string | null;
+  icon: ReactNode;
+  id: string;
+  title: string;
+};
+
+function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+  const namesById = personNameById(people);
+  const journalItems = record.journalEntries.map((entry) => ({
+    body: entry.lordHighlight ?? entry.notes ?? entry.prayerResponse,
+    date: entry.date,
+    icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `journal-${entry.id}`,
+    title: entry.biblePassage ? `Quiet Time · ${entry.biblePassage}` : "Quiet Time",
+  }));
+  const prayerItems = record.prayerLogs.map((log) => {
+    const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+
+    return {
+      body: log.notes ?? (personName ? `Prayed for ${personName}` : null),
+      date: log.prayedAt,
+      icon: log.answeredStatus === "answered"
+        ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+        : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      id: `prayer-${log.id}`,
+      title: log.answeredStatus === "answered" ? `Answered Prayer · ${log.prayerFocus || "Prayer"}` : `Prayer Time · ${log.prayerFocus || "Prayer"}`,
+    };
+  });
+  const mentorItems = record.mentorMeetings.map((meeting) => ({
+    body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
+    date: meeting.meetingDate,
+    icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `mentor-${meeting.id}`,
+    title: `Mentor Meeting · ${meeting.mentorName}`,
+  }));
+  const assessmentItems = record.assessmentResults.map((result) => ({
+    body: `${result.overallScore}/${result.maxScore} · ${Math.round(result.percentage)}%`,
+    date: result.completedAt,
+    icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+    id: `assessment-${result.id}`,
+    title: `Assessment · ${result.assessmentName}`,
+  }));
+
+  return [...journalItems, ...prayerItems, ...mentorItems, ...assessmentItems]
+    .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
+}
+
+function MyRecordWorkspace({
+  errorMessage,
+  fruit,
+  isSubmitting,
+  meetings,
+  onBack,
+  onQuickTab,
+  onSave,
+  onTabChange,
+  people,
+  profileName,
+  record,
+  tab,
+}: {
+  errorMessage: string;
+  fruit: DosAppFruit[];
+  isSubmitting: boolean;
+  meetings: DosAppMeeting[];
+  onBack: () => void;
+  onQuickTab: (tab: MyRecordTab) => void;
+  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  onTabChange: (tab: MyRecordTab) => void;
+  people: DosAppPerson[];
+  profileName: string;
+  record: DosAppUserRecord;
+  tab: MyRecordTab;
+}) {
+  const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
+  const latestJournal = record.journalEntries[0] ?? null;
+  const latestPrayer = record.prayerLogs[0] ?? null;
+  const latestMentorMeeting = record.mentorMeetings[0] ?? null;
+  const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
+  const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
+  const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
+  const namesById = useMemo(() => personNameById(people), [people]);
+
+  function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    void onSave({
+      currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
+      displayName: profileName,
+      kind: "record",
+    }, "overview");
+  }
+
+  // TODO: Future: Permission-based My Record sharing for mentor, spouse, board member, accountability partner, pastor, and custom viewer roles.
+  // TODO: Future: Mentor-request workflow for assessments, reflections, Scripture reading, accountability questions, and prayer updates.
+  // TODO: Future: PDF exports and shareable report links for user-selected date ranges and sections.
+  // TODO: Future: Smart prompts and check-in drafts based on Field records, prior meetings, reminders, and accountability cadence.
+  // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
+
+  return (
+    <div className="space-y-5">
+      <div className="flex min-h-9 items-center md:hidden">
+        <MoreBackButton onClick={onBack} />
+      </div>
+      <TabHero
+        icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+        onScriptureClick={() => undefined}
+        subtitle="Your walk with the Lord, prayer, and personal discipleship history."
+        title="My Record"
+      />
+      <MyRecordTabBar onChange={onTabChange} value={tab} />
+
+      {tab === "overview" ? (
+        <div className="space-y-4">
+          <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-black text-[#0F172A]">{record.displayName || profileName}</p>
+                <p className="mt-1 text-sm leading-6 text-[#64748B]">{record.currentSeasonFocus || "No current season focus set yet."}</p>
+              </div>
+            </div>
+            <form className="mt-4 grid gap-3" onSubmit={handleRecordSubmit}>
+              <DosFormField label="Current Season / Focus">
+                <input className={FieldInputClass()} defaultValue={record.currentSeasonFocus ?? ""} name="current_season_focus" placeholder="Abiding, obedience, prayer, Scripture, sabbath" />
+              </DosFormField>
+              {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+              <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Save Focus"}</AppButton>
+            </form>
+          </section>
+          <section className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
+            <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Quiet Time" value={latestJournal ? formatDate(latestJournal.date) : "Not logged"} />
+            <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Prayer Time" value={latestPrayer ? formatDate(latestPrayer.prayedAt) : "Not logged"} />
+            <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Mentor Meeting" value={latestMentorMeeting ? formatDate(latestMentorMeeting.meetingDate) : "Not logged"} />
+            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time Logged" value={formatRecordDuration(totalQuietMinutes)} />
+            <MyRecordMetricCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time Logged" value={formatRecordDuration(totalPrayerMinutes)} />
+            <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Assessment" value={latestAssessment ? `${latestAssessment.assessmentName} · ${Math.round(latestAssessment.percentage)}%` : "Not taken"} />
+          </section>
+          <section className="grid gap-2">
+            <SectionHeading title="Quick Actions" />
+            <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-5">
+              <CompactButton icon="log" onClick={() => onQuickTab("journal")}>Start Quiet Time</CompactButton>
+              <CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>
+              <CompactButton icon="add" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>
+              <CompactButton icon="people" onClick={() => onQuickTab("mentors")}>Log Mentor Meeting</CompactButton>
+              <CompactButton icon="library" onClick={() => onQuickTab("assessments")}>Take Assessment</CompactButton>
+            </div>
+          </section>
+          {latestAssessment ? (
+            <section className="grid gap-2">
+              <SectionHeading title="Latest Assessment" />
+              <MyRecordAssessmentResultCard
+                onRetake={() => onQuickTab("assessments")}
+                result={latestAssessment}
+                trend={myRecordAssessmentTrend(latestAssessment, record.assessmentResults)}
+              />
+            </section>
+          ) : null}
+          <section className="grid gap-2 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#047857] ring-1 ring-[#BBF7D0]">
+                <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0">
+                <SectionHeading title="Sharing" />
+                <p className="mt-1 text-sm leading-6 text-[#64748B]">My Record is private. Future sharing will be section-by-section and controlled by the user.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {myRecordFutureSharingRoles.slice(0, 6).map((role) => (
+                    <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" key={role} style={{ fontFamily: font.rajdhani }}>
+                      {role}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[#94A3B8]">Sections planned: {myRecordFutureShareableSections.slice(0, 5).join(", ")}.</p>
+              </div>
+            </div>
+          </section>
+          <MyRecordReportPanel fruit={fruit} meetings={meetings} people={people} record={record} />
+          <section className="grid gap-2">
+            <SectionHeading title="Recent Spiritual Activity" />
+            {timeline.length ? (
+              <div className="grid gap-2">
+                {timeline.slice(0, 5).map((item) => (
+                  <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState
+                action={<CompactButton icon="log" onClick={() => onQuickTab("journal")}>Add Journal Entry</CompactButton>}
+                text="Quiet time, prayer time, and mentor meetings will collect here."
+                title="No personal activity yet."
+              />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "journal" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <MyRecordJournalForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} />
+          <section className="grid gap-2 self-start">
+            <SectionHeading title="Journal Entries" />
+            {record.journalEntries.length ? (
+              <div className="grid gap-2">
+                {record.journalEntries.map((entry) => (
+                  <MyRecordActivityRow
+                    body={entry.lordHighlight ?? entry.notes ?? entry.prayerResponse}
+                    date={entry.date}
+                    icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                    key={entry.id}
+                    title={entry.biblePassage ? `${entry.biblePassage} · ${formatRecordDuration(entry.minutesSpent)}` : `Quiet Time · ${formatRecordDuration(entry.minutesSpent)}`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <SectionEmptyState text="Use this to record Scripture, reflection, highlights, and next steps from time with the Lord." title="No journal entries yet." />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "prayer" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <MyRecordPrayerForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
+          <section className="grid gap-2 self-start">
+            <SectionHeading title="Prayer Logs" />
+            {record.prayerLogs.length ? (
+              <div className="grid gap-2">
+                {record.prayerLogs.map((log) => {
+                  const personName = log.fieldPersonId ? namesById.get(log.fieldPersonId) : null;
+                  const title = log.prayerFocus || (personName ? `Prayed for ${personName}` : "Prayer Time");
+
+                  return (
+                    <MyRecordActivityRow
+                      body={log.notes}
+                      date={log.prayedAt}
+                      icon={log.answeredStatus === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={log.id}
+                      title={`${title} · ${formatRecordDuration(log.minutesSpent)}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <SectionEmptyState text="Use this to log personal prayer time and answered prayers without changing ministry metrics." title="No prayer time logged yet." />
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "mentors" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="grid gap-4 self-start">
+            <MyRecordMentorMeetingForm errorMessage={errorMessage} isSubmitting={isSubmitting} mentors={record.mentorRelationships} onSave={onSave} people={people} />
+            <MyRecordMentorRelationshipForm errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} people={people} />
+          </div>
+          <section className="grid gap-4 self-start">
+            <div className="grid gap-2">
+              <SectionHeading title="Mentors" />
+              {record.mentorRelationships.length ? (
+                <div className="grid gap-2">
+                  {record.mentorRelationships.map((mentor) => (
+                    <MyRecordActivityRow
+                      body={mentor.notes}
+                      date={latestMyRecordDate(mentor.updatedAt, mentor.createdAt)}
+                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={mentor.id}
+                      title={mentor.relationshipLabel ? `${mentor.mentorName} · ${mentor.relationshipLabel}` : mentor.mentorName}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Track pastors, mentors, coaches, peers, or spiritual parents who are pouring into you." title="No mentors added yet." />
+              )}
+            </div>
+            <div className="grid gap-2">
+              <SectionHeading title="Mentor Meetings" />
+              {record.mentorMeetings.length ? (
+                <div className="grid gap-2">
+                  {record.mentorMeetings.map((meeting) => (
+                    <MyRecordActivityRow
+                      body={meeting.counselReceived ?? meeting.discussed ?? meeting.actionSteps ?? meeting.notes}
+                      date={meeting.meetingDate}
+                      icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                      key={meeting.id}
+                      title={`${meeting.mentorName} · ${formatRecordDuration(meeting.durationMinutes)}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <SectionEmptyState text="Log what was discussed, counsel received, action steps, and follow-up dates." title="No mentor meetings yet." />
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "assessments" ? (
+        <MyRecordAssessmentsPanel errorMessage={errorMessage} isSubmitting={isSubmitting} onSave={onSave} record={record} />
+      ) : null}
+
+      {tab === "timeline" ? (
+        <section className="grid gap-2">
+          <SectionHeading title="Personal Timeline" />
+          {timeline.length ? (
+            <div className="grid gap-2">
+              {timeline.map((item) => (
+                <MyRecordActivityRow body={item.body} date={item.date} icon={item.icon} key={item.id} title={item.title} />
+              ))}
+            </div>
+          ) : (
+            <SectionEmptyState
+              action={<CompactButton icon="prayer" onClick={() => onQuickTab("prayer")}>Log Prayer Time</CompactButton>}
+              text="Quiet time entries, prayer logs, answered prayers, mentor meetings, notes, and milestones will appear here."
+              title="No timeline activity yet."
+            />
+          )}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+>>>>>>> origin/codex/public-launch-cleanup
 function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   const iconClass = "h-4 w-4";
 
@@ -16655,7 +18467,25 @@ function quickReviewMeetAgainLabel(review: DosAppParticipantReview) {
   return review.wouldMeetAgain ? "Yes" : "No";
 }
 
+function quickReviewOverallRatingLabel(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const configuredLabel = dosQuickReviewOverallRatingOptions.find((option) => option.value === value)?.label;
+
+  if (configuredLabel) {
+    return configuredLabel;
+  }
+
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
+  const overallRating = quickReviewOverallRatingLabel(review.overallRating);
+
   return (
     <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
@@ -16668,6 +18498,9 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
         </div>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
+          {overallRating ? (
+            <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Overall: {overallRating}</span>
+          ) : null}
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {quickReviewAnswerLabel(review.feltHeard)}</span>
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Cared For: {quickReviewAnswerLabel(review.feltCaredFor)}</span>
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Helpful: {quickReviewAnswerLabel(review.conversationHelpful)}</span>
@@ -16682,6 +18515,112 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
         ) : null}
       </div>
     </article>
+  );
+}
+
+function SubmittedReviewViewButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
+      onClick={onClick}
+      type="button"
+    >
+      View
+    </button>
+  );
+}
+
+function SubmittedReviewsList({
+  items,
+  onOpenReview,
+}: {
+  items: SubmittedReviewListItem[];
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+}) {
+  if (!items.length) {
+    return <SectionEmptyState text="Submitted Quick Reviews and Testimony Reviews will appear here." title="No reviews yet." />;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)]">
+      <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_96px_120px_96px_68px] gap-3 border-b border-[#EFF6FF] bg-[#F8FBFF] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] md:grid" style={{ fontFamily: font.rajdhani }}>
+        <span>Person</span>
+        <span>Submitted By</span>
+        <span>Date</span>
+        <span>Type</span>
+        <span>Overall</span>
+        <span className="text-right">View</span>
+      </div>
+      <div className="divide-y divide-[#EFF6FF]">
+        {items.map((item) => (
+          <article className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_96px_120px_96px_68px] md:items-center" key={item.id}>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Person</p>
+              <p className="truncate text-sm font-black text-[#0F172A]">{item.personName}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Submitted By</p>
+              <p className="truncate text-sm font-semibold text-[#334155]">{item.submittedBy}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Date</p>
+              <p className="truncate text-xs font-semibold text-[#475569]">{formatDate(item.date)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Type</p>
+              <span className="inline-flex rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
+                {item.reviewType}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8] md:hidden" style={{ fontFamily: font.rajdhani }}>Overall</p>
+              <p className="truncate text-xs font-semibold text-[#475569]">{item.overallRating ?? "-"}</p>
+            </div>
+            <div className="flex justify-start md:justify-end">
+              <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReviewDetailSheet({
+  item,
+  onClose,
+  onOpenMeeting,
+}: {
+  item: SubmittedReviewListItem;
+  onClose: () => void;
+  onOpenMeeting: (meetingId: string) => void;
+}) {
+  return (
+    <Sheet description={`${item.personName} - ${formatDate(item.date)}`} onClose={onClose} showEyebrow={false} title={item.reviewType}>
+      <div className="grid gap-3">
+        <DetailCard title="Summary">
+          <p className="whitespace-pre-line rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-sm leading-6 text-[#0F172A]">{item.summary}</p>
+        </DetailCard>
+        <DetailCard title="Details">
+          <DetailRow icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Person" value={item.personName} />
+          <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Submitted By" value={item.submittedBy} />
+          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={formatDate(item.date)} />
+          <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Review Type" value={item.reviewType} />
+          {item.overallRating ? <DetailRow icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Overall" value={item.overallRating} /> : null}
+        </DetailCard>
+        {item.review ? <ParticipantReviewRow review={item.review} /> : null}
+        {item.testimony ? <ParticipantTestimonyRow testimony={item.testimony} /> : null}
+        <ReviewActionButton
+          icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />}
+          onClick={() => {
+            onClose();
+            onOpenMeeting(item.meetingId);
+          }}
+        >
+          Open Table
+        </ReviewActionButton>
+      </div>
+    </Sheet>
   );
 }
 
@@ -17359,6 +19298,7 @@ function DesktopNavigation({
       <nav className="mt-5 grid gap-5" aria-label="DOS sections">
         <div className="grid gap-1.5">
           {renderNavButton(desktopDashboardNavItem, "dashboard")}
+          {renderNavButton(desktopMyRecordNavItem, "my-record")}
         </div>
         {desktopNavGroups.map((group) => (
           <div key={group.label}>
@@ -17925,6 +19865,7 @@ function PersonDetailOverlay({
   onEdit,
   onMarkPrayerAnswered,
   onOpenPrayerResources,
+  onOpenReview,
   onOpenMeeting,
   onLogMeeting,
   onScheduleMeeting,
@@ -17950,7 +19891,8 @@ function PersonDetailOverlay({
   onEdit: () => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+  onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
   onScheduleMeeting: () => void;
   participantReviews: DosAppParticipantReview[];
@@ -17993,6 +19935,7 @@ function PersonDetailOverlay({
     reminders,
   });
   const upcomingTimelineGroups = groupedUpcomingTimelineItems(upcomingTimelineItems);
+<<<<<<< HEAD
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || personMeetings.some((meeting) => meeting.id === review.meetingId));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || personMeetings.some((meeting) => meeting.id === testimony.meetingId));
   const personAssessmentResults = assessmentResults
@@ -18003,6 +19946,16 @@ function PersonDetailOverlay({
   const marriageAssessmentHref = workspace.isPreview
     ? "/dos/library/marriage-assessment"
     : `/dos/library/marriage-assessment?workspace=${encodeURIComponent(workspace.slug)}&person=${encodeURIComponent(person.id)}`;
+=======
+  const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || (!review.personId && personMeetings.some((meeting) => meeting.id === review.meetingId)));
+  const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || (!testimony.personId && personMeetings.some((meeting) => meeting.id === testimony.meetingId)));
+  const personReviewItems = buildSubmittedReviewItems({
+    meetings: personMeetings,
+    participantReviews: personParticipantReviews,
+    participantTestimonies: personTestimonies,
+    people: [person],
+  });
+>>>>>>> origin/codex/public-launch-cleanup
   const personFruitSummary = selectPersonDetailFruitSummary({
     fruitEvents,
     fruitItems,
@@ -18141,16 +20094,17 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
-        <div className="grid grid-cols-4 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+        <div className="grid grid-cols-5 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {[
             { label: "Overview", value: "overview" },
             { label: "Activity", value: "activity" },
+            { label: "Reviews", value: "reviews" },
             { label: "Prayer", value: "prayer" },
             { label: "Growth", value: "fruit" },
           ].map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
-              className={`min-h-9 rounded-full px-2 text-[11px] font-bold transition-colors ${
+              className={`min-h-9 rounded-full px-1.5 text-[10px] font-bold transition-colors sm:px-2 sm:text-[11px] ${
                 activeDetailTab === tab.value ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]" : "text-[#64748B] hover:bg-[#F8FAFC]"
               }`}
               key={tab.value}
@@ -18329,7 +20283,7 @@ function PersonDetailOverlay({
 
             <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Recent Activity">
               {recentMeetings.length ? recentMeetings.map((meeting) => (
-                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id)}>
+                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id, person.id)}>
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
                     <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
                   </span>
@@ -18360,6 +20314,13 @@ function PersonDetailOverlay({
               />
             </DetailCard>
           </>
+        ) : null}
+
+        {activeDetailTab === "reviews" ? (
+          <section className="grid min-w-0 gap-3">
+            <SectionHeading title="Reviews" />
+            <SubmittedReviewsList items={personReviewItems} onOpenReview={onOpenReview} />
+          </section>
         ) : null}
 
         {activeDetailTab === "prayer" ? (
@@ -18701,6 +20662,92 @@ function MeetingNotesEditorSheet({
   );
 }
 
+function ReflectionDetailValue({ value }: { value: string }) {
+  return <span className="whitespace-pre-line">{value}</span>;
+}
+
+function GrowthReflectionDetailCard({ meeting }: { meeting: DosAppMeeting }) {
+  const reflection = meeting.growthReflection;
+
+  if (!meetingHasGrowthReflection(meeting)) {
+    return null;
+  }
+
+  return (
+    <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Reflection">
+      {reflection.whatGodTaught ? (
+        <DetailRow
+          icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="What God Taught"
+          value={<ReflectionDetailValue value={reflection.whatGodTaught} />}
+        />
+      ) : null}
+      {reflection.scriptures ? (
+        <DetailRow
+          icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Scriptures"
+          value={<ReflectionDetailValue value={reflection.scriptures} />}
+        />
+      ) : null}
+      {reflection.actionStep ? (
+        <DetailRow
+          icon={<ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Action"
+          value={<ReflectionDetailValue value={reflection.actionStep} />}
+        />
+      ) : null}
+      {reflection.mentorAssignment ? (
+        <DetailRow
+          icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Assignment"
+          value={<ReflectionDetailValue value={reflection.mentorAssignment} />}
+        />
+      ) : null}
+      {reflection.followUpNeeded ? (
+        <DetailRow
+          icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Follow-Up"
+          value="Needed"
+        />
+      ) : null}
+    </DetailCard>
+  );
+}
+
+function PlanningReflectionDetailCard({ meeting }: { meeting: DosAppMeeting }) {
+  const reflection = meeting.planningReflection;
+
+  if (!meetingHasPlanningReflection(meeting)) {
+    return null;
+  }
+
+  return (
+    <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Planning Notes">
+      {reflection.decisions ? (
+        <DetailRow
+          icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Decisions"
+          value={<ReflectionDetailValue value={reflection.decisions} />}
+        />
+      ) : null}
+      {reflection.actionItems ? (
+        <DetailRow
+          icon={<ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Action Items"
+          value={<ReflectionDetailValue value={reflection.actionItems} />}
+        />
+      ) : null}
+      {reflection.followUp ? (
+        <DetailRow
+          icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+          label="Follow-Up"
+          value={<ReflectionDetailValue value={reflection.followUp} />}
+        />
+      ) : null}
+    </DetailCard>
+  );
+}
+
 function MeetingDetailOverlay({
   fruitEvents,
   hasReviewRequestLink,
@@ -18711,10 +20758,15 @@ function MeetingDetailOverlay({
   leaderReflections,
   meeting,
   onBack,
+<<<<<<< HEAD
   onDelete,
+=======
+  onCopyReviewLink,
+>>>>>>> origin/codex/public-launch-cleanup
   onEdit,
   onDone,
   onEditNotes,
+  onOpenReviewLink,
   onPrepareQuickReview,
   onPrepareReviewOptions,
   onPrepareTestimonyRequest,
@@ -18723,6 +20775,7 @@ function MeetingDetailOverlay({
   onSendTestimony,
   participantTestimonies,
   people,
+  reviewRequestUrl,
   reviewShareMessage,
   reviewOptionsShareMessage,
   showPostMeetingFollowUp,
@@ -18738,10 +20791,15 @@ function MeetingDetailOverlay({
   leaderReflections: DosAppLeaderReflection[];
   meeting: DosAppMeeting;
   onBack: () => void;
+<<<<<<< HEAD
   onDelete: () => void;
+=======
+  onCopyReviewLink: () => void;
+>>>>>>> origin/codex/public-launch-cleanup
   onDone: () => void;
   onEdit: () => void;
   onEditNotes: () => void;
+  onOpenReviewLink: () => void;
   onPrepareQuickReview: () => void;
   onPrepareReviewOptions: () => void;
   onPrepareTestimonyRequest: () => void;
@@ -18750,6 +20808,7 @@ function MeetingDetailOverlay({
   onSendTestimony: () => void;
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
+  reviewRequestUrl?: string | null;
   reviewShareMessage?: string;
   reviewOptionsShareMessage?: string;
   showPostMeetingFollowUp?: boolean;
@@ -18764,20 +20823,33 @@ function MeetingDetailOverlay({
     : null;
   const avatarNames = meetingAvatarNames(meeting, people);
   const title = meetingDisplayTitle(meeting, people);
+<<<<<<< HEAD
   const canSendTestimony = canSendMeetingTestimonyRequest(meeting, people);
+=======
+  const roleAllowsFruitReviews = tableRoleIncludesMinistering(meeting.tableRole);
+  const canSendTestimony = roleAllowsFruitReviews && canSendMeetingTestimonyRequest(meeting, people);
+  const meetingReflections = leaderReflections.filter((reflection) => reflection.meetingId === meeting.id);
+  const meetingParticipantReviews = participantReviews.filter((review) => review.meetingId === meeting.id);
+>>>>>>> origin/codex/public-launch-cleanup
   const meetingTestimonies = participantTestimonies.filter((testimony) => testimony.meetingId === meeting.id);
   const latestReflection = latestLeaderReflectionForMeeting(leaderReflections, meeting.id);
   const observedFruit = observedFruitForMeeting(leaderReflections, fruitEvents, meeting.id);
   const reviewIsCompleted = meeting.review.status === "approved" || meeting.review.status === "private" || meeting.review.status === "submitted";
   const reviewRequestSent = meeting.review.status === "pending" || Boolean(hasReviewRequestLink);
-  const reviewDisplayTitle = reviewIsCompleted ? "Completed" : reviewRequestSent ? "Sent" : "Not sent";
+  const reviewDisplayTitle = reviewIsCompleted ? "Review received" : reviewRequestSent ? "Sent" : "Not sent";
   const reviewDisplayHelper = reviewIsCompleted
     ? meeting.review.submittedAt
-      ? `Received ${formatDate(meeting.review.submittedAt)}.`
+      ? `Submitted ${formatDate(meeting.review.submittedAt)}.`
       : "Review received."
     : reviewRequestSent
       ? "Awaiting response."
       : "Send a quick review request when you are ready.";
+  const reviewOverallRating = quickReviewOverallRatingLabel(meeting.review.overallRating);
+  const conversationBadgeLabel = isScheduledMeeting
+    ? "Scheduled"
+    : meeting.conversationFlowKey !== "none"
+      ? conversationFlowLabel(meeting.conversationFlowKey)
+      : null;
   const storyIsCompleted = meetingTestimonies.length > 0;
   const storyRequestSent = Boolean(hasTestimonyRequestLink);
   const storyDisplayTitle = storyIsCompleted ? "Completed" : storyRequestSent ? "Sent" : "Not sent";
@@ -18787,7 +20859,7 @@ function MeetingDetailOverlay({
       ? "Awaiting response."
       : "Invite them to share how God worked in their life through this conversation.";
 
-  if (showPostMeetingFollowUp && isLoggedTableMeeting) {
+  if (showPostMeetingFollowUp && isLoggedTableMeeting && roleAllowsFruitReviews) {
     return (
       <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
@@ -18873,6 +20945,7 @@ function MeetingDetailOverlay({
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
           </button>
+<<<<<<< HEAD
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             {isScheduledMeeting ? "Scheduled" : "Table"}
           </p>
@@ -18880,6 +20953,138 @@ function MeetingDetailOverlay({
             <button className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
               Edit
+=======
+        ) : <span className="h-10 w-10" aria-hidden="true" />}
+      </header>
+
+      <section className="mt-5 text-center">
+        {avatarNames.length ? (
+          <div className="mx-auto flex justify-center -space-x-2">
+            {avatarNames.map((name, index) => (
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
+                key={`${meeting.id}-detail-${name}`}
+              >
+                {initials(name)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+            <CalendarDays className="h-6 w-6" aria-hidden="true" strokeWidth={1.6} />
+          </div>
+        )}
+        <h2 className="mx-auto mt-3 max-w-[320px] text-[32px] font-bold leading-none tracking-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+          {title}
+        </h2>
+        <p className="mx-auto mt-2 max-w-[280px] text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {isTableMeeting ? (
+            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+              {tableRoleDisplayLabel(meeting.tableRole)}
+            </span>
+          ) : null}
+          {conversationBadgeLabel ? (
+            <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
+              {conversationBadgeLabel}
+            </span>
+          ) : null}
+          {meeting.googleSyncEnabled ? (
+            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
+            </span>
+          ) : null}
+          {temperature ? (
+            <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
+              {temperature}
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="mt-5 grid gap-3">
+        <MeetingPeopleDetailCard meeting={meeting} people={people} />
+        <GrowthReflectionDetailCard meeting={meeting} />
+        <PlanningReflectionDetailCard meeting={meeting} />
+
+        {isLoggedTableMeeting && roleAllowsFruitReviews ? (
+          <DetailCard title="Quick Review">
+            <div>
+              <p className="text-sm font-semibold text-[#0F172A]">{reviewDisplayTitle}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{reviewDisplayHelper}</p>
+            </div>
+            {meeting.review.status !== "not_sent" && meeting.review.sharePermission ? (
+              <span className="mt-3 inline-flex rounded-full border border-[#E2E8F0] bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                {reviewSharePermissionLabel(meeting.review.sharePermission)}
+              </span>
+            ) : null}
+            {meeting.review.stoodOut ? (
+              <p className="mt-3 line-clamp-3 rounded-2xl bg-[#F1F5F9] p-3 text-sm leading-6 text-[#0F172A]">{meeting.review.stoodOut}</p>
+            ) : null}
+            {reviewOverallRating ? (
+              <p className="mt-3 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">Overall: {reviewOverallRating}</p>
+            ) : null}
+            {reviewRequestUrl ? (
+              <div className="mt-3 grid gap-2">
+                <ReviewActionButton icon={<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onOpenReviewLink}>
+                  Open Review Link
+                </ReviewActionButton>
+                <ReviewActionButton icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onCopyReviewLink}>
+                  Copy Review Link
+                </ReviewActionButton>
+                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+                  Send Again
+                </ReviewActionButton>
+              </div>
+            ) : meeting.review.status === "not_sent" && !hasReviewRequestLink ? (
+              <div className="mt-3">
+                <ReviewActionButton disabled={isSendingReview} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendReview}>
+                  Send Quick Review
+                </ReviewActionButton>
+              </div>
+            ) : null}
+            {reviewShareMessage ? (
+              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p>
+            ) : null}
+          </DetailCard>
+        ) : null}
+
+        {isLoggedTableMeeting && canSendTestimony ? (
+          <DetailCard title="Testimony Request">
+            <div>
+              <p className="text-sm font-semibold text-[#0F172A]">{storyDisplayTitle}</p>
+              <p className="mt-1 text-xs leading-5 text-[#64748B]">{storyDisplayHelper}</p>
+            </div>
+            {!storyIsCompleted && !hasTestimonyRequestLink ? (
+              <div className="mt-3">
+              <ReviewActionButton disabled={isSendingTestimony} icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />} onClick={onSendTestimony}>
+                Send Testimony Request
+              </ReviewActionButton>
+            </div>
+            ) : null}
+            {testimonyShareMessage ? (
+              <p className="mt-3 rounded-2xl border border-[#E2E8F0] bg-[#EBF2FF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p>
+            ) : null}
+          </DetailCard>
+        ) : null}
+
+        <DetailCard title={isScheduledMeeting ? "Prep Notes" : "Table Notes"}>
+          {meeting.notes ? (
+            <div className="rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#0F172A]">
+              {meeting.notes}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm leading-6 text-[#64748B]">{isScheduledMeeting ? "No prep notes were added." : "No notes yet."}</p>
+          )}
+          {isTableMeeting ? (
+            <button
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]"
+              onClick={onEditNotes}
+              type="button"
+            >
+              <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+              {meeting.notes ? "Edit Notes" : "Add Notes"}
+>>>>>>> origin/codex/public-launch-cleanup
             </button>
           ) : <span className="h-10 w-10" aria-hidden="true" />}
         </header>
@@ -19018,6 +21223,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [savingCalendarSourceId, setSavingCalendarSourceId] = useState<string | null>(null);
   const [fruitView, setFruitView] = useState<FruitView>("activity");
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("praying_for");
+  const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
@@ -19086,9 +21292,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedExternalCalendarEventId, setSelectedExternalCalendarEventId] = useState<string | null>(null);
   const [selectedFruitActivity, setSelectedFruitActivity] = useState<FruitDashboardStory | null>(null);
   const [selectedFruitFormPreviewKey, setSelectedFruitFormPreviewKey] = useState<Extract<FruitFormKey, "quick_review" | "testimony_review"> | null>(null);
+  const [selectedReviewItem, setSelectedReviewItem] = useState<SubmittedReviewListItem | null>(null);
   const [fruitFormsNotice, setFruitFormsNotice] = useState("");
   const [selectedMeetingContext, setSelectedMeetingContext] = useState<DosAppMeetingType>("kitchen_table");
+  const [selectedTableRole, setSelectedTableRole] = useState<DosAppTableRole>("ministering");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [selectedMeetingReviewRecipientId, setSelectedMeetingReviewRecipientId] = useState<string | null>(null);
   const [loggingScheduledMeetingId, setLoggingScheduledMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
@@ -19124,8 +21333,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const [quickAddedPeople, setQuickAddedPeople] = useState<DosAppPerson[]>([]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
+<<<<<<< HEAD
   const requestedPersonId = searchParams.get("person");
   const requestedDetailTab = searchParams.get("tab") === "growth" ? "fruit" : null;
+=======
+  const ministryLoggedMeetings = useMemo(
+    () => loggedMeetings.filter((meeting) => tableRoleIncludesMinistering(meeting.tableRole)),
+    [loggedMeetings],
+  );
+>>>>>>> origin/codex/public-launch-cleanup
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
 
@@ -19143,6 +21359,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     people,
   }), [data.fruit, data.fruitEvents, data.leaderReflections, data.participantReviews, data.participantTestimonies, people]);
   const visibleFruitStories = useMemo(() => fruitStoryEntries.filter((story) => !isQaFruitStory(story)), [fruitStoryEntries]);
+  const submittedReviewItems = useMemo(() => buildSubmittedReviewItems({
+    meetings: data.meetings,
+    participantReviews: data.participantReviews,
+    participantTestimonies: data.participantTestimonies,
+    people,
+  }), [data.meetings, data.participantReviews, data.participantTestimonies, people]);
   const fruitImpactOutcomeGroups = useMemo(() => fruitImpactGroups(visibleFruitStories), [visibleFruitStories]);
   const fruitSnapshotGroups = useMemo(() => fruitImpactSnapshotGroups(visibleFruitStories), [visibleFruitStories]);
   const latestMeeting = loggedMeetings[0];
@@ -19171,7 +21393,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
-  const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
+  const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility !== "primary").length, [people]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
   const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);
@@ -19197,8 +21419,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return null;
     }
 
-    const token = Object.entries(reviewLinksByMeetingId)
-      .find(([key]) => key.startsWith(`${selectedMeeting.id}:`))?.[1];
+    const token = reviewLinkTokenForMeeting(selectedMeeting, selectedMeetingReviewRecipientId)
+      ?? Object.entries(reviewLinksByMeetingId)
+        .find(([key]) => key.startsWith(`${selectedMeeting.id}:`))?.[1];
 
     if (!token || selectedMeeting.review.status !== "not_sent") {
       return selectedMeeting;
@@ -19212,7 +21435,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         token,
       },
     };
-  }, [reviewLinksByMeetingId, selectedMeeting]);
+  }, [reviewLinksByMeetingId, selectedMeeting, selectedMeetingReviewRecipientId]);
+  const selectedMeetingReviewUrl = useMemo(() => (
+    selectedMeetingWithReview ? existingReviewUrl(selectedMeetingWithReview, selectedMeetingReviewRecipientId) : null
+  ), [reviewLinksByMeetingId, selectedMeetingReviewRecipientId, selectedMeetingWithReview]);
   const selectedPerson = useMemo(() => people.find((person) => person.id === selectedPersonId) ?? null, [people, selectedPersonId]);
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
@@ -19276,19 +21502,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const personTableStatsByPersonId = useMemo(() => {
     const stats = new Map<string, PersonTableStats>();
 
-    data.meetings.forEach((meeting) => {
+    ministryLoggedMeetings.forEach((meeting) => {
       meeting.fieldPersonIds.forEach((personId) => {
         const current = stats.get(personId) ?? { meetings: 0, timeMinutes: 0 };
 
         stats.set(personId, {
-          meetings: current.meetings + (meeting.meetingStatus === "logged" ? 1 : 0),
-          timeMinutes: current.timeMinutes + (meeting.meetingStatus === "logged" ? tableDurationMinutes(meeting) : 0),
+          meetings: current.meetings + 1,
+          timeMinutes: current.timeMinutes + tableDurationMinutes(meeting),
         });
       });
     });
 
     return stats;
-  }, [data.meetings]);
+  }, [ministryLoggedMeetings]);
   const storyCountByPersonId = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -19336,10 +21562,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       date: meeting.date,
       icon: "log",
       id: `meeting-${meeting.id}`,
-      label: `${meetingDisplayTitle(meeting, people)} · ${meetingActivityTitle(meeting)} · ${formatRelativeDate(meeting.date)}`,
+      label: `${meetingDisplayTitle(meeting, people)} · ${formatRelativeDate(meeting.date)}`,
       meetingId: meeting.id,
       target: "meeting",
-      title: "Table",
+      title: meetingActivityTitle(meeting),
     }));
     const prayerItems: HomeActivityItem[] = data.leaderReflections
       .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
@@ -19412,7 +21638,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [loggedMeetings, people, tableQuery]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
-    const meetingsThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
+    const meetingsThisWeek = ministryLoggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
     const prayerLogsThisWeek = (data.prayerLogs ?? []).filter((log: DosAppPrayerLog) => isDateWithinRange(log.prayedAt, start, end));
 
     return {
@@ -19421,7 +21647,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       newPeople: people.filter((person) => isDateWithinRange(person.createdAt, start, end)).length,
       prayed: prayerLogsThisWeek.length,
     };
-  }, [data.prayerLogs, loggedMeetings, people]);
+  }, [data.prayerLogs, ministryLoggedMeetings, people]);
   const greetingName = cleanIdentitySegment(data.workspace.greetingName) ?? firstNameFromDisplayName(data.workspace.displayName);
   const [homeSubtitle, setHomeSubtitle] = useState("");
   const profileName = workspaceProfileName(data.workspace, greetingName);
@@ -19630,6 +21856,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSupportingAttendeeQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext("kitchen_table");
+    setSelectedTableRole("ministering");
     setSelectedMeetingPersonIds(personIds);
     setSelectedMinistryTeamMemberIds(defaultMinistryTeamMemberIdsForWorkspace(data));
     setSelectedMinistryTeamPersonIds([]);
@@ -19666,6 +21893,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsAdditionalPersonInfoOpen(false);
     if (mode === "meeting") {
       setSelectedMeetingId(null);
+      setSelectedMeetingReviewRecipientId(null);
       setLoggingScheduledMeetingId(null);
       resetMeetingDraft();
     }
@@ -19726,6 +21954,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
@@ -19753,11 +21982,65 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
     setPostMeetingFollowUpId(null);
     setIsUsamApplicationOpen(false);
+  }
+
+  function openMyRecordTab(tab: MyRecordTab) {
+    openMoreApp("my_record");
+    setMyRecordTab(tab);
+  }
+
+  function openReviewsList() {
+    openMoreApp("fruit");
+    setFruitView("reviews");
+  }
+
+  function openSubmittedReview(item: SubmittedReviewListItem) {
+    setSelectedReviewItem(item);
+  }
+
+  async function submitMyRecord(payload: Record<string, unknown>, nextTab: MyRecordTab = myRecordTab) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. My Record changes are not saved.");
+      return false;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/my-record", {
+        body: JSON.stringify({
+          ...payload,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; id?: string };
+
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? "Unable to save My Record.");
+      }
+
+      setMyRecordTab(nextTab);
+      router.refresh();
+
+      return true;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save My Record.");
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function viewUsamApplicationStatus() {
@@ -19793,6 +22076,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setReviewOptionsShareMessage("");
     setPendingMeetingSendAction(null);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedPersonId(null);
@@ -19953,6 +22237,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setSelectedReminderId(null);
     setPostMeetingFollowUpId(null);
     setSelectedPersonId(personId);
@@ -19970,6 +22255,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setErrorMessage("");
     setFormMode("meeting");
     setIsAdditionalPersonInfoOpen(false);
@@ -19980,6 +22266,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setSelectedReminderId(null);
     setSelectedExternalCalendarEventId(null);
@@ -19994,6 +22281,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
@@ -20026,6 +22314,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openScheduledDraftAsMeeting() {
     setErrorMessage("");
     setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
     setLoggingScheduledMeetingId(null);
     setFormMode("meeting");
   }
@@ -20043,7 +22332,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMeetingPeopleQuery("");
     setSelectedConversationFlow("none");
     setSelectedMeetingContext(meeting.type);
+    setSelectedTableRole(meeting.tableRole);
     setSelectedMeetingId(meeting.id);
+    setSelectedMeetingReviewRecipientId(null);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
     setSelectedOutcomeTags([]);
     setSelectedMinistryTeamMemberIds(meeting.ministryTeam.map((eventPerson) => eventPerson.teamMemberId).filter((id): id is string => Boolean(id)));
@@ -20056,7 +22347,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ));
   }
 
-  function openMeetingDetail(meetingId: string) {
+  function openMeetingDetail(meetingId: string, recipientPersonId?: string | null) {
     setActiveTab("meetings");
     setMoreAppView(null);
     setErrorMessage("");
@@ -20070,6 +22361,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedExternalCalendarEventId(null);
     setSelectedReminderId(null);
     setLoggingScheduledMeetingId(null);
+    setSelectedMeetingReviewRecipientId(recipientPersonId ?? null);
     setSelectedMeetingId(meetingId);
   }
 
@@ -20098,6 +22390,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setMeetingPeopleQuery("");
     setSelectedConversationFlow(data.workspace.isUsamWorkspace ? meeting.conversationFlowKey : "none");
     setSelectedMeetingContext(meeting.type);
+    setSelectedTableRole(meeting.tableRole);
     setSelectedMeetingId(meeting.id);
     setSelectedMeetingPersonIds(meeting.fieldPersonIds);
     setSelectedOutcomeTags(observedFruitForMeeting(data.leaderReflections, data.fruitEvents, meeting.id));
@@ -20132,6 +22425,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       birthday: formString("birthday", fallback.birthday ?? ""),
       childrenNames: formString("children_names", fallback.childrenNames ?? ""),
       church: formString("church", fallback.church ?? ""),
+      discipleshipRelationship: formString("discipleship_relationship", fallback.discipleshipRelationship ?? ""),
       discipleshipStage: relationshipModel.discipleshipStage,
       city: formString("city", fallback.city ?? ""),
       email: formString("email", fallback.email ?? ""),
@@ -21067,6 +23361,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           {
             church: null,
             createdAt,
+            discipleshipRelationship: null,
             discipleshipStage: "not_started",
             email: null,
             engagementLevel: "0",
@@ -21091,6 +23386,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const response = await fetch("/api/dos/app/people", {
         body: JSON.stringify({
           discipleshipStage: "not_started",
+          discipleshipRelationship: "",
           engagementScore: 0,
           name,
           phone: "",
@@ -21115,6 +23411,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           church: null,
           createdAt,
+          discipleshipRelationship: null,
           discipleshipStage: "not_started",
           email: null,
           engagementLevel: "0",
@@ -21220,12 +23517,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
+<<<<<<< HEAD
     const observedFruit = formObservedFruit(formData);
+=======
+    const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
+    const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
+    const observedFruit = [...selectedOutcomeTags];
+>>>>>>> origin/codex/public-launch-cleanup
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const nextStep = String(formData.get("next_step") ?? "");
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
-    const shouldSaveReflection = Boolean(
+    const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
       meetingNotes.trim()
       || observedFruit.length
       || followUpNeeded
@@ -21239,7 +23542,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         conversationFlowKey,
         conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
         fieldPersonIds: selectedMeetingPersonIds,
-        ...meetingRolePayload(),
+        ...meetingRolePayload(formData),
         notes: meetingNotes,
         scheduledEndAt: loggedEndAt,
         scheduledStartAt: loggedStartAt,
@@ -21287,7 +23590,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         closeForm();
         setActiveTab("meetings");
         setSelectedMeetingId(result.id);
-        setPostMeetingFollowUpId(result.id);
+        setPostMeetingFollowUpId(shouldUseLeaderReflection ? result.id : null);
       }
     })();
   }
@@ -21313,7 +23616,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         conversationFlowKey: "none",
         conversationResponses: {},
         fieldPersonIds: selectedMeetingPersonIds,
-        ...meetingRolePayload(),
+        ...meetingRolePayload(formData),
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
@@ -21349,6 +23652,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
     const loggedStartAt = localDateTimeIso(tableDate, "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
+<<<<<<< HEAD
     const observedFruit = formObservedFruit(formData);
     const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
     const nextStep = formData.has("next_step") ? String(formData.get("next_step") ?? "") : latestReflection?.nextStep ?? "";
@@ -21359,6 +23663,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       latestReflection
       || isLoggingScheduledMeeting
       || meetingNotes.trim()
+=======
+    const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
+    const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
+    const observedFruit = [...selectedOutcomeTags];
+    const followUpNeeded = formData.get("follow_up_needed") === "on";
+    const nextStep = String(formData.get("next_step") ?? "");
+    const prayerNeeds = String(formData.get("prayer_needs") ?? "");
+    const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const meetingNotes = String(formData.get("notes") ?? "");
+    const shouldSaveReflection = isLoggingScheduledMeeting && shouldUseLeaderReflection && Boolean(
+      meetingNotes.trim()
+>>>>>>> origin/codex/public-launch-cleanup
       || observedFruit.length
       || followUpNeeded
       || nextStep.trim()
@@ -21369,7 +23685,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       conversationFlowKey,
       conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
       fieldPersonIds: selectedMeetingPersonIds,
-      ...meetingRolePayload(),
+      ...meetingRolePayload(formData, selectedMeeting),
       googleSyncEnabled: isScheduledMeeting && !isLoggingScheduledMeeting && selectedMeeting.googleSyncEnabled,
       id: selectedMeeting.id,
       meetingStatus: isLoggingScheduledMeeting ? "logged" : selectedMeeting.meetingStatus,
@@ -21476,8 +23792,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       closeForm();
       setActiveTab("meetings");
       setSelectedMeetingId(selectedMeeting.id);
+<<<<<<< HEAD
       setPostMeetingFollowUpId(selectedMeeting.id);
       router.refresh();
+=======
+      setPostMeetingFollowUpId(shouldUseLeaderReflection ? selectedMeeting.id : null);
+>>>>>>> origin/codex/public-launch-cleanup
     })();
   }
 
@@ -21604,29 +23924,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function reviewUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/review/${token}`
-      : `/dos/review/${token}`;
+    return new URL(`/dos/review/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function testimonyUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/testimony/${token}`
-      : `/dos/testimony/${token}`;
+    return new URL(`/dos/testimony/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function reviewOptionsUrlFromToken(token: string) {
-    return typeof window !== "undefined"
-      ? `${window.location.origin}/dos/review-options/${token}`
-      : `/dos/review-options/${token}`;
+    return new URL(`/dos/review-options/${token}`, getCanonicalSiteUrl()).toString();
   }
 
   function reviewRequestKey(meeting: DosAppMeeting, recipientPersonId?: string | null) {
     return `${meeting.id}:${recipientPersonId ?? meeting.fieldPersonIds[0] ?? "default"}`;
   }
 
+  function reviewLinkTokenForMeeting(meeting: DosAppMeeting, recipientPersonId?: string | null) {
+    const keyedToken = reviewLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)];
+
+    if (keyedToken) {
+      return keyedToken;
+    }
+
+    if (recipientPersonId) {
+      const recipientLink = meeting.reviewLinks.find((link) => link.recipientPersonId === recipientPersonId);
+
+      if (recipientLink?.token) {
+        return recipientLink.token;
+      }
+
+      return recipientPersonId === meeting.fieldPersonIds[0] ? meeting.review.token : null;
+    }
+
+    return meeting.review.token ?? meeting.reviewLinks[0]?.token ?? null;
+  }
+
   function existingReviewUrl(meeting: DosAppMeeting, recipientPersonId?: string | null) {
-    const token = reviewLinksByMeetingId[reviewRequestKey(meeting, recipientPersonId)] ?? (!recipientPersonId ? meeting.review.token : null);
+    const token = reviewLinkTokenForMeeting(meeting, recipientPersonId);
 
     return token ? reviewUrlFromToken(token) : null;
   }
@@ -21785,6 +24119,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     return false;
+  }
+
+  async function handleCopyExistingReviewLink(url: string) {
+    setReviewShareMessage("");
+    const copied = await copyReviewUrl(url);
+
+    setReviewShareMessage(copied ? "Review link copied." : url);
+  }
+
+  function handleOpenExistingReviewLink(url: string) {
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+      setReviewShareMessage("Review link opened.");
+      return;
+    }
+
+    setReviewShareMessage(url);
   }
 
   async function handleShareReview(meeting: DosAppMeeting, recipientPersonId?: string | null) {
@@ -22016,8 +24367,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }));
   }
 
-  function meetingRolePayload() {
+  function meetingRolePayload(formData: FormData, fallbackMeeting?: DosAppMeeting | null) {
+    const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
+
     return {
+      ...tableRoleReflectionPayload(formData, tableRole, fallbackMeeting),
       ministryTeamMemberIds: selectedMinistryTeamMemberIds,
       ministryTeamPersonIds: selectedMinistryTeamPersonIds,
       participantPersonIds: selectedMeetingPersonIds,
@@ -22221,11 +24575,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : isUsamApplicationPending
         ? "Pending"
         : "Optional";
+  const myRecordActivityCount = data.myRecord.journalEntries.length + data.myRecord.prayerLogs.length + data.myRecord.mentorMeetings.length + data.myRecord.assessmentResults.length;
   const appCatalogSections: DosAppCatalogSection[] = [
     {
       description: "Core DOS rhythms that are already available in this workspace.",
       label: "Installed",
       items: [
+        {
+          description: "Your quiet time, prayer, mentors, assessments, and personal discipleship history.",
+          icon: <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "My Record",
+          onClick: () => openMoreApp("my_record"),
+          section: "installed",
+          status: myRecordActivityCount ? `${myRecordActivityCount} entries` : "Private",
+        },
         {
           description: "Field relationships you are stewarding.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
@@ -22241,6 +24604,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           onClick: () => selectTab("meetings"),
           section: "installed",
           status: `${upcomingTableCount} upcoming`,
+        },
+        {
+          description: "Recurring discipleship rhythms, gatherings, prayer, and accountability.",
+          icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Groups",
+          onClick: () => openMoreApp("groups"),
+          section: "installed",
+          status: `${dosGroupsSummary.length} groups`,
         },
         {
           description: `${prayerReminderCount} reminders and recent prayer activity.`,
@@ -22334,7 +24705,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     .filter((item) => !["Missionary Profile", "Prayer Team", "Support Team", "Table Flow"].includes(item.label));
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
-    .filter((item) => ["Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
+    .filter((item) => ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"].includes(item.label));
   const visibleMobileAppCatalogItems = mobileAppCatalogItems.filter((item) => {
     const query = isAppsSearchOpen ? appSearchQuery.trim().toLowerCase() : "";
 
@@ -22374,6 +24745,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "prayer", label: "Add Prayer Request", onClick: runMobileAction(() => setIsMobileAddPrayerRequestOpen(true)) },
           { icon: "people", label: "Add Prayer Partner", onClick: runMobileAction(() => setIsMobileAddPrayerPartnerOpen(true)) },
         ]
+    : activeTab === "more" && moreAppView === "my_record"
+      ? [
+          { icon: "log", label: "Start Quiet Time", onClick: runMobileAction(() => setMyRecordTab("journal")) },
+          { icon: "prayer", label: "Log Prayer Time", onClick: runMobileAction(() => setMyRecordTab("prayer")) },
+          { icon: "people", label: "Log Mentor Meeting", onClick: runMobileAction(() => setMyRecordTab("mentors")) },
+          { icon: "library", label: "Take Assessment", onClick: runMobileAction(() => setMyRecordTab("assessments")) },
+        ]
     : activeTab === "more" && moreAppView === "fruit"
       ? fruitFormCards.map((form) => ({
           icon: form.icon,
@@ -22382,6 +24760,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
+          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "people", label: "USA Missionaries", onClick: runMobileAction(openUsamAppsLayer) },
           { icon: "people", label: "Missionary Profile", onClick: runMobileAction(() => openMoreApp("missionary_profile")) },
           { icon: "prayer", label: "Prayer Team", onClick: runMobileAction(() => openMoreApp("prayer_team")) },
@@ -22403,6 +24782,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "people", label: "Add Person", onClick: runDesktopAction(() => openForm("person")) },
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
+      : activeTab === "more" && moreAppView === "my_record"
+        ? [
+            { icon: "log", label: "Start Quiet Time", onClick: runDesktopAction(() => setMyRecordTab("journal")) },
+            { icon: "prayer", label: "Log Prayer Time", onClick: runDesktopAction(() => setMyRecordTab("prayer")) },
+            { icon: "people", label: "Log Mentor Meeting", onClick: runDesktopAction(() => setMyRecordTab("mentors")) },
+            { icon: "library", label: "Take Assessment", onClick: runDesktopAction(() => setMyRecordTab("assessments")) },
+          ]
       : [];
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
     && !formMode
@@ -22422,6 +24808,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedReviewItem
     && !selectedMeetingId
     && !selectedMobilePrayerDetail
     && !selectedMobilePrayerPartner
@@ -22445,6 +24832,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedExternalCalendarEventId
     && !selectedFruitActivity
     && !selectedFruitFormPreviewKey
+    && !selectedReviewItem
     && !selectedMeetingId
     && !selectedPersonId
     && !selectedPrayerResourceSlug
@@ -22508,11 +24896,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 circleGroups={circlePeopleByLayer}
                 fruitEvents={data.fruitEvents}
                 fruitItems={data.fruit}
-                loggedMeetings={loggedMeetings}
+                loggedMeetings={ministryLoggedMeetings}
+                meetings={data.meetings}
                 onOpenFruit={() => openMoreApp("fruit")}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
                 onOpenReports={() => openMoreApp("reports")}
+                onOpenReview={openSubmittedReview}
+                onOpenReviews={openReviewsList}
                 onOpenTable={() => setActiveTab("meetings")}
                 onOpenTableCalendar={() => {
                   setActiveTab("meetings");
@@ -22520,6 +24911,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 }}
                 onViewField={() => setActiveTab("people")}
                 participantReviews={data.participantReviews}
+                participantTestimonies={data.participantTestimonies}
                 people={people}
                 personTableStatsByPersonId={personTableStatsByPersonId}
                 upcomingItems={upcomingTimelineItems}
@@ -22775,6 +25167,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
+                {moreAppView === "my_record" ? (
+                  <MyRecordWorkspace
+                    errorMessage={errorMessage}
+                    fruit={data.fruit}
+                    isSubmitting={isSubmitting}
+                    meetings={data.meetings}
+                    onBack={() => setMoreAppView(null)}
+                    onQuickTab={setMyRecordTab}
+                    onSave={submitMyRecord}
+                    onTabChange={setMyRecordTab}
+                    people={people}
+                    profileName={profileName}
+                    record={data.myRecord}
+                    tab={myRecordTab}
+                  />
+                ) : null}
+
+                {moreAppView === "groups" ? (
+                  <GroupsWorkspace onBack={() => setMoreAppView(null)} />
+                ) : null}
+
                 {moreAppView === "prayer" ? (
                   <>
                     <div className="flex min-h-9 items-center md:hidden">
@@ -22884,6 +25297,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                             />
                           </div>
                         )}
+                      </section>
+                    ) : null}
+
+                    {fruitView === "reviews" ? (
+                      <section>
+                        <SectionHeading title="Reviews" />
+                        <SubmittedReviewsList items={submittedReviewItems} onOpenReview={openSubmittedReview} />
                       </section>
                     ) : null}
 
@@ -23216,6 +25636,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
             onOpenPrayerResources={openPrayerResourceLibrary}
+            onOpenReview={openSubmittedReview}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -23227,7 +25648,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
+<<<<<<< HEAD
             hasReviewRequestLink={Boolean(existingReviewUrl(selectedMeetingWithReview)) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
+=======
+            fruitEvents={data.fruitEvents}
+            hasReviewRequestLink={Boolean(selectedMeetingReviewUrl) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
+>>>>>>> origin/codex/public-launch-cleanup
             hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}
             isSendingReviewOptions={reviewOptionsLinkMeetingId === selectedMeetingWithReview.id}
@@ -23238,16 +25664,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             meeting={selectedMeetingWithReview}
             onBack={() => {
               setPostMeetingFollowUpId(null);
+              setSelectedMeetingReviewRecipientId(null);
               setSelectedMeetingId(null);
+            }}
+            onCopyReviewLink={() => {
+              if (selectedMeetingReviewUrl) {
+                void handleCopyExistingReviewLink(selectedMeetingReviewUrl);
+              }
             }}
             onDone={() => {
               setPostMeetingFollowUpId(null);
+              setSelectedMeetingReviewRecipientId(null);
               setSelectedMeetingId(null);
               setActiveTab("meetings");
             }}
             onDelete={handleDeleteMeeting}
             onEdit={() => openMeetingEdit(selectedMeetingWithReview)}
             onEditNotes={() => openMeetingNotesEdit(selectedMeetingWithReview)}
+            onOpenReviewLink={() => {
+              if (selectedMeetingReviewUrl) {
+                handleOpenExistingReviewLink(selectedMeetingReviewUrl);
+              }
+            }}
             onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
             onPrepareReviewOptions={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "review_options" })}
             onPrepareTestimonyRequest={() => {
@@ -23256,10 +25694,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               }
             }}
             onScheduleNextMeeting={() => openScheduleMeeting(selectedMeetingWithReview.fieldPersonIds)}
-            onSendReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
+            onSendReview={() => {
+              if (selectedMeetingReviewRecipientId) {
+                void handleShareReview(selectedMeetingWithReview, selectedMeetingReviewRecipientId);
+                return;
+              }
+
+              setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" });
+            }}
             onSendTestimony={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "testimony_request" })}
             participantTestimonies={data.participantTestimonies}
             people={people}
+            reviewRequestUrl={selectedMeetingReviewUrl}
             reviewOptionsShareMessage={reviewOptionsShareMessage}
             reviewShareMessage={reviewShareMessage}
             showPostMeetingFollowUp={postMeetingFollowUpId === selectedMeetingWithReview.id}
@@ -23385,6 +25831,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPersonDetail(personId);
             }}
             story={selectedFruitActivity}
+          />
+        ) : null}
+
+        {selectedReviewItem ? (
+          <ReviewDetailSheet
+            item={selectedReviewItem}
+            onClose={() => setSelectedReviewItem(null)}
+            onOpenMeeting={openMeetingDetail}
           />
         ) : null}
 
@@ -23628,6 +26082,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
+            growthReflectionDefault={null}
             householdMembers={data.householdMembers}
             includeReflectionFields
             isCreatingPerson={isCreatingMeetingPerson}
@@ -23645,12 +26100,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSubmit={handleMeetingSubmit}
             onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
             onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
+            onTableRoleChange={setSelectedTableRole}
             onToggleFollowUpAction={handleConversationFollowUpAction}
             onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
             onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
             onToggleOutcomeTag={toggleOutcomeTag}
             onTogglePerson={toggleMeetingPersonId}
             onToggleSupportingAttendee={toggleSupportingAttendeeId}
+            planningReflectionDefault={null}
             recommendedResources={draftRecommendedResources}
             selectedConversationFlow={selectedConversationFlow}
             selectedMeetingContext={selectedMeetingContext}
@@ -23659,6 +26116,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             selectedOutcomeTags={selectedOutcomeTags}
             selectedPersonIds={selectedMeetingPersonIds}
             selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
+            selectedTableRole={selectedTableRole}
             showDurationField
             submittingText="Saving..."
             supportingAttendeeOptions={supportingAttendeeOptions}
@@ -23685,9 +26143,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onPeopleQueryChange={setMeetingPeopleQuery}
             onStartLogMeeting={openScheduledDraftAsMeeting}
             onSubmit={handleScheduleMeetingSubmit}
+            onTableRoleChange={setSelectedTableRole}
             onTogglePerson={toggleMeetingPersonId}
             selectedMeetingContext={selectedMeetingContext}
             selectedPersonIds={selectedMeetingPersonIds}
+            selectedTableRole={selectedTableRole}
             workspaceId={data.workspace.id}
             workspaceSlug={data.workspace.slug}
           />
@@ -23731,6 +26191,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
               durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
               errorMessage={errorMessage}
+              growthReflectionDefault={selectedMeeting.growthReflection}
               householdMembers={data.householdMembers}
               includeReflectionFields={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               isCreatingPerson={isCreatingMeetingPerson}
@@ -23749,12 +26210,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onSubmit={handleEditMeetingSubmit}
               onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
               onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
+              onTableRoleChange={setSelectedTableRole}
               onToggleFollowUpAction={handleConversationFollowUpAction}
               onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
               onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
               onToggleOutcomeTag={toggleOutcomeTag}
               onTogglePerson={toggleMeetingPersonId}
               onToggleSupportingAttendee={toggleSupportingAttendeeId}
+              planningReflectionDefault={selectedMeeting.planningReflection}
               recommendedResources={draftRecommendedResources}
               reflectionDefault={reflectionDefault}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
@@ -23766,6 +26229,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               selectedOutcomeTags={selectedOutcomeTags}
               selectedPersonIds={selectedMeetingPersonIds}
               selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
+              selectedTableRole={selectedTableRole}
               showConversationFlow={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               showDurationField={selectedMeeting.meetingStatus !== "scheduled" || isLoggingSelectedScheduledMeeting}
               showScheduledTiming={selectedMeeting.meetingStatus === "scheduled" && !isLoggingSelectedScheduledMeeting}

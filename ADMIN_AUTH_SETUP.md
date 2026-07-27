@@ -14,22 +14,24 @@ In Supabase Dashboard, open Authentication -> URL Configuration.
 Set Site URL:
 
 ```text
-https://new.usamissionaries.org
+https://usamissionaries.org
 ```
 
 Allowed Redirect URLs should include:
 
 ```text
+https://usamissionaries.org/**
+https://usamissionaries.org/update-password
 https://new.usamissionaries.org/**
 https://new.usamissionaries.org/update-password
 http://localhost:3000/**
 http://localhost:3000/update-password
 ```
 
-Keep the localhost URLs so local development password-reset and auth flows keep working. Production reset emails should redirect to:
+Keep the `new.usamissionaries.org` URLs during cutover verification so both production hosts can complete auth flows. Keep the localhost URLs so local development password-reset and auth flows keep working. Production reset emails should redirect to:
 
 ```text
-https://new.usamissionaries.org/update-password
+https://usamissionaries.org/update-password
 ```
 
 ## Create Or Restore An Admin User
@@ -48,7 +50,7 @@ do update set
 Then create a Supabase Auth user for the same email in Authentication -> Users, or use the Supabase Admin API from a server-only script with `SUPABASE_SERVICE_ROLE_KEY`. Confirm the email and send a password recovery link to:
 
 ```text
-https://new.usamissionaries.org/update-password
+https://usamissionaries.org/update-password
 ```
 
 Do not expose the service role key in client code or `NEXT_PUBLIC_*` environment variables.

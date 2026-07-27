@@ -24,6 +24,14 @@ type ExistingPersonRow = {
   workspace_id?: string | null;
 };
 
+type HouseholdTeamMemberRow = {
+  display_name: string | null;
+  id: string;
+  relationship_to_workspace?: string | null;
+  role_title?: string | null;
+  status?: string | null;
+};
+
 type HouseholdMemberPersonInput = {
   anchorName: string;
   anchorPersonId: string;
@@ -65,6 +73,13 @@ function isMissingColumnError(error: SupabaseQueryError, columns: string[]) {
   return columns.some((column) => message.includes(column));
 }
 
+function isMissingTableError(error: SupabaseQueryError, tableName: string) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes(tableName)
+    && (message.includes("does not exist") || message.includes("relation") || message.includes("schema cache"));
+}
+
 function omitKeys(record: Record<string, unknown>, keys: string[]) {
   return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
 }
@@ -104,6 +119,30 @@ function parseChildrenNames(value: string | null | undefined) {
     .split(/[,;\n]+/)
     .map(cleanText)
     .filter(Boolean);
+}
+
+function isWorkspaceHouseholdPersonName(value: string | null | undefined) {
+  const key = nameKey(value);
+
+  return Boolean(key && key !== "god" && key !== "new team member" && key !== "unnamed team member");
+}
+
+function isActiveHouseholdTeamMember(row: HouseholdTeamMemberRow) {
+  const status = cleanText(row.status).toLowerCase();
+
+  return isWorkspaceHouseholdPersonName(row.display_name)
+    && !["archived", "declined", "inactive"].includes(status);
+}
+
+function householdTeamMemberNote(row: HouseholdTeamMemberRow) {
+  const relationship = cleanText(row.relationship_to_workspace);
+  const roleTitle = cleanText(row.role_title);
+  const details = [
+    relationship ? `Relationship: ${relationship}.` : "",
+    roleTitle ? `Role: ${roleTitle}.` : "",
+  ].filter(Boolean);
+
+  return ["Household roster member in this workspace.", ...details].join("\n");
 }
 
 export function householdMemberPersonCandidates(input: {
@@ -176,6 +215,36 @@ async function loadExistingPeople(supabase: SupabaseAdminClient, workspaceId: st
   return scopedResult;
 }
 
+async function loadHouseholdTeamMembers(supabase: SupabaseAdminClient, workspaceId: string) {
+  const fullSelect = "id, display_name, role_title, relationship_to_workspace, status";
+  const compatibleSelect = "id, display_name, role_title, status";
+  const result = await supabase
+    .from("missionary_team_members")
+    .select(fullSelect)
+    .eq("household_id", workspaceId);
+
+  if (!result.error) {
+    return result;
+  }
+
+  if (isMissingColumnError(result.error, ["relationship_to_workspace"])) {
+    const compatibleResult = await supabase
+      .from("missionary_team_members")
+      .select(compatibleSelect)
+      .eq("household_id", workspaceId);
+
+    if (!compatibleResult.error) {
+      return compatibleResult;
+    }
+  }
+
+  if (isMissingTableError(result.error, "missionary_team_members")) {
+    return { data: [], error: null };
+  }
+
+  return result;
+}
+
 function householdNoteFor(input: HouseholdMemberPersonInput, candidate: HouseholdMemberCandidate) {
   const relationshipLabel = candidate.relationship === "spouse" ? "Spouse" : "Child";
   const relationshipNote = `${relationshipLabel} in ${input.anchorName}'s household.`;
@@ -203,6 +272,26 @@ function buildHouseholdMemberInsert(input: HouseholdMemberPersonInput, candidate
     spouse_name: candidate.relationship === "spouse" ? input.anchorName : null,
     status: "new",
     workspace_id: input.workspaceId,
+  };
+}
+
+function buildHouseholdTeamMemberInsert(workspaceId: string, member: HouseholdTeamMemberRow, createdBy?: string | null) {
+  return {
+    church: null,
+    created_by: createdBy ?? null,
+    discipleship_stage: "not_started",
+    engagement_level: "0",
+    field_visibility: "secondary",
+    household_id: workspaceId,
+    household_notes: householdTeamMemberNote(member),
+    name: cleanText(member.display_name),
+    phone: null,
+    relationship_context: "family",
+    relationship_type: "new",
+    role_in_my_life: "not_active",
+    source: "field",
+    status: "new",
+    workspace_id: workspaceId,
   };
 }
 
@@ -247,6 +336,44 @@ function buildExistingPersonUpdate(existing: ExistingPersonRow, input: Household
 
   if (!cleanText(existing.church) && cleanText(input.church)) {
     update.church = cleanText(input.church);
+  }
+
+  return update;
+}
+
+function buildExistingHouseholdTeamMemberUpdate(existing: ExistingPersonRow, member: HouseholdTeamMemberRow) {
+  const update: Record<string, unknown> = {};
+
+  if (!cleanText(existing.relationship_context)) {
+    update.relationship_context = "family";
+  }
+
+  if (!cleanText(existing.relationship_type)) {
+    update.relationship_type = "new";
+  }
+
+  if (!cleanText(existing.role_in_my_life)) {
+    update.role_in_my_life = "not_active";
+  }
+
+  if (!cleanText(existing.discipleship_stage)) {
+    update.discipleship_stage = "not_started";
+  }
+
+  if (!cleanText(existing.engagement_level)) {
+    update.engagement_level = "0";
+  }
+
+  if (!cleanText(existing.field_visibility)) {
+    update.field_visibility = "secondary";
+  }
+
+  if (!cleanText(existing.household_notes)) {
+    update.household_notes = householdTeamMemberNote(member);
+  }
+
+  if (["archived", "deleted"].includes(cleanText(existing.status).toLowerCase())) {
+    update.status = "active";
   }
 
   return update;
@@ -380,6 +507,89 @@ export async function syncHouseholdMembersAsPeople(
       ...insertRecord,
       id: insertResult.data.id,
       name: candidate.name,
+    } as ExistingPersonRow);
+  }
+
+  return { createdCount, error: null, updatedCount };
+}
+
+export async function syncHouseholdTeamMembersAsPeople(
+  supabase: SupabaseAdminClient,
+  input: {
+    createdBy?: string | null;
+    workspaceId: string;
+  },
+): Promise<HouseholdMemberSyncResult> {
+  const [existingResult, teamMemberResult] = await Promise.all([
+    loadExistingPeople(supabase, input.workspaceId),
+    loadHouseholdTeamMembers(supabase, input.workspaceId),
+  ]);
+
+  if (existingResult.error) {
+    return { createdCount: 0, error: existingResult.error, updatedCount: 0 };
+  }
+
+  if (teamMemberResult.error) {
+    return { createdCount: 0, error: teamMemberResult.error, updatedCount: 0 };
+  }
+
+  const existingByName = new Map<string, ExistingPersonRow>();
+
+  ((existingResult.data ?? []) as ExistingPersonRow[]).forEach((person) => {
+    const key = nameKey(person.name);
+
+    if (key && !existingByName.has(key)) {
+      existingByName.set(key, person);
+    }
+  });
+
+  const teamMembersByName = new Map<string, HouseholdTeamMemberRow>();
+
+  ((teamMemberResult.data ?? []) as HouseholdTeamMemberRow[])
+    .filter(isActiveHouseholdTeamMember)
+    .forEach((member) => {
+      const key = nameKey(member.display_name);
+
+      if (key && !teamMembersByName.has(key)) {
+        teamMembersByName.set(key, member);
+      }
+    });
+
+  let createdCount = 0;
+  let updatedCount = 0;
+
+  for (const [key, member] of Array.from(teamMembersByName.entries())) {
+    const existingPerson = existingByName.get(key);
+
+    if (existingPerson) {
+      const update = buildExistingHouseholdTeamMemberUpdate(existingPerson, member);
+
+      if (Object.keys(update).length) {
+        const updateResult = await updateHouseholdMemberPerson(supabase, input.workspaceId, existingPerson.id, update);
+
+        if (updateResult.error) {
+          return { createdCount, error: updateResult.error, updatedCount };
+        }
+
+        updatedCount += 1;
+        existingByName.set(key, { ...existingPerson, ...update });
+      }
+
+      continue;
+    }
+
+    const insertRecord = buildHouseholdTeamMemberInsert(input.workspaceId, member, input.createdBy);
+    const insertResult = await insertHouseholdMemberPerson(supabase, insertRecord);
+
+    if (insertResult.error || !insertResult.data?.id) {
+      return { createdCount, error: insertResult.error, updatedCount };
+    }
+
+    createdCount += 1;
+    existingByName.set(key, {
+      ...insertRecord,
+      id: insertResult.data.id,
+      name: cleanText(member.display_name),
     } as ExistingPersonRow);
   }
 

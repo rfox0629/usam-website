@@ -18,12 +18,14 @@ export const dosReviewSharePermissions = ["anonymous", "with_name", "private"] a
 export const dosReviewStepAnswers = ["yes", "no", "unsure"] as const;
 export const dosReviewFollowUpAnswers = ["yes", "no", "maybe"] as const;
 export const dosQuickReviewAnswers = ["yes", "somewhat", "no"] as const;
+export const dosQuickReviewOverallRatings = ["life_changing", "very_meaningful", "helpful", "somewhat_helpful", "not_very_helpful"] as const;
 
 export type DosReviewRequestType = typeof dosReviewRequestTypes[number];
 export type DosReviewSharePermission = typeof dosReviewSharePermissions[number];
 export type DosReviewStepAnswer = typeof dosReviewStepAnswers[number];
 export type DosReviewFollowUpAnswer = typeof dosReviewFollowUpAnswers[number];
 export type DosQuickReviewAnswer = typeof dosQuickReviewAnswers[number];
+export type DosQuickReviewOverallRating = typeof dosQuickReviewOverallRatings[number];
 
 export type DosReviewLinkState =
   | {
@@ -50,10 +52,13 @@ export type DosQuickReviewSubmission = {
   encouraged?: boolean | null;
   feltCaredFor?: DosQuickReviewAnswer | null;
   feltHeard?: DosQuickReviewAnswer | null;
+  overallRating?: DosQuickReviewOverallRating | null;
   outcomeTags?: string[];
   sharePermission?: DosReviewSharePermission;
   stepTowardJesus?: DosReviewStepAnswer | null;
   submittedEmail?: string | null;
+  submittedFirstName?: string | null;
+  submittedLastName?: string | null;
   stoodOut?: string | null;
   submittedName?: string | null;
   wouldMeetAgain?: DosQuickReviewAnswer | null;

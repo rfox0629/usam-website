@@ -9,11 +9,12 @@ export const dosReviewOutcomeOptions = [
 ] as const;
 
 export const dosQuickReviewOutcomeOptions = [
-  { label: "I experienced encouragement", value: "Encouragement" },
+  { label: "I experienced encouragement", value: "Felt encouraged" },
   { label: "I experienced hope", value: "Hope" },
   { label: "I experienced peace", value: "Peace" },
-  { label: "Someone prayed with me", value: "Prayer" },
+  { label: "Someone prayed with me", value: "Prayer Received" },
   { label: "I experienced forgiveness", value: "Reconciliation" },
+  { label: "I feel closer to God", value: "Closer to God" },
   { label: "I want to grow spiritually", value: "Discipling" },
   { label: "I made a decision to follow Jesus", value: "New Believers" },
   { label: "I'd like someone to follow up with me", value: "Follow Up Requested" },
@@ -30,6 +31,14 @@ export const dosQuickReviewAnswerOptions = [
   { label: "Yes", value: "yes" },
   { label: "Somewhat", value: "somewhat" },
   { label: "No", value: "no" },
+] as const;
+
+export const dosQuickReviewOverallRatingOptions = [
+  { label: "Life-changing", value: "life_changing" },
+  { label: "Very meaningful", value: "very_meaningful" },
+  { label: "Helpful", value: "helpful" },
+  { label: "Somewhat helpful", value: "somewhat_helpful" },
+  { label: "Not very helpful", value: "not_very_helpful" },
 ] as const;
 
 export const dosReviewOptionChoices = [
@@ -51,11 +60,17 @@ export const dosQuickReviewFormDefinition = {
   sections: [
     {
       fieldType: "text",
-      label: "Name",
+      label: "First Name",
+      type: "field",
+    },
+    {
+      fieldType: "text",
+      label: "Last Name",
       type: "field",
     },
     {
       fieldType: "email",
+      helper: "Optional when this link already knows you.",
       label: "Email",
       type: "field",
     },
@@ -85,14 +100,21 @@ export const dosQuickReviewFormDefinition = {
     },
     {
       choiceType: "checkbox",
-      label: "What stood out during your conversation?",
+      helper: "Select all that apply.",
+      label: "What did you experience today?",
       options: dosQuickReviewOutcomeOptions.map((option) => option.label),
       type: "choice",
     },
     {
+      choiceType: "radio",
+      label: "Overall, how would you describe today's conversation?",
+      options: dosQuickReviewOverallRatingOptions.map((option) => option.label),
+      type: "choice",
+    },
+    {
       fieldType: "textarea",
-      label: "Is there anything you'd like to share?",
-      placeholder: "Optional",
+      helper: "We'd love to hear what encouraged you, what stood out, or anything we could do better.",
+      label: "Is there anything you'd like us to know? (Optional)",
       type: "field",
     },
   ],
@@ -157,6 +179,7 @@ export type DosReviewOutcomeValue = typeof dosReviewOutcomeOptions[number]["valu
 export type DosQuickReviewOutcomeValue = typeof dosQuickReviewOutcomeOptions[number]["value"];
 export type DosReviewOptionChoice = typeof dosReviewOptionChoices[number]["value"];
 export type DosReviewSharePermissionValue = typeof dosReviewSharePermissionOptions[number]["value"];
+export type DosQuickReviewOverallRatingValue = typeof dosQuickReviewOverallRatingOptions[number]["value"];
 
 const dosReviewOutcomeValueSet = new Set<string>(dosReviewOutcomeOptions.map((option) => option.value));
 const dosQuickReviewOutcomeValueSet = new Set<string>(dosQuickReviewOutcomeOptions.map((option) => option.value));

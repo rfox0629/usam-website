@@ -1,13 +1,7 @@
-const fallbackPublicMissionaryBaseUrl = "https://new.usamissionaries.org";
+import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 
 export function getPublicMissionaryBaseUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
-
-  if (!configuredUrl || configuredUrl.includes("localhost")) {
-    return fallbackPublicMissionaryBaseUrl;
-  }
-
-  return configuredUrl;
+  return getConfiguredSiteUrl();
 }
 
 export function getPublicMissionaryProfileUrl(slug: string) {

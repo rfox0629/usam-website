@@ -1,15 +1,13 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, HandHeart, Heart, Users } from "lucide-react";
+import { BookOpen, HandHeart, Users } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { HeroProfile } from "@/components/missionaries/HeroProfile";
 import { ProfileSupportSectionActions } from "@/components/missionaries/SupportMissionButtons";
 import { StoryReadMoreButton } from "@/components/missionaries/StoryReadMoreButton";
 import { FruitFromTheFieldModal } from "@/src/components/missionaries/FruitFromTheFieldModal";
-import { JoinPrayerTeamModal, PrayerRequestPreviewList, PrayerRequestsModalButton } from "@/src/components/missionaries/JoinPrayerTeamModal";
 import { MissionaryProfileReviewModal } from "@/src/components/missionaries/MissionaryProfileReviewModal";
 import { MissionaryProfileViewTracker } from "@/src/components/missionaries/MissionaryProfileViewTracker";
-import { SubmitPrayerRequestModal } from "@/src/components/missionaries/SubmitPrayerRequestModal";
 import { ExpandableTeamMemberList } from "@/src/components/missionaries/ExpandableTeamMemberList";
 import type { Missionary, MissionaryFruitItem } from "@/src/data/missionaries";
 import { getSupportRoutingPublicCopy } from "@/src/lib/missionaries/support-routing";
@@ -291,67 +289,6 @@ function TeamProfileCard({ missionary }: { missionary: Missionary }) {
   );
 }
 
-function PrayerProfileCard({ missionary }: { missionary: Missionary }) {
-  const prayerRequests = missionary.prayerRequests ?? [];
-  const prayerTeamCount = missionary.prayerSettings?.prayerTeamCount ?? 0;
-  const showPrayerTeamCount = missionary.prayerSettings?.showPrayerTeamCount !== false;
-  const prayerDescription = missionary.prayerSettings?.description || "Pray with this household as they reach, disciple, and serve.";
-  const prayerTeamLabel = prayerTeamCount === 1 ? "1 partner" : `${prayerTeamCount} partners`;
-
-  return (
-    <MissionProfileCard
-      action={(
-        <div className="grid gap-2">
-          <JoinPrayerTeamModal
-            buttonLabel="Become a Prayer Partner"
-            householdId={missionary.id}
-            householdName={missionary.name}
-            householdNumber={missionary.missionaryNumber}
-            initialPrayerRequests={prayerRequests}
-            profileSlug={missionary.slug}
-            variant="compact"
-          />
-          <SubmitPrayerRequestModal
-            householdId={missionary.id}
-            householdName={missionary.name}
-            profileSlug={missionary.slug}
-          />
-          <PrayerRequestsModalButton buttonLabel="View All Requests" requests={prayerRequests} />
-        </div>
-      )}
-      icon={<Heart aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />}
-      label={prayerRequests.length > 0 ? "Current" : "Prayer"}
-      title={missionary.prayerSettings?.headline || "Prayer"}
-    >
-      <div className="space-y-3">
-        {showPrayerTeamCount ? (
-          <div className="rounded-xl border border-[#C2A14E]/20 bg-[#C2A14E]/10 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-                Prayer Team
-              </p>
-              <p className="text-sm font-semibold leading-none text-stone-100">
-                {prayerTeamLabel}
-              </p>
-            </div>
-          </div>
-        ) : null}
-        <p className="max-h-[5.5rem] overflow-hidden">
-          {prayerDescription}
-        </p>
-        <div>
-          <h3 className="text-[10px] uppercase tracking-[0.18em] text-[#C2A14E]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-            Prayer Requests
-          </h3>
-          <div className="mt-2">
-            <PrayerRequestPreviewList requests={prayerRequests} />
-          </div>
-        </div>
-      </div>
-    </MissionProfileCard>
-  );
-}
-
 // Profiles (PF): render approved, curated Fruit only. Raw Encounter intake
 // stays inside Command Center until reviewed and transformed into Fruit.
 function FruitSection({
@@ -435,7 +372,6 @@ function FruitSection({
 
 function MissionProfileSection({
   missionary,
-  showPrayer,
   showStory,
   showSupport,
   showTeam,
@@ -444,7 +380,6 @@ function MissionProfileSection({
   storyPreview,
 }: {
   missionary: Missionary;
-  showPrayer: boolean;
   showStory: boolean;
   showSupport: boolean;
   showTeam: boolean;
@@ -453,7 +388,6 @@ function MissionProfileSection({
   storyPreview: string;
 }) {
   const hasCards = (showStory && storyParagraphs)
-    || showPrayer
     || showTeam
     || showSupport;
 
@@ -476,9 +410,6 @@ function MissionProfileSection({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {showStory && storyParagraphs ? (
             <StoryProfileCard storyParagraphs={storyParagraphs} storyPreview={storyPreview} />
-          ) : null}
-          {showPrayer ? (
-            <PrayerProfileCard missionary={missionary} />
           ) : null}
           {showTeam ? (
             <TeamProfileCard missionary={missionary} />
@@ -523,24 +454,11 @@ export function MissionaryProfileTemplate({
   const showFruit = features.showFruit && (fruitItems.length > 0 || shouldPreviewProfileReview);
   const supportDefaults = getSupportDefaults(missionary);
   const showSupport = features.showSupport && supportDefaults.mode !== "hidden";
-  const prayerRequests = missionary.prayerRequests ?? [];
-  const showPrayer = features.showPrayer;
-  const joinPrayerTeamAction = showPrayer ? (
-    <JoinPrayerTeamModal
-      buttonLabel="Become a Prayer Partner"
-      householdId={missionary.id}
-      householdName={missionary.name}
-      householdNumber={missionary.missionaryNumber}
-      initialPrayerRequests={prayerRequests}
-      profileSlug={missionary.slug}
-      variant={showSupport ? "outline" : "gold"}
-    />
-  ) : null;
   const supportModalProps = {
     enableMajorGiftInquiry: supportDefaults.enableMajorGiftInquiry,
     enableMonthlyPartnership: supportDefaults.enableMonthlyPartnership,
     enableOneTimeGift: supportDefaults.enableOneTimeGift,
-    extraAction: joinPrayerTeamAction,
+    extraAction: null,
     initialMajorGiftOpen: previewForm === "major_gift",
     majorGiftButtonLabel: supportDefaults.majorGiftButtonLabel,
     majorGiftPublicDescription: supportDefaults.majorGiftPublicDescription,
@@ -570,7 +488,7 @@ export function MissionaryProfileTemplate({
         location={missionary.locationLine}
         description={missionary.statement}
         image={showPhotos ? missionary.heroImage : undefined}
-        actions={joinPrayerTeamAction}
+        actions={null}
         backLink={(
           <Link
             href="/missionaries"
@@ -584,7 +502,6 @@ export function MissionaryProfileTemplate({
 
       <MissionProfileSection
         missionary={missionary}
-        showPrayer={showPrayer}
         showStory={showStory}
         showSupport={showSupport}
         showTeam={showTeam}

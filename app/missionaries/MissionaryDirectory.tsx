@@ -21,42 +21,49 @@ const filters = [
   "ALL",
   "MISSIONARIES",
   "STATE LEADERS",
-  "REGIONAL LEADERS",
-  "NATIONAL LEADERS",
-  "PRAYER TEAM",
-  "SUPPORT TEAM",
 ] as const;
 
 type DirectoryFilter = (typeof filters)[number];
+
+const publicRoleTagLabels = new Map([
+  ["MISSIONARY", "MISSIONARIES"],
+  ["MISSIONARIES", "MISSIONARIES"],
+  ["MISSIONARY COUPLE", "MISSIONARIES"],
+  ["MISSIONARY COUPLE / MISSIONARIES", "MISSIONARIES"],
+  ["STATE LEADER", "STATE LEADERS"],
+  ["STATE LEADERS", "STATE LEADERS"],
+]);
+
+function visibleRoleTags(tags: readonly string[]) {
+  const visibleTags: string[] = [];
+
+  tags.forEach((tag) => {
+    const publicLabel = publicRoleTagLabels.get(tag.toUpperCase());
+
+    if (publicLabel && !visibleTags.includes(publicLabel)) {
+      visibleTags.push(publicLabel);
+    }
+  });
+
+  return visibleTags;
+}
 
 function isExternalImage(src: string) {
   return /^https?:\/\//.test(src);
 }
 
 function matchesFilter(missionary: MissionaryDirectoryProfile, filter: DirectoryFilter) {
-  const roleTags = missionary.roleTags.map((tag) => tag.toUpperCase());
+  const roleTags = visibleRoleTags(missionary.roleTags);
 
   if (filter === "ALL") {
     return true;
   }
 
-  if (filter === "MISSIONARIES") {
-    return roleTags.includes("MISSIONARY") || roleTags.includes("MISSIONARY COUPLE");
-  }
-
-  const roleByFilter = {
-    "NATIONAL LEADERS": "NATIONAL LEADER",
-    "PRAYER TEAM": "PRAYER TEAM",
-    "REGIONAL LEADERS": "REGIONAL LEADER",
-    "STATE LEADERS": "STATE LEADER",
-    "SUPPORT TEAM": "SUPPORT TEAM",
-  } as const satisfies Record<Exclude<DirectoryFilter, "ALL" | "MISSIONARIES">, string>;
-
-  return roleTags.includes(roleByFilter[filter]);
+  return roleTags.includes(filter);
 }
 
 function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile }) {
-  const functionTags = missionary.functionTags ?? [];
+  const roleTags = visibleRoleTags(missionary.roleTags);
   const showImage = Boolean(missionary.image);
   const actionClassName = "inline-flex min-h-11 w-full items-center justify-center bg-stone-950 px-5 py-3 text-center text-[11px] uppercase tracking-[0.2em] text-white transition-all duration-300 hover:bg-[#C2A14E] hover:text-black";
 
@@ -103,19 +110,10 @@ function DirectoryCard({ missionary }: { missionary: MissionaryDirectoryProfile 
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {missionary.roleTags.map((tag) => (
+          {roleTags.map((tag) => (
             <span
               key={tag}
               className="border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-stone-950"
-              style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-            >
-              {tag}
-            </span>
-          ))}
-          {functionTags.map((tag) => (
-            <span
-              key={tag}
-              className="border border-stone-300 bg-stone-50 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-stone-600"
               style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
             >
               {tag}
@@ -162,7 +160,7 @@ export function MissionaryDirectory({
     const normalizedQuery = query.trim().toLowerCase();
 
     return missionaries.filter((missionary) => {
-      const allTags = [...missionary.roleTags, ...(missionary.functionTags ?? [])];
+      const allTags = visibleRoleTags(missionary.roleTags);
       const matchesQuery = !normalizedQuery
         || missionary.name.toLowerCase().includes(normalizedQuery)
         || missionary.location.toLowerCase().includes(normalizedQuery)

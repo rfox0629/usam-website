@@ -613,6 +613,10 @@ export function getDosResourcesByCategory(category: DosResourceCategory): DosRes
   return dosResourceCatalog.filter((resource) => resource.category === category);
 }
 
+export function getDosAssessmentResources(): DosResource[] {
+  return dosResourceCatalog.filter((resource) => resource.type === "assessment" && Boolean(resource.content?.assessment));
+}
+
 export function getSendableDosResources(): DosResource[] {
   return dosResourceCatalog.filter((resource) => resource.sendable);
 }

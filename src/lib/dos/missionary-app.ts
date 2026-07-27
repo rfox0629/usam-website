@@ -21,6 +21,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
+import { syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
 import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
@@ -53,6 +54,8 @@ function isMissingColumnError(error: SupabaseQueryError) {
 }
 
 export const dosAppMeetingTypes = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "discipleship", "other"] as const;
+export const dosAppTableRoles = ["ministering", "being_mentored", "mutual_discipleship", "leadership_planning"] as const;
+export const dosAppDiscipleshipRelationships = ["mentor", "mentee", "peer", "pastor", "coach", "spiritual_parent", "family", "friend", "other"] as const;
 export const dosAppOutcomeTags = [
   "Reconciliation",
   "New Believers",
@@ -88,6 +91,8 @@ export const dosAppLegacyOutcomeTags = ["Healing", "Deliverance", "Church Connec
 export const dosAppFruitTypeOptions = dosAppOutcomeTags;
 
 export type DosAppMeetingType = typeof dosAppMeetingTypes[number];
+export type DosAppTableRole = typeof dosAppTableRoles[number];
+export type DosAppDiscipleshipRelationship = typeof dosAppDiscipleshipRelationships[number];
 export type DosAppOutcomeTag = typeof dosAppOutcomeTags[number] | typeof dosAppLegacyOutcomeTags[number];
 export type DosAppFieldVisibility = "hidden" | "primary" | "secondary";
 export type DosAppReviewStatus = "approved" | "not_sent" | "pending" | "private" | "submitted";
@@ -127,6 +132,7 @@ export type DosAppPerson = {
   childrenNames?: string | null;
   church: string | null;
   createdAt: string | null;
+  discipleshipRelationship: DosAppDiscipleshipRelationship | null;
   discipleshipStage: DiscipleshipStageValue;
   rawDiscipleshipStage?: string | null;
   email: string | null;
@@ -164,6 +170,13 @@ export type DosAppMeeting = {
   followUpNeeded?: boolean | string | null;
   googleSyncEnabled: boolean;
   googleSyncStatus?: "failed" | "pending" | "synced" | null;
+  growthReflection: {
+    actionStep: string | null;
+    followUpNeeded: boolean;
+    mentorAssignment: string | null;
+    scriptures: string | null;
+    whatGodTaught: string | null;
+  };
   id: string;
   meetingStatus: "canceled" | "logged" | "scheduled";
   ministryEventId: string | null;
@@ -175,6 +188,7 @@ export type DosAppMeeting = {
   recommendedResources: DosRecommendedResource[];
   recorder: DosAppMinistryEventPerson | null;
   review: {
+    overallRating: string | null;
     sharePermission: string | null;
     status: DosAppReviewStatus;
     stoodOut: string | null;
@@ -182,10 +196,23 @@ export type DosAppMeeting = {
     submittedName: string | null;
     token: string | null;
   };
+  reviewLinks: Array<{
+    recipientPersonId: string | null;
+    status: string | null;
+    submittedAt: string | null;
+    token: string;
+    usedAt: string | null;
+  }>;
   source: "connection" | "table";
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
   supportingAttendees: DosAppMinistryEventPerson[];
+  planningReflection: {
+    actionItems: string | null;
+    decisions: string | null;
+    followUp: string | null;
+  };
+  tableRole: DosAppTableRole;
   timezone: string | null;
   title: string;
   type: DosAppMeetingType;
@@ -213,10 +240,15 @@ export type DosAppParticipantReview = {
   feltHeard: string | null;
   id: string;
   meetingId: string;
+  overallRating: string | null;
   outcomeTags: string[];
   personId: string | null;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
+  submittedEmail: string | null;
+  submittedFirstName: string | null;
+  submittedLastName: string | null;
+  submittedName: string | null;
   wouldMeetAgain: boolean | null;
   wouldMeetAgainResponse: string | null;
 };
@@ -232,6 +264,8 @@ export type DosAppParticipantTestimony = {
   story: string;
   status: "draft" | "submitted" | "reviewed" | "approved" | "hidden";
   submittedAt: string | null;
+  submittedEmail: string | null;
+  submittedName: string | null;
   whatChanged: string | null;
 };
 
@@ -396,6 +430,100 @@ export type DosAppRelationshipReminder = {
   updatedAt: string | null;
 };
 
+export type DosAppUserJournalEntry = {
+  biblePassage: string | null;
+  createdAt: string | null;
+  date: string;
+  id: string;
+  lordHighlight: string | null;
+  minutesSpent: number;
+  notes: string | null;
+  prayerResponse: string | null;
+  startedAt: string | null;
+  stoppedAt: string | null;
+  tags: string[];
+  updatedAt: string | null;
+};
+
+export type DosAppUserPrayerLog = {
+  answeredAt: string | null;
+  answeredStatus: "answered" | "open" | "watching";
+  createdAt: string | null;
+  fieldPersonId: string | null;
+  id: string;
+  minutesSpent: number;
+  notes: string | null;
+  prayedAt: string | null;
+  prayerFocus: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserMentorRelationship = {
+  createdAt: string | null;
+  fieldPersonId: string | null;
+  id: string;
+  mentorName: string;
+  notes: string | null;
+  relationshipLabel: string | null;
+  status: "active" | "archived";
+  updatedAt: string | null;
+};
+
+export type DosAppUserMentorMeeting = {
+  actionSteps: string | null;
+  counselReceived: string | null;
+  createdAt: string | null;
+  discussed: string | null;
+  durationMinutes: number;
+  fieldPersonId: string | null;
+  followUpDate: string | null;
+  id: string;
+  meetingDate: string;
+  mentorName: string;
+  notes: string | null;
+  relationshipId: string | null;
+  updatedAt: string | null;
+};
+
+export type DosAppUserAssessmentCategoryScore = {
+  id: string;
+  maxScore: number;
+  percentage: number;
+  score: number;
+  title: string;
+};
+
+export type DosAppUserAssessmentResult = {
+  answers: Record<string, number>;
+  assessmentName: string;
+  assessmentResourceId: string | null;
+  assessmentSlug: string;
+  categoryScores: DosAppUserAssessmentCategoryScore[];
+  completedAt: string | null;
+  createdAt: string | null;
+  id: string;
+  maxScore: number;
+  overallScore: number;
+  percentage: number;
+  updatedAt: string | null;
+  visibility: "private";
+};
+
+export type DosAppUserRecord = {
+  assessmentResults: DosAppUserAssessmentResult[];
+  createdAt: string | null;
+  currentSeasonFocus: string | null;
+  displayName: string | null;
+  id: string | null;
+  journalEntries: DosAppUserJournalEntry[];
+  mentorMeetings: DosAppUserMentorMeeting[];
+  mentorRelationships: DosAppUserMentorRelationship[];
+  prayerLogs: DosAppUserPrayerLog[];
+  updatedAt: string | null;
+  userId: string | null;
+  workspaceId: string;
+};
+
 export type DosAppData = {
   assessmentResults: DosAppAssessmentResult[];
   calendarConnection: DosAppCalendarConnection;
@@ -413,6 +541,7 @@ export type DosAppData = {
   prayerLogs: DosAppPrayerLog[];
   prayerPartners: DosAppPrayerPartner[];
   prayerRequests: DosAppPrayerRequest[];
+  myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   tableInvitations: DosTableInvitation[];
   usamApplication: DosUsamOrganizationApplication;
@@ -504,6 +633,7 @@ type FieldPersonRow = {
   children_names?: string | null;
   church: string | null;
   created_at: string | null;
+  discipleship_relationship?: string | null;
   discipleship_stage?: string | null;
   email: string | null;
   engagement_level: string | null;
@@ -528,16 +658,25 @@ type MeetingRow = {
   created_at?: string | null;
   field_person_ids: string[] | null;
   google_sync_enabled?: boolean | null;
+  growth_action_step?: string | null;
+  growth_follow_up_needed?: boolean | null;
+  growth_mentor_assignment?: string | null;
+  growth_scriptures?: string | null;
+  growth_what_god_taught?: string | null;
   id: string;
   meeting_status?: string | null;
   ministry_event_id?: string | null;
   notes: string | null;
   participant_names: string[] | null;
+  planning_action_items?: string | null;
+  planning_decisions?: string | null;
+  planning_follow_up?: string | null;
   recommended_resources?: unknown;
   recorded_by_display_name?: string | null;
   recorded_by_user_id?: string | null;
   scheduled_end_at?: string | null;
   scheduled_start_at?: string | null;
+  table_role?: string | null;
   table_date: string | null;
   table_type: string | null;
   timezone?: string | null;
@@ -614,6 +753,9 @@ type AssessmentResultRow = {
 type ReviewLinkRow = {
   created_at: string | null;
   meeting_id: string;
+  recipient_person_id?: string | null;
+  status?: string | null;
+  submitted_at?: string | null;
   token: string;
   used_at: string | null;
 };
@@ -621,6 +763,7 @@ type ReviewLinkRow = {
 type MeetingReviewRow = {
   created_at: string | null;
   meeting_id: string;
+  overall_rating?: string | null;
   share_permission: string | null;
   status: string | null;
   stood_out: string | null;
@@ -711,6 +854,87 @@ type RelationshipReminderRow = {
   updated_at: string | null;
 };
 
+type DosUserRecordRow = {
+  created_at: string | null;
+  current_season_focus: string | null;
+  display_name: string | null;
+  id: string;
+  updated_at: string | null;
+  user_id: string;
+  workspace_id: string;
+};
+
+type DosUserJournalEntryRow = {
+  bible_passage: string | null;
+  created_at: string | null;
+  entry_date: string;
+  id: string;
+  lord_highlight: string | null;
+  minutes_spent: number | null;
+  notes: string | null;
+  prayer_response: string | null;
+  started_at: string | null;
+  stopped_at: string | null;
+  tags: string[] | null;
+  updated_at: string | null;
+};
+
+type DosUserPrayerLogRow = {
+  answered_at: string | null;
+  answered_status: string | null;
+  created_at: string | null;
+  field_person_id: string | null;
+  id: string;
+  minutes_spent: number | null;
+  notes: string | null;
+  prayed_at: string | null;
+  prayer_focus: string | null;
+  updated_at: string | null;
+};
+
+type DosUserMentorRelationshipRow = {
+  created_at: string | null;
+  field_person_id: string | null;
+  id: string;
+  mentor_name: string;
+  notes: string | null;
+  relationship_label: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+type DosUserMentorMeetingRow = {
+  action_steps: string | null;
+  counsel_received: string | null;
+  created_at: string | null;
+  discussed: string | null;
+  duration_minutes: number | null;
+  field_person_id: string | null;
+  follow_up_date: string | null;
+  id: string;
+  meeting_date: string;
+  mentor_name: string;
+  notes: string | null;
+  relationship_id: string | null;
+  updated_at: string | null;
+};
+
+type DosUserAssessmentResultRow = {
+  answers: unknown;
+  assessment_name: string;
+  assessment_resource_id: string | null;
+  assessment_slug: string;
+  category_scores: unknown;
+  completed_at: string | null;
+  created_at: string | null;
+  id: string;
+  max_score: number | null;
+  overall_score: number | null;
+  percentage: number | string | null;
+  updated_at: string | null;
+  visibility: string | null;
+};
+
 type ExternalCalendarEventRow = {
   all_day: boolean | null;
   calendar_source_id: string | null;
@@ -750,10 +974,15 @@ type ParticipantReviewRow = {
   felt_heard: string | null;
   id: string;
   meeting_id: string;
+  overall_rating?: string | null;
   outcome_tags?: string[] | null;
   person_id: string | null;
   status?: string | null;
   submitted_at: string | null;
+  submitted_email?: string | null;
+  submitted_first_name?: string | null;
+  submitted_last_name?: string | null;
+  submitted_name?: string | null;
   would_meet_again: boolean | null;
   would_meet_again_response?: string | null;
 };
@@ -769,6 +998,8 @@ type ParticipantTestimonyRow = {
   story: string;
   status?: string | null;
   submitted_at: string | null;
+  submitted_email?: string | null;
+  submitted_name?: string | null;
   what_changed: string | null;
 };
 
@@ -790,12 +1021,22 @@ type FruitEventRow = {
   visibility: string | null;
 };
 
-const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
 function mapMeetingType(value: string | null): DosAppMeetingType {
   return dosAppMeetingTypes.includes(value as DosAppMeetingType) ? value as DosAppMeetingType : "other";
+}
+
+function mapTableRole(value: string | null | undefined): DosAppTableRole {
+  return dosAppTableRoles.includes(value as DosAppTableRole) ? value as DosAppTableRole : "ministering";
+}
+
+function mapDiscipleshipRelationship(value: string | null | undefined): DosAppDiscipleshipRelationship | null {
+  return dosAppDiscipleshipRelationships.includes(value as DosAppDiscipleshipRelationship)
+    ? value as DosAppDiscipleshipRelationship
+    : null;
 }
 
 function mapConnectionType(value: string | null): DosAppMeetingType {
@@ -961,6 +1202,77 @@ function mapPrayerRequestVisibility(value: string | null | undefined): DosAppPra
   return "private";
 }
 
+function mapMyRecordPrayerStatus(value: string | null | undefined): DosAppUserPrayerLog["answeredStatus"] {
+  return value === "answered" || value === "watching" ? value : "open";
+}
+
+function mapMyRecordMentorStatus(value: string | null | undefined): DosAppUserMentorRelationship["status"] {
+  return value === "archived" ? value : "active";
+}
+
+function mapMyRecordAssessmentAnswers(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, score]) => [key, typeof score === "number" && Number.isFinite(score) ? score : Number.parseInt(String(score), 10)] as const)
+      .filter((entry): entry is readonly [string, number] => Boolean(entry[0]) && Number.isFinite(entry[1])),
+  );
+}
+
+function mapMyRecordAssessmentCategoryScores(value: unknown): DosAppUserAssessmentCategoryScore[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const score = item && typeof item === "object" ? item as Record<string, unknown> : null;
+
+      if (!score) {
+        return null;
+      }
+
+      return {
+        id: typeof score.id === "string" ? score.id : "",
+        maxScore: typeof score.maxScore === "number" ? score.maxScore : 10,
+        percentage: typeof score.percentage === "number" ? score.percentage : 0,
+        score: typeof score.score === "number" ? score.score : 0,
+        title: typeof score.title === "string" ? score.title : "Assessment area",
+      } satisfies DosAppUserAssessmentCategoryScore;
+    })
+    .filter((score): score is DosAppUserAssessmentCategoryScore => Boolean(score?.id));
+}
+
+function safePercentage(value: number | string | null | undefined) {
+  const numericValue = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+
+  return Number.isFinite(numericValue) ? Math.round(numericValue) : 0;
+}
+
+function safeDurationMinutes(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): DosAppUserRecord {
+  return {
+    assessmentResults: [],
+    createdAt: null,
+    currentSeasonFocus: null,
+    displayName: viewer?.email ?? null,
+    id: null,
+    journalEntries: [],
+    mentorMeetings: [],
+    mentorRelationships: [],
+    prayerLogs: [],
+    updatedAt: null,
+    userId: viewer?.userId ?? null,
+    workspaceId,
+  };
+}
+
 function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
   if (value === "approved") {
     return "approved";
@@ -975,6 +1287,7 @@ function mapReviewStatus(value: string | null | undefined): DosAppReviewStatus {
 
 function emptyReviewSummary(): DosAppMeeting["review"] {
   return {
+    overallRating: null,
     sharePermission: null,
     status: "not_sent",
     stoodOut: null,
@@ -994,19 +1307,21 @@ function meetingReviewSummary(
 
   if (review) {
     return {
+      overallRating: review.overall_rating ?? null,
       sharePermission: review.share_permission,
       status: mapReviewStatus(review.status),
       stoodOut: review.stood_out,
       submittedAt: review.created_at,
       submittedName: review.submitted_name,
-      token: null,
+      token: link?.token ?? null,
     };
   }
 
-  if (link && !link.used_at) {
+  if (link) {
     return {
       ...emptyReviewSummary(),
-      status: "pending",
+      status: link.used_at || link.status === "submitted" ? "submitted" : "pending",
+      submittedAt: link.submitted_at ?? link.used_at,
       token: link.token,
     };
   }
@@ -1320,7 +1635,7 @@ function sortMeetingRows(rows: MeetingRow[]) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, discipleship_relationship, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";
@@ -1655,7 +1970,7 @@ async function loadAssessmentResultsForWorkspace(supabase: SupabaseAdminClient, 
 async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_review_links")
-    .select("meeting_id, token, used_at, created_at")
+    .select("meeting_id, recipient_person_id, status, submitted_at, token, used_at, created_at")
     .eq("workspace_id", workspaceId)
     .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
@@ -1668,7 +1983,7 @@ async function loadReviewLinksForWorkspace(supabase: SupabaseAdminClient, worksp
 async function loadMeetingReviewsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_meeting_reviews")
-    .select("meeting_id, share_permission, status, stood_out, submitted_name, created_at")
+    .select("meeting_id, overall_rating, share_permission, status, stood_out, submitted_name, created_at")
     .eq("workspace_id", workspaceId)
     .in("review_type", [...dosExperienceReviewTypes])
     .order("created_at", { ascending: false });
@@ -1688,6 +2003,174 @@ async function loadPrayerLogsForWorkspace(supabase: SupabaseAdminClient, workspa
   return result.error && isMissingWorkflowTable(result.error, "prayer_logs")
     ? { data: [], error: null }
     : result;
+}
+
+async function loadMyRecordForWorkspace(
+  supabase: SupabaseAdminClient,
+  workspaceId: string,
+  viewer?: DosAuthorizedUser | null,
+) {
+  const emptyRecord = emptyMyRecord(workspaceId, viewer);
+
+  if (!viewer?.userId) {
+    return { data: emptyRecord, error: null };
+  }
+
+  const recordResult = await supabase
+    .from("dos_user_records")
+    .select("id, workspace_id, user_id, display_name, current_season_focus, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", viewer.userId)
+    .maybeSingle();
+
+  if (recordResult.error) {
+    return isMissingWorkflowTable(recordResult.error, "dos_user_records")
+      ? { data: emptyRecord, error: null }
+      : { data: emptyRecord, error: recordResult.error };
+  }
+
+  const recordRow = recordResult.data as DosUserRecordRow | null;
+
+  if (!recordRow) {
+    return { data: emptyRecord, error: null };
+  }
+
+  const [journalResult, prayerResult, mentorRelationshipsResult, mentorMeetingsResult, assessmentResultsResult] = await Promise.all([
+    supabase
+      .from("dos_user_journal_entries")
+      .select("id, entry_date, minutes_spent, started_at, stopped_at, bible_passage, notes, lord_highlight, prayer_response, tags, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_prayer_logs")
+      .select("id, field_person_id, prayed_at, minutes_spent, prayer_focus, notes, answered_status, answered_at, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("prayed_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_mentor_relationships")
+      .select("id, field_person_id, mentor_name, relationship_label, notes, status, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("updated_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_mentor_meetings")
+      .select("id, relationship_id, field_person_id, mentor_name, meeting_date, duration_minutes, notes, discussed, counsel_received, action_steps, follow_up_date, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("meeting_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase
+      .from("dos_user_assessment_results")
+      .select("id, assessment_resource_id, assessment_slug, assessment_name, completed_at, overall_score, max_score, percentage, category_scores, answers, visibility, created_at, updated_at")
+      .eq("record_id", recordRow.id)
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", viewer.userId)
+      .order("completed_at", { ascending: false })
+      .limit(80),
+  ]);
+  const error = journalResult.error ?? prayerResult.error ?? mentorRelationshipsResult.error ?? mentorMeetingsResult.error ?? assessmentResultsResult.error;
+
+  if (error) {
+    return isMissingWorkflowTable(error, "dos_user_")
+      ? { data: emptyRecord, error: null }
+      : { data: emptyRecord, error };
+  }
+
+  const journalEntries = ((journalResult.data ?? []) as DosUserJournalEntryRow[]).map((entry) => ({
+    biblePassage: entry.bible_passage,
+    createdAt: entry.created_at,
+    date: entry.entry_date,
+    id: entry.id,
+    lordHighlight: entry.lord_highlight,
+    minutesSpent: safeDurationMinutes(entry.minutes_spent),
+    notes: entry.notes,
+    prayerResponse: entry.prayer_response,
+    startedAt: entry.started_at,
+    stoppedAt: entry.stopped_at,
+    tags: Array.isArray(entry.tags) ? entry.tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
+    updatedAt: entry.updated_at,
+  }));
+  const prayerLogs = ((prayerResult.data ?? []) as DosUserPrayerLogRow[]).map((log) => ({
+    answeredAt: log.answered_at,
+    answeredStatus: mapMyRecordPrayerStatus(log.answered_status),
+    createdAt: log.created_at,
+    fieldPersonId: log.field_person_id,
+    id: log.id,
+    minutesSpent: safeDurationMinutes(log.minutes_spent),
+    notes: log.notes,
+    prayedAt: log.prayed_at,
+    prayerFocus: log.prayer_focus,
+    updatedAt: log.updated_at,
+  }));
+  const mentorRelationships = ((mentorRelationshipsResult.data ?? []) as DosUserMentorRelationshipRow[]).map((mentor) => ({
+    createdAt: mentor.created_at,
+    fieldPersonId: mentor.field_person_id,
+    id: mentor.id,
+    mentorName: mentor.mentor_name,
+    notes: mentor.notes,
+    relationshipLabel: mentor.relationship_label,
+    status: mapMyRecordMentorStatus(mentor.status),
+    updatedAt: mentor.updated_at,
+  }));
+  const mentorMeetings = ((mentorMeetingsResult.data ?? []) as DosUserMentorMeetingRow[]).map((meeting) => ({
+    actionSteps: meeting.action_steps,
+    counselReceived: meeting.counsel_received,
+    createdAt: meeting.created_at,
+    discussed: meeting.discussed,
+    durationMinutes: safeDurationMinutes(meeting.duration_minutes),
+    fieldPersonId: meeting.field_person_id,
+    followUpDate: meeting.follow_up_date,
+    id: meeting.id,
+    meetingDate: meeting.meeting_date,
+    mentorName: meeting.mentor_name,
+    notes: meeting.notes,
+    relationshipId: meeting.relationship_id,
+    updatedAt: meeting.updated_at,
+  }));
+  const assessmentResults = ((assessmentResultsResult.data ?? []) as DosUserAssessmentResultRow[]).map((result) => ({
+    answers: mapMyRecordAssessmentAnswers(result.answers),
+    assessmentName: result.assessment_name,
+    assessmentResourceId: result.assessment_resource_id,
+    assessmentSlug: result.assessment_slug,
+    categoryScores: mapMyRecordAssessmentCategoryScores(result.category_scores),
+    completedAt: result.completed_at,
+    createdAt: result.created_at,
+    id: result.id,
+    maxScore: safeDurationMinutes(result.max_score),
+    overallScore: safeDurationMinutes(result.overall_score),
+    percentage: safePercentage(result.percentage),
+    updatedAt: result.updated_at,
+    visibility: "private" as const,
+  }));
+
+  return {
+    data: {
+      assessmentResults,
+      createdAt: recordRow.created_at,
+      currentSeasonFocus: recordRow.current_season_focus,
+      displayName: recordRow.display_name,
+      id: recordRow.id,
+      journalEntries,
+      mentorMeetings,
+      mentorRelationships,
+      prayerLogs,
+      updatedAt: recordRow.updated_at,
+      userId: recordRow.user_id,
+      workspaceId: recordRow.workspace_id,
+    } satisfies DosAppUserRecord,
+    error: null,
+  };
 }
 
 async function loadPrayerPartnersForWorkspace(supabase: SupabaseAdminClient, workspace: Pick<HouseholdRow, "id" | "slug">) {
@@ -1849,14 +2332,14 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_reviews")
-        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, outcome_tags, comments, status, submitted_at")
+        .select("id, meeting_id, person_id, felt_cared_for, felt_heard, conversation_helpful, would_meet_again, would_meet_again_response, overall_rating, outcome_tags, comments, status, submitted_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     meetingIds.length
       ? supabase
         .from("participant_testimonies")
-        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at")
+        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at, submitted_name, submitted_email")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -2110,7 +2593,20 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
+<<<<<<< HEAD
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
+=======
+  const householdPeopleSync = await syncHouseholdTeamMembersAsPeople(supabase, { workspaceId: workspace.id });
+
+  if (householdPeopleSync.error) {
+    return {
+      message: householdPeopleSync.error.message ?? "Unable to prepare household people.",
+      status: "error",
+    };
+  }
+
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, organization, usamApplication] = await Promise.all([
+>>>>>>> origin/codex/public-launch-cleanup
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -2128,12 +2624,20 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
+<<<<<<< HEAD
     loadTableInvitationsForWorkspace(supabase, workspace.id),
+=======
+    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
+>>>>>>> origin/codex/public-launch-cleanup
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
+<<<<<<< HEAD
   if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || tableInvitationsResult.error) {
+=======
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error) {
+>>>>>>> origin/codex/public-launch-cleanup
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -2151,7 +2655,11 @@ export async function loadDosAppData(
         ?? remindersResult.error?.message
         ?? externalCalendarEventsResult.error?.message
         ?? reviewsFruitResult.error?.message
+<<<<<<< HEAD
         ?? tableInvitationsResult.error?.message
+=======
+        ?? myRecordResult.error?.message
+>>>>>>> origin/codex/public-launch-cleanup
         ?? "Unable to load DOS app data.",
       status: "error",
     };
@@ -2176,7 +2684,11 @@ export async function loadDosAppData(
   const prayerPartnerRows = (prayerPartnersResult.data ?? []) as PrayerPartnerRow[];
   const prayerRequestRows = (prayerRequestsResult.data ?? []) as PrayerRequestRow[];
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
+<<<<<<< HEAD
   const tableInvitations = tableInvitationsResult.data ?? [];
+=======
+  const myRecord = myRecordResult.data;
+>>>>>>> origin/codex/public-launch-cleanup
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
@@ -2186,6 +2698,7 @@ export async function loadDosAppData(
   const householdMemberById = new Map(householdMemberRows.map((member) => [member.id, member]));
   const ministryPeopleByEventId = new Map<string, MinistryEventPersonRow[]>();
   const reviewLinkByMeetingId = new Map<string, ReviewLinkRow>();
+  const reviewLinksByMeetingId = new Map<string, ReviewLinkRow[]>();
   const meetingReviewByMeetingId = new Map<string, MeetingReviewRow>();
   const calendarSyncStatusBySource = new Map<string, "failed" | "pending" | "synced" | null>();
   const latestActivityByPersonId = new Map<string, string>();
@@ -2237,6 +2750,11 @@ export async function loadDosAppData(
   });
 
   reviewLinkRows.forEach((link) => {
+    const links = reviewLinksByMeetingId.get(link.meeting_id) ?? [];
+
+    links.push(link);
+    reviewLinksByMeetingId.set(link.meeting_id, links);
+
     if (!reviewLinkByMeetingId.has(link.meeting_id)) {
       reviewLinkByMeetingId.set(link.meeting_id, link);
     }
@@ -2307,6 +2825,7 @@ export async function loadDosAppData(
       childrenNames: person.children_names ?? null,
       church: person.church,
       createdAt: person.created_at,
+      discipleshipRelationship: mapDiscipleshipRelationship(person.discipleship_relationship),
       discipleshipStage: relationshipModel.discipleshipStage,
       email: person.email,
       engagementLevel: person.engagement_level,
@@ -2360,6 +2879,13 @@ export async function loadDosAppData(
         fieldPersonIds: participantIds,
         googleSyncEnabled: meeting.google_sync_enabled === true,
         googleSyncStatus: calendarSyncStatusBySource.get(`meeting:${meeting.id}`) ?? null,
+        growthReflection: {
+          actionStep: meeting.growth_action_step ?? null,
+          followUpNeeded: meeting.growth_follow_up_needed === true,
+          mentorAssignment: meeting.growth_mentor_assignment ?? null,
+          scriptures: meeting.growth_scriptures ?? null,
+          whatGodTaught: meeting.growth_what_god_taught ?? null,
+        },
         id: meeting.id,
         meetingStatus,
         ministryEventId: meeting.ministry_event_id ?? null,
@@ -2370,10 +2896,23 @@ export async function loadDosAppData(
         recommendedResources: normalizeRecommendedResources(meeting.recommended_resources),
         recorder,
         review: meetingReviewSummary(meeting.id, reviewLinkByMeetingId, meetingReviewByMeetingId),
+        reviewLinks: (reviewLinksByMeetingId.get(meeting.id) ?? []).map((link) => ({
+          recipientPersonId: link.recipient_person_id ?? null,
+          status: link.status ?? null,
+          submittedAt: link.submitted_at ?? null,
+          token: link.token,
+          usedAt: link.used_at,
+        })),
         source: "table" as const,
         scheduledEndAt: meeting.scheduled_end_at ?? null,
         scheduledStartAt: meeting.scheduled_start_at ?? null,
         supportingAttendees: eventPeople.filter((eventPerson) => eventPerson.role === "supporting_attendee"),
+        planningReflection: {
+          actionItems: meeting.planning_action_items ?? null,
+          decisions: meeting.planning_decisions ?? null,
+          followUp: meeting.planning_follow_up ?? null,
+        },
+        tableRole: mapTableRole(meeting.table_role),
         timezone: meeting.timezone ?? null,
         title: "Meeting",
         type: mapMeetingType(meeting.table_type),
@@ -2388,6 +2927,13 @@ export async function loadDosAppData(
       followUpNeeded: connection.follow_up_needed,
       googleSyncEnabled: false,
       googleSyncStatus: null,
+      growthReflection: {
+        actionStep: null,
+        followUpNeeded: false,
+        mentorAssignment: null,
+        scriptures: null,
+        whatGodTaught: null,
+      },
       id: `connection-${connection.id}`,
       meetingStatus: "logged" as const,
       ministryEventId: null,
@@ -2401,10 +2947,17 @@ export async function loadDosAppData(
       recommendedResources: [],
       recorder: null,
       review: emptyReviewSummary(),
+      reviewLinks: [],
       scheduledEndAt: null,
       scheduledStartAt: null,
       source: "connection" as const,
       supportingAttendees: [],
+      planningReflection: {
+        actionItems: null,
+        decisions: null,
+        followUp: null,
+      },
+      tableRole: "ministering" as const,
       timezone: null,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),
@@ -2461,10 +3014,15 @@ export async function loadDosAppData(
     feltHeard: review.felt_heard,
     id: review.id,
     meetingId: review.meeting_id,
+    overallRating: review.overall_rating ?? null,
     outcomeTags: Array.isArray(review.outcome_tags) ? review.outcome_tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
     personId: review.person_id,
     status: mapModerationStatus(review.status),
     submittedAt: review.submitted_at,
+    submittedEmail: review.submitted_email ?? null,
+    submittedFirstName: review.submitted_first_name ?? null,
+    submittedLastName: review.submitted_last_name ?? null,
+    submittedName: review.submitted_name ?? null,
     wouldMeetAgain: review.would_meet_again,
     wouldMeetAgainResponse: review.would_meet_again_response ?? null,
   }));
@@ -2479,6 +3037,8 @@ export async function loadDosAppData(
     story: testimony.story,
     status: mapModerationStatus(testimony.status),
     submittedAt: testimony.submitted_at,
+    submittedEmail: testimony.submitted_email ?? null,
+    submittedName: testimony.submitted_name ?? null,
     whatChanged: testimony.what_changed,
   }));
   const fruitEvents = reviewsFruitResult.fruitEvents.map((fruitEvent) => ({
@@ -2653,6 +3213,7 @@ export async function loadDosAppData(
       prayerLogs,
       prayerPartners,
       prayerRequests,
+      myRecord,
       reminders,
       tableInvitations,
       usamApplication,
