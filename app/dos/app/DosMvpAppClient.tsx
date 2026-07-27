@@ -432,7 +432,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "More",
     items: [
-      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
+      { icon: "people", label: "Community", type: "moreApp", value: "groups" },
       { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
       { icon: "library", label: "Library", type: "moreApp", value: "library" },
       { icon: "log", label: "Reports", type: "moreApp", value: "reports" },
@@ -6856,8 +6856,8 @@ function DesktopCirclePanel({
 }
 
 type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
-const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
-const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+const dosDesktopMoreLauncherAppLabels = ["Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
 const dosDesktopMoreLauncherAppLabelSet = new Set<string>(dosDesktopMoreLauncherAppLabels);
 const dosMobileMoreLauncherAppLabelSet = new Set<string>(dosMobileMoreLauncherAppLabels);
 
@@ -7062,10 +7062,10 @@ function GroupsSearchInput({
     <label className="relative block">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
       <input
-        aria-label="Search groups"
+        aria-label="Search communities"
         className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white py-2 pl-10 pr-4 text-sm font-semibold text-[#0F172A] shadow-[0_10px_26px_rgba(37,99,235,0.045)] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#BFDBFE] focus:ring-2 focus:ring-[#2563EB]/10"
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Search groups..."
+        placeholder="Search communities..."
         value={query}
       />
     </label>
@@ -7314,11 +7314,11 @@ function GroupsWorkspaceV2({
               type="button"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-              New Group
+              New Community
             </button>
           </div>
         )}
-        title="Groups"
+        title="Community"
       />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] md:items-center">
         <SegmentedTabs onChange={onSelectListView} options={groupsListTabs} value={view} />
@@ -7368,8 +7368,8 @@ function GroupsWorkspaceV2({
           );
         }) : (
           <EmptyState
-            text={queryText ? "Try a different search." : "Create a group from an approved template."}
-            title={queryText ? "No matching groups." : "No groups yet."}
+            text={queryText ? "Try a different search." : "Create a community from an approved template."}
+            title={queryText ? "No matching communities." : "No communities yet."}
           />
         )}
       </section>
@@ -7378,7 +7378,15 @@ function GroupsWorkspaceV2({
 }
 
 function normalizeGroupV2Tab(tab: GroupDetailTab): GroupDetailTab {
-  return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" ? tab : "overview";
+  if (tab === "members") {
+    return "people";
+  }
+
+  if (tab === "attendance") {
+    return "gatherings";
+  }
+
+  return tab === "people" || tab === "gatherings" || tab === "prayer" || tab === "resources" || tab === "settings" || tab === "overview" ? tab : "overview";
 }
 
 function GroupDetailWorkspaceV2({
@@ -7420,9 +7428,19 @@ function GroupDetailWorkspaceV2({
 }) {
   const selectedTab = normalizeGroupV2Tab(tab);
   const nextGathering = nextUpcomingGroupGathering(group);
+  const [activeGatheringRun, setActiveGatheringRun] = useState<{ gatheringId: string; startedAt: number } | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<Record<string, GroupAttendanceChoice>>({});
+  const [guestDrafts, setGuestDrafts] = useState<GroupGuestDraft[]>([]);
+  const [prayerDrafts, setPrayerDrafts] = useState<GroupPrayerDraft[]>([]);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
+  const activeGathering = activeGatheringRun
+    ? group.gatherings.find((gathering) => gathering.id === activeGatheringRun.gatheringId) ?? null
+    : null;
+  const attendanceRows = groupAttendanceRows(group, attendanceDraft, guestDrafts);
+  const attendanceSummary = groupAttendanceSummary(group, attendanceDraft, guestDrafts);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
-  const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Meeting" : "Log Meeting";
+  const canStartNextGathering = Boolean(nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt);
+  const meetingActionLabel = canStartNextGathering ? "Start Meeting" : "Log Meeting";
   const nextGatheringSummary = nextGathering
     ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
     : "Not scheduled";
@@ -7439,9 +7457,75 @@ function GroupDetailWorkspaceV2({
     action();
   }
 
+  useEffect(() => {
+    setActiveGatheringRun(null);
+    setAttendanceDraft({});
+    setGuestDrafts([]);
+    setPrayerDrafts([]);
+    setIsMoreActionsOpen(false);
+  }, [group]);
+
+  function startGathering() {
+    const gathering = nextUpcomingGroupGathering(group);
+
+    if (!gathering) {
+      onSchedule();
+      return;
+    }
+
+    const defaults = Object.fromEntries(activeGroupMembers(group).map((member) => [member.id, "present" as GroupAttendanceChoice]));
+    setAttendanceDraft(defaults);
+    setActiveGatheringRun({ gatheringId: gathering.id, startedAt: Date.now() });
+    onTabChange("gatherings");
+  }
+
+  function runMeetingAction() {
+    if (canStartNextGathering) {
+      startGathering();
+      return;
+    }
+
+    onLogAsTable();
+  }
+
+  function updateMemberAttendance(memberId: string, status: GroupAttendanceChoice) {
+    setAttendanceDraft((current) => ({
+      ...current,
+      [memberId]: status,
+    }));
+  }
+
+  function addGuestDraft() {
+    setGuestDrafts((current) => [
+      ...current,
+      {
+        createPerson: false,
+        id: `guest-${Date.now()}-${current.length}`,
+        name: `Guest ${current.length + 1}`,
+      },
+    ]);
+  }
+
+  function updateGuestDraft(guestId: string, updates: Partial<GroupGuestDraft>) {
+    setGuestDrafts((current) => current.map((guest) => guest.id === guestId ? { ...guest, ...updates } : guest));
+  }
+
+  function addPrayerDraft() {
+    setPrayerDrafts((current) => [
+      ...current,
+      {
+        description: "",
+        id: `group-prayer-${Date.now()}-${current.length}`,
+        targetId: "",
+        targetType: "group",
+        title: "",
+      },
+    ]);
+  }
+
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Community" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
         <div className="grid gap-3 p-3.5 sm:grid-cols-[168px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
@@ -7466,7 +7550,7 @@ function GroupDetailWorkspaceV2({
               <GroupQuickAction
                 icon={meetingActionLabel === "Start Meeting" ? <Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label={meetingActionLabel}
-                onClick={onLogAsTable}
+                onClick={runMeetingAction}
                 tone="primary"
               />
               <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
@@ -7479,7 +7563,21 @@ function GroupDetailWorkspaceV2({
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
       {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
-      {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {selectedTab === "gatherings" ? (
+        <GroupGatheringsWorkspaceTab
+          attendanceRows={attendanceRows}
+          attendanceSummary={attendanceSummary}
+          group={group}
+          guestDrafts={guestDrafts}
+          isGatheringActive={Boolean(activeGathering)}
+          onAddGuest={addGuestDraft}
+          onTakeAttendance={startGathering}
+          onUpdateGuest={updateGuestDraft}
+          onUpdateMemberAttendance={updateMemberAttendance}
+        />
+      ) : null}
+      {selectedTab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
+      {selectedTab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
       {isMoreActionsOpen ? (
         <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
@@ -10219,6 +10317,45 @@ function GroupGatheringRow({
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
       {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
       {children}
+    </div>
+  );
+}
+
+function GroupGatheringsWorkspaceTab({
+  attendanceRows,
+  attendanceSummary,
+  group,
+  guestDrafts,
+  isGatheringActive,
+  onAddGuest,
+  onTakeAttendance,
+  onUpdateGuest,
+  onUpdateMemberAttendance,
+}: {
+  attendanceRows: GroupAttendanceRow[];
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  group: DosAppGroup;
+  guestDrafts: GroupGuestDraft[];
+  isGatheringActive: boolean;
+  onAddGuest: () => void;
+  onTakeAttendance: () => void;
+  onUpdateGuest: (guestId: string, updates: Partial<GroupGuestDraft>) => void;
+  onUpdateMemberAttendance: (memberId: string, status: GroupAttendanceChoice) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      <GroupGatheringsTab group={group} />
+      <GroupAttendanceTab
+        attendanceRows={attendanceRows}
+        attendanceSummary={attendanceSummary}
+        guestDrafts={guestDrafts}
+        group={group}
+        isGatheringActive={isGatheringActive}
+        onAddGuest={onAddGuest}
+        onTakeAttendance={onTakeAttendance}
+        onUpdateGuest={onUpdateGuest}
+        onUpdateMemberAttendance={onUpdateMemberAttendance}
+      />
     </div>
   );
 }
@@ -13365,8 +13502,8 @@ function SegmentedTabs<T extends string>({
 }
 
 const groupsListTabs: ReadonlyArray<SegmentedTabOption<GroupsListView>> = [
-  { label: "My Groups", value: "mine" },
-  { label: "All Groups", value: "all" },
+  { label: "My Communities", value: "mine" },
+  { label: "All Communities", value: "all" },
 ];
 
 const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
@@ -13383,6 +13520,8 @@ const groupV2DetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Overview", value: "overview" },
   { label: "People", value: "people" },
   { label: "Gatherings", value: "gatherings" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Resources", value: "resources" },
   { label: "Settings", value: "settings" },
 ];
 
@@ -37439,10 +37578,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           description: "Recurring discipleship rhythms, gatherings, attendance, and prayer.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Groups",
+          label: "Community",
           onClick: () => openMoreApp("groups"),
           section: "installed",
-          status: `${data.groups.length} groups`,
+          status: `${data.groups.length} ${data.groups.length === 1 ? "community" : "communities"}`,
         },
         {
           description: "Requests, partners, and answered prayer.",
@@ -37537,11 +37676,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
     .filter((item) => dosDesktopMoreLauncherAppLabelSet.has(item.label));
-  const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups");
-  const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups");
+  const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Community");
+  const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Community");
 
   if (!groupsLauncherCard || !mobileGroupsLauncherCard) {
-    console.warn("DOS Groups launcher card is not registered.", {
+    console.warn("DOS Community launcher card is not registered.", {
       desktop: Boolean(groupsLauncherCard),
       mobile: Boolean(mobileGroupsLauncherCard),
     });
@@ -37601,7 +37740,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
-          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
+          { icon: "people", label: "Community", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "fruit", label: "Fruit", onClick: runMobileAction(() => openMoreApp("fruit")) },
           { icon: "library", label: "Library", onClick: runMobileAction(() => openMoreApp("library")) },
           { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },

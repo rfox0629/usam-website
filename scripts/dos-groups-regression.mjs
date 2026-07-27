@@ -367,16 +367,16 @@ assertIncludes(
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
 assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
-assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
-assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must remain registered in the desktop DOS Apps/More launcher manifest.");
-assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
+assertIncludes(appClient, 'label: "Community"', "Community must appear under More as its own item.");
+assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Community must remain registered in the desktop DOS Apps/More launcher manifest.");
+assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
 assertIncludes(appClient, "dosDesktopMoreLauncherAppLabelSet.has(item.label)", "Desktop Apps launcher must filter through the desktop manifest instead of an ad hoc label list.");
 assertIncludes(appClient, "dosMobileMoreLauncherAppLabelSet.has(item.label)", "Mobile Apps launcher must filter through the mobile manifest instead of an ad hoc label list.");
 assertIncludes(appClient, 'data-dos-app-card={item.label}', "Apps launcher cards must expose a stable marker for production verification.");
-assertIncludes(appClient, 'label: "Groups"', "Groups launcher card must be registered with the Groups label.");
+assertIncludes(appClient, 'label: "Community"', "Community launcher card must be registered with the Community label.");
 assertIncludes(appClient, 'onClick: () => openMoreApp("groups")', "Groups launcher card must open the Groups workspace.");
-assertIncludes(appClient, 'const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups")', "Desktop launcher must explicitly verify the Groups card registration.");
-assertIncludes(appClient, 'const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups")', "Mobile launcher must explicitly verify the Groups card registration.");
+assertIncludes(appClient, 'const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Community")', "Desktop launcher must explicitly verify the Community card registration.");
+assertIncludes(appClient, 'const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Community")', "Mobile launcher must explicitly verify the Community card registration.");
 assert(
   !appClient.includes("Groups - My Record"),
   "Groups and My Record must not be combined into one navigation item.",
@@ -389,7 +389,7 @@ assertIncludes(appClient, "isSimplifiedV2", "Groups V2 must be gated instead of 
 assertIncludes(appClient, "data.featureFlags.groupsSimplifiedV2 === true", "Groups V2 must be driven by the workspace feature flag.");
 assertIncludes(missionaryApp, "groupsSimplifiedV2: featureFlagRows.some((flag) => flag.flag_key === dosGroupsSimplifiedFeatureFlag && flag.enabled === true)", "Groups V2 must be derived from feature-flag rows, not user-specific workspace code.");
 assertIncludes(appClient, "groupV2DetailTabs", "Groups V2 must use its own simplified tab set.");
-for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
+for (const tab of ["Overview", "People", "Gatherings", "Prayer", "Resources", "Settings"]) {
   assertIncludes(appClient, `label: "${tab}"`, `Groups V2 must include ${tab} tab.`);
 }
 assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
@@ -404,6 +404,9 @@ assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu m
 assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
 assertIncludes(groupDetailV2Source, 'label: "Archive"', "Groups V2 More menu must include authorized archive access.");
 assertIncludes(groupDetailV2Source, "<GroupDetailTabBar", "Groups V2 tabs must render immediately after the compact group header.");
+assertIncludes(groupDetailV2Source, "GroupGatheringsWorkspaceTab", "Groups V2 Gatherings tab must preserve attendance inside the approved navigation.");
+assertIncludes(groupDetailV2Source, "GroupPrayerTab", "Groups V2 Prayer tab must preserve group prayer requests.");
+assertIncludes(groupDetailV2Source, "GroupResourcesTab", "Groups V2 Resources tab must preserve group resources.");
 assertNotIncludes(groupDetailV2Source, "isRouteBuilderEligibleGroup(group) ? <GroupRouteBuilderPlaceholder", "Groups V2 must not render Route Builder as a standalone section above tabs.");
 assertNotIncludes(groupDetailV2Source, 'tone={group.visibility === "private" ? "green" : "blue"}', "Groups V2 detail header must not show the old Workspace visibility badge.");
 assertIncludes(groupOverviewV2Source, 'title="Status"', "Groups V2 Overview must be status-focused.");
@@ -431,10 +434,10 @@ assertIncludes(appClient, "helperPersonIds", "Groups V2 must support helpers.");
 assertIncludes(appClient, "sharedLeadershipEnabled", "Groups V2 must expose shared leadership metadata.");
 assertIncludes(appClient, "const [role, setRole]", "Add Person must keep role state.");
 assertIncludes(appClient, "role,", "Add Person must carry a role through the UI payload.");
-assertIncludes(appClient, "My Groups", "Private DOS Groups must include My Groups.");
-assertIncludes(appClient, "All Groups", "Private DOS Groups must include All Groups.");
+assertIncludes(appClient, "My Communities", "Private DOS Community must include My Communities.");
+assertIncludes(appClient, "All Communities", "Private DOS Community must include All Communities.");
 assertIncludes(appClient, "GroupsSearchInput", "Private DOS Groups must include search.");
-assertIncludes(appClient, "New Group", "Private DOS Groups must expose New Group.");
+assertIncludes(appClient, "New Community", "Private DOS Community must expose New Community.");
 assertIncludes(appClient, "Copy Public Directory Link", "Private DOS Groups must expose public directory copy without becoming the public directory.");
 assertIncludes(appClient, "onCopyPublicDirectoryLink", "Private DOS Groups must wire public directory link copying.");
 assertIncludes(appClient, "xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)]", "Desktop group detail header must preserve a sensible text column width.");
