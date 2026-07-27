@@ -7378,7 +7378,7 @@ function GroupsWorkspaceV2({
 }
 
 function normalizeGroupV2Tab(tab: GroupDetailTab): GroupDetailTab {
-  return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" ? tab : "overview";
+  return tab === "people" || tab === "gatherings" || tab === "prayer" || tab === "resources" || tab === "settings" || tab === "overview" ? tab : "overview";
 }
 
 function GroupDetailWorkspaceV2({
@@ -7480,6 +7480,8 @@ function GroupDetailWorkspaceV2({
       {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {selectedTab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={onLogAsTable} /> : null}
+      {selectedTab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
       {isMoreActionsOpen ? (
         <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
@@ -13383,6 +13385,8 @@ const groupV2DetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Overview", value: "overview" },
   { label: "People", value: "people" },
   { label: "Gatherings", value: "gatherings" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Resources", value: "resources" },
   { label: "Settings", value: "settings" },
 ];
 

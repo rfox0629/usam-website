@@ -98,8 +98,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const url = site.id
     ? `https://${site.hostname}${site.basePath}`
     : `${getCanonicalSiteUrl()}/groups`;
-  const title = `Groups | ${site.displayName}`;
-  const description = `Find discipleship groups connected to ${site.displayName}.`;
+  const title = `Community | ${site.displayName}`;
+  const description = `Find discipleship communities connected to ${site.displayName}.`;
 
   return {
   alternates: {
@@ -110,7 +110,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     images: [
       {
-        alt: `${site.displayName} Discipleship Groups`,
+        alt: `${site.displayName} Communities`,
         height: 630,
         url: groupsShareImage,
         width: 1200,
@@ -302,9 +302,9 @@ export default async function PublicGroupsDirectoryPage() {
             <div className="relative isolate px-5 py-7 text-white sm:px-8 lg:px-10">
               <Link className="inline-flex items-center gap-3" href="/">
                 <Image alt={site.displayName} className="h-8 w-8 rounded-sm object-contain" height={32} priority src={site.logoUrl ?? "/brand/logo/usam-website-logo.png"} width={32} />
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Groups</span>
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Community</span>
               </Link>
-              <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none text-white sm:text-5xl">Groups by {site.displayName}.</h1>
+              <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none text-white sm:text-5xl">{site.displayName} Community.</h1>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
                 Public rhythms. Leader operated. Organization published.
               </p>
@@ -341,8 +341,8 @@ export default async function PublicGroupsDirectoryPage() {
             </section>
           ) : (
             <section className="rounded-lg border border-white/10 bg-[#111418] p-6 text-sm leading-6 text-white/65 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-              <p className="font-black text-white">No public groups yet.</p>
-              <p className="mt-1 text-white/65">Groups will appear here when they are ready to share publicly.</p>
+              <p className="font-black text-white">No public communities yet.</p>
+              <p className="mt-1 text-white/65">Communities will appear here when they are ready to share publicly.</p>
             </section>
           )}
         </div>

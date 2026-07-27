@@ -35,7 +35,7 @@ export function groupHomeStateMessage(value: string | null) {
     case "access-requested":
       return "If that email belongs to an active member, your leader can send a fresh link.";
     case "access-unavailable":
-      return "Group Home sign-in is not ready yet.";
+      return "Member sign-in is not ready yet.";
     case "preferences-error":
       return "Updates could not be saved.";
     case "preferences-saved":
@@ -55,7 +55,7 @@ export function groupHomeStateMessage(value: string | null) {
     case "signed-in":
       return "You are signed in.";
     case "signin-required":
-      return "Sign in from your group link first.";
+      return "Sign in from your community link first.";
     default:
       return "";
   }
@@ -147,7 +147,7 @@ export function GroupHomeMemberView({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
-                  Group Home
+                  Member Home
                 </Link>
                 <h1 className="mt-2 text-3xl font-black leading-none text-white sm:text-4xl">{data.group.name}</h1>
                 <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{data.group.tagline || data.group.type}</p>
@@ -285,7 +285,7 @@ export function GroupHomeMemberView({
         <footer className="pb-2 text-center text-xs font-bold text-white/42">
           Powered by{" "}
           <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="/groups">
-            USA Missionaries Groups
+            USA Missionaries Community
           </Link>
         </footer>
       </div>

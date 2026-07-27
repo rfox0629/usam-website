@@ -143,10 +143,10 @@ function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
     <header className="border-b border-white/10 bg-[#080A0D]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 lg:px-10">
         <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={group.siteBasePath || "/groups"}>
-          {group.siteName} Groups
+          {group.siteName} Community
         </Link>
         <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={group.siteBasePath || "/groups"}>
-          All Groups
+          All Communities
         </Link>
       </div>
     </header>
@@ -260,7 +260,7 @@ function JoinClosedPanel() {
   return (
     <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
       <h2 className="text-2xl font-black text-[#0F172A]">Requests Closed</h2>
-      <p className="mt-2 text-sm font-black text-[#64748B]">This group is not accepting new requests right now.</p>
+      <p className="mt-2 text-sm font-black text-[#64748B]">This community is not accepting new requests right now.</p>
     </div>
   );
 }
