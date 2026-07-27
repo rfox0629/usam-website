@@ -4,20 +4,12 @@ import {
   ArrowUpRight,
   BookOpen,
   Building2,
-  Church,
-  Droplet,
-  FileText,
-  Gift,
   GitBranch,
   HandHeart,
   HeartHandshake,
   Home,
-  Mail,
   MapPin,
-  Megaphone,
   Menu,
-  Moon,
-  Sparkles,
   Users,
   Utensils,
   X,
@@ -58,8 +50,6 @@ const ktg = {
   accentDeep: "#255F97",
   cream: "#F3E4CC",
 };
-
-const contactEmail = "ryan@usamissionaries.org";
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -389,14 +379,6 @@ function JoinTheTableModal({
   );
 }
 
-const navItems = [
-  { href: "#pattern", label: "The Pattern" },
-  { href: "#commission", label: "The Commission" },
-  { href: "#model", label: "The Model" },
-  { href: "#vision", label: "The Vision" },
-  { href: "#join", label: "Join" },
-] as const;
-
 function Header() {
   const [open, setOpen] = useState(false);
 
@@ -406,46 +388,20 @@ function Header() {
       style={{ background: "rgba(22,15,10,0.92)", borderColor: ktg.panelBorder, backdropFilter: "blur(12px)" }}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col leading-none">
-            <a href="#top" className="text-lg font-bold tracking-[0.08em] text-stone-100 md:text-xl" style={{ fontFamily: font.oswald }}>
-              KITCHEN TABLE GOSPEL
-            </a>
-            <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}>
-              An initiative of{" "}
-              <a href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-100">
-                USA Missionaries
-              </a>
-            </span>
-          </div>
-          <a
-            href="https://usamissionaries.org"
-            className="hidden shrink-0 items-center gap-1.5 border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-300 transition-colors duration-200 hover:text-stone-100 sm:inline-flex"
-            style={{ borderColor: ktg.panelBorder, fontFamily: font.rajdhani }}
-          >
-            USA Missionaries
-            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+        <div className="flex flex-col leading-none">
+          <a href="#top" className="text-lg font-bold tracking-[0.08em] text-stone-100 md:text-xl" style={{ fontFamily: font.oswald }}>
+            KITCHEN TABLE GOSPEL
           </a>
+          <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em]" style={{ fontFamily: font.rajdhani, color: ktg.accentSoft }}>
+            An initiative of{" "}
+            <a href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-100">
+              USA Missionaries
+            </a>
+          </span>
         </div>
 
-        <nav className="ml-auto hidden md:flex" aria-label="Primary navigation">
-          <ul className="flex items-center gap-8 lg:gap-10">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400 transition-colors duration-200 hover:text-stone-100"
-                  style={{ fontFamily: font.rajdhani }}
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
         <div className="hidden md:block">
-          <JoinTheTableModal defaultIntent="Host a table">Host a Table</JoinTheTableModal>
+          <JoinTheTableModal defaultIntent="Join a table">Join the Table</JoinTheTableModal>
         </div>
 
         <button
@@ -472,19 +428,8 @@ function Header() {
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" style={{ color: ktg.accentSoft }} />
               Visit USA Missionaries
             </a>
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="flex min-h-[48px] items-center border-b py-3 text-[15px] uppercase tracking-[0.1em] text-stone-200"
-                style={{ borderColor: ktg.panelBorder, fontFamily: font.rajdhani, fontWeight: 600 }}
-              >
-                {item.label}
-              </a>
-            ))}
             <div className="py-4">
-              <JoinTheTableModal defaultIntent="Host a table">Host a Table</JoinTheTableModal>
+              <JoinTheTableModal defaultIntent="Join a table">Join the Table</JoinTheTableModal>
             </div>
           </div>
         </nav>
@@ -496,15 +441,23 @@ function Header() {
 function NationTableMap({ variant = "vision" }: { variant?: "hero" | "vision" }) {
   const accent = ktg.accent;
   const showFuture = variant === "vision";
-  // Minnesota, calibrated to where /usa-outline-clean.png actually lands inside this
-  // 960x560 viewBox at the placement below (x=20 y=10 w=920 h=512). This is the one
-  // real, active origin point. Everything else is explicitly a future goal, not a
-  // current location, and is only drawn in the "vision" variant.
-  const origin: [number, number] = [547, 120];
+  // Every point below is a real US metro area, projected into this 960x560 viewBox
+  // from its actual position inside /usa-outline-clean.png (placed at x=20 y=10
+  // w=920 h=512). Minnesota is the one real, active origin point; the other 49
+  // states each get one major metro marker so every state is represented, drawn
+  // only in the "vision" variant since they mark a future goal, not a current
+  // location.
+  const origin: [number, number] = [554, 102];
   const futureNodes: Array<[number, number]> = [
-    [210, 140], [150, 230], [230, 340], [300, 420], [360, 200], [420, 300],
-    [470, 150], [520, 260], [560, 380], [610, 190], [650, 300], [700, 240],
-    [740, 340], [780, 170], [330, 260], [480, 420], [640, 400], [260, 180], [400, 120],
+    [250, 58], [233, 117], [215, 256], [255, 195], [296, 138], [347, 87],
+    [381, 161], [325, 225], [395, 234], [311, 298], [390, 316], [483, 91],
+    [504, 145], [481, 196], [561, 186], [583, 257], [511, 250], [518, 305],
+    [612, 134], [623, 219], [647, 161], [668, 218], [709, 208], [583, 314],
+    [584, 365], [627, 340], [659, 347], [724, 351], [498, 382], [694, 255],
+    [681, 291], [758, 316], [784, 283], [778, 243], [737, 238], [793, 207],
+    [787, 182], [816, 180], [803, 140], [825, 111], [846, 133], [834, 145],
+    [861, 82], [207, 401], [409, 479], [832, 166], [845, 163], [818, 222],
+    [762, 423],
   ];
   const spokes = futureNodes.slice(0, 8);
 
@@ -632,30 +585,6 @@ function PatternCard({
         <p className="mt-3 text-sm leading-relaxed text-stone-400">{description}</p>
       </div>
     </Reveal>
-  );
-}
-
-const commands = [
-  { icon: Droplet, label: "Baptism" },
-  { icon: HandHeart, label: "Prayer & Fasting" },
-  { icon: BookOpen, label: "Daily Bible Reading" },
-  { icon: Megaphone, label: "Evangelism" },
-  { icon: Users, label: "Discipleship" },
-  { icon: Gift, label: "Biblical Giving" },
-  { icon: Moon, label: "Sabbath" },
-  { icon: Sparkles, label: "Spiritual Gifts" },
-  { icon: Church, label: "Attending Church" },
-] as const;
-
-function CommandPill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div
-      className="flex items-center gap-3 border px-4 py-3"
-      style={{ background: ktg.panel, borderColor: ktg.panelBorder }}
-    >
-      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.7} style={{ color: ktg.accentSoft }} />
-      <span className="text-sm font-semibold text-stone-200">{label}</span>
-    </div>
   );
 }
 
@@ -806,8 +735,9 @@ export function KitchenTableGospelPage() {
           <Reveal>
             <SectionHeading eyebrow="Matthew 28:19–20" headline="Teach Them to Obey: Not Just Go, Not Just Baptize.">
               <p>
-                The Great Commission does not end at the water. It ends when ordinary believers can actually teach one
-                another to obey what Jesus commanded, and that requires a place to practice, not just a place to listen.
+                The Great Commission does not end at the water. It continues as disciples learn to follow Jesus and
+                teach others to obey everything he commanded, and that requires a place to practice, not just a place
+                to listen.
               </p>
             </SectionHeading>
           </Reveal>
@@ -854,16 +784,25 @@ export function KitchenTableGospelPage() {
           </Reveal>
 
           <Reveal delay={150}>
-            <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {commands.map((command) => (
-                <CommandPill key={command.label} icon={command.icon} label={command.label} />
-              ))}
+            <div className="mt-12 grid gap-5 sm:grid-cols-2">
+              <div className="border p-7" style={{ background: ktg.panel, borderColor: ktg.panelBorder }}>
+                <p className="text-sm leading-relaxed text-stone-400">
+                  Many believers have never had a trusted place to ask honest questions, or to learn how to put
+                  Jesus&apos;s teaching into practice with other people.
+                </p>
+              </div>
+              <div className="border p-7" style={{ background: ktg.panel, borderColor: ktg.panelBorder }}>
+                <p className="text-sm leading-relaxed text-stone-400">
+                  Real discipleship takes Scripture, prayer, obedience, relationships, and faithful follow-through. A
+                  table makes room to discern what each person actually needs, not a public checklist.
+                </p>
+              </div>
             </div>
           </Reveal>
 
           <Reveal delay={280}>
             <p className="mt-10 text-center text-sm font-semibold uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              These are the commands of Jesus. A table is where you learn to keep them, and teach them.
+              A table is where you learn to obey what Jesus commanded, and teach it to someone else.
             </p>
           </Reveal>
         </div>
@@ -925,7 +864,7 @@ export function KitchenTableGospelPage() {
             <div className="mt-14 grid gap-5 sm:grid-cols-3">
               <VisionStat icon={MapPin} value="50" label="States in the Vision" />
               <VisionStat icon={Building2} value="3+" label="Major Cities per State" />
-              <VisionStat icon={Users} value="1,000s" label="Believers to Train & Send" />
+              <VisionStat icon={Users} value="Thousands" label="Believers Equipped to Make Disciples" />
             </div>
           </Reveal>
 
@@ -943,7 +882,7 @@ export function KitchenTableGospelPage() {
         <div className="mx-auto max-w-5xl">
           <Reveal>
             <SectionHeading eyebrow="Not a Stage" headline="These Are Real Tables.">
-              <p>Not stock photos. Just ordinary believers, ordinary homes, and the gospel worked out together.</p>
+              <p>Real relationships. Real homes. A life of following Jesus worked out together.</p>
             </SectionHeading>
           </Reveal>
 
@@ -1004,54 +943,22 @@ export function KitchenTableGospelPage() {
                 <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
                 Join or Host a Table
               </JoinTheTableModal>
-              <CTAButton variant="secondary" href="/guides/kitchen-table-gospel.pdf">
-                <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                View the Table Conversation Guide
-              </CTAButton>
             </div>
-          </Reveal>
-          <Reveal delay={420}>
-            <p className="mx-auto mt-5 max-w-md text-xs leading-relaxed text-stone-500">
-              The Table Conversation Guide is the full presentation we use to walk someone through the gospel at a
-              real table: Jesus&apos;s own table stories, the Great Commission, and a guided check-in. It is built
-              for hosts and leaders to use one-on-one, not a casual read.
-            </p>
-          </Reveal>
-          <Reveal delay={480}>
-            <p className="mt-8 text-xs uppercase tracking-[0.2em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
-              Prefer email?{" "}
-              <a
-                href={`mailto:${contactEmail}?subject=I%20want%20to%20start%20a%20Kitchen%20Table`}
-                className="underline decoration-dotted underline-offset-4 hover:text-stone-400"
-              >
-                {contactEmail}
-              </a>
-            </p>
           </Reveal>
         </div>
       </section>
 
       <footer className="border-t px-6 py-10 md:px-10" style={{ borderColor: ktg.panelBorder, background: ktg.bgAlt }}>
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.14em] text-stone-200" style={{ fontFamily: font.oswald }}>
-              Kitchen Table Gospel
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              An initiative of{" "}
-              <Link href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-300">
-                USA Missionaries
-              </Link>
-            </p>
-          </div>
-          <a
-            href={`mailto:${contactEmail}`}
-            className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone-400 hover:text-stone-200"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            <Mail className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            {contactEmail}
-          </a>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-2 text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.14em] text-stone-200" style={{ fontFamily: font.oswald }}>
+            Kitchen Table Gospel
+          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+            An initiative of{" "}
+            <Link href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-300">
+              USA Missionaries
+            </Link>
+          </p>
         </div>
       </footer>
     </main>
