@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dispatcher:review-preview": "node scripts/dispatcher-review-preview.mjs",
+    "test:dispatcher-review-preview": "node scripts/dispatcher-review-preview-regression.mjs",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
