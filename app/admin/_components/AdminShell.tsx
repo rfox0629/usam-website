@@ -14,6 +14,7 @@ import {
   Lock,
   MessageSquare,
   Network,
+  RadioTower,
   Settings,
   Upload,
   UsersRound,
@@ -26,6 +27,7 @@ const adminNavGroups = [
   {
     items: [
       { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
+      { activeKey: "operations-center", href: "/admin/operations-center", icon: RadioTower, label: "Operations Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
     ],
