@@ -62,7 +62,7 @@ const adminNavGroups = [
 ] as const;
 
 type VisibleAdminNavKey = (typeof adminNavGroups)[number]["items"][number]["activeKey"];
-type HiddenAdminNavKey = "financial-freedom" | "inquiries" | "pages" | "product-feedback" | "stewardship" | "support-team";
+type HiddenAdminNavKey = "financial-freedom" | "inquiries" | "operations-center" | "pages" | "product-feedback" | "stewardship" | "support-team";
 
 export type AdminNavKey = VisibleAdminNavKey | HiddenAdminNavKey;
 
