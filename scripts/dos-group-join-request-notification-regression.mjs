@@ -27,6 +27,8 @@ const emailHelper = read("src/lib/groups/email.ts");
 const pendingRequestsRoute = read("app/api/dos/app/groups/pending-requests/route.ts");
 const joinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
+const missionaryApp = read("src/lib/dos/missionary-app.ts");
 
 // --- Facilitator notification is wired, best-effort, and never blocks submission ---
 //
@@ -59,7 +61,7 @@ assertOrder(
 assertOrder(
   groupActions,
   "await notifyGroupFacilitators(supabase, group,",
-  'revalidatePath(`/groups/${group.slug}`);\n  redirectToGroup(group.slug, "received");',
+  'revalidatePath(publicGroupPath(group.slug));\n  revalidatePath(`${legacyPublicGroupsBasePath}/${group.slug}`);\n  redirectToGroup(group.slug, "received");',
   "The facilitator notification must be attempted before the final success redirect.",
 );
 
@@ -102,12 +104,17 @@ assertIncludes(
 assertIncludes(
   emailHelper,
   "export async function sendGroupJoinRequestNotification(",
-  "Group email helper must export sendGroupJoinRequestNotification.",
+  "Community email helper must export sendGroupJoinRequestNotification.",
 );
 assertIncludes(
   emailHelper,
   'status: "skipped"',
-  "Group email helper must return a skipped result when the provider or recipients are not configured, not throw.",
+  "Community email helper must return a skipped result when the provider or recipients are not configured, not throw.",
+);
+assertIncludes(
+  emailHelper,
+  "New community join request",
+  "Community email helper must use user-facing Community copy.",
 );
 
 // --- Pending-count endpoint only counts status = pending ---
@@ -128,6 +135,34 @@ assertIncludes(
   "Pending-requests endpoint must only treat active leadership membership as facilitation.",
 );
 
+// --- Shared workspace ownership isolation must remain query-scoped ---
+
+assertIncludes(
+  missionaryApp,
+  "type DosAppDataLoadOptions = {\n  groupIds?: string[] | null;",
+  "DOS app data loading must accept an optional group allowlist for shared Community access.",
+);
+assertIncludes(
+  missionaryApp,
+  ".in(\"id\", scopedGroupIds)",
+  "DOS group loading must apply the shared group allowlist to the dos_groups query.",
+);
+assertIncludes(
+  missionaryApp,
+  "loadGroupsForWorkspace(supabase, workspace.id, { groupIds: options.groupIds })",
+  "DOS app data loading must pass the group allowlist into group data loading.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "sharedGroupIds ? { groupIds: sharedGroupIds } : undefined",
+  "Shared group route access must query only the groups granted by loadDosSharedWorkspaceAccess.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "filterDosAppDataForSharedGroups(result.data, sharedGroupIds)",
+  "Shared group route access must still filter the rendered payload after query scoping.",
+);
+
 // --- Join-requests route still transitions status away from pending on every resolving action ---
 
 assertIncludes(
@@ -143,13 +178,13 @@ assertIncludes(appClient, "onOpenJoinRequests: () => void", "GroupCard must acce
 assertIncludes(appClient, "pendingGroupJoinRequestCounts", "Top-level DOS client must track pending join request counts by group.");
 assertIncludes(appClient, "/api/dos/app/groups/pending-requests", "Top-level DOS client must fetch the pending-requests summary endpoint.");
 assertIncludes(appClient, "function openGroupJoinRequests(groupId: string) {", "DOS client must expose a deep-link helper into a group's Members tab.");
-assertIncludes(appClient, 'setGroupDetailTab("members");', "Deep-link helper must land on the Members tab.");
+assertIncludes(appClient, 'setGroupDetailTab(data.featureFlags.groupsSimplifiedV2 ? "people" : "members");', "Deep-link helper must land on the People/Members tab for pending requests.");
 assertIncludes(appClient, "function handleGroupJoinRequestResolved(groupId: string) {", "DOS client must define a handler that decrements pending counts when a request is resolved.");
 assertIncludes(appClient, "const wasPending = joinRequests.find((request) => request.id === requestId)?.status ===", "reviewJoinRequest must check the pre-action status before deciding whether to decrement.");
 assertIncludes(appClient, "onJoinRequestResolved(group.id);", "reviewJoinRequest must call onJoinRequestResolved after a resolving action.");
 assertIncludes(appClient, 'const requestedGroupId = searchParams.get("openGroup");', "DOS client must read an openGroup query param for email deep links.");
 assertIncludes(appClient, "DashboardNotificationsPanel", "Dashboard must render the unified notifications panel.");
-assertIncludes(appClient, 'subtitle: "Group join request"', "Dashboard must render pending group join requests as notifications.");
+assertIncludes(appClient, 'subtitle: "Community join request"', "Dashboard must render pending community join requests as notifications.");
 assertIncludes(appClient, "onClick: () => onOpenGroupJoinRequests(item.groupId)", "Group join request notifications must open the group's pending requests.");
 
 console.log("dos-group-join-request-notification-regression: all checks passed.");

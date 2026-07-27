@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { publicGroupPath } from "@/src/lib/groups/public-site";
+import { publicGroupPath, publicGroupsDirectoryPath } from "@/src/lib/groups/public-site";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import {
   routeBuilderComingSoonLabel,
@@ -31,11 +31,11 @@ const notificationTypes = [
 export function groupHomeStateMessage(value: string | null) {
   switch (value) {
     case "access-expired":
-      return "That link has expired. Ask your group leader for a fresh one.";
+      return "That link has expired. Ask your community leader for a fresh one.";
     case "access-requested":
       return "If that email belongs to an active member, your leader can send a fresh link.";
     case "access-unavailable":
-      return "Group Home sign-in is not ready yet.";
+      return "Community Home sign-in is not ready yet.";
     case "preferences-error":
       return "Updates could not be saved.";
     case "preferences-saved":
@@ -45,7 +45,7 @@ export function groupHomeStateMessage(value: string | null) {
     case "prayer-missing":
       return "Add a title and request before sending.";
     case "prayer-sent":
-      return "Prayer sent to your group leaders.";
+      return "Prayer sent to your community leaders.";
     case "rsvp-closed":
       return "RSVP is closed for that gathering.";
     case "rsvp-error":
@@ -55,7 +55,7 @@ export function groupHomeStateMessage(value: string | null) {
     case "signed-in":
       return "You are signed in.";
     case "signin-required":
-      return "Sign in from your group link first.";
+      return "Sign in from your community link first.";
     default:
       return "";
   }
@@ -142,14 +142,14 @@ export function GroupHomeMemberView({
           className="absolute inset-0 -z-30 opacity-28 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
         />
         <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-56 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
-        <header className="grid gap-3 rounded-lg border border-[#C2A14E]/22 bg-[#111418]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:grid-cols-[minmax(0,1fr)_17rem]">
+        <header className="grid min-w-0 gap-3 rounded-lg border border-[#C2A14E]/22 bg-[#111418]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="flex flex-col justify-between gap-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
-                  Group Home
+                  Community Home
                 </Link>
-                <h1 className="mt-2 text-3xl font-black leading-none text-white sm:text-4xl">{data.group.name}</h1>
+                <h1 className="mt-2 break-words text-3xl font-black leading-none text-white sm:text-4xl">{data.group.name}</h1>
                 <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{data.group.tagline || data.group.type}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -284,8 +284,8 @@ export function GroupHomeMemberView({
         </section>
         <footer className="pb-2 text-center text-xs font-bold text-white/42">
           Powered by{" "}
-          <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="/groups">
-            USA Missionaries Groups
+          <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href={publicGroupsDirectoryPath()}>
+            USA Missionaries Community
           </Link>
         </footer>
       </div>
@@ -295,9 +295,9 @@ export function GroupHomeMemberView({
 
 function GroupHomeFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
+    <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{label}</p>
-      <p className="mt-1 text-sm font-black leading-5 text-white">{value}</p>
+      <p className="mt-1 break-words text-sm font-black leading-5 text-white">{value}</p>
     </div>
   );
 }

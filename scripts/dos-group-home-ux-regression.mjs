@@ -60,8 +60,8 @@ assertNotIncludes(publicTemplate, "What You Are Signing Up For", "Public visitor
 assertNotIncludes(publicTemplate, "Member Portal", "Public visitor page must not present a member portal.");
 assertNotIncludes(publicTemplate, "Member Dashboard", "Public visitor page must not present a dashboard.");
 
-assertIncludes(memberHomeView, "Group Home", "Approved member view must use Group Home language.");
-assertBefore(memberHomeView, "Group Home", ">Next Gathering</p>", "Member view must start with compact group identity before the next gathering.");
+assertIncludes(memberHomeView, "Community Home", "Approved member view must use Community Home language.");
+assertBefore(memberHomeView, "Community Home", ">Next Gathering</p>", "Member view must start with compact group identity before the next gathering.");
 assertBefore(memberHomeView, ">Next Gathering</p>", "Save RSVP", "Member view must prioritize RSVP after next gathering.");
 assertBefore(memberHomeView, "Save RSVP", ">Latest Update</p>", "Latest update should follow RSVP.");
 assertBefore(memberHomeView, ">Latest Update</p>", ">Prayer</p>", "Prayer should follow latest update.");

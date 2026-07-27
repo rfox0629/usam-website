@@ -432,7 +432,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "More",
     items: [
-      { icon: "people", label: "Groups", type: "moreApp", value: "groups" },
+      { icon: "people", label: "Community", type: "moreApp", value: "groups" },
       { icon: "fruit", label: "Fruit", type: "moreApp", value: "fruit" },
       { icon: "library", label: "Library", type: "moreApp", value: "library" },
       { icon: "log", label: "Reports", type: "moreApp", value: "reports" },
@@ -6856,8 +6856,8 @@ function DesktopCirclePanel({
 }
 
 type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
-const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
-const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+const dosDesktopMoreLauncherAppLabels = ["Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Community", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
 const dosDesktopMoreLauncherAppLabelSet = new Set<string>(dosDesktopMoreLauncherAppLabels);
 const dosMobileMoreLauncherAppLabelSet = new Set<string>(dosMobileMoreLauncherAppLabels);
 
@@ -6978,7 +6978,7 @@ function groupTypeLabel(group: DosAppGroup) {
   }
 
   if (name.includes("men")) {
-    return "Men's Group";
+    return "Men's Community";
   }
 
   if (group.type === "prayer") {
@@ -7062,10 +7062,10 @@ function GroupsSearchInput({
     <label className="relative block">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
       <input
-        aria-label="Search groups"
+        aria-label="Search communities"
         className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white py-2 pl-10 pr-4 text-sm font-semibold text-[#0F172A] shadow-[0_10px_26px_rgba(37,99,235,0.045)] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#BFDBFE] focus:ring-2 focus:ring-[#2563EB]/10"
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Search groups..."
+        placeholder="Search communities..."
         value={query}
       />
     </label>
@@ -7077,7 +7077,7 @@ function GroupIntroCard({ featuredGroup }: { featuredGroup: DosAppGroup | null }
     <section className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_16px_38px_rgba(37,99,235,0.055)]">
       <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_260px]">
         <div className="p-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Featured Group</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Featured Community</p>
           <h2 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
             Discipleship happens in rhythms.
           </h2>
@@ -7192,7 +7192,7 @@ function groupTemplateDisplayLabel(group: DosAppGroup) {
         ? group.activityType.replace(/^\w/, (letter) => letter.toUpperCase())
         : "Activity";
 
-    return `${activity} Group`;
+    return `${activity} Community`;
   }
 
   if (group.templateKey === "mens_discipleship") {
@@ -7314,11 +7314,11 @@ function GroupsWorkspaceV2({
               type="button"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-              New Group
+              New Community
             </button>
           </div>
         )}
-        title="Groups"
+        title="Community"
       />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] md:items-center">
         <SegmentedTabs onChange={onSelectListView} options={groupsListTabs} value={view} />
@@ -7368,8 +7368,8 @@ function GroupsWorkspaceV2({
           );
         }) : (
           <EmptyState
-            text={queryText ? "Try a different search." : "Create a group from an approved template."}
-            title={queryText ? "No matching groups." : "No groups yet."}
+            text={queryText ? "Try a different search." : "Create a community from an approved template."}
+            title={queryText ? "No matching communities." : "No communities yet."}
           />
         )}
       </section>
@@ -7378,7 +7378,15 @@ function GroupsWorkspaceV2({
 }
 
 function normalizeGroupV2Tab(tab: GroupDetailTab): GroupDetailTab {
-  return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" ? tab : "overview";
+  if (tab === "members") {
+    return "people";
+  }
+
+  if (tab === "attendance") {
+    return "gatherings";
+  }
+
+  return tab === "people" || tab === "gatherings" || tab === "prayer" || tab === "resources" || tab === "settings" || tab === "overview" ? tab : "overview";
 }
 
 function GroupDetailWorkspaceV2({
@@ -7420,14 +7428,24 @@ function GroupDetailWorkspaceV2({
 }) {
   const selectedTab = normalizeGroupV2Tab(tab);
   const nextGathering = nextUpcomingGroupGathering(group);
+  const [activeGatheringRun, setActiveGatheringRun] = useState<{ gatheringId: string; startedAt: number } | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<Record<string, GroupAttendanceChoice>>({});
+  const [guestDrafts, setGuestDrafts] = useState<GroupGuestDraft[]>([]);
+  const [prayerDrafts, setPrayerDrafts] = useState<GroupPrayerDraft[]>([]);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
+  const activeGathering = activeGatheringRun
+    ? group.gatherings.find((gathering) => gathering.id === activeGatheringRun.gatheringId) ?? null
+    : null;
+  const attendanceRows = groupAttendanceRows(group, attendanceDraft, guestDrafts);
+  const attendanceSummary = groupAttendanceSummary(group, attendanceDraft, guestDrafts);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
-  const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Meeting" : "Log Meeting";
+  const canStartNextGathering = Boolean(nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt);
+  const meetingActionLabel = canStartNextGathering ? "Start Meeting" : "Log Meeting";
   const nextGatheringSummary = nextGathering
     ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
     : "Not scheduled";
   const moreActions = [
-    { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Group", onClick: onEditGroup },
+    { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Community", onClick: onEditGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
     { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Link", onClick: onCopyPublicLink },
     { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Public Page", onClick: onViewPublicGroup },
@@ -7439,9 +7457,75 @@ function GroupDetailWorkspaceV2({
     action();
   }
 
+  useEffect(() => {
+    setActiveGatheringRun(null);
+    setAttendanceDraft({});
+    setGuestDrafts([]);
+    setPrayerDrafts([]);
+    setIsMoreActionsOpen(false);
+  }, [group]);
+
+  function startGathering() {
+    const gathering = nextUpcomingGroupGathering(group);
+
+    if (!gathering) {
+      onSchedule();
+      return;
+    }
+
+    const defaults = Object.fromEntries(activeGroupMembers(group).map((member) => [member.id, "present" as GroupAttendanceChoice]));
+    setAttendanceDraft(defaults);
+    setActiveGatheringRun({ gatheringId: gathering.id, startedAt: Date.now() });
+    onTabChange("gatherings");
+  }
+
+  function runMeetingAction() {
+    if (canStartNextGathering) {
+      startGathering();
+      return;
+    }
+
+    onLogAsTable();
+  }
+
+  function updateMemberAttendance(memberId: string, status: GroupAttendanceChoice) {
+    setAttendanceDraft((current) => ({
+      ...current,
+      [memberId]: status,
+    }));
+  }
+
+  function addGuestDraft() {
+    setGuestDrafts((current) => [
+      ...current,
+      {
+        createPerson: false,
+        id: `guest-${Date.now()}-${current.length}`,
+        name: `Guest ${current.length + 1}`,
+      },
+    ]);
+  }
+
+  function updateGuestDraft(guestId: string, updates: Partial<GroupGuestDraft>) {
+    setGuestDrafts((current) => current.map((guest) => guest.id === guestId ? { ...guest, ...updates } : guest));
+  }
+
+  function addPrayerDraft() {
+    setPrayerDrafts((current) => [
+      ...current,
+      {
+        description: "",
+        id: `group-prayer-${Date.now()}-${current.length}`,
+        targetId: "",
+        targetType: "group",
+        title: "",
+      },
+    ]);
+  }
+
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Community" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
         <div className="grid gap-3 p-3.5 sm:grid-cols-[168px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
@@ -7466,7 +7550,7 @@ function GroupDetailWorkspaceV2({
               <GroupQuickAction
                 icon={meetingActionLabel === "Start Meeting" ? <Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label={meetingActionLabel}
-                onClick={onLogAsTable}
+                onClick={runMeetingAction}
                 tone="primary"
               />
               <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
@@ -7479,7 +7563,21 @@ function GroupDetailWorkspaceV2({
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
       {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
-      {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {selectedTab === "gatherings" ? (
+        <GroupGatheringsWorkspaceTab
+          attendanceRows={attendanceRows}
+          attendanceSummary={attendanceSummary}
+          group={group}
+          guestDrafts={guestDrafts}
+          isGatheringActive={Boolean(activeGathering)}
+          onAddGuest={addGuestDraft}
+          onTakeAttendance={startGathering}
+          onUpdateGuest={updateGuestDraft}
+          onUpdateMemberAttendance={updateMemberAttendance}
+        />
+      ) : null}
+      {selectedTab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
+      {selectedTab === "resources" ? <GroupResourcesTab group={group} /> : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
       {isMoreActionsOpen ? (
         <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
@@ -7770,11 +7868,11 @@ function GroupsWorkspace({
               type="button"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-              New Group
+              New Community
             </button>
           </div>
         )}
-        title="Groups"
+        title="Community"
       />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)] md:items-center">
         <SegmentedTabs onChange={onSelectListView} options={groupsListTabs} value={view} />
@@ -7783,7 +7881,7 @@ function GroupsWorkspace({
       {groupsNotice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{groupsNotice}</p> : null}
       <GroupIntroCard featuredGroup={featuredGroup} />
       <section>
-        <SectionHeading title={view === "mine" ? "My Groups" : "All Groups"} />
+        <SectionHeading title={view === "mine" ? "My Communities" : "All Communities"} />
         {visibleGroups.length ? (
           <div className="grid gap-3">
             {visibleGroups.map((group) => (
@@ -7800,8 +7898,8 @@ function GroupsWorkspace({
           </div>
         ) : (
           <EmptyState
-            text={queryText ? "Try a different search." : "Create a private discipleship group when you are ready."}
-            title={queryText ? "No matching groups." : "No groups yet."}
+            text={queryText ? "Try a different search." : "Create a private discipleship community when you are ready."}
+            title={queryText ? "No matching communities." : "No communities yet."}
           />
         )}
       </section>
@@ -8020,7 +8118,7 @@ function GroupDetailWorkspace({
   }
 
   const secondaryActions = [
-    { icon: <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add to Group", onClick: onInvite },
+    { icon: <UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add to Community", onClick: onInvite },
     { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Public Link", onClick: onCopyPublicLink },
     { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public Page", onClick: onViewPublicGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
@@ -8029,7 +8127,7 @@ function GroupDetailWorkspace({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Community" />
       <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
         <div className="grid min-w-0 gap-3 p-4 text-center md:gap-4 md:p-5 md:text-left xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
@@ -8352,7 +8450,7 @@ function GroupEndGatheringWizard({
         ) : (
           <div className="space-y-4">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {["Save attendance", "Save prayer requests", "Save fruit", "Save follow-ups", "Create/update meeting log", "Update person timelines", "Update group history"].map((item) => (
+              {["Save attendance", "Save prayer requests", "Save fruit", "Save follow-ups", "Create/update meeting log", "Update person timelines", "Update community history"].map((item) => (
                 <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item}>
                   <p className="text-sm font-black text-[#0F172A]">{item}</p>
                 </div>
@@ -8488,7 +8586,7 @@ function GroupPrayerWizardStep({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-semibold leading-6 text-[#64748B]">Prayer requests can attach to a person, guest, or the entire group.</p>
+        <p className="text-sm font-semibold leading-6 text-[#64748B]">Prayer requests can attach to a person, guest, or the entire community.</p>
         <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddPrayer} type="button">
           <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
           Add Prayer
@@ -8521,7 +8619,7 @@ function GroupPrayerWizardStep({
                 }}
                 value={`${prayer.targetType}:${prayer.targetId}`}
               >
-                <option value="group:">Entire group</option>
+                <option value="group:">Entire community</option>
                 {group.members.map((member) => (
                   <option key={member.id} value={`person:${member.personId}`}>{member.personName}</option>
                 ))}
@@ -8533,7 +8631,7 @@ function GroupPrayerWizardStep({
           ))}
         </div>
       ) : (
-        <SectionEmptyState action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>} text="Requests added here will appear in Prayer with this group and gathering." title="No prayer requests added." />
+        <SectionEmptyState action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>} text="Requests added here will appear in Prayer with this community and gathering." title="No prayer requests added." />
       )}
     </div>
   );
@@ -8621,7 +8719,7 @@ function GroupGatheringCompleteScreen() {
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>Gathering Completed</p>
       <h3 className="mt-2 text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Gathering Completed</h3>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {["Attendance Recorded", "Prayer Updated", "Fruit Recorded", "Meeting Logged", "Group History Updated"].map((item) => (
+        {["Attendance Recorded", "Prayer Updated", "Fruit Recorded", "Meeting Logged", "Community History Updated"].map((item) => (
           <div className="rounded-[16px] bg-white/82 p-3" key={item}>
             <CheckCircle2 className="h-4 w-4 text-[#16A34A]" aria-hidden="true" strokeWidth={2} />
             <p className="mt-2 text-sm font-black text-[#0F172A]">{item}</p>
@@ -8707,14 +8805,14 @@ function defaultGroupActivityItems(group: DosAppGroup): GroupActivityItem[] {
       body: "Attendance, prayer, fruit, follow-ups, and meeting logs will appear as gatherings are completed.",
       id: `activity-history-${group.id}`,
       meta: "Ready",
-      title: "Group history ready",
+      title: "Community history ready",
     },
   ];
 }
 
 function groupPrayerDraftTargetLabel(group: DosAppGroup, prayer: GroupPrayerDraft) {
   if (prayer.targetType === "group") {
-    return "Entire group";
+    return "Entire community";
   }
 
   if (prayer.targetType === "person") {
@@ -8858,7 +8956,7 @@ function GroupOverviewTab({
     {
       body: upcomingCount ? "Momentum is steady." : "Needs next rhythm.",
       meta: "Momentum",
-      title: "Group Health",
+      title: "Community Health",
     },
     {
       body: activityItems[0]?.title ?? "No recent activity.",
@@ -8936,7 +9034,7 @@ function GroupOverviewTab({
         </div>
         </div>
         <div className="grid min-w-0 content-start gap-3">
-          <DesktopPanel eyebrow="Health" title="Group Health">
+          <DesktopPanel eyebrow="Health" title="Community Health">
             <GroupHealthSnapshot attendanceSummary={attendanceSummary} followUpCount={followUpItems.length} group={group} prayerCount={recentPrayerTitles.length} />
           </DesktopPanel>
           <DesktopPanel eyebrow="Activity" title="Recent Activity">
@@ -9040,7 +9138,7 @@ function groupOverviewRhythms(group: DosAppGroup) {
 }
 
 function groupJoinRequestName(request: GroupJoinRequest) {
-  return [request.firstName, request.lastName].map((part) => part.trim()).filter(Boolean).join(" ").trim() || "Group request";
+  return [request.firstName, request.lastName].map((part) => part.trim()).filter(Boolean).join(" ").trim() || "Community request";
 }
 
 function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
@@ -9186,7 +9284,7 @@ function GroupMembersTab({
         : current.filter((request) => request.id !== requestId));
       setJoinRequestsMessage({
         text: action === "accept"
-          ? "Request accepted and added to the group."
+          ? "Request accepted and added to the community."
           : action === "decline"
             ? "Request declined."
             : "Request marked reviewed.",
@@ -9210,7 +9308,7 @@ function GroupMembersTab({
 
     try {
       await onRemoveMember(group.id, member);
-      setMemberRemovalMessage({ text: `${member.personName} removed from this group.`, tone: "success" });
+      setMemberRemovalMessage({ text: `${member.personName} removed from this community.`, tone: "success" });
       setMemberPendingRemovalId(null);
     } catch (error) {
       setMemberRemovalMessage({ text: error instanceof Error ? error.message : "Unable to remove this member.", tone: "error" });
@@ -9391,7 +9489,7 @@ function GroupMembersTab({
           </div>
         ) : (
           <SectionEmptyState
-            text="Public join requests will appear here for group leaders before anyone is added."
+            text="Public join requests will appear here for community leaders before anyone is added."
             title="No pending requests."
           />
         )}
@@ -9447,7 +9545,7 @@ function GroupMembersTab({
                           setMemberRemovalMessage(null);
                           setMemberPendingRemovalId(member.id);
                         }}
-                        title={isLeader ? "Change the group leader before removing this member." : `Remove ${member.personName} from group`}
+                        title={isLeader ? "Change the community leader before removing this member." : `Remove ${member.personName} from community`}
                         type="button"
                       >
                         Remove
@@ -9456,7 +9554,7 @@ function GroupMembersTab({
                   </div>
                   {isConfirmingRemoval ? (
                     <div className="mt-3 rounded-[16px] border border-red-200 bg-white px-3 py-2">
-                      <p className="text-sm font-bold text-[#0F172A]">Remove {member.personName} from this group?</p>
+                      <p className="text-sm font-bold text-[#0F172A]">Remove {member.personName} from this community?</p>
                       <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">This only deactivates the group membership. Their Person record stays in Field.</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -9619,7 +9717,7 @@ function GroupInviteSheet({
                     onClick={() => addExistingPerson(person)}
                     type="button"
                   >
-                    {alreadyMember ? "In Group" : "Add to Group"}
+                    {alreadyMember ? "In Community" : "Add to Community"}
                   </button>
                 </div>
               );
@@ -9632,7 +9730,7 @@ function GroupInviteSheet({
         <form className="space-y-3 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5" onSubmit={addGuest}>
           <div>
             <p className="text-sm font-black text-[#0F172A]">New Guest</p>
-            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">Creates or links a DOS person record, then adds them to this private group.</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">Creates or links a DOS person record, then adds them to this private community.</p>
           </div>
           <label className="block">
             <FieldLabel>Name</FieldLabel>
@@ -9653,7 +9751,7 @@ function GroupInviteSheet({
             disabled={!canAddGuest || isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Adding..." : "Add to Group"}
+            {isSubmitting ? "Adding..." : "Add to Community"}
           </button>
         </form>
       </div>
@@ -9684,10 +9782,10 @@ function GroupCreateSheet({
     coLeaderPersonIds: [],
     defaultLocation: "",
     helperPersonIds: [],
-    name: defaultTemplate?.defaultName ?? "New Group",
+    name: defaultTemplate?.defaultName ?? "New Community",
     primaryLeaderPersonId: defaultPrimaryLeaderId,
     rhythmLabel: "",
-    slug: defaultTemplate?.defaultSlug ?? "new-group",
+    slug: defaultTemplate?.defaultSlug ?? "new-community",
     templateKey: defaultTemplate?.templateKey ?? "mens_discipleship",
     visibility: "private",
   }));
@@ -9740,7 +9838,7 @@ function GroupCreateSheet({
   }
 
   return (
-    <Sheet description="Create a group from an approved USA Missionaries template." onClose={onClose} title="New Group" size="wide">
+    <Sheet description="Create a community from an approved USA Missionaries template." onClose={onClose} title="New Community" size="wide">
       <form className="grid max-h-[calc(100dvh-8rem)] gap-4 overflow-y-auto px-1 pb-2 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]" onSubmit={handleSubmit}>
         <div className="grid gap-4">
           {message ? (
@@ -9805,7 +9903,7 @@ function GroupCreateSheet({
         <div className="grid content-start gap-3">
           <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
             <p className="text-sm font-black text-[#0F172A]">Shared Leadership</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Primary leaders, co-leaders, and helpers can be used for group management and future shared accountability.</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Primary leaders, co-leaders, and helpers can be used for community management and future shared accountability.</p>
           </div>
           <label className="block">
             <FieldLabel>Primary Leader</FieldLabel>
@@ -9843,7 +9941,7 @@ function GroupCreateSheet({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Creating..." : "Create Group"}
+            {isSubmitting ? "Creating..." : "Create Community"}
           </button>
         </div>
       </form>
@@ -9945,7 +10043,7 @@ function GroupSettingsSheet({
     return Array.from(peopleById.values()).sort((first, second) => first.name.localeCompare(second.name));
   }, [group.leaderName, group.leaderPersonId, group.members, people]);
   const publicSlug = slugFromText(draft.slug || draft.name);
-  const publicHref = `/groups/${publicSlug}`;
+  const publicHref = `/community/${publicSlug}`;
   const locationChanged = draft.defaultLocation.trim() !== (group.defaultLocation ?? "");
 
   function updateDraft<K extends keyof GroupSettingsSavePayload>(field: K, value: GroupSettingsSavePayload[K]) {
@@ -10035,7 +10133,7 @@ function GroupSettingsSheet({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-2xl font-black leading-tight text-[#0F172A]">Edit {group.name}</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">Edit this private DOS group. Public-shareable only exposes the public landing page fields.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">Edit this private DOS community. Public-shareable only exposes the public landing page fields.</p>
             </div>
             <button
               aria-label="Close"
@@ -10061,7 +10159,7 @@ function GroupSettingsSheet({
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block min-w-0">
-                <FieldLabel>Group name</FieldLabel>
+                <FieldLabel>Community name</FieldLabel>
                 <input className={FieldInputClass()} onChange={(event) => updateDraft("name", event.target.value)} required value={draft.name} />
               </label>
               <label className="block min-w-0">
@@ -10082,7 +10180,7 @@ function GroupSettingsSheet({
                 <FieldLabel>Type</FieldLabel>
                 <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
                   {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
-                    <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
+                    <option key={type} value={type}>{type === "running" ? "Running Community" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
                   ))}
                 </select>
               </label>
@@ -10176,10 +10274,10 @@ function GroupSettingsSheet({
             </div>
             <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
               <p className="text-sm font-black text-[#991B1B]">Archive</p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive groups are hidden from the active Groups list. Existing history stays intact.</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#B91C1C]">Inactive communities are hidden from the active Community list. Existing history stays intact.</p>
               <label className="mt-3 flex items-center gap-2 text-sm font-bold text-[#991B1B]">
                 <input checked={!draft.active} onChange={(event) => updateDraft("active", !event.target.checked)} type="checkbox" />
-                Archive group
+                Archive community
               </label>
             </div>
             <div className="flex flex-col gap-2">
@@ -10219,6 +10317,45 @@ function GroupGatheringRow({
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
       {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
       {children}
+    </div>
+  );
+}
+
+function GroupGatheringsWorkspaceTab({
+  attendanceRows,
+  attendanceSummary,
+  group,
+  guestDrafts,
+  isGatheringActive,
+  onAddGuest,
+  onTakeAttendance,
+  onUpdateGuest,
+  onUpdateMemberAttendance,
+}: {
+  attendanceRows: GroupAttendanceRow[];
+  attendanceSummary: ReturnType<typeof groupAttendanceSummary>;
+  group: DosAppGroup;
+  guestDrafts: GroupGuestDraft[];
+  isGatheringActive: boolean;
+  onAddGuest: () => void;
+  onTakeAttendance: () => void;
+  onUpdateGuest: (guestId: string, updates: Partial<GroupGuestDraft>) => void;
+  onUpdateMemberAttendance: (memberId: string, status: GroupAttendanceChoice) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      <GroupGatheringsTab group={group} />
+      <GroupAttendanceTab
+        attendanceRows={attendanceRows}
+        attendanceSummary={attendanceSummary}
+        guestDrafts={guestDrafts}
+        group={group}
+        isGatheringActive={isGatheringActive}
+        onAddGuest={onAddGuest}
+        onTakeAttendance={onTakeAttendance}
+        onUpdateGuest={onUpdateGuest}
+        onUpdateMemberAttendance={onUpdateMemberAttendance}
+      />
     </div>
   );
 }
@@ -10367,8 +10504,8 @@ function GroupPrayerTab({ group, onAddPrayer, prayerDrafts = [] }: { group: DosA
       ) : (
         <SectionEmptyState
           action={<CompactButton icon="prayer" onClick={onAddPrayer}>Add Prayer</CompactButton>}
-          text={view === "answered" ? "Answered group prayers will appear here." : "Prayer requests added during gatherings will automatically appear here."}
-          title={view === "answered" ? "No answered group prayers." : "No active prayer requests."}
+          text={view === "answered" ? "Answered community prayers will appear here." : "Prayer requests added during gatherings will automatically appear here."}
+          title={view === "answered" ? "No answered community prayers." : "No active prayer requests."}
         />
       )}
     </DesktopPanel>
@@ -10377,7 +10514,7 @@ function GroupPrayerTab({ group, onAddPrayer, prayerDrafts = [] }: { group: DosA
 
 function GroupResourcesTab({ group }: { group: DosAppGroup }) {
   return (
-    <DesktopPanel eyebrow="Resources" title="Group Resources">
+    <DesktopPanel eyebrow="Resources" title="Community Resources">
       {group.resources.length ? (
         <div className="grid gap-3">
           {group.resources.map((resource) => (
@@ -10409,11 +10546,11 @@ function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () =>
       action={(
         <button className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.2)] transition-colors hover:bg-[#1D4ED8]" onClick={onEdit} type="button">
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-          Edit Group
+          Edit Community
         </button>
       )}
       eyebrow="Settings"
-      title="Group State"
+      title="Community State"
     >
       <div className="grid gap-2 md:grid-cols-2">
         {[
@@ -10422,7 +10559,7 @@ function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () =>
           ["Type", groupTemplateDisplayLabel(group)],
           ["Shared leadership", group.sharedLeadershipEnabled ? "Enabled" : "Off"],
           ["Capacity", groupCapacitySettingLabel(group.capacity)],
-          ["Public URL", `/groups/${group.slug}`],
+          ["Public URL", `/community/${group.slug}`],
           ["Scripture", group.scriptureReference ?? "Not set"],
           ["Default location", group.defaultLocation ?? "Location TBD"],
           ["Meeting link", "Gatherings can link to meeting logs"],
@@ -12142,7 +12279,7 @@ function DesktopHomeDashboard({
       icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={2} />,
       id: `group-${item.groupId}`,
       onClick: () => onOpenGroupJoinRequests(item.groupId),
-      subtitle: "Group join request",
+      subtitle: "Community join request",
       title: item.groupName,
     })),
     ...todayDashboardRows.map((item) => ({
@@ -13365,8 +13502,8 @@ function SegmentedTabs<T extends string>({
 }
 
 const groupsListTabs: ReadonlyArray<SegmentedTabOption<GroupsListView>> = [
-  { label: "My Groups", value: "mine" },
-  { label: "All Groups", value: "all" },
+  { label: "My Communities", value: "mine" },
+  { label: "All Communities", value: "all" },
 ];
 
 const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
@@ -13383,6 +13520,8 @@ const groupV2DetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Overview", value: "overview" },
   { label: "People", value: "people" },
   { label: "Gatherings", value: "gatherings" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Resources", value: "resources" },
   { label: "Settings", value: "settings" },
 ];
 
@@ -33944,7 +34083,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function showGroupsPlaceholder(action: string) {
-    setGroupsNotice(`${action} will be wired after group management is ready.`);
+    setGroupsNotice(`${action} will be wired after community management is ready.`);
   }
 
   function openGroupCreateSheet() {
@@ -34013,7 +34152,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const result = await response.json().catch(() => ({})) as GroupCreateResult;
 
       if (!response.ok || !result.group) {
-        throw new Error(result.error ?? "Unable to create group.");
+        throw new Error(result.error ?? "Unable to create community.");
       }
 
       setLocalGroupAdditions((current) => current.some((group) => group.id === result.group?.id)
@@ -34022,24 +34161,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setSelectedGroupId(result.group.id);
       setGroupDetailTab("overview");
       setGroupsNotice(`${result.group.name} created.`);
-      setGroupCreateMessage({ text: "Group created.", tone: "success" });
+      setGroupCreateMessage({ text: "Community created.", tone: "success" });
       setIsGroupCreateOpen(false);
       router.refresh();
     } catch (error) {
-      setGroupCreateMessage({ text: error instanceof Error ? error.message : "Unable to create group.", tone: "error" });
+      setGroupCreateMessage({ text: error instanceof Error ? error.message : "Unable to create community.", tone: "error" });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   function publicGroupUrl(group: DosAppGroup) {
-    const href = `/groups/${group.slug}`;
+    const href = `/community/${group.slug}`;
 
     return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
   }
 
   function publicGroupsDirectoryUrl() {
-    const href = "/groups";
+    const href = "/community";
 
     return typeof window !== "undefined" ? new URL(href, window.location.origin).toString() : href;
   }
@@ -34049,7 +34188,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     try {
       await navigator.clipboard.writeText(url);
-      setGroupsNotice("Public group directory link copied.");
+      setGroupsNotice("Public community directory link copied.");
     } catch {
       setGroupsNotice(url);
     }
@@ -34060,7 +34199,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     try {
       await navigator.clipboard.writeText(url);
-      setGroupsNotice("Public group link copied.");
+      setGroupsNotice("Public community link copied.");
     } catch {
       setGroupsNotice(url);
     }
@@ -34119,10 +34258,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     if (result.member) {
       const message = result.alreadyMember
-        ? `${result.member.personName} is already in this group.`
+        ? `${result.member.personName} is already in this community.`
         : result.memberAccess && "accessUrl" in result.memberAccess
           ? `${result.member.personName} added. Member access link is ready.`
-          : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+          : `${result.member.personName} added to ${selectedGroup?.name ?? "community"}.`;
 
       setGroupsNotice(message);
       router.refresh();
@@ -34154,7 +34293,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const result = await response.json().catch(() => ({})) as GroupMemberAddResult;
 
       if (!response.ok || !result.member) {
-        throw new Error(result.error ?? "Unable to add this person to the group.");
+        throw new Error(result.error ?? "Unable to add this person to the community.");
       }
 
       setGroupMemberAdditions((current) => {
@@ -34176,15 +34315,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       }
 
       const message = result.alreadyMember
-        ? `${result.member.personName} is already in this group.`
-        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
+        ? `${result.member.personName} is already in this community.`
+        : `${result.member.personName} added to ${selectedGroup?.name ?? "community"}.`;
 
       setGroupsNotice(message);
       setGroupInviteMessage({ text: message, tone: "success" });
       setGroupDetailTab("members");
       router.refresh();
     } catch (error) {
-      setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the group.", tone: "error" });
+      setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the community.", tone: "error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -34242,7 +34381,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           },
         };
       });
-      setGroupsNotice(`${member.personName} removed from ${selectedGroup?.name ?? "group"}.`);
+      setGroupsNotice(`${member.personName} removed from ${selectedGroup?.name ?? "community"}.`);
       router.refresh();
     } catch (error) {
       throw error instanceof Error ? error : new Error("Unable to remove this member.");
@@ -34276,7 +34415,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const result = await response.json().catch(() => ({})) as GroupSettingsSaveResult;
 
       if (!response.ok || !result.group) {
-        throw new Error(result.error ?? "Unable to save group settings.");
+        throw new Error(result.error ?? "Unable to save community settings.");
       }
 
       const resolvedGroupId = result.group.id || payload.groupId;
@@ -34305,8 +34444,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       if (result.group.id && result.group.id !== payload.groupId) {
         setSelectedGroupId(result.group.id);
       }
-      setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Group"} saved.`);
-      setGroupSettingsMessage({ text: "Group settings saved.", tone: "success" });
+      setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Community"} saved.`);
+      setGroupSettingsMessage({ text: "Community settings saved.", tone: "success" });
 
       if (result.group.active === false) {
         setIsGroupSettingsOpen(false);
@@ -34315,7 +34454,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       router.refresh();
     } catch (error) {
-      setGroupSettingsMessage({ text: error instanceof Error ? error.message : "Unable to save group settings.", tone: "error" });
+      setGroupSettingsMessage({ text: error instanceof Error ? error.message : "Unable to save community settings.", tone: "error" });
     } finally {
       setIsSubmitting(false);
     }
@@ -37439,10 +37578,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           description: "Recurring discipleship rhythms, gatherings, attendance, and prayer.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Groups",
+          label: "Community",
           onClick: () => openMoreApp("groups"),
           section: "installed",
-          status: `${data.groups.length} groups`,
+          status: `${data.groups.length} ${data.groups.length === 1 ? "community" : "communities"}`,
         },
         {
           description: "Requests, partners, and answered prayer.",
@@ -37537,11 +37676,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const desktopAppCatalogItems = appCatalogSections
     .flatMap((section) => section.items)
     .filter((item) => dosDesktopMoreLauncherAppLabelSet.has(item.label));
-  const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Groups");
-  const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Groups");
+  const groupsLauncherCard = desktopAppCatalogItems.find((item) => item.label === "Community");
+  const mobileGroupsLauncherCard = mobileAppCatalogItems.find((item) => item.label === "Community");
 
   if (!groupsLauncherCard || !mobileGroupsLauncherCard) {
-    console.warn("DOS Groups launcher card is not registered.", {
+    console.warn("DOS Community launcher card is not registered.", {
       desktop: Boolean(groupsLauncherCard),
       mobile: Boolean(mobileGroupsLauncherCard),
     });
@@ -37601,7 +37740,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }))
     : activeTab === "more"
       ? [
-          { icon: "people", label: "Groups", onClick: runMobileAction(() => openMoreApp("groups")) },
+          { icon: "people", label: "Community", onClick: runMobileAction(() => openMoreApp("groups")) },
           { icon: "fruit", label: "Fruit", onClick: runMobileAction(() => openMoreApp("fruit")) },
           { icon: "library", label: "Library", onClick: runMobileAction(() => openMoreApp("library")) },
           { icon: "log", label: "Reports", onClick: runMobileAction(() => openMoreApp("reports")) },
@@ -38062,7 +38201,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
-                    onCreateGroup={data.featureFlags.groupsSimplifiedV2 === true ? openGroupCreateSheet : () => showGroupsPlaceholder("New Group")}
+                    onCreateGroup={data.featureFlags.groupsSimplifiedV2 === true ? openGroupCreateSheet : () => showGroupsPlaceholder("New Community")}
                     onDetailTabChange={setGroupDetailTab}
                     onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}

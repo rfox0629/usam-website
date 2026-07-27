@@ -1296,6 +1296,10 @@ type GroupLoadRows = {
   resources: GroupResourceRow[];
 };
 
+type DosAppDataLoadOptions = {
+  groupIds?: string[] | null;
+};
+
 type CalendarConnectionRow = {
   calendar_id: string | null;
   connected_at: string | null;
@@ -3355,7 +3359,11 @@ async function loadPrayerRequestsForWorkspace(supabase: SupabaseAdminClient, wor
     : fallbackResult;
 }
 
-async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string): Promise<{ data: GroupLoadRows; error: SupabaseQueryError }> {
+async function loadGroupsForWorkspace(
+  supabase: SupabaseAdminClient,
+  workspaceId: string,
+  options: DosAppDataLoadOptions = {},
+): Promise<{ data: GroupLoadRows; error: SupabaseQueryError }> {
   const emptyRows: GroupLoadRows = {
     attendance: [],
     gatherings: [],
@@ -3364,21 +3372,40 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     members: [],
     resources: [],
   };
+  const scopedGroupIds = options.groupIds
+    ? Array.from(new Set(options.groupIds.map((groupId) => groupId.trim()).filter(Boolean)))
+    : null;
+
+  if (scopedGroupIds && !scopedGroupIds.length) {
+    return { data: emptyRows, error: null };
+  }
+
   const baseGroupSelect = "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active";
   const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings`;
-  const v2GroupsResult = await supabase
+  let v2GroupsQuery = supabase
     .from("dos_groups")
     .select(v2GroupSelect)
     .eq("workspace_id", workspaceId)
-    .eq("active", true)
-    .order("name", { ascending: true });
+    .eq("active", true);
+
+  if (scopedGroupIds) {
+    v2GroupsQuery = v2GroupsQuery.in("id", scopedGroupIds);
+  }
+
+  const v2GroupsResult = await v2GroupsQuery.order("name", { ascending: true });
+
+  let baseGroupsQuery = supabase
+    .from("dos_groups")
+    .select(baseGroupSelect)
+    .eq("workspace_id", workspaceId)
+    .eq("active", true);
+
+  if (scopedGroupIds) {
+    baseGroupsQuery = baseGroupsQuery.in("id", scopedGroupIds);
+  }
+
   const groupsResult = v2GroupsResult.error && isMissingColumnError(v2GroupsResult.error)
-    ? await supabase
-      .from("dos_groups")
-      .select(baseGroupSelect)
-      .eq("workspace_id", workspaceId)
-      .eq("active", true)
-      .order("name", { ascending: true })
+    ? await baseGroupsQuery.order("name", { ascending: true })
     : v2GroupsResult;
 
   if (groupsResult.error) {
@@ -4023,6 +4050,7 @@ async function loadHouseholdMembersForWorkspace(supabase: SupabaseAdminClient, w
 export async function loadDosAppData(
   workspaceRef?: DosAppWorkspaceRef | string | null,
   viewer?: DosAuthorizedUser | null,
+  options: DosAppDataLoadOptions = {},
 ): Promise<LoadResult<DosAppData>> {
   const workspaceResult = await loadWorkspace(workspaceRef);
 
@@ -4091,7 +4119,7 @@ export async function loadDosAppData(
     loadPrayerLogsForWorkspace(supabase, workspace.id),
     loadPrayerPartnersForWorkspace(supabase, workspace),
     loadPrayerRequestsForWorkspace(supabase, workspace.id),
-    loadGroupsForWorkspace(supabase, workspace.id),
+    loadGroupsForWorkspace(supabase, workspace.id, { groupIds: options.groupIds }),
     loadCalendarConnectionForWorkspace(supabase, workspace.id),
     loadCalendarEventLinksForWorkspace(supabase, workspace.id),
     loadCalendarWorkspaceSyncStateForWorkspace(supabase, workspace.id),

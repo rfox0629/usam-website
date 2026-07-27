@@ -228,7 +228,7 @@ export async function POST(request: Request) {
   }
 
   if (!featureResult.enabled) {
-    return NextResponse.json({ error: "Groups V2 is not enabled for this workspace." }, { status: 403 });
+    return NextResponse.json({ error: "Community is not enabled for this workspace." }, { status: 403 });
   }
 
   const name = asString(payload.name) || template.defaultName;
@@ -357,7 +357,9 @@ export async function POST(request: Request) {
     }
   }
 
+  revalidatePath("/community");
   revalidatePath("/groups");
+  revalidatePath(`/community/${createdGroup.slug}`);
   revalidatePath(`/groups/${createdGroup.slug}`);
 
   const peopleById = new Map(peopleResult.people.map((person) => [person.id, person.name ?? "Field person"]));

@@ -5,7 +5,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { notifyGroupFacilitators } from "@/src/lib/groups/notify-facilitators";
 import {
+  legacyPublicGroupsBasePath,
   missingPublicSiteSchema,
+  publicGroupPath,
+  publicGroupsDirectoryPath,
   requestHostname,
   resolvePublicSiteForHost,
 } from "@/src/lib/groups/public-site";
@@ -36,26 +39,28 @@ function normalizePhone(value: string) {
 }
 
 function sourcePathFor(slug: string, value: string) {
-  const fallback = `/groups/${slug}`;
+  const fallback = publicGroupPath(slug);
+  const legacyFallback = `${legacyPublicGroupsBasePath}/${slug}`;
+  const communityBasePath = publicGroupsDirectoryPath();
 
-  if (!value.startsWith("/groups/")) {
+  if (!value.startsWith(`${communityBasePath}/`) && !value.startsWith(`${legacyPublicGroupsBasePath}/`)) {
     return fallback;
   }
 
   const [pathOnly] = value.split(/[?#]/);
 
-  return pathOnly === fallback ? fallback : fallback;
+  return pathOnly === fallback || pathOnly === legacyFallback ? pathOnly : fallback;
 }
 
 function redirectToGroup(slug: string, state: "received" | "missing" | "unavailable" | "error"): never {
-  redirect(`/groups/${slug}?request=${state}#join`);
+  redirect(`${publicGroupPath(slug)}?request=${state}#join`);
 }
 
 export async function submitGroupJoinRequest(formData: FormData) {
   const slug = formString(formData, "groupSlug");
 
   if (!groupSlugPattern.test(slug)) {
-    redirect("/groups?request=unavailable");
+    redirect(`${publicGroupsDirectoryPath()}?request=unavailable`);
   }
 
   const firstName = formString(formData, "firstName");
@@ -162,7 +167,8 @@ export async function submitGroupJoinRequest(formData: FormData) {
         submittedAt,
       });
 
-      revalidatePath(`/groups/${legacyGroupResult.data.slug}`);
+      revalidatePath(publicGroupPath(legacyGroupResult.data.slug));
+      revalidatePath(`${legacyPublicGroupsBasePath}/${legacyGroupResult.data.slug}`);
       redirectToGroup(legacyGroupResult.data.slug, "received");
     }
 
@@ -231,6 +237,7 @@ export async function submitGroupJoinRequest(formData: FormData) {
     submittedAt,
   });
 
-  revalidatePath(`/groups/${group.slug}`);
+  revalidatePath(publicGroupPath(group.slug));
+  revalidatePath(`${legacyPublicGroupsBasePath}/${group.slug}`);
   redirectToGroup(group.slug, "received");
 }

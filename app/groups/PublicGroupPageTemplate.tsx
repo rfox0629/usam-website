@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { publicGroupPath } from "@/src/lib/groups/public-site";
+import { publicGroupPath, publicGroupsDirectoryPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
@@ -71,10 +71,11 @@ export function PublicGroupPageTemplate({
         <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-64 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
         <div className="mx-auto grid max-w-6xl gap-4 px-5 py-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_21rem] lg:px-10 lg:py-8">
           <div className="min-w-0 rounded-lg border border-white/10 bg-[#111418]/76 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-6">
-            <h1 className="text-5xl font-black leading-none text-white sm:text-6xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Meet · Connect · Pray</p>
+            <h1 className="mt-3 break-words text-4xl font-black leading-none text-white sm:text-6xl">
               <GroupName name={group.name} />
             </h1>
-            <p className="mt-3 text-lg font-black text-[#F8C56A]">{group.tagline}</p>
+            <p className="mt-3 max-w-2xl text-lg font-black leading-7 text-[#F8C56A]">{group.tagline}</p>
             <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-white/72 sm:grid-cols-2">
               <PublicFact label="When" value={group.rhythm} />
               <PublicFact label="Where" value={group.location} />
@@ -83,34 +84,34 @@ export function PublicGroupPageTemplate({
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               {group.acceptingRequests ? (
-                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-xs font-black uppercase tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
+                <a className="inline-flex min-h-11 max-w-full items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-center text-xs font-black uppercase leading-4 tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
                   Request to Join
                 </a>
               ) : (
-                <span className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/15 px-5 text-xs font-black uppercase tracking-[0.18em] text-white/58">
+                <span className="inline-flex min-h-11 max-w-full items-center justify-center rounded-sm border border-white/15 px-5 text-center text-xs font-black uppercase leading-4 tracking-[0.18em] text-white/58">
                   Requests Closed
                 </span>
               )}
               {group.memberAccessEnabled ? (
-                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
+                <a className="inline-flex min-h-11 max-w-full items-center justify-center rounded-sm border border-white/20 px-5 text-center text-xs font-black uppercase leading-4 tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
                   Member Sign In
                 </a>
               ) : null}
             </div>
           </div>
 
-          <aside className="grid gap-3">
+          <aside className="grid min-w-0 gap-3">
             <GroupTemplateArtwork input={{ name: group.name, slug: group.slug, tagline: group.tagline, type: group.typeLabel }} size="hero" />
             <div className="rounded-lg border border-white/10 bg-[#111418]/88 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F8C56A]">Next Gathering</p>
-              <div className="mt-3 flex items-end gap-3">
-                <p className="text-6xl font-black leading-none text-white">{group.nextGatheringNumber}</p>
-                <div className="pb-1">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-white/45">{group.nextGatheringMonth}</p>
-                  <p className="text-sm font-black text-white">{group.nextGatheringDay}</p>
+              <div className="mt-3 flex min-w-0 items-end gap-3">
+                <p className="max-w-[9rem] break-words text-5xl font-black leading-none text-white sm:text-6xl">{group.nextGatheringNumber}</p>
+                <div className="min-w-0 pb-1">
+                  <p className="break-words text-xs font-black uppercase tracking-[0.18em] text-white/45">{group.nextGatheringMonth}</p>
+                  <p className="break-words text-sm font-black text-white">{group.nextGatheringDay}</p>
                 </div>
               </div>
-              <p className="mt-3 text-base font-black text-white">{group.nextGatheringTitle}</p>
+              <p className="mt-3 break-words text-base font-black text-white">{group.nextGatheringTitle}</p>
               <dl className="mt-3 grid gap-2 text-sm leading-6">
                 <GatheringMeta label="Time" value={group.nextGatheringTime} />
                 <GatheringMeta label="Where" value={group.nextGatheringLocation} />
@@ -142,11 +143,11 @@ function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
   return (
     <header className="border-b border-white/10 bg-[#080A0D]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 lg:px-10">
-        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={group.siteBasePath || "/groups"}>
-          {group.siteName} Groups
+        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={publicGroupsDirectoryPath({ basePath: group.siteBasePath })}>
+          {group.siteName} Community
         </Link>
-        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={group.siteBasePath || "/groups"}>
-          All Groups
+        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={publicGroupsDirectoryPath({ basePath: group.siteBasePath })}>
+          All Community
         </Link>
       </div>
     </header>
@@ -164,7 +165,7 @@ function WhatToExpectSection({ group }: { group: PublicGroupPageData }) {
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           {group.whatToExpect.map((item) => (
-            <article className="rounded-lg border border-[#E7D8B0] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)]" key={item.title}>
+            <article className="min-w-0 rounded-lg border border-[#E7D8B0] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)]" key={item.title}>
               <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{item.note}</p>
             </article>
@@ -189,18 +190,18 @@ function GroupName({ name }: { name: string }) {
 
 function PublicFact({ label, value }: { label: string; value: string }) {
   return (
-    <p className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
+    <p className="min-w-0 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
       <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/38">{label}</span>
-      <span className="mt-1 block text-white/82">{value}</span>
+      <span className="mt-1 block break-words text-white/82">{value}</span>
     </p>
   );
 }
 
 function GatheringMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 border-t border-white/10 pt-2">
+    <div className="flex min-w-0 justify-between gap-3 border-t border-white/10 pt-2">
       <dt className="font-black text-[#F8C56A]">{label}</dt>
-      <dd className="text-right font-semibold text-white/68">{value}</dd>
+      <dd className="min-w-0 break-words text-right font-semibold text-white/68">{value}</dd>
     </div>
   );
 }
@@ -219,7 +220,7 @@ function JoinRequestPanel({
   if (requestState === "received") {
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-        <p className="text-sm font-black text-emerald-700">Request received. A group leader will follow up.</p>
+        <p className="text-sm font-black text-emerald-700">Request received. A community leader will follow up.</p>
       </div>
     );
   }
@@ -227,7 +228,7 @@ function JoinRequestPanel({
   const errorText = requestState === "missing"
     ? "Add your name and email before submitting."
     : requestState === "unavailable"
-      ? "This group request form is temporarily unavailable."
+      ? "This community request form is temporarily unavailable."
       : requestState === "error"
         ? "Something went wrong. Please try again."
         : "";
@@ -238,7 +239,7 @@ function JoinRequestPanel({
       <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
       <div className="sm:col-span-2">
         <h2 className="text-2xl font-black text-[#0F172A]">Request to Join</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to group leaders.</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to community leaders.</p>
       </div>
       {errorText ? <p className="rounded-lg border border-[#F8C56A]/45 bg-[#FFF8E8] px-3 py-2 text-sm font-bold text-[#7A4B00] sm:col-span-2">{errorText}</p> : null}
       <JoinInput autoComplete="given-name" label="First Name" name="firstName" required />
@@ -260,7 +261,7 @@ function JoinClosedPanel() {
   return (
     <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
       <h2 className="text-2xl font-black text-[#0F172A]">Requests Closed</h2>
-      <p className="mt-2 text-sm font-black text-[#64748B]">This group is not accepting new requests right now.</p>
+      <p className="mt-2 text-sm font-black text-[#64748B]">This community is not accepting new requests right now.</p>
     </div>
   );
 }

@@ -50,13 +50,13 @@ for (const source of [directory, publicTemplate, memberHomeView, visualSystem]) 
 assertIncludes(visualSystem, "GroupTemplateArtwork", "Generated template artwork component must exist.");
 assertIncludes(visualSystem, "formatLeaderLine", "Leader attribution helper must exist.");
 assertIncludes(visualSystem, "Led by", "Leader attribution must use public-friendly language.");
-assertIncludes(visualSystem, "Running Group", "Generated activity artwork must avoid redundant 2three2 running labels.");
+assertIncludes(visualSystem, "Running Community", "Generated activity artwork must avoid redundant 2three2 running labels.");
 assertNotIncludes(visualSystem, "2three2 ${titleCase", "Generated artwork must not repeat 2three2 in the activity label.");
 assertIncludes(directory, "formatLeaderLine(group.leaders)", "Directory cards must show leader attribution.");
 assertIncludes(directory, "loadPublicGroupLeaderNames", "Directory must load public leader names through the server helper.");
 assertIncludes(directory, "Public rhythms. Leader operated. Organization published.", "Directory hero must describe organization-owned groups.");
 assertIncludes(directory, "GroupTemplateArtwork input={group}", "Directory cards must use generated template artwork.");
-assertIncludes(directory, "Running Group", "Directory cards must avoid redundant 2three2 running labels.");
+assertIncludes(directory, "Running Community", "Directory cards must avoid redundant 2three2 running labels.");
 assertNotIncludes(directory, "line-clamp-3", "Directory cards should avoid paragraph-heavy copy.");
 assertIncludes(routeAwareFooter, 'pathname?.startsWith("/groups")', "Groups routes must suppress the full site footer.");
 
@@ -85,7 +85,7 @@ assertIncludes(groupLogoMark, "groupTemplateDisplayLabel(group)", "Internal grou
 assertIncludes(groupLogoMark, "break-words", "Internal group card title and badge text must wrap instead of overlapping.");
 assertNotIncludes(groupLogoMark, "group.imageUrl", "Internal group cards must not render uploaded 2three2 logo artwork.");
 assertNotIncludes(groupLogoMark, "<img", "Internal group cards must use generated artwork, not image tags.");
-assertIncludes(appClient, "return `${activity} Group`", "Internal activity cards must avoid redundant 2three2 running labels.");
+assertIncludes(appClient, "return `${activity} Community`", "Internal activity cards must avoid redundant 2three2 running labels.");
 
 for (const forbiddenPublicTerm of [
   "Save RSVP",

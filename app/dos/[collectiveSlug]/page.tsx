@@ -358,7 +358,7 @@ export default async function DosWorkspaceAppPage({
   const result = await loadDosAppData({
     id: activeWorkspace.id,
     slug: activeWorkspace.slug,
-  }, authorization);
+  }, authorization, sharedGroupIds ? { groupIds: sharedGroupIds } : undefined);
 
   if (result.status === "not_found") {
     return <BlockedState detail="Create a personal DOS workspace before opening the app." title="No workspace found" />;

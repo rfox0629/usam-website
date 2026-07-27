@@ -29,7 +29,7 @@ export type DosGroupTemplateDefinition = {
   title: string;
 };
 
-const twoThreeTwoDescription = "A 2three2 activity group where people move together, pray in pairs, and pursue Christ.";
+const twoThreeTwoDescription = "A 2three2 activity community where people move together, pray in pairs, and pursue Christ.";
 const twoThreeTwoScriptureReference = "2 Timothy 2:22";
 const twoThreeTwoScriptureText = "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.";
 
@@ -58,7 +58,7 @@ function twoThreeTwoTemplate(activityType: DosGroupActivity, audience: DosGroupA
     activityType,
     audience,
     category: "activity",
-    defaultName: `2three2 ${activityTitles[activityType]} Group`,
+    defaultName: `2three2 ${activityTitles[activityType]} Community`,
     defaultSlug: `2three2-${activityType}-${audience}`,
     description: twoThreeTwoDescription,
     scriptureReference: twoThreeTwoScriptureReference,
@@ -74,27 +74,27 @@ export const dosGroupCreationTemplates: DosGroupTemplateDefinition[] = [
     activityType: null,
     audience: "men",
     category: "discipleship",
-    defaultName: "Men's Discipleship Group",
-    defaultSlug: "mens-discipleship-group",
+    defaultName: "Men's Discipleship Community",
+    defaultSlug: "mens-discipleship-community",
     description: "A simple men's discipleship rhythm for Scripture, prayer, accountability, and next steps.",
     scriptureReference: null,
     scriptureText: null,
     tagline: "Scripture. Accountability. Prayer.",
     templateKey: "mens_discipleship",
-    title: "Men's Discipleship Group",
+    title: "Men's Discipleship Community",
   },
   {
     activityType: null,
     audience: "women",
     category: "discipleship",
-    defaultName: "Women's Discipleship Group",
-    defaultSlug: "womens-discipleship-group",
+    defaultName: "Women's Discipleship Community",
+    defaultSlug: "womens-discipleship-community",
     description: "A simple women's discipleship rhythm for Scripture, prayer, encouragement, and next steps.",
     scriptureReference: null,
     scriptureText: null,
     tagline: "Scripture. Prayer. Encouragement.",
     templateKey: "womens_discipleship",
-    title: "Women's Discipleship Group",
+    title: "Women's Discipleship Community",
   },
   ...dosGroupAudienceOptions.flatMap((audience) => dosGroupActivityOptions.map((activityType) => (
     twoThreeTwoTemplate(activityType, audience)

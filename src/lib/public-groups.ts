@@ -22,7 +22,7 @@ export type PublicGroup = {
 
 export const fallbackPublicGroups: Record<string, PublicGroup> = {
   "2three2": {
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+    description: "A men's discipleship community where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
     location: "Lebanon Hills Trailhead, Eagan, MN",
     name: "2three2",
     nextGathering: "Saturday Run & Prayer · Saturdays at 7:00 AM",
@@ -130,10 +130,10 @@ async function mapPublicGroup(
     .limit(1);
   const nextGathering = gatherings?.[0];
   const groupType = group.name.toLowerCase().includes("2three2")
-    ? "2three2 activity group"
+    ? "2three2 activity community"
     : group.type === "running"
-      ? "running group"
-      : "discipleship group";
+      ? "running community"
+      : "discipleship community";
 
   return {
     description: group.description ?? "A recurring discipleship rhythm.",

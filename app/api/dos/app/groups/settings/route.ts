@@ -340,7 +340,9 @@ export async function PATCH(request: Request) {
   }
 
   const group = updatedGroup as GroupRow;
+  revalidatePath("/community");
   revalidatePath("/groups");
+  revalidatePath(`/community/${group.slug}`);
   revalidatePath(`/groups/${group.slug}`);
 
   return NextResponse.json({

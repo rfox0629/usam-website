@@ -2,16 +2,19 @@
 
 ## Purpose
 
-The DOS public group work adds a lightweight Group Home for public groups without turning public pages into DOS dashboards. Public visitors can learn about a group and request to join. Approved lightweight members can use a small group-scoped home. Authorized leaders continue to manage the group inside DOS.
+The DOS public Community work adds a lightweight Community Home for public communities without turning public pages into DOS dashboards. Public visitors can learn about a community and request to join. Approved lightweight members can use a small group-scoped home. Authorized leaders continue to manage the group inside DOS.
 
-The canonical page is `/groups/[slug]`.
+Canonical public route: `/community/[slug]`.
+
+Legacy `/groups` URLs remain compatibility routes for existing links, cookies, and public-site records.
 
 ## Current Foundation
 
 Production main already has DOS Groups V2, shared leadership, public group pages, join requests, and the canonical `dos_identity_links` bridge.
 
-- Public directory: `app/groups/page.tsx` renders active published groups for the resolved public site.
-- Public detail pages: `app/groups/[slug]/page.tsx` render the public visitor state or the authenticated lightweight member state.
+- Canonical public directory: `app/community/page.tsx` reuses the compatibility implementation and renders active published groups for the resolved public site.
+- Canonical public detail pages: `app/community/[slug]/page.tsx` reuse the compatibility implementation and render the public visitor state or the authenticated lightweight member state.
+- Compatibility public routes: `app/groups/page.tsx` and `app/groups/[slug]/page.tsx` continue serving existing links with canonical metadata pointing to `/community`.
 - Public join flow: `app/groups/actions.ts` writes `dos_group_join_requests`, not members or people directly.
 - Leader review flow: `app/api/dos/app/groups/join-requests/route.ts` authorizes leaders, reuses or creates `missionary_field_people`, activates `dos_group_members`, and prepares member access.
 - Group management: `app/api/dos/app/groups/route.ts`, `members/route.ts`, `settings/route.ts`, and `DosMvpAppClient.tsx`.
@@ -35,9 +38,16 @@ This branch adds `public_sites` and `dos_groups.public_site_id/public_status`.
 
 Resolution:
 
+Legacy public-site lookup remains:
+
 `hostname + /groups + slug -> public_sites -> organization -> dos_groups`
 
-Existing USA URLs remain:
+Canonical USA URLs are:
+
+- `https://usamissionaries.org/community`
+- `https://usamissionaries.org/community/[slug]`
+
+Existing USA URLs remain compatibility routes:
 
 - `https://usamissionaries.org/groups`
 - `https://usamissionaries.org/groups/[slug]`

@@ -71,7 +71,7 @@ assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links mus
 assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
 assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
 
-assertIncludes(memberPage, "Group Home", "Member sign-in bridge must use Group Home language.");
+assertIncludes(memberPage, "Community Home", "Member sign-in bridge must use Community Home language.");
 assertNotIncludes(memberPage, "Member Portal", "Member sign-in bridge must not present a separate portal.");
 assertIncludes(memberHomeView, "Next Gathering", "Approved member Group Home must prioritize next gathering.");
 assertIncludes(memberHomeView, "Save RSVP", "Approved member Group Home must support RSVP.");
