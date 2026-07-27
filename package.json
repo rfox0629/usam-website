@@ -39,6 +39,7 @@
     "test:dos-log-meeting-form": "node scripts/dos-log-meeting-form-regression.mjs",
     "test:dos-disclosure-section-overflow": "node scripts/dos-disclosure-section-overflow-regression.mjs",
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",
+    "test:dispatcher-review-preview": "node scripts/dispatcher-review-preview-regression.mjs",
     "start": "next start"
   },
   "dependencies": {
