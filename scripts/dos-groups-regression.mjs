@@ -256,6 +256,21 @@ assertIncludes(
   "async function loadGroupsForWorkspace",
   "DOS loader must load groups for the active workspace.",
 );
+assertIncludes(
+  missionaryApp,
+  "type DosAppDataLoadOptions = {\n  groupIds?: string[] | null;",
+  "DOS loader must support an optional group allowlist for shared Community access.",
+);
+assertIncludes(
+  missionaryApp,
+  ".in(\"id\", scopedGroupIds)",
+  "DOS loader must scope shared Community group queries to the allowed group ids.",
+);
+assertIncludes(
+  missionaryApp,
+  "loadGroupsForWorkspace(supabase, workspace.id, { groupIds: options.groupIds })",
+  "DOS app data loader must pass shared group ownership scope into group loading.",
+);
 for (const table of [
   "dos_groups",
   "dos_group_members",
@@ -304,6 +319,11 @@ assertIncludes(
   dosWorkspaceRoute,
   "loadDosAppData({",
   "/dos/ryan-fox must load DOS data from the resolved workspace object.",
+);
+assertIncludes(
+  dosWorkspaceRoute,
+  "sharedGroupIds ? { groupIds: sharedGroupIds } : undefined",
+  "/dos/[slug] must query only shared groups before filtering the rendered payload.",
 );
 assertIncludes(
   dosWorkspaceRoute,
