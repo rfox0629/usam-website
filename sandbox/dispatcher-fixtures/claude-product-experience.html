@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dispatcher Fixture — Claude Product Experience Pickup</title>
+  <style>
+    :root {
+      --ink: #1c2321;
+      --muted: #5b6663;
+      --paper: #faf8f5;
+      --card: #ffffff;
+      --accent: #2f6f4f;
+      --accent-soft: #e6f0ea;
+      --border: #e3ddd3;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      padding: 48px 20px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .eyebrow {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 28px;
+      line-height: 1.25;
+      margin: 0 0 12px;
+    }
+
+    p.lede {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 0 0 32px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      margin: 0 0 6px;
+    }
+
+    .card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-top: 20px;
+    }
+
+    footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Dispatcher Fixture · Sandbox Only</div>
+    <h1>Your worktree is claimed and ready</h1>
+    <p class="lede">
+      This page is a harmless copy-and-presentation sandbox used to confirm the Mac mini
+      dispatcher can pick up a Linear issue, spin up an isolated worktree, and hand back a
+      clean result — without touching production routes, schema, or infrastructure.
+    </p>
+
+    <div class="card">
+      <div class="status-row">
+        <span class="status-dot"></span>
+        <h2>Issue claimed automatically</h2>
+      </div>
+      <p>USA-41 was picked up by the dispatcher and assigned to an isolated Claude worktree, no manual triage required.</p>
+    </div>
+
+    <div class="card">
+      <div class="status-row">
+        <span class="status-dot"></span>
+        <h2>Sandbox-only changes</h2>
+      </div>
+      <p>Everything here is copy and layout inside <code>sandbox/dispatcher-fixtures</code> — nothing in this fixture reaches a real page, API, or database.</p>
+    </div>
+
+    <div class="card">
+      <div class="status-row">
+        <span class="status-dot"></span>
+        <h2>Ready for a human look</h2>
+      </div>
+      <p>The dispatcher validates the change and reports back to Linear, then moves the issue to In Review for a founder to confirm before anything ships.</p>
+    </div>
+
+    <span class="pill">End-to-end dispatcher test — no merge, no deploy</span>
+
+    <footer>
+      Fixture generated for USA-41 · Claude product-experience lane · sandbox only
+    </footer>
+  </main>
+</body>
+</html>
