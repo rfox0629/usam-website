@@ -1,0 +1,55 @@
+{
+  "usamCanonicalOrigin": "https://usamissionaries.org",
+  "pages": [
+    {
+      "key": "usam",
+      "label": "USA Missionaries",
+      "shortLabel": "USAM",
+      "href": "/",
+      "canonicalUrl": "https://usamissionaries.org",
+      "description": "USA Missionaries locates, trains, and deploys disciple makers across America.",
+      "navDescription": "Missionary sending",
+      "sitemapPriority": 1
+    },
+    {
+      "key": "kitchen-table-gospel",
+      "label": "Kitchen Table Gospel",
+      "shortLabel": "Kitchen Table",
+      "href": "/kitchen-table-gospel",
+      "canonicalUrl": "https://usamissionaries.org/kitchen-table-gospel",
+      "description": "Kitchen Table Gospel is the table-based discipleship pathway for homes, churches, and everyday disciple makers.",
+      "navDescription": "Table discipleship",
+      "sitemapPriority": 0.7
+    },
+    {
+      "key": "discipleship-operating-system",
+      "label": "Discipleship Operating System",
+      "shortLabel": "DOS",
+      "href": "/discipleship-operating-system",
+      "canonicalUrl": "https://usamissionaries.org/discipleship-operating-system",
+      "description": "The Discipleship Operating System supports follow-up, accountability, and multiplication for the USA Missionaries ecosystem.",
+      "navDescription": "Operating layer",
+      "sitemapPriority": 0.7
+    }
+  ],
+  "legacySystem": {
+    "href": "/system",
+    "canonicalUrl": "https://usamissionaries.org/discipleship-operating-system",
+    "owner": "Legacy System overview and protected preview access"
+  },
+  "privateDos": {
+    "href": "/dos",
+    "analytics": "exclude",
+    "robots": "disallow"
+  },
+  "externalDomainRedirects": [
+    {
+      "sourceHosts": ["kitchentablegospel.org", "www.kitchentablegospel.org"],
+      "destination": "https://usamissionaries.org/kitchen-table-gospel"
+    },
+    {
+      "sourceHosts": ["discipleshipoperatingsystem.com", "www.discipleshipoperatingsystem.com"],
+      "destination": "https://usamissionaries.org/discipleship-operating-system"
+    }
+  ]
+}

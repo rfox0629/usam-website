@@ -1,9 +1,12 @@
+import Link from "next/link";
+import { ecosystemNavItems } from "@/src/lib/ecosystem";
+
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-stone-800/30 px-6 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+      <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 md:flex-row md:items-center">
         <div className="flex items-center gap-3.5">
           <img
             src="/brand/logo/usam-website-logo.png"
@@ -17,6 +20,18 @@ export function SiteFooter() {
             USA MISSIONARIES
           </span>
         </div>
+        <nav aria-label="Our Ecosystem" className="flex flex-wrap gap-x-5 gap-y-2">
+          {ecosystemNavItems.map((item) => (
+            <Link
+              className="text-[11px] uppercase tracking-[0.18em] text-stone-500 transition-colors duration-200 hover:text-usam-gold"
+              href={item.href}
+              key={item.key}
+              style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+            >
+              {item.shortLabel}
+            </Link>
+          ))}
+        </nav>
         <div className="max-w-3xl text-left md:text-right">
           <p
             className="text-xs uppercase tracking-[0.18em] text-stone-400"

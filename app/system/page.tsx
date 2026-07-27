@@ -4,8 +4,12 @@ import { PrimaryNav } from "../../components/PrimaryNav";
 import { AccessLogoutButton } from "../../components/forms/AccessLogoutButton";
 import { WaitingListCTA } from "./WaitingListCTA";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
+import { legacySystemRoute } from "@/src/lib/ecosystem";
 
 export const metadata: Metadata = {
+  alternates: {
+    canonical: legacySystemRoute.canonicalUrl,
+  },
   title: "System Layer | USA Missionaries",
   description: "USA Missionaries is building discipleship infrastructure for accountability, leadership, and multiplication.",
 };

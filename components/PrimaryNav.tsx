@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ecosystemNavItems } from "@/src/lib/ecosystem";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const navItems = [
   { key: "mission", label: "Mission", href: "/" },
   { key: "briefing", label: "Briefing", href: "/briefing" },
-  { key: "dos", label: "System", href: "/system" },
+  { key: "dos", label: "Ecosystem", href: "/discipleship-operating-system" },
   { key: "prayer", label: "Prayer", href: "/prayer" },
   { key: "support", label: "Support", href: "/support" },
 ] as const;
@@ -53,6 +54,84 @@ function NavLink({
   );
 }
 
+function EcosystemMenu({
+  active,
+  label,
+  mobile = false,
+}: {
+  active: boolean;
+  label: string;
+  mobile?: boolean;
+}) {
+  if (mobile) {
+    return (
+      <div className="border-b border-stone-900/80 py-3">
+        <p
+          className={`text-[13px] uppercase tracking-[0.18em] ${active ? "text-usam-gold" : "text-[rgba(255,255,255,0.88)]"}`}
+          style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+        >
+          {label}
+        </p>
+        <div className="mt-2 grid gap-1">
+          {ecosystemNavItems.map((item) => (
+            <Link
+              className="flex min-h-[40px] items-center justify-between gap-4 border border-transparent px-0 py-2 text-sm text-stone-400 transition-colors duration-200 hover:text-usam-gold"
+              href={item.href}
+              key={item.key}
+            >
+              <span>{item.shortLabel}</span>
+              <span className="text-[10px] uppercase tracking-[0.16em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
+                {item.navDescription}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group relative flex-none">
+      <Link
+        className={`inline-flex min-h-[28px] items-center whitespace-nowrap px-1 py-1 text-[11px] uppercase tracking-[0.34em] transition-colors duration-200 ease-out ${
+          active ? "text-stone-300" : "text-stone-500 hover:text-stone-300"
+        }`}
+        href="/discipleship-operating-system"
+        style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+      >
+        {label}
+      </Link>
+      <div className="pointer-events-none absolute right-0 top-full w-[280px] pt-4 opacity-0 transition duration-150 ease-out group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+        <div className="border border-stone-800/80 bg-[#0D0D0D]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <p
+            className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-[0.22em] text-usam-gold/75"
+            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+          >
+            Our Ecosystem
+          </p>
+          <div className="grid gap-1">
+            {ecosystemNavItems.map((item) => (
+              <Link
+                className="block border border-transparent px-3 py-2.5 transition-colors duration-200 hover:border-stone-800/80 hover:bg-white/[0.035]"
+                href={item.href}
+                key={item.key}
+              >
+                <span className="block text-sm text-stone-200">{item.label}</span>
+                <span
+                  className="mt-1 block text-[10px] uppercase tracking-[0.16em] text-stone-600"
+                  style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
+                >
+                  {item.navDescription}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = false }: PrimaryNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -86,11 +165,18 @@ export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = fa
               <ul className="flex flex-row items-center justify-end gap-8 lg:gap-10 xl:gap-12">
                 {navItems.map((item) => (
                   <li key={item.key} className="flex-none">
-                    <NavLink
-                      href={item.href}
-                      label={labelOverrides?.[item.key] ?? item.label}
-                      active={active === item.key}
-                    />
+                    {item.key === "dos" ? (
+                      <EcosystemMenu
+                        active={active === item.key}
+                        label={labelOverrides?.[item.key] ?? item.label}
+                      />
+                    ) : (
+                      <NavLink
+                        href={item.href}
+                        label={labelOverrides?.[item.key] ?? item.label}
+                        active={active === item.key}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -117,7 +203,14 @@ export function PrimaryNav({ active, fixed = false, labelOverrides, minimal = fa
       {!minimal && mobileOpen ? (
         <nav className="border-t border-stone-800/50 md:hidden" aria-label="Mobile navigation">
           <div className="mx-auto flex w-full max-w-7xl flex-col px-8 py-3">
-            {navItems.map((item) => (
+            {navItems.map((item) => item.key === "dos" ? (
+              <EcosystemMenu
+                active={active === item.key}
+                key={item.key}
+                label={labelOverrides?.[item.key] ?? item.label}
+                mobile
+              />
+            ) : (
               <NavLink
                 key={item.key}
                 href={item.href}
