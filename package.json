@@ -16,6 +16,7 @@
     "test:dos-identity-security": "node scripts/dos-identity-security-regression.mjs",
     "test:dos-ministry-events": "node scripts/dos-ministry-event-visibility-regression.mjs",
     "test:dos-fruit-guard": "node scripts/dos-fruit-guard-regression.mjs",
+    "test:operations-center-backups": "node scripts/operations-center-backups-regression.mjs",
     "test:dos-household-people": "node scripts/dos-household-people-regression.mjs",
     "test:dos-prayer-ui": "node scripts/dos-prayer-ui-regression.mjs",
     "test:dos-readability": "node scripts/dos-readability-regression.mjs",
