@@ -286,7 +286,7 @@ export async function POST(request: Request) {
     template_key: template.templateKey,
     type: template.category === "activity"
       ? template.activityType === "running" ? "running" : "other"
-      : "discipleship",
+      : template.templateKey === "prayer_community" ? "prayer" : "discipleship",
     visibility: asVisibility(payload.visibility),
     workspace_id: workspaceId,
   };

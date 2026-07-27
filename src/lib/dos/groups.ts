@@ -13,6 +13,12 @@ export type DosGroupSharedLeadershipRole = typeof dosGroupSharedLeadershipRoles[
 export type DosGroupCreationTemplate =
   | "mens_discipleship"
   | "womens_discipleship"
+  | "kitchen_table"
+  | "house_church"
+  | "prayer_community"
+  | "ministry_team"
+  | "cohort"
+  | "custom_community"
   | `2three2_${DosGroupActivity}_${DosGroupAudience}`;
 
 export type DosGroupTemplateDefinition = {
@@ -95,6 +101,84 @@ export const dosGroupCreationTemplates: DosGroupTemplateDefinition[] = [
     tagline: "Scripture. Prayer. Encouragement.",
     templateKey: "womens_discipleship",
     title: "Women's Discipleship Group",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "Kitchen Table",
+    defaultSlug: "kitchen-table",
+    description: "A small, relational community that gathers around a table for food, Scripture, and honest conversation.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Gather. Share. Grow.",
+    templateKey: "kitchen_table",
+    title: "Kitchen Table",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "House Church",
+    defaultSlug: "house-church",
+    description: "A home-based gathering for worship, teaching, prayer, and community life.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Worship. Word. Community.",
+    templateKey: "house_church",
+    title: "House Church",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "Prayer Community",
+    defaultSlug: "prayer-community",
+    description: "A community centered on shared prayer requests, follow-up, and answered prayer.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Pray together.",
+    templateKey: "prayer_community",
+    title: "Prayer Community",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "Ministry Team",
+    defaultSlug: "ministry-team",
+    description: "A serving team that coordinates ministry activity, planning, and shared accountability.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Serve together.",
+    templateKey: "ministry_team",
+    title: "Ministry Team",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "Cohort",
+    defaultSlug: "cohort",
+    description: "A fixed-length group that walks through a shared discipleship track together.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Learn together.",
+    templateKey: "cohort",
+    title: "Cohort",
+  },
+  {
+    activityType: null,
+    audience: "coed",
+    category: "discipleship",
+    defaultName: "Custom Community",
+    defaultSlug: "custom-community",
+    description: "A flexible community for a rhythm that doesn't fit another template.",
+    scriptureReference: null,
+    scriptureText: null,
+    tagline: "Built for your rhythm.",
+    templateKey: "custom_community",
+    title: "Custom Community",
   },
   ...dosGroupAudienceOptions.flatMap((audience) => dosGroupActivityOptions.map((activityType) => (
     twoThreeTwoTemplate(activityType, audience)

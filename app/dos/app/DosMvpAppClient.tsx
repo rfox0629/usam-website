@@ -7203,6 +7203,19 @@ function groupTemplateDisplayLabel(group: DosAppGroup) {
     return "Women's Discipleship";
   }
 
+  const communityTemplateLabels: Partial<Record<string, string>> = {
+    cohort: "Cohort",
+    custom_community: "Custom Community",
+    house_church: "House Church",
+    kitchen_table: "Kitchen Table",
+    ministry_team: "Ministry Team",
+    prayer_community: "Prayer Community",
+  };
+
+  if (group.templateKey && communityTemplateLabels[group.templateKey]) {
+    return communityTemplateLabels[group.templateKey] as string;
+  }
+
   return groupTypeLabel(group);
 }
 

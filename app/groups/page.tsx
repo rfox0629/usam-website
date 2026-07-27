@@ -45,7 +45,17 @@ type PublicDirectoryGroupRow = {
   scripture_reference: string | null;
   slug: string;
   tagline: string | null;
+  template_key?: string | null;
   type: string | null;
+};
+
+const communityTemplateDirectoryLabels: Partial<Record<string, string>> = {
+  cohort: "Cohort",
+  custom_community: "Custom Community",
+  house_church: "House Church",
+  kitchen_table: "Kitchen Table",
+  ministry_team: "Ministry Team",
+  prayer_community: "Prayer Community",
 };
 
 const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
@@ -152,10 +162,14 @@ function formatPublicDirectoryDate(value: string | null | undefined) {
   }).format(date);
 }
 
-function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | "audience" | "name" | "slug" | "type">) {
+function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | "audience" | "name" | "slug" | "template_key" | "type">) {
   const value = group.type;
   const name = group.name ?? "";
   const activity = group.activity_type;
+
+  if (group.template_key && communityTemplateDirectoryLabels[group.template_key]) {
+    return communityTemplateDirectoryLabels[group.template_key] as string;
+  }
 
   if (group.slug?.startsWith("2three2") || name.toLowerCase().includes("2three2")) {
     const activityLabel = activity === "fitness"
@@ -197,7 +211,7 @@ async function loadPublicDirectoryData(hostname: string): Promise<PublicDirector
   const site = siteResolution.site ?? fallbackUsamPublicSite;
   const publicQuery = supabase
     .from("dos_groups")
-    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type, public_site_id, public_status")
+    .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type, template_key, public_site_id, public_status")
     .eq("active", true)
     .order("name", { ascending: true });
   const { data: groups, error } = siteResolution.schemaReady && site.id
@@ -212,7 +226,7 @@ async function loadPublicDirectoryData(hostname: string): Promise<PublicDirector
     if (missingPublicSiteSchema(error)) {
       const legacyResult = await supabase
         .from("dos_groups")
-        .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type")
+        .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type, template_key")
         .eq("active", true)
         .order("name", { ascending: true });
 
