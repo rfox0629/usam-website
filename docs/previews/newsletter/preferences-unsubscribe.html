@@ -1,0 +1,31 @@
+<!-- USA-46 preview harness for preferences-unsubscribe-source.html — desktop/mobile side by side. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Preferences &amp; Unsubscribe — Desktop / Mobile Preview</title>
+<style>
+  body { margin: 0; padding: 40px 24px 80px; background: #0D0D0D; color: #d1d5db; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 20px; letter-spacing: 0.04em; color: #fff; margin: 0 0 4px; }
+  p.sub { margin: 0 0 32px; color: #9ca3af; font-size: 14px; }
+  .frames { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
+  .frame { display: flex; flex-direction: column; gap: 12px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: #C2A14E; font-weight: 600; }
+  iframe { border: 1px solid #2a2f36; border-radius: 8px; background: #0D0D0D; }
+</style>
+</head>
+<body>
+  <h1>Preference Management &amp; Unsubscribe</h1>
+  <p class="sub">Source: <code>preferences-unsubscribe-source.html</code> &mdash; active token, unsubscribe confirmation, and expired-token fallback.</p>
+  <div class="frames">
+    <div class="frame">
+      <span class="label">Desktop &middot; 640px</span>
+      <iframe src="preferences-unsubscribe-source.html" width="640" height="1500" title="Desktop preview"></iframe>
+    </div>
+    <div class="frame">
+      <span class="label">Mobile &middot; 390px</span>
+      <iframe src="preferences-unsubscribe-source.html" width="390" height="1600" title="Mobile preview"></iframe>
+    </div>
+  </div>
+</body>
+</html>

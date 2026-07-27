@@ -1,0 +1,92 @@
+<!--
+  USA-46 preview harness — NOT the email itself.
+  Loads email-template-source.html into two fixed-width iframes so the
+  email's own responsive breakpoint fires correctly regardless of your
+  browser window size (each iframe has its own viewport).
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newsletter Email — Desktop / Mobile Preview</title>
+<style>
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    background: #0D0D0D;
+    color: #d1d5db;
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  h1 {
+    font-size: 20px;
+    letter-spacing: 0.04em;
+    color: #fff;
+    margin: 0 0 4px;
+  }
+  p.sub {
+    margin: 0 0 32px;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+  .frames {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    align-items: flex-start;
+  }
+  .frame {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #C2A14E;
+    font-weight: 600;
+  }
+  iframe {
+    border: 1px solid #2a2f36;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .note {
+    max-width: 640px;
+    margin-top: 40px;
+    font-size: 13px;
+    line-height: 20px;
+    color: #9ca3af;
+  }
+  .note code {
+    background: #1A1A1A;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #EDEAE2;
+  }
+</style>
+</head>
+<body>
+  <h1>Newsletter Email Template</h1>
+  <p class="sub">Source: <code>email-template-source.html</code> — the file to hand to engineering/Resend.</p>
+
+  <div class="frames">
+    <div class="frame">
+      <span class="label">Desktop &middot; 640px</span>
+      <iframe src="email-template-source.html" width="640" height="1150" title="Desktop preview"></iframe>
+    </div>
+    <div class="frame">
+      <span class="label">Mobile &middot; 375px</span>
+      <iframe src="email-template-source.html" width="375" height="1300" title="Mobile preview"></iframe>
+    </div>
+  </div>
+
+  <p class="note">
+    Dark-mode behavior is controlled by the reader's mail client, not a browser toggle — most browsers won't
+    simulate <code>prefers-color-scheme</code> on an iframe without a devtools override. To see the dark variant,
+    open <code>email-template-source.html</code> directly and toggle your OS/browser to dark mode
+    (devtools &rarr; Rendering &rarr; "Emulate CSS prefers-color-scheme: dark" in Chrome/Edge), or read the
+    dark-mode rules directly in that file's <code>&lt;style&gt;</code> block.
+  </p>
+</body>
+</html>

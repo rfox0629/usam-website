@@ -1,0 +1,86 @@
+<!-- USA-46 preview: /newsletter/preferences/[token] and /newsletter/unsubscribe/[token]. Placeholder data only. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter Preferences &amp; Unsubscribe | USA Missionaries</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Oswald:wght@400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .screen {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 56px 0;
+  }
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding: 16px 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+  }
+  .status-row .email { font-size: 14px; color: #d1d5db; }
+  .actions { margin-top: 24px; }
+  .divider-label {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #4b5563;
+    margin: 64px 0 0;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1. Preference page — active token -->
+  <div class="container screen">
+    <p class="state-label">/newsletter/preferences/[token] &mdash; active token</p>
+    <div class="eyebrow">Your Subscription</div>
+    <h1 class="headline">Manage preferences</h1>
+    <div class="status-row">
+      <span class="email">reader@example.com</span>
+      <span class="pill pill-success">Subscribed</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" type="button" style="width:100%;">Unsubscribe from all newsletters</button>
+    </div>
+  </div>
+
+  <p class="divider-label">&mdash;</p>
+
+  <!-- 2. Unsubscribe page — confirmation -->
+  <div class="container screen">
+    <p class="state-label">/newsletter/unsubscribe/[token] &mdash; on load (one-click)</p>
+    <div class="eyebrow">Your Subscription</div>
+    <h1 class="headline">You've been unsubscribed</h1>
+    <p class="subhead">You won't receive future newsletters from USA Missionaries.</p>
+    <div class="actions">
+      <button class="btn btn-secondary" type="button">Resubscribe</button>
+    </div>
+  </div>
+
+  <p class="divider-label">&mdash;</p>
+
+  <!-- 3. Expired token fallback (shared by both routes) -->
+  <div class="container screen">
+    <p class="state-label">Expired / invalid token fallback (both routes)</p>
+    <div class="eyebrow">Your Subscription</div>
+    <h1 class="headline">This link has expired</h1>
+    <p class="subhead">Enter your email to manage your subscription.</p>
+    <div style="margin-top: 20px;">
+      <label class="field-label" for="expired-email">Email address</label>
+      <input id="expired-email" type="email" placeholder="you@example.com">
+      <div style="margin-top: 12px;">
+        <button class="btn btn-primary" type="button" style="width:100%;">Send me a new link</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

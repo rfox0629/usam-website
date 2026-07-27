@@ -1,0 +1,220 @@
+/* Shared preview styles for USA-46 newsletter web-page mockups (archive, subscribe, preferences).
+   Mirrors tokens from app/globals.css / tailwind.config.js / AGENTS.md. Not used by the email
+   template, which must stay self-contained and email-client-safe. */
+
+:root {
+  --usam-black: #0D0D0D;
+  --usam-white: #FFFFFF;
+  --usam-gold: #C2A14E;
+  --usam-success: #0F9D76;
+  --font-inter: 'Inter', sans-serif;
+  --font-oswald: 'Oswald', sans-serif;
+  --font-rajdhani: 'Rajdhani', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--usam-black);
+  color: #d1d5db;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.eyebrow {
+  font-family: var(--font-rajdhani);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--usam-gold);
+}
+
+h1.headline, h2.headline {
+  font-family: var(--font-oswald);
+  color: #ffffff;
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+p.subhead {
+  color: #9ca3af;
+  font-size: 15px;
+  line-height: 22px;
+  margin: 10px 0 0;
+  max-width: 52ch;
+}
+
+.rule {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 32px 0;
+}
+
+.card {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 20px 22px;
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.2s ease;
+}
+
+.card:hover { border-color: rgba(194,161,78,0.4); }
+
+.card + .card { margin-top: 14px; }
+
+.card .eyebrow { font-size: 11px; letter-spacing: 0.22em; }
+
+.card h3 {
+  font-family: var(--font-oswald);
+  font-size: 19px;
+  color: #ffffff;
+  margin: 6px 0 6px;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 21px;
+  color: #9ca3af;
+}
+
+.card .read-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--font-rajdhani);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--usam-gold);
+  text-decoration: none;
+}
+
+.btn {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  padding: 0 28px;
+  font-family: var(--font-rajdhani);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--usam-gold);
+  color: #0D0D0D;
+}
+.btn-primary:hover { box-shadow: 0 0 22px rgba(194,161,78,0.24); }
+.btn-primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
+
+.btn-secondary {
+  background: transparent;
+  border-color: rgba(255,255,255,0.3);
+  color: #ffffff;
+}
+.btn-secondary:hover { border-color: var(--usam-gold); background: rgba(255,255,255,0.04); }
+
+.field-label {
+  display: block;
+  font-family: var(--font-rajdhani);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #bfc3c9;
+  margin-bottom: 6px;
+}
+
+input[type="email"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #2a2f36;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 15px;
+  font-family: var(--font-inter);
+}
+input[type="email"]::placeholder { color: #6b7280; }
+input[type="email"]:focus { outline: none; border-color: var(--usam-gold); }
+input.input-error { border-color: #dc2626; }
+
+.helper-text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #6b7280;
+}
+
+.error-text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #f87171;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: var(--font-rajdhani);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pill-success { background: rgba(15,157,118,0.12); color: var(--usam-success); border: 1px solid rgba(15,157,118,0.35); }
+.pill-neutral { background: rgba(255,255,255,0.06); color: #d1d5db; border: 1px solid rgba(255,255,255,0.12); }
+.pill-muted { background: rgba(255,255,255,0.04); color: #9ca3af; border: 1px solid rgba(255,255,255,0.1); }
+
+.success-box {
+  border: 1px solid rgba(15,157,118,0.35);
+  background: rgba(15,157,118,0.08);
+  border-radius: 6px;
+  padding: 14px 16px;
+  color: #6ee7c4;
+  font-size: 14px;
+}
+
+.back-link {
+  display: inline-block;
+  font-family: var(--font-rajdhani);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+.back-link:hover { color: var(--usam-gold); }
+
+.state-label {
+  font-family: var(--font-rajdhani);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.section-gap { margin-top: 56px; }

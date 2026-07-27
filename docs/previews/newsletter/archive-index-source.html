@@ -1,0 +1,93 @@
+<!-- USA-46 preview: /newsletter archive index. Placeholder data only. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter | USA Missionaries</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Oswald:wght@400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .page-header { padding: 64px 0 0; }
+  .subscribe-block {
+    margin-top: 40px;
+    padding: 24px;
+    border: 1px solid rgba(194,161,78,0.25);
+    border-radius: 10px;
+    background: rgba(194,161,78,0.04);
+  }
+  .subscribe-row { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  .subscribe-row input[type="email"] { flex: 1; min-width: 220px; }
+  .empty-state {
+    margin-top: 24px;
+    padding: 40px 24px;
+    text-align: center;
+    border: 1px dashed rgba(255,255,255,0.14);
+    border-radius: 10px;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+  footer.demo-note {
+    max-width: 720px;
+    margin: 64px auto 40px;
+    padding: 0 24px 40px;
+    font-size: 12px;
+    color: #4b5563;
+  }
+</style>
+</head>
+<body>
+  <div class="container page-header">
+    <div class="eyebrow">Newsletter</div>
+    <h1 class="headline">Updates from the field</h1>
+    <p class="subhead">Short, honest updates on the work &mdash; sent occasionally, never traded, unsubscribe anytime.</p>
+
+    <div class="subscribe-block">
+      <div class="field-label">Get new issues by email</div>
+      <div class="subscribe-row">
+        <input type="email" placeholder="you@example.com" aria-label="Email address">
+        <button class="btn btn-primary" type="button">Subscribe</button>
+      </div>
+      <p class="helper-text">By subscribing, you agree to receive occasional updates from USA Missionaries. Unsubscribe anytime.</p>
+    </div>
+  </div>
+
+  <div class="container section-gap">
+    <p class="state-label">Populated state</p>
+
+    <div class="card">
+      <div class="eyebrow">Issue 4 &middot; July 2026</div>
+      <h3>Updates from the field</h3>
+      <p>A breakthrough we've prayed toward for over a year, a new discipleship group taking root, and a simple way to keep standing with us.</p>
+      <a class="read-link" href="archive-detail-source.html">Read &rarr;</a>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Issue 3 &middot; June 2026</div>
+      <h3>A kitchen table, three new believers</h3>
+      <p>What began as a weekly coffee conversation turned into a full discipleship table this month.</p>
+      <a class="read-link" href="archive-detail-source.html">Read &rarr;</a>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Issue 2 &middot; May 2026</div>
+      <h3>Six months in: what we've learned</h3>
+      <p>A look back at the first half of the year &mdash; what worked, what didn't, and where we're headed next.</p>
+      <a class="read-link" href="archive-detail-source.html">Read &rarr;</a>
+    </div>
+  </div>
+
+  <div class="container section-gap">
+    <p class="state-label">Empty state (pre-launch, zero published issues)</p>
+    <div class="empty-state">
+      New issues are on the way. Subscribe to get the first one.
+    </div>
+  </div>
+
+  <footer class="demo-note">
+    Static design preview for USA-46 &middot; placeholder content, no real subscriber or issue data.
+  </footer>
+</body>
+</html>
