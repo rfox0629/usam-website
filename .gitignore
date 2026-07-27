@@ -28,3 +28,8 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+.vercel
+
+# Agent-local configuration and worktrees (never versioned)
+.claude/
+.codex/
