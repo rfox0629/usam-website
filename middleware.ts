@@ -6,19 +6,64 @@ import {
   isVisionAccessTokenValid,
 } from "@/src/lib/vision-access";
 import {
+  type DomainSiteIconSet,
   domainRouteHeader,
   domainSiteRoutePrefix,
+  getCanonicalDomainSiteForHostname,
   getAlternateDomainSiteByHostname,
   normalizeHostname,
 } from "@/src/lib/domain-sites";
 
 export const config = {
-  matcher: ["/", "/domain-sites/:path*", "/partners", "/vision", "/board-briefing"],
+  matcher: [
+    "/",
+    "/apple-touch-icon.png",
+    "/domain-sites/:path*",
+    "/favicon-16x16.png",
+    "/favicon-32x32.png",
+    "/favicon-48x48.png",
+    "/favicon.ico",
+    "/favicon.svg",
+    "/icon-192.png",
+    "/icon-512.png",
+    "/manifest.webmanifest",
+    "/partners",
+    "/site.webmanifest",
+    "/vision",
+    "/board-briefing",
+  ],
 };
+
+const domainIconRequestPaths = {
+  "/apple-touch-icon.png": "appleTouch",
+  "/favicon-16x16.png": "faviconPng16",
+  "/favicon-32x32.png": "faviconPng32",
+  "/favicon-48x48.png": "faviconPng48",
+  "/favicon.ico": "faviconIco",
+  "/favicon.svg": "faviconSvg",
+  "/icon-192.png": "icon192",
+  "/icon-512.png": "icon512",
+  "/manifest.webmanifest": "manifest",
+  "/site.webmanifest": "manifest",
+} satisfies Record<string, keyof DomainSiteIconSet>;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = normalizeHostname(request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
+  const iconPathKey = domainIconRequestPaths[pathname as keyof typeof domainIconRequestPaths];
+
+  if (iconPathKey) {
+    const site = getCanonicalDomainSiteForHostname(hostname);
+    const destinationPath = site.icons[iconPathKey];
+
+    if (destinationPath !== pathname) {
+      const url = request.nextUrl.clone();
+
+      url.pathname = destinationPath;
+
+      return NextResponse.rewrite(url);
+    }
+  }
 
   if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader)) {
     return new NextResponse("Not Found", { status: 404 });

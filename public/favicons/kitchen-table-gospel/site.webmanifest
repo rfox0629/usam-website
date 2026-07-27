@@ -1,0 +1,22 @@
+{
+  "name": "Kitchen Table Gospel",
+  "short_name": "KTG",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F5F4",
+  "theme_color": "#C2A14E",
+  "icons": [
+    {
+      "src": "/favicons/kitchen-table-gospel/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicons/kitchen-table-gospel/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
 import { VercelWebAnalytics } from "../components/VercelWebAnalytics";
+import { buildDomainSiteIcons } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 
@@ -16,6 +17,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(canonicalSiteUrl),
   title: siteName,
   description: siteDescription,
+  icons: buildDomainSiteIcons(domainSites.usam),
+  manifest: domainSites.usam.icons.manifest,
   openGraph: {
     description: siteDescription,
     siteName,
