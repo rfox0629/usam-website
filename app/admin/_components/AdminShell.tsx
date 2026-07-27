@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   Activity,
+  Gauge,
   Building2,
   ClipboardList,
   FileText,
@@ -26,6 +27,7 @@ const adminNavGroups = [
   {
     items: [
       { activeKey: "dashboard", href: "/admin", icon: Activity, label: "Command Center" },
+      { activeKey: "operations-center", href: "/admin/operations-center", icon: Gauge, label: "Founder Center" },
       { activeKey: "organizations", href: "/admin/organizations", icon: Building2, label: "Organizations" },
       { activeKey: "relationship-intelligence", href: "/admin/relationship-intelligence", icon: Network, label: "Circle Engine" },
     ],
@@ -135,16 +137,20 @@ export function AdminShell({
   action,
   children,
   description,
+  workspace = "dark",
   title,
 }: {
   active: AdminNavKey;
   action?: ReactNode;
   children: ReactNode;
   description?: string;
+  workspace?: "dark" | "light";
   title: string;
 }) {
+  const isLightWorkspace = workspace === "light";
+
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#050505] text-stone-100">
+    <main className={`min-h-screen overflow-x-hidden ${isLightWorkspace ? "bg-[#f7f5ef] text-[#18130d]" : "bg-[#050505] text-stone-100"}`}>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-stone-800/80 bg-[#070707] px-4 py-5 md:flex md:flex-col">
         <AdminBrandLockup />
 
@@ -225,13 +231,19 @@ export function AdminShell({
 
         <section className="min-w-0 max-w-full overflow-x-hidden px-4 py-6 md:px-8 md:py-8 xl:px-10">
           <div className="mx-auto max-w-7xl min-w-0">
-            <div className="mb-6 flex flex-col gap-4 border-b border-stone-800/70 pb-5 md:flex-row md:items-end md:justify-between">
+            <div className={`mb-6 flex flex-col gap-4 border-b pb-5 md:flex-row md:items-end md:justify-between ${
+              isLightWorkspace ? "border-[#ded8ca]" : "border-stone-800/70"
+            }`}>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-stone-100 md:text-4xl">
+                <h1 className={`text-3xl font-semibold tracking-tight md:text-4xl ${
+                  isLightWorkspace ? "text-[#18130d]" : "text-stone-100"
+                }`}>
                   {title}
                 </h1>
                 {description ? (
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-400 md:text-base">
+                  <p className={`mt-2 max-w-3xl text-sm leading-6 md:text-base ${
+                    isLightWorkspace ? "text-[#6f675b]" : "text-stone-400"
+                  }`}>
                     {description}
                   </p>
                 ) : null}
