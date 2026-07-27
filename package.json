@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
+    "backup-agent:start": "node scripts/usam-backup-agent.mjs",
+    "backup-agent:install": "bash scripts/install-usam-backup-agent-launchd.sh",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",

@@ -1,6 +1,7 @@
 export const backupControlCenterRoute = "/admin/operations-center/infrastructure/backups" as const;
 export const backupStatusApiRoute = "/api/admin/operations-center/backups" as const;
 export const backupActionApiRoute = "/api/admin/operations-center/backups/actions" as const;
+export const localBackupAgentDefaultUrl = "http://127.0.0.1:47691" as const;
 
 export type BackupHealthStatus = "critical" | "ok" | "unknown" | "warning";
 
@@ -12,6 +13,9 @@ export type BackupAgentMode =
 
 export type BackupActionId =
   | "refresh_status"
+  | "configure_database_credential"
+  | "configure_encryption_passphrase"
+  | "configure_backblaze"
   | "verify_credentials"
   | "verify_backblaze"
   | "run_backup_now"
@@ -82,6 +86,7 @@ export type BackupControlCenterData = {
     detail: string;
     keychainWritesEnabled: boolean;
     localExecutionEnabled: boolean;
+    requiresPairing: boolean;
     mode: BackupAgentMode;
     status: BackupHealthStatus;
   };
@@ -114,6 +119,33 @@ export const backupAgentActionDefinitions = [
     readOnly: true,
     requiresLocalAgent: false,
     tone: "blue",
+  },
+  {
+    approvedArgs: [],
+    approvedCommand: "/usr/bin/security add-generic-password",
+    id: "configure_database_credential",
+    label: "Save DB Credential",
+    readOnly: false,
+    requiresLocalAgent: true,
+    tone: "green",
+  },
+  {
+    approvedArgs: [],
+    approvedCommand: "/usr/bin/security add-generic-password",
+    id: "configure_encryption_passphrase",
+    label: "Save Encryption",
+    readOnly: false,
+    requiresLocalAgent: true,
+    tone: "green",
+  },
+  {
+    approvedArgs: [],
+    approvedCommand: "/usr/bin/security add-generic-password",
+    id: "configure_backblaze",
+    label: "Configure Backblaze",
+    readOnly: false,
+    requiresLocalAgent: true,
+    tone: "green",
   },
   {
     approvedArgs: [],
@@ -356,35 +388,39 @@ export function buildBackupMetrics({
 export function buildBackupWizard({
   agentStatus,
   credentialsReady,
+  keychainWritesEnabled,
   lastRun,
   offsiteStatus,
 }: {
   agentStatus: BackupHealthStatus;
   credentialsReady: boolean | null;
+  keychainWritesEnabled: boolean;
   lastRun: BackupRunStatus;
   offsiteStatus: BackupHealthStatus;
 }): BackupWizardStep[] {
   return [
     {
-      detail: "Run the dashboard locally on the Mac Mini to enable approved backup actions.",
+      detail: keychainWritesEnabled
+        ? "The paired Mac Mini agent can receive setup requests directly from this dashboard."
+        : "Pair with the loopback-only Mac Mini agent to unlock setup and backup actions.",
       id: "agent",
       label: "Mac Mini Agent",
       status: agentStatus,
     },
     {
-      detail: "Database password lives in macOS Keychain under the USA-86 service name.",
+      detail: "The dashboard sends the database password only to the paired local agent, which validates it before storing it in Keychain.",
       id: "credentials",
       label: "Database Credential",
       status: credentialsReady === true ? "ok" : credentialsReady === false ? "warning" : "unknown",
     },
     {
-      detail: "Encryption passphrase is checked by the local agent without printing it.",
+      detail: "The local agent stores the backup encryption passphrase in Keychain and never returns it to the dashboard.",
       id: "encryption",
       label: "Encryption Passphrase",
       status: credentialsReady === true ? "ok" : credentialsReady === false ? "warning" : "unknown",
     },
     {
-      detail: "Backblaze B2 should be configured through a local rclone remote; no B2 key is stored in Supabase or Vercel.",
+      detail: "The local agent stores Backblaze B2 keys in Keychain and writes only the non-secret destination path to backup.env.",
       id: "backblaze",
       label: "Backblaze Destination",
       status: offsiteStatus,
@@ -426,8 +462,9 @@ export function codeProtectionSignals(): CodeProtectionSignal[] {
 
 export const backupSafeguards = [
   "No secrets are stored in Supabase, Vercel, browser storage, Linear comments, or source files.",
-  "The action API accepts a fixed action id only; there is no command, argument, or shell body field.",
-  "Local execution is disabled unless the Mac Mini runtime explicitly opts in.",
-  "Credential readiness checks use Keychain item presence only and never request secret values.",
+  "Secret setup and live actions go directly from the browser to the paired loopback-only Mac Mini backup agent.",
+  "The web API does not execute backup actions; the local agent exposes fixed endpoints only, never a shell or command field.",
+  "The local agent binds to 127.0.0.1, requires an in-memory pairing token, and stores backup secrets in macOS Keychain.",
+  "Credential readiness checks expose configured/not-configured state only.",
   "Restore tests use the USA-86 local restore workflow and cannot target production.",
 ] as const;

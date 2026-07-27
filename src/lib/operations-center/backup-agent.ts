@@ -337,6 +337,7 @@ export async function loadBackupControlCenterData(): Promise<BackupControlCenter
       keychainWritesEnabled,
       localExecutionEnabled,
       mode: agent.mode,
+      requiresPairing: true,
       status: agent.status,
     },
     codeProtection: {
@@ -360,6 +361,7 @@ export async function loadBackupControlCenterData(): Promise<BackupControlCenter
     wizard: buildBackupWizard({
       agentStatus: agent.status,
       credentialsReady,
+      keychainWritesEnabled,
       lastRun,
       offsiteStatus: offsite.status,
     }),
@@ -403,6 +405,14 @@ export async function executeBackupAgentAction(actionId: BackupActionId) {
       message: "Status refreshed.",
       ok: true,
       status: 200,
+    };
+  }
+
+  if (action.requiresLocalAgent) {
+    return {
+      message: "Use the paired Mac Mini backup agent for setup, Keychain writes, backup runs, and restore tests. The web server never receives backup secrets or executes backup commands.",
+      ok: false,
+      status: 410,
     };
   }
 

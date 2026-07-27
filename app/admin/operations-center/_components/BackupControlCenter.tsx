@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 import { AdminBadge, adminFont, type AdminBadgeTone } from "../../_components/AdminUI";
 import {
-  backupActionApiRoute,
   backupStatusApiRoute,
   formatBackupBytes,
+  localBackupAgentDefaultUrl,
   type BackupActionId,
   type BackupControlCenterData,
   type BackupHealthStatus,
@@ -228,6 +228,59 @@ function ActionButton({
   );
 }
 
+function FormField({
+  autoComplete,
+  label,
+  onChange,
+  placeholder,
+  type = "text",
+  value,
+}: {
+  autoComplete?: string;
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: "password" | "text";
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <Label>{label}</Label>
+      <input
+        autoComplete={autoComplete}
+        className="mt-2 h-10 w-full border border-stone-800 bg-stone-950 px-3 text-sm text-stone-100 outline-none transition-colors placeholder:text-stone-700 focus:border-[#C9A24A]"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function ActionMessage({
+  message,
+  ok,
+}: {
+  message: string;
+  ok: boolean;
+}) {
+  return (
+    <div className={`mt-4 border px-4 py-3 text-sm leading-6 ${ok ? "border-green-500/25 bg-green-950/20 text-green-200" : "border-red-500/30 bg-red-950/20 text-red-200"}`}>
+      {message}
+    </div>
+  );
+}
+
+type LocalAgentPayload = {
+  data?: BackupControlCenterData;
+  error?: string;
+  expiresAt?: string;
+  message?: string;
+  ok?: boolean;
+  sessionToken?: string;
+};
+
 export function BackupControlCenter({
   initialData,
 }: {
@@ -235,10 +288,22 @@ export function BackupControlCenter({
 }) {
   const [data, setData] = useState(initialData);
   const [pendingAction, setPendingAction] = useState<BackupActionId | null>(null);
+  const [agentUrl, setAgentUrl] = useState<string>(localBackupAgentDefaultUrl);
+  const [agentToken, setAgentToken] = useState("");
+  const [pairingCode, setPairingCode] = useState("");
   const [actionResult, setActionResult] = useState<{
     message: string;
     ok: boolean;
   } | null>(null);
+  const [databasePassword, setDatabasePassword] = useState("");
+  const [encryptionPassphrase, setEncryptionPassphrase] = useState("");
+  const [encryptionConfirm, setEncryptionConfirm] = useState("");
+  const [b2KeyId, setB2KeyId] = useState("");
+  const [b2ApplicationKey, setB2ApplicationKey] = useState("");
+  const [b2Bucket, setB2Bucket] = useState("");
+  const [b2Prefix, setB2Prefix] = useState("usam-supabase");
+  const [b2RemoteName, setB2RemoteName] = useState("usam-b2");
+  const agentBaseUrl = agentUrl.replace(/\/+$/, "");
 
   async function refreshData() {
     const response = await fetch(backupStatusApiRoute, {
@@ -256,39 +321,170 @@ export function BackupControlCenter({
     }
   }
 
+  async function callLocalAgent(
+    path: string,
+    options: {
+      body?: Record<string, unknown>;
+      method?: "GET" | "POST";
+      requireToken?: boolean;
+    } = {},
+  ) {
+    if (options.requireToken !== false && !agentToken) {
+      throw new Error("Pair with the Mac Mini backup agent first.");
+    }
+
+    const headers: Record<string, string> = {
+      "X-USAM-Backup-Agent": "operations-dashboard",
+    };
+
+    if (options.body) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    if (options.requireToken !== false) {
+      headers.Authorization = `Bearer ${agentToken}`;
+    }
+
+    const response = await fetch(`${agentBaseUrl}${path}`, {
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store",
+      headers,
+      method: options.method ?? "GET",
+      mode: "cors",
+    });
+    const payload = await response.json().catch(() => ({})) as LocalAgentPayload;
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? payload.message ?? `Mac Mini agent returned HTTP ${response.status}.`);
+    }
+
+    return payload;
+  }
+
+  async function refreshFromLocalAgent() {
+    const payload = await callLocalAgent("/v1/status");
+
+    if (payload.data) {
+      setData(payload.data);
+    }
+
+    return payload;
+  }
+
+  async function connectLocalAgent() {
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/health", { requireToken: false });
+
+      setActionResult({
+        message: payload.message ?? "Mac Mini backup agent is reachable. Start pairing to unlock setup actions.",
+        ok: true,
+      });
+    } catch (error) {
+      setActionResult({
+        message: error instanceof Error ? error.message : "Mac Mini backup agent could not be reached.",
+        ok: false,
+      });
+    }
+  }
+
+  async function startPairing() {
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/pair/start", {
+        method: "POST",
+        requireToken: false,
+      });
+
+      setActionResult({
+        message: payload.message ?? "Pairing code displayed on the Mac Mini.",
+        ok: true,
+      });
+    } catch (error) {
+      setActionResult({
+        message: error instanceof Error ? error.message : "Pairing could not start.",
+        ok: false,
+      });
+    }
+  }
+
+  async function completePairing() {
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/pair/complete", {
+        body: { code: pairingCode },
+        method: "POST",
+        requireToken: false,
+      });
+
+      if (!payload.sessionToken) {
+        throw new Error("Mac Mini agent did not return a session token.");
+      }
+
+      setAgentToken(payload.sessionToken);
+      setPairingCode("");
+      setActionResult({
+        message: `Mac Mini agent paired until ${formatDateTime(payload.expiresAt ?? null)}.`,
+        ok: true,
+      });
+    } catch (error) {
+      setActionResult({
+        message: error instanceof Error ? error.message : "Pairing failed.",
+        ok: false,
+      });
+    }
+  }
+
   async function runAction(actionId: BackupActionId) {
     setPendingAction(actionId);
     setActionResult(null);
 
     try {
-      const response = await fetch(backupActionApiRoute, {
-        body: JSON.stringify({ actionId }),
-        headers: {
-          "Content-Type": "application/json",
-          "x-usam-operations-intent": "backups",
-        },
-        method: "POST",
-      });
-      const payload = await response.json() as {
-        data?: BackupControlCenterData;
-        error?: string;
-        message?: string;
-        ok?: boolean;
-      };
+      if (actionId === "refresh_status") {
+        if (agentToken) {
+          const payload = await refreshFromLocalAgent();
 
-      setActionResult({
-        message: payload.message ?? payload.error ?? "Backup action finished without a message.",
-        ok: response.ok && payload.ok !== false,
-      });
+          setActionResult({
+            message: payload.message ?? "Local backup status refreshed.",
+            ok: true,
+          });
+        } else {
+          await refreshData();
+          setActionResult({
+            message: "Preview status refreshed. Pair the Mac Mini agent for live setup and backup actions.",
+            ok: true,
+          });
+        }
 
-      if (payload.data) {
-        setData(payload.data);
-      } else {
-        await refreshData();
+        return;
       }
-    } catch {
+
+      const pathByAction: Partial<Record<BackupActionId, string>> = {
+        run_backup_now: "/v1/backup/first",
+        run_restore_test: "/v1/restore-test",
+        run_self_test: "/v1/self-test",
+        verify_backblaze: "/v1/validate/backblaze",
+        verify_credentials: "/v1/validate/database",
+      };
+      const agentPath = pathByAction[actionId];
+
+      if (!agentPath) {
+        throw new Error("Use the setup forms for this action.");
+      }
+
+      const payload = await callLocalAgent(agentPath, { method: "POST" });
+
       setActionResult({
-        message: "The admin backup API could not be reached.",
+        message: payload.message ?? "Backup action completed.",
+        ok: payload.ok !== false,
+      });
+      await refreshFromLocalAgent();
+    } catch (error) {
+      setActionResult({
+        message: error instanceof Error ? error.message : "The Mac Mini backup agent could not be reached.",
         ok: false,
       });
     } finally {
@@ -296,9 +492,85 @@ export function BackupControlCenter({
     }
   }
 
-  const actionDisabledReason = data.agent.localExecutionEnabled
+  async function submitDatabaseCredential(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPendingAction("configure_database_credential");
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/secrets/database", {
+        body: { password: databasePassword },
+        method: "POST",
+      });
+
+      setDatabasePassword("");
+      setActionResult({ message: payload.message ?? "Database credential stored.", ok: payload.ok !== false });
+      await refreshFromLocalAgent();
+    } catch (error) {
+      setActionResult({ message: error instanceof Error ? error.message : "Database credential could not be saved.", ok: false });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function submitEncryptionPassphrase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPendingAction("configure_encryption_passphrase");
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/secrets/encryption", {
+        body: {
+          confirm: encryptionConfirm,
+          passphrase: encryptionPassphrase,
+        },
+        method: "POST",
+      });
+
+      setEncryptionPassphrase("");
+      setEncryptionConfirm("");
+      setActionResult({ message: payload.message ?? "Encryption passphrase stored.", ok: payload.ok !== false });
+      await refreshFromLocalAgent();
+    } catch (error) {
+      setActionResult({ message: error instanceof Error ? error.message : "Encryption passphrase could not be saved.", ok: false });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function submitBackblaze(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPendingAction("configure_backblaze");
+    setActionResult(null);
+
+    try {
+      const payload = await callLocalAgent("/v1/backblaze", {
+        body: {
+          applicationKey: b2ApplicationKey,
+          bucket: b2Bucket,
+          keyId: b2KeyId,
+          prefix: b2Prefix,
+          remoteName: b2RemoteName,
+        },
+        method: "POST",
+      });
+
+      setB2KeyId("");
+      setB2ApplicationKey("");
+      setActionResult({ message: payload.message ?? "Backblaze B2 configured.", ok: payload.ok !== false });
+      await refreshFromLocalAgent();
+    } catch (error) {
+      setActionResult({ message: error instanceof Error ? error.message : "Backblaze B2 could not be configured.", ok: false });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  const isPaired = Boolean(agentToken);
+  const formDisabled = !isPaired || pendingAction !== null;
+  const actionDisabledReason = isPaired
     ? null
-    : "Local Mac Mini execution is disabled in this protected preview.";
+    : "Pair with the Mac Mini backup agent to unlock Keychain setup, first backup, and restore-test actions.";
 
   return (
     <div className="space-y-6">
@@ -323,7 +595,7 @@ export function BackupControlCenter({
           {data.actions.map((action) => (
             <ActionButton
               action={action}
-              disabled={action.requiresLocalAgent && !data.agent.localExecutionEnabled}
+              disabled={action.requiresLocalAgent && !isPaired}
               key={action.id}
               onRun={runAction}
               pending={pendingAction === action.id}
@@ -334,10 +606,63 @@ export function BackupControlCenter({
           <p className="mt-3 text-xs leading-5 text-stone-500">{actionDisabledReason}</p>
         ) : null}
         {actionResult ? (
-          <div className={`mt-4 border px-4 py-3 text-sm leading-6 ${actionResult.ok ? "border-green-500/25 bg-green-950/20 text-green-200" : "border-red-500/30 bg-red-950/20 text-red-200"}`}>
-            {actionResult.message}
-          </div>
+          <ActionMessage message={actionResult.message} ok={actionResult.ok} />
         ) : null}
+      </section>
+
+      <section>
+        <SectionHeader
+          detail="Pairing is held in memory only for this browser session. Secret forms and live actions are sent directly to the local agent URL below."
+          icon={ServerCog}
+          label="Local Agent"
+          title="Mac Mini Pairing"
+        />
+        <section className="grid gap-3 border border-stone-800/75 bg-[#080808]/90 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,420px)]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <FormField
+              label="Agent URL"
+              onChange={setAgentUrl}
+              value={agentUrl}
+            />
+            <button
+              className="inline-flex min-h-10 items-center justify-center gap-2 self-end border border-blue-400/25 bg-blue-950/30 px-3 text-[11px] uppercase tracking-[0.14em] text-blue-200 transition-colors hover:border-blue-300/60"
+              onClick={connectLocalAgent}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Connect
+            </button>
+            <button
+              className="inline-flex min-h-10 items-center justify-center gap-2 self-end border border-[#C9A24A]/35 bg-[#C9A24A]/10 px-3 text-[11px] uppercase tracking-[0.14em] text-[#F5D07A] transition-colors hover:border-[#F5B942]"
+              onClick={startPairing}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              <KeyRound aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Pair
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <FormField
+              autoComplete="one-time-code"
+              label="Pairing Code"
+              onChange={setPairingCode}
+              placeholder="6 digits"
+              value={pairingCode}
+            />
+            <button
+              className="inline-flex min-h-10 items-center justify-center gap-2 self-end border border-green-500/25 bg-green-950/30 px-3 text-[11px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-300/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-950 disabled:text-stone-600"
+              disabled={!pairingCode}
+              onClick={completePairing}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="button"
+            >
+              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Unlock
+            </button>
+          </div>
+        </section>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -354,7 +679,7 @@ export function BackupControlCenter({
 
       <section>
         <SectionHeader
-          detail="Credential setup remains local to the Mac Mini. The dashboard never asks for or stores database, GPG, webhook, or Backblaze secret values."
+          detail="Credentials go from this browser to the paired Mac Mini agent on loopback. The web server receives neither the values nor the action payload."
           icon={KeyRound}
           label="Guided Setup"
           title="Credentials and Backblaze"
@@ -373,19 +698,108 @@ export function BackupControlCenter({
           </ol>
           <section className="border border-stone-800/75 bg-[#080808]/90">
             <DetailRow label="Keychain Setup">
-              <code className="break-words text-xs text-[#F5D07A]">~/USAM-Automation/backup/bin/usam-backup-setup-secrets.sh</code>
+              <span>{isPaired ? "Unlocked for this browser session." : "Pair the local Mac Mini agent first."}</span>
             </DetailRow>
             <DetailRow label="Backblaze Path">
-              <span>Configure B2 in local rclone, then set <code className="text-[#F5D07A]">OFFSITE_MODE=&quot;rclone:&lt;remote&gt;:&lt;path&gt;&quot;</code>.</span>
+              <span>The agent writes only the non-secret <code className="text-[#F5D07A]">OFFSITE_MODE</code> destination path to <code className="text-[#F5D07A]">backup.env</code>.</span>
             </DetailRow>
             <DetailRow label="Secret Storage">
-              <span>macOS Keychain and local rclone config only.</span>
+              <span>macOS Keychain only.</span>
             </DetailRow>
             <DetailRow label="Generated">
               {formatDateTime(data.generatedAt)}
             </DetailRow>
           </section>
         </div>
+      </section>
+
+      <section className="grid gap-3 xl:grid-cols-3">
+        <form className="border border-stone-800/75 bg-[#080808]/90 p-4" onSubmit={submitDatabaseCredential}>
+          <SectionHeader icon={Database} label="Step 1" title="Supabase Credential" />
+          <div className="space-y-3">
+            <FormField
+              autoComplete="new-password"
+              label="Database Password"
+              onChange={setDatabasePassword}
+              type="password"
+              value={databasePassword}
+            />
+            <button
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 border border-green-500/25 bg-green-950/30 px-3 text-[11px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-300/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-950 disabled:text-stone-600"
+              disabled={formDisabled || !databasePassword}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="submit"
+            >
+              <KeyRound aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Validate And Store
+            </button>
+          </div>
+        </form>
+
+        <form className="border border-stone-800/75 bg-[#080808]/90 p-4" onSubmit={submitEncryptionPassphrase}>
+          <SectionHeader icon={ShieldCheck} label="Step 2" title="Encryption Passphrase" />
+          <div className="space-y-3">
+            <FormField
+              autoComplete="new-password"
+              label="Passphrase"
+              onChange={setEncryptionPassphrase}
+              type="password"
+              value={encryptionPassphrase}
+            />
+            <FormField
+              autoComplete="new-password"
+              label="Confirm"
+              onChange={setEncryptionConfirm}
+              type="password"
+              value={encryptionConfirm}
+            />
+            <button
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 border border-green-500/25 bg-green-950/30 px-3 text-[11px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-300/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-950 disabled:text-stone-600"
+              disabled={formDisabled || !encryptionPassphrase || !encryptionConfirm}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="submit"
+            >
+              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Store In Keychain
+            </button>
+          </div>
+        </form>
+
+        <form className="border border-stone-800/75 bg-[#080808]/90 p-4" onSubmit={submitBackblaze}>
+          <SectionHeader icon={RadioTower} label="Step 3" title="Backblaze B2" />
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                autoComplete="new-password"
+                label="Key ID"
+                onChange={setB2KeyId}
+                type="password"
+                value={b2KeyId}
+              />
+              <FormField
+                autoComplete="new-password"
+                label="Application Key"
+                onChange={setB2ApplicationKey}
+                type="password"
+                value={b2ApplicationKey}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <FormField label="Bucket" onChange={setB2Bucket} value={b2Bucket} />
+              <FormField label="Prefix" onChange={setB2Prefix} value={b2Prefix} />
+              <FormField label="Remote" onChange={setB2RemoteName} value={b2RemoteName} />
+            </div>
+            <button
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 border border-green-500/25 bg-green-950/30 px-3 text-[11px] uppercase tracking-[0.14em] text-green-200 transition-colors hover:border-green-300/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-950 disabled:text-stone-600"
+              disabled={formDisabled || !b2KeyId || !b2ApplicationKey || !b2Bucket || !b2RemoteName}
+              style={{ fontFamily: adminFont.rajdhani, fontWeight: 700 }}
+              type="submit"
+            >
+              <RadioTower aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Validate And Configure
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
