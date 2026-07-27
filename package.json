@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "typecheck": "tsc --noEmit",
+    "preview:complete": "node scripts/dispatcher-preview-completion.mjs",
+    "preview:security": "node scripts/preview-security-check.mjs",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
