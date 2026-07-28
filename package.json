@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "typecheck": "tsc --noEmit",
+    "arch:validate": "node scripts/architecture/validate-architecture.mjs",
+    "arch:deps": "node scripts/architecture/dependency-report.mjs",
+    "arch:deps:check": "node scripts/architecture/dependency-report.mjs --check",
+    "arch:deps:baseline": "node scripts/architecture/dependency-report.mjs --write-baseline",
+    "arch:test": "node --test scripts/architecture/architecture.test.mjs",
     "smoke": "node scripts/ci-smoke.mjs",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
     "build": "next build",
