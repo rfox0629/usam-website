@@ -1,7 +1,7 @@
 # Workspace terminology — resolving the overloaded term
 
 **USA-110 Stage 0.** Documentation and naming policy only. **No schema migration, no column rename, no data change.**
-**Source of truth:** USA-109 founder-approved architecture package.
+**Source of truth:** Workspace V2 Architecture & Execution Constitution, superseding older issue comments where they conflict.
 **Measured against:** live schema `dbupuphezeqkiolprrlg` and `rfox0629/usam-website` @ `main`.
 
 ---
@@ -70,13 +70,13 @@ Three options were considered:
 
 | Concept | Term | Identifier | Notes |
 |---|---|---|---|
-| The top-level V2 container | **Workspace** *(product/UI language)* | `workspaces` table, **`ws_id`** in code and new columns | The user-facing word stays "Workspace" — it is the right product term |
+| The top-level V2 container | **Workspace** *(product/UI language)* | `workspaces` table, **`tenant_id`** in code and new columns | The user-facing word stays "Workspace" — it is the right product term |
 | The DOS household container | **Household** *(product/UI language)* | **`workspace_id` stays as-is** in all 50 existing tables | Never renamed. Existing columns are legacy nomenclature, frozen. |
 | Feature flags | Household feature flags | `dos_workspace_feature_flags` unchanged | |
 
 **The rule, stated plainly:**
 
-> **`workspace_id` always means a missionary household. The Workspace V2 container is `ws_id`. No existing column is ever renamed.**
+> **`workspace_id` always means a missionary household. The Workspace V2 container is `tenant_id`. No existing column is ever renamed.**
 
 This is deliberately asymmetric — the *user-facing word* and the *column name* diverge. That is the correct trade: users get the right word, and 50 tables and 316 call sites stay untouched.
 
@@ -92,7 +92,7 @@ Considered and rejected. USA-109 is founder-approved with "Workspace" as the pro
 
 **Required of all future work (policy, enforced at review):**
 
-1. New columns referencing a V2 workspace are named **`ws_id`**, never `workspace_id`.
+1. New columns referencing a V2 workspace are named **`tenant_id`**, never `workspace_id`.
 2. New code referring to a household uses the identifier `householdId`, even where it reads `workspace_id` from the database. Comment the mapping at the boundary.
 3. UI copy says **"Household"** for usages 1–8 and **"Workspace"** only for usage 9.
 4. No migration renames `workspace_id`. If a future change makes renaming genuinely worthwhile, it is its own gated epic, not a side effect.

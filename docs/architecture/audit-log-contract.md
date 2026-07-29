@@ -38,7 +38,7 @@ create table public.audit_log (
   actor_label      text,                    -- display name at time of action
 
   -- ── Scope ────────────────────────────────────────────────
-  ws_id            uuid,        -- Workspace V2 container (see workspace-terminology.md)
+  tenant_id        uuid,        -- Workspace V2 container (see workspace-terminology.md)
   organization_id  uuid         references public.organizations(id) on delete set null,
   household_id     uuid         references public.missionary_households(id) on delete set null,
 
@@ -84,12 +84,12 @@ create table public.audit_log (
 );
 ```
 
-**Scope columns are deliberately all nullable and all present.** During the compatibility period `ws_id` will be null (no `workspaces` table yet) while `household_id` and `organization_id` carry the scope. After Stage 5, `ws_id` becomes the primary scope and the others remain for lineage. This lets the audit log ship in Stage 1 and stay correct through Stage 5 without a rewrite.
+**Scope columns are deliberately all nullable and all present.** During the compatibility period `tenant_id` will be null (no `workspaces` table yet) while `household_id` and `organization_id` carry the scope. After Stage 5, `tenant_id` becomes the primary scope and the others remain for lineage. This lets the audit log ship in Stage 1 and stay correct through Stage 5 without a rewrite.
 
 ### Indexes
 
 ```sql
-create index audit_log_ws_time_idx        on public.audit_log (ws_id, occurred_at desc);
+create index audit_log_tenant_time_idx    on public.audit_log (tenant_id, occurred_at desc);
 create index audit_log_org_time_idx       on public.audit_log (organization_id, occurred_at desc);
 create index audit_log_household_time_idx on public.audit_log (household_id, occurred_at desc);
 create index audit_log_entity_idx         on public.audit_log (entity_table, entity_id, occurred_at desc);
@@ -237,6 +237,6 @@ For the required domains in §4, **a failed audit write fails the transaction.**
 
 - Wiring call sites — Stage 1 creates the table; instrumentation lands with each module.
 - `actor_identity_id` FK — added when `identities` exists, same stage, after the table.
-- `ws_id` FK — added in Stage 5 with `workspaces`.
+- `tenant_id` FK — added in Stage 5 with `workspaces`.
 - Tamper-evidence (hash chaining) — genuinely useful for governance, disproportionate now. Revisit if a board or auditor asks.
 - Streaming to external SIEM — no requirement exists.
