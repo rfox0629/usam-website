@@ -26,7 +26,10 @@ function assertBefore(source, first, second, message) {
 }
 
 const portalRoute = read("app/api/dos/portal/workspaces/route.ts");
+const dosPortalClient = read("app/dos/DosPortalClient.tsx");
+const dosSetupClient = read("app/dos/setup/DosSetupClient.tsx");
 const dosApiAuth = read("src/lib/dos/api-auth.ts");
+const dosAuthPolicy = read("src/lib/dos/portal-provisioning-auth-policy.ts");
 const packageJson = read("package.json");
 const postBody = portalRoute.slice(portalRoute.indexOf("export async function POST"));
 
@@ -63,6 +66,16 @@ assertNotIncludes(
   "isSupabaseAdminConfigured",
   "The route must not perform service-role configuration checks outside the auth boundary.",
 );
+assertNotIncludes(
+  dosPortalClient,
+  "/api/dos/portal/workspaces",
+  "The public DOS portal client must not rely on anonymous access to the provisioning route.",
+);
+assertNotIncludes(
+  dosSetupClient,
+  "/api/dos/portal/workspaces",
+  "The dormant DOS setup client must not retain an anonymous provisioning route caller.",
+);
 
 assertIncludes(
   dosApiAuth,
@@ -71,39 +84,43 @@ assertIncludes(
 );
 assertIncludes(
   dosApiAuth,
+  "decideDosPortalProvisioningAuthorization",
+  "The portal provisioning helper must delegate to the executable authorization policy.",
+);
+assertIncludes(
+  dosApiAuth,
   "const authorization = await getAdminAuthorization();",
   "Provisioning authorization must authenticate through the existing server-side admin auth path.",
 );
 assertIncludes(
   dosApiAuth,
-  "authorization.status === \"unauthenticated\"",
-  "Anonymous callers must have an explicit rejection branch.",
+  "USA-117 compatibility boundary",
+  "The helper must document that this is an interim USA-117 containment boundary.",
 );
 assertIncludes(
   dosApiAuth,
-  "NextResponse.json({ error: \"Authentication required.\" }, { status: 401 })",
-  "Anonymous callers must receive HTTP 401.",
+  "current authenticated admin/editor operator model",
+  "The helper must document the current admin/editor operator boundary.",
 );
 assertIncludes(
   dosApiAuth,
-  "authorization.status === \"unauthorized\" || !canEditAdminContent(authorization)",
-  "Authenticated non-admin/editor callers must be rejected.",
+  "global by design for this stage",
+  "The helper must document that the current boundary is global, not tenant-scoped.",
 );
 assertIncludes(
   dosApiAuth,
-  "NextResponse.json({ error: \"Access denied.\" }, { status: 403 })",
-  "Unauthorized authenticated callers must receive a generic HTTP 403.",
+  "tenant membership + capability checks",
+  "The helper must document the deferred Workspace V2 tenant/capability model.",
 );
 assertIncludes(
   dosApiAuth,
-  "if (!isSupabaseAdminConfigured())",
-  "Service-role configuration must be checked inside the authorized server-side boundary.",
+  "hasOperatorAccess: canEditAdminContent(authorization)",
+  "The helper must authorize with the current admin/editor operator predicate.",
 );
-assertBefore(
+assertIncludes(
   dosApiAuth,
-  "authorization.status === \"unauthorized\" || !canEditAdminContent(authorization)",
-  "if (!isSupabaseAdminConfigured())",
-  "Service-role environment checks must run only after authentication and authorization.",
+  "isServiceRoleConfigured: isSupabaseAdminConfigured",
+  "Service-role availability must be passed through the authorization policy boundary.",
 );
 assertIncludes(
   dosApiAuth,
@@ -115,10 +132,40 @@ assertNotIncludes(
   "createSupabaseAdminClient",
   "The authorization helper must not create or use the service-role client.",
 );
+assertNotIncludes(
+  dosAuthPolicy,
+  "createSupabaseAdminClient",
+  "The authorization policy must not create or use the service-role client.",
+);
+assertIncludes(
+  dosAuthPolicy,
+  "httpStatus: 401",
+  "The policy must explicitly reject anonymous callers with HTTP 401.",
+);
+assertIncludes(
+  dosAuthPolicy,
+  "httpStatus: 403",
+  "The policy must explicitly reject unauthorized authenticated callers with HTTP 403.",
+);
+assertIncludes(
+  dosAuthPolicy,
+  "httpStatus: 500",
+  "The policy must explicitly fail closed on configuration errors.",
+);
+assertIncludes(
+  dosAuthPolicy,
+  "isServiceRoleConfigured()",
+  "Service-role availability must only be consulted by the pure authorization policy.",
+);
 assertIncludes(
   packageJson,
   "\"test:dos-portal-provisioning-auth\": \"node scripts/dos-portal-provisioning-auth-regression.mjs\"",
   "The focused DOS portal provisioning auth regression must be runnable from package scripts.",
+);
+assertIncludes(
+  packageJson,
+  "\"test:dos-portal-provisioning-auth-behavior\": \"node scripts/dos-portal-provisioning-auth-behavior.mjs\"",
+  "The behavioral DOS portal provisioning auth regression must be runnable from package scripts.",
 );
 
 console.log("dos-portal-provisioning-auth-regression: all checks passed.");

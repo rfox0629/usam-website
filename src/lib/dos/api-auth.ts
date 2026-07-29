@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { canEditAdminContent, getAdminAuthorization } from "@/src/lib/admin-auth";
 import { getDosWorkspaceAccess, type DosAuthorization } from "@/src/lib/dos/auth";
+import { decideDosPortalProvisioningAuthorization } from "@/src/lib/dos/portal-provisioning-auth-policy";
 import { isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export async function requireDosWorkspaceRouteAccess(
@@ -34,28 +35,19 @@ export async function requireDosWorkspaceRouteAccess(
 
 export async function requireDosPortalProvisioningAuthorization() {
   const authorization = await getAdminAuthorization();
+  // USA-117 compatibility boundary: this closes the anonymous service-role
+  // vulnerability with the current authenticated admin/editor operator model.
+  // It is global by design for this stage and must be replaced by Workspace V2
+  // tenant membership + capability checks when those primitives exist.
+  const decision = decideDosPortalProvisioningAuthorization({
+    authorization,
+    hasOperatorAccess: canEditAdminContent(authorization),
+    isServiceRoleConfigured: isSupabaseAdminConfigured,
+  });
 
-  if (authorization.status === "unauthenticated") {
+  if (decision.status === "rejected") {
     return {
-      response: NextResponse.json({ error: "Authentication required." }, { status: 401 }),
-    };
-  }
-
-  if (authorization.status === "configuration_error") {
-    return {
-      response: NextResponse.json({ error: "Unable to verify access." }, { status: 500 }),
-    };
-  }
-
-  if (authorization.status === "unauthorized" || !canEditAdminContent(authorization)) {
-    return {
-      response: NextResponse.json({ error: "Access denied." }, { status: 403 }),
-    };
-  }
-
-  if (!isSupabaseAdminConfigured()) {
-    return {
-      response: NextResponse.json({ error: "Provisioning is not available." }, { status: 500 }),
+      response: NextResponse.json({ error: decision.error }, { status: decision.httpStatus }),
     };
   }
 
