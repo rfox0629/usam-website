@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { slugify, type AdminOrganizationType } from "@/src/lib/admin/organization-shared";
+import { requireDosPortalProvisioningAuthorization } from "@/src/lib/dos/api-auth";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 
 type DosPortalPayload = {
@@ -586,8 +587,10 @@ async function insertSetupPeople({
 }
 
 export async function POST(request: Request) {
-  if (!isSupabaseAdminConfigured()) {
-    return NextResponse.json({ error: "Supabase admin environment variables are not configured." }, { status: 500 });
+  const authResult = await requireDosPortalProvisioningAuthorization();
+
+  if ("response" in authResult) {
+    return authResult.response;
   }
 
   const payload = await readPayload(request);

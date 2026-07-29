@@ -72,7 +72,6 @@ export function DosPortalClient({
 }: DosPortalClientProps) {
   const [form, setForm] = useState<PortalForm>(initialForm);
   const [error, setError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [workspaceHref, setWorkspaceHref] = useState("");
   const needsOrganization = form.setupType === "church" || form.setupType === "ministry_team";
   const showTeamFields = form.teamStatus === "married_team";
@@ -81,30 +80,11 @@ export function DosPortalClient({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setWorkspaceHref("");
-    setIsSaving(true);
-
-    try {
-      const response = await fetch("/api/dos/portal/workspaces", {
-        body: JSON.stringify(form),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = await response.json() as { error?: string; workspaceHref?: string };
-
-      if (!response.ok || !payload.workspaceHref) {
-        throw new Error(payload.error ?? "Unable to set up this workspace.");
-      }
-
-      setWorkspaceHref(payload.workspaceHref);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to set up this workspace.");
-    } finally {
-      setIsSaving(false);
-    }
+    window.location.assign("/login?next=/dos");
   }
 
   if (isAuthenticated) {
@@ -310,8 +290,8 @@ export function DosPortalClient({
                 <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
               ) : null}
 
-              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-70" disabled={isSaving} type="submit">
-                {isSaving ? "Setting Up" : "Create Workspace"}
+              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" type="submit">
+                Sign In to Continue
               </button>
             </form>
           )}

@@ -263,64 +263,8 @@ export function DosSetupClient() {
     setError("");
     setIsSaving(true);
 
-    const isUsamPath = form.organizationChoice === "usam";
-    const fallbackLocation = locationFromForm(form);
-    const monthlyGoal = application.monthlyBudget.trim();
-
-    try {
-      const response = await fetch("/api/dos/portal/workspaces", {
-        body: JSON.stringify({
-          city: form.city,
-          email: form.email,
-          firstName: form.firstName,
-          firstThreePeople: people.filter((person) => person.name.trim()),
-          lastName: form.lastName,
-          organizationName: form.organizationChoice === "other" ? form.organizationName : undefined,
-          organizationRole: form.organizationChoice === "other" ? form.organizationRole : undefined,
-          phone: form.phone,
-          roleCalling: isUsamPath
-            ? "usa_missionary"
-            : form.organizationChoice === "other"
-              ? "ministry_partner"
-              : "disciple_maker",
-          setupType: form.organizationChoice === "other" ? "ministry_team" : "personal",
-          spouseEmail: form.spouseEmail,
-          spouseName: form.spouseName,
-          spousePhone: form.spousePhone,
-          state: form.state,
-          teamStatus: form.spouseName.trim() ? "married_team" : "individual",
-          usamApplication: isUsamPath
-            ? {
-              callingFocus: buildUsamCallingFocus(application),
-              location: application.location || fallbackLocation,
-              monthlyBudget: monthlyGoal,
-              prayerNeeds: application.prayerNeeds,
-              profilePhotoUrl: application.profilePhotoUrl,
-              referencesText: application.referencesText,
-              storyTestimony: application.storyTestimony,
-              supportGoal: monthlyGoal,
-            }
-            : undefined,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = await response.json() as { applicationSubmitted?: boolean; error?: string; workspaceHref?: string };
-
-      if (!response.ok || !payload.workspaceHref) {
-        throw new Error(payload.error ?? "Unable to finish setup.");
-      }
-
-      setWorkspaceHref(payload.workspaceHref);
-      setCompletionMessage(payload.applicationSubmitted
-        ? "Application submitted. Pending review."
-        : "Your DOS workspace is ready.");
-      router.push(payload.workspaceHref);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to finish setup.");
-    } finally {
-      setIsSaving(false);
-    }
+    setIsSaving(false);
+    router.push("/login?next=/dos");
   }
 
   return (
