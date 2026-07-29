@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { slugify } from "@/src/lib/admin/organization-shared";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 import { sendAdminNewApplicationNotificationEmail, sendApplicantApplicationSubmittedEmail } from "@/src/lib/email/resend";
+import {
+  buildJoinRollbackDeletePlan,
+  createEmptyJoinRollbackResources,
+  type JoinRollbackDeleteStep,
+  type JoinRollbackResources,
+} from "@/src/lib/join/rollback-policy";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -54,15 +60,6 @@ type JoinSubmitPayload = {
   supportOtherMonthlyIncome?: unknown;
   workspaceName?: unknown;
   zip?: unknown;
-};
-
-type CreatedResourceIds = {
-  authUserId?: string;
-  collectiveId?: string;
-  householdId?: string;
-  organizationId?: string;
-  organizationWasCreated?: boolean;
-  profileId?: string;
 };
 
 type PhotoUploadMetadata = {
@@ -322,12 +319,14 @@ function isMissingColumnError(error: { message?: string } | null | undefined) {
 }
 
 async function insertTeamMember(supabase: ReturnType<typeof createSupabaseAdminClient>, record: JsonRecord) {
-  let result: { error: { message: string } | null } | null = null;
+  let result: { data: { id?: string } | null; error: { message: string } | null } | null = null;
 
   for (const candidate of teamMemberRecordCandidates(record)) {
     result = await supabase
       .from("missionary_team_members")
-      .insert(candidate);
+      .insert(candidate)
+      .select("id")
+      .single();
 
     if (!result.error || !isMissingColumnError(result.error)) {
       break;
@@ -337,6 +336,12 @@ async function insertTeamMember(supabase: ReturnType<typeof createSupabaseAdminC
   if (result?.error) {
     throw new Error(result.error.message);
   }
+
+  if (!result?.data?.id) {
+    throw new Error("Unable to confirm created team member for rollback.");
+  }
+
+  return result.data.id;
 }
 
 async function findExistingTeamMemberForEmail(supabase: ReturnType<typeof createSupabaseAdminClient>, email: string) {
@@ -376,30 +381,139 @@ async function findExistingTeamMemberForEmail(supabase: ReturnType<typeof create
   return userResult.data?.[0] ?? null;
 }
 
-async function cleanupCreatedResources(supabase: ReturnType<typeof createSupabaseAdminClient>, ids: CreatedResourceIds) {
-  if (ids.householdId) {
-    await supabase.from("missionary_team_members").delete().eq("household_id", ids.householdId);
-    await supabase.from("missionary_households").delete().eq("id", ids.householdId);
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+async function hasRemainingRows(
+  supabase: SupabaseAdminClient,
+  tableName: "collective_memberships" | "collectives" | "missionary_team_members" | "profiles" | "usam_missionary_applications",
+  columnName: "collective_id" | "owner_organization_id" | "primary_collective_id" | "workspace_id" | "household_id",
+  value: string,
+) {
+  const { data, error } = await supabase
+    .from(tableName)
+    .select("id")
+    .eq(columnName, value)
+    .limit(1);
+
+  if (error) {
+    return true;
   }
 
-  if (ids.collectiveId && ids.profileId) {
-    await supabase.from("collective_memberships").delete().eq("collective_id", ids.collectiveId).eq("profile_id", ids.profileId);
+  return Boolean(data?.length);
+}
+
+async function householdHasRemainingReferences(supabase: SupabaseAdminClient, householdId: string) {
+  return await hasRemainingRows(supabase, "missionary_team_members", "household_id", householdId)
+    || await hasRemainingRows(supabase, "usam_missionary_applications", "workspace_id", householdId);
+}
+
+async function collectiveHasRemainingReferences(supabase: SupabaseAdminClient, collectiveId: string) {
+  return await hasRemainingRows(supabase, "profiles", "primary_collective_id", collectiveId)
+    || await hasRemainingRows(supabase, "collective_memberships", "collective_id", collectiveId);
+}
+
+async function organizationHasRemainingReferences(supabase: SupabaseAdminClient, organizationId: string) {
+  return await hasRemainingRows(supabase, "profiles", "owner_organization_id", organizationId)
+    || await hasRemainingRows(supabase, "collectives", "owner_organization_id", organizationId);
+}
+
+function warnSkippedRollbackDelete(resourceName: string, requestedCount: number, deletedCount: number) {
+  const skippedCount = requestedCount - deletedCount;
+
+  if (skippedCount > 0) {
+    console.warn(`Join rollback skipped ${skippedCount} ${resourceName} delete(s) because ownership was ambiguous.`);
+  }
+}
+
+async function deleteRollbackStep(supabase: SupabaseAdminClient, step: JoinRollbackDeleteStep) {
+  if (step.type === "authUsers") {
+    for (const authUserId of step.authUserIds) {
+      const { error } = await supabase.auth.admin.deleteUser(authUserId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    return;
   }
 
-  if (ids.organizationId && ids.profileId) {
-    await supabase.from("organization_memberships").delete().eq("organization_id", ids.organizationId).eq("profile_id", ids.profileId);
+  if (step.type === "collectiveMemberships") {
+    for (const ref of step.refs) {
+      await supabase
+        .from(step.table)
+        .delete()
+        .eq("collective_id", ref.collectiveId)
+        .eq("profile_id", ref.profileId);
+    }
+
+    return;
   }
 
-  if (ids.profileId) {
-    await supabase.from("profiles").delete().eq("id", ids.profileId);
+  if (step.table === "missionary_households") {
+    const deletableHouseholdIds: string[] = [];
+
+    for (const householdId of step.ids) {
+      if (!await householdHasRemainingReferences(supabase, householdId)) {
+        deletableHouseholdIds.push(householdId);
+      }
+    }
+
+    if (deletableHouseholdIds.length) {
+      await supabase.from(step.table).delete().in("id", deletableHouseholdIds);
+    }
+
+    warnSkippedRollbackDelete("household", step.ids.length, deletableHouseholdIds.length);
+
+    return;
   }
 
-  if (ids.collectiveId) {
-    await supabase.from("collectives").delete().eq("id", ids.collectiveId);
+  if (step.table === "collectives") {
+    const deletableCollectiveIds: string[] = [];
+
+    for (const collectiveId of step.ids) {
+      if (!await collectiveHasRemainingReferences(supabase, collectiveId)) {
+        deletableCollectiveIds.push(collectiveId);
+      }
+    }
+
+    if (deletableCollectiveIds.length) {
+      await supabase.from(step.table).delete().in("id", deletableCollectiveIds);
+    }
+
+    warnSkippedRollbackDelete("collective", step.ids.length, deletableCollectiveIds.length);
+
+    return;
   }
 
-  if (ids.organizationId && ids.organizationWasCreated) {
-    await supabase.from("organizations").delete().eq("id", ids.organizationId);
+  if (step.table === "organizations") {
+    const deletableOrganizationIds: string[] = [];
+
+    for (const organizationId of step.ids) {
+      if (!await organizationHasRemainingReferences(supabase, organizationId)) {
+        deletableOrganizationIds.push(organizationId);
+      }
+    }
+
+    if (deletableOrganizationIds.length) {
+      await supabase.from(step.table).delete().in("id", deletableOrganizationIds);
+    }
+
+    warnSkippedRollbackDelete("organization", step.ids.length, deletableOrganizationIds.length);
+
+    return;
+  }
+
+  await supabase.from(step.table).delete().in("id", step.ids);
+}
+
+async function cleanupCreatedResources(supabase: SupabaseAdminClient, resources: JoinRollbackResources) {
+  const deletePlan = buildJoinRollbackDeletePlan(resources);
+
+  // USA-111: a failed /join attempt may remove only rows this request positively created.
+  // Profiles are intentionally retained for reconciliation; pre-existing auth accounts are never recorded here.
+  for (const step of deletePlan) {
+    await deleteRollbackStep(supabase, step);
   }
 }
 
@@ -636,7 +750,7 @@ export async function POST(request: Request) {
     requestedWorkspaceName: asString(payload.workspaceName),
     spouseName,
   });
-  const createdIds: CreatedResourceIds = {};
+  const createdResources = createEmptyJoinRollbackResources();
 
   try {
     const [existingProfileResult, existingApplicationResult, existingTeamMember] = await Promise.all([
@@ -683,11 +797,13 @@ export async function POST(request: Request) {
       }, { status: authMessage.toLowerCase().includes("already") ? 409 : 400 });
     }
 
-    createdIds.authUserId = authData.user.id;
+    createdResources.authUserIds.push(authData.user.id);
 
     const { organization, wasCreated } = await findOrCreateUsamOrganization(supabase);
-    createdIds.organizationId = organization.id;
-    createdIds.organizationWasCreated = wasCreated;
+
+    if (wasCreated) {
+      createdResources.organizationIds.push(organization.id);
+    }
 
     const collectiveSlug = await uniqueSlug(supabase, "collectives", workspaceName);
     const { data: collective, error: collectiveError } = await supabase
@@ -705,7 +821,7 @@ export async function POST(request: Request) {
       throw new Error(collectiveError?.message ?? "Unable to create workspace collection.");
     }
 
-    createdIds.collectiveId = collective.id;
+    createdResources.collectiveIds.push(collective.id);
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -725,7 +841,7 @@ export async function POST(request: Request) {
       throw new Error(profileError?.message ?? "Unable to create applicant profile.");
     }
 
-    createdIds.profileId = profile.id;
+    createdResources.retainedProfileIds.push(profile.id);
 
     const collectiveMembershipResult = await supabase
       .from("collective_memberships")
@@ -739,6 +855,8 @@ export async function POST(request: Request) {
     if (collectiveMembershipResult.error) {
       throw new Error(collectiveMembershipResult.error.message);
     }
+
+    createdResources.collectiveMemberships.push({ collectiveId: collective.id, profileId: profile.id });
 
     const workspaceSlug = await uniqueSlug(supabase, "missionary_households", workspaceName);
     const householdPayload = {
@@ -779,9 +897,9 @@ export async function POST(request: Request) {
       throw new Error(fallbackHouseholdResult.error?.message ?? "Unable to create DOS workspace.");
     }
 
-    createdIds.householdId = fallbackHouseholdResult.data.id;
+    createdResources.householdIds.push(fallbackHouseholdResult.data.id);
 
-    await insertTeamMember(supabase, {
+    createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
       account_linked_at: new Date().toISOString(),
       display_name: applicantName,
       dos_user_id: authData.user.id,
@@ -794,10 +912,10 @@ export async function POST(request: Request) {
       role_title: "USA Missionaries Applicant",
       source: "dos",
       status: "active",
-    });
+    }));
 
     if (spouseName) {
-      await insertTeamMember(supabase, {
+      createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
         display_name: spouseName,
         dos_user_id: null,
         household_id: fallbackHouseholdResult.data.id,
@@ -809,7 +927,7 @@ export async function POST(request: Request) {
         role_title: "Household Member",
         source: "dos",
         status: "pending",
-      });
+      }));
     }
 
     for (const familyMember of asArray(payload.familyMembers)) {
@@ -819,7 +937,7 @@ export async function POST(request: Request) {
         continue;
       }
 
-      await insertTeamMember(supabase, {
+      createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
         display_name: familyMemberName,
         dos_user_id: null,
         household_id: fallbackHouseholdResult.data.id,
@@ -828,7 +946,7 @@ export async function POST(request: Request) {
         role_title: asString(familyMember.dependentStatus) === "independent" ? "Household Member" : "Dependent",
         source: "dos",
         status: "pending",
-      });
+      }));
     }
 
     const references = asArray(payload.references);
@@ -883,7 +1001,7 @@ export async function POST(request: Request) {
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch {
-    await cleanupCreatedResources(supabase, createdIds);
+    await cleanupCreatedResources(supabase, createdResources);
 
     return NextResponse.json({
       error: "Unable to submit the application right now. Please try again or contact USA Missionaries.",
