@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: /join provisioner contract (USA-110)
+        run: npm run test:join-contract
+
       - name: Build
         run: npm run build
 
