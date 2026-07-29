@@ -18,6 +18,7 @@
     "test:dos-identity-security": "node scripts/dos-identity-security-regression.mjs",
     "test:dos-portal-provisioning-auth": "node scripts/dos-portal-provisioning-auth-regression.mjs",
     "test:dos-portal-provisioning-auth-behavior": "node scripts/dos-portal-provisioning-auth-behavior.mjs",
+    "test:dos-portal-rollback": "node scripts/dos-portal-rollback-regression.mjs",
     "test:dos-ministry-events": "node scripts/dos-ministry-event-visibility-regression.mjs",
     "test:dos-fruit-guard": "node scripts/dos-fruit-guard-regression.mjs",
     "test:dos-household-people": "node scripts/dos-household-people-regression.mjs",

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { slugify, type AdminOrganizationType } from "@/src/lib/admin/organization-shared";
 import { requireDosPortalProvisioningAuthorization } from "@/src/lib/dos/api-auth";
+import {
+  buildPortalRollbackDeletePlan,
+  createEmptyPortalRollbackResources,
+  type PortalRollbackDeleteStep,
+  type PortalRollbackResources,
+} from "@/src/lib/dos/portal-rollback-policy";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 
 type DosPortalPayload = {
@@ -288,42 +294,85 @@ async function findOrCreateOrganization({
   return { organization: data, wasCreated: true };
 }
 
-async function cleanupCreatedResources({
-  collectiveId,
-  householdId,
-  organizationId,
-  profileId,
-}: {
-  collectiveId?: string;
-  householdId?: string;
-  organizationId?: string;
-  profileId?: string;
-}) {
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+async function hasRemainingRows(
+  supabase: SupabaseAdminClient,
+  tableName: "collectives" | "organization_memberships" | "profiles",
+  columnName: "organization_id" | "owner_organization_id",
+  value: string,
+) {
+  const { data, error } = await supabase
+    .from(tableName)
+    .select("id")
+    .eq(columnName, value)
+    .limit(1);
+
+  if (error) {
+    return true;
+  }
+
+  return Boolean(data?.length);
+}
+
+async function organizationHasRemainingReferences(supabase: SupabaseAdminClient, organizationId: string) {
+  return await hasRemainingRows(supabase, "profiles", "owner_organization_id", organizationId)
+    || await hasRemainingRows(supabase, "organization_memberships", "organization_id", organizationId)
+    || await hasRemainingRows(supabase, "collectives", "owner_organization_id", organizationId);
+}
+
+async function deleteRollbackStep(supabase: SupabaseAdminClient, step: PortalRollbackDeleteStep) {
+  if (step.type === "collectiveMemberships") {
+    for (const ref of step.refs) {
+      await supabase
+        .from(step.table)
+        .delete()
+        .eq("collective_id", ref.collectiveId)
+        .eq("profile_id", ref.profileId);
+    }
+
+    return;
+  }
+
+  if (step.type === "organizationMemberships") {
+    for (const ref of step.refs) {
+      await supabase
+        .from(step.table)
+        .delete()
+        .eq("organization_id", ref.organizationId)
+        .eq("profile_id", ref.profileId);
+    }
+
+    return;
+  }
+
+  if (step.table === "organizations") {
+    const deletableOrganizationIds: string[] = [];
+
+    for (const organizationId of step.ids) {
+      if (!await organizationHasRemainingReferences(supabase, organizationId)) {
+        deletableOrganizationIds.push(organizationId);
+      }
+    }
+
+    if (deletableOrganizationIds.length) {
+      await supabase.from(step.table).delete().in("id", deletableOrganizationIds);
+    }
+
+    return;
+  }
+
+  await supabase.from(step.table).delete().in("id", step.ids);
+}
+
+async function cleanupCreatedResources(resources: PortalRollbackResources) {
   const supabase = createSupabaseAdminClient();
+  const deletePlan = buildPortalRollbackDeletePlan(resources);
 
-  if (collectiveId && profileId) {
-    await supabase.from("collective_memberships").delete().eq("collective_id", collectiveId).eq("profile_id", profileId);
-  }
-
-  if (organizationId && profileId) {
-    await supabase.from("organization_memberships").delete().eq("organization_id", organizationId).eq("profile_id", profileId);
-  }
-
-  if (profileId) {
-    await supabase.from("profiles").delete().eq("id", profileId);
-  }
-
-  if (householdId) {
-    await supabase.from("missionary_team_members").delete().eq("household_id", householdId);
-    await supabase.from("missionary_households").delete().eq("id", householdId);
-  }
-
-  if (collectiveId) {
-    await supabase.from("collectives").delete().eq("id", collectiveId);
-  }
-
-  if (organizationId) {
-    await supabase.from("organizations").delete().eq("id", organizationId);
+  // USA-115: rollback is driven only by IDs recorded after successful inserts in this request.
+  // Acquired, pre-existing, shared, or ambiguous resources are never added to this ledger.
+  for (const step of deletePlan) {
+    await deleteRollbackStep(supabase, step);
   }
 }
 
@@ -457,12 +506,14 @@ function teamMemberRecordCandidates(record: Record<string, unknown>) {
 
 async function insertTeamMember(record: Record<string, unknown>) {
   const supabase = createSupabaseAdminClient();
-  let result: { error: { message: string } | null } | null = null;
+  let result: { data: { id?: string } | null; error: { message: string } | null } | null = null;
 
   for (const candidate of teamMemberRecordCandidates(record)) {
     result = await supabase
       .from("missionary_team_members")
-      .insert(candidate);
+      .insert(candidate)
+      .select("id")
+      .single();
 
     if (!result.error || !isMissingFeatureColumn(result.error)) {
       break;
@@ -472,6 +523,12 @@ async function insertTeamMember(record: Record<string, unknown>) {
   if (result?.error) {
     throw new Error(result.error.message);
   }
+
+  if (!result?.data?.id) {
+    throw new Error("Unable to confirm created team member for rollback.");
+  }
+
+  return result.data.id;
 }
 
 async function findExistingFieldPerson({
@@ -543,6 +600,7 @@ async function insertSetupPeople({
   workspaceId: string;
 }) {
   const supabase = createSupabaseAdminClient();
+  const createdPersonIds: string[] = [];
 
   for (const person of people) {
     const existingPerson = await findExistingFieldPerson({
@@ -568,12 +626,14 @@ async function insertSetupPeople({
       status: "new",
       workspace_id: workspaceId,
     };
-    let insertResult: { error: { message: string } | null } | null = null;
+    let insertResult: { data: { id?: string } | null; error: { message: string } | null } | null = null;
 
     for (const candidate of fieldPersonRecordCandidates(record)) {
       insertResult = await supabase
         .from("missionary_field_people")
-        .insert(candidate);
+        .insert(candidate)
+        .select("id")
+        .single();
 
       if (!insertResult.error || !isMissingFeatureColumn(insertResult.error)) {
         break;
@@ -583,7 +643,15 @@ async function insertSetupPeople({
     if (insertResult?.error) {
       throw new Error(insertResult.error.message);
     }
+
+    if (!insertResult?.data?.id) {
+      throw new Error("Unable to confirm created field person for rollback.");
+    }
+
+    createdPersonIds.push(insertResult.data.id);
   }
+
+  return createdPersonIds;
 }
 
 export async function POST(request: Request) {
@@ -631,8 +699,8 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const createdResources = createEmptyPortalRollbackResources();
   let collectiveId = "";
-  let createdOrganizationId = "";
   let householdId = "";
   let profileId = "";
 
@@ -654,7 +722,7 @@ export async function POST(request: Request) {
     const { organization, wasCreated } = await findOrCreateOrganization({ organizationName, setupType });
 
     if (wasCreated) {
-      createdOrganizationId = organization.id;
+      createdResources.organizationIds.push(organization.id);
     }
     const workspaceSlug = await uniqueSlug("missionary_households", personName);
     const collectiveSlug = await uniqueSlug("collectives", workspaceSlug);
@@ -674,6 +742,7 @@ export async function POST(request: Request) {
     }
 
     collectiveId = collective.id;
+    createdResources.collectiveIds.push(collectiveId);
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -693,6 +762,7 @@ export async function POST(request: Request) {
     }
 
     profileId = profile.id;
+    createdResources.profileIds.push(profileId);
 
     const membershipResult = await supabase
       .from("organization_memberships")
@@ -707,6 +777,8 @@ export async function POST(request: Request) {
       throw new Error(membershipResult.error.message);
     }
 
+    createdResources.organizationMemberships.push({ organizationId: organization.id, profileId });
+
     const collectiveMembershipResult = await supabase
       .from("collective_memberships")
       .insert({
@@ -719,6 +791,8 @@ export async function POST(request: Request) {
     if (collectiveMembershipResult.error) {
       throw new Error(collectiveMembershipResult.error.message);
     }
+
+    createdResources.collectiveMemberships.push({ collectiveId, profileId });
 
     const location = [city, state].filter(Boolean).join(", ");
     const householdPayload = {
@@ -760,6 +834,7 @@ export async function POST(request: Request) {
     }
 
     householdId = fallbackHouseholdResult.data.id;
+    createdResources.householdIds.push(householdId);
 
     const teamMemberPayload = {
       account_linked_at: new Date().toISOString(),
@@ -776,7 +851,7 @@ export async function POST(request: Request) {
       status: "active",
     };
 
-    await insertTeamMember(teamMemberPayload);
+    createdResources.teamMemberIds.push(await insertTeamMember(teamMemberPayload));
 
     if (teamStatus === "married_team" && spouseName) {
       const spouseTeamMemberPayload = {
@@ -793,14 +868,14 @@ export async function POST(request: Request) {
         status: "pending",
       };
 
-      await insertTeamMember(spouseTeamMemberPayload);
+      createdResources.teamMemberIds.push(await insertTeamMember(spouseTeamMemberPayload));
     }
 
     if (setupPeople.length) {
-      await insertSetupPeople({
+      createdResources.fieldPersonIds.push(...await insertSetupPeople({
         people: setupPeople,
         workspaceId: householdId,
-      });
+      }));
     }
 
     const applicationPayload = setupApplicationPayload({
@@ -836,7 +911,7 @@ export async function POST(request: Request) {
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch (error) {
-    await cleanupCreatedResources({ collectiveId, householdId, organizationId: createdOrganizationId, profileId });
+    await cleanupCreatedResources(createdResources);
 
     return NextResponse.json({
       error: error instanceof Error ? error.message : "Unable to create DOS workspace.",
