@@ -30,6 +30,8 @@ import assert from "node:assert/strict";
 
 const ROUTE = path.join(process.cwd(), "app", "api", "join", "submit", "route.ts");
 const src = readFileSync(ROUTE, "utf8");
+const ROLLBACK_CLEANUP = path.join(process.cwd(), "src", "lib", "join", "rollback-cleanup.ts");
+const rollbackCleanupSrc = readFileSync(ROLLBACK_CLEANUP, "utf8");
 
 const results = [];
 function check(name, fn) {
@@ -72,6 +74,11 @@ function insertSequence(slice) {
   return [...slice.matchAll(/\.from\("([a-z_]+)"\)\s*\.insert\(/g)].map((m) => m[1]);
 }
 
+function provisioningWriteSequence(slice) {
+  return [...slice.matchAll(/\.from\("([a-z_]+)"\)\s*\.insert\(|ensureCollectiveMembership\(/g)]
+    .map((match) => match[1] ?? "collective_memberships");
+}
+
 // ---------------------------------------------------------------------------
 // 1. Provisioning sequence — the core parity contract
 // ---------------------------------------------------------------------------
@@ -86,7 +93,7 @@ check("provisioning: account is created via auth.admin.createUser", () => {
 
 check("provisioning: writes occur in the exact expected order", () => {
   const observed = [];
-  for (const t of insertSequence(postBody)) {
+  for (const t of provisioningWriteSequence(postBody)) {
     if (!observed.includes(t)) observed.push(t);
   }
   assert.deepEqual(
@@ -119,8 +126,8 @@ check("provisioning: collective is created with type 'family'", () => {
 });
 
 check("provisioning: collective membership is created as pending owner", () => {
-  assert.match(postBody, /role:\s*"owner"/);
-  assert.match(postBody, /status:\s*"pending"/);
+  assert.match(src, /role:\s*"owner"/);
+  assert.match(src, /status:\s*"pending"/);
 });
 
 // ---------------------------------------------------------------------------
@@ -128,7 +135,7 @@ check("provisioning: collective membership is created as pending owner", () => {
 // ---------------------------------------------------------------------------
 
 check("org resolution: resolves by branding_mode='usam' or slug (⚠ single-tenant)", () => {
-  const body = functionBody(src, "findOrCreateUsamOrganization");
+  const body = functionBody(src, "loadUsamOrganization");
   assert.match(body, /branding_mode\.eq\.usam/, "branding_mode='usam' lookup is load-bearing");
   assert.match(body, /slug\.eq\.usa-missionaries/);
 });
@@ -137,8 +144,8 @@ check("org resolution: resolves by branding_mode='usam' or slug (⚠ single-tena
 // 3. Compensating rollback — creation-scoped after USA-111
 // ---------------------------------------------------------------------------
 
-const cleanup = functionBody(src, "cleanupCreatedResources");
-const rollbackStep = functionBody(src, "deleteRollbackStep");
+const cleanup = functionBody(rollbackCleanupSrc, "cleanupJoinCreatedResources");
+const rollbackStep = functionBody(rollbackCleanupSrc, "deleteRollbackStep");
 
 check("rollback: uses the join created-resource delete plan", () => {
   assert.match(src, /createEmptyJoinRollbackResources\(\)/);
@@ -157,9 +164,9 @@ check("rollback: deletes created team members only by exact row id", () => {
 });
 
 check("rollback: deletes collective membership and never deletes profiles", () => {
-  assert.match(src, /createdResources\.collectiveMemberships\.push\(\{ collectiveId: collective\.id, profileId: profile\.id \}\)/);
-  assert.match(rollbackStep, /\.from\(step\.table\)[\s\S]{0,120}\.delete\(\)[\s\S]{0,160}\.eq\("collective_id"/);
-  assert.match(src, /createdResources\.retainedProfileIds\.push\(profile\.id\)/);
+  assert.match(src, /createdResources\.collectiveMemberships\.push\(\{ collectiveId, profileId \}\)/);
+  assert.match(rollbackStep, /\.from\(step\.table\)[\s\S]{0,120}\.delete\(\)[\s\S]{0,160}\.match\(\{ collective_id/);
+  assert.match(src, /createdResources\.retainedProfileIds\.push\(profileId\)/);
   assert.doesNotMatch(rollbackStep, /\.from\("profiles"\)\.delete\(\)/);
 });
 
@@ -169,9 +176,19 @@ check("rollback: deletes the organization ONLY when this request created it", ()
 });
 
 check("rollback: ambiguous references fail closed before parent deletes", () => {
-  assert.match(src, /householdHasRemainingReferences/);
-  assert.match(src, /collectiveHasRemainingReferences/);
-  assert.match(src, /organizationHasRemainingReferences/);
+  assert.match(rollbackCleanupSrc, /householdHasRemainingReferences/);
+  assert.match(rollbackCleanupSrc, /collectiveHasRemainingReferences/);
+  assert.match(rollbackCleanupSrc, /organizationHasRemainingReferences/);
+});
+
+check("rollback: cleanup failure is recorded and does not bypass the generic failure response", () => {
+  assert.match(rollbackCleanupSrc, /failedSteps \+= 1/);
+  assert.match(rollbackCleanupSrc, /continuing with remaining cleanup/);
+  assert.match(postBody, /cleanupJoinCreatedResources\(supabase, createdResources\)/);
+  assert.match(
+    postBody,
+    /Unable to submit the application right now\. Please try again or contact USA Missionaries/,
+  );
 });
 
 check("⚠ DEFECT PINNED — happy path never INSERTS organization_memberships", () => {
@@ -244,7 +261,7 @@ check("guard: password strength is enforced before any write", () => {
 });
 
 check("failure path invokes the compensating rollback", () => {
-  assert.match(postBody, /cleanupCreatedResources\(supabase, createdResources\)/);
+  assert.match(postBody, /cleanupJoinCreatedResources\(supabase, createdResources\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -265,6 +282,11 @@ check("extraction boundary: rollback tracks created resources through the join l
   ]) {
     assert.match(policy, new RegExp(field), `JoinRollbackResources lost ${field}`);
   }
+});
+
+check("extraction boundary: cleanup executor remains separate from HTTP route", () => {
+  assert.match(src, /cleanupJoinCreatedResources/);
+  assert.match(rollbackCleanupSrc, /buildJoinRollbackDeletePlan\(resources\)/);
 });
 
 check("extraction boundary: provisioner still uses the admin client", () => {

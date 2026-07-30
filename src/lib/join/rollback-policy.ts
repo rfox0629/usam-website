@@ -13,6 +13,24 @@ export type JoinRollbackResources = {
   teamMemberIds: string[];
 };
 
+export type JoinExistingProfileCandidate = {
+  id: string;
+  ownerOrganizationId: string | null;
+  primaryCollectiveId: string | null;
+  userId: string | null;
+};
+
+export type JoinExistingCollectiveCandidate = {
+  id: string;
+  ownerOrganizationId: string | null;
+  type: string | null;
+};
+
+export type JoinResumableProfile = {
+  collectiveId: string;
+  profileId: string;
+};
+
 type JoinRollbackIdTable =
   | "collectives"
   | "missionary_households"
@@ -116,4 +134,46 @@ export function buildJoinRollbackDeletePlan(
   );
 
   return steps;
+}
+
+export function selectResumableIncompleteJoinProfile({
+  collective,
+  existingApplication,
+  hasExistingTeamMember,
+  profiles,
+  usamOrganizationId,
+}: {
+  collective: JoinExistingCollectiveCandidate | null;
+  existingApplication: unknown;
+  hasExistingTeamMember: boolean;
+  profiles: JoinExistingProfileCandidate[];
+  usamOrganizationId: string | null;
+}): JoinResumableProfile | null {
+  if (
+    profiles.length !== 1
+    || existingApplication
+    || hasExistingTeamMember
+    || !usamOrganizationId
+  ) {
+    return null;
+  }
+
+  const profile = profiles[0];
+
+  if (
+    profile.userId
+    || !profile.primaryCollectiveId
+    || profile.ownerOrganizationId !== usamOrganizationId
+    || !collective
+    || collective.id !== profile.primaryCollectiveId
+    || collective.ownerOrganizationId !== usamOrganizationId
+    || collective.type !== "family"
+  ) {
+    return null;
+  }
+
+  return {
+    collectiveId: collective.id,
+    profileId: profile.id,
+  };
 }

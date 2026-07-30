@@ -7,8 +7,8 @@ function read(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-function loadRollbackPolicyModule() {
-  const filename = new URL("../src/lib/join/rollback-policy.ts", import.meta.url);
+function loadTypeScriptModule(relativePath, requireMap = {}) {
+  const filename = new URL(`../${relativePath}`, import.meta.url);
   const source = readFileSync(filename, "utf8");
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -21,7 +21,11 @@ function loadRollbackPolicyModule() {
     exports: {},
     module: { exports: {} },
     require(specifier) {
-      throw new Error(`Unexpected runtime import in join rollback policy test: ${specifier}`);
+      if (Object.prototype.hasOwnProperty.call(requireMap, specifier)) {
+        return requireMap[specifier];
+      }
+
+      throw new Error(`Unexpected runtime import in join rollback test: ${specifier}`);
     },
   };
 
@@ -74,6 +78,71 @@ function hasIdStep(plan, table, id) {
   return Boolean(idStep(plan, table)?.ids.includes(id));
 }
 
+function duplicatePrecheckWould409({
+  existingApplication = null,
+  existingTeamMember = null,
+  profiles,
+  resumableProfile,
+}) {
+  return Boolean((profiles.length && !resumableProfile) || existingApplication || existingTeamMember);
+}
+
+function createCleanupSupabaseMock({ failAuthDelete = false } = {}) {
+  const calls = [];
+  const chain = (table) => ({
+    delete() {
+      calls.push({ table, type: "delete" });
+
+      return this;
+    },
+    eq(column, value) {
+      calls.push({ column, table, type: "eq", value });
+
+      return this;
+    },
+    in(column, values) {
+      calls.push({ column, table, type: "in", values });
+
+      return Promise.resolve({ error: null });
+    },
+    limit(value) {
+      calls.push({ table, type: "limit", value });
+
+      return Promise.resolve({ data: [], error: null });
+    },
+    match(value) {
+      calls.push({ table, type: "match", value });
+
+      return Promise.resolve({ error: null });
+    },
+    select(columns) {
+      calls.push({ columns, table, type: "select" });
+
+      return this;
+    },
+  });
+
+  return {
+    calls,
+    supabase: {
+      auth: {
+        admin: {
+          deleteUser(id) {
+            calls.push({ id, type: "deleteUser" });
+
+            return Promise.resolve(failAuthDelete ? { error: { message: "delete failed" } } : { error: null });
+          },
+        },
+      },
+      from(table) {
+        calls.push({ table, type: "from" });
+
+        return chain(table);
+      },
+    },
+  };
+}
+
 function applyRollbackPlan(plan, state) {
   for (const step of plan) {
     if (step.type === "authUsers") {
@@ -116,7 +185,15 @@ function deleteAuthEmailIndexForMissingUsers(state) {
 const {
   buildJoinRollbackDeletePlan,
   createEmptyJoinRollbackResources,
-} = loadRollbackPolicyModule();
+  selectResumableIncompleteJoinProfile,
+} = loadTypeScriptModule("src/lib/join/rollback-policy.ts");
+const {
+  cleanupJoinCreatedResources,
+} = loadTypeScriptModule("src/lib/join/rollback-cleanup.ts", {
+  "@/src/lib/join/rollback-policy": {
+    buildJoinRollbackDeletePlan,
+  },
+});
 
 {
   const resources = createEmptyJoinRollbackResources();
@@ -248,9 +325,123 @@ const {
   assert.equal(plan.length, 0, "Existing legitimate production records are never represented as rollback targets.");
 }
 
+{
+  const profiles = [{
+    id: "profile-retained-after-failed-attempt",
+    ownerOrganizationId: "org-usam",
+    primaryCollectiveId: "collective-retained-after-failed-attempt",
+    userId: null,
+  }];
+  const resumableProfile = selectResumableIncompleteJoinProfile({
+    collective: {
+      id: "collective-retained-after-failed-attempt",
+      ownerOrganizationId: "org-usam",
+      type: "family",
+    },
+    existingApplication: null,
+    hasExistingTeamMember: false,
+    profiles,
+    usamOrganizationId: "org-usam",
+  });
+
+  assert.equal(
+    resumableProfile?.collectiveId,
+    "collective-retained-after-failed-attempt",
+    "A profile retained from the same incomplete /join attempt is resumable on retry.",
+  );
+  assert.equal(
+    resumableProfile?.profileId,
+    "profile-retained-after-failed-attempt",
+    "A profile retained from the same incomplete /join attempt is resumable on retry.",
+  );
+  assert.equal(
+    duplicatePrecheckWould409({ profiles, resumableProfile }),
+    false,
+    "Retry with the same email must not hit the ordinary duplicate-profile 409 for the resumable incomplete state.",
+  );
+}
+
+{
+  const profiles = [{
+    id: "legitimate-existing-profile",
+    ownerOrganizationId: "org-usam",
+    primaryCollectiveId: "collective-existing",
+    userId: "auth-existing",
+  }];
+  const resumableProfile = selectResumableIncompleteJoinProfile({
+    collective: {
+      id: "collective-existing",
+      ownerOrganizationId: "org-usam",
+      type: "family",
+    },
+    existingApplication: null,
+    hasExistingTeamMember: false,
+    profiles,
+    usamOrganizationId: "org-usam",
+  });
+
+  assert.equal(resumableProfile, null, "Profiles already linked to an auth user are not resumable.");
+  assert.equal(
+    duplicatePrecheckWould409({ profiles, resumableProfile }),
+    true,
+    "Legitimate existing profiles still trigger the intentional duplicate-profile 409.",
+  );
+}
+
+{
+  const profiles = [{
+    id: "profile-with-application",
+    ownerOrganizationId: "org-usam",
+    primaryCollectiveId: "collective-with-application",
+    userId: null,
+  }];
+  const existingApplication = { id: "application-existing" };
+  const resumableProfile = selectResumableIncompleteJoinProfile({
+    collective: {
+      id: "collective-with-application",
+      ownerOrganizationId: "org-usam",
+      type: "family",
+    },
+    existingApplication,
+    hasExistingTeamMember: false,
+    profiles,
+    usamOrganizationId: "org-usam",
+  });
+
+  assert.equal(resumableProfile, null, "Rows with an active application are not treated as the incomplete profile-only retry state.");
+  assert.equal(
+    duplicatePrecheckWould409({ existingApplication, profiles, resumableProfile }),
+    true,
+    "Active application duplicates remain intentionally blocked.",
+  );
+}
+
+{
+  const resources = createEmptyJoinRollbackResources();
+
+  resources.authUserIds.push("auth-delete-fails");
+  resources.teamMemberIds.push("team-member-still-cleaned");
+
+  const { calls, supabase } = createCleanupSupabaseMock({ failAuthDelete: true });
+  const messages = [];
+  const result = await cleanupJoinCreatedResources(supabase, resources, (message) => messages.push(message));
+  const authDeleteIndex = calls.findIndex((call) => call.type === "deleteUser" && call.id === "auth-delete-fails");
+  const teamMemberCleanupIndex = calls.findIndex((call) => call.type === "in" && call.table === "missionary_team_members");
+
+  assert.equal(result.failedSteps, 1, "Failed auth cleanup is recorded.");
+  assert.equal(result.skippedDeletes, 0, "Failed auth cleanup does not masquerade as an ambiguous ownership skip.");
+  assert(authDeleteIndex >= 0, "Auth deletion was attempted.");
+  assert(teamMemberCleanupIndex > authDeleteIndex, "Later safe cleanup steps still execute after auth deletion failure.");
+  assert(
+    messages.some((message) => message.includes("auth user") && message.includes("continuing")),
+    "Auth deletion failure is recorded without exposing identifiers.",
+  );
+}
+
 const joinRoute = read("app/api/join/submit/route.ts");
-const cleanup = functionBody(joinRoute, "cleanupCreatedResources");
-const rollbackStep = functionBody(joinRoute, "deleteRollbackStep");
+const rollbackCleanup = read("src/lib/join/rollback-cleanup.ts");
+const cleanup = functionBody(rollbackCleanup, "cleanupJoinCreatedResources");
+const rollbackStep = functionBody(rollbackCleanup, "deleteRollbackStep");
 const postBody = joinRoute.slice(joinRoute.indexOf("export async function POST"));
 const packageJson = read("package.json");
 
@@ -271,7 +462,7 @@ assertIncludes(
 );
 assertIncludes(
   joinRoute,
-  "createdResources.retainedProfileIds.push(profile.id)",
+  "createdResources.retainedProfileIds.push(profileId)",
   "Created profiles must be recorded as retained for reconciliation.",
 );
 assertNotIncludes(
@@ -291,18 +482,53 @@ assertIncludes(
 );
 assertIncludes(
   joinRoute,
-  "Profiles are intentionally retained for reconciliation",
-  "The route must document the interim no-profile-deletion rollback model.",
+  "this resumes only the profile-only residue",
+  "The route must document the narrow profile resume model.",
 );
 assertIncludes(
   joinRoute,
+  ".is(\"user_id\", null)",
+  "Profile resume must fail closed unless the retained profile is still unlinked.",
+);
+assertIncludes(
+  joinRoute,
+  "selectResumableIncompleteJoinProfile",
+  "Retry reconciliation must use the centralized resumable-profile policy.",
+);
+assertIncludes(
+  rollbackCleanup,
   "Join rollback skipped ${skippedCount} ${resourceName} delete(s) because ownership was ambiguous.",
   "Ambiguous rollback skips must be recorded without exposing identifiers.",
+);
+assertIncludes(
+  cleanup,
+  "try {",
+  "Cleanup must isolate failures per rollback step.",
+);
+assertIncludes(
+  rollbackCleanup,
+  "Join rollback cleanup failed for ${resourceName}; continuing with remaining cleanup.",
+  "Cleanup failures must be recorded while later safe cleanup continues.",
 );
 assertIncludes(
   postBody,
   "An account, household invitation, or application already exists for this email",
   "Explicit duplicate-email protection must remain for existing profiles, applications, and team members.",
+);
+assertIncludes(
+  postBody,
+  "await cleanupJoinCreatedResources(supabase, createdResources)",
+  "The failure path must invoke failure-safe rollback cleanup.",
+);
+assertIncludes(
+  postBody,
+  "Unable to submit the application right now. Please try again or contact USA Missionaries.",
+  "The generic JSON failure response must remain intact after cleanup failures.",
+);
+assertIncludes(
+  postBody,
+  "}, { status: 500 })",
+  "The generic failure response must still return HTTP 500.",
 );
 assertIncludes(
   postBody,
