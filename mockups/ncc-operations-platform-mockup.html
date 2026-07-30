@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>USA Missionaries — Operations Platform (Mockup)</title>
+<style>
+  :root{
+    --navy-950:#0b1220;
+    --navy-900:#0f1a2e;
+    --navy-800:#152238;
+    --navy-700:#1c2e4a;
+    --navy-600:#2a3f5f;
+    --line:#e6e8ee;
+    --line-dark:#26364f;
+    --ink:#111827;
+    --ink-soft:#4b5563;
+    --ink-faint:#9ca3af;
+    --paper:#f6f7fb;
+    --card:#ffffff;
+    --amber:#c8862b;
+    --amber-soft:#fbe9d2;
+    --green:#1a7f5a;
+    --green-soft:#e1f4ec;
+    --slate:#5b6472;
+    --slate-soft:#eceef2;
+    --red:#b3423a;
+    --red-soft:#fbe6e4;
+    --radius:12px;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    --shadow-md:0 4px 10px rgba(16,24,40,.07), 0 2px 4px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    font-size:14px;
+    line-height:1.45;
+  }
+  a{color:inherit;text-decoration:none;}
+
+  /* ---------- demo banner ---------- */
+  .demo-banner{
+    background:var(--navy-950);
+    color:#fff;
+    font-size:12px;
+    letter-spacing:.02em;
+    padding:7px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    font-weight:600;
+  }
+  .demo-banner .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);}
+
+  /* ---------- shell ---------- */
+  .shell{
+    display:grid;
+    grid-template-columns: 244px 1fr;
+    min-height: calc(100vh - 30px);
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    background:var(--navy-950);
+    color:#cdd6e5;
+    padding:18px 12px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 10px 18px;
+  }
+  .brand-mark{
+    width:28px;height:28px;border-radius:8px;
+    background:linear-gradient(135deg,var(--amber),#8f5a17);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#fff;font-size:13px;
+    flex-shrink:0;
+  }
+  .brand-text{display:flex;flex-direction:column;}
+  .brand-text b{color:#fff;font-size:13.5px;font-weight:700;letter-spacing:.01em;}
+  .brand-text span{font-size:10.5px;color:#8994a8;letter-spacing:.04em;text-transform:uppercase;}
+
+  .nav-group{margin-top:14px;}
+  .nav-group-label{
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#5f6b81;
+    padding:0 10px 6px;
+  }
+  .nav-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:500;
+    color:#c3cbdb;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease;
+  }
+  .nav-item:hover{background:var(--navy-800);color:#fff;}
+  .nav-item.active{background:var(--navy-700);color:#fff;}
+  .nav-item .left{display:flex;align-items:center;gap:9px;min-width:0;}
+  .nav-item .ico{
+    width:16px;height:16px;flex-shrink:0;opacity:.85;
+  }
+  .nav-item .label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .tag{
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    padding:2px 6px;
+    border-radius:99px;
+    flex-shrink:0;
+  }
+  .tag-live{background:rgba(26,127,90,.22);color:#7fe0bb;}
+  .tag-planned{background:rgba(200,134,43,.2);color:#f0be80;}
+  .tag-legacy{background:rgba(91,100,114,.28);color:#aeb6c4;}
+
+  .sidebar-footer{
+    margin-top:auto;
+    padding-top:14px;
+    border-top:1px solid var(--line-dark);
+  }
+  .system-link{
+    display:flex;align-items:center;gap:9px;
+    padding:9px 10px;border-radius:8px;
+    font-size:12.5px;font-weight:600;color:#93a0b8;
+    cursor:pointer;
+  }
+  .system-link:hover{background:var(--navy-800);color:#fff;}
+  .system-link .ico{width:15px;height:15px;opacity:.8;}
+
+  /* ---------- main ---------- */
+  .main{display:flex;flex-direction:column;min-width:0;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;
+    border-bottom:1px solid var(--line);
+    background:var(--card);
+  }
+  .topbar h1{font-size:18px;font-weight:700;margin:0;letter-spacing:-.01em;}
+  .topbar .sub{font-size:12.5px;color:var(--ink-faint);margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:12px;}
+  .persona-pill{
+    display:flex;align-items:center;gap:8px;
+    background:var(--paper);border:1px solid var(--line);
+    border-radius:99px;padding:5px 12px 5px 5px;
+    font-size:12.5px;font-weight:600;color:var(--ink-soft);
+  }
+  .avatar{width:22px;height:22px;border-radius:50%;background:var(--navy-700);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;}
+
+  .content{padding:26px 28px 60px;overflow-y:auto;}
+  .page{display:none;}
+  .page.active{display:block;animation:fade .15s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:none;}}
+
+  .section-title{
+    display:flex;align-items:baseline;justify-content:space-between;margin:28px 0 12px;
+  }
+  .section-title:first-child{margin-top:0;}
+  .section-title h2{font-size:14px;font-weight:700;margin:0;color:var(--ink);}
+  .section-title .hint{font-size:12px;color:var(--ink-faint);}
+
+  /* metric cards */
+  .grid-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .metric-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 16px 14px;box-shadow:var(--shadow);
+  }
+  .metric-card .top{display:flex;align-items:center;justify-content:space-between;}
+  .metric-card .label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  .metric-card .value{font-size:26px;font-weight:800;margin-top:8px;letter-spacing:-.02em;}
+  .metric-card .delta{font-size:11.5px;margin-top:4px;color:var(--ink-faint);}
+  .metric-card .delta.up{color:var(--green);}
+  .metric-card a.go{font-size:12px;font-weight:600;color:var(--amber);margin-top:10px;display:inline-block;}
+
+  /* generic card */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+  .card-pad{padding:18px 18px 16px;}
+  .two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;}
+
+  .list-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 0;border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .list-row:last-child{border-bottom:none;}
+  .list-row .name{font-weight:600;}
+  .list-row .meta{color:var(--ink-faint);font-size:12px;margin-top:2px;}
+  .list-row .right{display:flex;align-items:center;gap:10px;}
+
+  .badge{
+    font-size:11px;font-weight:700;letter-spacing:.02em;
+    padding:3px 9px;border-radius:99px;
+  }
+  .badge-green{background:var(--green-soft);color:var(--green);}
+  .badge-amber{background:var(--amber-soft);color:var(--amber);}
+  .badge-slate{background:var(--slate-soft);color:var(--slate);}
+  .badge-red{background:var(--red-soft);color:var(--red);}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:600;
+    padding:8px 14px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;
+  }
+  .btn:hover{border-color:#c9cdd6;}
+  .btn-primary{background:var(--navy-900);color:#fff;border-color:var(--navy-900);}
+  .btn-primary:hover{background:var(--navy-800);}
+  .btn-disabled{opacity:.45;cursor:not-allowed;}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .tab{
+    padding:9px 14px;font-size:13px;font-weight:600;color:var(--ink-faint);
+    border-bottom:2px solid transparent;cursor:pointer;
+  }
+  .tab.active{color:var(--ink);border-bottom-color:var(--amber);}
+
+  .empty-state{
+    border:1px dashed var(--line);border-radius:var(--radius);
+    padding:26px;text-align:center;color:var(--ink-faint);font-size:12.5px;
+    background:#fbfbfd;
+  }
+  .empty-state b{display:block;color:var(--ink-soft);font-size:13px;margin-bottom:4px;}
+
+  .planned-page{
+    display:flex;flex-direction:column;align-items:flex-start;gap:14px;
+    max-width:620px;margin-top:6px;
+  }
+  .planned-badge{
+    background:var(--amber-soft);color:var(--amber);font-size:11.5px;font-weight:700;
+    padding:4px 10px;border-radius:99px;letter-spacing:.02em;
+  }
+  .planned-page p{color:var(--ink-soft);font-size:13.5px;}
+  .planned-page .legacy-link{
+    font-size:13px;font-weight:600;color:var(--navy-700);
+    border:1px solid var(--line);border-radius:8px;padding:9px 14px;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+
+  /* progress bar */
+  .pbar{height:7px;border-radius:99px;background:var(--slate-soft);overflow:hidden;}
+  .pbar > div{height:100%;background:var(--green);}
+
+  /* onboarding kanban */
+  .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .kanban-col h3{font-size:12px;font-weight:700;color:var(--ink-soft);margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;}
+  .kcard{
+    background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+    margin-bottom:9px;box-shadow:var(--shadow);
+  }
+  .kcard .name{font-weight:700;font-size:12.5px;}
+  .kcard .field{font-size:11.5px;color:var(--ink-faint);margin-top:3px;}
+  .kcard .tags{display:flex;gap:5px;margin-top:8px;}
+
+  .footer-note{
+    margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--ink-faint);
+  }
+
+  /* system page distinct treatment */
+  .system-shell{background:var(--navy-950);color:#cdd6e5;margin:-26px -28px -60px;padding:26px 28px 60px;min-height:calc(100vh - 87px);}
+  .system-shell .section-title h2{color:#fff;}
+  .system-shell .card{background:var(--navy-800);border-color:var(--navy-600);}
+  .system-shell .list-row{border-color:var(--navy-600);}
+  .system-shell .list-row .meta{color:#8994a8;}
+  .system-shell .hint{color:#8994a8;}
+
+  .agent-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .agent-dot.on{background:#3fd48a;}
+  .agent-dot.idle{background:#6b7688;}
+  .agent-dot.err{background:#e2665e;}
+
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:#d7dae2;border-radius:99px;}
+</style>
+</head>
+<body>
+
+<div class="demo-banner"><span class="dot"></span> MOCKUP — sample/demo data only. No live system connection. Prepared for USA-63 founder review.</div>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">OP</div>
+      <div class="brand-text">
+        <b>USA Missionaries</b>
+        <span>Operations Platform</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-item active" data-page="home" onclick="go('home', this)">
+        <div class="left"><span class="ico">⌂</span><span class="label">Home</span></div>
+        <span class="tag tag-live">Live</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Ministry Operations</div>
+      <div class="nav-item" data-page="executive" onclick="go('executive', this)">
+        <div class="left"><span class="ico">◆</span><span class="label">Executive</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+      <div class="nav-item" data-page="people" onclick="go('people', this)">
+        <div class="left"><span class="ico">◇</span><span class="label">People</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+      <div class="nav-item" data-page="organizations" onclick="go('organizations', this)">
+        <div class="left"><span class="ico">▢</span><span class="label">Organizations</span></div>
+        <span class="tag tag-live">Live</span>
+      </div>
+      <div class="nav-item" data-page="finance" onclick="go('finance', this)">
+        <div class="left"><span class="ico">$</span><span class="label">Finance &amp; Compliance</span></div>
+        <span class="tag tag-live">Live</span>
+      </div>
+      <div class="nav-item" data-page="partnerships" onclick="go('partnerships', this)">
+        <div class="left"><span class="ico">◈</span><span class="label">Partnerships</span></div>
+        <span class="tag tag-live">Live</span>
+      </div>
+      <div class="nav-item" data-page="development" onclick="go('development', this)">
+        <div class="left"><span class="ico">↗</span><span class="label">Development</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+      <div class="nav-item" data-page="communications" onclick="go('communications', this)">
+        <div class="left"><span class="ico">✉</span><span class="label">Communications</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+      <div class="nav-item" data-page="ministry-ops" onclick="go('ministry-ops', this)">
+        <div class="left"><span class="ico">✦</span><span class="label">Ministry Operations</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+      <div class="nav-item" data-page="compliance-legal" onclick="go('compliance-legal', this)">
+        <div class="left"><span class="ico">⚖</span><span class="label">Compliance &amp; Legal</span></div>
+        <span class="tag tag-planned">Planned</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Legacy (frozen)</div>
+      <div class="nav-item" data-page="legacy-prayer" onclick="go('legacy-prayer', this)">
+        <div class="left"><span class="ico">🕊</span><span class="label">Prayer</span></div>
+        <span class="tag tag-legacy">/admin</span>
+      </div>
+      <div class="nav-item" data-page="legacy-settings" onclick="go('legacy-settings', this)">
+        <div class="left"><span class="ico">⚙</span><span class="label">Settings</span></div>
+        <span class="tag tag-legacy">/admin</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="system-link" onclick="go('system', event.currentTarget)">
+        <span class="ico">▣</span> System &amp; Developer
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="page-title">Operations Platform</h1>
+        <div class="sub" id="page-sub">Home dashboard · demo data</div>
+      </div>
+      <div class="topbar-right">
+        <div class="persona-pill">
+          <div class="avatar">RF</div>
+          Founder / Admin view
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ============ HOME ============ -->
+      <section class="page active" id="page-home">
+        <div class="section-title"><h2>Overview</h2><span class="hint">Demo counts — mirrors home dashboard metric-card pattern from app/ncc/page.tsx</span></div>
+        <div class="grid-metrics">
+          <div class="metric-card">
+            <div class="top"><span class="label">Pending Applications</span></div>
+            <div class="value">14</div>
+            <div class="delta up">▲ 3 this week</div>
+            <a class="go" onclick="go('people', this)">Review →</a>
+          </div>
+          <div class="metric-card">
+            <div class="top"><span class="label">Major Gift Inquiries</span></div>
+            <div class="value">6</div>
+            <div class="delta">Awaiting assignment</div>
+            <a class="go" onclick="go('development', this)">Review →</a>
+          </div>
+          <div class="metric-card">
+            <div class="top"><span class="label">Docs Awaiting Review</span></div>
+            <div class="value">9</div>
+            <div class="delta up">▲ 2 new uploads</div>
+            <a class="go" onclick="go('finance', this)">Review →</a>
+          </div>
+          <div class="metric-card">
+            <div class="top"><span class="label">Founder Items</span></div>
+            <div class="value">3</div>
+            <div class="delta">1 flagged urgent</div>
+            <a class="go" onclick="go('founder-review', this)">Review →</a>
+          </div>
+        </div>
+
+        <div class="section-title"><h2>Founder Review &amp; Alerts</h2><span class="hint">Requires human sign-off — nothing here auto-executes</span></div>
+        <div class="card card-pad" id="founder-review">
+          <div class="list-row">
+            <div><div class="name">Arizona Annual Report — FY2026</div><div class="meta">Compliance filing package ready · submitted by J. Alvarez (Accountant)</div></div>
+            <div class="right"><span class="badge badge-red">Needs signature</span><button class="btn">Open</button></div>
+          </div>
+          <div class="list-row">
+            <div><div class="name">Finance production activation</div><div class="meta">4 migrations + flags staged, runbook ready — awaiting a scheduled activation window</div></div>
+            <div class="right"><span class="badge badge-amber">Awaiting approval</span><button class="btn">Open</button></div>
+          </div>
+          <div class="list-row">
+            <div><div class="name">New partner intake proposal</div><div class="meta">Partnerships pipeline scope — no data source exists yet, needs decision before build</div></div>
+            <div class="right"><span class="badge badge-slate">For discussion</span><button class="btn">Open</button></div>
+          </div>
+        </div>
+
+        <div class="two-col" style="margin-top:22px;">
+          <div class="card card-pad">
+            <div class="section-title" style="margin-top:0;"><h2>Missionary Onboarding — Snapshot</h2></div>
+            <div class="list-row"><div class="name">Applied</div><div class="right"><b>21</b></div></div>
+            <div class="list-row"><div class="name">In Review</div><div class="right"><b>8</b></div></div>
+            <div class="list-row"><div class="name">Approved, pending activation</div><div class="right"><b>4</b></div></div>
+            <div class="list-row"><div class="name">Active field missionaries</div><div class="right"><b>112</b></div></div>
+            <a class="go" style="margin-top:10px;display:inline-block;" onclick="go('people', this)">Open full workflow →</a>
+          </div>
+          <div class="card card-pad">
+            <div class="section-title" style="margin-top:0;"><h2>Documents &amp; Accountant Readiness</h2></div>
+            <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">Form 990 package — FY2026</div>
+            <div class="pbar"><div style="width:64%;"></div></div>
+            <div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">64% complete · 3 open questions for accountant</div>
+            <a class="go" style="margin-top:12px;display:inline-block;" onclick="go('finance', this)">Open Finance workspace →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ORGANIZATIONS ============ -->
+      <section class="page" id="page-organizations">
+        <div class="section-title"><h2>Organizations</h2><span class="hint">Reuses admin/organizations data layer (loadOrganizationsOverview) — proposed /ncc/organizations, not yet built</span></div>
+        <div class="card card-pad">
+          <div class="list-row">
+            <div><div class="name">USA Missionaries</div><div class="meta">National org · 112 active field missionaries · 6 workspaces</div></div>
+            <div class="right"><span class="badge badge-green">Active</span><button class="btn">Open hub</button></div>
+          </div>
+          <div class="list-row">
+            <div><div class="name">Cascade Regional Network</div><div class="meta">Prospective network partner · onboarding not started</div></div>
+            <div class="right"><span class="badge badge-slate">Prospective</span><button class="btn btn-disabled" disabled>Open hub</button></div>
+          </div>
+          <div class="list-row">
+            <div><div class="name">Highland Missions Collective</div><div class="meta">Sample future MOR tenant — illustrative only, not a real org record</div></div>
+            <div class="right"><span class="badge badge-slate">Demo</span><button class="btn btn-disabled" disabled>Open hub</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FINANCE ============ -->
+      <section class="page" id="page-finance">
+        <div class="section-title"><h2>Finance &amp; Compliance</h2><span class="hint">Code-complete, gated behind unapplied migrations — see activation runbook</span></div>
+        <div class="tabs">
+          <div class="tab active" data-tab="fin-overview" onclick="tab(this,'fin-overview')">Overview</div>
+          <div class="tab" data-tab="fin-990" onclick="tab(this,'fin-990')">Form 990</div>
+          <div class="tab" data-tab="fin-compliance" onclick="tab(this,'fin-compliance')">Compliance</div>
+          <div class="tab" data-tab="fin-checklist" onclick="tab(this,'fin-checklist')">Monthly Checklist</div>
+          <div class="tab" data-tab="fin-team" onclick="tab(this,'fin-team')">Finance Team</div>
+        </div>
+
+        <div class="tabcontent active" id="fin-overview">
+          <div class="grid-metrics" style="grid-template-columns:repeat(3,1fr);">
+            <div class="metric-card"><div class="label">Documents on file</div><div class="value">37</div><div class="delta">4 pending categorization</div></div>
+            <div class="metric-card"><div class="label">Open compliance filings</div><div class="value">2</div><div class="delta">AZ Annual Report, Form 990</div></div>
+            <div class="metric-card"><div class="label">Transactions imported</div><div class="value">1,204</div><div class="delta">Rule-based agent flagged 6 outliers</div></div>
+          </div>
+          <div class="empty-state" style="margin-top:16px;">
+            <b>Production activation pending</b>
+            4 Supabase migrations and matching feature flags are written and reviewed but not yet applied to any environment. Upload/write actions are disabled until an approved activation window. See <code>docs/finance-production-activation-runbook.md</code>.
+          </div>
+        </div>
+
+        <div class="tabcontent" id="fin-990" style="display:none;">
+          <div class="card card-pad">
+            <div class="list-row"><div class="name">1. Filing Profile</div><span class="badge badge-green">Complete</span></div>
+            <div class="list-row"><div class="name">2. Documents</div><span class="badge badge-green">Complete</span></div>
+            <div class="list-row"><div class="name">3. Transactions</div><span class="badge badge-green">Complete</span></div>
+            <div class="list-row"><div class="name">4. Financial Statements</div><span class="badge badge-amber">In progress</span></div>
+            <div class="list-row"><div class="name">5. Functional Expenses</div><span class="badge badge-amber">In progress</span></div>
+            <div class="list-row"><div class="name">6. Payroll &amp; Compensation</div><span class="badge badge-slate">Not started</span></div>
+            <div class="list-row"><div class="name">7. Governance</div><span class="badge badge-slate">Not started</span></div>
+            <div class="list-row"><div class="name">8. Program Accomplishments</div><span class="badge badge-slate">Not started</span></div>
+            <div class="list-row"><div class="name">9. Open Questions (3)</div><span class="badge badge-red">Needs accountant</span></div>
+            <div class="list-row"><div class="name">10. Accountant Review</div><span class="badge badge-slate">Waiting</span></div>
+            <div class="list-row"><div class="name">11. Export Package</div><span class="badge badge-slate">Waiting</span></div>
+            <div class="list-row"><div class="name">12. Filing Confirmation</div><span class="badge badge-slate">Blocked — requires human confirmation number</span></div>
+          </div>
+        </div>
+
+        <div class="tabcontent" id="fin-compliance" style="display:none;">
+          <div class="card card-pad">
+            <div class="list-row">
+              <div><div class="name">Arizona Annual Report — FY2026</div><div class="meta">AZ Corporation Commission · due Oct 2026</div></div>
+              <span class="badge badge-amber">In progress</span>
+            </div>
+            <div class="list-row">
+              <div><div class="name">IRS Form 990 — FY2026</div><div class="meta">Federal informational return</div></div>
+              <span class="badge badge-amber">In progress</span>
+            </div>
+          </div>
+          <div class="empty-state" style="margin-top:14px;">
+            <b>Compliance &amp; Legal (broader scope) is a separate, still-planned area</b>
+            Policies, insurance, contracts, and general legal docs are not part of this Filings-only Compliance Center.
+          </div>
+        </div>
+
+        <div class="tabcontent" id="fin-checklist" style="display:none;">
+          <div class="empty-state">
+            <b>Prototype only — no backing data table</b>
+            This is a client-side mock of the intended Phase 2 monthly close workflow. State resets on reload; nothing here is persisted.
+          </div>
+        </div>
+
+        <div class="tabcontent" id="fin-team" style="display:none;">
+          <div class="card card-pad">
+            <div class="list-row"><div><div class="name">Jordan Alvarez</div><div class="meta">accountant · external, no admin_users row</div></div><span class="badge badge-green">Active</span></div>
+            <div class="list-row"><div><div class="name">Priya Nair</div><div class="meta">bookkeeper</div></div><span class="badge badge-green">Active</span></div>
+            <div class="list-row"><div><div class="name">Marcus Webb</div><div class="meta">treasurer_readonly</div></div><span class="badge badge-slate">Read-only</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PARTNERSHIPS ============ -->
+      <section class="page" id="page-partnerships">
+        <div class="section-title"><h2>Partnerships</h2><span class="hint">Documents tab reuses existing PartnersDocumentsAdmin — rest is planned</span></div>
+        <div class="tabs">
+          <div class="tab active">Overview</div>
+          <div class="tab">Pipeline</div>
+          <div class="tab">Contacts</div>
+          <div class="tab">Documents</div>
+          <div class="tab">Meetings</div>
+        </div>
+        <div class="empty-state" style="margin-bottom:16px;">
+          <b>Pipeline / Contacts / Meetings / Tasks / Initiatives — planned</b>
+          No partner-intake data source exists yet. These tabs intentionally show no fabricated data.
+        </div>
+        <div class="card card-pad">
+          <div class="section-title" style="margin-top:0;"><h2>Documents (live, reused from /admin/partners-documents)</h2></div>
+          <div class="list-row"><div><div class="name">Due Diligence Packet — Cascade Regional</div><div class="meta">PDF · uploaded by admin · 2.4 MB</div></div><button class="btn">View</button></div>
+          <div class="list-row"><div><div class="name">Statement of Faith</div><div class="meta">PDF · shared library</div></div><button class="btn">View</button></div>
+          <div class="list-row"><div><div class="name">Board Roster 2026</div><div class="meta">XLSX</div></div><button class="btn">View</button></div>
+        </div>
+      </section>
+
+      <!-- ============ PEOPLE / ONBOARDING ============ -->
+      <section class="page" id="page-people">
+        <div class="section-title"><h2>Missionary Onboarding &amp; Status</h2><span class="hint">No workflow exists yet in /ncc/people — illustrative target state</span></div>
+        <div class="planned-badge" style="margin-bottom:14px;">Planned — shown here as target design, not built</div>
+        <div class="kanban">
+          <div class="kanban-col">
+            <h3>Applied (21)</h3>
+            <div class="kcard"><div class="name">Sam &amp; Erin Whitfield</div><div class="field">Southeast Asia · submitted 3d ago</div><div class="tags"><span class="badge badge-slate">New</span></div></div>
+            <div class="kcard"><div class="name">David Kim</div><div class="field">East Africa · submitted 1w ago</div></div>
+          </div>
+          <div class="kanban-col">
+            <h3>In Review (8)</h3>
+            <div class="kcard"><div class="name">Maria Torres</div><div class="field">Interview scheduled</div><div class="tags"><span class="badge badge-amber">Action needed</span></div></div>
+          </div>
+          <div class="kanban-col">
+            <h3>Approved (4)</h3>
+            <div class="kcard"><div class="name">The Nakamura Family</div><div class="field">Awaiting field activation</div></div>
+          </div>
+          <div class="kanban-col">
+            <h3>Active (112)</h3>
+            <div class="kcard"><div class="name">Ryan &amp; Brooke Fox</div><div class="field">Field workspace live</div><div class="tags"><span class="badge badge-green">Active</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PUBLIC FUNDRAISING HANDOFF ============ -->
+      <section class="page" id="page-fundraising">
+        <div class="section-title"><h2>Public Fundraising &amp; Profile Handoff</h2><span class="hint">Not present anywhere in current codebase — illustrative target state</span></div>
+        <div class="planned-badge" style="margin-bottom:14px;">Planned — target design only</div>
+        <div class="card card-pad">
+          <div class="list-row"><div><div class="name">Public profile published</div><div class="meta">/give/[userId] goes live</div></div><span class="badge badge-green">Step 1</span></div>
+          <div class="list-row"><div><div class="name">Giving record reconciliation</div><div class="meta">Match to support_commitments / Planning Center records</div></div><span class="badge badge-amber">Step 2 — manual today</span></div>
+          <div class="list-row"><div><div class="name">Handoff to Finance</div><div class="meta">Confirmed gifts flow into Finance workspace</div></div><span class="badge badge-slate">Step 3 — not built</span></div>
+        </div>
+      </section>
+
+      <!-- ============ PLANNED DEPARTMENTS (generic) ============ -->
+      <section class="page" id="page-executive">
+        <div class="section-title"><h2>Executive</h2></div>
+        <div class="planned-page">
+          <span class="planned-badge">Planned</span>
+          <p>No content built yet for this department. When defined, this page will surface founder-level cross-department signal — not a duplicate of Founder Review &amp; Alerts on Home.</p>
+        </div>
+      </section>
+      <section class="page" id="page-development">
+        <div class="section-title"><h2>Development</h2></div>
+        <div class="planned-page">
+          <span class="planned-badge">Planned</span>
+          <p>Major gift and donor development workflow. Today, this work happens in the legacy Financial Freedom / Major Gift Inquiries admin pages.</p>
+          <a class="legacy-link">↳ Open legacy /admin/financial-freedom</a>
+        </div>
+      </section>
+      <section class="page" id="page-communications">
+        <div class="section-title"><h2>Communications</h2></div>
+        <div class="planned-page">
+          <span class="planned-badge">Planned</span>
+          <p>Cross-department messaging and public-content coordination. Today this lives in the legacy Public Experience admin page.</p>
+          <a class="legacy-link">↳ Open legacy /admin/public-experience</a>
+        </div>
+      </section>
+      <section class="page" id="page-ministry-ops">
+        <div class="section-title"><h2>Ministry Operations</h2></div>
+        <div class="planned-page">
+          <span class="planned-badge">Planned</span>
+          <p>Relationship-intelligence and field-operations tooling. Today this lives in the legacy "Circle Engine."</p>
+          <a class="legacy-link">↳ Open legacy /admin/relationship-intelligence</a>
+        </div>
+      </section>
+      <section class="page" id="page-compliance-legal">
+        <div class="section-title"><h2>Compliance &amp; Legal</h2></div>
+        <div class="planned-page">
+          <span class="planned-badge">Planned</span>
+          <p>Broader legal/insurance/policy scope. Distinct from the already-built Finance → Compliance filings sub-area (Form 990, Arizona Annual Report).</p>
+        </div>
+      </section>
+
+      <!-- ============ LEGACY LINK-OUT PAGES ============ -->
+      <section class="page" id="page-legacy-prayer">
+        <div class="section-title"><h2>Prayer</h2></div>
+        <div class="planned-page">
+          <span class="tag tag-legacy" style="padding:4px 10px;font-size:11px;">Legacy — /admin</span>
+          <p>Fully built and live today under legacy admin. No NCC-side rebuild scheduled yet; kept intact per founder directive.</p>
+          <a class="legacy-link">↳ Open legacy /admin/prayer</a>
+        </div>
+      </section>
+      <section class="page" id="page-legacy-settings">
+        <div class="section-title"><h2>Settings</h2></div>
+        <div class="planned-page">
+          <span class="tag tag-legacy" style="padding:4px 10px;font-size:11px;">Legacy — /admin</span>
+          <p>Admin access and system access codes. Fully built and live today under legacy admin.</p>
+          <a class="legacy-link">↳ Open legacy /admin/settings</a>
+        </div>
+      </section>
+
+      <!-- ============ SYSTEM / DEVELOPER (visually distinct, separated) ============ -->
+      <section class="page" id="page-system">
+        <div class="system-shell">
+          <div class="section-title"><h2>System &amp; Developer</h2><span class="hint">Not part of ministry operations — infra/dev-only, does not exist in the codebase today (proposed)</span></div>
+          <div class="empty-state" style="background:var(--navy-700);border-color:var(--navy-600);color:#cdd6e5;margin-bottom:18px;">
+            <b style="color:#fff;">No "Operations Center" page exists anywhere in this repository today</b>
+            The founder screenshot this issue references does not correspond to any route in <code>/admin</code> or <code>/ncc</code>. This page is a proposed replacement, shown here as a design target — confirm the screenshot's actual source before building further.
+          </div>
+
+          <div class="card card-pad">
+            <div class="list-row">
+              <div><span class="agent-dot on"></span><b class="name">Dispatcher</b><div class="meta">Local Linear-polling daemon · USAM-Automation/src/dispatcher.mjs</div></div>
+              <span class="badge badge-green">Running</span>
+            </div>
+            <div class="list-row">
+              <div><span class="agent-dot on"></span><b class="name">Linear</b><div class="meta">Issue sync · last poll 12s ago</div></div>
+              <span class="badge badge-green">Connected</span>
+            </div>
+            <div class="list-row">
+              <div><span class="agent-dot on"></span><b class="name">Claude</b><div class="meta">3 active worktrees</div></div>
+              <span class="badge badge-green">Active</span>
+            </div>
+            <div class="list-row">
+              <div><span class="agent-dot idle"></span><b class="name">Codex</b><div class="meta">5 active worktrees, 2 idle</div></div>
+              <span class="badge badge-amber">Partial</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <div style="padding:0 28px 30px;">
+      <div class="footer-note">
+        Mockup for USA-63 · demo/sample data only · no production system is connected · prepared in worktree <code>usam-website-ncc-usa-31</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function go(pageId, el){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    var target = document.getElementById('page-'+pageId);
+    if(target) target.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    if(el && el.classList) el.classList.add('active');
+
+    var titles = {
+      home:['Operations Platform','Home dashboard · demo data'],
+      organizations:['Organizations','Reused data layer from admin/organizations'],
+      finance:['Finance & Compliance','Code-complete · gated behind unapplied migrations'],
+      partnerships:['Partnerships','Documents live · pipeline planned'],
+      people:['People','Missionary onboarding & status — planned'],
+      fundraising:['Public Fundraising & Profile Handoff','Planned — target design'],
+      executive:['Executive','Planned'],
+      development:['Development','Planned'],
+      communications:['Communications','Planned'],
+      'ministry-ops':['Ministry Operations','Planned'],
+      'compliance-legal':['Compliance & Legal','Planned'],
+      'legacy-prayer':['Prayer','Legacy — /admin, frozen scope'],
+      'legacy-settings':['Settings','Legacy — /admin, frozen scope'],
+      system:['System & Developer','Infra/dev status — separated from ministry ops']
+    };
+    var t = titles[pageId] || ['Operations Platform',''];
+    document.getElementById('page-title').textContent = t[0];
+    document.getElementById('page-sub').textContent = t[1];
+    window.scrollTo(0,0);
+  }
+
+  function tab(el, id){
+    var parent = el.closest('.tabs');
+    parent.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    var content = el.closest('section');
+    content.querySelectorAll('.tabcontent').forEach(c=>c.style.display='none');
+    var target = document.getElementById(id);
+    if(target) target.style.display='block';
+  }
+</script>
+</body>
+</html>
