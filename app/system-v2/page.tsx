@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import {
   ArrowDown,
-  ArrowRight,
   ExternalLink,
   Footprints,
   HeartHandshake,
@@ -143,8 +142,8 @@ function HeroSection() {
             people wherever they are.
           </p>
           <p className="mt-5 text-base leading-8 text-stone-400">
-            We do not wait for people to come into a building. We follow the example of Jesus by going to people in
-            homes, around tables, throughout communities, and into places of suffering.
+            We follow the example of Jesus by going into homes, communities, gathered settings, and places of suffering
+            to meet people where they are.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -185,8 +184,9 @@ function NarrativeSection() {
 
         <div className="lg:pt-2">
           <p className="text-lg leading-9 text-stone-300 md:text-xl md:leading-9">
-            Jesus did not wait inside a building for people to find Him. He entered homes, walked through communities,
-            gathered people, healed the sick, welcomed the overlooked, fed the hungry, and proclaimed the Kingdom of God.
+            Throughout the Gospels, Jesus ministered in homes, around tables, throughout towns and villages, in gathered
+            settings, and among people who were hurting or overlooked. USA Missionaries trains, equips, and sends
+            Christians to follow His example.
           </p>
           <blockquote className="mt-9 border-l-2 border-usam-gold/70 pl-6">
             <p
@@ -196,11 +196,6 @@ function NarrativeSection() {
               Our mission is to go where people already are.
             </p>
           </blockquote>
-          <p className="mt-8 text-base leading-8 text-stone-400">
-            Everything USA Missionaries does is shaped by the commands, priorities, and ministry pattern of Jesus. Not a
-            collection of unrelated programs. One mission, expressed wherever people already live, work, gather, and
-            suffer.
-          </p>
         </div>
       </div>
     </Section>
@@ -208,7 +203,114 @@ function NarrativeSection() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* 03 — WHERE WE GO                                                        */
+/* 03 — THE MISSION FLOW                                                   */
+/* ---------------------------------------------------------------------- */
+
+const flowPatterns = [
+  { icon: Table2, label: "Homes and Tables" },
+  { icon: Footprints, label: "Streets and Communities" },
+  { icon: HeartHandshake, label: "Places of Suffering" },
+  { icon: Users, label: "Gathered People" },
+];
+
+function FlowConnector() {
+  return (
+    <div className="flex flex-col items-center py-3" aria-hidden="true">
+      <span className="h-6 w-px bg-gradient-to-b from-usam-gold/10 to-usam-gold/45" />
+      <ArrowDown className="h-4 w-4 text-usam-gold/60" strokeWidth={2} />
+    </div>
+  );
+}
+
+function FlowStage({
+  detail,
+  title,
+  tone = "default",
+}: {
+  detail?: string;
+  title: string;
+  tone?: "default" | "origin" | "outcome";
+}) {
+  const shell = {
+    default: "border-stone-800 bg-white/[0.02]",
+    origin: "border-usam-gold/55 bg-usam-gold/[0.12]",
+    outcome: "border-usam-gold/45 bg-usam-gold/[0.09]",
+  }[tone];
+
+  const titleClass = {
+    default: "text-xl text-stone-100 md:text-2xl",
+    origin: "text-4xl text-usam-gold md:text-5xl",
+    outcome: "text-xl text-usam-gold md:text-2xl",
+  }[tone];
+
+  return (
+    <div className={`border px-5 py-5 text-center ${shell}`}>
+      <h3 className={`font-bold uppercase leading-tight ${titleClass}`} style={{ fontFamily: font.oswald }}>
+        {title}
+      </h3>
+      {detail ? (
+        <p
+          className="mt-2 text-[11px] font-bold uppercase leading-5 tracking-[0.2em] text-stone-400"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          {detail}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MissionFlowSection() {
+  return (
+    <Section variant="feature">
+      <div className="max-w-3xl">
+        <Eyebrow>How It Fits Together</Eyebrow>
+      </div>
+
+      <div className="mx-auto mt-10 max-w-3xl">
+        <FlowStage title="Jesus" detail="Commands · Teaching · Example" tone="origin" />
+        <FlowConnector />
+        <FlowStage title="USA Missionaries" detail="Train · Equip · Send" />
+        <FlowConnector />
+        <FlowStage title="Missionaries Go" />
+        <FlowConnector />
+
+        <div className="grid grid-cols-2 gap-px border border-stone-800 bg-stone-800 md:grid-cols-4">
+          {flowPatterns.map((pattern) => {
+            const Icon = pattern.icon;
+
+            return (
+              <div
+                className="flex min-h-[104px] flex-col items-center justify-center gap-3 bg-[#0D0D0D] px-4 py-5 text-center"
+                key={pattern.label}
+              >
+                <Icon className="h-5 w-5 text-usam-gold" aria-hidden="true" strokeWidth={1.7} />
+                <span
+                  className="text-[11px] font-bold uppercase leading-5 tracking-[0.16em] text-stone-200"
+                  style={{ fontFamily: font.rajdhani }}
+                >
+                  {pattern.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <FlowConnector />
+        <FlowStage title="Kitchen Table Gospel" detail="Relational discipleship method" />
+        <FlowConnector />
+        <FlowStage title="Discipleship Operating System" detail="Operational foundation" />
+        <FlowConnector />
+        <FlowStage title="Trusted Ministry Partners" detail="Specialized experience and infrastructure" />
+        <FlowConnector />
+        <FlowStage title="People Are Served And Disciples Are Made" tone="outcome" />
+      </div>
+    </Section>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* 04 — HOW JESUS MINISTERED                                               */
 /* ---------------------------------------------------------------------- */
 
 type Expression = {
@@ -228,7 +330,7 @@ const expressions: Expression[] = [
     title: "Homes and Tables",
   },
   {
-    body: "Jesus walked through towns and villages, spoke with people others ignored, and brought the Kingdom into everyday life. We go into our communities rather than waiting for people to come to us.",
+    body: "Jesus walked through towns and villages, spoke with people others ignored, and brought the Kingdom into everyday life. Missionaries carry that same presence into their own communities.",
     icon: Footprints,
     lead: "Pray, proclaim, and be present.",
     number: "02",
@@ -242,7 +344,7 @@ const expressions: Expression[] = [
     title: "Places of Suffering",
   },
   {
-    body: "Jesus gathered people for teaching, prayer, fellowship, accountability, and preparation for mission. We help believers form consistent relationships centered on Scripture, obedience, prayer, and making disciples.",
+    body: "Jesus gathered people for teaching, prayer, fellowship, and accountability. We help believers form consistent relationships centered on Scripture, obedience, and making disciples.",
     icon: Users,
     lead: "Help disciples grow together.",
     number: "04",
@@ -288,14 +390,10 @@ function WhereWeGoSection() {
   return (
     <Section id="where-we-go" variant="panel">
       <div className="max-w-3xl">
-        <Eyebrow>Where We Go</Eyebrow>
-        <SectionTitle>
-          Four Places The Mission
-          <br />
-          Takes Us.
-        </SectionTitle>
+        <Eyebrow>Following The Pattern Of Jesus</Eyebrow>
+        <SectionTitle>How Jesus Ministered.</SectionTitle>
         <p className="mt-6 text-base leading-8 text-stone-400 md:text-lg">
-          The same mission, carried outward into the places where people already are.
+          Four patterns run through His ministry in the Gospels. Missionaries are trained to follow the same ones.
         </p>
       </div>
 
@@ -415,11 +513,6 @@ function WhoWeServeSection() {
           </li>
         ))}
       </ul>
-
-      <p className="mt-10 max-w-3xl border-l-2 border-[#8C6D1F]/60 pl-6 text-base leading-8 text-[#3B3833]">
-        These are not categories chosen by strategy. They are the people Jesus taught His followers to see, love, and
-        serve, and they shape where USA Missionaries sends people.
-      </p>
     </Section>
   );
 }
@@ -449,60 +542,15 @@ const responseSteps = [
   },
 ];
 
-function MovementRail() {
-  const stages = ["The commands of Jesus", "Trained and sent missionaries", "Real people and places"];
-
-  return (
-    <div className="mt-12 border-y border-stone-800/70 py-7">
-      <div className="grid gap-6 sm:grid-cols-3 sm:gap-4">
-        {stages.map((stage, index) => (
-          <div className="relative flex items-center gap-4" key={stage}>
-            <span className="relative flex h-3 w-3 shrink-0 items-center justify-center">
-              <span className="absolute h-3 w-3 rounded-full border border-usam-gold/45" />
-              <span className="h-[5px] w-[5px] rounded-full bg-usam-gold" />
-            </span>
-            <span
-              className="text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-stone-300"
-              style={{ fontFamily: font.rajdhani }}
-            >
-              {stage}
-            </span>
-            {index < stages.length - 1 ? (
-              <>
-                <ArrowRight
-                  aria-hidden="true"
-                  className="ml-auto hidden h-4 w-4 shrink-0 text-usam-gold/60 sm:block"
-                  strokeWidth={2}
-                />
-                <ArrowDown
-                  aria-hidden="true"
-                  className="ml-auto h-4 w-4 shrink-0 text-usam-gold/60 sm:hidden"
-                  strokeWidth={2}
-                />
-              </>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ResponseSection() {
   return (
     <Section variant="feature">
       <div className="max-w-3xl">
         <Eyebrow>How USA Missionaries Responds</Eyebrow>
         <SectionTitle>Train. Equip. Send.</SectionTitle>
-        <p className="mt-6 text-base leading-8 text-stone-400 md:text-lg">
-          The movement runs one direction: outward. From the commands of Jesus, through prepared missionaries, toward
-          the people He sends them to.
-        </p>
       </div>
 
-      <MovementRail />
-
-      <div className="mt-10 grid gap-px bg-stone-800/70 md:grid-cols-3">
+      <div className="mt-12 grid gap-px bg-stone-800/70 md:grid-cols-3">
         {responseSteps.map((step) => (
           <div className="flex flex-col bg-[#0D0D0D] p-7 md:p-8" key={step.title}>
             <span
@@ -529,19 +577,6 @@ function ResponseSection() {
 /* ---------------------------------------------------------------------- */
 /* 06 — THE METHOD AND THE FOUNDATION                                      */
 /* ---------------------------------------------------------------------- */
-
-const dosSupports = [
-  "Kitchen Tables",
-  "Discipleship gatherings",
-  "Missionary relationships",
-  "Prayer",
-  "Follow-up after evangelism",
-  "Prison discipleship",
-  "Nursing-home ministry",
-  "Community outreach",
-  "2THREE2 leadership",
-  "Other missionary assignments",
-];
 
 function MethodAndFoundationSection() {
   return (
@@ -603,21 +638,7 @@ function MethodAndFoundationSection() {
         </div>
       </article>
 
-      <div className="mt-8">
-        <p
-          className="text-[10px] font-bold uppercase tracking-[0.24em] text-stone-500"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          The same operational system supports
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {dosSupports.map((item) => (
-            <Chip key={item}>{item}</Chip>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-center justify-center gap-3" aria-hidden="true">
+      <div className="mt-8 flex items-center justify-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#378ADD]/35" />
         <ArrowDown className="h-5 w-5 text-[#7FB8F0]/70" strokeWidth={2} />
         <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#378ADD]/35" />
@@ -647,8 +668,8 @@ function MethodAndFoundationSection() {
               Discipleship Operating System
             </h3>
             <p className="mt-5 max-w-2xl text-base leading-8 text-stone-300 md:text-[17px]">
-              The operational tool beneath the mission, helping missionaries care for people, manage follow-up, record
-              meetings, pray faithfully, remain accountable, and organize the work of discipleship.
+              The operational foundation beneath the mission, helping missionaries care for people, follow up
+              faithfully, and organize the work of discipleship.
             </p>
           </div>
 
@@ -691,8 +712,8 @@ function PartnersSection() {
         <SectionTitle>We Do Not Go Alone.</SectionTitle>
         <p className="mt-6 text-base leading-8 text-stone-400 md:text-lg">
           USA Missionaries works alongside trusted churches and ministry organizations already serving people with
-          experience, credibility, and care. Rather than duplicating their work, we train and send missionaries to
-          support the mission together.
+          experience and care. Rather than duplicating their work, we train and send missionaries to serve alongside
+          them.
         </p>
       </div>
 
@@ -713,9 +734,8 @@ function PartnersSection() {
             </span>
           </div>
           <p className="mt-4 max-w-2xl text-base leading-8 text-stone-400">
-            A current strategic partner example: an independent ministry helping people experience freedom, healing,
-            reconciliation, and ongoing discipleship. USA Missionaries trains and sends missionaries to serve alongside
-            them.
+            A current strategic partner: an independent ministry helping people experience freedom, healing,
+            reconciliation, and ongoing discipleship.
           </p>
         </div>
 
@@ -806,6 +826,7 @@ export default function SystemV2Page() {
       <PrimaryNav active="system" />
       <HeroSection />
       <NarrativeSection />
+      <MissionFlowSection />
       <WhereWeGoSection />
       <WhoWeServeSection />
       <ResponseSection />
