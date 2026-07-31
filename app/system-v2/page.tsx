@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   ArrowDown,
   ArrowRight,
@@ -20,7 +19,6 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const kitchenTableGospelUrl = domainSites["kitchen-table-gospel"].canonicalOrigin;
 const dosUrl = domainSites["discipleship-operating-system"].canonicalOrigin;
 const morUrl = "https://mor-mn.com/";
-const strategicPartnersHref = "/partners";
 
 export const metadata: Metadata = {
   description:
@@ -721,7 +719,7 @@ function PartnersSection() {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3">
+        <div className="shrink-0">
           <a
             className={quietCtaClassName}
             href={morUrl}
@@ -732,18 +730,6 @@ function PartnersSection() {
             Visit Ministry of Reconciliation
             <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
           </a>
-          <div>
-            <Link className={quietCtaClassName} href={strategicPartnersHref} style={{ fontFamily: font.rajdhani }}>
-              View Strategic Partners
-              <ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
-            </Link>
-            <p
-              className="mt-2 text-center text-[10px] uppercase tracking-[0.16em] text-stone-600"
-              style={{ fontFamily: font.rajdhani }}
-            >
-              Ministry Network · Access required
-            </p>
-          </div>
         </div>
       </article>
 
