@@ -46,6 +46,7 @@
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",
     "test:usa-82-launch-validation": "node scripts/usa-82-launch-validation-regression.mjs",
     "test:join-contract": "node scripts/join-provisioner-contract-regression.mjs",
+    "test:2three2-preview": "node scripts/2three2-preview-regression.mjs",
     "start": "next start"
   },
   "dependencies": {

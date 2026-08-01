@@ -10,137 +10,23 @@ import {
   HandHeart,
   Handshake,
   Mountain,
-  Sparkles,
-  Users,
+  PersonStanding,
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
+import { HeroScene } from "./HeroScene";
+import { KitSpec, PacelineScene, sponsors } from "./IronmanVisual";
+import { CTAButton, Eyebrow, PoweredBy, Reveal, SectionHeading, Wordmark } from "./primitives";
+import { font, t2 } from "./theme";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
+/* ------------------------------------------------------------------ chrome */
 
-// 2THREE2 keeps the USAM brand family (Oswald / Rajdhani / Inter, dark canvas,
-// Reveal-on-scroll pattern) established by the other domain-site mockups
-// (Kitchen Table Gospel, DOS) but trades their cool blues for a warm sunrise
-// accent, since this is an outdoors / active-movement brand, not a study or
-// operations tool. Deep green-charcoal reads "trail," not "gym" or "ops room."
-const t2 = {
-  accent: "#E8873F",
-  accentDeep: "#B85F1F",
-  accentSoft: "#F5B979",
-  bg: "#0F1611",
-  bgAlt: "#0B100C",
-  cream: "#F3ECDD",
-  panel: "#171F19",
-  panelBorder: "rgba(243,236,221,0.12)",
-} as const;
-
-function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) setVisible(true);
-    }, { threshold: 0.15 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className="transition-all duration-700"
-      style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(28px)", transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="mb-4 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em]"
-      style={{ color: t2.accentSoft, fontFamily: font.rajdhani }}
-    >
-      <span className="h-px w-8" style={{ background: t2.accentDeep }} />
-      {children}
-    </p>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  headline,
-  children,
-  align = "center",
-}: {
-  eyebrow?: string;
-  headline: React.ReactNode;
-  children?: React.ReactNode;
-  align?: "center" | "left";
-}) {
-  return (
-    <div className={`max-w-3xl ${align === "center" ? "mx-auto text-center" : "text-left"}`}>
-      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-      <h2
-        className="text-3xl font-bold leading-[1.05] tracking-tight text-stone-100 md:text-5xl"
-        style={{ fontFamily: font.oswald }}
-      >
-        {headline}
-      </h2>
-      {children ? <div className="mt-5 text-base leading-relaxed text-stone-400 md:text-lg">{children}</div> : null}
-    </div>
-  );
-}
-
-function ctaVisuals(variant: "primary" | "secondary") {
-  const className = "inline-flex items-center justify-center gap-2 whitespace-nowrap border px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all duration-300 sm:px-7 sm:text-sm sm:tracking-[0.18em]";
-  const style: React.CSSProperties = variant === "primary"
-    ? { background: t2.accent, borderColor: t2.accent, color: "#1A1006", fontFamily: font.rajdhani }
-    : { borderColor: t2.accentDeep, color: t2.cream, fontFamily: font.rajdhani };
-
-  return { className, style };
-}
-
-function CTAButton({
-  children,
-  variant = "primary",
-  href,
-  onClick,
-}: {
-  children: React.ReactNode;
-  variant?: "primary" | "secondary";
-  href?: string;
-  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
-}) {
-  const { className, style } = ctaVisuals(variant);
-
-  return (
-    <a
-      href={href}
-      onClick={onClick}
-      className={className}
-      style={style}
-      onMouseEnter={(e) => { if (variant === "secondary") e.currentTarget.style.background = "rgba(232,135,63,0.12)"; }}
-      onMouseLeave={(e) => { if (variant === "secondary") e.currentTarget.style.background = "transparent"; }}
-    >
-      {children}
-    </a>
-  );
-}
-
-// Slim strip, not the main header, so it can't be mistaken for real site chrome
-// but still makes it obvious to anyone with the link that this is a concept.
 function FounderPreviewBanner() {
   return (
     <div
-      className="relative z-[60] w-full border-b px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.2em]"
-      style={{ background: t2.bgAlt, borderColor: t2.panelBorder, color: t2.accentSoft, fontFamily: font.rajdhani }}
+      className="relative z-[60] w-full border-b px-4 py-2 text-center text-[9px] font-semibold uppercase leading-tight tracking-[0.18em] sm:text-[10px] sm:tracking-[0.2em]"
+      style={{ background: t2.inkDeep, borderColor: t2.panelBorder, color: t2.goldSoft, fontFamily: font.ui }}
     >
       Founder Preview &middot; 2THREE2 Design Concept &middot; Not a Live Site
     </div>
@@ -150,84 +36,25 @@ function FounderPreviewBanner() {
 function Header() {
   return (
     <header
-      className="fixed inset-x-0 top-[29px] z-50 w-full border-b"
-      style={{ background: "rgba(15,22,17,0.92)", backdropFilter: "blur(12px)", borderColor: t2.panelBorder }}
+      className="fixed inset-x-0 top-[27px] z-50 w-full border-b sm:top-[29px]"
+      style={{ background: "rgba(6,9,13,0.9)", backdropFilter: "blur(14px)", borderColor: t2.panelBorder }}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3.5 md:px-10 md:py-4">
+        {/* not a single wrapping anchor: PoweredBy carries its own link out to
+            usamissionaries.org, and nesting anchors is invalid HTML */}
         <div className="flex flex-col leading-none">
-          <a
-            href="#top"
-            className="text-lg font-bold tracking-[0.06em] text-stone-100 sm:text-xl"
-            style={{ fontFamily: font.oswald }}
-          >
-            2THREE2
+          <a href="#top">
+            <Wordmark className="text-lg sm:text-xl" />
           </a>
-          <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.14em] sm:text-[10px] sm:tracking-[0.26em]" style={{ color: t2.accentSoft, fontFamily: font.rajdhani }}>
-            Powered by{" "}
-            <a href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-100">
-              USA Missionaries
-            </a>
-          </span>
+          <PoweredBy className="mt-1 hidden sm:inline" />
         </div>
-
         <CTAButton href="#start-or-join">Join the Movement</CTAButton>
       </div>
     </header>
   );
 }
 
-// A hand-tuned wave (not a literal GPS track) representing a run/ride/hike route.
-// Four waypoints along it echo the Four Commitments below, so the hero visual
-// pays off later in the page instead of being decorative-only.
-const trailPoints: Array<[number, number]> = Array.from({ length: 48 }, (_, i) => {
-  const progress = i / 47;
-  const x = 30 + progress * 480;
-  const y = 260 + Math.sin(progress * Math.PI * 2.3) * 130 * (1 - progress * 0.25);
-  return [x, y];
-});
-const trailPathD = trailPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-const trailWaypoints = [0.06, 0.36, 0.66, 0.95].map((progress) => {
-  const index = Math.round(progress * (trailPoints.length - 1));
-  return trailPoints[index];
-});
-const trailLabels = ["MOVE", "PRAY", "PURSUE", "GO"] as const;
-
-function TrailHero() {
-  return (
-    <svg viewBox="0 0 540 400" className="h-auto w-full overflow-visible" aria-hidden="true">
-      <defs>
-        <radialGradient id="trailGlow" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor={t2.accent} stopOpacity={0.16} />
-          <stop offset="100%" stopColor={t2.accent} stopOpacity={0} />
-        </radialGradient>
-      </defs>
-      <ellipse cx={270} cy={230} rx={260} ry={190} fill="url(#trailGlow)" />
-      <path d={trailPathD} fill="none" stroke={t2.panelBorder} strokeWidth={2} />
-      <path d={trailPathD} fill="none" stroke={t2.accent} strokeWidth={2} strokeDasharray="2,10" strokeLinecap="round" opacity={0.85}>
-        <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="2.4s" repeatCount="indefinite" />
-      </path>
-      {trailWaypoints.map(([x, y], i) => (
-        <g key={trailLabels[i]}>
-          <circle cx={x} cy={y} r={16} fill={t2.bg} stroke={t2.accent} strokeWidth={1.6} />
-          <circle cx={x} cy={y} r={4} fill={t2.accent}>
-            <animate attributeName="opacity" values="0.5;1;0.5" dur={`${2.4 + i * 0.4}s`} repeatCount="indefinite" />
-          </circle>
-          <text
-            x={x}
-            y={i % 2 === 0 ? y - 28 : y + 40}
-            textAnchor="middle"
-            fill={t2.cream}
-            fontSize={13}
-            letterSpacing="0.16em"
-            style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
-          >
-            {trailLabels[i]}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
-}
+/* ------------------------------------------------------- why we move flow */
 
 const progressionSteps = [
   "Show up",
@@ -239,74 +66,106 @@ const progressionSteps = [
 ] as const;
 
 function ProgressionFlow() {
+  const nodes = progressionSteps.map((label, i) => ({
+    label,
+    x: 96 + i * 186,
+    y: 168 - i * 24,
+  }));
+  const linePath = nodes
+    .map((n, i) => {
+      if (i === 0) return `M${n.x},${n.y}`;
+      const prev = nodes[i - 1];
+      const mx = (prev.x + n.x) / 2;
+      return `C${mx},${prev.y} ${mx},${n.y} ${n.x},${n.y}`;
+    })
+    .join(" ");
+
   return (
-    <div className="flex flex-wrap items-stretch justify-center gap-3 md:flex-nowrap md:gap-2">
-      {progressionSteps.map((step, i) => (
-        <React.Fragment key={step}>
-          <div
-            className="flex min-w-[128px] flex-1 items-center justify-center border px-4 py-4 text-center md:min-w-0"
-            style={{ background: t2.panel, borderColor: t2.panelBorder }}
-          >
-            <span className="text-xs font-bold uppercase leading-snug tracking-[0.1em] text-stone-100 sm:text-sm" style={{ fontFamily: font.rajdhani }}>
+    <>
+      {/* desktop: an ascending path, so the progression reads as growth */}
+      <svg aria-hidden="true" className="hidden w-full md:block" viewBox="0 0 1120 230">
+        <defs>
+          <linearGradient id="flow-line" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor={t2.goldDeep} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={t2.goldSoft} />
+          </linearGradient>
+        </defs>
+        <path d={linePath} fill="none" stroke="url(#flow-line)" strokeLinecap="round" strokeWidth={2} />
+        {nodes.map((n, i) => (
+          <g key={n.label}>
+            <circle cx={n.x} cy={n.y} fill={t2.ink} r={10} stroke={t2.gold} strokeWidth={1.8} />
+            <circle cx={n.x} cy={n.y} fill={t2.gold} opacity={0.35 + i * 0.13} r={4} />
+            <text
+              fill={t2.creamFaint}
+              fontFamily={font.ui}
+              fontSize={11}
+              fontWeight={600}
+              letterSpacing={2}
+              textAnchor="middle"
+              x={n.x}
+              y={n.y - 24}
+            >
+              {String(i + 1).padStart(2, "0")}
+            </text>
+            <text
+              fill="#FFFFFF"
+              fontFamily={font.display}
+              fontSize={17}
+              fontWeight={500}
+              textAnchor="middle"
+              x={n.x}
+              y={n.y + 34}
+            >
+              {n.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+
+      {/* mobile view — also the accessible representation of the flow above */}
+      <ol className="relative md:hidden">
+        <span aria-hidden="true" className="absolute bottom-4 left-[13px] top-4 w-px" style={{ background: t2.goldDeep }} />
+        {progressionSteps.map((step, i) => (
+          <li key={step} className="relative flex items-center gap-4 py-3">
+            <span
+              className="relative z-10 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border text-[10px] font-bold"
+              style={{ background: t2.ink, borderColor: t2.gold, color: t2.goldSoft, fontFamily: font.ui }}
+            >
+              {i + 1}
+            </span>
+            <span className="text-lg font-medium" style={{ color: "#FFFFFF", fontFamily: font.display }}>
               {step}
             </span>
-          </div>
-          {i < progressionSteps.length - 1 ? (
-            <span
-              aria-hidden="true"
-              className="hidden items-center justify-center text-lg md:flex"
-              style={{ color: t2.accentSoft }}
-            >
-              &rarr;
-            </span>
-          ) : null}
-        </React.Fragment>
-      ))}
-    </div>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
+
+/* ------------------------------------------------------------- commitments */
 
 const commitments: Array<{ icon: LucideIcon; title: string; body: string }> = [
   { body: "Create consistent rhythms of activity together.", icon: Footprints, title: "Move" },
   { body: "Pray for one another and the places we move through.", icon: HandHeart, title: "Pray" },
-  { body: "Pursue righteousness, faith, love, peace, and Jesus.", icon: Compass, title: "Pursue" },
-  { body: "Carry faith into homes, workplaces, neighborhoods, and mission fields.", icon: Flag, title: "Go" },
+  { body: "Pursue righteousness, faith, love, peace, and Jesus together.", icon: Compass, title: "Pursue" },
+  {
+    body: "Carry faith into homes, workplaces, neighborhoods, communities, and mission fields.",
+    icon: Flag,
+    title: "Go",
+  },
 ];
 
-function CommitmentCard({ icon: Icon, title, body, delay }: { icon: LucideIcon; title: string; body: string; delay: number }) {
-  return (
-    <Reveal delay={delay}>
-      <div className="h-full border p-7" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
-        <div className="mb-5 inline-flex h-11 w-11 items-center justify-center border" style={{ borderColor: t2.accentDeep, color: t2.accentSoft }}>
-          <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.6} />
-        </div>
-        <h3 className="text-xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>{title}</h3>
-        <p className="mt-3 text-sm leading-relaxed text-stone-400">{body}</p>
-      </div>
-    </Reveal>
-  );
-}
+/* --------------------------------------------------------------- activities */
 
 const activities: Array<{ icon: LucideIcon; label: string }> = [
   { icon: Footprints, label: "Running" },
-  { icon: Footprints, label: "Walking" },
+  { icon: PersonStanding, label: "Walking" },
   { icon: Mountain, label: "Hiking" },
   { icon: Bike, label: "Cycling" },
   { icon: Waves, label: "Triathlon" },
   { icon: Dumbbell, label: "Fitness" },
 ];
-
-function ActivityPill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div
-      className="flex items-center gap-2.5 border px-4 py-3"
-      style={{ background: t2.panel, borderColor: t2.panelBorder }}
-    >
-      <Icon aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={1.7} style={{ color: t2.accentSoft }} />
-      <span className="text-sm font-semibold text-stone-200">{label}</span>
-    </div>
-  );
-}
 
 const gatheringSteps = [
   "Meet consistently.",
@@ -317,18 +176,39 @@ const gatheringSteps = [
   "Look for opportunities to serve and make disciples.",
 ] as const;
 
-const raceExamples = [
-  "Raise awareness for the mission",
-  "Recruit prayer partners",
-  "Invite business sponsors",
-  "Rally support around a missionary assignment",
+/* ------------------------------------------------------------- race section */
+
+const raceOutcomes = [
+  "Build awareness for USA Missionaries",
+  "Invite prayer partners into the journey",
+  "Engage business sponsors",
+  "Rally a local community around the mission",
+  "Support missionary deployment",
 ] as const;
+
+const missionFields = [
+  "Prisons",
+  "Juvenile facilities",
+  "Orphan care",
+  "Nursing homes",
+  "Schools",
+  "Campuses",
+  "First responders",
+  "Military & veterans",
+  "Immigrant & refugee communities",
+  "Homeless communities",
+  "Neighborhoods & workplaces",
+] as const;
+
+/* --------------------------------------------------------- interest concept */
 
 type InterestKind = "join" | "start";
 
-// Local-only concept UI. No network call, no Supabase, no backend: submitting
-// just flips a confirmation message so the founder can see the intended shape
-// of the flow without this preview accidentally collecting real data.
+/**
+ * Local-only concept UI. No network call, no Supabase, no backend: submitting
+ * flips a confirmation so the founder can see the intended shape of the flow
+ * without this preview ever collecting real data.
+ */
 function InterestConceptCard({
   kind,
   title,
@@ -345,16 +225,23 @@ function InterestConceptCard({
   const fieldPrefix = `${kind}-gathering`;
 
   return (
-    <div className="flex h-full flex-col border p-7 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
-      <h3 className="text-2xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>{title}</h3>
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-stone-400">{body}</p>
+    <div
+      className="flex h-full flex-col border p-7 md:p-8"
+      style={{ background: t2.panel, borderColor: t2.panelBorder }}
+    >
+      <h3 className="text-2xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+        {title}
+      </h3>
+      <p className="mt-3 flex-1 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
+        {body}
+      </p>
 
       {!isOpen ? (
         <button
-          type="button"
-          onClick={() => setIsOpen(true)}
           className="mt-6 inline-flex items-center justify-center gap-2 border px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors duration-300 sm:text-sm sm:tracking-[0.18em]"
-          style={{ borderColor: t2.accent, color: t2.accentSoft, fontFamily: font.rajdhani }}
+          onClick={() => setIsOpen(true)}
+          style={{ borderColor: t2.gold, color: t2.goldSoft, fontFamily: font.ui }}
+          type="button"
         >
           {ctaLabel}
         </button>
@@ -367,42 +254,54 @@ function InterestConceptCard({
           }}
         >
           {isSubmitted ? (
-            <p className="border p-4 text-sm leading-relaxed" style={{ background: "rgba(232,135,63,0.08)", borderColor: t2.accentDeep, color: t2.accentSoft }}>
-              Thanks for the interest. This is a design preview only, so nothing was actually sent. A real interest form will be built in a future phase.
+            <p
+              className="border p-4 text-sm leading-relaxed"
+              style={{ background: "rgba(212,168,85,0.08)", borderColor: t2.goldDeep, color: t2.goldSoft }}
+            >
+              Thanks for the interest. This is a design preview only, so nothing was sent or stored. A real
+              interest form comes in a later phase.
             </p>
           ) : (
             <>
               <div>
-                <label htmlFor={`${fieldPrefix}-name`} className="text-[11px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                <label
+                  className="text-[11px] uppercase tracking-[0.15em]"
+                  htmlFor={`${fieldPrefix}-name`}
+                  style={{ color: t2.creamFaint, fontFamily: font.ui }}
+                >
                   Name
                 </label>
                 <input
+                  className="mt-2 min-h-11 w-full border bg-transparent px-3 text-sm outline-none"
                   id={`${fieldPrefix}-name`}
-                  type="text"
                   placeholder="Your name"
-                  className="mt-2 min-h-11 w-full border bg-transparent px-3 text-sm text-stone-100 outline-none placeholder:text-stone-600"
-                  style={{ borderColor: t2.panelBorder }}
+                  style={{ borderColor: t2.panelBorder, color: "#FFFFFF" }}
+                  type="text"
                 />
               </div>
               <div>
-                <label htmlFor={`${fieldPrefix}-city`} className="text-[11px] uppercase tracking-[0.15em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+                <label
+                  className="text-[11px] uppercase tracking-[0.15em]"
+                  htmlFor={`${fieldPrefix}-city`}
+                  style={{ color: t2.creamFaint, fontFamily: font.ui }}
+                >
                   City
                 </label>
                 <input
+                  className="mt-2 min-h-11 w-full border bg-transparent px-3 text-sm outline-none"
                   id={`${fieldPrefix}-city`}
-                  type="text"
                   placeholder="City, State"
-                  className="mt-2 min-h-11 w-full border bg-transparent px-3 text-sm text-stone-100 outline-none placeholder:text-stone-600"
-                  style={{ borderColor: t2.panelBorder }}
+                  style={{ borderColor: t2.panelBorder, color: "#FFFFFF" }}
+                  type="text"
                 />
               </div>
-              <p className="text-[11px] leading-relaxed text-stone-600">
-                Concept only &mdash; this preview form is not connected to anything yet.
+              <p className="text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
+                Concept only &mdash; this preview form is not connected to anything.
               </p>
               <button
-                type="submit"
                 className="inline-flex w-full items-center justify-center gap-2 px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] sm:text-sm sm:tracking-[0.18em]"
-                style={{ background: t2.accent, color: "#1A1006", fontFamily: font.rajdhani }}
+                style={{ background: t2.gold, color: "#140F04", fontFamily: font.ui }}
+                type="submit"
               >
                 Submit interest
               </button>
@@ -414,242 +313,572 @@ function InterestConceptCard({
   );
 }
 
+/* ------------------------------------------------------------------- page */
+
 export function Two3TwoPage() {
   return (
-    <main id="top" className="min-h-screen" data-domain-site="2three2-v1" style={{ background: t2.bg, color: t2.cream }}>
+    <main
+      className="min-h-screen overflow-x-hidden"
+      data-domain-site="2three2-v1"
+      id="top"
+      style={{ background: t2.ink, color: t2.cream }}
+    >
       <FounderPreviewBanner />
       <Header />
 
-      {/* HERO */}
-      <section className="relative flex min-h-screen items-center overflow-hidden pt-40 md:pt-32">
-        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 30%, rgba(232,135,63,0.1) 0%, transparent 55%)` }} />
-        <div className="pointer-events-none absolute inset-0" style={{ background: `linear-gradient(180deg, ${t2.bgAlt} 0%, ${t2.bg} 45%, ${t2.bgAlt} 100%)` }} />
+      {/* ============================================================ HERO */}
+      <section className="relative flex flex-col overflow-hidden pt-24 md:min-h-screen md:justify-center md:pt-24">
+        {/* Desktop gets the scene full-bleed behind the copy. On a phone that
+            same treatment turns to mud — the headline and the illustration end
+            up competing for the same 390px — so mobile drops the scene into a
+            clean band underneath the copy instead of behind it. */}
+        <HeroScene anchor="xMidYMax" className="absolute inset-0 hidden h-full w-full md:block" />
+        <div
+          className="absolute inset-0 hidden md:block"
+          style={{
+            background:
+              "linear-gradient(100deg, rgba(5,7,10,0.95) 0%, rgba(5,7,10,0.88) 34%, rgba(5,7,10,0.34) 60%, rgba(5,7,10,0.08) 78%, rgba(5,7,10,0.34) 100%)",
+          }}
+        />
 
-        <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-16 px-6 py-16 md:grid-cols-2 md:items-center md:px-10">
-          <div>
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-6 md:px-10 md:py-16">
+          <div className="max-w-2xl">
             <Reveal>
               <Eyebrow>An active discipleship movement</Eyebrow>
             </Reveal>
             <Reveal delay={100}>
-              <h1 className="text-5xl font-bold leading-[1.03] tracking-tight text-stone-100 sm:text-6xl md:text-7xl" style={{ fontFamily: font.oswald }}>
+              <h1
+                className="text-[2.9rem] font-bold leading-[0.98] tracking-tight sm:text-6xl md:text-7xl lg:text-[5.25rem]"
+                style={{ color: "#FFFFFF", fontFamily: font.display }}
+              >
                 Run. Pray.
                 <br />
-                Pursue.
+                <span style={{ color: t2.gold }}>Pursue.</span>
               </h1>
             </Reveal>
             <Reveal delay={200}>
               <p
-                className="mt-6 text-[13px] font-semibold uppercase leading-loose tracking-[0.2em] sm:text-sm"
-                style={{ color: t2.accentSoft, fontFamily: font.rajdhani }}
+                className="mt-5 text-[12px] font-semibold uppercase leading-loose tracking-[0.18em] sm:text-sm sm:tracking-[0.2em]"
+                style={{ color: t2.goldSoft, fontFamily: font.ui }}
               >
                 Move together. Pray together. Pursue Jesus together.
               </p>
             </Reveal>
             <Reveal delay={300}>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-stone-400 md:text-lg">
-                2THREE2 is an active discipleship movement where people move together, pray over their communities,
-                build authentic relationships, and pursue Jesus side by side.
+              <p className="mt-5 max-w-xl text-base leading-relaxed md:text-lg" style={{ color: t2.creamMuted }}>
+                2THREE2 is an active discipleship movement where ordinary people move together, pray over their
+                communities, build authentic relationships, and pursue Jesus side by side.
               </p>
             </Reveal>
             <Reveal delay={420}>
-              <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:gap-4">
                 <CTAButton href="#start-or-join">Join the Movement</CTAButton>
-                <CTAButton variant="secondary" href="#why-we-move">See How It Works</CTAButton>
+                <CTAButton href="#why-we-move" variant="secondary">
+                  See How It Works
+                </CTAButton>
               </div>
             </Reveal>
+            <Reveal delay={520}>
+              <p className="mt-6 sm:hidden">
+                <PoweredBy />
+              </p>
+            </Reveal>
           </div>
+        </div>
 
-          <Reveal delay={260}>
-            <div className="relative mx-auto max-w-md md:max-w-none">
-              <TrailHero />
-            </div>
-          </Reveal>
+        {/* mobile scene band, in normal flow beneath the copy */}
+        <div className="relative mt-auto w-full md:hidden">
+          <HeroScene anchor="xMaxYMax" className="h-[32vh] min-h-[218px] w-full" />
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-20"
+            style={{ background: `linear-gradient(180deg, ${t2.ink} 0%, transparent 100%)` }}
+          />
         </div>
       </section>
 
-      {/* WHY WE MOVE */}
-      <section id="why-we-move" className="px-6 py-24 md:px-10 md:py-32">
+      {/* ==================================================== WHY WE MOVE */}
+      <section className="px-6 py-20 md:px-10 md:py-28" id="why-we-move">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="Why We Move" headline="Movement creates room for relationship.">
-              <p>Side by side, guards come down. Conversation moves easier. There is time, and there is trust.</p>
+              Side by side, guards come down. Conversation moves easier. There is time, there is honesty, and
+              there is room for God to do something.
             </SectionHeading>
           </Reveal>
           <Reveal delay={150}>
-            <div className="mt-14">
+            <div className="mt-12 md:mt-6">
               <ProgressionFlow />
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* FOUR COMMITMENTS */}
-      <section className="border-y px-6 py-24 md:px-10 md:py-32" style={{ background: t2.bgAlt, borderColor: t2.panelBorder }}>
+      {/* ================================================ FOUR COMMITMENTS */}
+      <section
+        className="border-y px-6 py-20 md:px-10 md:py-28"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="What We Commit To" headline="Four commitments, held together.">
-              <p>Not a program to finish. A rhythm to keep, with people who keep it alongside you.</p>
+              Not a program to finish. A rhythm to keep, with people who keep it alongside you.
             </SectionHeading>
           </Reveal>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {commitments.map((c, i) => (
-              <CommitmentCard key={c.title} body={c.body} delay={i * 120} icon={c.icon} title={c.title} />
+              <Reveal delay={i * 110} key={c.title}>
+                <div className="h-full border p-7" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
+                  <div
+                    className="mb-5 inline-flex h-11 w-11 items-center justify-center border"
+                    style={{ borderColor: t2.goldDeep, color: t2.goldSoft }}
+                  >
+                    <c.icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.6} />
+                  </div>
+                  <h3 className="text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                    {c.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
+                    {c.body}
+                  </p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* MORE THAN RUNNING */}
-      <section className="px-6 py-24 md:px-10 md:py-32">
+      {/* ======================================================= SCRIPTURE */}
+      <section className="relative overflow-hidden px-6 py-24 md:px-10 md:py-32">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(212,168,85,0.11) 0%, transparent 62%)" }}
+        />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <Reveal>
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.3em]"
+              style={{ color: t2.goldSoft, fontFamily: font.ui }}
+            >
+              2 Timothy 2:22
+            </p>
+          </Reveal>
+          <Reveal delay={120}>
+            <blockquote
+              className="mt-7 text-2xl font-medium leading-[1.35] sm:text-3xl md:text-[2.5rem]"
+              style={{ color: "#FFFFFF", fontFamily: font.display }}
+            >
+              &ldquo;Pursue righteousness, faith, love, and peace, along with those who call on the Lord from a
+              pure heart.&rdquo;
+            </blockquote>
+          </Reveal>
+          <Reveal delay={240}>
+            <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed" style={{ color: t2.creamMuted }}>
+              The whole movement sits on one word in that verse: <em style={{ color: t2.goldSoft }}>along with</em>.
+              We are not told to pursue Jesus by ourselves. 2THREE2 exists to make the together part normal.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ================================================ MORE THAN RUNNING */}
+      <section className="border-y px-6 py-20 md:px-10 md:py-28" style={{ background: t2.light, borderColor: t2.lightBorder }}>
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="More Than Running" headline="Move however you move.">
-              <p>Running got us started, but the movement makes room for however people already gather and move.</p>
+            <SectionHeading eyebrow="More Than Running" headline="Move however you already move." tone="light">
+              Running started it, but the movement makes room for whatever gets people out the door together.
+              No pace requirement. No athletic background needed.
             </SectionHeading>
           </Reveal>
           <Reveal delay={150}>
-            <div className="mt-12 flex flex-wrap justify-center gap-3">
+            <div className="mt-11 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {activities.map((a) => (
-                <ActivityPill key={a.label} icon={a.icon} label={a.label} />
+                <div
+                  className="flex items-center gap-3 border px-4 py-3.5"
+                  key={a.label}
+                  style={{ background: "#FFFFFF", borderColor: t2.lightBorder }}
+                >
+                  <a.icon
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0"
+                    strokeWidth={1.8}
+                    style={{ color: t2.goldDeep }}
+                  />
+                  <span className="text-sm font-semibold" style={{ color: t2.onLight }}>
+                    {a.label}
+                  </span>
+                </div>
               ))}
             </div>
           </Reveal>
           <Reveal delay={260}>
-            <p className="mx-auto mt-14 max-w-xl text-center text-xl font-semibold leading-relaxed text-stone-100 md:text-2xl" style={{ fontFamily: font.oswald }}>
+            <p
+              className="mx-auto mt-12 max-w-xl text-center text-2xl font-semibold leading-snug md:text-3xl"
+              style={{ color: t2.onLight, fontFamily: font.display }}
+            >
               The activity may change.
               <br />
               The purpose does not.
             </p>
           </Reveal>
+          <Reveal delay={340}>
+            <p className="mx-auto mt-6 max-w-xl text-center text-sm leading-relaxed" style={{ color: t2.onLightMuted }}>
+              It all stays one movement, under one name, with one phrase: Run. Pray. Pursue.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* WHAT A GATHERING LOOKS LIKE */}
-      <section className="border-y px-6 py-24 md:px-10 md:py-32" style={{ background: t2.bgAlt, borderColor: t2.panelBorder }}>
-        <div className="mx-auto max-w-4xl">
+      {/* ============================================ WHAT A GATHERING IS */}
+      <section className="px-6 py-20 md:px-10 md:py-28" style={{ background: t2.lightAlt }}>
+        <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="What a Gathering Looks Like" headline="Simple. Not rigid.">
-              <p>No script, no building, no title required. Just a consistent, honest rhythm.</p>
+            <SectionHeading eyebrow="What a Gathering Looks Like" headline="Simple. Not rigid." tone="light">
+              No script, no building, no title required. Just a consistent, honest rhythm with a few people.
             </SectionHeading>
           </Reveal>
           <Reveal delay={150}>
-            <ol className="mt-12 space-y-3">
+            <ol className="mt-11 grid gap-3 sm:grid-cols-2">
               {gatheringSteps.map((step, i) => (
                 <li
-                  key={step}
                   className="flex items-start gap-4 border p-5"
-                  style={{ background: t2.panel, borderColor: t2.panelBorder }}
+                  key={step}
+                  style={{ background: "#FFFFFF", borderColor: t2.lightBorder }}
                 >
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center border text-xs font-bold"
-                    style={{ borderColor: t2.accentDeep, color: t2.accentSoft, fontFamily: font.rajdhani }}
+                    style={{ borderColor: t2.gold, color: t2.goldDeep, fontFamily: font.ui }}
                   >
                     {i + 1}
                   </span>
-                  <span className="pt-1 text-base leading-relaxed text-stone-200">{step}</span>
+                  <span className="pt-1 text-[15px] leading-relaxed" style={{ color: t2.onLight }}>
+                    {step}
+                  </span>
                 </li>
               ))}
             </ol>
           </Reveal>
+          <Reveal delay={260}>
+            <p className="mx-auto mt-9 max-w-2xl text-center text-sm leading-relaxed" style={{ color: t2.onLightMuted }}>
+              A gathering never replaces the local church. It sends people back to it &mdash; more connected, more
+              prayed for, and more likely to obey what they already know.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* ACTIVE DISCIPLESHIP */}
-      <section className="px-6 py-24 md:px-10 md:py-32">
+      {/* ============================================= ACTIVE DISCIPLESHIP */}
+      <section className="px-6 py-20 md:px-10 md:py-28">
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="Active Discipleship" headline="Discipleship doesn't have to begin in a classroom.">
-              <p>
-                A shared mile or a shared trail opens space that a classroom rarely does: unhurried conversation,
-                honest prayer, and room to practice obedience together, not just hear about it.
-              </p>
+            <SectionHeading
+              eyebrow="Active Discipleship"
+              headline="Discipleship does not have to begin in a classroom."
+            >
+              A shared mile opens space a classroom rarely does. Unhurried conversation. Honest prayer.
+              Encouragement that lands because someone is actually beside you. And room to practice obedience
+              together instead of only hearing about it.
             </SectionHeading>
           </Reveal>
           <Reveal delay={150}>
-            <div className="mt-12 grid gap-5 sm:grid-cols-2">
+            <div className="mt-11 grid gap-5 sm:grid-cols-2">
               <a
+                className="group flex items-center justify-between gap-4 border p-6 transition-colors duration-300"
                 href="https://usamissionaries.org"
-                className="group flex items-center justify-between gap-4 border p-6 transition-colors duration-300 hover:border-[rgba(232,135,63,0.6)]"
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = t2.panelBorderStrong; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = t2.panelBorder; }}
                 style={{ background: t2.panel, borderColor: t2.panelBorder }}
               >
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: t2.accentSoft, fontFamily: font.rajdhani }}>
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+                    style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                  >
                     Trains, equips, and sends
                   </p>
-                  <p className="mt-2 text-lg font-bold text-stone-100" style={{ fontFamily: font.oswald }}>USA Missionaries</p>
+                  <p className="mt-2 text-lg font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                    USA Missionaries
+                  </p>
                 </div>
-                <Handshake aria-hidden="true" className="h-6 w-6 shrink-0" strokeWidth={1.6} style={{ color: t2.accentSoft }} />
+                <Handshake aria-hidden="true" className="h-6 w-6 shrink-0" strokeWidth={1.6} style={{ color: t2.goldSoft }} />
               </a>
               <a
+                className="group flex items-center justify-between gap-4 border p-6 transition-colors duration-300"
                 href="https://kitchentablegospel.org"
-                className="group flex items-center justify-between gap-4 border p-6 transition-colors duration-300 hover:border-[rgba(232,135,63,0.6)]"
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = t2.panelBorderStrong; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = t2.panelBorder; }}
                 style={{ background: t2.panel, borderColor: t2.panelBorder }}
               >
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: t2.accentSoft, fontFamily: font.rajdhani }}>
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+                    style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                  >
                     Table-shaped discipleship
                   </p>
-                  <p className="mt-2 text-lg font-bold text-stone-100" style={{ fontFamily: font.oswald }}>Kitchen Table Gospel</p>
+                  <p className="mt-2 text-lg font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                    Kitchen Table Gospel
+                  </p>
                 </div>
-                <Church aria-hidden="true" className="h-6 w-6 shrink-0" strokeWidth={1.6} style={{ color: t2.accentSoft }} />
+                <Church aria-hidden="true" className="h-6 w-6 shrink-0" strokeWidth={1.6} style={{ color: t2.goldSoft }} />
               </a>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* RACE WITH PURPOSE */}
-      <section className="border-y px-6 py-20 md:px-10 md:py-28" style={{ background: t2.bgAlt, borderColor: t2.panelBorder }}>
-        <div className="mx-auto max-w-4xl">
+      {/* ================================================ RACE WITH PURPOSE */}
+      <section
+        className="border-y"
+        id="race-with-purpose"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
+        <div className="mx-auto max-w-6xl px-6 pt-20 md:px-10 md:pt-28">
           <Reveal>
-            <SectionHeading align="left" eyebrow="Secondary Expression" headline="Race with purpose.">
-              <p>
-                Races and endurance challenges are not the movement&apos;s identity, but they can support it. A race
-                or challenge can:
-              </p>
+            <SectionHeading align="left" eyebrow="A secondary expression &middot; Ironman 70.3" headline="Race with purpose.">
+              Train for something difficult. Pursue Jesus together while you do it. Then use the journey to
+              shine a light on missionaries serving in overlooked places across America.
             </SectionHeading>
           </Reveal>
-          <Reveal delay={150}>
-            <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-              {raceExamples.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center gap-3 border px-5 py-4 text-sm text-stone-300"
+          <Reveal delay={140}>
+            <p
+              className="mt-7 text-2xl font-bold tracking-[0.06em] sm:text-3xl"
+              style={{ color: t2.gold, fontFamily: font.display }}
+            >
+              Race. Pray. Pursue.
+            </p>
+            <p className="mt-2 text-sm" style={{ color: t2.creamFaint }}>
+              The campaign phrase for endurance seasons. The movement phrase is still Run. Pray. Pursue.
+            </p>
+          </Reveal>
+        </div>
+
+        {/* cinematic campaign visual */}
+        <Reveal delay={200}>
+          <figure className="relative mt-12 w-full">
+            {/* tighter crop on phones so the kit stays readable at 390px wide */}
+            <PacelineScene className="aspect-[46/37] w-full md:hidden" viewBox="330 150 460 370" />
+            {/* wide cinematic band; the crop trims dead sky rather than dimming it */}
+            <PacelineScene className="hidden aspect-[12/5] w-full md:block" />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3"
+              style={{ background: `linear-gradient(180deg, transparent 0%, ${t2.inkDeep} 100%)` }}
+            />
+            {/* sits under the frame on phones, where an overlay would land on
+                top of the lead rider */}
+            <figcaption
+              className="px-6 pt-3 text-[10px] leading-snug md:absolute md:bottom-5 md:right-8 md:max-w-[52%] md:px-0 md:pt-0 md:text-right"
+              style={{ color: t2.creamFaint, fontFamily: font.ui }}
+            >
+              Concept illustration &mdash; three athletes in coordinated 2THREE2 kits. Placeholder for commissioned
+              photography.
+            </figcaption>
+          </figure>
+        </Reveal>
+
+        <div className="mx-auto max-w-6xl px-6 pb-20 md:px-10 md:pb-28">
+          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+            <Reveal>
+              <div>
+                <h3 className="text-2xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                  A team trains. A whole community gets pulled in.
+                </h3>
+                <p className="mt-4 text-base leading-relaxed" style={{ color: t2.creamMuted }}>
+                  Picture three friends &mdash; say Ryan, Justin, and Brandon &mdash; taking on an Ironman 70.3
+                  together. Early rides. Long weekends. Prayer at every stop. The training is real, and so is what
+                  it opens up around them.
+                </p>
+                <ul className="mt-7 space-y-2.5">
+                  {raceOutcomes.map((item) => (
+                    <li className="flex items-start gap-3 text-sm leading-relaxed" key={item} style={{ color: t2.creamMuted }}>
+                      <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0" style={{ background: t2.gold }} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-8 text-sm leading-relaxed" style={{ color: t2.creamFaint }}>
+                  Races are an expression of the movement, never the movement itself. Most people in 2THREE2 will
+                  never sign up for one &mdash; and that is completely fine.
+                </p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={140}>
+              <div className="border p-6 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                >
+                  Kit direction &middot; v1
+                </p>
+                <h4 className="mt-3 text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                  Black base. Gold type. Nothing extra.
+                </h4>
+                <KitSpec className="mt-5 w-full" />
+                <div className="mt-5 grid gap-2 text-[13px] leading-relaxed" style={{ color: t2.creamMuted }}>
+                  <p>
+                    <span style={{ color: t2.goldSoft }}>On the kit:</span> 2THREE2, Race. Pray. Pursue., a small
+                    Powered by USA Missionaries, and a few restrained sponsor marks.
+                  </p>
+                  <p>
+                    <span style={{ color: t2.goldSoft }}>Held back:</span>{" "}the lower back stays blank in v1. The
+                    optional campaign line &ldquo;Deploying Missionaries Across America&rdquo; is documented for a
+                    later version rather than printed now.
+                  </p>
+                </div>
+
+                <p
+                  className="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: t2.creamFaint, fontFamily: font.ui }}
+                >
+                  Placeholder sponsor marks
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {sponsors.map((s) => (
+                    <span
+                      className="border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      key={s}
+                      style={{ borderColor: t2.panelBorder, color: t2.creamFaint, fontFamily: font.ui }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
+                  Invented names, shown only to test placement and scale. No sponsor relationships exist.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================ MISSIONARY DEPLOYMENT */}
+      <section className="px-6 py-20 md:px-10 md:py-28">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <SectionHeading eyebrow="Awareness &amp; Deployment" headline="Where a challenge can lead.">
+              A race can do more than finish. It can point people toward missionaries being sent into places
+              most of America never looks at.
+            </SectionHeading>
+          </Reveal>
+
+          <Reveal delay={140}>
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
+              {[
+                { body: "2THREE2 develops active disciples.", n: "01" },
+                { body: "Challenges build awareness.", n: "02" },
+                { body: "The Missionary Deployment Fund sends missionaries.", n: "03" },
+              ].map((step) => (
+                <div
+                  className="border p-6"
+                  key={step.n}
                   style={{ background: t2.panel, borderColor: t2.panelBorder }}
                 >
-                  <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={1.7} style={{ color: t2.accentSoft }} />
-                  {item}
-                </li>
+                  <p
+                    className="text-[11px] font-semibold tracking-[0.28em]"
+                    style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                  >
+                    {step.n}
+                  </p>
+                  <p
+                    className="mt-3 text-lg font-semibold leading-snug"
+                    style={{ color: "#FFFFFF", fontFamily: font.display }}
+                  >
+                    {step.body}
+                  </p>
+                </div>
               ))}
-            </ul>
+            </div>
           </Reveal>
-          <Reveal delay={260}>
-            <p className="mt-8 text-sm leading-relaxed text-stone-500">
-              No campaigns, donation totals, or missionary progress are shown here. This section is a concept
-              placeholder for how races could point back to the mission.
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+            <Reveal>
+              <div className="h-full border p-7 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
+                <h3 className="text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                  Overlooked places across America
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
+                  The fund concept would help USA Missionaries train, equip, and deploy missionaries into fields
+                  like these.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {missionFields.map((field) => (
+                    <span
+                      className="border px-3 py-2 text-[12px]"
+                      key={field}
+                      style={{ background: t2.panelRaised, borderColor: t2.panelBorder, color: t2.cream }}
+                    >
+                      {field}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal delay={140}>
+              <div
+                className="flex h-full flex-col border p-7 md:p-8"
+                style={{ background: t2.panel, borderColor: t2.panelBorderStrong }}
+              >
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                >
+                  Story concept &middot; placeholder
+                </p>
+                <h3 className="mt-3 text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
+                  One missionary. One campaign.
+                </h3>
+                <p className="mt-4 flex-1 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
+                  A future campaign could follow a single missionary preparing to serve in prisons, juvenile
+                  facilities, orphan care, and nursing homes &mdash; giving the training season a face and a name.
+                  A real USA Missionaries missionary (for example, Tanner Kent) may be featured here once the
+                  story is written and approved. No biography is published in this preview.
+                </p>
+                <p
+                  className="mt-6 border-t pt-5 text-[13px] leading-relaxed"
+                  style={{ borderColor: t2.panelBorder, color: t2.goldSoft }}
+                >
+                  Funds raised through this campaign support the USA Missionaries Missionary Deployment Fund.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+
+          <Reveal delay={220}>
+            <p className="mt-7 text-[12px] leading-relaxed" style={{ color: t2.creamFaint }}>
+              Nothing on this page processes a donation. No totals, progress meters, campaign accounts, individual
+              fundraising pages, or sponsor checkout exist in this preview &mdash; by design.
             </p>
           </Reveal>
         </div>
       </section>
 
-      {/* START OR JOIN */}
-      <section id="start-or-join" className="px-6 py-24 md:px-10 md:py-32">
+      {/* ===================================================== START OR JOIN */}
+      <section
+        className="border-y px-6 py-20 md:px-10 md:py-28"
+        id="start-or-join"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="Start or Join" headline="There is a place for you.">
-              <p>Two simple ways in. Neither requires an athletic background.</p>
+            <SectionHeading eyebrow="Start or Join" headline="There is a place for you in this.">
+              Two ways in. Neither one requires an athletic background or a title.
             </SectionHeading>
           </Reveal>
           <Reveal delay={150}>
-            <div className="mt-14 grid gap-6 md:grid-cols-2">
+            <div className="mt-12 grid gap-5 md:grid-cols-2">
               <InterestConceptCard
-                body="Find people near you who move, pray, and pursue Jesus together. No pace requirement, no experience needed."
+                body="Find people near you who move, pray, and pursue Jesus together. Any pace, any activity, any starting point."
                 ctaLabel="I'm interested in joining"
                 kind="join"
                 title="Join a Gathering"
               />
               <InterestConceptCard
-                body="Gather a few people around a consistent rhythm of movement and prayer. We'll help you get it started."
+                body="Gather a few people around a consistent rhythm of movement and prayer. USA Missionaries will help you start it well."
                 ctaLabel="I'm interested in starting"
                 kind="start"
                 title="Start a Gathering"
@@ -659,58 +888,55 @@ export function Two3TwoPage() {
         </div>
       </section>
 
-      {/* FINAL CONNECTION */}
-      <section className="border-t px-6 py-28 md:px-10 md:py-36" style={{ background: t2.bgAlt, borderColor: t2.panelBorder }}>
-        <div className="mx-auto max-w-3xl text-center">
+      {/* ================================================ FINAL CONNECTION */}
+      <section className="relative overflow-hidden px-6 py-24 md:px-10 md:py-32">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at 50% 80%, rgba(212,168,85,0.12) 0%, transparent 60%)" }}
+        />
+        <div className="relative mx-auto max-w-3xl text-center">
           <Reveal>
-            <div className="mx-auto h-px w-12" style={{ background: t2.accentDeep }} />
-          </Reveal>
-          <Reveal delay={100}>
             <Eyebrow>Movement that leads to mission</Eyebrow>
           </Reveal>
-          <Reveal delay={180}>
-            <p className="mx-auto max-w-xl text-base leading-relaxed text-stone-400 md:text-lg">
+          <Reveal delay={120}>
+            <p className="mx-auto max-w-xl text-base leading-relaxed md:text-lg" style={{ color: t2.creamMuted }}>
               2THREE2 is powered by USA Missionaries, which trains, equips, and sends ordinary Christians to obey
               Jesus, make disciples, and serve people wherever they are.
             </p>
           </Reveal>
-          <Reveal delay={280}>
-            <h2 className="mt-10 text-4xl font-bold tracking-tight text-stone-100 md:text-6xl" style={{ fontFamily: font.oswald }}>
-              You do not have to pursue Jesus alone.
+          <Reveal delay={220}>
+            <h2
+              className="mt-10 text-[2.5rem] font-bold leading-[1.02] tracking-tight sm:text-5xl md:text-6xl"
+              style={{ color: "#FFFFFF", fontFamily: font.display }}
+            >
+              You do not have to
+              <br />
+              pursue Jesus alone.
             </h2>
           </Reveal>
-          <Reveal delay={380}>
-            <div className="mt-10 flex justify-center">
-              <CTAButton href="#start-or-join">
-                <Users aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-                Join the Movement
+          <Reveal delay={330}>
+            <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
+              <CTAButton href="#start-or-join">Join the Movement</CTAButton>
+              <CTAButton href="#why-we-move" variant="secondary">
+                See How It Works
               </CTAButton>
             </div>
-          </Reveal>
-          <Reveal delay={460}>
-            <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-600" style={{ fontFamily: font.rajdhani }}>
-              2 Timothy 2:22
-            </p>
           </Reveal>
         </div>
       </section>
 
-      <footer className="px-6 py-10 md:px-10">
+      <footer className="border-t px-6 py-10 md:px-10" style={{ borderColor: t2.panelBorder }}>
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.14em] text-stone-200" style={{ fontFamily: font.oswald }}>
-              2THREE2
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
-              Powered by{" "}
-              <Link href="https://usamissionaries.org" className="underline decoration-dotted underline-offset-4 hover:text-stone-300">
-                USA Missionaries
-              </Link>
+            <Wordmark className="text-base" />
+            <p className="mt-1.5">
+              <PoweredBy />
             </p>
           </div>
-          <p className="max-w-sm text-[11px] leading-relaxed text-stone-600">
-            Temporary wordmark and placeholder concept for founder review. No production routes, domains, or data
-            were changed to build this preview.
+          <p className="max-w-md text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
+            Founder-review concept. Temporary wordmark, illustrated placeholders, and a non-functional interest
+            form. No production routes, navigation, domains, or data were changed to build this preview.
           </p>
         </div>
       </footer>
