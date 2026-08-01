@@ -213,38 +213,35 @@ const flowPatterns = [
   { icon: Users, label: "Gathered People" },
 ];
 
-function FlowConnector() {
-  return (
-    <div className="flex flex-col items-center py-3" aria-hidden="true">
-      <span className="h-6 w-px bg-gradient-to-b from-usam-gold/10 to-usam-gold/45" />
-      <ArrowDown className="h-4 w-4 text-usam-gold/60" strokeWidth={2} />
-    </div>
-  );
-}
+const missionSupports = [
+  { detail: "Relational discipleship framework", title: "Kitchen Table Gospel", tone: "gold" },
+  { detail: "Operational foundation", title: "Discipleship Operating System", tone: "blue" },
+  { detail: "Specialized care and ministry experience", title: "Trusted Ministry Partners", tone: "stone" },
+] as const;
 
-function FlowStage({
+function MissionNode({
   detail,
   title,
   tone = "default",
 }: {
   detail?: string;
   title: string;
-  tone?: "default" | "origin" | "outcome";
+  tone?: "default" | "gold" | "outcome";
 }) {
   const shell = {
     default: "border-stone-800 bg-white/[0.02]",
-    origin: "border-usam-gold/55 bg-usam-gold/[0.12]",
+    gold: "border-usam-gold/55 bg-usam-gold/[0.12]",
     outcome: "border-usam-gold/45 bg-usam-gold/[0.09]",
   }[tone];
 
   const titleClass = {
     default: "text-xl text-stone-100 md:text-2xl",
-    origin: "text-4xl text-usam-gold md:text-5xl",
+    gold: "text-4xl text-usam-gold md:text-5xl",
     outcome: "text-xl text-usam-gold md:text-2xl",
   }[tone];
 
   return (
-    <div className={`border px-5 py-5 text-center ${shell}`}>
+    <div className={`flex min-h-[140px] flex-col justify-center border px-5 py-5 text-center ${shell}`}>
       <h3 className={`font-bold uppercase leading-tight ${titleClass}`} style={{ fontFamily: font.oswald }}>
         {title}
       </h3>
@@ -265,45 +262,77 @@ function MissionFlowSection() {
     <Section variant="feature">
       <div className="max-w-3xl">
         <Eyebrow>How It Fits Together</Eyebrow>
+        <SectionTitle>One Mission, Connected Responsibilities.</SectionTitle>
+        <p className="mt-6 text-base leading-8 text-stone-400 md:text-lg">
+          The mission is a set of connected responsibilities: Jesus gives the pattern, USA Missionaries prepares the
+          worker, and the worker goes with a framework, foundation, and partners for the sake of people.
+        </p>
       </div>
 
-      <div className="mx-auto mt-10 max-w-3xl">
-        <FlowStage title="Jesus" detail="Commands · Teaching · Example" tone="origin" />
-        <FlowConnector />
-        <FlowStage title="USA Missionaries" detail="Train · Equip · Send" />
-        <FlowConnector />
-        <FlowStage title="Missionaries Go" />
-        <FlowConnector />
+      <div className="mt-10 border border-stone-800 bg-black/30 p-4 sm:p-6 md:p-8">
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.25fr_0.9fr] lg:items-stretch">
+          <div className="grid gap-4">
+            <MissionNode title="Jesus" detail="Commands · Teaching · Example" tone="gold" />
+            <MissionNode title="USA Missionaries" detail="Train · Equip · Send" />
+          </div>
 
-        <div className="grid grid-cols-2 gap-px border border-stone-800 bg-stone-800 md:grid-cols-4">
-          {flowPatterns.map((pattern) => {
-            const Icon = pattern.icon;
+          <div className="border border-stone-800 bg-[#0D0D0D] p-5 sm:p-6">
+            <p
+              className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-usam-gold"
+              style={{ fontFamily: font.rajdhani }}
+            >
+              Missionaries Go Into
+            </p>
+            <div className="mt-5 grid grid-cols-1 gap-px bg-stone-800 sm:grid-cols-2">
+              {flowPatterns.map((pattern) => {
+                const Icon = pattern.icon;
+
+                return (
+                  <div
+                    className="flex min-h-[104px] flex-col items-center justify-center gap-3 bg-[#121212] px-4 py-5 text-center"
+                    key={pattern.label}
+                  >
+                    <Icon className="h-5 w-5 text-usam-gold" aria-hidden="true" strokeWidth={1.7} />
+                    <span
+                      className="text-[11px] font-bold uppercase leading-5 tracking-[0.16em] text-stone-200"
+                      style={{ fontFamily: font.rajdhani }}
+                    >
+                      {pattern.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <MissionNode
+            title="People Served And Disciples Made"
+            detail="The outcome we pray and work toward"
+            tone="outcome"
+          />
+        </div>
+
+        <div className="mt-4 grid gap-px bg-stone-800 md:grid-cols-3">
+          {missionSupports.map((support) => {
+            const toneClass = {
+              blue: "text-[#7FB8F0] border-t-[#378ADD]",
+              gold: "text-usam-gold border-t-usam-gold",
+              stone: "text-stone-200 border-t-stone-500",
+            }[support.tone];
 
             return (
-              <div
-                className="flex min-h-[104px] flex-col items-center justify-center gap-3 bg-[#0D0D0D] px-4 py-5 text-center"
-                key={pattern.label}
-              >
-                <Icon className="h-5 w-5 text-usam-gold" aria-hidden="true" strokeWidth={1.7} />
-                <span
-                  className="text-[11px] font-bold uppercase leading-5 tracking-[0.16em] text-stone-200"
-                  style={{ fontFamily: font.rajdhani }}
+              <div className={`border-t-2 bg-[#0D0D0D] p-5 ${toneClass}`} key={support.title}>
+                <h3
+                  className="text-lg font-bold uppercase leading-tight md:text-xl"
+                  style={{ fontFamily: font.oswald }}
                 >
-                  {pattern.label}
-                </span>
+                  {support.title}
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-stone-400">{support.detail}</p>
               </div>
             );
           })}
         </div>
-
-        <FlowConnector />
-        <FlowStage title="Kitchen Table Gospel" detail="Relational discipleship method" />
-        <FlowConnector />
-        <FlowStage title="Discipleship Operating System" detail="Operational foundation" />
-        <FlowConnector />
-        <FlowStage title="Trusted Ministry Partners" detail="Specialized experience and infrastructure" />
-        <FlowConnector />
-        <FlowStage title="People Are Served And Disciples Are Made" tone="outcome" />
       </div>
     </Section>
   );
