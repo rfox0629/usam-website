@@ -216,43 +216,44 @@ const flowPatterns = [
 const missionSupports = [
   { detail: "Relational discipleship framework", title: "Kitchen Table Gospel", tone: "gold" },
   { detail: "Operational foundation", title: "Discipleship Operating System", tone: "blue" },
-  { detail: "Specialized care and ministry experience", title: "Trusted Ministry Partners", tone: "stone" },
+  { detail: "Specialized ministry expertise", title: "Trusted Ministry Partners", tone: "stone" },
 ] as const;
 
-function MissionNode({
+function FlowLink() {
+  return (
+    <div className="flex flex-col items-center py-4 md:py-5" aria-hidden="true">
+      <span className="h-9 w-px bg-gradient-to-b from-usam-gold/5 to-usam-gold/45 md:h-10" />
+      <ArrowDown className="h-3.5 w-3.5 text-usam-gold/50" strokeWidth={2.5} />
+    </div>
+  );
+}
+
+function FlowStep({
   detail,
   title,
   tone = "default",
 }: {
-  detail?: string;
+  detail: string;
   title: string;
-  tone?: "default" | "gold" | "outcome";
+  tone?: "default" | "origin" | "outcome";
 }) {
-  const shell = {
-    default: "border-stone-800 bg-white/[0.02]",
-    gold: "border-usam-gold/55 bg-usam-gold/[0.12]",
-    outcome: "border-usam-gold/45 bg-usam-gold/[0.09]",
-  }[tone];
-
   const titleClass = {
-    default: "text-xl text-stone-100 md:text-2xl",
-    gold: "text-4xl text-usam-gold md:text-5xl",
-    outcome: "text-xl text-usam-gold md:text-2xl",
+    default: "text-[clamp(1.6rem,4.2vw,2.4rem)] text-stone-100",
+    origin: "text-[clamp(2.6rem,8vw,4.5rem)] text-usam-gold",
+    outcome: "text-[clamp(1.25rem,3.6vw,2.2rem)] text-usam-gold",
   }[tone];
 
   return (
-    <div className={`flex min-h-[140px] flex-col justify-center border px-5 py-5 text-center ${shell}`}>
-      <h3 className={`font-bold uppercase leading-tight ${titleClass}`} style={{ fontFamily: font.oswald }}>
+    <div className="text-center">
+      <h3 className={`font-bold uppercase leading-[1.04] ${titleClass}`} style={{ fontFamily: font.oswald }}>
         {title}
       </h3>
-      {detail ? (
-        <p
-          className="mt-2 text-[11px] font-bold uppercase leading-5 tracking-[0.2em] text-stone-400"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          {detail}
-        </p>
-      ) : null}
+      <p
+        className="mx-auto mt-3 max-w-md text-[11px] font-bold uppercase leading-5 tracking-[0.22em] text-stone-400 md:text-[12px]"
+        style={{ fontFamily: font.rajdhani }}
+      >
+        {detail}
+      </p>
     </div>
   );
 }
@@ -260,59 +261,67 @@ function MissionNode({
 function MissionFlowSection() {
   return (
     <Section variant="feature">
-      <div className="max-w-3xl">
-        <Eyebrow>How It Fits Together</Eyebrow>
-        <SectionTitle>One Mission, Connected Responsibilities.</SectionTitle>
-        <p className="mt-6 text-base leading-8 text-stone-400 md:text-lg">
-          The mission is a set of connected responsibilities: Jesus gives the pattern, USA Missionaries prepares the
-          worker, and the worker goes with a framework, foundation, and partners for the sake of people.
+      <div className="mx-auto max-w-3xl text-center">
+        <p
+          className="text-[11px] font-bold uppercase tracking-[0.28em] text-usam-gold"
+          style={{ fontFamily: font.rajdhani }}
+        >
+          The Model
         </p>
+        <h2
+          className="mt-6 text-[clamp(2rem,5vw,3.25rem)] font-bold uppercase leading-[1.03] text-stone-100"
+          style={{ fontFamily: font.oswald }}
+        >
+          From Jesus To People.
+        </h2>
       </div>
 
-      <div className="mt-10 border border-stone-800 bg-black/30 p-4 sm:p-6 md:p-8">
-        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.25fr_0.9fr] lg:items-stretch">
-          <div className="grid gap-4">
-            <MissionNode title="Jesus" detail="Commands · Teaching · Example" tone="gold" />
-            <MissionNode title="USA Missionaries" detail="Train · Equip · Send" />
-          </div>
+      <div className="mx-auto mt-12 max-w-2xl md:mt-14">
+        <FlowStep title="Jesus" detail="His commands, teaching, and example" tone="origin" />
+        <FlowLink />
+        <FlowStep title="USA Missionaries" detail="Train · Equip · Send" />
+        <FlowLink />
+        <FlowStep title="Missionaries" detail="Go to people wherever they are" />
+        <FlowLink />
 
-          <div className="border border-stone-800 bg-[#0D0D0D] p-5 sm:p-6">
-            <p
-              className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-usam-gold"
-              style={{ fontFamily: font.rajdhani }}
-            >
-              Missionaries Go Into
-            </p>
-            <div className="mt-5 grid grid-cols-1 gap-px bg-stone-800 sm:grid-cols-2">
-              {flowPatterns.map((pattern) => {
-                const Icon = pattern.icon;
+        <div className="grid grid-cols-2 gap-px border border-stone-800 bg-stone-800 md:grid-cols-4">
+          {flowPatterns.map((pattern) => {
+            const Icon = pattern.icon;
 
-                return (
-                  <div
-                    className="flex min-h-[104px] flex-col items-center justify-center gap-3 bg-[#121212] px-4 py-5 text-center"
-                    key={pattern.label}
-                  >
-                    <Icon className="h-5 w-5 text-usam-gold" aria-hidden="true" strokeWidth={1.7} />
-                    <span
-                      className="text-[11px] font-bold uppercase leading-5 tracking-[0.16em] text-stone-200"
-                      style={{ fontFamily: font.rajdhani }}
-                    >
-                      {pattern.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <MissionNode
-            title="People Served And Disciples Made"
-            detail="The outcome we pray and work toward"
-            tone="outcome"
-          />
+            return (
+              <div
+                className="flex min-h-[112px] flex-col items-center justify-center gap-3 bg-[#0D0D0D] px-4 py-5 text-center"
+                key={pattern.label}
+              >
+                <Icon className="h-5 w-5 text-usam-gold" aria-hidden="true" strokeWidth={1.7} />
+                <span
+                  className="text-[11px] font-bold uppercase leading-5 tracking-[0.16em] text-stone-200"
+                  style={{ fontFamily: font.rajdhani }}
+                >
+                  {pattern.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="mt-4 grid gap-px bg-stone-800 md:grid-cols-3">
+        <FlowLink />
+        <FlowStep title="People Served · Disciples Made" detail="The reason for all of it" tone="outcome" />
+      </div>
+
+      <div className="mt-16 md:mt-20">
+        <div className="flex items-center gap-5">
+          <span className="h-px flex-1 bg-stone-800" aria-hidden="true" />
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.24em] text-stone-500"
+            style={{ fontFamily: font.rajdhani }}
+          >
+            Supporting the mission
+          </p>
+          <span className="h-px flex-1 bg-stone-800" aria-hidden="true" />
+        </div>
+
+        <div className="mt-8 grid gap-px bg-stone-800 md:grid-cols-3">
           {missionSupports.map((support) => {
             const toneClass = {
               blue: "text-[#7FB8F0] border-t-[#378ADD]",
@@ -321,11 +330,8 @@ function MissionFlowSection() {
             }[support.tone];
 
             return (
-              <div className={`border-t-2 bg-[#0D0D0D] p-5 ${toneClass}`} key={support.title}>
-                <h3
-                  className="text-lg font-bold uppercase leading-tight md:text-xl"
-                  style={{ fontFamily: font.oswald }}
-                >
+              <div className={`border-t-2 bg-[#0D0D0D] p-6 ${toneClass}`} key={support.title}>
+                <h3 className="text-lg font-bold uppercase leading-tight md:text-xl" style={{ fontFamily: font.oswald }}>
                   {support.title}
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-stone-400">{support.detail}</p>
@@ -333,6 +339,10 @@ function MissionFlowSection() {
             );
           })}
         </div>
+
+        <p className="mt-6 text-center text-sm leading-7 text-stone-500">
+          These support the mission. They are not steps in it.
+        </p>
       </div>
     </Section>
   );
@@ -492,7 +502,7 @@ const servedPeople = [
   "The sick",
   "Prisoners",
   "Widows",
-  "Children",
+  "Orphans",
   "The lonely",
   "The oppressed",
   "The stranger",
