@@ -16,7 +16,7 @@ export default async function LegacyDosMeetingDetailPage({
 }: {
   params: Promise<{ collectiveSlug: string; meetingId: string }>;
 }) {
-  const { collectiveSlug } = await params;
+  const { collectiveSlug, meetingId } = await params;
 
-  redirectLegacyDosRoute(collectiveSlug);
+  redirectLegacyDosRoute(collectiveSlug, { meeting: meetingId });
 }

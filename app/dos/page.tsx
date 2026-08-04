@@ -24,5 +24,5 @@ export default async function DosPortalPage() {
     return <DosPortalClient isAuthenticated launchWorkspaces={launchWorkspaces} />;
   }
 
-  return <DosPortalClient />;
+  redirect("/join");
 }

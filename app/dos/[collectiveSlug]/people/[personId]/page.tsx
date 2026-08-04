@@ -16,7 +16,7 @@ export default async function LegacyDosPersonPage({
 }: {
   params: Promise<{ collectiveSlug: string; personId: string }>;
 }) {
-  const { collectiveSlug } = await params;
+  const { collectiveSlug, personId } = await params;
 
-  redirectLegacyDosRoute(collectiveSlug);
+  redirectLegacyDosRoute(collectiveSlug, { person: personId });
 }
