@@ -98,9 +98,6 @@ function Chip({ children, tone = "dark" }: { children: ReactNode; tone?: "dark" 
 const primaryCtaClassName =
   "inline-flex min-h-12 cursor-pointer items-center justify-center border border-usam-gold bg-usam-gold px-7 py-3 text-center text-[12px] font-bold uppercase tracking-[0.2em] text-usam-black transition-colors duration-200 hover:bg-usam-gold/90";
 
-const secondaryCtaClassName =
-  "inline-flex min-h-12 items-center justify-center gap-2 border border-white/25 bg-transparent px-7 py-3 text-center text-[12px] font-bold uppercase tracking-[0.2em] text-stone-100 transition-colors duration-200 hover:border-usam-gold hover:bg-usam-gold/[0.08] hover:text-usam-gold";
-
 const quietCtaClassName =
   "inline-flex min-h-12 items-center justify-center gap-2 border border-stone-700 bg-black/35 px-5 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-stone-200 transition-colors duration-200 hover:border-usam-gold hover:text-usam-gold";
 
@@ -114,52 +111,29 @@ function HeroSection() {
       <Image
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover opacity-[0.17]"
+        className="absolute inset-0 h-full w-full object-cover opacity-[0.32]"
         fill
         priority
         sizes="100vw"
         src="/images/usam/default-hero-background.png"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,13,13,0.5),#0D0D0D_94%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,13,13,0.34),rgba(13,13,13,0.62)_62%,#0D0D0D_98%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[length:70px_70px]" />
 
-      <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
-        <div>
-          <Eyebrow>USA Missionaries</Eyebrow>
-          <h1
-            className="mt-8 text-[clamp(3rem,13vw,6rem)] font-bold uppercase leading-[0.88] text-stone-100"
-            style={{ fontFamily: font.oswald }}
-          >
-            Jesus Went.
-            <br />
-            <span className="text-usam-gold">So Do We.</span>
-          </h1>
-        </div>
-
-        <div className="max-w-2xl lg:pb-3">
-          <p className="text-lg leading-8 text-stone-200 md:text-xl md:leading-9">
-            USA Missionaries trains, equips, and sends ordinary Christians to obey Jesus, make disciples, and serve
-            people wherever they are.
-          </p>
-          <p className="mt-5 text-base leading-8 text-stone-400">
-            We follow the example of Jesus by going into homes, communities, gathered settings, and places of suffering
-            to meet people where they are.
-          </p>
-
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <JoinMissionInterestModal
-              defaultInterest="Become a missionary"
-              triggerClassName={primaryCtaClassName}
-              triggerFontWeight={700}
-            >
-              Become a Missionary
-            </JoinMissionInterestModal>
-            <a className={secondaryCtaClassName} href="#how-it-works" style={{ fontFamily: font.rajdhani }}>
-              See How It Works
-              <ArrowDown className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
-            </a>
-          </div>
-        </div>
+      <div className="relative mx-auto max-w-6xl">
+        <Eyebrow>USA Missionaries</Eyebrow>
+        <h1
+          className="mt-8 text-[clamp(3rem,13vw,6rem)] font-bold uppercase leading-[0.88] text-stone-100"
+          style={{ fontFamily: font.oswald }}
+        >
+          Jesus Went.
+          <br />
+          <span className="text-usam-gold">So Do We.</span>
+        </h1>
+        <p className="mt-9 max-w-2xl text-lg leading-8 text-stone-200 md:text-xl md:leading-9">
+          USA Missionaries trains, equips, and sends ordinary Christians to obey Jesus, make disciples, and serve people
+          wherever they are.
+        </p>
       </div>
     </section>
   );
@@ -268,12 +242,6 @@ function MissionFlowSection() {
         >
           The Model
         </p>
-        <h2
-          className="mt-6 text-[clamp(2rem,5vw,3.25rem)] font-bold uppercase leading-[1.03] text-stone-100"
-          style={{ fontFamily: font.oswald }}
-        >
-          From Jesus To People.
-        </h2>
       </div>
 
       <div className="mx-auto mt-12 max-w-2xl md:mt-14">
