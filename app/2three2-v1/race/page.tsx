@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Two3TwoPage } from "./Two3TwoPage";
+import { RacePage } from "./RacePage";
 
-const title = "2THREE2 | Run. Pray. Pursue. (Founder Preview)";
+const title = "Race With Purpose | 2THREE2 (Founder Preview)";
 const description =
-  "2THREE2 is an active discipleship movement powered by USA Missionaries. Move together, pray together, pursue Jesus together.";
+  "We train together, then we race together. A training season inside the 2THREE2 discipleship movement, powered by USA Missionaries.";
 
 // Founder-preview mockup only. Deliberately not indexed and not wired into the
 // domain-sites middleware, so it stays isolated from usamissionaries.org routing
-// and can't be mistaken for a live public page while it's still a concept.
+// and cannot be mistaken for a live public page while it is still a concept.
 export const metadata: Metadata = {
   description,
   robots: {
@@ -18,5 +18,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <Two3TwoPage />;
+  return <RacePage />;
 }

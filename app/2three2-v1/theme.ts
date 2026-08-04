@@ -8,7 +8,7 @@
 // as the same brand as the rest of the page rather than a separate campaign.
 //
 // 2THREE2 separates itself from usamissionaries.org (flat black, tactical) by
-// leaning on dawn light, atmospheric depth, and — importantly — alternating
+// leaning on dawn light, real photography, and, importantly, alternating
 // light cream sections. The brief warns against "excessive darkness"; the light
 // bands are what keep this from reading as a gym or a militaristic brand.
 export const t2 = {

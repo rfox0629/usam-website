@@ -93,7 +93,7 @@ export function SectionHeading({
       {/* The body copy is rendered as the <p> itself rather than wrapped in a
           styled div: app/globals.css sets `:where(p, li, dd) { color: #d1d5db }`,
           and because that targets the element directly it beats an inherited
-          colour from a parent — which left light-band paragraphs near-invisible
+          colour from a parent, which left light-band paragraphs near-invisible
           on cream. Styling the <p> directly is what actually wins. */}
       {children ? (
         <p
@@ -164,7 +164,7 @@ export function CTAButton({
  * Temporary wordmark. The public brand name is always "2THREE2" (never "232"),
  * so the letterforms stay uppercase; the gold "THREE" echoes the colour split
  * already used in public/images/usam/2three2-share.png. This is a placeholder
- * until an approved logo asset exists — see the placeholder list in the PR.
+ * until an approved logo asset exists. See the placeholder list in the PR.
  */
 export function Wordmark({
   className,

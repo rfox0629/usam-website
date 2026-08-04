@@ -19,22 +19,31 @@ function assert(condition, message) {
 
 const ROUTE_DIR = "app/2three2-v1";
 
-const routeFiles = readdirSync(ROUTE_DIR).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
-const sources = Object.fromEntries(
-  routeFiles.map((f) => [f, readFileSync(path.join(ROUTE_DIR, f), "utf8")]),
-);
-const allSource = Object.values(sources).join("\n");
+function readDir(dir) {
+  return Object.fromEntries(
+    readdirSync(dir)
+      .filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"))
+      .map((f) => [f, readFileSync(path.join(dir, f), "utf8")]),
+  );
+}
+
+const sources = readDir(ROUTE_DIR);
+const raceSources = readDir(path.join(ROUTE_DIR, "race"));
+const allSource = [...Object.values(sources), ...Object.values(raceSources)].join("\n");
 
 const page = sources["page.tsx"];
 const client = sources["Two3TwoPage.tsx"];
-const ironman = sources["IronmanVisual.tsx"];
-const hero = sources["HeroScene.tsx"];
+const kit = sources["KitSpec.tsx"];
 const primitives = sources["primitives.tsx"];
+const racePage = raceSources["page.tsx"];
+const race = raceSources["RacePage.tsx"];
 
 /* ---------------------------------------------- isolation from production */
 
-assert(page.includes("index: false"), "Founder preview must stay noindex.");
-assert(page.includes("follow: false"), "Founder preview must stay nofollow.");
+for (const [label, source] of [["/2three2-v1", page], ["/2three2-v1/race", racePage]]) {
+  assert(source.includes("index: false"), `${label} must stay noindex.`);
+  assert(source.includes("follow: false"), `${label} must stay nofollow.`);
+}
 
 for (const navFile of ["components/PrimaryNav.tsx", "components/SiteFooter.tsx", "components/RouteAwareSiteFooter.tsx"]) {
   const nav = readFileSync(navFile, "utf8");
@@ -71,7 +80,17 @@ assert(
   'Public brand name must always be "2THREE2", never "232".',
 );
 assert(client.includes("Run. Pray."), "Hero must carry the movement phrase Run. Pray. Pursue.");
-assert(client.includes("Race. Pray. Pursue."), "Ironman section must carry the campaign phrase.");
+assert(race.includes("Race. Pray. Pursue."), "Race page must carry the campaign phrase.");
+assert(
+  !client.includes("Race. Pray. Pursue."),
+  "The campaign phrase belongs on the race page, not the main vision page.",
+);
+// The founder asked that the page stop explaining which phrase is the primary
+// one. The phrases should simply be used where they belong.
+assert(
+  !/(movement|master|primary|core) phrase/i.test(allSource),
+  "Do not editorialise about which phrase is the movement's core saying.",
+);
 assert(client.includes("2 Timothy 2:22"), "2 Timothy 2:22 must be present as the Scriptural foundation.");
 assert(
   client.includes("https://usamissionaries.org") || primitives.includes("https://usamissionaries.org"),
@@ -83,7 +102,7 @@ assert(client.includes("https://kitchentablegospel.org"), "Kitchen Table Gospel 
 
 assert(!/all proceeds/i.test(allSource), 'Must not promise "all proceeds" before a fund policy exists.');
 assert(
-  client.includes("support the USA Missionaries Missionary Deployment Fund"),
+  race.includes("support the USA Missionaries Missionary Deployment Fund"),
   "Must use the approved, non-committal deployment-fund language.",
 );
 // Checked as mechanisms, not as words: the page deliberately *names* donation
@@ -103,30 +122,16 @@ assert(
 
 /* --------------------------------------------- first-mockup kit restraint */
 
-const kitDrawing = ironman.slice(ironman.indexOf("const JERSEY_BODY"), ironman.indexOf("export function KitSpec"));
+const kitDrawing = kit.slice(kit.indexOf("const JERSEY_BODY"), kit.indexOf("export function KitSpec"));
 assert(
   !kitDrawing.includes("Deploying Missionaries Across America"),
   "First mockup must keep 'Deploying Missionaries Across America' OFF the kit artwork.",
 );
 assert(kitDrawing.includes("RESERVED"), "The reserved lower-back zone must stay documented on the kit spec.");
 assert(kitDrawing.includes("POWERED BY USA MISSIONARIES"), "Kit must carry the small Powered by USA Missionaries mark.");
-assert(
-  ironman.includes("Invented names") || client.includes("Invented names"),
-  "Sponsor marks must be labelled as invented placeholders.",
-);
+assert(race.includes("Invented names"), "Sponsor marks must be labelled as invented placeholders.");
 
 /* ------------------------------------------------------ rendering hazards */
-
-// Both illustrated scenes render twice (one instance per breakpoint). Shared
-// SVG paint-server ids resolve to the first match in the document — the hidden
-// copy — which silently blanks every gradient-filled shape.
-for (const [file, source] of [["IronmanVisual.tsx", ironman], ["HeroScene.tsx", hero]]) {
-  assert(source.includes("useId()"), `${file} must namespace its SVG gradient ids per instance.`);
-  assert(
-    !/ id="(t2|tri)-/.test(source),
-    `${file} must not declare static SVG paint-server ids; they collide between breakpoints.`,
-  );
-}
 
 // app/globals.css sets `:where(p, li, dd) { color: #d1d5db }`, which beats an
 // inherited colour and made light-band body copy invisible on cream.
@@ -134,9 +139,47 @@ assert(
   primitives.includes("<p\n          className=\"mt-5 text-base leading-relaxed md:text-lg\""),
   "SectionHeading must style its own <p> so light-band copy survives the global paragraph colour.",
 );
+for (const [label, source] of [["Two3TwoPage.tsx", client], ["RacePage.tsx", race]]) {
+  assert(
+    !/<SectionHeading[^>]*>\s*<p>/.test(source),
+    `${label}: SectionHeading body copy must be passed as text, not wrapped in an unstyled <p>.`,
+  );
+}
+
+/* ------------------------------------------------------------- copy rules */
+
+// The founder asked for no em dashes anywhere in this route.
 assert(
-  !/<SectionHeading[^>]*>\s*<p>/.test(client),
-  "SectionHeading body copy must be passed as text, not wrapped in an unstyled <p>.",
+  !/\u2014|&mdash;/.test(allSource),
+  "This route must not contain em dashes, in copy or in source.",
 );
+
+// Invented people were removed at the founder's direction: the page uses real
+// ministry photography or nothing at all.
+assert(
+  !allSource.includes("figures") && !allSource.includes("HeroScene") && !allSource.includes("PacelineScene"),
+  "Illustrated stand-in people must not come back; use real photography or no people.",
+);
+assert(
+  client.includes("/images/vision/group-prayer-01.jpg"),
+  "The hero should use real ministry photography.",
+);
+
+/* ------------------------------------------------------------ vision page */
+
+assert(client.includes("What this is"), "The main page must state plainly what 2THREE2 is.");
+assert(client.includes("What this is not"), "The main page must state plainly what 2THREE2 is not.");
+assert(
+  client.includes("Physical activity is the environment"),
+  "The main page must lead with the vision, not the activity.",
+);
+assert(client.includes("/2three2-v1/race"), "The main page must link to the race page.");
+
+/* -------------------------------------------------------------- race page */
+
+for (const ref of ["1 Corinthians 9", "Hebrews 12:1", "1 Timothy 4", "2 Timothy 4:7"]) {
+  assert(race.includes(ref), `Race page must tie in ${ref}.`);
+}
+assert(race.includes("train together"), "Race page must carry the train-together idea.");
 
 console.log("2THREE2 founder-preview regression checks passed.");

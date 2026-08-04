@@ -14,9 +14,9 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import React, { useState } from "react";
-import { HeroScene } from "./HeroScene";
-import { KitSpec, PacelineScene, sponsors } from "./IronmanVisual";
 import { CTAButton, Eyebrow, PoweredBy, Reveal, SectionHeading, Wordmark } from "./primitives";
 import { font, t2 } from "./theme";
 
@@ -53,6 +53,33 @@ function Header() {
     </header>
   );
 }
+
+/* ------------------------------------------------------------------ vision */
+
+const whatItIs = [
+  "An active discipleship movement for ordinary people.",
+  "A way to build real friendships while you move.",
+  "A rhythm of prayer for each other and for the places you go.",
+  "A front door into growth, service, and mission.",
+] as const;
+
+const whatItIsNot = [
+  "A running club.",
+  "A gym or a fitness brand.",
+  "A team for serious athletes only.",
+  "A replacement for your local church.",
+] as const;
+
+const whatGrows = [
+  "Relationships",
+  "Prayer",
+  "Spiritual growth",
+  "Accountability",
+  "Community involvement",
+  "Service",
+  "Disciple-making",
+  "Mission",
+] as const;
 
 /* ------------------------------------------------------- why we move flow */
 
@@ -122,11 +149,11 @@ function ProgressionFlow() {
         ))}
       </svg>
 
-      {/* mobile view — also the accessible representation of the flow above */}
+      {/* mobile view, and the accessible representation of the flow above */}
       <ol className="relative md:hidden">
         <span aria-hidden="true" className="absolute bottom-4 left-[13px] top-4 w-px" style={{ background: t2.goldDeep }} />
         {progressionSteps.map((step, i) => (
-          <li key={step} className="relative flex items-center gap-4 py-3">
+          <li className="relative flex items-center gap-4 py-3" key={step}>
             <span
               className="relative z-10 flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border text-[10px] font-bold"
               style={{ background: t2.ink, borderColor: t2.gold, color: t2.goldSoft, fontFamily: font.ui }}
@@ -174,30 +201,6 @@ const gatheringSteps = [
   "Pray during or after the activity.",
   "Encourage a practical next step.",
   "Look for opportunities to serve and make disciples.",
-] as const;
-
-/* ------------------------------------------------------------- race section */
-
-const raceOutcomes = [
-  "Build awareness for USA Missionaries",
-  "Invite prayer partners into the journey",
-  "Engage business sponsors",
-  "Rally a local community around the mission",
-  "Support missionary deployment",
-] as const;
-
-const missionFields = [
-  "Prisons",
-  "Juvenile facilities",
-  "Orphan care",
-  "Nursing homes",
-  "Schools",
-  "Campuses",
-  "First responders",
-  "Military & veterans",
-  "Immigrant & refugee communities",
-  "Homeless communities",
-  "Neighborhoods & workplaces",
 ] as const;
 
 /* --------------------------------------------------------- interest concept */
@@ -296,7 +299,7 @@ function InterestConceptCard({
                 />
               </div>
               <p className="text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
-                Concept only &mdash; this preview form is not connected to anything.
+                Concept only. This preview form is not connected to anything.
               </p>
               <button
                 className="inline-flex w-full items-center justify-center gap-2 px-6 py-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] sm:text-sm sm:tracking-[0.18em]"
@@ -327,21 +330,34 @@ export function Two3TwoPage() {
       <Header />
 
       {/* ============================================================ HERO */}
-      <section className="relative flex flex-col overflow-hidden pt-24 md:min-h-screen md:justify-center md:pt-24">
-        {/* Desktop gets the scene full-bleed behind the copy. On a phone that
-            same treatment turns to mud — the headline and the illustration end
-            up competing for the same 390px — so mobile drops the scene into a
-            clean band underneath the copy instead of behind it. */}
-        <HeroScene anchor="xMidYMax" className="absolute inset-0 hidden h-full w-full md:block" />
+      <section className="relative flex min-h-[86vh] items-center overflow-hidden pt-28 md:min-h-screen md:pt-24">
+        {/* Real photograph of real people from the ministry, already used on
+            /vision. Placeholder illustrations of invented people were removed
+            at the founder's direction. */}
+        <Image
+          alt="A group gathered together after moving and praying"
+          className="object-cover object-center"
+          fill
+          priority
+          sizes="100vw"
+          src="/images/vision/group-prayer-01.jpg"
+        />
+        <div
+          className="absolute inset-0 md:hidden"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(5,7,10,0.93) 0%, rgba(5,7,10,0.86) 46%, rgba(5,7,10,0.72) 74%, rgba(5,7,10,0.9) 100%)",
+          }}
+        />
         <div
           className="absolute inset-0 hidden md:block"
           style={{
             background:
-              "linear-gradient(100deg, rgba(5,7,10,0.95) 0%, rgba(5,7,10,0.88) 34%, rgba(5,7,10,0.34) 60%, rgba(5,7,10,0.08) 78%, rgba(5,7,10,0.34) 100%)",
+              "linear-gradient(100deg, rgba(5,7,10,0.96) 0%, rgba(5,7,10,0.9) 38%, rgba(5,7,10,0.6) 64%, rgba(5,7,10,0.42) 100%)",
           }}
         />
 
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-6 md:px-10 md:py-16">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-12 md:px-10 md:py-16">
           <div className="max-w-2xl">
             <Reveal>
               <Eyebrow>An active discipleship movement</Eyebrow>
@@ -366,8 +382,9 @@ export function Two3TwoPage() {
             </Reveal>
             <Reveal delay={300}>
               <p className="mt-5 max-w-xl text-base leading-relaxed md:text-lg" style={{ color: t2.creamMuted }}>
-                2THREE2 is an active discipleship movement where ordinary people move together, pray over their
-                communities, build authentic relationships, and pursue Jesus side by side.
+                2THREE2 is an active discipleship movement powered by USA Missionaries. Ordinary people gather
+                around movement, pray over the places they live, build honest friendships, and pursue Jesus
+                side by side.
               </p>
             </Reveal>
             <Reveal delay={420}>
@@ -385,20 +402,88 @@ export function Two3TwoPage() {
             </Reveal>
           </div>
         </div>
+      </section>
 
-        {/* mobile scene band, in normal flow beneath the copy */}
-        <div className="relative mt-auto w-full md:hidden">
-          <HeroScene anchor="xMaxYMax" className="h-[32vh] min-h-[218px] w-full" />
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-20"
-            style={{ background: `linear-gradient(180deg, ${t2.ink} 0%, transparent 100%)` }}
-          />
+      {/* ================================================== WHAT 2THREE2 IS */}
+      <section className="px-6 py-20 md:px-10 md:py-28" id="what-it-is">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <SectionHeading eyebrow="The Vision" headline="Physical activity is the environment. Pursuing Jesus together is the purpose.">
+              Almost anyone will go for a walk, a run, or a ride with a friend. 2THREE2 takes that ordinary
+              space and builds something lasting inside it: people who know each other, pray for each other,
+              grow in Christ together, and carry that into the places they already live and work.
+            </SectionHeading>
+          </Reveal>
+
+          <div className="mt-14 grid gap-5 md:grid-cols-2">
+            <Reveal>
+              <div className="h-full border p-7 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorderStrong }}>
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: t2.goldSoft, fontFamily: font.ui }}
+                >
+                  What this is
+                </p>
+                <ul className="mt-5 space-y-3.5">
+                  {whatItIs.map((item) => (
+                    <li className="flex items-start gap-3 text-[15px] leading-relaxed" key={item} style={{ color: t2.cream }}>
+                      <span aria-hidden="true" className="mt-[9px] h-1.5 w-1.5 shrink-0" style={{ background: t2.gold }} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="h-full border p-7 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.24em]"
+                  style={{ color: t2.creamFaint, fontFamily: font.ui }}
+                >
+                  What this is not
+                </p>
+                <ul className="mt-5 space-y-3.5">
+                  {whatItIsNot.map((item) => (
+                    <li className="flex items-start gap-3 text-[15px] leading-relaxed" key={item} style={{ color: t2.creamMuted }}>
+                      <span aria-hidden="true" className="mt-[9px] h-1.5 w-1.5 shrink-0" style={{ background: t2.creamFaint }} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          </div>
+
+          <Reveal delay={200}>
+            <div className="mt-10">
+              <p
+                className="text-[11px] font-semibold uppercase tracking-[0.24em]"
+                style={{ color: t2.goldSoft, fontFamily: font.ui }}
+              >
+                What grows when we move together
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {whatGrows.map((item) => (
+                  <span
+                    className="border px-3.5 py-2 text-[13px]"
+                    key={item}
+                    style={{ background: t2.panelRaised, borderColor: t2.panelBorder, color: t2.cream }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ==================================================== WHY WE MOVE */}
-      <section className="px-6 py-20 md:px-10 md:py-28" id="why-we-move">
+      <section
+        className="border-y px-6 py-20 md:px-10 md:py-28"
+        id="why-we-move"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="Why We Move" headline="Movement creates room for relationship.">
@@ -415,10 +500,7 @@ export function Two3TwoPage() {
       </section>
 
       {/* ================================================ FOUR COMMITMENTS */}
-      <section
-        className="border-y px-6 py-20 md:px-10 md:py-28"
-        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
-      >
+      <section className="px-6 py-20 md:px-10 md:py-28">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="What We Commit To" headline="Four commitments, held together.">
@@ -449,7 +531,10 @@ export function Two3TwoPage() {
       </section>
 
       {/* ======================================================= SCRIPTURE */}
-      <section className="relative overflow-hidden px-6 py-24 md:px-10 md:py-32">
+      <section
+        className="relative overflow-hidden border-y px-6 py-24 md:px-10 md:py-32"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
@@ -475,7 +560,7 @@ export function Two3TwoPage() {
           </Reveal>
           <Reveal delay={240}>
             <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed" style={{ color: t2.creamMuted }}>
-              The whole movement sits on one word in that verse: <em style={{ color: t2.goldSoft }}>along with</em>.
+              The whole movement sits on one phrase in that verse: <em style={{ color: t2.goldSoft }}>along with</em>.
               We are not told to pursue Jesus by ourselves. 2THREE2 exists to make the together part normal.
             </p>
           </Reveal>
@@ -483,7 +568,7 @@ export function Two3TwoPage() {
       </section>
 
       {/* ================================================ MORE THAN RUNNING */}
-      <section className="border-y px-6 py-20 md:px-10 md:py-28" style={{ background: t2.light, borderColor: t2.lightBorder }}>
+      <section className="px-6 py-20 md:px-10 md:py-28" style={{ background: t2.light }}>
         <div className="mx-auto max-w-5xl">
           <Reveal>
             <SectionHeading eyebrow="More Than Running" headline="Move however you already move." tone="light">
@@ -522,16 +607,11 @@ export function Two3TwoPage() {
               The purpose does not.
             </p>
           </Reveal>
-          <Reveal delay={340}>
-            <p className="mx-auto mt-6 max-w-xl text-center text-sm leading-relaxed" style={{ color: t2.onLightMuted }}>
-              It all stays one movement, under one name, with one phrase: Run. Pray. Pursue.
-            </p>
-          </Reveal>
         </div>
       </section>
 
       {/* ============================================ WHAT A GATHERING IS */}
-      <section className="px-6 py-20 md:px-10 md:py-28" style={{ background: t2.lightAlt }}>
+      <section className="border-t px-6 py-20 md:px-10 md:py-28" style={{ background: t2.lightAlt, borderColor: t2.lightBorder }}>
         <div className="mx-auto max-w-5xl">
           <Reveal>
             <SectionHeading eyebrow="What a Gathering Looks Like" headline="Simple. Not rigid." tone="light">
@@ -561,7 +641,7 @@ export function Two3TwoPage() {
           </Reveal>
           <Reveal delay={260}>
             <p className="mx-auto mt-9 max-w-2xl text-center text-sm leading-relaxed" style={{ color: t2.onLightMuted }}>
-              A gathering never replaces the local church. It sends people back to it &mdash; more connected, more
+              A gathering never replaces the local church. It sends people back to it, more connected, more
               prayed for, and more likely to obey what they already know.
             </p>
           </Reveal>
@@ -628,241 +708,38 @@ export function Two3TwoPage() {
         </div>
       </section>
 
-      {/* ================================================ RACE WITH PURPOSE */}
-      <section
-        className="border-y"
-        id="race-with-purpose"
-        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
-      >
-        <div className="mx-auto max-w-6xl px-6 pt-20 md:px-10 md:pt-28">
+      {/* ============================================== TRAIN TOGETHER LINK */}
+      <section className="border-y px-6 py-20 md:px-10 md:py-24" style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}>
+        <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading align="left" eyebrow="A secondary expression &middot; Ironman 70.3" headline="Race with purpose.">
-              Train for something difficult. Pursue Jesus together while you do it. Then use the journey to
-              shine a light on missionaries serving in overlooked places across America.
-            </SectionHeading>
-          </Reveal>
-          <Reveal delay={140}>
-            <p
-              className="mt-7 text-2xl font-bold tracking-[0.06em] sm:text-3xl"
-              style={{ color: t2.gold, fontFamily: font.display }}
-            >
-              Race. Pray. Pursue.
-            </p>
-            <p className="mt-2 text-sm" style={{ color: t2.creamFaint }}>
-              The campaign phrase for endurance seasons. The movement phrase is still Run. Pray. Pursue.
-            </p>
-          </Reveal>
-        </div>
-
-        {/* cinematic campaign visual */}
-        <Reveal delay={200}>
-          <figure className="relative mt-12 w-full">
-            {/* tighter crop on phones so the kit stays readable at 390px wide */}
-            <PacelineScene className="aspect-[46/37] w-full md:hidden" viewBox="330 150 460 370" />
-            {/* wide cinematic band; the crop trims dead sky rather than dimming it */}
-            <PacelineScene className="hidden aspect-[12/5] w-full md:block" />
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3"
-              style={{ background: `linear-gradient(180deg, transparent 0%, ${t2.inkDeep} 100%)` }}
-            />
-            {/* sits under the frame on phones, where an overlay would land on
-                top of the lead rider */}
-            <figcaption
-              className="px-6 pt-3 text-[10px] leading-snug md:absolute md:bottom-5 md:right-8 md:max-w-[52%] md:px-0 md:pt-0 md:text-right"
-              style={{ color: t2.creamFaint, fontFamily: font.ui }}
+              className="flex flex-col gap-8 border p-8 md:flex-row md:items-center md:justify-between md:p-12"
+              style={{ background: t2.panel, borderColor: t2.panelBorderStrong }}
             >
-              Concept illustration &mdash; three athletes in coordinated 2THREE2 kits. Placeholder for commissioned
-              photography.
-            </figcaption>
-          </figure>
-        </Reveal>
-
-        <div className="mx-auto max-w-6xl px-6 pb-20 md:px-10 md:pb-28">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-            <Reveal>
-              <div>
-                <h3 className="text-2xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
-                  A team trains. A whole community gets pulled in.
-                </h3>
+              <div className="max-w-xl">
+                <Eyebrow>Something to work toward</Eyebrow>
+                <h2
+                  className="text-3xl font-bold leading-tight md:text-4xl"
+                  style={{ color: "#FFFFFF", fontFamily: font.display }}
+                >
+                  We train together, then we race together.
+                </h2>
                 <p className="mt-4 text-base leading-relaxed" style={{ color: t2.creamMuted }}>
-                  Picture three friends &mdash; say Ryan, Justin, and Brandon &mdash; taking on an Ironman 70.3
-                  together. Early rides. Long weekends. Prayer at every stop. The training is real, and so is what
-                  it opens up around them.
-                </p>
-                <ul className="mt-7 space-y-2.5">
-                  {raceOutcomes.map((item) => (
-                    <li className="flex items-start gap-3 text-sm leading-relaxed" key={item} style={{ color: t2.creamMuted }}>
-                      <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0" style={{ background: t2.gold }} />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-8 text-sm leading-relaxed" style={{ color: t2.creamFaint }}>
-                  Races are an expression of the movement, never the movement itself. Most people in 2THREE2 will
-                  never sign up for one &mdash; and that is completely fine.
+                  Some gatherings pick something hard and work toward it as a team. A first 5K. A long hike. A
+                  triathlon. The training season becomes the discipleship season, and the finish line is
+                  something you cross with the people who got you there.
                 </p>
               </div>
-            </Reveal>
-
-            <Reveal delay={140}>
-              <div className="border p-6 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-[0.24em]"
-                  style={{ color: t2.goldSoft, fontFamily: font.ui }}
-                >
-                  Kit direction &middot; v1
-                </p>
-                <h4 className="mt-3 text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
-                  Black base. Gold type. Nothing extra.
-                </h4>
-                <KitSpec className="mt-5 w-full" />
-                <div className="mt-5 grid gap-2 text-[13px] leading-relaxed" style={{ color: t2.creamMuted }}>
-                  <p>
-                    <span style={{ color: t2.goldSoft }}>On the kit:</span> 2THREE2, Race. Pray. Pursue., a small
-                    Powered by USA Missionaries, and a few restrained sponsor marks.
-                  </p>
-                  <p>
-                    <span style={{ color: t2.goldSoft }}>Held back:</span>{" "}the lower back stays blank in v1. The
-                    optional campaign line &ldquo;Deploying Missionaries Across America&rdquo; is documented for a
-                    later version rather than printed now.
-                  </p>
-                </div>
-
-                <p
-                  className="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em]"
-                  style={{ color: t2.creamFaint, fontFamily: font.ui }}
-                >
-                  Placeholder sponsor marks
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {sponsors.map((s) => (
-                    <span
-                      className="border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      key={s}
-                      style={{ borderColor: t2.panelBorder, color: t2.creamFaint, fontFamily: font.ui }}
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-3 text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
-                  Invented names, shown only to test placement and scale. No sponsor relationships exist.
-                </p>
+              <div className="shrink-0">
+                <CTAButton href="/2three2-v1/race">Race With Purpose</CTAButton>
               </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================ MISSIONARY DEPLOYMENT */}
-      <section className="px-6 py-20 md:px-10 md:py-28">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <SectionHeading eyebrow="Awareness &amp; Deployment" headline="Where a challenge can lead.">
-              A race can do more than finish. It can point people toward missionaries being sent into places
-              most of America never looks at.
-            </SectionHeading>
-          </Reveal>
-
-          <Reveal delay={140}>
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              {[
-                { body: "2THREE2 develops active disciples.", n: "01" },
-                { body: "Challenges build awareness.", n: "02" },
-                { body: "The Missionary Deployment Fund sends missionaries.", n: "03" },
-              ].map((step) => (
-                <div
-                  className="border p-6"
-                  key={step.n}
-                  style={{ background: t2.panel, borderColor: t2.panelBorder }}
-                >
-                  <p
-                    className="text-[11px] font-semibold tracking-[0.28em]"
-                    style={{ color: t2.goldSoft, fontFamily: font.ui }}
-                  >
-                    {step.n}
-                  </p>
-                  <p
-                    className="mt-3 text-lg font-semibold leading-snug"
-                    style={{ color: "#FFFFFF", fontFamily: font.display }}
-                  >
-                    {step.body}
-                  </p>
-                </div>
-              ))}
             </div>
-          </Reveal>
-
-          <div className="mt-12 grid gap-5 lg:grid-cols-[1.15fr_1fr]">
-            <Reveal>
-              <div className="h-full border p-7 md:p-8" style={{ background: t2.panel, borderColor: t2.panelBorder }}>
-                <h3 className="text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
-                  Overlooked places across America
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
-                  The fund concept would help USA Missionaries train, equip, and deploy missionaries into fields
-                  like these.
-                </p>
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {missionFields.map((field) => (
-                    <span
-                      className="border px-3 py-2 text-[12px]"
-                      key={field}
-                      style={{ background: t2.panelRaised, borderColor: t2.panelBorder, color: t2.cream }}
-                    >
-                      {field}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-
-            <Reveal delay={140}>
-              <div
-                className="flex h-full flex-col border p-7 md:p-8"
-                style={{ background: t2.panel, borderColor: t2.panelBorderStrong }}
-              >
-                <p
-                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                  style={{ color: t2.goldSoft, fontFamily: font.ui }}
-                >
-                  Story concept &middot; placeholder
-                </p>
-                <h3 className="mt-3 text-xl font-bold" style={{ color: "#FFFFFF", fontFamily: font.display }}>
-                  One missionary. One campaign.
-                </h3>
-                <p className="mt-4 flex-1 text-sm leading-relaxed" style={{ color: t2.creamMuted }}>
-                  A future campaign could follow a single missionary preparing to serve in prisons, juvenile
-                  facilities, orphan care, and nursing homes &mdash; giving the training season a face and a name.
-                  A real USA Missionaries missionary (for example, Tanner Kent) may be featured here once the
-                  story is written and approved. No biography is published in this preview.
-                </p>
-                <p
-                  className="mt-6 border-t pt-5 text-[13px] leading-relaxed"
-                  style={{ borderColor: t2.panelBorder, color: t2.goldSoft }}
-                >
-                  Funds raised through this campaign support the USA Missionaries Missionary Deployment Fund.
-                </p>
-              </div>
-            </Reveal>
-          </div>
-
-          <Reveal delay={220}>
-            <p className="mt-7 text-[12px] leading-relaxed" style={{ color: t2.creamFaint }}>
-              Nothing on this page processes a donation. No totals, progress meters, campaign accounts, individual
-              fundraising pages, or sponsor checkout exist in this preview &mdash; by design.
-            </p>
           </Reveal>
         </div>
       </section>
 
       {/* ===================================================== START OR JOIN */}
-      <section
-        className="border-y px-6 py-20 md:px-10 md:py-28"
-        id="start-or-join"
-        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
-      >
+      <section className="px-6 py-20 md:px-10 md:py-28" id="start-or-join">
         <div className="mx-auto max-w-5xl">
           <Reveal>
             <SectionHeading eyebrow="Start or Join" headline="There is a place for you in this.">
@@ -889,7 +766,10 @@ export function Two3TwoPage() {
       </section>
 
       {/* ================================================ FINAL CONNECTION */}
-      <section className="relative overflow-hidden px-6 py-24 md:px-10 md:py-32">
+      <section
+        className="relative overflow-hidden border-t px-6 py-24 md:px-10 md:py-32"
+        style={{ background: t2.inkDeep, borderColor: t2.panelBorder }}
+      >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
@@ -901,8 +781,8 @@ export function Two3TwoPage() {
           </Reveal>
           <Reveal delay={120}>
             <p className="mx-auto max-w-xl text-base leading-relaxed md:text-lg" style={{ color: t2.creamMuted }}>
-              2THREE2 is powered by USA Missionaries, which trains, equips, and sends ordinary Christians to obey
-              Jesus, make disciples, and serve people wherever they are.
+              2THREE2 is powered by USA Missionaries, which trains, equips, and sends ordinary Christians to
+              obey Jesus, make disciples, and serve people wherever they are.
             </p>
           </Reveal>
           <Reveal delay={220}>
@@ -934,10 +814,19 @@ export function Two3TwoPage() {
               <PoweredBy />
             </p>
           </div>
-          <p className="max-w-md text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
-            Founder-review concept. Temporary wordmark, illustrated placeholders, and a non-functional interest
-            form. No production routes, navigation, domains, or data were changed to build this preview.
-          </p>
+          <div className="flex flex-col items-center gap-3 md:items-end">
+            <Link
+              className="text-[11px] font-semibold uppercase tracking-[0.2em] underline decoration-dotted underline-offset-4"
+              href="/2three2-v1/race"
+              style={{ color: t2.goldSoft, fontFamily: font.ui }}
+            >
+              Race With Purpose
+            </Link>
+            <p className="max-w-md text-[11px] leading-relaxed" style={{ color: t2.creamFaint }}>
+              Founder-review concept. Temporary wordmark and a non-functional interest form. No production
+              routes, navigation, domains, or data were changed to build this preview.
+            </p>
+          </div>
         </div>
       </footer>
     </main>
