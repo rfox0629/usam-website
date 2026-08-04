@@ -43,6 +43,7 @@ const stateLabels: Record<OperationsState, string> = {
   delegated: "Delegated",
   dispatcher_eligible: "Dispatcher Eligible",
   founder_review: "Founder Review",
+  idle: "Idle",
   preview_ready: "Preview Ready",
   queued: "Queued",
   stale_offline: "Stale / Offline",
@@ -57,6 +58,7 @@ const stateTones: Record<OperationsState, AdminBadgeTone> = {
   delegated: "muted",
   dispatcher_eligible: "blue",
   founder_review: "amber",
+  idle: "muted",
   preview_ready: "green",
   queued: "blue",
   stale_offline: "red",
@@ -88,6 +90,31 @@ function formatDateTime(value: string | null) {
     month: "short",
     timeZone: "America/Chicago",
   }).format(date);
+}
+
+function formatDuration(seconds: number | null) {
+  if (seconds === null) {
+    return "Unavailable";
+  }
+
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function formatEventLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ExternalTextLink({
@@ -164,13 +191,22 @@ function WorkforceCardView({ card }: { card: WorkforceCard }) {
             <span className="truncate">{stateLabels[card.state]}</span>
           </h2>
         </div>
-        <AdminBadge tone={stateTones[card.state]}>{card.runner}</AdminBadge>
+        <div className="flex flex-col items-end gap-2">
+          <AdminBadge tone={stateTones[card.state]}>{card.runner}</AdminBadge>
+          {card.stale ? <AdminBadge tone="amber">stale check</AdminBadge> : null}
+        </div>
       </div>
       <p className="mt-3 text-sm leading-6 text-stone-400">{card.detail}</p>
       <div className="mt-4 grid gap-2 border-t border-stone-800/70 pt-4 text-sm">
         <Meta label="Issue">{card.currentIssue || "None confirmed"}</Meta>
         <Meta label="Repository">{card.repository || "Unavailable"}</Meta>
+        <Meta label="Branch">{card.branch || "Unavailable"}</Meta>
+        <Meta label="Step">{card.currentStep || "Unavailable"}</Meta>
+        <Meta label="Elapsed">{formatDuration(card.elapsedSeconds)}</Meta>
         <Meta label="Latest">{formatDateTime(card.latestActivityAt)}</Meta>
+        <Meta label="Commit">{card.commit || "Unavailable"}</Meta>
+        <Meta label="PR"><ExternalTextLink href={card.prUrl}>{card.prUrl ? "Open PR" : "Unavailable"}</ExternalTextLink></Meta>
+        <Meta label="Preview"><ExternalTextLink href={card.previewUrl}>{card.previewUrl ? "Open Preview" : "Unavailable"}</ExternalTextLink></Meta>
       </div>
     </Panel>
   );
@@ -262,7 +298,7 @@ function WorkRows({ items }: { items: OperationsWorkItem[] }) {
         <div className="divide-y divide-stone-900/95">
           {items.map((item) => (
             <div
-              className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[minmax(0,1.35fr)_135px_150px_130px_minmax(0,1fr)] md:items-center"
+              className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1.2fr)_110px_110px_120px_minmax(0,0.8fr)_minmax(0,0.8fr)_115px] lg:items-center"
               key={`${item.issue}-${item.state}-${item.runner}`}
             >
               <div className="min-w-0">
@@ -272,6 +308,11 @@ function WorkRows({ items }: { items: OperationsWorkItem[] }) {
                   </ExternalTextLink>
                 </p>
                 <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{item.stateDetail}</p>
+                <p className="mt-1 text-xs text-stone-600">
+                  {item.owner}
+                  {item.linearDelegate ? ` / delegated: ${item.linearDelegate}` : ""}
+                  {item.assignee ? ` / assigned: ${item.assignee}` : ""}
+                </p>
               </div>
               <div>
                 <Label>State</Label>
@@ -288,8 +329,20 @@ function WorkRows({ items }: { items: OperationsWorkItem[] }) {
                 <p className="mt-1 truncate text-stone-300">{item.repository || "Unavailable"}</p>
               </div>
               <div className="min-w-0">
-                <Label>Branch / Latest</Label>
+                <Label>Branch</Label>
                 <p className="mt-1 truncate text-stone-300">{item.branch || item.worktree || "Unavailable"}</p>
+                <p className="mt-1 truncate text-xs text-stone-500">{item.currentStep}</p>
+              </div>
+              <div className="min-w-0">
+                <Label>Evidence</Label>
+                <div className="mt-1 flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+                  <ExternalTextLink href={item.prUrl}>{item.prUrl ? "PR" : "No PR"}</ExternalTextLink>
+                  <ExternalTextLink href={item.previewUrl}>{item.previewUrl ? "Preview" : "No preview"}</ExternalTextLink>
+                </div>
+                <p className="mt-1 truncate text-xs text-stone-500">{item.commit || "No commit supplied"}</p>
+              </div>
+              <div className="min-w-0">
+                <Label>Activity</Label>
                 <p className="mt-1 text-xs text-stone-500">{formatDateTime(item.latestActivityAt)}</p>
               </div>
             </div>
@@ -317,18 +370,26 @@ function ReviewQueue({ items }: { items: FounderReviewItem[] }) {
           {items.map((item) => (
             <article className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]" key={item.issue}>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-stone-100">{item.issue} - {item.title}</p>
+                <p className="truncate text-sm font-semibold text-stone-100">
+                  <ExternalTextLink href={item.linearUrl}>
+                    {item.issue} - {item.title}
+                  </ExternalTextLink>
+                </p>
+                <p className="mt-2 text-xs leading-5 text-stone-400">{item.deliveredSummary}</p>
                 <p className="mt-2 text-xs leading-5 text-stone-500">{item.decisionRequired}</p>
               </div>
               <div className="grid gap-2">
+                <Meta label="Repository">{item.repository || "Unavailable"}</Meta>
                 <Meta label="Branch">{item.branch || "Unavailable"}</Meta>
                 <Meta label="Commit">{item.commit || "Unavailable"}</Meta>
+                <Meta label="Runner">{item.runner || "Unavailable"}</Meta>
                 <Meta label="Production">{item.productionChanged === null ? "Unavailable" : item.productionChanged ? "Changed" : "Not changed"}</Meta>
               </div>
               <div className="grid gap-2">
                 <Meta label="PR"><ExternalTextLink href={item.prUrl}>{item.prUrl ? "Open PR" : "Unavailable"}</ExternalTextLink></Meta>
                 <Meta label="Preview"><ExternalTextLink href={item.previewUrl}>{item.previewUrl ? "Open Preview" : "Unavailable"}</ExternalTextLink></Meta>
                 <Meta label="Screenshots">{item.screenshots.length ? `${item.screenshots.length} supplied` : "Unavailable"}</Meta>
+                <Meta label="Checks">{item.checks.length ? item.checks.slice(0, 3).join(", ") : "Unavailable"}</Meta>
               </div>
             </article>
           ))}
@@ -380,7 +441,7 @@ function ActivityTimeline({ items }: { items: OperationsActivity[] }) {
           {items.slice(0, 12).map((item, index) => (
             <div className="grid gap-2 px-4 py-3 text-sm md:grid-cols-[125px_150px_minmax(0,1fr)_135px]" key={`${item.event}-${item.issue}-${index}`}>
               <p className="text-stone-500">{formatDateTime(item.at)}</p>
-              <p className="truncate font-medium text-stone-200">{item.event}</p>
+              <p className="truncate font-medium text-stone-200">{formatEventLabel(item.event)}</p>
               <p className="min-w-0 text-stone-400">{item.summary}</p>
               <p className="truncate text-stone-500">{item.issue || item.runner || "System"}</p>
             </div>
@@ -389,6 +450,73 @@ function ActivityTimeline({ items }: { items: OperationsActivity[] }) {
       ) : (
         <p className="p-4 text-sm text-stone-500">Recent dispatcher and Linear activity is unavailable.</p>
       )}
+    </Panel>
+  );
+}
+
+function CompletedWork({ items }: { items: OperationsWorkItem[] }) {
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800/70 px-4 py-3">
+        <div>
+          <Label>Completed Work</Label>
+          <h2 className="mt-1 text-lg font-semibold text-stone-100">Recently Completed in Linear</h2>
+        </div>
+        <AdminBadge tone="green">{items.length}</AdminBadge>
+      </div>
+      {items.length ? (
+        <div className="divide-y divide-stone-900/95">
+          {items.slice(0, 6).map((item) => (
+            <div className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[minmax(0,1fr)_130px_140px_minmax(0,0.8fr)] md:items-center" key={item.issue}>
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-stone-100">
+                  <ExternalTextLink href={item.linearUrl}>
+                    {item.issue} - {item.title}
+                  </ExternalTextLink>
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{item.stateDetail}</p>
+              </div>
+              <div>
+                <Label>Runner</Label>
+                <p className="mt-1 truncate text-stone-300">{item.runner}</p>
+              </div>
+              <div>
+                <Label>Repository</Label>
+                <p className="mt-1 truncate text-stone-300">{item.repository || "Unavailable"}</p>
+              </div>
+              <div>
+                <Label>Completed</Label>
+                <p className="mt-1 text-xs text-stone-500">{formatDateTime(item.latestActivityAt)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="p-4 text-sm text-stone-500">No recently completed work is visible from connected Linear data.</p>
+      )}
+    </Panel>
+  );
+}
+
+function BackupStatus({
+  detail,
+  recommendation,
+  status,
+}: {
+  detail: string;
+  recommendation: string;
+  status: SourceStatus;
+}) {
+  return (
+    <Panel className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Label>Backup Visibility</Label>
+          <p className="mt-2 text-sm leading-6 text-stone-300">{detail}</p>
+          <p className="mt-2 text-xs leading-5 text-stone-500">{recommendation}</p>
+        </div>
+        <AdminBadge tone={sourceTones[status]}>{status}</AdminBadge>
+      </div>
     </Panel>
   );
 }
@@ -431,21 +559,28 @@ export default async function OperationsCenterPage() {
           ))}
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <SummaryMetric label="Working" tone="green" value={data.summary.working} />
           <SummaryMetric label="Queued" tone="blue" value={data.summary.queued + data.summary.dispatcherEligible} />
           <SummaryMetric label="Claimed" tone="blue" value={data.summary.claimed} />
           <SummaryMetric label="Review" tone="amber" value={data.summary.founderReview + data.summary.previewReady} />
           <SummaryMetric label="Blocked" tone="red" value={data.summary.blockedFailed + data.summary.staleOffline} />
+          <SummaryMetric label="Complete" tone="green" value={data.summary.complete} />
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
           <div className="space-y-6">
             <WorkRows items={data.activeWork} />
             <ReviewQueue items={data.founderReviewQueue} />
+            <CompletedWork items={data.completedWork} />
           </div>
           <div className="space-y-6">
             <AlertList alerts={data.alerts} />
+            <BackupStatus
+              detail={data.backupVisibility.detail}
+              recommendation={data.backupVisibility.recommendation}
+              status={data.backupVisibility.status}
+            />
             <Panel className="p-4">
               <div className="flex items-start gap-3">
                 <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-[#C9A24A]" strokeWidth={1.8} />

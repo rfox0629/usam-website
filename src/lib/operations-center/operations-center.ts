@@ -15,6 +15,50 @@ const LINEAR_QUERY = `
 query OperationsCenterIssues($first: Int!) {
   issues(first: $first, orderBy: updatedAt) {
     nodes {
+      attachments {
+        nodes {
+          title
+          url
+        }
+      }
+      branchName
+      identifier
+      title
+      url
+      createdAt
+      updatedAt
+      startedAt
+      completedAt
+      assignee {
+        name
+      }
+      delegate {
+        name
+      }
+      state {
+        name
+        type
+      }
+      project {
+        name
+      }
+      labels {
+        nodes {
+          name
+          parent {
+            name
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+const LINEAR_FALLBACK_QUERY = `
+query OperationsCenterIssuesFallback($first: Int!) {
+  issues(first: $first, orderBy: updatedAt) {
+    nodes {
       identifier
       title
       url
@@ -157,10 +201,10 @@ async function loadLinearIssues() {
     };
   }
 
-  try {
+  async function fetchLinear(query: string) {
     const response = await fetch(LINEAR_API_URL, {
       body: JSON.stringify({
-        query: LINEAR_QUERY,
+        query,
         variables: {
           first: LINEAR_ISSUE_LIMIT,
         },
@@ -183,10 +227,26 @@ async function loadLinearIssues() {
       throw new Error(firstError.message);
     }
 
+    return payload.data?.issues?.nodes ?? [];
+  }
+
+  try {
+    let issues: unknown[];
+    let usedFallback = false;
+
+    try {
+      issues = await fetchLinear(LINEAR_QUERY);
+    } catch {
+      issues = await fetchLinear(LINEAR_FALLBACK_QUERY);
+      usedFallback = true;
+    }
+
     return {
-      issues: payload.data?.issues?.nodes ?? [],
+      issues,
       source: {
-        detail: "Live Linear issue states loaded server-side.",
+        detail: usedFallback
+          ? "Live Linear issue states loaded server-side with the compatibility field set."
+          : "Live Linear issue states, attachments, branches, and delegation loaded server-side.",
         fetchedAt: new Date().toISOString(),
         status: "live" as const,
       },

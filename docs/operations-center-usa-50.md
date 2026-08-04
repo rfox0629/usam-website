@@ -9,12 +9,13 @@ Mode: read-only, orchestration-agnostic
 Historical Operations Center branches were inspected before implementation:
 
 - USA-51 supplied a useful route/auth/status-contract foundation.
-- USA-52 supplied useful Linear issue normalization and explicit unavailable states.
+- USA-52 supplied useful Linear issue normalization, explicit unavailable states, and the protected preview path.
 - USA-53 was not reused because it depends on a Supabase registry migration, which is out of scope for USA-50.
 - USA-54 supplied useful founder-facing dashboard direction, but runner overrides and action controls were not reused.
-- USA-62 and USA-91 are superseded/canceled infrastructure-control work and were not reused.
+- USA-62 supplied the recovery requirement and preview workflow guardrails.
+- USA-91 was reviewed as a preserved future Infrastructure > Backups capability. USA-50 includes only read-only backup visibility/unavailable status because live backup controls require a separately approved paired local agent and should not be introduced inside this dashboard version.
 
-This implementation starts from current `origin/main` and keeps the dashboard inside the existing `/admin` boundary.
+This implementation retains the prior PR #19 route, status API, server-side auth boundary, USA-147 feed consumer, Linear normalization, redaction tests, and documentation. It refreshes the branch against current `origin/main`, updates Linear routing to the current canonical Runner label model, improves Founder Review evidence handling, adds completed-work and backup visibility, and keeps the dashboard inside the existing `/admin` boundary.
 
 ## Data Contract
 
@@ -28,9 +29,11 @@ Top-level fields:
 - `cards`
 - `summary`
 - `activeWork`
+- `completedWork`
 - `founderReviewQueue`
 - `alerts`
 - `recentActivity`
+- `backupVisibility`
 - `unavailableData`
 
 The USA-147 producer remains the normalized workforce source. When configured, the web app reads either:
@@ -38,7 +41,15 @@ The USA-147 producer remains the normalized workforce source. When configured, t
 - `USAM_WORKFORCE_STATUS_URL` for an HTTPS JSON feed, or
 - `USAM_WORKFORCE_STATUS_FILE` for a server-side local runtime file during Mac mini/dev validation.
 
-Linear is read server-side through `OPERATIONS_CENTER_LINEAR_API_KEY` or `LINEAR_API_KEY`.
+Linear is read server-side through `OPERATIONS_CENTER_LINEAR_API_KEY` or `LINEAR_API_KEY`. The app first requests enriched fields for attachments, branch name, assignee, and Linear delegate. If the Linear API rejects an enriched field, it falls back to the compatibility issue query rather than taking the whole dashboard offline.
+
+## Current Routing Interpretation
+
+- `Ready for Dispatcher` means the issue is eligible for dispatcher pickup only when paired with exactly one canonical runner signal.
+- Canonical runner signals are `Runner -> Codex`, `Runner -> Claude`, or equivalent exact `Codex` / `Claude` labels from the current dispatcher label model.
+- Deprecated `Ready for Codex` and `Ready for Claude` labels are displayed as warnings, not as proof of execution.
+- Linear assignment or delegation is displayed as Linear state only. It is not shown as active execution unless USA-147 reports a claimed or running heartbeat.
+- Repository route is shown from safe Linear labels/text and USA-147 selected repository data. Missing or conflicting routes are explicit alerts.
 
 ## Security Boundary
 
