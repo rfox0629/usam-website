@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const USAM_URL = "https://usamissionaries.org";
@@ -19,20 +19,21 @@ const dosV4Css = `
 .dos-v4{
   --black:#070D14;
   --navy:#0A1622;
-  --navy-2:#0F2233;
   --blue:#378ADD;
   --blue-hi:#6FB2F0;
   --blue-ink:#1E6FBF;
+  --blue-deep:#255F97;
   --blue-tint:#EDF5FC;
-  --green:#2E7D5B;
   --green-hi:#63C79A;
-  --green-tint:#EAF5F0;
   --ink:#0E1822;
   --muted:#5E6B78;
   --faint:#8A96A3;
   --line:#E6EAEE;
-  --dline:rgba(255,255,255,.09);
+  --field:#C9D2DA;
+  --dline:rgba(255,255,255,.12);
   --max:1120px;
+  --gut-s:1.5rem;
+  --gut-l:2.5rem;
   background:#fff;
   color:var(--ink);
   font-family:'Inter',system-ui,sans-serif;
@@ -46,45 +47,83 @@ const dosV4Css = `
 .dos-v4 *{box-sizing:border-box}
 .dos-v4 ::selection{background:var(--blue);color:#fff}
 .dos-v4 a{color:inherit}
-.dos-v4 :focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:6px}
-.dos-v4 .wrap{max-width:var(--max);margin:0 auto;padding:0 clamp(1.25rem,5vw,3rem)}
-.dos-v4 .mono{font-family:'Rajdhani',sans-serif}
-.dos-v4 .eyebrow{font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--blue-ink)}
-.dos-v4 h1,.dos-v4 h2{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:0;line-height:1.04}
+/* Square focus language across the ecosystem */
+.dos-v4 :focus-visible{outline:2px solid var(--blue-hi);outline-offset:2px;border-radius:0}
+.dos-v4 .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut-s)}
+@media (min-width:768px){.dos-v4 .wrap{padding:0 var(--gut-l)}}
 
-.dos-v4 .logo{display:flex;align-items:center;gap:.7rem;text-decoration:none}
-.dos-v4 .logo svg{display:block;flex:none}
-.dos-v4 .logo .txt{line-height:1}
-.dos-v4 .logo .word{font-family:'Oswald',sans-serif;font-weight:700;font-size:1.15rem;letter-spacing:0}
-.dos-v4 .logo .full{font-family:'Rajdhani',sans-serif;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;margin-top:.3rem}
-@media (max-width:560px){.dos-v4 .logo .full{display:none}}
+/* Shared ecosystem eyebrow: hairline rule + wide tracking, matching Kitchen Table Gospel */
+.dos-v4 .eyebrow{
+  display:inline-flex;align-items:center;gap:.75rem;
+  font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;
+  letter-spacing:.32em;text-transform:uppercase;color:var(--blue-ink);
+}
+.dos-v4 .eyebrow::before{content:"";height:1px;width:2rem;background:currentColor;opacity:.55;flex:none}
+.dos-v4 .on-dark .eyebrow{color:var(--blue-hi)}
+.dos-v4 h1,.dos-v4 h2{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:-.005em;line-height:1.05}
 
-.dos-v4 header{position:sticky;top:0;z-index:50;background:rgba(7,13,20,.78);backdrop-filter:blur(16px);border-bottom:1px solid var(--dline)}
-.dos-v4 .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
-.dos-v4 header .logo .word{color:#fff}
-.dos-v4 header .logo .full{color:#7E92A5}
-.dos-v4 .nav-actions{display:flex;align-items:center;gap:.85rem}
-.dos-v4 .return-link{font-size:.88rem;font-weight:500;text-decoration:none;color:#9DB0C2;white-space:nowrap}
-.dos-v4 .return-link:hover{color:#fff}
-.dos-v4 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;font-weight:600;font-size:.95rem;padding:.78rem 1.5rem;border-radius:10px;transition:background .18s,color .18s,border-color .18s,box-shadow .18s,transform .18s}
-.dos-v4 button.btn{font-family:inherit;cursor:pointer}
-.dos-v4 .btn-primary{background:var(--blue);color:#fff;border:1px solid var(--blue)}
-.dos-v4 .btn-primary:hover{background:var(--blue-hi);border-color:var(--blue-hi);box-shadow:0 8px 24px rgba(55,138,221,.35)}
-.dos-v4 .btn-ghost-d{border:1px solid rgba(255,255,255,.22);color:#fff;background:transparent}
-.dos-v4 .btn-ghost-d:hover{border-color:#fff}
-.dos-v4 .btn-ghost-l{border:1px solid var(--line);color:var(--ink);background:#fff}
-.dos-v4 .btn-ghost-l:hover{border-color:var(--ink)}
-.dos-v4 .nav .btn{padding:.52rem 1.1rem;font-size:.88rem}
-@media (max-width:640px){.dos-v4 .nav{gap:.65rem}.dos-v4 .nav-actions{gap:.55rem}.dos-v4 .return-link{font-size:.74rem}.dos-v4 .nav .btn{padding:.48rem .72rem;font-size:.78rem}}
-@media (max-width:360px){.dos-v4 .return-link{font-size:.7rem}.dos-v4 .nav .btn{padding:.44rem .6rem;font-size:.74rem}}
+/* ---------- ECOSYSTEM BUTTON: square corners, Rajdhani, uppercase ---------- */
+.dos-v4 .btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-family:'Rajdhani',sans-serif;font-weight:600;text-decoration:none;white-space:nowrap;
+  border-radius:0;border:1px solid transparent;cursor:pointer;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  padding:.625rem 1rem;
+  transition:background .25s,border-color .25s,color .25s;
+}
+@media (min-width:640px){.dos-v4 .btn{font-size:14px;letter-spacing:.18em;padding:.875rem 1.75rem}}
+.dos-v4 button.btn{font-family:'Rajdhani',sans-serif}
+.dos-v4 .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.dos-v4 .btn-primary:hover{background:var(--blue-deep);border-color:var(--blue-deep)}
+.dos-v4 .btn-secondary{background:transparent;color:#fff;border-color:rgba(55,138,221,.5)}
+.dos-v4 .btn-secondary:hover,.dos-v4 .btn-secondary:focus-visible{background:rgba(55,138,221,.12);border-color:var(--blue)}
+.dos-v4 .btn:active{transform:translateY(1px)}
+.dos-v4 .btn[disabled]{opacity:.55;cursor:not-allowed}
+.dos-v4 .btn.sm{padding:.55rem .95rem;font-size:11px;letter-spacing:.14em}
+@media (min-width:640px){.dos-v4 .btn.sm{padding:.72rem 1.4rem;font-size:12.5px;letter-spacing:.16em}}
+/* Header CTA shortens below 640px so the attribution line never wraps */
+.dos-v4 .cta-short{display:inline}
+.dos-v4 .cta-long{display:none}
+@media (min-width:640px){.dos-v4 .cta-short{display:none}.dos-v4 .cta-long{display:inline}}
 
+/* ---------- HEADER: Kitchen Table Gospel structure, DOS identity ---------- */
+.dos-v4 header{
+  position:sticky;top:0;z-index:50;
+  background:#000;
+  border-bottom:1px solid var(--dline);
+}
+.dos-v4 .nav{
+  max-width:var(--max);margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:1rem var(--gut-s);
+}
+@media (min-width:768px){.dos-v4 .nav{padding:1rem var(--gut-l)}}
+.dos-v4 .ident-row{display:flex;align-items:center;gap:.75rem;min-width:0}
+.dos-v4 .ident-row .mark{flex:none;display:block}
+.dos-v4 .ident{display:flex;flex-direction:column;line-height:1;gap:.35rem;min-width:0}
+.dos-v4 .ident .word{
+  font-family:'Oswald',sans-serif;font-weight:700;color:#fff;
+  font-size:.98rem;letter-spacing:.05em;text-transform:uppercase;text-decoration:none;line-height:1.12;
+}
+@media (min-width:400px){.dos-v4 .ident .word{font-size:1.1rem}}
+@media (min-width:640px){.dos-v4 .ident .word{font-size:1.25rem;letter-spacing:.08em;white-space:nowrap}}
+@media (min-width:900px){.dos-v4 .ident .word{font-size:1.4rem}}
+.dos-v4 .ident .attrib{
+  font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:#9CC7EF;
+}
+@media (min-width:640px){.dos-v4 .ident .attrib{font-size:10px;letter-spacing:.28em}}
+.dos-v4 .ident .attrib a{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px}
+.dos-v4 .ident .attrib a:hover{color:#F2F7FB}
+
+/* ---------- HERO ---------- */
 .dos-v4 .hero{
   background:
     radial-gradient(75% 55% at 78% 0%,rgba(55,138,221,.28),transparent 62%),
     radial-gradient(45% 40% at 12% 100%,rgba(46,125,91,.14),transparent 65%),
     var(--black);
   color:#fff;position:relative;overflow:hidden;
-  padding:clamp(4.5rem,10vh,7rem) 0 clamp(4.5rem,10vh,7rem);
+  padding:clamp(4rem,9vh,6.5rem) 0;
 }
 .dos-v4 .hero::before{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -95,16 +134,15 @@ const dosV4Css = `
 .dos-v4 .hero .wrap{position:relative}
 .dos-v4 .hero-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:clamp(2.5rem,6vw,5rem);align-items:center}
 @media (max-width:880px){.dos-v4 .hero-grid{grid-template-columns:1fr}}
-.dos-v4 .hero .eyebrow{color:var(--blue-hi)}
-.dos-v4 .hero h1{font-size:clamp(2.6rem,5.8vw,4.2rem);max-width:14ch;margin-top:1rem}
+.dos-v4 .hero h1{font-size:clamp(2.5rem,5.4vw,3.9rem);max-width:14ch;margin-top:1.1rem}
 .dos-v4 .hero h1 .hl{background:linear-gradient(92deg,var(--blue-hi),#B8DCFA);-webkit-background-clip:text;background-clip:text;color:transparent}
 .dos-v4 .hero .lede{margin-top:1.5rem;max-width:31rem;font-size:1.13rem;color:#A9BACB;line-height:1.7}
 .dos-v4 .cta-row{display:flex;gap:.85rem;flex-wrap:wrap;margin-top:2.2rem}
-.dos-v4 .hero .micro{margin-top:1.4rem;font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.08em;color:#5F7488}
+.dos-v4 .micro{margin-top:1.4rem;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#5F7488}
 
 .dos-v4 .canvas{position:relative;min-height:clamp(360px,42vw,470px)}
 .dos-v4 .moment{
-  position:absolute;border-radius:8px;padding:1rem 1.15rem;max-width:262px;width:calc(100% - 2rem);
+  position:absolute;padding:1rem 1.15rem;max-width:262px;width:calc(100% - 2rem);
   background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.04));
   border:1px solid rgba(255,255,255,.14);
   backdrop-filter:blur(10px);
@@ -113,37 +151,39 @@ const dosV4Css = `
 .dos-v4 .moment .k{display:flex;align-items:center;gap:.5rem;font-family:'Rajdhani',sans-serif;font-size:.62rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#7E92A5}
 .dos-v4 .moment .k i{width:6px;height:6px;border-radius:50%;background:var(--blue);flex:none;box-shadow:0 0 10px rgba(55,138,221,.9)}
 .dos-v4 .moment.g .k i{background:var(--green-hi);box-shadow:0 0 10px rgba(99,199,154,.8)}
-.dos-v4 .moment .m{font-size:.94rem;font-weight:550;color:#F2F7FB;margin-top:.45rem;line-height:1.45}
+.dos-v4 .moment .m{font-size:.94rem;font-weight:500;color:#F2F7FB;margin-top:.45rem;line-height:1.45}
 .dos-v4 .moment .s{font-size:.8rem;color:#93A5B6;margin-top:.2rem}
-.dos-v4 .moment .pill{display:inline-block;margin-top:.65rem;font-size:.68rem;font-weight:600;padding:.24rem .7rem;border-radius:999px;background:rgba(55,138,221,.18);color:var(--blue-hi);border:1px solid rgba(55,138,221,.3)}
+.dos-v4 .moment .pill{display:inline-block;margin-top:.65rem;font-size:.68rem;font-weight:600;padding:.24rem .7rem;background:rgba(55,138,221,.18);color:var(--blue-hi);border:1px solid rgba(55,138,221,.3)}
 .dos-v4 .moment.g .pill{background:rgba(99,199,154,.14);color:var(--green-hi);border-color:rgba(99,199,154,.3)}
-.dos-v4 .bar{height:4px;border-radius:999px;background:rgba(255,255,255,.12);margin-top:.7rem;overflow:hidden}
-.dos-v4 .bar b{display:block;height:100%;width:60%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--blue-hi))}
+.dos-v4 .bar{height:4px;background:rgba(255,255,255,.12);margin-top:.7rem;overflow:hidden}
+.dos-v4 .bar b{display:block;height:100%;width:60%;background:linear-gradient(90deg,var(--blue),var(--blue-hi))}
 @media (max-width:880px){
   .dos-v4 .canvas{min-height:0;display:grid;gap:.85rem}
   .dos-v4 .moment{position:static;max-width:none}
 }
 
-.dos-v4 .story{padding:clamp(5rem,11vh,8rem) 0;background:#fff}
-.dos-v4 .story h2{font-size:clamp(2.1rem,4.6vw,3.4rem);color:var(--ink);max-width:14ch;margin-top:.9rem}
-.dos-v4 .q-list{margin-top:clamp(2.5rem,6vh,3.5rem);max-width:54rem}
+/* ---------- STORY ---------- */
+.dos-v4 .story{padding:clamp(4.5rem,10vh,7rem) 0;background:#fff}
+.dos-v4 .story h2{font-size:clamp(2rem,4.2vw,3rem);color:var(--ink);max-width:15ch;margin-top:1rem}
+.dos-v4 .q-list{margin-top:clamp(2.25rem,5vh,3rem);max-width:54rem}
 .dos-v4 .q{
   display:grid;grid-template-columns:auto 1fr;gap:clamp(1rem,3vw,2rem);align-items:baseline;
-  padding:1.6rem 0;border-top:1px solid var(--line);
-  font-size:clamp(1.15rem,2vw,1.45rem);font-weight:450;letter-spacing:0;line-height:1.45;color:var(--ink);
+  padding:1.5rem 0;border-top:1px solid var(--line);
+  font-size:clamp(1.12rem,1.9vw,1.4rem);font-weight:400;line-height:1.45;color:var(--ink);
 }
 .dos-v4 .q:last-of-type{border-bottom:1px solid var(--line)}
 .dos-v4 .q .lead{font-family:'Rajdhani',sans-serif;font-size:.95rem;color:#C3CDD6;font-weight:600}
 .dos-v4 .q em{font-style:normal;color:var(--blue-ink)}
-.dos-v4 .turn{max-width:44rem;margin-top:clamp(2.5rem,6vh,3.5rem)}
+.dos-v4 .turn{max-width:44rem;margin-top:clamp(2.25rem,5vh,3rem)}
 .dos-v4 .turn p{font-size:1.15rem;color:var(--muted);line-height:1.7}
 .dos-v4 .turn p strong{color:var(--ink);font-weight:650}
 
+/* ---------- SYSTEM ---------- */
 .dos-v4 .system{
   background:
     radial-gradient(70% 60% at 20% 0%,rgba(55,138,221,.2),transparent 60%),
     var(--navy);
-  color:#fff;padding:clamp(5rem,11vh,8rem) 0;position:relative;overflow:hidden;
+  color:#fff;padding:clamp(4.5rem,10vh,7rem) 0;position:relative;overflow:hidden;
 }
 .dos-v4 .system::before{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -152,24 +192,24 @@ const dosV4Css = `
   mask-image:radial-gradient(70% 60% at 30% 30%,#000,transparent 78%);
 }
 .dos-v4 .system .wrap{position:relative}
-.dos-v4 .system .eyebrow{color:var(--blue-hi)}
-.dos-v4 .system h2{font-size:clamp(2rem,4.2vw,3.1rem);max-width:15ch;margin-top:.9rem}
+.dos-v4 .system h2{font-size:clamp(2rem,4vw,2.9rem);max-width:16ch;margin-top:1rem}
 .dos-v4 .system .lede{margin-top:1.3rem;color:#A9BACB;font-size:1.12rem;max-width:38rem;line-height:1.7}
-.dos-v4 .promise-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--dline);border:1px solid var(--dline);border-radius:8px;overflow:hidden;margin-top:clamp(2.5rem,6vh,3.5rem)}
+.dos-v4 .promise-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--dline);border:1px solid var(--dline);margin-top:clamp(2.25rem,5vh,3rem)}
 @media (max-width:960px){.dos-v4 .promise-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.dos-v4 .promise-grid{grid-template-columns:1fr}}
 .dos-v4 .promise{background:rgba(255,255,255,.03);padding:1.9rem 1.6rem;transition:background .2s}
 .dos-v4 .promise:hover{background:rgba(255,255,255,.06)}
-.dos-v4 .promise .n{font-family:'Rajdhani',sans-serif;font-size:.66rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--blue-hi)}
+.dos-v4 .promise .n{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--blue-hi)}
 .dos-v4 .promise.gr .n{color:var(--green-hi)}
-.dos-v4 .promise h3{font-size:1.22rem;font-weight:650;letter-spacing:0;color:#fff;margin-top:.6rem}
+.dos-v4 .promise h3{font-family:'Oswald',sans-serif;font-size:1.2rem;font-weight:600;letter-spacing:.01em;color:#fff;margin-top:.6rem}
 .dos-v4 .promise p{font-size:.94rem;color:#93A5B6;margin-top:.55rem;line-height:1.6}
 .dos-v4 .system .guard{margin-top:2rem;font-size:.9rem;color:#7E92A5;max-width:40rem}
 
-.dos-v4 .fruit{padding:clamp(4.5rem,10vh,7rem) 0;background:#fff;border-bottom:1px solid var(--line)}
+/* ---------- FRUIT ---------- */
+.dos-v4 .fruit{padding:clamp(4rem,9vh,6.5rem) 0;background:#fff;border-bottom:1px solid var(--line)}
 .dos-v4 .fruit-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(280px,4fr);gap:clamp(2.5rem,6vw,5rem);align-items:center}
 @media (max-width:820px){.dos-v4 .fruit-grid{grid-template-columns:1fr}.dos-v4 .fruit-visual{order:-1}}
-.dos-v4 .fruit h2{font-size:clamp(2.1rem,4.4vw,3.2rem);color:var(--ink);max-width:13ch;margin-top:.9rem}
+.dos-v4 .fruit h2{font-size:clamp(2rem,4.2vw,3rem);color:var(--ink);max-width:13ch;margin-top:1rem}
 .dos-v4 .fruit p{font-size:1.12rem;color:var(--muted);line-height:1.7;max-width:39rem;margin-top:1.3rem}
 .dos-v4 .fruit-visual{position:relative;min-height:280px;display:grid;place-items:center}
 .dos-v4 .fruit-ring{position:relative;width:min(100%,310px);aspect-ratio:1;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,rgba(55,138,221,.1),transparent 55%)}
@@ -177,92 +217,119 @@ const dosV4Css = `
 .dos-v4 .fruit-ring::before{inset:13%}
 .dos-v4 .fruit-ring::after{inset:28%}
 .dos-v4 .fruit-core{position:relative;z-index:1;display:grid;place-items:center;width:94px;height:94px;border-radius:50%;background:var(--blue);color:#fff;text-align:center;font-family:'Rajdhani',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;box-shadow:0 18px 42px rgba(55,138,221,.28)}
-.dos-v4 .fruit-note{position:absolute;z-index:2;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font-size:.78rem;font-weight:650;padding:.38rem .78rem;box-shadow:0 12px 28px rgba(14,24,34,.08)}
+.dos-v4 .fruit-note{position:absolute;z-index:2;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:.78rem;font-weight:650;padding:.38rem .78rem;box-shadow:0 12px 28px rgba(14,24,34,.08)}
 .dos-v4 .fruit-note.one{top:18%;left:2%}
 .dos-v4 .fruit-note.two{right:0;top:46%}
 .dos-v4 .fruit-note.three{bottom:17%;left:14%}
 
-.dos-v4 .intel{background:#FAFBFC;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:clamp(5rem,11vh,8rem) 0}
-.dos-v4 .intel h2{font-size:clamp(2.1rem,4.4vw,3.2rem);color:var(--ink);max-width:16ch;margin-top:.9rem}
-.dos-v4 .intel .lede{margin-top:1.3rem;color:var(--muted);font-size:1.12rem;max-width:38rem;line-height:1.7}
-.dos-v4 .intel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.25rem,3vw,2.5rem);margin-top:clamp(2.5rem,6vh,3.5rem)}
-@media (max-width:820px){.dos-v4 .intel-grid{grid-template-columns:1fr;max-width:34rem}}
-.dos-v4 .intel-item .idx{font-family:'Rajdhani',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.14em;color:var(--blue-ink);display:block}
-.dos-v4 .intel-item h3{font-size:1.18rem;font-weight:650;letter-spacing:0;margin-top:.75rem;color:var(--ink)}
-.dos-v4 .intel-item p{font-size:.96rem;color:var(--muted);margin-top:.55rem;max-width:30rem;line-height:1.65}
-.dos-v4 .posture{
-  margin-top:clamp(3.5rem,8vh,5rem);border-top:1px solid var(--line);
-  padding-top:clamp(2.75rem,6vh,4rem);
-  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(2rem,5vw,4.5rem);align-items:center;
+/* ---------- RELATIONAL SECTION (replaces "Intelligence, surrendered") ---------- */
+.dos-v4 .quiet{background:#fff;padding:clamp(4.5rem,10vh,7rem) 0}
+.dos-v4 .quiet h2{font-size:clamp(2rem,4.2vw,3rem);color:var(--ink);max-width:15ch;margin-top:1rem}
+.dos-v4 .quiet .lede{margin-top:1.3rem;color:var(--muted);font-size:1.12rem;max-width:38rem;line-height:1.7}
+.dos-v4 .quiet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.25rem,3vw,2.5rem);margin-top:clamp(2.5rem,6vh,3.5rem)}
+@media (max-width:820px){.dos-v4 .quiet-grid{grid-template-columns:1fr;max-width:34rem}}
+.dos-v4 .quiet-item{border-top:2px solid var(--blue);padding-top:1.25rem}
+.dos-v4 .quiet-item .idx{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--blue-ink);display:block}
+.dos-v4 .quiet-item h3{font-family:'Oswald',sans-serif;font-size:1.28rem;font-weight:600;letter-spacing:.01em;margin-top:.6rem;color:var(--ink)}
+.dos-v4 .quiet-item p{font-size:.96rem;color:var(--muted);margin-top:.6rem;line-height:1.65}
+.dos-v4 .guardrails{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.25rem,3vw,2.5rem);
+  margin-top:clamp(2.75rem,6vh,4rem);padding-top:clamp(2.25rem,5vh,3rem);border-top:1px solid var(--line);
 }
-@media (max-width:820px){.dos-v4 .posture{grid-template-columns:1fr}}
-.dos-v4 .posture .label h3{font-size:1.35rem;font-weight:700;letter-spacing:0;color:var(--ink)}
-.dos-v4 .posture .label p{font-size:.96rem;color:var(--muted);margin-top:.6rem;max-width:26rem;line-height:1.65}
-.dos-v4 .posture blockquote{border-left:2px solid var(--blue);padding-left:clamp(1.25rem,3vw,2rem)}
-.dos-v4 .posture blockquote p{font-family:'Inter',system-ui,sans-serif;font-style:italic;font-weight:400;font-size:clamp(1.3rem,2.4vw,1.7rem);line-height:1.45;color:var(--ink)}
-.dos-v4 .posture blockquote p+p{margin-top:.8rem}
-.dos-v4 .posture blockquote em{color:var(--blue-ink)}
-.dos-v4 .posture .support{font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:1.3rem}
+@media (max-width:820px){.dos-v4 .guardrails{grid-template-columns:1fr;max-width:34rem}}
+.dos-v4 .guardrails h3{font-family:'Oswald',sans-serif;font-size:1.02rem;font-weight:600;letter-spacing:.01em;color:var(--ink)}
+.dos-v4 .guardrails p{font-size:.92rem;color:var(--muted);margin-top:.45rem;line-height:1.6}
+.dos-v4 .close-line{margin:clamp(2.5rem,6vh,3.5rem) auto 0;text-align:center;max-width:44rem}
+.dos-v4 .close-line p{font-size:clamp(1.2rem,2.2vw,1.5rem);line-height:1.5;color:var(--ink);font-weight:400}
+.dos-v4 .close-line p em{font-style:italic;color:var(--blue-ink)}
+.dos-v4 .close-line .support{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;color:var(--faint);margin-top:1.1rem}
 
-.dos-v4 .trust{padding:clamp(4.5rem,10vh,7rem) 0;background:#fff}
-.dos-v4 .trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(1.5rem,4vw,3rem)}
-@media (max-width:820px){.dos-v4 .trust-grid{grid-template-columns:1fr;max-width:34rem}}
-.dos-v4 .trust h3{font-size:1.1rem;font-weight:650;letter-spacing:0;color:var(--ink)}
-.dos-v4 .trust p{font-size:.95rem;color:var(--muted);margin-top:.5rem;max-width:30rem}
-.dos-v4 .trust .idx{font-family:'Rajdhani',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.14em;color:var(--blue-ink);display:block;margin-bottom:.8rem}
-
+/* ---------- FINAL ---------- */
 .dos-v4 .final{
   background:
     radial-gradient(60% 60% at 50% 115%,rgba(55,138,221,.34),transparent 70%),
     var(--black);
-  color:#fff;text-align:center;padding:clamp(5rem,11vh,8rem) 0;position:relative;overflow:hidden;
+  color:#fff;text-align:center;padding:clamp(4.5rem,10vh,7rem) 0;position:relative;overflow:hidden;
 }
-.dos-v4 .final .wrap{position:relative}
-.dos-v4 .final .eyebrow{color:var(--blue-hi)}
-.dos-v4 .final h2{font-size:clamp(2rem,4.6vw,3.3rem);max-width:17ch;margin:.9rem auto 0}
+.dos-v4 .final .wrap{position:relative;display:flex;flex-direction:column;align-items:center}
+.dos-v4 .final h2{font-size:clamp(2rem,4.4vw,3.1rem);max-width:17ch;margin:1rem auto 0}
 .dos-v4 .final p{max-width:32rem;margin:1.4rem auto 0;color:#A9BACB;font-size:1.1rem}
 .dos-v4 .final .cta-row{justify-content:center}
-.dos-v4 .final .micro{margin-top:1.5rem;font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:600;letter-spacing:.08em;color:#5F7488}
 
-.dos-v4 footer{background:var(--black);border-top:1px solid var(--dline);padding:2.4rem 0 2.8rem;font-size:.9rem;color:#7E92A5}
-.dos-v4 .foot{display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:space-between;align-items:center}
-.dos-v4 .foot nav{display:flex;gap:1.4rem;flex-wrap:wrap}
-.dos-v4 .foot a{text-decoration:none}
-.dos-v4 .foot a:hover{color:#fff}
-.dos-v4 footer .logo .word{color:#fff}
-.dos-v4 footer .logo .full{color:#5F7488}
+/* ---------- FOOTER ---------- */
+.dos-v4 footer{background:var(--navy);border-top:1px solid var(--dline)}
+.dos-v4 .foot-main{
+  max-width:var(--max);margin:0 auto;padding:2.5rem var(--gut-s);
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:1.75rem;
+}
+@media (min-width:768px){
+  .dos-v4 .foot-main{padding:3rem var(--gut-l);flex-direction:row;justify-content:space-between;align-items:center;text-align:left}
+}
+.dos-v4 .foot-id{display:flex;align-items:flex-start;gap:.85rem}
+.dos-v4 .foot-id .mark{flex:none;margin-top:.1rem}
+.dos-v4 .foot-id .name{font-family:'Oswald',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#E9EFF5}
+.dos-v4 .foot-id .attrib{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#9CC7EF;margin-top:.55rem}
+.dos-v4 .foot-id .attrib a{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px}
+.dos-v4 .foot-id .attrib a:hover{color:#F2F7FB}
+.dos-v4 .foot-bar{border-top:1px solid var(--dline)}
+.dos-v4 .foot-bar .inner{
+  max-width:var(--max);margin:0 auto;padding:1rem var(--gut-s);
+  display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;justify-content:center;
+  font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#5F7488;
+}
+@media (min-width:768px){.dos-v4 .foot-bar .inner{padding:1rem var(--gut-l);justify-content:space-between}}
+.dos-v4 .foot-bar a{text-decoration:none}
+.dos-v4 .foot-bar a:hover{color:#E9EFF5}
 
+/* ---------- MODAL / FORM ---------- */
 .dos-v4 .modal-backdrop{position:fixed;inset:0;z-index:100;background:rgba(7,13,20,.82);backdrop-filter:blur(12px);overflow-y:auto;padding:1.2rem}
 .dos-v4 .modal-shell{min-height:100%;display:flex;align-items:center;justify-content:center}
-.dos-v4 .modal-panel{position:relative;width:min(100%,720px);border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);box-shadow:0 28px 80px rgba(0,0,0,.35);padding:clamp(1.3rem,4vw,2.2rem)}
-.dos-v4 .modal-close{position:absolute;right:1rem;top:1rem;width:38px;height:38px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font:inherit;font-size:1.35rem;line-height:1;cursor:pointer}
-.dos-v4 .modal-close:hover{border-color:var(--ink);color:var(--ink)}
-.dos-v4 .modal-header{padding-right:3rem}
-.dos-v4 .modal-header h2{font-size:clamp(1.75rem,4vw,2.45rem);max-width:none;margin-top:.6rem;color:var(--ink)}
+.dos-v4 .modal-panel{position:relative;width:min(100%,720px);border:1px solid var(--line);background:#fff;color:var(--ink);box-shadow:0 28px 80px rgba(0,0,0,.35);padding:clamp(1.3rem,4vw,2.2rem)}
+.dos-v4 .modal-close{position:absolute;right:1rem;top:1rem;width:40px;height:40px;border:1px solid var(--line);border-radius:0;background:#fff;color:var(--muted);font:inherit;font-size:1.35rem;line-height:1;cursor:pointer}
+.dos-v4 .modal-close:hover{border-color:var(--blue);color:var(--ink)}
+.dos-v4 .modal-header{padding-right:3.25rem}
+.dos-v4 .modal-header h2{font-size:clamp(1.7rem,3.6vw,2.3rem);max-width:none;margin-top:.7rem;color:var(--ink)}
 .dos-v4 .modal-header p{font-size:.98rem;color:var(--muted);max-width:35rem;margin-top:.8rem;line-height:1.65}
 .dos-v4 .request-form{display:grid;gap:1rem;margin-top:1.5rem}
 .dos-v4 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-@media (max-width:640px){.dos-v4 .form-grid{grid-template-columns:1fr}.dos-v4 .modal-backdrop{padding:.8rem}.dos-v4 .modal-panel{padding:1.2rem}.dos-v4 .modal-header{padding-right:2.7rem}}
-.dos-v4 .field{display:grid;gap:.35rem}
-.dos-v4 .field span{font-size:.78rem;font-weight:650;color:var(--ink)}
-.dos-v4 .field input,.dos-v4 .field select,.dos-v4 .field textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:.94rem;padding:.72rem .82rem}
-.dos-v4 .field textarea{min-height:118px;resize:vertical}
-.dos-v4 .field input:focus,.dos-v4 .field select:focus,.dos-v4 .field textarea:focus{outline:2px solid rgba(55,138,221,.35);border-color:var(--blue)}
+@media (max-width:640px){.dos-v4 .form-grid{grid-template-columns:1fr}.dos-v4 .modal-backdrop{padding:.8rem}.dos-v4 .modal-panel{padding:1.2rem}.dos-v4 .modal-header{padding-right:3rem}}
+.dos-v4 .field{display:grid;gap:.4rem}
+.dos-v4 .field>span{font-size:.78rem;font-weight:650;color:var(--ink)}
+.dos-v4 .field>span .opt{font-weight:500;color:var(--faint)}
+.dos-v4 .field input,.dos-v4 .field textarea,.dos-v4 .selectish{
+  width:100%;border:1px solid var(--field);border-radius:0;background:#fff;color:var(--ink);
+  font:inherit;font-size:.94rem;padding:.72rem .82rem;
+}
+.dos-v4 .field textarea{min-height:110px;resize:vertical}
+.dos-v4 .field input:focus,.dos-v4 .field textarea:focus,.dos-v4 .selectish:focus{outline:2px solid var(--blue);outline-offset:1px;border-color:var(--blue)}
 .dos-v4 .field.full{grid-column:1 / -1}
+/* DOS-local square select. Replaces the native <select>, whose closed state and option
+   list render with the platform gray chrome in Safari, Firefox, and Windows browsers. */
+.dos-v4 .select-field{position:relative}
+.dos-v4 .selectish{display:flex;align-items:center;justify-content:space-between;gap:.75rem;text-align:left;cursor:pointer;font-family:inherit}
+.dos-v4 .selectish[aria-expanded="true"]{border-color:var(--blue);outline:2px solid var(--blue);outline-offset:1px}
+.dos-v4 .selectish .val{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dos-v4 .selectish .val.chosen{color:var(--ink)}
+.dos-v4 .selectish .chev{width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-2px);flex:none;transition:transform .2s}
+.dos-v4 .selectish[aria-expanded="true"] .chev{transform:rotate(225deg) translateY(-2px)}
+.dos-v4 .listbox{position:absolute;left:0;right:0;top:100%;z-index:3;border:1px solid var(--blue);border-top:0;background:#fff;box-shadow:0 18px 40px rgba(14,24,34,.14);max-height:15rem;overflow-y:auto}
+.dos-v4 .listbox [role="option"]{padding:.66rem .82rem;font-size:.94rem;color:var(--ink);cursor:pointer}
+.dos-v4 .listbox [role="option"]:hover,.dos-v4 .listbox [role="option"][data-active="true"]{background:var(--blue-tint);color:var(--blue-ink);font-weight:600}
+.dos-v4 .listbox [role="option"][aria-selected="true"]{background:var(--blue-tint);color:var(--blue-ink);font-weight:600}
 .dos-v4 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .dos-v4 .privacy-note{font-size:.82rem;color:var(--muted);margin:0}
 .dos-v4 .form-actions{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap}
-.dos-v4 .form-message{border:1px solid rgba(55,138,221,.28);border-radius:8px;background:var(--blue-tint);color:var(--ink);padding:.95rem 1rem;font-size:.94rem;line-height:1.55}
+.dos-v4 .form-message{border:1px solid rgba(55,138,221,.28);background:var(--blue-tint);color:var(--ink);padding:.95rem 1rem;font-size:.94rem;line-height:1.55}
 .dos-v4 .form-message.error{border-color:rgba(185,28,28,.26);background:#FEF2F2;color:#7F1D1D}
 
 .dos-v4 .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
 .dos-v4 .reveal.in{opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.dos-v4 .reveal{opacity:1;transform:none;transition:none}}
+@media (prefers-reduced-motion:reduce){.dos-v4 .reveal{opacity:1;transform:none;transition:none}.dos-v4 .btn,.dos-v4 .promise,.dos-v4 .selectish .chev{transition:none}}
 `;
 
 function DosMark({ size = 30 }: { size?: number }) {
   return (
-    <svg aria-hidden="true" fill="none" height={size} viewBox="0 0 52 52" width={size}>
+    <svg aria-hidden="true" className="mark" fill="none" height={size} viewBox="0 0 52 52" width={size}>
       <circle cx="26" cy="26" fill="#378ADD" r="4.5" />
       <circle cx="26" cy="26" fill="none" r="11" stroke="#FFFFFF" strokeWidth="3.5" />
       <path d="M40.7 36.3 A18 18 0 1 1 40.7 15.7" stroke="#FFFFFF" strokeLinecap="round" strokeWidth="3.5" />
@@ -270,10 +337,102 @@ function DosMark({ size = 30 }: { size?: number }) {
   );
 }
 
+// The shared PublicSelect in components/forms is hard-wired to the USAM gold accent
+// (#C2A14E) and rounded-xl geometry, which would put gold focus rings and rounded
+// corners into the square DOS blue language. Until USA-150 tokenizes that component,
+// DOS uses this local equivalent: same button + listbox pattern, DOS geometry.
+function DosSelect({
+  label,
+  name,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  name: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonId = `${name}-button`;
+  const listboxId = `${name}-listbox`;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "Escape") {
+      setIsOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setIsOpen(true);
+    }
+  }
+
+  return (
+    <div
+      className="field full select-field"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <span id={`${name}-label`}>{label}</span>
+      <input name={name} readOnly type="hidden" value={value} />
+      <button
+        aria-controls={listboxId}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-labelledby={`${name}-label ${buttonId}`}
+        className="selectish"
+        id={buttonId}
+        onClick={() => setIsOpen((current) => !current)}
+        onKeyDown={handleKeyDown}
+        ref={buttonRef}
+        type="button"
+      >
+        <span className={value ? "val chosen" : "val"}>{value || "Select one"}</span>
+        <span aria-hidden="true" className="chev" />
+      </button>
+      {isOpen ? (
+        <div aria-labelledby={`${name}-label`} className="listbox" id={listboxId} role="listbox">
+          {options.map((option) => (
+            <div
+              aria-selected={option === value}
+              key={option}
+              onClick={() => {
+                onChange(option);
+                setIsOpen(false);
+                buttonRef.current?.focus();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onChange(option);
+                  setIsOpen(false);
+                  buttonRef.current?.focus();
+                }
+              }}
+              role="option"
+              tabIndex={0}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function DosLandingPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [primaryInterest, setPrimaryInterest] = useState("");
   const [requestStatus, setRequestStatus] = useState<RequestStatus>("idle");
 
   useEffect(() => {
@@ -305,7 +464,7 @@ export function DosLandingPage() {
 
     const previousOverflow = document.body.style.overflow;
 
-    function handleKeyDown(event: KeyboardEvent) {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
         setIsRequestOpen(false);
       }
@@ -328,6 +487,13 @@ export function DosLandingPage() {
 
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!primaryInterest) {
+      setErrorMessage("Please choose a primary interest.");
+      setRequestStatus("error");
+      return;
+    }
+
     setErrorMessage("");
     setIsSubmitting(true);
     setRequestStatus("idle");
@@ -340,7 +506,6 @@ export function DosLandingPage() {
     const message = getString(formData, "message");
     const organization = getString(formData, "organization");
     const phone = getString(formData, "phone");
-    const primaryInterest = getString(formData, "primary_interest");
     const role = getString(formData, "role");
     const website = getString(formData, "website");
 
@@ -370,6 +535,7 @@ export function DosLandingPage() {
       });
 
       form.reset();
+      setPrimaryInterest("");
       setRequestStatus("success");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to submit this request.");
@@ -384,23 +550,23 @@ export function DosLandingPage() {
       <style dangerouslySetInnerHTML={{ __html: dosV4Css }} />
 
       <header>
-        <div className="wrap nav">
-          <a aria-label="DOS, Discipleship Operating System, home" className="logo" href="#top">
+        <div className="nav">
+          <div className="ident-row">
             <DosMark />
-            <span className="txt">
-              <span className="word">DOS</span>
-              <span className="full" style={{ display: "block" }}>Discipleship Operating System</span>
-            </span>
-          </a>
-          <div className="nav-actions">
-            <a className="return-link" href={USAM_URL}>USA Missionaries</a>
-            <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
+            <div className="ident">
+              <a className="word" href="#top">Discipleship Operating System</a>
+              <span className="attrib">An initiative of <a href={USAM_URL}>USA Missionaries</a></span>
+            </div>
           </div>
+          <button className="btn btn-primary sm" onClick={openRequestForm} type="button">
+            <span className="cta-long">Request Information</span>
+            <span className="cta-short">Request Info</span>
+          </button>
         </div>
       </header>
 
       <main id="top">
-        <section className="hero">
+        <section className="hero on-dark">
           <div className="wrap hero-grid">
             <div>
               <p className="eyebrow reveal">The operating system for intentional discipleship</p>
@@ -409,7 +575,7 @@ export function DosLandingPage() {
               <div className="cta-row reveal">
                 <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
               </div>
-              <p className="micro reveal">AVAILABLE BY REQUEST &middot; NO PUBLIC PRICING &middot; NO NOISE</p>
+              <p className="micro reveal">Available by request &middot; No public pricing &middot; No noise</p>
             </div>
             <div className="canvas reveal" role="img" aria-label="Illustrations of the kinds of moments DOS helps you keep">
               <div className="moment" style={{ left: "4%", top: "6%" }}>
@@ -452,7 +618,7 @@ export function DosLandingPage() {
           </div>
         </section>
 
-        <section className="system" id="memory">
+        <section className="system on-dark" id="memory">
           <div className="wrap">
             <p className="eyebrow reveal">More than reminders</p>
             <h2 className="reveal">A memory and an accountability partner, in one system.</h2>
@@ -501,63 +667,53 @@ export function DosLandingPage() {
           </div>
         </section>
 
-        <section className="intel" id="intelligence">
+        <section className="quiet" id="quiet">
           <div className="wrap">
-            <p className="eyebrow reveal">Intelligent by design</p>
-            <h2 className="reveal">It doesn&apos;t just remember. It discerns.</h2>
-            <p className="lede reveal">Anyone can store notes. DOS understands what it holds: it reads the whole picture of your ministry and turns it into discernment you can act on.</p>
-            <div className="intel-grid">
-              <div className="intel-item reveal">
+            <p className="eyebrow reveal">Quiet help, not a dashboard</p>
+            <h2 className="reveal">The right person, on the right day.</h2>
+            <p className="lede reveal">DOS is not a scoreboard for your ministry. It is the friend who leans over and says, &quot;Don&apos;t forget Marcus this week.&quot;</p>
+
+            <div className="quiet-grid">
+              <div className="quiet-item reveal">
                 <span className="idx">01</span>
-                <h3>It surfaces the right person at the right time.</h3>
-                <p>Not a feed of everything. The one conversation, prayer, or follow-up that matters most today, brought to you before it slips.</p>
+                <h3>It brings one person to mind.</h3>
+                <p>Not a feed of everything. On an ordinary Tuesday, the one person you said you&apos;d check on, in time to actually pick up the phone.</p>
               </div>
-              <div className="intel-item reveal">
+              <div className="quiet-item reveal">
                 <span className="idx">02</span>
-                <h3>It notices what you&apos;d miss.</h3>
-                <p>Across months of ministry, patterns emerge: who&apos;s growing, who&apos;s quietly drifting, and what God keeps doing. DOS sees the long arc, so you can respond to it.</p>
+                <h3>It keeps your prayers honest.</h3>
+                <p>The request someone trusted you with in March comes back when it matters, so &quot;I&apos;m praying for you&quot; stays a promise you keep.</p>
               </div>
-              <div className="intel-item reveal">
+              <div className="quiet-item reveal">
                 <span className="idx">03</span>
-                <h3>It connects your walk to your ministry.</h3>
-                <p>You can&apos;t pour out what you&apos;re not receiving. DOS holds your own time with God alongside the people you care for, and keeps both honest.</p>
+                <h3>It helps you keep your word.</h3>
+                <p>The check-in you owe. The encouragement you meant to send. The next step you agreed on together, still there when the week gets loud.</p>
               </div>
             </div>
-            <div className="posture reveal">
-              <div className="label">
-                <h3>Intelligence, surrendered.</h3>
-                <p>All of that insight exists for one purpose: to help you respond faithfully to what God may be revealing. This is the posture the entire system is built on.</p>
+
+            <div className="guardrails">
+              <div className="reveal">
+                <h3>Accountability without surveillance</h3>
+                <p>Loving accountability that helps people follow through, never systems that make them feel watched. Privacy and dignity by design.</p>
               </div>
-              <blockquote>
-                <p>Pride says, <em>&quot;Here is my data.&quot;</em></p>
-                <p>Humility says, <em>&quot;Here is the data, Lord. What do You want me to do with it?&quot;</em></p>
-                <p className="support">Faithfulness over performance</p>
-              </blockquote>
+              <div className="reveal">
+                <h3>People, never numbers</h3>
+                <p>Nothing in DOS reduces a person to a metric. Every view exists to help you care for someone better, not to score them.</p>
+              </div>
+              <div className="reveal">
+                <h3>Built for disciple-makers</h3>
+                <p>For individuals, missionaries, churches, and ministry organizations who take intentional discipleship seriously.</p>
+              </div>
+            </div>
+
+            <div className="close-line reveal">
+              <p>Whatever DOS brings back to you, the question is always the same: <em>&quot;Lord, what would You have me do for this person?&quot;</em></p>
+              <p className="support">Faithfulness over performance</p>
             </div>
           </div>
         </section>
 
-        <section className="trust" id="trust">
-          <div className="wrap trust-grid">
-            <div className="reveal">
-              <span className="idx">01</span>
-              <h3>Accountability without surveillance</h3>
-              <p>Loving accountability that helps people follow through, never systems that make them feel watched. Privacy and dignity by design.</p>
-            </div>
-            <div className="reveal">
-              <span className="idx">02</span>
-              <h3>People, never numbers</h3>
-              <p>Nothing in DOS reduces a person to a metric. Every view exists to help you care for someone better, not to score them.</p>
-            </div>
-            <div className="reveal">
-              <span className="idx">03</span>
-              <h3>Built for disciple-makers</h3>
-              <p>For individuals, missionaries, churches, and ministry organizations who take intentional discipleship seriously.</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="final" id="access">
+        <section className="final on-dark" id="access">
           <div className="wrap">
             <p className="eyebrow reveal">Matthew 28:19-20</p>
             <h2 className="reveal">Built to multiply.</h2>
@@ -565,24 +721,27 @@ export function DosLandingPage() {
             <div className="cta-row reveal">
               <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
             </div>
-            <p className="micro reveal">NO SELF-SERVICE SIGNUP &middot; NO CREDIT CARD &middot; A CONVERSATION FIRST</p>
+            <p className="micro reveal">No self-service signup &middot; No credit card &middot; A conversation first</p>
           </div>
         </section>
       </main>
 
       <footer>
-        <div className="wrap foot">
-          <a aria-label="DOS home" className="logo" href="#top">
+        <div className="foot-main">
+          <div className="foot-id">
             <DosMark size={26} />
-            <span className="txt">
-              <span className="word">DOS</span>
-              <span className="full" style={{ display: "block" }}>An initiative of USA Missionaries</span>
-            </span>
-          </a>
-          <nav aria-label="Footer">
-            <button className="btn btn-ghost-d" onClick={openRequestForm} type="button">Request Information</button>
+            <div>
+              <p className="name">Discipleship Operating System</p>
+              <p className="attrib">An initiative of <a href={USAM_URL}>USA Missionaries</a></p>
+            </div>
+          </div>
+          <button className="btn btn-secondary" onClick={openRequestForm} type="button">Request Information</button>
+        </div>
+        <div className="foot-bar">
+          <div className="inner">
             <a href={USAM_URL}>Powered by USA Missionaries</a>
-          </nav>
+            <span>&copy; {new Date().getFullYear()} USA Missionaries</span>
+          </div>
         </div>
       </footer>
 
@@ -646,28 +805,26 @@ export function DosLandingPage() {
                       <input autoComplete="email" name="email" required type="email" />
                     </label>
                     <label className="field">
-                      <span>Phone</span>
+                      <span>Phone <span className="opt">(optional)</span></span>
                       <input autoComplete="tel" name="phone" type="tel" />
                     </label>
                     <label className="field">
-                      <span>Organization or ministry name</span>
+                      <span>Organization or ministry name <span className="opt">(optional)</span></span>
                       <input autoComplete="organization" name="organization" type="text" />
                     </label>
                     <label className="field">
-                      <span>Role</span>
+                      <span>Role <span className="opt">(optional)</span></span>
                       <input autoComplete="organization-title" name="role" type="text" />
                     </label>
+                    <DosSelect
+                      label="Primary interest"
+                      name="primary_interest"
+                      onChange={setPrimaryInterest}
+                      options={interestOptions}
+                      value={primaryInterest}
+                    />
                     <label className="field full">
-                      <span>Primary interest</span>
-                      <select defaultValue="" name="primary_interest" required>
-                        <option disabled value="">Select one</option>
-                        {interestOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field full">
-                      <span>Message</span>
+                      <span>Message <span className="opt">(optional)</span></span>
                       <textarea name="message" rows={4} />
                     </label>
                   </div>
