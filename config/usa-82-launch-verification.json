@@ -1,7 +1,7 @@
 {
   "issueId": "USA-82",
   "name": "USA-82 route-specific launch verification",
-  "purpose": "Trusted-host publisher expected-content checks for System V1, System V2, DOS, and Kitchen Table Gospel must be route-specific.",
+  "purpose": "Trusted-host publisher expected-content checks for System V1, System V3, DOS, and Kitchen Table Gospel must be route-specific.",
   "textMatching": "case-insensitive",
   "excludedLaunchDependencies": [
     {
@@ -35,13 +35,13 @@
       "id": "system-v2",
       "host": "usamissionaries.org",
       "path": "/system/v2",
-      "rendersExperience": "system-v2",
+      "rendersExperience": "system-v3",
       "expectedContent": [
-        "USA Missionaries System",
-        "One Mission.",
-        "Two Initiatives.",
-        "Developed By USA Missionaries",
-        "One Disciple-Making Mission."
+        "Jesus Went.",
+        "So Do We.",
+        "The Model",
+        "How Jesus Ministered.",
+        "We Do Not Go Alone."
       ],
       "forbiddenContent": [
         "RIVER OF MINISTRIES",
@@ -53,14 +53,14 @@
       "id": "system",
       "host": "usamissionaries.org",
       "path": "/system",
-      "rendersExperience": "system-v2",
-      "safeResolution": "serves-v2",
+      "rendersExperience": "system-v3",
+      "safeResolution": "serves-v3",
       "expectedContent": [
-        "USA Missionaries System",
-        "One Mission.",
-        "Two Initiatives.",
-        "Developed By USA Missionaries",
-        "One Disciple-Making Mission."
+        "Jesus Went.",
+        "So Do We.",
+        "The Model",
+        "How Jesus Ministered.",
+        "We Do Not Go Alone."
       ],
       "forbiddenContent": [
         "RIVER OF MINISTRIES",

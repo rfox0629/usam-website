@@ -80,12 +80,13 @@ const robots = read("app/robots.ts");
 const sitemap = read("app/sitemap.ts");
 
 const riverMarkers = ["RIVER OF MINISTRIES", "MANY STREAMS.", "ONE MOVEMENT."];
-const v2Markers = [
-  "USA Missionaries System",
-  "One Mission.",
-  "Two Initiatives.",
-  "Developed By USA Missionaries",
-  "One Disciple-Making Mission.",
+// System V3 (USA-38) replaced the two-initiative V2 page at /system and /system/v2.
+const systemV3Markers = [
+  "Jesus Went.",
+  "So Do We.",
+  "The Model",
+  "How Jesus Ministered.",
+  "We Do Not Go Alone.",
 ];
 const legacyMarkers = [
   "INFRASTRUCTURE IS BEING BUILT",
@@ -122,35 +123,35 @@ const dos = routeById(manifest, "dos");
 const ktg = routeById(manifest, "kitchen-table-gospel");
 
 assertExpectedContent(systemV1, legacyMarkers);
-assertExpectedContentDoesNotInclude(systemV1, [...v2Markers, ...riverMarkers, ...dosMarkers, ...ktgMarkers]);
+assertExpectedContentDoesNotInclude(systemV1, [...systemV3Markers, ...riverMarkers, ...dosMarkers, ...ktgMarkers]);
 assert.equal(systemV1.host, "usamissionaries.org", "/system/v1 must validate on the USAM host.");
 assert.equal(systemV1.path, "/system/v1", "/system/v1 must validate the preserved legacy route.");
 assert.equal(systemV1.rendersExperience, "system-v1", "/system/v1 must not be treated as V2.");
 for (const marker of legacyMarkers) {
   assertIncludes(`${systemV1Route}\n${waitingListCta}`, marker, `System V1 source must contain legacy marker: ${marker}.`);
 }
-assertNotIncludes(systemV1Route, "./SystemPage", "System V1 must not import the V2 system page.");
+assertNotIncludes(systemV1Route, "./SystemPage", "System V1 must not import the live system page.");
 
-assertExpectedContent(systemV2, v2Markers);
+assertExpectedContent(systemV2, systemV3Markers);
 assertExpectedContentDoesNotInclude(systemV2, riverMarkers);
 assert.equal(systemV2.host, "usamissionaries.org", "/system/v2 must validate on the USAM host.");
-assert.equal(systemV2.path, "/system/v2", "/system/v2 must validate the V2 route.");
-assert.equal(systemV2.rendersExperience, "system-v2", "/system/v2 must be the V2 experience.");
-assertIncludes(systemV2Route, 'export { default } from "../SystemPage";', "/system/v2 must render the V2 SystemPage.");
-for (const marker of v2Markers) {
-  assertIncludes(systemV2Page, marker, `System V2 source must contain V2 marker: ${marker}.`);
+assert.equal(systemV2.path, "/system/v2", "/system/v2 must validate the mirrored System route.");
+assert.equal(systemV2.rendersExperience, "system-v3", "/system/v2 must mirror the live System V3 experience.");
+assertIncludes(systemV2Route, 'export { default } from "../SystemPage";', "/system/v2 must render the shared SystemPage.");
+for (const marker of systemV3Markers) {
+  assertIncludes(systemV2Page, marker, `System V3 source must contain V3 marker: ${marker}.`);
 }
 for (const marker of riverMarkers) {
-  assertNotIncludes(systemV2Page, marker, `System V2 must not require or render USA-80 marker: ${marker}.`);
+  assertNotIncludes(systemV2Page, marker, `System V3 must not require or render USA-80 marker: ${marker}.`);
 }
 
-assertExpectedContent(systemCanonical, v2Markers);
+assertExpectedContent(systemCanonical, systemV3Markers);
 assertExpectedContentDoesNotInclude(systemCanonical, riverMarkers);
 assert.equal(systemCanonical.host, "usamissionaries.org", "/system must validate on the USAM host.");
 assert.equal(systemCanonical.path, "/system", "/system must validate the canonical public entry.");
-assert.equal(systemCanonical.rendersExperience, "system-v2", "/system must resolve to V2.");
-assert.equal(systemCanonical.safeResolution, "serves-v2", "/system must explicitly serve the V2 experience.");
-assertIncludes(systemRoute, 'export { default } from "./SystemPage";', "/system must render the V2 SystemPage.");
+assert.equal(systemCanonical.rendersExperience, "system-v3", "/system must resolve to V3.");
+assert.equal(systemCanonical.safeResolution, "serves-v3", "/system must explicitly serve the V3 experience.");
+assertIncludes(systemRoute, 'export { default } from "./SystemPage";', "/system must render the shared SystemPage.");
 
 assertExpectedContent(dos, dosMarkers);
 assertExpectedContentDoesNotInclude(dos, [...legacyMarkers, ...riverMarkers, "Join the Table"]);
