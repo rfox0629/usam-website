@@ -61,15 +61,38 @@ const coreInitiatives = [
   },
 ] as const;
 
-const partnerCard = {
-  body: "Ministry of Reconciliation is a strategic partner of USA Missionaries, helping people experience freedom, healing, reconciliation, and ongoing discipleship.",
-  cta: "Visit MOR",
-  href: "https://mor-mn.com/",
-  icon: Handshake,
-  label: "STRATEGIC PARTNER",
-  meta: "CURRENT PARTNERSHIP: STRATEGIC PARTNER",
-  title: "Ministry of Reconciliation (MOR)",
-} as const;
+/**
+ * Ministry partners rendered by the shared PartnerCard grid.
+ *
+ * Add future partners here; the section scales without layout changes. Only use
+ * canonical partner URLs confirmed by USA Missionaries — never invent a link.
+ */
+const ministryPartners = [
+  {
+    category: "Strategic Partner",
+    focus: "Freedom • Healing • Discipleship",
+    href: "https://mor-mn.com/",
+    name: "Ministry of Reconciliation",
+  },
+  {
+    category: "Church Partner",
+    focus: "Local Church • Discipleship • Community",
+    href: "http://www.faithalive.church/",
+    name: "Faith Alive Church",
+  },
+  {
+    category: "Mission Partner",
+    focus: "Compassion • Outreach • Missions",
+    href: "https://www.project-miracle.org/",
+    name: "Project Miracle",
+  },
+  {
+    category: "Mission Partner",
+    focus: "International Missions • Compassion • Discipleship",
+    href: "https://www.shineintheworld.org/",
+    name: "Shine International",
+  },
+] as const;
 
 const accentStyles = {
   blue: {
@@ -98,6 +121,55 @@ function SystemLabel({ children }: { children: React.ReactNode }) {
     >
       {children}
     </p>
+  );
+}
+
+function PartnerCard({ partner }: { partner: (typeof ministryPartners)[number] }) {
+  return (
+    <article className="group flex h-full flex-col border border-stone-800 bg-black/40 p-6 transition-colors duration-200 hover:border-usam-gold/45 focus-within:border-usam-gold/45">
+      <div className="flex h-9 w-9 items-center justify-center border border-stone-700 bg-stone-900/60 text-stone-300 transition-colors duration-200 group-hover:border-usam-gold/45 group-hover:text-usam-gold">
+        <Handshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+      </div>
+
+      <span
+        className="mt-5 inline-flex w-fit items-center border border-stone-700/80 bg-stone-950/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-300"
+        style={{ fontFamily: font.rajdhani }}
+      >
+        {partner.category}
+      </span>
+
+      <h3
+        className="mt-4 text-xl font-bold uppercase leading-tight text-stone-100"
+        style={{ fontFamily: font.oswald }}
+      >
+        {partner.name}
+      </h3>
+
+      <p
+        className="mt-3 flex-1 text-[11px] font-semibold uppercase leading-5 tracking-[0.12em] text-stone-400"
+        style={{ fontFamily: font.rajdhani }}
+      >
+        {partner.focus}
+      </p>
+
+      <a
+        className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 border border-stone-700 bg-black/35 px-4 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-stone-100 transition-colors duration-200 hover:border-usam-gold hover:text-usam-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-usam-gold"
+        href={partner.href}
+        rel="noopener noreferrer"
+        style={{ fontFamily: font.rajdhani }}
+        target="_blank"
+      >
+        <span>
+          Visit Website
+          <span className="sr-only"> for {partner.name} (opens in a new tab)</span>
+        </span>
+        <ExternalLink
+          className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+          aria-hidden="true"
+          strokeWidth={2}
+        />
+      </a>
+    </article>
   );
 }
 
@@ -228,57 +300,25 @@ export default function SystemPage() {
       <section className="border-y border-stone-900/80 px-6 py-16 md:py-20">
         <div className="mx-auto max-w-6xl">
           <div className="max-w-3xl">
-            <SystemLabel>Strategic Ministry Partner</SystemLabel>
+            <SystemLabel>Strategic Ministry Partners</SystemLabel>
             <h2
               className="mt-5 text-4xl font-bold uppercase leading-tight text-stone-100 md:text-5xl"
               style={{ fontFamily: font.oswald }}
             >
-              Partnering For Restoration
-              <br />
-              And Discipleship.
+              We Do Not Go Alone.
             </h2>
+            <p className="mt-5 text-base leading-7 text-stone-300 md:text-lg md:leading-8">
+              USA Missionaries works alongside trusted churches and ministry organizations already serving people with
+              experience and care. Rather than duplicating their work, we train and send missionaries to serve alongside
+              them.
+            </p>
           </div>
 
-          <article className="mt-10 flex flex-col gap-6 border border-dashed border-stone-700 bg-black/30 p-6 md:flex-row md:items-center md:justify-between md:p-8">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-stone-600 bg-stone-900/60 text-stone-300">
-                <partnerCard.icon className="h-5 w-5" aria-hidden="true" strokeWidth={1.8} />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h3
-                    className="text-2xl font-bold uppercase leading-tight text-stone-100"
-                    style={{ fontFamily: font.oswald }}
-                  >
-                    {partnerCard.title}
-                  </h3>
-                  <span
-                    className="inline-flex items-center gap-1.5 border border-stone-600 bg-stone-950/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-300"
-                    style={{ fontFamily: font.rajdhani }}
-                  >
-                    {partnerCard.label}
-                  </span>
-                </div>
-                <p
-                  className="mt-3 inline-flex w-fit border border-stone-700/80 bg-stone-950/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-300"
-                  style={{ fontFamily: font.rajdhani }}
-                >
-                  {partnerCard.meta}
-                </p>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-300">{partnerCard.body}</p>
-              </div>
-            </div>
-            <a
-              className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 border border-stone-600 bg-black/35 px-5 text-center text-xs font-bold uppercase tracking-[0.22em] text-stone-100 transition-colors duration-200 hover:border-stone-400 hover:text-stone-50"
-              href={partnerCard.href}
-              rel="noopener noreferrer"
-              style={{ fontFamily: font.rajdhani }}
-              target="_blank"
-            >
-              {partnerCard.cta}
-              <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
-            </a>
-          </article>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {ministryPartners.map((partner) => (
+              <PartnerCard key={partner.name} partner={partner} />
+            ))}
+          </div>
         </div>
       </section>
 
