@@ -399,12 +399,15 @@ assert(client.includes("MyRecordReportPanel"), "My Record should include the per
 const reportPanelOccurrences = client.match(/<MyRecordReportPanel fruit=\{fruit\} meetings=\{meetings\} people=\{people\} record=\{record\} \/>/g)?.length ?? 0;
 assert(reportPanelOccurrences === 0, "Canonical My Record should remove the old inline report panel while preserving the reporting framework code.");
 assert(client.includes("Assessment Library"), "V2 Assessments should render as a clean assessment library.");
-assert(client.includes("MCode"), "V2 Assessments should include Ryan's MCode result card.");
-assert(client.includes("Establish") && client.includes("Realize The Vision") && client.includes("Persuade"), "MCode seed should include Ryan's top motivations.");
-assert(client.includes("Orchestrator") && client.includes("Driver") && client.includes("Optimizer"), "MCode seed should include Ryan's strongest dimensions.");
-assert(client.includes("Gregoric Mind Styles"), "V2 Assessments should include Ryan's Gregoric Mind Styles result card.");
-assert(client.includes("Concrete Random"), "Gregoric detail should use Ryan's Concrete Random label.");
-assert(!client.includes("Gregorc Mind Styles"), "UI should use Gregoric spelling, not Gregorc.");
+// USA-138: the assessment library must not ship any one person's real results as
+// seed content. The previous build injected Ryan's MCode and Gregoric Mind Styles
+// results into the library for any account whose display name matched /\bryan\b/,
+// which showed one user's private assessment data to a different user.
+assert(!client.includes("myRecordRyanSeedAssessments"), "My Record must not ship hardcoded personal assessment seed data.");
+assert(!/includeRyanSeeds/.test(client), "My Record must not gate assessment content on a display name matching \"ryan\".");
+assert(!client.includes("Realize The Vision"), "Personal MCode motivations must not be hardcoded into the client bundle.");
+assert(!client.includes("Concrete Random"), "Personal Gregoric Mind Styles results must not be hardcoded into the client bundle.");
+assert(!client.includes("Starter Result"), "The seeded \"Starter Result\" assessment card must not be reintroduced.");
 assert(client.includes("Add External Result"), "V2 Assessments should expose Add External Result.");
 assert(client.includes("myRecordExternalAssessmentCategories"), "V2 Assessments should list external assessment categories.");
 assert(client.includes("Personality & Wiring"), "V2 Assessments should include Personality & Wiring grouping.");

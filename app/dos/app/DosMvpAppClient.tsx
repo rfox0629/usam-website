@@ -24617,7 +24617,7 @@ const myRecordLearningBookStatuses: ReadonlyArray<{ label: string; value: DosApp
 
 type MyRecordAssessmentLibraryCategory = typeof myRecordAssessmentLibraryCategories[number];
 type MyRecordExternalAssessmentStatus = typeof myRecordExternalAssessmentStatuses[number]["value"];
-type MyRecordAssessmentLibraryItemKind = "dos" | "external" | "future" | "seed";
+type MyRecordAssessmentLibraryItemKind = "dos" | "external" | "future";
 type MyRecordAssessmentLibraryItem = {
   assessment?: DosResource;
   attachmentUrl?: string | null;
@@ -24631,7 +24631,6 @@ type MyRecordAssessmentLibraryItem = {
   notes?: string | null;
   officialUrl?: string | null;
   result?: DosAppUserAssessmentResult | DosAppUserExternalAssessmentResult;
-  seedPayload?: MyRecordSavePayload;
   shortSummary: string;
   status: MyRecordExternalAssessmentStatus;
   typeLabel: string;
@@ -24720,35 +24719,6 @@ const myRecordFutureAssessmentCards = [
   category: Exclude<MyRecordAssessmentLibraryCategory, "All">;
   name: string;
   typeLabel: string;
-}>;
-
-const myRecordRyanSeedAssessments = [
-  {
-    category: "Personality & Wiring",
-    keyResults: ["Establish", "Maximize", "Improve", "Realize The Vision", "Persuade", "Orchestrator", "Driver", "Optimizer"],
-    name: "MCode",
-    notes: "May need to watch for over-structuring, pushing too hard, moving faster than others can process, or improving things before people feel heard.",
-    resultType: "Top 5 Motivations",
-    shortSummary: "Ryan is strongly motivated to build lasting foundations, maximize people and systems, improve what already exists, turn vision into reality, and influence others toward action.",
-    sourceNote: "Seeded from Ryan's uploaded report. Summary only; do not copy proprietary explanation text.",
-  },
-  {
-    category: "Personality & Wiring",
-    keyResults: ["CR", "Concrete Random"],
-    name: "Gregoric Mind Styles",
-    notes: "Summary only. Original test/report should be referenced for full proprietary interpretation.",
-    resultType: "CR - Concrete Random",
-    shortSummary: "Ryan tends to learn and operate through practical experimentation, independent problem-solving, fast adaptation, and turning ideas into workable action.",
-    sourceNote: "Seeded from Ryan's current result label and user-authored summary.",
-  },
-] as const satisfies ReadonlyArray<{
-  category: Exclude<MyRecordAssessmentLibraryCategory, "All">;
-  keyResults: readonly string[];
-  name: string;
-  notes: string;
-  resultType: string;
-  shortSummary: string;
-  sourceNote: string;
 }>;
 
 type MyRecordSavePayload = Record<string, unknown>;
@@ -24924,10 +24894,8 @@ function myRecordAssessmentKeyResultsFromBuiltIn(result: DosAppUserAssessmentRes
 }
 
 function myRecordAssessmentLibraryItems({
-  includeRyanSeeds,
   record,
 }: {
-  includeRyanSeeds: boolean;
   record: DosAppUserRecord;
 }): MyRecordAssessmentLibraryItem[] {
   const latestResultsBySlug = new Map<string, DosAppUserAssessmentResult>();
@@ -24978,38 +24946,7 @@ function myRecordAssessmentLibraryItems({
     status: result.status,
     typeLabel: result.category || "External Result",
   }));
-  const savedExternalNames = new Set(record.externalAssessmentResults.map((result) => result.assessmentName.trim().toLowerCase()));
-  const seedItems = includeRyanSeeds
-    ? myRecordRyanSeedAssessments
-      .filter((seed) => !savedExternalNames.has(seed.name.toLowerCase()))
-      .map((seed) => ({
-        attachmentUrl: null,
-        category: seed.category,
-        completedDate: null,
-        id: `seed-${seed.name.toLowerCase().replace(/\s+/g, "-")}`,
-        keyResults: [...seed.keyResults],
-        kind: "seed" as const,
-        name: seed.name,
-        notes: `${seed.notes}\n\n${seed.sourceNote}`,
-        officialUrl: null,
-        seedPayload: {
-          assessmentName: seed.name,
-          category: seed.category,
-          dateTaken: todayDateValue(),
-          kind: "external_assessment_result",
-          notes: `${seed.notes}\n\n${seed.sourceNote}`,
-          resultType: seed.resultType,
-          shareEligible: false,
-          shortSummary: seed.shortSummary,
-          status: "completed",
-          topStrengths: seed.keyResults.join("\n"),
-        },
-        shortSummary: seed.shortSummary,
-        status: "completed" as const,
-        typeLabel: "Starter Result",
-      }))
-    : [];
-  const existingNames = new Set([...builtInItems, ...externalItems, ...seedItems].map((item) => item.name.trim().toLowerCase()));
+  const existingNames = new Set([...builtInItems, ...externalItems].map((item) => item.name.trim().toLowerCase()));
   const futureItems = myRecordFutureAssessmentCards
     .filter((item) => !existingNames.has(item.name.toLowerCase()))
     .map((item) => ({
@@ -25026,7 +24963,7 @@ function myRecordAssessmentLibraryItems({
       typeLabel: item.typeLabel,
     }));
 
-  return [...seedItems, ...externalItems, ...builtInItems, ...futureItems];
+  return [...externalItems, ...builtInItems, ...futureItems];
 }
 
 function MyRecordTabBar({
@@ -27082,7 +27019,10 @@ function MyRecordAssessmentDetailPanel({
   const isGregoric = myRecordAssessmentMatchesName(item.name, "Gregoric Mind Styles");
   const mcodeTopFive = isMCode ? item.keyResults.slice(0, 5) : [];
   const mcodeDimensions = isMCode ? item.keyResults.slice(5, 8) : [];
-  const gregoricLabel = isGregoric ? item.keyResults[1] ?? "Concrete Random" : null;
+  // USA-138: render the viewer's own saved Gregoric result. These used to be
+  // hardcoded to a single person's saved outcome regardless of who was viewing.
+  const gregoricPrimary = isGregoric ? item.keyResults[0] ?? null : null;
+  const gregoricLabel = isGregoric ? item.keyResults[1] ?? item.keyResults[0] ?? null : null;
   const reportLabel = externalResult?.attachmentFileName ?? (item.attachmentUrl ? "Original Report" : null);
 
   return (
@@ -27137,11 +27077,11 @@ function MyRecordAssessmentDetailPanel({
           <div className="grid gap-3 min-[520px]:grid-cols-2">
             <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Primary Result</p>
-              <p className="mt-2 text-2xl font-black text-[#0F172A]">CR</p>
+              <p className="mt-2 text-2xl font-black text-[#0F172A]">{gregoricPrimary ?? "Not recorded"}</p>
             </div>
             <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Label</p>
-              <p className="mt-2 text-lg font-black text-[#0F172A]">{gregoricLabel}</p>
+              <p className="mt-2 text-lg font-black text-[#0F172A]">{gregoricLabel ?? "Not recorded"}</p>
             </div>
           </div>
           <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
@@ -27183,12 +27123,6 @@ function MyRecordAssessmentDetailPanel({
         </div>
       ) : null}
       <div className="mt-5 flex flex-wrap gap-2">
-        {item.seedPayload ? (
-          <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]" disabled={isSubmitting} onClick={() => void onSave(item.seedPayload ?? {}, nextTab)} type="button">
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            {isSubmitting ? "Saving..." : "Save to My Record"}
-          </button>
-        ) : null}
         {item.kind === "future" ? (
           <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
             <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
@@ -27388,8 +27322,7 @@ function MyRecordAssessmentsPanel({
   profileName: string;
   record: DosAppUserRecord;
 }) {
-  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
-  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
+  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ record }), [record]);
   const [selectedCategory, setSelectedCategory] = useState<MyRecordAssessmentLibraryCategory>("All");
   const [selectedItemId, setSelectedItemId] = useState(libraryItems[0]?.id ?? "");
   const filteredItems = useMemo(() => (
@@ -28570,8 +28503,7 @@ function MyRecordGrowthPanel({
   profileName: string;
   record: DosAppUserRecord;
 }) {
-  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
-  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
+  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ record }), [record]);
   const priorityAssessmentItems = useMemo(() => {
     const priorityNames = ["MCode", "Gregoric Mind Styles"];
     const priority = libraryItems.filter((item) => priorityNames.some((name) => myRecordAssessmentMatchesName(item.name, name)));
@@ -33009,6 +32941,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     [loggedMeetings],
   );
   const requestedPersonId = searchParams.get("person");
+  const requestedMeetingId = searchParams.get("meeting");
   const requestedGroupId = searchParams.get("openGroup");
   const requestedDetailTab = searchParams.get("tab") === "growth"
     ? "fruit"
@@ -33187,6 +33120,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     openGroupJoinRequests(requestedGroupId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups, requestedGroupId]);
+
+  // USA-138: `/dos/<workspace>/meetings/<id>` used to drop the meeting id on the
+  // redirect, so a shared meeting link only ever landed on the dashboard.
+  useEffect(() => {
+    if (!requestedMeetingId || !data.meetings.some((meeting) => meeting.id === requestedMeetingId)) {
+      return;
+    }
+
+    setActiveTab("meetings");
+    setMoreAppView(null);
+    setSelectedPersonId(null);
+    setSelectedReminderId(null);
+    setSelectedExternalCalendarEventId(null);
+    setPostMeetingFollowUpId(null);
+    setSelectedMeetingId(requestedMeetingId);
+  }, [data.meetings, requestedMeetingId]);
 
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
     const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));

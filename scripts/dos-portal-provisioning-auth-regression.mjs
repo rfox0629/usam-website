@@ -1,7 +1,11 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function read(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+function exists(path) {
+  return existsSync(new URL(`../${path}`, import.meta.url));
 }
 
 function assert(condition, message) {
@@ -27,7 +31,7 @@ function assertBefore(source, first, second, message) {
 
 const portalRoute = read("app/api/dos/portal/workspaces/route.ts");
 const dosPortalClient = read("app/dos/DosPortalClient.tsx");
-const dosSetupClient = read("app/dos/setup/DosSetupClient.tsx");
+const dosSetupClientPath = "app/dos/setup/DosSetupClient.tsx";
 const dosApiAuth = read("src/lib/dos/api-auth.ts");
 const dosAuthPolicy = read("src/lib/dos/portal-provisioning-auth-policy.ts");
 const packageJson = read("package.json");
@@ -71,10 +75,19 @@ assertNotIncludes(
   "/api/dos/portal/workspaces",
   "The public DOS portal client must not rely on anonymous access to the provisioning route.",
 );
-assertNotIncludes(
-  dosSetupClient,
-  "/api/dos/portal/workspaces",
-  "The dormant DOS setup client must not retain an anonymous provisioning route caller.",
+assert(
+  !exists(dosSetupClientPath),
+  "The dormant DOS setup client was removed (USA-138); it must not be reintroduced with an anonymous provisioning route caller.",
+);
+assertIncludes(
+  read("app/dos/setup/page.tsx"),
+  "redirect(\"/join\")",
+  "/dos/setup must redirect into the working /join flow instead of rendering a dead onboarding form.",
+);
+assertIncludes(
+  read("app/dos/onboarding/page.tsx"),
+  "redirect(\"/join\")",
+  "/dos/onboarding must redirect into the working /join flow instead of rendering a dead onboarding form.",
 );
 
 assertIncludes(
