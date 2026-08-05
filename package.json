@@ -34,6 +34,7 @@
     "test:dos-table-detail-edit": "node scripts/dos-table-detail-edit-regression.mjs",
     "test:dos-calendar-sync": "node scripts/dos-calendar-sync-regression.mjs",
     "test:dos-deep-links": "node scripts/dos-deep-link-regression.mjs",
+    "test:dos-v3-prototype": "node scripts/dos-v3-prototype-regression.mjs",
     "test:dos-commitments-accountability": "node scripts/dos-commitments-accountability-regression.mjs",
     "test:dos-commitments-ui": "node scripts/dos-commitments-ui-regression.mjs",
     "test:dos-resource-assignments": "node scripts/dos-resource-assignments-regression.mjs",
