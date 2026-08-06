@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -38771,6 +38771,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                           resources={dosDiscipleshipResourceItems}
                           workspaceSlug={data.workspace.slug}
                         />
+                      </LibrarySection>
+
+                      <LibrarySection subtext="Sermons and trusted teaching on obedience, evangelism, and formation." title="Remnant">
+                        <Link
+                          className="flex min-w-0 items-center gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)] transition-colors hover:border-[#BFDBFE]"
+                          href="/dos/library/remnant"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
+                            <Film className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-black text-[#0F172A]">Remnant Collection</span>
+                            <span className="mt-1 block text-xs leading-5 text-[#64748B]">Curated video messages for wholehearted disciples.</span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+                        </Link>
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">
