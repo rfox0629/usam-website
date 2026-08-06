@@ -5264,7 +5264,7 @@ function guidedResourceSessions(resource: DosResource) {
 }
 
 function isGuidedResource(resource: DosResource) {
-  return resource.type === "guided_resource" && Boolean(resource.content?.guidedResource?.sessions.length);
+  return (resource.type === "guided_resource" || resource.type === "reading_plan") && Boolean(resource.content?.guidedResource?.sessions.length);
 }
 
 function guidedResourcePurchaseLink(resource: DosResource) {
@@ -5380,7 +5380,7 @@ function CatalogResourceRow({
                 </span>
               ) : null}
               <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                GUIDED RESOURCE
+                {resource.type === "reading_plan" ? "READING PLAN" : "GUIDED RESOURCE"}
               </span>
             </div>
             <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
@@ -5432,6 +5432,15 @@ function CatalogResourceRow({
             >
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
               Purchase Book
+            </a>
+          ) : resource.downloadPath ? (
+            <a
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+              download
+              href={resource.downloadPath}
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Download PDF
             </a>
           ) : null}
         </div>
@@ -5688,6 +5697,7 @@ function GuidedResourceDetailSheet({
   resource: DosResource;
 }) {
   const guidedResource = resource.content?.guidedResource ?? null;
+  const isReadingPlan = resource.type === "reading_plan";
   const sessions = guidedResourceSessions(resource);
   const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
   const progressBySession = guidedResourceProgressBySession(personProgress);
@@ -5755,7 +5765,7 @@ function GuidedResourceDetailSheet({
                     </span>
                   ) : null}
                   <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                    GUIDED JOURNEY
+                    {isReadingPlan ? "GUIDED READING PLAN" : "GUIDED JOURNEY"}
                   </span>
                 </div>
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
@@ -5771,7 +5781,7 @@ function GuidedResourceDetailSheet({
                     <span className="mt-1 block text-[#0F172A]">{guidedResourceDifficultyLabel(resource)}</span>
                   </span>
                   <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Sessions</span>
+                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Days" : "Sessions"}</span>
                     <span className="mt-1 block text-[#0F172A]">{sessions.length}</span>
                   </span>
                 </div>
@@ -5804,7 +5814,7 @@ function GuidedResourceDetailSheet({
 
           {guidedResource?.whyChosen ? (
             <section className="rounded-[24px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Why We Chose This Resource</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "How This Plan Works" : "Why We Chose This Resource"}</p>
               <p className="mt-2 text-sm leading-6 text-[#334155]">{guidedResource.whyChosen}</p>
             </section>
           ) : null}
@@ -5873,7 +5883,7 @@ function GuidedResourceDetailSheet({
               <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Guided Journey Session</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Reading Plan Day" : "Guided Journey Session"}</p>
                     <h4 className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{selectedSession.title}</h4>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading Assignment: {selectedSession.assignment}</p>
                   </div>
@@ -5884,16 +5894,28 @@ function GuidedResourceDetailSheet({
                     </span>
                   ) : null}
                 </div>
-                <div className="grid gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                {selectedSession.beginWithPrayer ? (
+                  <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Begin With Prayer</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.beginWithPrayer}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                ) : null}
+                {selectedSession.bigIdea || selectedSession.keyScriptures?.length ? (
+                  <div className="grid gap-3">
+                    {selectedSession.bigIdea ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                      </div>
+                    ) : null}
+                    {selectedSession.keyScriptures?.length ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
+                ) : null}
                 {selectedSession.memoryVerse ? (
                   <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Weekly Memory Verse</p>
@@ -5901,25 +5923,57 @@ function GuidedResourceDetailSheet({
                     {selectedSession.memoryVerse.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{selectedSession.memoryVerse.note}</p> : null}
                   </div>
                 ) : null}
-                <div className="grid gap-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
-                  <ul className="grid gap-2">
-                    {selectedSession.discussionQuestions.map((question) => (
-                      <li className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="grid gap-3">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Reflect Personally</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
+                {selectedSession.discussionQuestions?.length ? (
+                  <div className="grid gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
+                    <ul className="grid gap-2">
+                      {selectedSession.discussionQuestions.map((question) => (
+                        <li className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
+                      ))}
+                    </ul>
                   </div>
+                ) : null}
+                {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {selectedSession.lookForChrist ? (
+                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Look for Christ</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.lookForChrist}</p>
+                      </div>
+                    ) : null}
+                    {selectedSession.listenCarefully ? (
+                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Listen Carefully</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.listenCarefully}</p>
+                      </div>
+                    ) : null}
+                    {selectedSession.respondPersonally ? (
+                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Respond Personally</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.respondPersonally}</p>
+                      </div>
+                    ) : null}
+                    {selectedSession.moveTowardOthers ? (
+                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Move Toward Others</p>
+                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.moveTowardOthers}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="grid gap-3">
+                  {selectedSession.personalReflection ? (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}</p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
+                    </div>
+                  ) : null}
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Walk It Out</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}</p>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.actionStep}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Pray</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Prayer Response" : "Pray"}</p>
                     <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.prayerFocus}</p>
                   </div>
                   {selectedSession.multiply ? (
@@ -5939,13 +5993,13 @@ function GuidedResourceDetailSheet({
                   event.preventDefault();
                   void saveProgress();
                 }}>
-                  <DosFormField label="Reflect Personally">
+                  <DosFormField label={isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}>
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
                   </DosFormField>
-                  <DosFormField label="Walk It Out">
+                  <DosFormField label={isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}>
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
                   </DosFormField>
-                  <DosFormField label="Pray">
+                  <DosFormField label={isReadingPlan ? "Prayer Response" : "Pray"}>
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
                   </DosFormField>
                   <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p>
@@ -5956,7 +6010,7 @@ function GuidedResourceDetailSheet({
                     </button>
                     <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting} onClick={() => void saveProgress(true)} type="button">
                       <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                      Mark Session Complete
+                      {isReadingPlan ? "Mark Day Complete" : "Mark Session Complete"}
                     </button>
                   </div>
                 </form>
@@ -7508,9 +7562,19 @@ function GroupDetailWorkspaceV2({
           </div>
           <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
             <div className="min-w-0">
-              <div className="flex flex-wrap gap-2">
-                <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
-                <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
+                  <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
+                </div>
+                <button
+                  aria-label="More group actions"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:hidden"
+                  onClick={() => setIsMoreActionsOpen(true)}
+                  type="button"
+                >
+                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                </button>
               </div>
               <h1 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A] md:text-[30px]" style={{ fontFamily: font.oswald }}>{group.name}</h1>
               <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</p>
@@ -7529,7 +7593,14 @@ function GroupDetailWorkspaceV2({
                 tone="primary"
               />
               <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
-              <GroupQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="More" onClick={() => setIsMoreActionsOpen(true)} />
+              <button
+                aria-label="More group actions"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:inline-flex"
+                onClick={() => setIsMoreActionsOpen(true)}
+                type="button"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </button>
             </div>
           </div>
         </div>
@@ -7769,7 +7840,7 @@ function GroupJourneysTabV2({
         title={focusResource?.title ?? "No journey yet"}
       >
         {!focusResource ? (
-          <SectionEmptyState text="Assign Marks of Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
+          <SectionEmptyState text="Assign Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
         ) : (
           <>
             <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>

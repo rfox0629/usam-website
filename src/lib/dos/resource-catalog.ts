@@ -31,16 +31,21 @@ export type DosGuidedResourceMemoryVerse = {
 export type DosGuidedResourceSession = {
   actionStep: string;
   assignment: string;
-  bigIdea: string;
-  discussionQuestions: readonly string[];
+  beginWithPrayer?: string;
+  bigIdea?: string;
+  discussionQuestions?: readonly string[];
   id: string;
-  keyScriptures: readonly string[];
+  keyScriptures?: readonly string[];
   leaderNotes?: string;
+  listenCarefully?: string;
+  lookForChrist?: string;
   memoryVerse?: DosGuidedResourceMemoryVerse;
+  moveTowardOthers?: string;
   multiply?: string;
   order: number;
-  personalReflection: string;
+  personalReflection?: string;
   prayerFocus: string;
+  respondPersonally?: string;
   title: string;
 };
 
@@ -605,120 +610,48 @@ const relationshipResources = [
   },
 ] as const satisfies readonly DosResource[];
 
+const newTestamentSprintReadings = [
+  { day: 1, reading: "Matthew 1-19" },
+  { day: 2, reading: "Matthew 20-28; Mark 1-10" },
+  { day: 3, reading: "Mark 11-16; Luke 1-13" },
+  { day: 4, reading: "Luke 14-24; John 1-8" },
+  { day: 5, reading: "John 9-21; Acts 1-6" },
+  { day: 6, reading: "Acts 7-25" },
+  { day: 7, reading: "Acts 26-28; Romans 1-16" },
+  { day: 8, reading: "1 Corinthians 1-16; 2 Corinthians 1-3" },
+  { day: 9, reading: "2 Corinthians 4-13; Galatians 1-6; Ephesians 1-2" },
+  { day: 10, reading: "Ephesians 3-6; Philippians 1-4; Colossians 1-4; 1 Thessalonians 1-5; 2 Thessalonians 1" },
+  { day: 11, reading: "2 Thessalonians 2-3; 1 Timothy 1-6; 2 Timothy 1-4; Titus 1-3; Philemon; Hebrews 1-2" },
+  { day: 12, reading: "Hebrews 3-13; James 1-5; 1 Peter 1-2" },
+  { day: 13, reading: "1 Peter 3-5; 2 Peter 1-3; 1 John 1-5; 2 John; 3 John; Jude; Revelation 1-4" },
+  { day: 14, reading: "Revelation 5-22" },
+] as const;
+
+const newTestamentSprintDays = newTestamentSprintReadings.map(({ day, reading }): DosGuidedResourceSession => ({
+  actionStep: "Name one faithful next step of obedience for today.",
+  assignment: reading,
+  beginWithPrayer: "Pause and ask the Holy Spirit to reveal Jesus, bring understanding, and show one faithful next step for today.",
+  id: `day-${day}`,
+  listenCarefully: "What promise, command, warning, or example stands out?",
+  lookForChrist: "What does this passage reveal about Jesus?",
+  moveTowardOthers: "Who could you encourage, serve, or share this with today?",
+  order: day,
+  personalReflection: "Write one sentence summarizing what stood out to you in today's reading.",
+  prayerFocus: "Turn what you read into a one-phrase prayer.",
+  respondPersonally: "Where is God inviting repentance, faith, obedience, or courage?",
+  title: `Day ${day} - ${reading}`,
+}));
+
 const discipleshipResources = [
   {
     category: "Discipleship",
     content: {
+      guidedResource: {
+        format: "bible_reading_plan",
+        sessions: newTestamentSprintDays,
+        whyChosen: "Read the assigned chapters each day with a Bible, notebook, and quiet place ready. If a day is missed, continue with the next reading instead of starting over. After finishing, choose one next rhythm: reread a Gospel, study Acts with a group, memorize a passage, or invite someone else to begin the plan.",
+      },
       seoDescription: "Read the entire New Testament in fourteen days with this free Bible reading plan from USA Missionaries.",
-      sections: [
-        {
-          body: "This plan is designed to help a reader move through the whole New Testament with focus, prayer, and simple obedience. The final PDF language will be refined later, but the web page is the canonical source for this resource.",
-          title: "Purpose",
-        },
-        {
-          body: "Read the assigned chapters for each day. Keep a Bible, notebook, and quiet place ready. If a day is missed, continue with the next reading instead of abandoning the plan.",
-          title: "How to Use This Plan",
-        },
-        {
-          body: "Before reading, pause and ask the Holy Spirit to reveal Jesus, bring understanding, and show one faithful next step for the day.",
-          title: "Begin Each Day With Prayer",
-        },
-        {
-          items: [
-            {
-              body: "What does this passage reveal about Jesus?",
-              title: "Look for Christ",
-            },
-            {
-              body: "What promise, command, warning, or example stands out?",
-              title: "Listen Carefully",
-            },
-            {
-              body: "Where is God inviting repentance, faith, obedience, or courage?",
-              title: "Respond Personally",
-            },
-            {
-              body: "Who could you encourage, serve, or share this with today?",
-              title: "Move Toward Others",
-            },
-          ],
-          title: "Four Reflection Questions",
-        },
-        {
-          items: [
-            {
-              body: "Matthew 1-19",
-              title: "Day 1",
-            },
-            {
-              body: "Matthew 20-28; Mark 1-10",
-              title: "Day 2",
-            },
-            {
-              body: "Mark 11-16; Luke 1-13",
-              title: "Day 3",
-            },
-            {
-              body: "Luke 14-24; John 1-8",
-              title: "Day 4",
-            },
-            {
-              body: "John 9-21; Acts 1-6",
-              title: "Day 5",
-            },
-            {
-              body: "Acts 7-25",
-              title: "Day 6",
-            },
-            {
-              body: "Acts 26-28; Romans 1-16",
-              title: "Day 7",
-            },
-          ],
-          title: "Week One",
-        },
-        {
-          items: [
-            {
-              body: "1 Corinthians 1-16; 2 Corinthians 1-3",
-              title: "Day 8",
-            },
-            {
-              body: "2 Corinthians 4-13; Galatians 1-6; Ephesians 1-2",
-              title: "Day 9",
-            },
-            {
-              body: "Ephesians 3-6; Philippians 1-4; Colossians 1-4; 1 Thessalonians 1-5; 2 Thessalonians 1",
-              title: "Day 10",
-            },
-            {
-              body: "2 Thessalonians 2-3; 1 Timothy 1-6; 2 Timothy 1-4; Titus 1-3; Philemon; Hebrews 1-2",
-              title: "Day 11",
-            },
-            {
-              body: "Hebrews 3-13; James 1-5; 1 Peter 1-2",
-              title: "Day 12",
-            },
-            {
-              body: "1 Peter 3-5; 2 Peter 1-3; 1 John 1-5; 2 John; 3 John; Jude; Revelation 1-4",
-              title: "Day 13",
-            },
-            {
-              body: "Revelation 5-22",
-              title: "Day 14",
-            },
-          ],
-          title: "Week Two",
-        },
-        {
-          body: "Write one sentence of summary, one phrase of prayer, and one next step. Keep this reflective and simple; no tracking or submission is required.",
-          title: "Daily Reflection",
-        },
-        {
-          body: "After finishing, choose one next rhythm: reread one Gospel, study Acts with a group, memorize a passage, or invite someone else to begin the plan.",
-          title: "After Fourteen Days",
-        },
-      ],
       subtitle: "Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ.",
     },
     description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
@@ -917,7 +850,7 @@ const discipleshipResources = [
       subtitle: "A six-week guided book resource for reflecting on discipleship, obedience, and faithful growth.",
     },
     coverImage: {
-      alt: "Marks of Discipleship guided resource cover",
+      alt: "Discipleship guided resource cover",
       src: "/guides/marks-of-discipleship-cover.svg",
     },
     description: "A six-week Guided Journey with original companion sessions, Scripture search, reflection prompts, leader notes, and disciple-making next steps.",
@@ -931,7 +864,7 @@ const discipleshipResources = [
     slug: "marks-of-discipleship",
     status: "Sendable",
     tags: ["Book", "Discipleship", "Growth", "Leadership"],
-    title: "Marks of Discipleship",
+    title: "Discipleship",
     type: "guided_resource",
   },
   {

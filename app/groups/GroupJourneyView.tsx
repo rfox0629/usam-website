@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { DosResource } from "@/src/lib/dos/resource-catalog";
 import { saveGroupMemberJourneyProgress } from "./[slug]/member/actions";
 
@@ -65,7 +65,7 @@ type GroupJourneyViewProps = {
 function journeyStateMessage(state: string | null) {
   switch (state) {
     case "journey-completed":
-      return "Week marked complete. Great work.";
+      return "Marked complete. Great work.";
     case "journey-error":
       return "That could not be saved. Try again.";
     case "journey-saved":
@@ -73,6 +73,26 @@ function journeyStateMessage(state: string | null) {
     default:
       return "";
   }
+}
+
+function JourneyCard({
+  accent = "neutral",
+  children,
+  eyebrow,
+}: {
+  accent?: "neutral" | "gold" | "blue";
+  children: ReactNode;
+  eyebrow: string;
+}) {
+  const borderClass = accent === "gold" ? "border-[#C2A14E]/30 bg-[#C2A14E]/10" : accent === "blue" ? "border-[#5B8DEF]/25 bg-[#5B8DEF]/10" : "border-white/10 bg-white/[0.04]";
+  const labelClass = accent === "gold" ? "text-[#F8C56A]" : accent === "blue" ? "text-[#9DBBFF]" : "text-white/45";
+
+  return (
+    <div className={`rounded-2xl border px-3.5 py-3 ${borderClass}`}>
+      <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${labelClass}`}>{eyebrow}</p>
+      <div className="mt-1.5">{children}</div>
+    </div>
+  );
 }
 
 export function GroupJourneyView({
@@ -85,6 +105,9 @@ export function GroupJourneyView({
   resource,
   state,
 }: GroupJourneyViewProps) {
+  const isReadingPlan = resource.type === "reading_plan";
+  const unitLabel = isReadingPlan ? "Day" : "Week";
+  const unitLabelLower = isReadingPlan ? "day" : "week";
   const sessions = resource.content?.guidedResource?.sessions ?? [];
   const progressBySession = useMemo(() => {
     const map = new Map<string, JourneyProgress>();
@@ -102,6 +125,7 @@ export function GroupJourneyView({
   const selectedProgress = selectedSession ? progressBySession.get(selectedSession.id) ?? null : null;
   const message = journeyStateMessage(state);
   const isComplete = Boolean(selectedProgress?.completedAt);
+  const isAllComplete = sessions.length > 0 && completedCount === sessions.length;
 
   return (
     <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
@@ -120,11 +144,23 @@ export function GroupJourneyView({
 
         <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
           <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.14em] text-white/50">
-            <span>Progress</span>
-            <span>{completedCount}/{sessions.length} weeks complete</span>
+            <span>{isAllComplete ? "Journey complete" : "Progress"}</span>
+            <span>{completedCount}/{sessions.length} {unitLabelLower}s complete</span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-            <span className="block h-full rounded-full bg-[#C2A14E]" style={{ width: sessions.length ? `${(completedCount / sessions.length) * 100}%` : "0%" }} />
+          <div className="mt-2.5 flex gap-1.5">
+            {sessions.map((session) => {
+              const sessionComplete = Boolean(progressBySession.get(session.id)?.completedAt);
+              const isCurrent = session.id === firstOpenSession?.id;
+
+              return (
+                <span
+                  className={`h-2 flex-1 rounded-full ${
+                    sessionComplete ? "bg-[#C2A14E]" : isCurrent ? "bg-[#5B8DEF]" : "bg-white/10"
+                  }`}
+                  key={session.id}
+                />
+              );
+            })}
           </div>
           {assignment?.personalMessage ? (
             <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-6 text-white/75">
@@ -148,27 +184,33 @@ export function GroupJourneyView({
         ) : null}
 
         <section className="relative grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
-          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Weeks</p>
+          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{unitLabel}s</p>
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
             {sessions.map((session) => {
               const sessionComplete = Boolean(progressBySession.get(session.id)?.completedAt);
+              const isCurrent = session.id === firstOpenSession?.id;
               const isSelected = session.id === selectedSessionId;
+              const stateLabel = sessionComplete ? "Done" : isCurrent ? "Current" : "Upcoming";
 
               return (
                 <button
                   className={`flex min-h-14 shrink-0 flex-col items-start justify-center gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors ${
                     isSelected
                       ? "border-[#C2A14E] bg-[#C2A14E]/14 text-[#F8C56A]"
-                      : "border-white/12 bg-white/[0.03] text-white/70 hover:border-white/24"
+                      : sessionComplete
+                        ? "border-[#C2A14E]/30 bg-[#C2A14E]/5 text-white/75 hover:border-[#C2A14E]/50"
+                        : isCurrent
+                          ? "border-[#5B8DEF]/50 bg-[#5B8DEF]/10 text-white/85 hover:border-[#5B8DEF]/70"
+                          : "border-white/10 bg-white/[0.02] text-white/45 hover:border-white/20"
                   }`}
                   key={session.id}
                   onClick={() => setSelectedSessionId(session.id)}
                   type="button"
                 >
                   <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em]">
-                    {sessionComplete ? "Done" : `Week ${session.order}`}
+                    {stateLabel === "Done" ? "✓ Done" : stateLabel === "Current" ? "● Current" : `${unitLabel} ${session.order}`}
                   </span>
-                  <span className="max-w-[9rem] truncate text-xs font-bold">{session.title.replace(/^Week \d+\s*-\s*/, "")}</span>
+                  <span className="max-w-[9rem] truncate text-xs font-bold">{session.title.replace(/^(Week|Day) \d+\s*-\s*/, "")}</span>
                 </button>
               );
             })}
@@ -183,7 +225,6 @@ export function GroupJourneyView({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{selectedSession.title}</p>
-                <p className="mt-1 text-sm font-semibold text-white/60">Reading: {selectedSession.assignment}</p>
               </div>
               {isComplete ? (
                 <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
@@ -192,33 +233,79 @@ export function GroupJourneyView({
               ) : null}
             </div>
 
-            <p className="text-base font-bold leading-7 text-white">{selectedSession.bigIdea}</p>
+            <JourneyCard eyebrow="Reading Assignment">
+              <p className="text-sm font-bold leading-6 text-white">{selectedSession.assignment}</p>
+            </JourneyCard>
 
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Search the Scriptures</p>
-              <p className="mt-1 text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
-            </div>
+            {selectedSession.beginWithPrayer ? (
+              <JourneyCard accent="gold" eyebrow="Begin With Prayer">
+                <p className="text-sm font-bold leading-6 text-white">{selectedSession.beginWithPrayer}</p>
+              </JourneyCard>
+            ) : null}
+
+            {selectedSession.bigIdea ? (
+              <JourneyCard eyebrow="Main Idea">
+                <p className="text-base font-bold leading-7 text-white">{selectedSession.bigIdea}</p>
+              </JourneyCard>
+            ) : null}
+
+            {selectedSession.keyScriptures?.length ? (
+              <JourneyCard accent="blue" eyebrow="Search the Scriptures">
+                <p className="text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
+              </JourneyCard>
+            ) : null}
 
             {selectedSession.memoryVerse ? (
-              <div className="rounded-lg border border-[#C2A14E]/30 bg-[#C2A14E]/10 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#F8C56A]">Weekly Memory Verse</p>
-                <p className="mt-1 text-sm font-black text-white">{selectedSession.memoryVerse.reference}</p>
+              <JourneyCard accent="gold" eyebrow="Weekly Memory Verse">
+                <p className="text-sm font-black text-white">{selectedSession.memoryVerse.reference}</p>
+              </JourneyCard>
+            ) : null}
+
+            {selectedSession.discussionQuestions?.length ? (
+              <JourneyCard eyebrow="Discuss Together">
+                <ul className="grid gap-2">
+                  {selectedSession.discussionQuestions.map((question) => (
+                    <li className="rounded-lg border border-white/10 bg-[#080A0D] px-3 py-2 text-sm leading-6 text-white/90" key={question}>{question}</li>
+                  ))}
+                </ul>
+              </JourneyCard>
+            ) : null}
+
+            {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {selectedSession.lookForChrist ? (
+                  <JourneyCard eyebrow="Look for Christ">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.lookForChrist}</p>
+                  </JourneyCard>
+                ) : null}
+                {selectedSession.listenCarefully ? (
+                  <JourneyCard eyebrow="Listen Carefully">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.listenCarefully}</p>
+                  </JourneyCard>
+                ) : null}
+                {selectedSession.respondPersonally ? (
+                  <JourneyCard eyebrow="Respond Personally">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.respondPersonally}</p>
+                  </JourneyCard>
+                ) : null}
+                {selectedSession.moveTowardOthers ? (
+                  <JourneyCard eyebrow="Move Toward Others">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.moveTowardOthers}</p>
+                  </JourneyCard>
+                ) : null}
               </div>
             ) : null}
 
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Discuss Together</p>
-              <ul className="mt-2 grid gap-2">
-                {selectedSession.discussionQuestions.map((question) => (
-                  <li className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-6 text-white/85" key={question}>{question}</li>
-                ))}
-              </ul>
-            </div>
+            {selectedSession.multiply ? (
+              <JourneyCard accent="gold" eyebrow="Multiply">
+                <p className="text-sm font-bold leading-6 text-white">{selectedSession.multiply}</p>
+              </JourneyCard>
+            ) : null}
 
             {selectedSession.leaderNotes ? (
-              <details className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Leader Notes</summary>
-                <p className="mt-2 text-sm leading-6 text-white/70">{selectedSession.leaderNotes}</p>
+              <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Optional Leader Notes</summary>
+                <p className="mt-2 text-sm leading-6 text-white/80">{selectedSession.leaderNotes}</p>
               </details>
             ) : null}
 
@@ -227,18 +314,20 @@ export function GroupJourneyView({
               <input name="resourceSlug" type="hidden" value={resource.slug} />
               <input name="sessionId" type="hidden" value={selectedSession.id} />
 
-              <label className="grid gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Reflect Personally — {selectedSession.personalReflection}</span>
-                <AutoGrowTextarea
-                  className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
-                  defaultValue={selectedProgress?.reflection ?? ""}
-                  name="reflection"
-                  placeholder="Write what God is showing you this week."
-                />
-              </label>
+              {selectedSession.personalReflection ? (
+                <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"} — {selectedSession.personalReflection}</span>
+                  <AutoGrowTextarea
+                    className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                    defaultValue={selectedProgress?.reflection ?? ""}
+                    name="reflection"
+                    placeholder={isReadingPlan ? "Write one sentence about today's reading." : "Write what God is showing you this week."}
+                  />
+                </label>
+              ) : null}
 
-              <label className="grid gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Walk It Out — {selectedSession.actionStep}</span>
+              <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"} — {selectedSession.actionStep}</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.actionStep ?? ""}
@@ -247,8 +336,8 @@ export function GroupJourneyView({
                 />
               </label>
 
-              <label className="grid gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Pray — {selectedSession.prayerFocus}</span>
+              <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Prayer Response" : "Pray"} — {selectedSession.prayerFocus}</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.prayerFocus ?? ""}
@@ -272,11 +361,11 @@ export function GroupJourneyView({
                 </button>
                 {isComplete ? (
                   <button className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-4 text-sm font-black text-white/70" name="intent" type="submit" value="reopen">
-                    Reopen This Week
+                    Reopen This {unitLabel}
                   </button>
                 ) : (
                   <button className="inline-flex min-h-11 items-center justify-center rounded-sm bg-[#C2A14E] px-4 text-sm font-black text-[#080A0D]" name="intent" type="submit" value="complete">
-                    Save &amp; Mark Complete
+                    Save &amp; Mark {unitLabel} Complete
                   </button>
                 )}
               </div>

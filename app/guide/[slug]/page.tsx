@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
-import { FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { dosResourceCatalog, getDosResourceBySlug, type DosAssessmentQuestion, type DosResource, type DosResourceSection, type DosResourceSectionItem } from "@/src/lib/dos/resource-catalog";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
-import { GuideBackToLibraryButton } from "./GuideBackToLibraryButton";
-import { ShareGuideButton } from "./ShareGuideButton";
+import { PublicGuidedJourneyView } from "./PublicGuidedJourneyView";
 
 export const dynamicParams = true;
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-const newTestamentReadingPlanSlug = "new-testament-14-days";
 
 function resourceTypeLabel(resource: DosResource) {
   switch (resource.type) {
@@ -213,17 +210,16 @@ export default async function GuidePage({
     notFound();
   }
 
-  const canonicalUrl = `${getCanonicalSiteUrl()}${resource.path}`;
+  if (resource.content?.guidedResource?.sessions?.length) {
+    return <PublicGuidedJourneyView resource={resource} />;
+  }
+
   const heroSubtitle = resource.content?.subtitle ?? resource.description;
-  const hasReadingPlanActions = resource.type === "reading_plan";
-  const isNewTestamentReadingPlan = resource.slug === newTestamentReadingPlanSlug;
-  const showGuideFooterActions = resource.slug !== newTestamentReadingPlanSlug;
 
   return (
     <main className="min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_52%,#FFF4EC_100%)] text-[#0F172A]">
       <PrimaryNav active="system" />
       <article className="mx-auto max-w-4xl px-5 pb-20 pt-28 md:px-8 md:pt-32">
-        {isNewTestamentReadingPlan ? <GuideBackToLibraryButton /> : null}
         <header className="rounded-[32px] border border-[#DCEBFF] bg-white/92 p-6 shadow-[0_20px_60px_rgba(37,99,235,0.08)] md:p-8">
           <div className="flex flex-wrap gap-2">
             <GuidePill>{resource.category}</GuidePill>
@@ -236,20 +232,6 @@ export default async function GuidePage({
           {resource.content?.body ? <p className="mt-5 rounded-2xl border border-[#EAF2FF] bg-[#F8FBFF] p-4 text-sm leading-7 text-[#0F172A]">{resource.content.body}</p> : null}
           {resource.content?.scripture ? (
             <p className="mt-4 text-sm font-bold leading-6 text-[#1D4ED8]">{resource.content.scripture}</p>
-          ) : null}
-          {hasReadingPlanActions ? (
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]" href="#week-one">
-                Start Reading
-              </Link>
-              {resource.downloadPath ? (
-                <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" download href={resource.downloadPath}>
-                  <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                  Download PDF
-                </Link>
-              ) : null}
-              <ShareGuideButton title={resource.title} url={canonicalUrl} />
-            </div>
           ) : null}
         </header>
 
@@ -302,13 +284,11 @@ export default async function GuidePage({
             </section>
           ) : null}
 
-          {showGuideFooterActions ? (
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href="/mission">
-                Learn About The Mission
-              </Link>
-            </div>
-          ) : null}
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#0F172A]" href="/mission">
+              Learn About The Mission
+            </Link>
+          </div>
         </div>
       </article>
     </main>
