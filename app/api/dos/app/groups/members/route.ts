@@ -7,6 +7,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/
 
 type GroupMemberPayload = {
   action?: unknown;
+  confirmNearDuplicate?: unknown;
   email?: unknown;
   groupId?: unknown;
   group_id?: unknown;
@@ -57,6 +58,10 @@ function normalizePhone(value: string | null | undefined) {
   const digits = value?.replace(/\D/g, "") ?? "";
 
   return digits.length >= 7 ? digits : null;
+}
+
+function normalizeNameForMatch(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function asMemberStatus(value: unknown) {
@@ -169,6 +174,37 @@ async function resolveExistingPerson(
 
     if (data) {
       return { person: data as PersonRow };
+    }
+  }
+
+  const name = asString(payload.name);
+
+  if (name && !(asString(payload.confirmNearDuplicate) === "true" || payload.confirmNearDuplicate === true)) {
+    const normalizedName = normalizeNameForMatch(name);
+    const { data, error } = await supabase
+      .from("missionary_field_people")
+      .select("id, name, phone, email, status")
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .neq("status", "archived")
+      .order("updated_at", { ascending: false })
+      .limit(25);
+
+    if (error) {
+      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
+    }
+
+    const nameMatch = (data ?? []).find((row) => normalizeNameForMatch(row.name) === normalizedName);
+
+    if (nameMatch) {
+      return {
+        response: NextResponse.json(
+          {
+            error: `A person named "${nameMatch.name}" already exists in this workspace.`,
+            nearDuplicate: { id: nameMatch.id, name: nameMatch.name, phone: nameMatch.phone, email: nameMatch.email },
+          },
+          { status: 409 },
+        ),
+      };
     }
   }
 

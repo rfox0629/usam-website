@@ -394,7 +394,7 @@ for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
 }
 assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
 assertIncludes(groupDetailV2Source, "nextUpcomingGroupGathering(group)", "Groups V2 detail must use true upcoming gatherings instead of a past fallback.");
-assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail header must choose Start Meeting or Log Meeting from current gathering state.");
+assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail header must choose Start Gathering or Log Gathering from current gathering state.");
 assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
 assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
 assertIncludes(groupDetailV2Source, 'label="More"', "Groups V2 detail header must collapse secondary actions into More.");
@@ -467,7 +467,7 @@ for (const tab of [
 assertIncludes(appClient, "Discipleship happens in rhythms.", "Groups intro must use the cross-group hero title.");
 assertIncludes(appClient, "Build consistent rhythms of discipleship through weekly gatherings, prayer, accountability, and community.", "Groups intro must use the cross-group hero description.");
 assertIncludes(appClient, "Featured Group", "Groups intro must label the featured group section.");
-assertIncludes(appClient, "Log Meeting", "Group detail must expose Log Meeting.");
+assertIncludes(appClient, "Log Gathering", "Group detail must expose Log Gathering.");
 assertIncludes(appClient, "Start Gathering", "Group detail must expose Start Gathering.");
 assertIncludes(appClient, "GroupInviteSheet", "Group Invite must open a real add-member sheet.");
 assertIncludes(appClient, "Add to Group", "Group Invite must label the action as Add to Group.");
@@ -537,7 +537,7 @@ assertIncludes(appClient, '{ label: "Group", value: "group" }', "Prayer app must
 assertIncludes(
   appClient,
   'onLogAsTable={() => openForm("meeting")}',
-  "Log Meeting should open the existing Table form instead of adding a new flow.",
+  "Log Gathering should open the existing Table form instead of adding a new flow.",
 );
 
 assertIncludes(groupsConfig, 'dosGroupsSimplifiedFeatureFlag = "dos_groups_simplified_v2"', "Groups V2 feature flag key must be centralized.");
@@ -751,7 +751,7 @@ for (const privatePublicTerm of [
   "Settings",
   "Start Gathering",
   "Add to Group",
-  "Log Meeting",
+  "Log Gathering",
 ]) {
   assert(
     !publicSingleGroupRoute.includes(privatePublicTerm),
@@ -814,7 +814,7 @@ for (const privateDirectoryTerm of [
   "Settings",
   "Start Gathering",
   "Add to Group",
-  "Log Meeting",
+  "Log Gathering",
 ]) {
   assert(
     !publicGroupsDirectoryPage.includes(privateDirectoryTerm),
