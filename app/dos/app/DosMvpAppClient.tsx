@@ -7508,9 +7508,19 @@ function GroupDetailWorkspaceV2({
           </div>
           <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
             <div className="min-w-0">
-              <div className="flex flex-wrap gap-2">
-                <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
-                <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
+                  <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
+                </div>
+                <button
+                  aria-label="More group actions"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:hidden"
+                  onClick={() => setIsMoreActionsOpen(true)}
+                  type="button"
+                >
+                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                </button>
               </div>
               <h1 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A] md:text-[30px]" style={{ fontFamily: font.oswald }}>{group.name}</h1>
               <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</p>
@@ -7529,7 +7539,14 @@ function GroupDetailWorkspaceV2({
                 tone="primary"
               />
               <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
-              <GroupQuickAction icon={<MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="More" onClick={() => setIsMoreActionsOpen(true)} />
+              <button
+                aria-label="More group actions"
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:inline-flex"
+                onClick={() => setIsMoreActionsOpen(true)}
+                type="button"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </button>
             </div>
           </div>
         </div>
@@ -7769,7 +7786,7 @@ function GroupJourneysTabV2({
         title={focusResource?.title ?? "No journey yet"}
       >
         {!focusResource ? (
-          <SectionEmptyState text="Assign Marks of Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
+          <SectionEmptyState text="Assign Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
         ) : (
           <>
             <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>
