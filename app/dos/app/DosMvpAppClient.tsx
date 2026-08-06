@@ -6937,7 +6937,7 @@ function GroupLogoMark({
   group: DosAppGroup;
   large?: boolean;
 }) {
-  const sizeClassName = large ? "h-36 w-full min-[560px]:h-44" : "h-28 w-full min-[640px]:h-32 min-[640px]:w-56";
+  const sizeClassName = large ? "min-h-36 w-full min-[560px]:min-h-44" : "min-h-28 w-full min-[640px]:min-h-32 min-[640px]:w-56";
   const isLongName = group.name.length > (large ? 16 : 12);
   const headlineClassName = large
     ? isLongName ? "text-[30px] min-[560px]:text-[36px]" : "text-[42px] min-[560px]:text-[48px]"
@@ -7333,9 +7333,9 @@ function GroupsWorkspaceV2({
 
           return (
             <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.05)]" key={group.id}>
-              <button className="flex w-full min-w-0 gap-3 text-left" onClick={() => onOpenGroup(group.id)} type="button">
+              <button className="grid w-full min-w-0 gap-3 text-left sm:grid-cols-[168px_minmax(0,1fr)_auto] sm:items-center" onClick={() => onOpenGroup(group.id)} type="button">
                 <GroupLogoMark group={group} />
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-black leading-tight text-[#0F172A]">{group.name}</span>
                     <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
@@ -7349,7 +7349,7 @@ function GroupsWorkspaceV2({
                     <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLeaderCountLabel(leaders.length)}</span>
                   </span>
                 </span>
-                <ChevronRight className="mt-2 h-5 w-5 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+                <ChevronRight className="hidden h-5 w-5 shrink-0 text-[#94A3B8] sm:block" aria-hidden="true" strokeWidth={1.9} />
               </button>
               <div className="mt-3 flex flex-wrap gap-2 border-t border-[#EAF2FF] pt-3">
                 {pendingRequestCount > 0 ? (
