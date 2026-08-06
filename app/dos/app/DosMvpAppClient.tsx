@@ -4129,9 +4129,9 @@ function EmptyState({
   );
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
+function FieldLabel({ children, srOnly = false }: { children: ReactNode; srOnly?: boolean }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>
+    <span className={`${srOnly ? "sr-only" : ""} text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]`} style={{ fontFamily: font.rajdhani }}>
       {children}
     </span>
   );
@@ -7384,7 +7384,7 @@ function GroupsWorkspaceV2({
 
           return (
             <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.05)]" key={group.id}>
-              <button className="grid w-full min-w-0 gap-3 text-left sm:grid-cols-[168px_minmax(0,1fr)_auto] sm:items-center" onClick={() => onOpenGroup(group.id)} type="button">
+              <button className="grid w-full min-w-0 gap-3 text-left sm:grid-cols-[224px_minmax(0,1fr)_auto] sm:items-center" onClick={() => onOpenGroup(group.id)} type="button">
                 <GroupLogoMark group={group} />
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
@@ -7502,7 +7502,7 @@ function GroupDetailWorkspaceV2({
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
       <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
-        <div className="grid gap-3 p-3.5 sm:grid-cols-[168px_minmax(0,1fr)] md:p-4">
+        <div className="grid gap-3 p-3.5 sm:grid-cols-[224px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
             <GroupLogoMark group={group} />
           </div>
@@ -8742,25 +8742,24 @@ function GroupPrayerWizardStep({
                 placeholder="Prayer request"
                 value={prayer.description}
               />
-              <select
-                className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
-                onChange={(event) => {
-                  const [targetType, targetId] = event.target.value.split(":");
+              <CompactOptionSelect
+                hideLabel
+                label="Attach prayer to"
+                onChange={(value) => {
+                  const [targetType, targetId] = value.split(":");
                   onUpdatePrayer(prayer.id, {
                     targetId: targetId ?? "",
                     targetType: targetType as GroupPrayerDraftTargetType,
                   });
                 }}
+                options={[
+                  { label: "Entire group", value: "group:" },
+                  ...group.members.map((member) => ({ label: member.personName, value: `person:${member.personId}` })),
+                  ...guestDrafts.map((guest) => ({ label: guest.name || "Guest", value: `guest:${guest.id}` })),
+                ]}
+                size="compact"
                 value={`${prayer.targetType}:${prayer.targetId}`}
-              >
-                <option value="group:">Entire group</option>
-                {group.members.map((member) => (
-                  <option key={member.id} value={`person:${member.personId}`}>{member.personName}</option>
-                ))}
-                {guestDrafts.map((guest) => (
-                  <option key={guest.id} value={`guest:${guest.id}`}>{guest.name || "Guest"}</option>
-                ))}
-              </select>
+              />
             </div>
           ))}
         </div>
@@ -8818,13 +8817,14 @@ function GroupFollowUpWizardStep({
               <p className="truncate text-sm font-black text-[#0F172A]">{attendee.name}</p>
               <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{attendee.isGuest ? "Guest" : attendee.role ?? "Member"}</p>
             </div>
-            <select
-              className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
-              onChange={(event) => onUpdateFollowUp(attendee.id, { nextStep: event.target.value })}
+            <CompactOptionSelect
+              hideLabel
+              label="Next step"
+              onChange={(value) => onUpdateFollowUp(attendee.id, { nextStep: value })}
+              options={groupFollowUpOptions.map((option) => ({ label: option, value: option }))}
+              size="compact"
               value={draft.nextStep}
-            >
-              {groupFollowUpOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
+            />
             <input
               className="min-h-10 rounded-full border border-[#DCEBFF] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]/15"
               onChange={(event) => onUpdateFollowUp(attendee.id, { dueDate: event.target.value })}
@@ -9563,25 +9563,26 @@ function GroupMembersTab({
                           <span className="font-semibold text-[#64748B]"> · matched by {(possibleMatches[0]?.matchReasons ?? []).join(" + ")}</span>
                         </p>
                       ) : (
-                        <label className="mt-2 block">
-                          <span className="sr-only">Choose existing person match</span>
-                          <select
-                            className={FieldInputClass()}
-                            onChange={(event) => setJoinRequestPersonChoices((current) => ({
+                        <div className="mt-2">
+                          <CompactOptionSelect
+                            hideLabel
+                            label="Choose existing person match"
+                            onChange={(value) => setJoinRequestPersonChoices((current) => ({
                               ...current,
-                              [request.id]: event.target.value,
+                              [request.id]: value,
                             }))}
+                            options={[
+                              { label: "Choose existing person or create new", value: "" },
+                              ...possibleMatches.map((person) => ({
+                                helper: `matched by ${person.matchReasons.join(" + ")}`,
+                                label: person.name,
+                                value: person.id,
+                              })),
+                              { label: "Create new person", value: "create-new" },
+                            ]}
                             value={selectedPersonChoice}
-                          >
-                            <option value="">Choose existing person or create new</option>
-                            {possibleMatches.map((person) => (
-                              <option key={person.id} value={person.id}>
-                                {person.name} · matched by {person.matchReasons.join(" + ")}
-                              </option>
-                            ))}
-                            <option value="create-new">Create new person</option>
-                          </select>
-                        </label>
+                          />
+                        </div>
                       )}
                     </div>
                   ) : null}
@@ -9803,13 +9804,17 @@ function GroupInviteSheet({
         <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <FieldLabel>Role</FieldLabel>
-              <select className={`${FieldInputClass()} bg-white`} onChange={(event) => setRole(event.target.value as DosAppGroupMember["role"])} value={role}>
-                <option value="member">Member</option>
-                <option value="co_leader">Co-leader</option>
-                <option value="helper">Helper</option>
-                <option value="guest">Guest</option>
-              </select>
+              <CompactOptionSelect
+                label="Role"
+                onChange={(value) => setRole(value as DosAppGroupMember["role"])}
+                options={[
+                  { label: "Member", value: "member" },
+                  { label: "Co-leader", value: "co_leader" },
+                  { label: "Helper", value: "helper" },
+                  { label: "Guest", value: "guest" },
+                ]}
+                value={role}
+              />
             </div>
             <div>
               <FieldLabel>Status</FieldLabel>
@@ -10047,14 +10052,12 @@ function GroupCreateSheet({
               {message.text}
             </p>
           ) : null}
-          <label className="block">
-            <FieldLabel>Template</FieldLabel>
-            <select className={`${FieldInputClass()} bg-white`} onChange={(event) => updateTemplate(event.target.value as DosGroupCreationTemplate)} value={draft.templateKey}>
-              {dosGroupCreationTemplates.map((template) => (
-                <option key={template.templateKey} value={template.templateKey}>{template.title}</option>
-              ))}
-            </select>
-          </label>
+          <CompactOptionSelect
+            label="Template"
+            onChange={(value) => updateTemplate(value as DosGroupCreationTemplate)}
+            options={dosGroupCreationTemplates.map((template) => ({ label: template.title, value: template.templateKey }))}
+            value={draft.templateKey}
+          />
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
               <FieldLabel>Name</FieldLabel>
@@ -10087,13 +10090,17 @@ function GroupCreateSheet({
               <FieldLabel>Capacity</FieldLabel>
               <input className={`${FieldInputClass()} bg-white`} min="1" onChange={(event) => updateDraft("capacity", event.target.value)} type="number" value={draft.capacity} />
             </label>
-            <label className="block">
-              <FieldLabel>Visibility</FieldLabel>
-              <select className={`${FieldInputClass()} bg-white`} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
-                <option value="private">Private</option>
-                <option value="workspace">Workspace</option>
-              </select>
-            </label>
+            <div>
+              <CompactOptionSelect
+                label="Visibility"
+                onChange={(value) => updateDraft("visibility", value as DosAppGroup["visibility"])}
+                options={[
+                  { label: "Private", value: "private" },
+                  { label: "Workspace", value: "workspace" },
+                ]}
+                value={draft.visibility}
+              />
+            </div>
           </div>
         </div>
         <div className="grid content-start gap-3">
@@ -10101,15 +10108,15 @@ function GroupCreateSheet({
             <p className="text-sm font-black text-[#0F172A]">Shared Leadership</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Primary leaders, co-leaders, and helpers can be used for group management and future shared accountability.</p>
           </div>
-          <label className="block">
-            <FieldLabel>Primary Leader</FieldLabel>
-            <select className={`${FieldInputClass()} bg-white`} onChange={(event) => updateDraft("primaryLeaderPersonId", event.target.value)} value={draft.primaryLeaderPersonId}>
-              <option value="">No primary leader yet</option>
-              {leaderPeople.map((person) => (
-                <option key={person.id} value={person.id}>{person.name}</option>
-              ))}
-            </select>
-          </label>
+          <CompactOptionSelect
+            label="Primary Leader"
+            onChange={(value) => updateDraft("primaryLeaderPersonId", value)}
+            options={[
+              { label: "No primary leader yet", value: "" },
+              ...leaderPeople.map((person) => ({ label: person.name, value: person.id })),
+            ]}
+            value={draft.primaryLeaderPersonId}
+          />
           <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
             <FieldLabel>Co-Leaders</FieldLabel>
             <div className="mt-2 grid gap-2">
@@ -10372,14 +10379,17 @@ function GroupSettingsSheet({
                 <FieldLabel>Scripture reference</FieldLabel>
                 <input className={FieldInputClass()} onChange={(event) => updateDraft("scriptureReference", event.target.value)} value={draft.scriptureReference} />
               </label>
-              <label className="block min-w-0">
-                <FieldLabel>Type</FieldLabel>
-                <select className={FieldInputClass()} onChange={(event) => updateDraft("type", event.target.value as DosAppGroup["type"])} value={draft.type}>
-                  {(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => (
-                    <option key={type} value={type}>{type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase())}</option>
-                  ))}
-                </select>
-              </label>
+              <div className="min-w-0">
+                <CompactOptionSelect
+                  label="Type"
+                  onChange={(value) => updateDraft("type", value as DosAppGroup["type"])}
+                  options={(["discipleship", "running", "prayer", "study", "table", "other"] as const).map((type) => ({
+                    label: type === "running" ? "Running Group" : type === "study" ? "Bible Study" : type.replace(/^\w/, (letter) => letter.toUpperCase()),
+                    value: type,
+                  }))}
+                  value={draft.type}
+                />
+              </div>
             </div>
             <label className="block">
               <FieldLabel>Scripture text</FieldLabel>
@@ -10403,27 +10413,39 @@ function GroupSettingsSheet({
               <div className="mt-3 grid gap-3">
                 {rhythmSlots.map((slot, index) => (
                   <div className="grid gap-3 rounded-[18px] border border-[#EAF2FF] bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end" key={slot.id}>
-                    <label className="block min-w-0">
-                      <FieldLabel>{index === 0 ? "Day" : `Day ${index + 1}`}</FieldLabel>
-                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "dayOfWeek", event.target.value)} value={slot.dayOfWeek}>
-                        <option value="">Select day</option>
-                        {groupWeekdayOptions.map((day) => <option key={day} value={day}>{day}</option>)}
-                      </select>
-                    </label>
-                    <label className="block min-w-0">
-                      <FieldLabel>Start time</FieldLabel>
-                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "startTime", event.target.value)} value={slot.startTime}>
-                        <option value="">Select time</option>
-                        {groupTimeOptions.map((time) => <option key={`${slot.id}-start-${time}`} value={time}>{time}</option>)}
-                      </select>
-                    </label>
-                    <label className="block min-w-0">
-                      <FieldLabel>End time</FieldLabel>
-                      <select className={FieldInputClass()} onChange={(event) => updateRhythmSlot(slot.id, "endTime", event.target.value)} value={slot.endTime}>
-                        <option value="">No end time</option>
-                        {groupTimeOptions.map((time) => <option key={`${slot.id}-end-${time}`} value={time}>{time}</option>)}
-                      </select>
-                    </label>
+                    <div className="min-w-0">
+                      <CompactOptionSelect
+                        label={index === 0 ? "Day" : `Day ${index + 1}`}
+                        onChange={(value) => updateRhythmSlot(slot.id, "dayOfWeek", value)}
+                        options={[
+                          { label: "Select day", value: "" },
+                          ...groupWeekdayOptions.map((day) => ({ label: day, value: day })),
+                        ]}
+                        value={slot.dayOfWeek}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <CompactOptionSelect
+                        label="Start time"
+                        onChange={(value) => updateRhythmSlot(slot.id, "startTime", value)}
+                        options={[
+                          { label: "Select time", value: "" },
+                          ...groupTimeOptions.map((time) => ({ label: time, value: time })),
+                        ]}
+                        value={slot.startTime}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <CompactOptionSelect
+                        label="End time"
+                        onChange={(value) => updateRhythmSlot(slot.id, "endTime", value)}
+                        options={[
+                          { label: "No end time", value: "" },
+                          ...groupTimeOptions.map((time) => ({ label: time, value: time })),
+                        ]}
+                        value={slot.endTime}
+                      />
+                    </div>
                     <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-bold text-[#64748B] transition-colors hover:border-[#FCA5A5] hover:text-[#B91C1C]" onClick={() => removeRhythmSlot(slot.id)} type="button">
                       Remove
                     </button>
@@ -10445,13 +10467,17 @@ function GroupSettingsSheet({
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-0 lg:self-start">
             <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
               <p className="text-sm font-black text-[#0F172A]">Publishing</p>
-              <label className="mt-3 block">
-                <FieldLabel>Visibility</FieldLabel>
-                <select className={FieldInputClass()} onChange={(event) => updateDraft("visibility", event.target.value as DosAppGroup["visibility"])} value={draft.visibility}>
-                  <option value="private">Private</option>
-                  <option value="workspace">Public-shareable</option>
-                </select>
-              </label>
+              <div className="mt-3">
+                <CompactOptionSelect
+                  label="Visibility"
+                  onChange={(value) => updateDraft("visibility", value as DosAppGroup["visibility"])}
+                  options={[
+                    { label: "Private", value: "private" },
+                    { label: "Public-shareable", value: "workspace" },
+                  ]}
+                  value={draft.visibility}
+                />
+              </div>
               <label className="mt-3 block">
                 <FieldLabel>Public slug</FieldLabel>
                 <input className={FieldInputClass()} onChange={(event) => updateDraft("slug", event.target.value)} required value={draft.slug} />
@@ -10460,13 +10486,17 @@ function GroupSettingsSheet({
             </div>
             <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
               <p className="text-sm font-black text-[#0F172A]">Leadership</p>
-              <label className="mt-3 block">
-                <FieldLabel>Leader</FieldLabel>
-                <select className={FieldInputClass()} onChange={(event) => updateDraft("leaderPersonId", event.target.value)} value={draft.leaderPersonId}>
-                  <option value="">No leader</option>
-                  {leaderPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-                </select>
-              </label>
+              <div className="mt-3">
+                <CompactOptionSelect
+                  label="Leader"
+                  onChange={(value) => updateDraft("leaderPersonId", value)}
+                  options={[
+                    { label: "No leader", value: "" },
+                    ...leaderPeople.map((person) => ({ label: person.name, value: person.id })),
+                  ]}
+                  value={draft.leaderPersonId}
+                />
+              </div>
             </div>
             <div className="rounded-[22px] border border-[#FECACA] bg-[#FEF2F2] p-4">
               <p className="text-sm font-black text-[#991B1B]">Archive</p>
@@ -18025,56 +18055,78 @@ function GoogleCalendarEventDetailSheet({
 }
 
 function CompactOptionSelect({
+  hideLabel = false,
   label,
   onChange,
   options,
+  size = "default",
   value,
 }: {
-  label: string;
+  hideLabel?: boolean;
+  label?: string;
   onChange: (value: string) => void;
   options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
+  size?: "compact" | "default";
   value: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const selectedOption = options.find((option) => option.value === value) ?? options[0];
+  const isCompact = size === "compact";
+
+  function close() {
+    setIsOpen(false);
+  }
 
   return (
     <div
       className="relative"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setIsOpen(false);
+          close();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && isOpen) {
+          event.stopPropagation();
+          close();
+          triggerRef.current?.focus();
         }
       }}
     >
-      <FieldLabel>{label}</FieldLabel>
+      {label ? <FieldLabel srOnly={hideLabel}>{label}</FieldLabel> : null}
       <button
         aria-expanded={isOpen}
-        className={`mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border bg-white px-4 text-left text-sm transition-colors ${
-          isOpen ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.12)]" : "border-[#E2E8F0] hover:border-[#BFDBFE]"
-        }`}
+        aria-haspopup="listbox"
+        aria-label={hideLabel ? label : undefined}
+        className={`${label && !hideLabel ? "mt-2 " : ""}flex w-full items-center justify-between gap-3 border bg-white text-left transition-colors ${
+          isCompact ? "min-h-10 rounded-full px-3 text-sm" : "min-h-12 rounded-2xl px-4 text-sm"
+        } ${isOpen ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.12)]" : "border-[#E2E8F0] hover:border-[#BFDBFE]"}`}
         onClick={() => setIsOpen((current) => !current)}
+        ref={triggerRef}
         type="button"
       >
         <span className="min-w-0 flex-1 truncate font-semibold text-[#0F172A]">{selectedOption?.label ?? "Select"}</span>
         <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
       </button>
       {isOpen ? (
-        <div className="absolute left-0 right-0 z-30 mt-1 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]">
+        <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="listbox">
           {options.map((option) => {
             const selected = option.value === selectedOption?.value;
 
             return (
               <button
-                aria-pressed={selected}
+                aria-selected={selected}
                 className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
                   selected ? "bg-[#EBF2FF] text-[#1D4ED8]" : "text-[#0F172A] hover:bg-[#F1F5F9]"
                 }`}
                 key={option.value}
                 onClick={() => {
                   onChange(option.value);
-                  setIsOpen(false);
+                  close();
+                  triggerRef.current?.focus();
                 }}
+                role="option"
                 type="button"
               >
                 <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
