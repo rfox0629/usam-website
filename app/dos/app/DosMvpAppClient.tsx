@@ -209,6 +209,7 @@ type DosPrayerRequestDraft = {
   visibility: DosAppPrayerRequest["visibility"];
 };
 type GroupMemberAddPayload = {
+  confirmNearDuplicate?: boolean;
   email?: string;
   groupId: string;
   name?: string;
@@ -2702,6 +2703,36 @@ function fruitOutcomeLabel(event: DosAppFruitEvent | undefined) {
 
 function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
+}
+
+function normalizeNameForMatch(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function findNearDuplicatePerson(people: DosAppPerson[], name: string, email: string, phone: string) {
+  const normalizedName = normalizeNameForMatch(name);
+
+  if (!normalizedName) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeText(email).toLowerCase();
+  const normalizedPhone = phoneDigitsOnly(phone);
+
+  return people.find((person) => {
+    if (person.status === "archived" || normalizeNameForMatch(person.name) !== normalizedName) {
+      return false;
+    }
+
+    if (!normalizedEmail && !normalizedPhone) {
+      return true;
+    }
+
+    const personEmail = normalizeText(person.email).toLowerCase();
+    const personPhone = phoneDigitsOnly(person.phone);
+
+    return (normalizedEmail && personEmail === normalizedEmail) || (normalizedPhone && personPhone === normalizedPhone);
+  }) ?? null;
 }
 
 function normalizeFieldVisibility(value: FormDataEntryValue | string | null | undefined, fallback: DosAppFieldVisibility = "primary"): DosAppFieldVisibility {
@@ -7450,7 +7481,7 @@ function GroupDetailWorkspaceV2({
   const nextGathering = nextUpcomingGroupGathering(group);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
-  const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Meeting" : "Log Meeting";
+  const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Gathering" : "Log Gathering";
   const nextGatheringSummary = nextGathering
     ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
     : "Not scheduled";
@@ -7492,7 +7523,7 @@ function GroupDetailWorkspaceV2({
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
               <GroupQuickAction
-                icon={meetingActionLabel === "Start Meeting" ? <Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                icon={meetingActionLabel === "Start Gathering" ? <Flame className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label={meetingActionLabel}
                 onClick={onLogAsTable}
                 tone="primary"
@@ -8225,7 +8256,7 @@ function GroupDetailWorkspace({
     { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Public Link", onClick: onCopyPublicLink },
     { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "View Public Page", onClick: onViewPublicGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule", onClick: onSchedule },
-    { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log Meeting", onClick: onLogAsTable },
+    { icon: <Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Log Gathering", onClick: onLogAsTable },
   ];
 
   return (
@@ -9711,11 +9742,14 @@ function GroupInviteSheet({
   const [guestPhone, setGuestPhone] = useState("");
   const [role, setRole] = useState<DosAppGroupMember["role"]>("member");
   const [status, setStatus] = useState<DosAppGroupMember["status"]>("active");
+  const [duplicateWarningDismissed, setDuplicateWarningDismissed] = useState(false);
   const existingMemberPersonIds = new Set(group.members.filter((member) => member.status !== "removed").map((member) => member.personId));
   const personOptions = filteredPeople(people, query)
     .filter((person) => person.status !== "archived")
     .slice(0, 8);
   const canAddGuest = guestName.trim().length > 0;
+  const nearDuplicatePerson = findNearDuplicatePerson(people, guestName, guestEmail, guestPhone);
+  const blockedByDuplicateWarning = Boolean(nearDuplicatePerson) && !duplicateWarningDismissed;
 
   async function addExistingPerson(person: DosAppPerson) {
     await onAddMember({
@@ -9724,16 +9758,21 @@ function GroupInviteSheet({
       role,
       status,
     });
+    setGuestEmail("");
+    setGuestName("");
+    setGuestPhone("");
+    setDuplicateWarningDismissed(false);
   }
 
   async function addGuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!canAddGuest) {
+    if (!canAddGuest || blockedByDuplicateWarning) {
       return;
     }
 
     await onAddMember({
+      confirmNearDuplicate: duplicateWarningDismissed,
       email: guestEmail,
       groupId: group.id,
       name: guestName,
@@ -9744,6 +9783,7 @@ function GroupInviteSheet({
     setGuestEmail("");
     setGuestName("");
     setGuestPhone("");
+    setDuplicateWarningDismissed(false);
   }
 
   return (
@@ -9837,24 +9877,77 @@ function GroupInviteSheet({
           </div>
           <label className="block">
             <FieldLabel>Name</FieldLabel>
-            <input className={FieldInputClass()} onChange={(event) => setGuestName(event.target.value)} required value={guestName} />
+            <input
+              className={FieldInputClass()}
+              onChange={(event) => {
+                setGuestName(event.target.value);
+                setDuplicateWarningDismissed(false);
+              }}
+              required
+              value={guestName}
+            />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <FieldLabel>Phone</FieldLabel>
-              <input className={FieldInputClass()} inputMode="tel" onChange={(event) => setGuestPhone(event.target.value)} type="tel" value={guestPhone} />
+              <input
+                className={FieldInputClass()}
+                inputMode="tel"
+                onChange={(event) => {
+                  setGuestPhone(event.target.value);
+                  setDuplicateWarningDismissed(false);
+                }}
+                type="tel"
+                value={guestPhone}
+              />
             </label>
             <label className="block">
               <FieldLabel>Email</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => setGuestEmail(event.target.value)} type="email" value={guestEmail} />
+              <input
+                className={FieldInputClass()}
+                onChange={(event) => {
+                  setGuestEmail(event.target.value);
+                  setDuplicateWarningDismissed(false);
+                }}
+                type="email"
+                value={guestEmail}
+              />
             </label>
           </div>
+          {nearDuplicatePerson ? (
+            <div className="rounded-[16px] border border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-black uppercase tracking-[0.08em] text-amber-800">Possible existing person</p>
+              <p className="mt-1 text-sm font-semibold text-amber-900">
+                {nearDuplicatePerson.name} already exists in Field
+                {[formatPhoneNumber(nearDuplicatePerson.phone), nearDuplicatePerson.email].filter(Boolean).length
+                  ? ` (${[formatPhoneNumber(nearDuplicatePerson.phone), nearDuplicatePerson.email].filter(Boolean).join(" · ")})`
+                  : ""}. Add that person instead of creating a new one, unless this is genuinely someone else.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  className="inline-flex min-h-9 items-center justify-center rounded-full bg-amber-800 px-3 text-xs font-black text-white transition-colors hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isSubmitting}
+                  onClick={() => addExistingPerson(nearDuplicatePerson)}
+                  type="button"
+                >
+                  Add existing person instead
+                </button>
+                <button
+                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-amber-400 bg-white px-3 text-xs font-black text-amber-900 transition-colors hover:bg-amber-100"
+                  onClick={() => setDuplicateWarningDismissed(true)}
+                  type="button"
+                >
+                  This is a different person
+                </button>
+              </div>
+            </div>
+          ) : null}
           <button
             className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!canAddGuest || isSubmitting}
+            disabled={!canAddGuest || isSubmitting || blockedByDuplicateWarning}
             type="submit"
           >
-            {isSubmitting ? "Adding..." : "Add to Group"}
+            {isSubmitting ? "Adding..." : blockedByDuplicateWarning ? "Resolve possible duplicate above" : "Add to Group"}
           </button>
         </form>
       </div>
