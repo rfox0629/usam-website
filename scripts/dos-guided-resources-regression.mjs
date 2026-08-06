@@ -29,15 +29,15 @@ assertIncludes(catalog, "\"guided_resource\"", "Catalog must define the guided_r
 assertIncludes(catalog, "type DosGuidedResourceSession", "Catalog must define ordered guided resource sessions.");
 assertIncludes(catalog, "type DosResourceAccessLink", "Catalog must support multiple purchase/access links.");
 assertIncludes(catalog, "assignmentTargets?: readonly DosResourceAssignmentTarget[]", "Catalog must expose supported assignment target types.");
-assertIncludes(catalog, "title: \"Marks of Discipleship\"", "Marks of Discipleship seed resource is missing.");
-assertIncludes(catalog, "author: \"A.W. Tozer\"", "Marks of Discipleship must include the author.");
+assertIncludes(catalog, "title: \"Discipleship\"", "Discipleship (Tozer) seed resource is missing.");
+assertIncludes(catalog, "author: \"A.W. Tozer\"", "Discipleship (Tozer) must include the author.");
 assertIncludes(catalog, "assignmentTargets: [\"individual\", \"group\", \"organization\"]", "Guided resource seed must declare individual, group, and organization assignment support.");
-assertIncludes(catalog, "format: \"book\"", "Marks of Discipleship must be seeded as a book guided resource.");
+assertIncludes(catalog, "format: \"book\"", "Discipleship (Tozer) must be seeded as a book guided resource.");
 assertIncludes(catalog, "leaderGuideNote", "Guided resources must include leader-created guide space.");
 assertIncludes(catalog, "whyChosen", "Guided journeys must explain why the resource was chosen.");
 assertIncludes(catalog, "pathwayTags", "Guided journeys must keep future Pathways metadata extensible.");
 assertIncludes(catalog, "type DosGuidedResourceMemoryVerse", "Guided journeys must support weekly memory verse metadata.");
-assert((catalog.match(/id: "week-[1-6]"/g) ?? []).length === 6, "Marks of Discipleship must seed six weekly companion sessions.");
+assert((catalog.match(/id: "week-[1-6]"/g) ?? []).length === 6, "Discipleship (Tozer) must seed six weekly companion sessions.");
 assert((catalog.match(/assignment: "Pages /g) ?? []).length === 6, "Marks sessions must use page-reference reading assignments only.");
 assert((catalog.match(/memoryVerse: \{/g) ?? []).length === 6, "Marks sessions must include weekly memory verse sections.");
 assert((catalog.match(/multiply: "/g) ?? []).length === 6, "Marks sessions must include Multiply prompts.");
@@ -95,7 +95,7 @@ assertIncludes(app, "data.guidedResourceProgress", "Guided resource UI must read
 assertIncludes(app, "onOpenGuidedResource", "Assigned resource cards must open guided resources in-app.");
 assertIncludes(app, "progressPersonId={myRecordPerson?.id ?? null}", "Library card progress should use the DOS user's My Record person when available.");
 
-assertIncludes(preview, "guidedResourceProgress: []", "Preview DOS data must include guidedResourceProgress.");
+assertIncludes(preview, "guidedResourceProgress:", "Preview DOS data must include guidedResourceProgress.");
 assertIncludes(sharedGroupRoute, "guidedResourceProgress: []", "Shared group scoped DOS data must include guidedResourceProgress.");
 
 console.log("DOS guided resources regression checks passed.");

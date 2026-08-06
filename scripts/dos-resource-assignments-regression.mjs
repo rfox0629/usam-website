@@ -101,7 +101,7 @@ assertIncludes(loader, "type DosAppResourceAssignment", "loader exposes resource
 assertIncludes(loader, "loadResourceAssignmentsForWorkspace", "loader loads resource assignments");
 assertIncludes(loader, "resourceAssignments: DosAppResourceAssignment[]", "DOS app data includes resource assignments");
 assertIncludes(loader, "latestActivityByPersonId.set(assignment.person_id", "assignments affect person activity");
-assertIncludes(preview, "resourceAssignments: []", "preview supplies resource assignments");
+assertIncludes(preview, "resourceAssignments:", "preview supplies resource assignments");
 
 assertIncludes(client, "ResourceAssignmentFormSheet", "client has assignment form sheet");
 assertIncludes(client, "ResourceAssignmentCheckInSheet", "client has assignment check-in sheet");

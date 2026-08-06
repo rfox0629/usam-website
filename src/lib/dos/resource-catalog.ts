@@ -917,7 +917,7 @@ const discipleshipResources = [
       subtitle: "A six-week guided book resource for reflecting on discipleship, obedience, and faithful growth.",
     },
     coverImage: {
-      alt: "Marks of Discipleship guided resource cover",
+      alt: "Discipleship guided resource cover",
       src: "/guides/marks-of-discipleship-cover.svg",
     },
     description: "A six-week Guided Journey with original companion sessions, Scripture search, reflection prompts, leader notes, and disciple-making next steps.",
@@ -931,7 +931,7 @@ const discipleshipResources = [
     slug: "marks-of-discipleship",
     status: "Sendable",
     tags: ["Book", "Discipleship", "Growth", "Leadership"],
-    title: "Marks of Discipleship",
+    title: "Discipleship",
     type: "guided_resource",
   },
   {
