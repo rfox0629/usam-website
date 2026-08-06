@@ -143,6 +143,27 @@ type PreferenceRow = {
   notification_type: string;
 };
 
+type JourneyAssignmentRow = {
+  completed_at: string | null;
+  due_date: string | null;
+  id: string;
+  personal_message: string | null;
+  resource_slug: string;
+  start_date: string;
+  status: string | null;
+};
+
+type JourneyProgressRow = {
+  action_step: string | null;
+  completed_at: string | null;
+  id: string;
+  prayer_focus: string | null;
+  reflection: string | null;
+  resource_slug: string;
+  session_id: string;
+  updated_at: string | null;
+};
+
 export type MemberAccessInvitation = {
   accessUrl: string;
   expiresAt: string;
@@ -174,6 +195,25 @@ export type GroupMemberPortalData = {
     personId: string;
     phone: string | null;
   };
+  journeyAssignments: Array<{
+    completedAt: string | null;
+    dueDate: string | null;
+    id: string;
+    personalMessage: string | null;
+    resourceSlug: string;
+    startDate: string;
+    status: "active" | "completed" | "paused" | string;
+  }>;
+  journeyProgress: Array<{
+    actionStep: string | null;
+    completedAt: string | null;
+    id: string;
+    prayerFocus: string | null;
+    reflection: string | null;
+    resourceSlug: string;
+    sessionId: string;
+    updatedAt: string | null;
+  }>;
   nextGathering: {
     description: string | null;
     endsAt: string | null;
@@ -742,6 +782,8 @@ export async function loadGroupMemberPortalData(
     prayerResult,
     attendanceResult,
     preferencesResult,
+    journeyAssignmentsResult,
+    journeyProgressResult,
   ] = await Promise.all([
     nextGathering
       ? supabase
@@ -787,6 +829,17 @@ export async function loadGroupMemberPortalData(
       .eq("member_identity_id", identity.id)
       .eq("group_id", group.id)
       .order("channel", { ascending: true }),
+    supabase
+      .from("dos_resource_assignments")
+      .select("id, resource_slug, status, start_date, due_date, completed_at, personal_message")
+      .eq("workspace_id", group.workspace_id)
+      .eq("person_id", session.person_id)
+      .order("start_date", { ascending: false }),
+    supabase
+      .from("dos_guided_resource_progress")
+      .select("id, resource_slug, session_id, reflection, action_step, prayer_focus, completed_at, updated_at")
+      .eq("workspace_id", group.workspace_id)
+      .eq("person_id", session.person_id),
   ]);
 
   await Promise.all([
@@ -806,6 +859,8 @@ export async function loadGroupMemberPortalData(
   const prayerRequests = prayerResult.error ? [] : prayerResult.data as PrayerRequestRow[];
   const attendance = attendanceResult.error ? [] : attendanceResult.data as AttendanceRow[];
   const preferences = preferencesResult.error ? [] : preferencesResult.data as PreferenceRow[];
+  const journeyAssignments = journeyAssignmentsResult.error ? [] : journeyAssignmentsResult.data as JourneyAssignmentRow[];
+  const journeyProgress = journeyProgressResult.error ? [] : journeyProgressResult.data as JourneyProgressRow[];
   const location = safeLocationForMember(group, nextGathering);
 
   return {
@@ -840,6 +895,25 @@ export async function loadGroupMemberPortalData(
         personId: identity.person_id,
         phone: identity.verified_phone ?? normalizePhone(person.phone),
       },
+      journeyAssignments: journeyAssignments.map((assignment) => ({
+        completedAt: assignment.completed_at,
+        dueDate: assignment.due_date,
+        id: assignment.id,
+        personalMessage: assignment.personal_message,
+        resourceSlug: assignment.resource_slug,
+        startDate: assignment.start_date,
+        status: assignment.status ?? "active",
+      })),
+      journeyProgress: journeyProgress.map((progress) => ({
+        actionStep: progress.action_step,
+        completedAt: progress.completed_at,
+        id: progress.id,
+        prayerFocus: progress.prayer_focus,
+        reflection: progress.reflection,
+        resourceSlug: progress.resource_slug,
+        sessionId: progress.session_id,
+        updatedAt: progress.updated_at,
+      })),
       nextGathering: nextGathering
         ? {
           description: nextGathering.description,
