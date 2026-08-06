@@ -215,12 +215,21 @@ export function GroupHomeMemberView({
                     href={`${publicGroupPath(data.group.slug)}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}
                     key={assignment.id}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-black text-white">{resource?.title ?? assignment.resourceSlug}</p>
-                      <p className="mt-1 text-xs font-semibold text-white/60">
-                        {sessions.length ? `${completedCount}/${sessions.length} weeks complete` : "Ready to begin"}
-                        {assignment.status === "completed" ? " · Complete" : ""}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      {resource?.coverImage ? (
+                        <img
+                          alt={resource.coverImage.alt}
+                          className="aspect-[2/3] w-9 shrink-0 rounded-md border border-white/10 object-cover"
+                          src={resource.coverImage.src}
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-black text-white">{resource?.title ?? assignment.resourceSlug}</p>
+                        <p className="mt-1 text-xs font-semibold text-white/60">
+                          {sessions.length ? `${completedCount}/${sessions.length} weeks complete` : "Ready to begin"}
+                          {assignment.status === "completed" ? " · Complete" : ""}
+                        </p>
+                      </div>
                     </div>
                     <span className="shrink-0 rounded-sm bg-[#C2A14E] px-3 py-2 text-xs font-black text-[#080A0D]">Open</span>
                   </Link>

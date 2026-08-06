@@ -127,12 +127,21 @@ export function GroupJourneyView({
   return (
     <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
       <div className="mx-auto grid w-full max-w-3xl gap-3 px-4 py-4 pb-28 sm:px-6 sm:py-6">
-        <div>
-          <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
-            {groupName}
-          </Link>
-          <h1 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{resource.title}</h1>
-          {resource.author ? <p className="mt-1 text-sm font-bold text-white/55">— {resource.author}</p> : null}
+        <div className="flex items-start gap-4">
+          {resource.coverImage ? (
+            <img
+              alt={resource.coverImage.alt}
+              className="aspect-[2/3] w-20 shrink-0 rounded-lg border border-white/10 object-cover shadow-[0_14px_34px_rgba(0,0,0,0.4)] sm:w-24"
+              src={resource.coverImage.src}
+            />
+          ) : null}
+          <div className="min-w-0">
+            <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
+              {groupName}
+            </Link>
+            <h1 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{resource.title}</h1>
+            {resource.author ? <p className="mt-1 text-sm font-bold text-white/55">— {resource.author}</p> : null}
+          </div>
         </div>
 
         {message ? (

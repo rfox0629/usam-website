@@ -916,9 +916,12 @@ const discipleshipResources = [
       },
       subtitle: "A six-week guided book resource for reflecting on discipleship, obedience, and faithful growth.",
     },
+    // Real cover art for ISBN 9781600668043 (Discipleship: What It Truly Means to Be
+    // a Christian - Collected Insights from A. W. Tozer), sourced from the Barnes &
+    // Noble product listing for this exact edition on 2026-08-06.
     coverImage: {
-      alt: "Discipleship guided resource cover",
-      src: "/guides/marks-of-discipleship-cover.svg",
+      alt: "Discipleship by A.W. Tozer - book cover",
+      src: "/guides/discipleship-cover.jpg",
     },
     description: "A six-week Guided Journey with original companion sessions, Scripture search, reflection prompts, leader notes, and disciple-making next steps.",
     difficulty: "intermediate",

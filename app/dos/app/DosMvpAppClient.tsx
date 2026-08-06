@@ -5369,9 +5369,18 @@ function CatalogResourceRow({
     return (
       <article className="px-3.5 py-3.5">
         <div className="flex items-start gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
-            <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
-          </span>
+          {resource.coverImage ? (
+            <img
+              alt={resource.coverImage.alt}
+              className="aspect-[2/3] w-10 shrink-0 rounded-lg border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.08)]"
+              loading="lazy"
+              src={resource.coverImage.src}
+            />
+          ) : (
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
+              <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-1.5">
               {resource.featured ? (
@@ -7789,7 +7798,17 @@ function GroupJourneysTabV2({
           <SectionEmptyState text="Assign Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
         ) : (
           <>
-            <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>
+            <div className="flex items-center gap-3">
+              {focusResource.coverImage ? (
+                <img
+                  alt={focusResource.coverImage.alt}
+                  className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.08)]"
+                  loading="lazy"
+                  src={focusResource.coverImage.src}
+                />
+              ) : null}
+              <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>
+            </div>
             {memberAccessMessage ? (
               <p className={`mt-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
                 memberAccessMessage.tone === "success"
