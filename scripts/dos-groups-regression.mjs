@@ -397,7 +397,8 @@ assertIncludes(groupDetailV2Source, "nextUpcomingGroupGathering(group)", "Groups
 assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail header must choose Start Gathering or Log Gathering from current gathering state.");
 assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
 assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
-assertIncludes(groupDetailV2Source, 'label="More"', "Groups V2 detail header must collapse secondary actions into More.");
+assertIncludes(groupDetailV2Source, 'aria-label="More group actions"', "Groups V2 detail header must expose a top-right overflow action for secondary actions instead of a stranded third button.");
+assertIncludes(groupDetailV2Source, "setIsMoreActionsOpen(true)", "Groups V2 overflow action must open the More actions sheet.");
 assertIncludes(groupDetailV2Source, 'label: "Edit Group"', "Groups V2 More menu must include Edit Group.");
 assertIncludes(groupDetailV2Source, 'label: "Schedule"', "Groups V2 More menu must include Schedule.");
 assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
@@ -609,7 +610,7 @@ assertIncludes(publicGroupsDirectoryPage, "Running Group", "Public groups direct
 assertIncludes(publicSingleGroupRoute, "return `${publicGroupActivityLabel(group)} Group`", "Public group page must avoid redundant 2three2 running labels.");
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
-assertIncludes(preview, "groupsSimplifiedV2: false", "DOS preview must keep Groups V2 disabled unless explicitly enabled.");
+assertIncludes(preview, "groupsSimplifiedV2: true", "DOS preview must match the live Groups V2 default now enabled for real workspaces.");
 assertIncludes(preview, "templateKey: \"2three2_running_men\"", "DOS preview group data must include V2 template metadata.");
 assertIncludes(preview, 'process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"', "DOS preview must stay token-available for production smoke checks unless explicitly disabled.");
 assert(!preview.includes('process.env.VERCEL_ENV === "preview"'), "DOS preview must not disappear in production when the valid demo token is supplied.");
