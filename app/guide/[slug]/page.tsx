@@ -58,6 +58,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${resource.title} | USA Missionaries`;
   const description = resource.content?.seoDescription ?? resource.description;
   const url = `${getCanonicalSiteUrl()}${resource.path}`;
+  const coverUrl = resource.coverImage ? `${getCanonicalSiteUrl()}${resource.coverImage.src}` : null;
+  const coverImages = coverUrl ? [{ alt: resource.coverImage!.alt, url: coverUrl }] : undefined;
 
   return {
     alternates: {
@@ -66,6 +68,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description,
     openGraph: {
       description,
+      images: coverImages,
       siteName: "USA Missionaries",
       title,
       type: "article",
@@ -73,8 +76,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     title,
     twitter: {
-      card: "summary",
+      card: coverUrl ? "summary_large_image" : "summary",
       description,
+      images: coverUrl ? [coverUrl] : undefined,
       title,
     },
   };
