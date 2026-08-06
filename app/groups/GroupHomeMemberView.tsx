@@ -6,6 +6,7 @@ import {
   routeBuilderComingSoonStatus,
 } from "@/src/lib/groups/route-builder";
 import type { GroupMemberPortalData } from "@/src/lib/groups/member-access";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { GroupTemplateArtwork } from "./GroupTemplateVisual";
 import {
   signOutGroupMember,
@@ -197,6 +198,37 @@ export function GroupHomeMemberView({
             <p className="mt-2 text-sm font-semibold leading-6 text-white/60">No gathering is scheduled yet.</p>
           )}
         </section>
+
+        {data.journeyAssignments.length ? (
+          <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Your Journey</p>
+            <div className="mt-3 grid gap-2">
+              {data.journeyAssignments.slice(0, 3).map((assignment) => {
+                const resource = getDosResourceBySlug(assignment.resourceSlug);
+                const sessions = resource?.content?.guidedResource?.sessions ?? [];
+                const progressForAssignment = data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug);
+                const completedCount = sessions.filter((session) => progressForAssignment.some((item) => item.sessionId === session.id && item.completedAt)).length;
+
+                return (
+                  <Link
+                    className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 transition-colors hover:border-[#C2A14E]/40"
+                    href={`${publicGroupPath(data.group.slug)}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}
+                    key={assignment.id}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-black text-white">{resource?.title ?? assignment.resourceSlug}</p>
+                      <p className="mt-1 text-xs font-semibold text-white/60">
+                        {sessions.length ? `${completedCount}/${sessions.length} weeks complete` : "Ready to begin"}
+                        {assignment.status === "completed" ? " · Complete" : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-sm bg-[#C2A14E] px-3 py-2 text-xs font-black text-[#080A0D]">Open</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-lg border border-white/10 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Latest Update</p>

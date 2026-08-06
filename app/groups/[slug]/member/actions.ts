@@ -45,6 +45,10 @@ function redirectToSignIn(slug: string, state: string): never {
   redirect(`${publicGroupPath(slug)}/member?state=${state}`);
 }
 
+function redirectToJourney(slug: string, resourceSlug: string, state: string): never {
+  redirect(`${publicGroupPath(slug)}/journey?resource=${encodeURIComponent(resourceSlug)}&state=${state}`);
+}
+
 async function requireMemberPortal(slug: string) {
   if (!isSupabaseAdminConfigured()) {
     return { error: "Member access is temporarily unavailable." };
@@ -128,6 +132,103 @@ export async function submitMemberRsvp(formData: FormData) {
 
   revalidatePath(`${publicGroupPath(slug)}/member`);
   redirectToMember(slug, "rsvp-saved");
+}
+
+export async function saveGroupMemberJourneyProgress(formData: FormData) {
+  const slug = formString(formData, "slug");
+  const resourceSlug = formString(formData, "resourceSlug");
+  const sessionId = formString(formData, "sessionId");
+  const reflection = formString(formData, "reflection").slice(0, 6000);
+  const actionStep = formString(formData, "actionStep").slice(0, 2000);
+  const prayerFocus = formString(formData, "prayerFocus").slice(0, 2000);
+  const intent = formString(formData, "intent");
+
+  if (!slug || !resourceSlug || !sessionId) {
+    redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error");
+  }
+
+  const portalResult = await requireMemberPortal(slug);
+
+  if ("error" in portalResult) {
+    redirectToMember(slug, "signin-required");
+  }
+
+  const { session, supabase } = portalResult;
+  const groupResult = await supabase
+    .from("dos_groups")
+    .select("id, workspace_id")
+    .eq("id", session.groupId)
+    .maybeSingle();
+
+  if (groupResult.error || !groupResult.data) {
+    redirectToJourney(slug, resourceSlug, "journey-error");
+  }
+
+  const workspaceId = groupResult.data.workspace_id as string;
+  const [assignmentResult, existingResult] = await Promise.all([
+    supabase
+      .from("dos_resource_assignments")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("person_id", session.personId)
+      .eq("resource_slug", resourceSlug)
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("dos_guided_resource_progress")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("person_id", session.personId)
+      .eq("resource_slug", resourceSlug)
+      .eq("session_id", sessionId)
+      .maybeSingle(),
+  ]);
+
+  if (assignmentResult.error || existingResult.error) {
+    redirectToJourney(slug, resourceSlug, "journey-error");
+  }
+
+  const assignmentId = assignmentResult.data?.id ?? null;
+  const patch: Record<string, unknown> = {
+    action_step: actionStep || null,
+    prayer_focus: prayerFocus || null,
+    reflection: reflection || null,
+  };
+
+  if (assignmentId) {
+    patch.assignment_id = assignmentId;
+  }
+
+  if (intent === "complete") {
+    patch.completed_at = new Date().toISOString();
+  } else if (intent === "reopen") {
+    patch.completed_at = null;
+  }
+
+  const { error } = existingResult.data
+    ? await supabase
+      .from("dos_guided_resource_progress")
+      .update(patch)
+      .eq("id", existingResult.data.id)
+    : await supabase
+      .from("dos_guided_resource_progress")
+      .insert({
+        ...patch,
+        assignment_id: assignmentId,
+        completed_at: intent === "complete" ? new Date().toISOString() : null,
+        person_id: session.personId,
+        resource_slug: resourceSlug,
+        session_id: sessionId,
+        workspace_id: workspaceId,
+      });
+
+  if (error) {
+    redirectToJourney(slug, resourceSlug, "journey-error");
+  }
+
+  revalidatePath(`${publicGroupPath(slug)}/journey`);
+  redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved");
 }
 
 export async function submitMemberPrayerRequest(formData: FormData) {

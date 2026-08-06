@@ -963,7 +963,7 @@ type FruitView = "activity" | "forms" | "impact" | "reviews";
 type FruitFormKey = "prayer_request" | "quick_review" | "testimony_review";
 type FruitFormStatus = "coming_soon" | "live";
 type GroupsListView = "all" | "mine";
-type GroupDetailTab = "attendance" | "gatherings" | "members" | "overview" | "people" | "prayer" | "resources" | "settings";
+type GroupDetailTab = "attendance" | "gatherings" | "journeys" | "members" | "overview" | "people" | "prayer" | "resources" | "settings";
 type PendingGroupJoinRequestItem = { count: number; groupId: string; groupName: string };
 type GroupAttendanceChoice = "absent" | "guest" | "present";
 type GroupWorkflowPanel = "attendance" | "notes" | "prayer" | null;
@@ -7378,43 +7378,51 @@ function GroupsWorkspaceV2({
 }
 
 function normalizeGroupV2Tab(tab: GroupDetailTab): GroupDetailTab {
-  return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" ? tab : "overview";
+  return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" || tab === "journeys" ? tab : "overview";
 }
 
 function GroupDetailWorkspaceV2({
   group,
+  guidedResourceProgress,
   isPreview,
   notice,
   onBack,
+  onCopyGroupReminder,
   onCopyPublicLink,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
   onJoinRequestResolved,
   onLogAsTable,
+  onOpenJourney,
   onRemoveMember,
   onSchedule,
   onTabChange,
   onViewPublicGroup,
   pendingRequestCount,
+  resourceAssignments,
   tab,
   workspaceId,
 }: {
   group: DosAppGroup;
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   notice: string;
   onBack: () => void;
+  onCopyGroupReminder: () => void;
   onCopyPublicLink: () => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
+  onOpenJourney: (personId: string) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onViewPublicGroup: () => void;
   pendingRequestCount: number;
+  resourceAssignments: DosAppResourceAssignment[];
   tab: GroupDetailTab;
   workspaceId: string;
 }) {
@@ -7478,6 +7486,17 @@ function GroupDetailWorkspaceV2({
       <GroupDetailTabBar onChange={onTabChange} tab={selectedTab} tabs={groupV2DetailTabs} />
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
       {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
+      {selectedTab === "journeys" ? (
+        <GroupJourneysTabV2
+          group={group}
+          guidedResourceProgress={guidedResourceProgress}
+          isPreview={isPreview}
+          onCopyGroupReminder={onCopyGroupReminder}
+          onOpenJourney={onOpenJourney}
+          resourceAssignments={resourceAssignments}
+          workspaceId={workspaceId}
+        />
+      ) : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
@@ -7617,12 +7636,164 @@ function GroupPeopleTabV2({
   );
 }
 
+function GroupJourneysTabV2({
+  group,
+  guidedResourceProgress,
+  isPreview,
+  onCopyGroupReminder,
+  onOpenJourney,
+  resourceAssignments,
+  workspaceId,
+}: {
+  group: DosAppGroup;
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
+  isPreview: boolean;
+  onCopyGroupReminder: () => void;
+  onOpenJourney: (personId: string) => void;
+  resourceAssignments: DosAppResourceAssignment[];
+  workspaceId: string;
+}) {
+  const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
+  const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const activeMembers = group.members.filter((member) => member.status === "active");
+  const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
+  const groupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
+  const resourceSlugs = Array.from(new Set(groupAssignments.map((assignment) => assignment.resourceSlug)));
+  const focusSlug = resourceSlugs.includes("marks-of-discipleship") ? "marks-of-discipleship" : (resourceSlugs[0] ?? "marks-of-discipleship");
+  const focusResource = getDosResourceBySlug(focusSlug);
+  const sessions = focusResource?.content?.guidedResource?.sessions ?? [];
+
+  async function sendMemberAccess(member: DosAppGroupMember) {
+    if (isPreview) {
+      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setSendingMemberAccessId(member.id);
+    setMemberAccessMessage(null);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          action: "send_member_access",
+          groupId: group.id,
+          memberId: member.id,
+          personId: member.personId,
+          workspaceId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as GroupMemberAccessResult;
+
+      if (!response.ok || !result.memberAccess?.accessUrl) {
+        throw new Error(result.error ?? "Unable to create member access link.");
+      }
+
+      try {
+        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
+        setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
+      } catch {
+        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
+      }
+    } catch (error) {
+      setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
+    } finally {
+      setSendingMemberAccessId(null);
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      <DesktopPanel
+        action={(
+          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onCopyGroupReminder} type="button">
+            <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+            Copy Group Reminder
+          </button>
+        )}
+        eyebrow="Current Journey"
+        title={focusResource?.title ?? "No journey yet"}
+      >
+        {!focusResource ? (
+          <SectionEmptyState text="Assign Marks of Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
+        ) : (
+          <>
+            <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>
+            {memberAccessMessage ? (
+              <p className={`mt-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+                memberAccessMessage.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+              >
+                {memberAccessMessage.text}
+              </p>
+            ) : null}
+            <div className="mt-3 grid gap-2">
+              {activeMembers.length ? activeMembers.map((member) => {
+                const assignment = groupAssignments.find((item) => item.personId === member.personId && item.resourceSlug === focusSlug) ?? null;
+                const progressRows = guidedResourceProgress.filter((item) => item.personId === member.personId && item.resourceSlug === focusSlug);
+                const completedSessionIds = new Set(progressRows.filter((item) => item.completedAt).map((item) => item.sessionId));
+                const currentWeek = sessions.find((session) => !completedSessionIds.has(session.id));
+                const latestProgress = progressRows.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
+                const status = !assignment
+                  ? "Not assigned"
+                  : sessions.length > 0 && completedSessionIds.size === sessions.length
+                    ? "Completed"
+                    : progressRows.length
+                      ? "In progress"
+                      : "Not started";
+
+                return (
+                  <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
+                          {status}
+                          {assignment && currentWeek ? ` · ${currentWeek.title}` : ""}
+                          {latestProgress?.reflection ? " · Reflection submitted" : ""}
+                        </p>
+                        {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId)} type="button">
+                          {assignment ? "View Journey" : "Assign"}
+                        </button>
+                        <button
+                          className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={sendingMemberAccessId === member.id}
+                          onClick={() => void sendMemberAccess(member)}
+                          type="button"
+                        >
+                          {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }) : (
+                <SectionEmptyState text="Add people to this group before assigning a journey." title="No active members." />
+              )}
+            </div>
+          </>
+        )}
+      </DesktopPanel>
+    </div>
+  );
+}
+
 function GroupsWorkspace({
   groups,
   groupsNotice,
+  guidedResourceProgress,
   isSimplifiedV2,
   isPreview,
   onAddPrayer,
+  onCopyGroupReminder,
   onCopyPublicDirectoryLink,
   onCopyPublicLink,
   onCreateGroup,
@@ -7634,6 +7805,7 @@ function GroupsWorkspace({
   onLogAsTable,
   onOpenGroup,
   onOpenGroupJoinRequests,
+  onOpenJourney,
   onRemoveMember,
   onSchedule,
   onSearchChange,
@@ -7642,6 +7814,7 @@ function GroupsWorkspace({
   onViewPublicGroup,
   pendingRequestCounts,
   query,
+  resourceAssignments,
   selectedGroup,
   selectedTab,
   view,
@@ -7649,9 +7822,11 @@ function GroupsWorkspace({
 }: {
   groups: DosAppGroup[];
   groupsNotice: string;
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
   isSimplifiedV2: boolean;
   isPreview: boolean;
   onAddPrayer: () => void;
+  onCopyGroupReminder: (group: DosAppGroup) => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
   onCreateGroup: () => void;
@@ -7663,6 +7838,7 @@ function GroupsWorkspace({
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
+  onOpenJourney: (personId: string) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
@@ -7671,6 +7847,7 @@ function GroupsWorkspace({
   onViewPublicGroup: (group: DosAppGroup) => void;
   pendingRequestCounts: Record<string, number>;
   query: string;
+  resourceAssignments: DosAppResourceAssignment[];
   selectedGroup: DosAppGroup | null;
   selectedTab: GroupDetailTab;
   view: GroupsListView;
@@ -7681,20 +7858,24 @@ function GroupsWorkspace({
       return (
         <GroupDetailWorkspaceV2
           group={selectedGroup}
+          guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
           notice={groupsNotice}
           onBack={() => onOpenGroup("")}
+          onCopyGroupReminder={() => onCopyGroupReminder(selectedGroup)}
           onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
           onEditGroup={onEditGroup}
           onInvite={onInvite}
           onJoinRequestAccepted={onJoinRequestAccepted}
           onJoinRequestResolved={onJoinRequestResolved}
           onLogAsTable={onLogAsTable}
+          onOpenJourney={onOpenJourney}
           onRemoveMember={onRemoveMember}
           onSchedule={onSchedule}
           onTabChange={onDetailTabChange}
           onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
           pendingRequestCount={pendingRequestCounts[selectedGroup.id] ?? 0}
+          resourceAssignments={resourceAssignments}
           tab={selectedTab}
           workspaceId={workspaceId}
         />
@@ -13381,6 +13562,7 @@ const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
 
 const groupV2DetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Overview", value: "overview" },
+  { label: "Journeys", value: "journeys" },
   { label: "People", value: "people" },
   { label: "Gatherings", value: "gatherings" },
   { label: "Settings", value: "settings" },
@@ -34066,6 +34248,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  async function copyGroupReminderMessage(group: DosAppGroup) {
+    const url = publicGroupUrl(group);
+    const message = `${group.name}: don't forget this week's study. Open your journey here: ${url}`;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      setGroupsNotice("Group reminder message copied.");
+    } catch {
+      setGroupsNotice(message);
+    }
+  }
+
   function viewPublicGroup(group: DosAppGroup) {
     if (typeof window === "undefined") {
       return;
@@ -38057,9 +38251,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <GroupsWorkspace
                     groups={groups}
                     groupsNotice={groupsNotice}
+                    guidedResourceProgress={data.guidedResourceProgress}
                     isSimplifiedV2={data.featureFlags.groupsSimplifiedV2 === true}
                     isPreview={isPreview}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
+                    onCopyGroupReminder={copyGroupReminderMessage}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
                     onCreateGroup={data.featureFlags.groupsSimplifiedV2 === true ? openGroupCreateSheet : () => showGroupsPlaceholder("New Group")}
@@ -38083,6 +38279,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       }
                     }}
                     onOpenGroupJoinRequests={openGroupJoinRequests}
+                    onOpenJourney={(personId) => {
+                      const marksOfDiscipleship = getDosResourceBySlug("marks-of-discipleship");
+
+                      if (marksOfDiscipleship) {
+                        openGuidedResource(marksOfDiscipleship, personId);
+                      }
+                    }}
                     onRemoveMember={removeGroupMember}
                     onSchedule={() => showGroupsPlaceholder("Schedule")}
                     onSearchChange={setGroupQuery}
@@ -38091,6 +38294,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onViewPublicGroup={viewPublicGroup}
                     pendingRequestCounts={pendingGroupJoinRequestCounts}
                     query={groupQuery}
+                    resourceAssignments={data.resourceAssignments}
                     selectedGroup={selectedGroup}
                     selectedTab={groupDetailTab}
                     view={groupsView}
