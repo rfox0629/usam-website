@@ -67,8 +67,8 @@ function learningNotesForSession({
 function learningHighlightsForSession(session: DosGuidedResourceSession) {
   return [
     `Reading Assignment: ${session.assignment}`,
-    `Main Idea: ${session.bigIdea}`,
-    `Search the Scriptures: ${session.keyScriptures.join(", ")}`,
+    session.bigIdea ? `Main Idea: ${session.bigIdea}` : null,
+    session.keyScriptures?.length ? `Search the Scriptures: ${session.keyScriptures.join(", ")}` : null,
     session.memoryVerse ? `Weekly Memory Verse: ${session.memoryVerse.reference}` : null,
     session.multiply ? `Multiply: ${session.multiply}` : null,
   ].filter(Boolean).join("\n\n").slice(0, 5000);
