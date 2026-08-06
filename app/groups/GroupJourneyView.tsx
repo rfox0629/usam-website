@@ -2,8 +2,33 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 import type { DosResource } from "@/src/lib/dos/resource-catalog";
 import { saveGroupMemberJourneyProgress } from "./[slug]/member/actions";
+
+function AutoGrowTextarea({ className = "", ...props }: ComponentProps<"textarea">) {
+  return (
+    <textarea
+      {...props}
+      className={className}
+      ref={(node) => {
+        if (!node) {
+          return;
+        }
+
+        const resize = () => {
+          node.style.height = "auto";
+          node.style.height = `${node.scrollHeight}px`;
+        };
+
+        resize();
+        node.addEventListener("input", resize);
+
+        return () => node.removeEventListener("input", resize);
+      }}
+    />
+  );
+}
 
 type JourneyAssignment = {
   completedAt: string | null;
@@ -86,7 +111,7 @@ export function GroupJourneyView({
             {groupName}
           </Link>
           <h1 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{resource.title}</h1>
-          {resource.author ? <p className="mt-1 text-sm font-semibold text-white/60">{resource.author}</p> : null}
+          {resource.author ? <p className="mt-1 text-sm font-bold text-white/55">— {resource.author}</p> : null}
         </div>
 
         {message ? (
@@ -122,7 +147,7 @@ export function GroupJourneyView({
           </div>
         ) : null}
 
-        <section className="grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
+        <section className="relative grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
           <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Weeks</p>
           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
             {sessions.map((session) => {
@@ -148,6 +173,9 @@ export function GroupJourneyView({
               );
             })}
           </div>
+          {sessions.length > 3 ? (
+            <span aria-hidden="true" className="pointer-events-none absolute bottom-1 right-3 top-8 w-8 bg-[linear-gradient(90deg,transparent,#111418)]" />
+          ) : null}
         </section>
 
         {selectedSession ? (
@@ -201,8 +229,8 @@ export function GroupJourneyView({
 
               <label className="grid gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Reflect Personally — {selectedSession.personalReflection}</span>
-                <textarea
-                  className="min-h-28 rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                <AutoGrowTextarea
+                  className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.reflection ?? ""}
                   name="reflection"
                   placeholder="Write what God is showing you this week."
@@ -211,8 +239,8 @@ export function GroupJourneyView({
 
               <label className="grid gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Walk It Out — {selectedSession.actionStep}</span>
-                <textarea
-                  className="min-h-20 rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                <AutoGrowTextarea
+                  className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.actionStep ?? ""}
                   name="actionStep"
                   placeholder="Name one concrete next step."
@@ -221,8 +249,8 @@ export function GroupJourneyView({
 
               <label className="grid gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Pray — {selectedSession.prayerFocus}</span>
-                <textarea
-                  className="min-h-20 rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                <AutoGrowTextarea
+                  className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.prayerFocus ?? ""}
                   name="prayerFocus"
                   placeholder="Write a prayer request or focus."

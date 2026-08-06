@@ -5728,7 +5728,7 @@ function GuidedResourceDetailSheet({
                   </span>
                 </div>
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
-                {resource.author ? <p className="mt-1 text-sm font-bold text-[#475569]">{resource.author}</p> : null}
+                {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
                 <p className="mt-2 text-sm leading-6 text-[#64748B]">{resource.description}</p>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold text-[#64748B]">
                   <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
@@ -5853,9 +5853,15 @@ function GuidedResourceDetailSheet({
                     </span>
                   ) : null}
                 </div>
-                <div className="grid gap-2 text-sm leading-6 text-[#475569]">
-                  <p><span className="font-black text-[#0F172A]">Main Idea:</span> {selectedSession.bigIdea}</p>
-                  <p><span className="font-black text-[#0F172A]">Search the Scriptures:</span> {selectedSession.keyScriptures.join(", ")}</p>
+                <div className="grid gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                  </div>
                 </div>
                 {selectedSession.memoryVerse ? (
                   <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
@@ -5872,11 +5878,25 @@ function GuidedResourceDetailSheet({
                     ))}
                   </ul>
                 </div>
-                <div className="grid gap-2 text-sm leading-6 text-[#475569]">
-                  <p><span className="font-black text-[#0F172A]">Reflect Personally:</span> {selectedSession.personalReflection}</p>
-                  <p><span className="font-black text-[#0F172A]">Walk It Out:</span> {selectedSession.actionStep}</p>
-                  <p><span className="font-black text-[#0F172A]">Pray:</span> {selectedSession.prayerFocus}</p>
-                  {selectedSession.multiply ? <p><span className="font-black text-[#0F172A]">Multiply:</span> {selectedSession.multiply}</p> : null}
+                <div className="grid gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Reflect Personally</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Walk It Out</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.actionStep}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Pray</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.prayerFocus}</p>
+                  </div>
+                  {selectedSession.multiply ? (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Multiply</p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.multiply}</p>
+                    </div>
+                  ) : null}
                 </div>
                 {selectedSession.leaderNotes ? (
                   <details className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
