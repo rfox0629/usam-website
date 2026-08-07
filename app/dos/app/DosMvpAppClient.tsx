@@ -1014,7 +1014,12 @@ type ResourceAssignmentSheetState =
   | null;
 type GuidedResourceDetailState = {
   personId?: string | null;
+  readOnly?: boolean;
   slug: string;
+} | null;
+type LeaderJourneyProgressState = {
+  personId: string;
+  resourceSlug: string;
 } | null;
 type ResourceAssignmentNotice = {
   assignmentId: string;
@@ -5682,6 +5687,7 @@ function GuidedResourceDetailSheet({
   onSaveProgress,
   onStartNextResource,
   personId,
+  readOnly = false,
   resource,
 }: {
   assignments: readonly DosAppResourceAssignment[];
@@ -5703,6 +5709,7 @@ function GuidedResourceDetailSheet({
   }) => Promise<void>;
   onStartNextResource: () => void;
   personId?: string | null;
+  readOnly?: boolean;
   resource: DosResource;
 }) {
   const guidedResource = resource.content?.guidedResource ?? null;
@@ -5733,7 +5740,7 @@ function GuidedResourceDetailSheet({
   }, [selectedProgress?.actionStep, selectedProgress?.prayerFocus, selectedProgress?.reflection, selectedSession?.id]);
 
   async function saveProgress(completed?: boolean) {
-    if (!selectedSession || !personId) {
+    if (!selectedSession || !personId || readOnly) {
       return;
     }
 
@@ -5855,7 +5862,11 @@ function GuidedResourceDetailSheet({
             </section>
           ) : null}
 
-          {!personId ? (
+          {readOnly ? (
+            <p className="rounded-[20px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-bold leading-5 text-[#1D4ED8]">
+              Preview mode - viewing the participant experience. Changes are not saved.
+            </p>
+          ) : !personId ? (
             <p className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-xs font-bold leading-5 text-[#C2410C]">
               Link your DOS user to a person record to save guided-resource progress in My Record.
             </p>
@@ -6003,21 +6014,21 @@ function GuidedResourceDetailSheet({
                   void saveProgress();
                 }}>
                   <DosFormField label={isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
                   </DosFormField>
                   <DosFormField label={isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
                   </DosFormField>
                   <DosFormField label={isReadingPlan ? "Prayer Response" : "Pray"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
+                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
                   </DosFormField>
-                  <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p>
+                  {!readOnly ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p> : null}
                   {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting} type="submit">
+                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting || readOnly} type="submit">
                       {isSubmitting ? "Saving..." : "Save Reflection"}
                     </button>
-                    <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting} onClick={() => void saveProgress(true)} type="button">
+                    <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
                       <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
                       {isReadingPlan ? "Mark Day Complete" : "Mark Session Complete"}
                     </button>
@@ -6027,6 +6038,116 @@ function GuidedResourceDetailSheet({
             ) : null}
           </div>
         </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function LeaderJourneyProgressSheet({
+  assignment,
+  guidedResourceProgress,
+  onClose,
+  onOpenPerson,
+  onPreviewParticipantView,
+  personId,
+  personName,
+  resource,
+}: {
+  assignment: DosAppResourceAssignment | null;
+  guidedResourceProgress: readonly DosAppGuidedResourceProgress[];
+  onClose: () => void;
+  onOpenPerson: (personId: string) => void;
+  onPreviewParticipantView: () => void;
+  personId: string;
+  personName: string;
+  resource: DosResource;
+}) {
+  const isReadingPlan = resource.type === "reading_plan";
+  const sessions = guidedResourceSessions(resource);
+  const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
+  const completion = guidedResourceCompletion({ personId, progress: guidedResourceProgress, resource });
+  const completedSessionIds = new Set(personProgress.filter((item) => item.completedAt).map((item) => item.sessionId));
+  const currentSession = sessions.find((session) => !completedSessionIds.has(session.id)) ?? null;
+  const latestProgress = personProgress.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
+  const reflectionCount = personProgress.filter((item) => item.reflection).length;
+  const actionStepCount = personProgress.filter((item) => item.actionStep).length;
+  const prayerFocusCount = personProgress.filter((item) => item.prayerFocus).length;
+  const status = !assignment
+    ? "Not assigned"
+    : completion.total > 0 && completion.completed === completion.total
+      ? "Completed"
+      : personProgress.length
+        ? "In progress"
+        : "Not started";
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={`${personName} - ${resource.title}`}>
+      <div className="grid gap-4">
+        <article className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.05)]">
+          <div className="flex items-center gap-3">
+            {resource.coverImage ? (
+              <img
+                alt={resource.coverImage.alt}
+                className="aspect-[2/3] w-14 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.08)]"
+                src={resource.coverImage.src}
+              />
+            ) : null}
+            <div className="min-w-0">
+              <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                {isReadingPlan ? "GUIDED READING PLAN" : "GUIDED JOURNEY"}
+              </span>
+              <p className="mt-1 text-lg font-black leading-tight text-[#0F172A]">{resource.title}</p>
+              <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{status}</p>
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+              <span>Progress</span>
+              <span>{completion.completed}/{completion.total}</span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
+              <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
+            </div>
+          </div>
+        </article>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+            <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Current Day" : "Current Session"}</span>
+            <span className="mt-1 block truncate text-sm font-black text-[#0F172A]">{currentSession?.title ?? "Complete"}</span>
+          </div>
+          <div className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+            <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Last Activity</span>
+            <span className="mt-1 block text-sm font-black text-[#0F172A]">{latestProgress?.updatedAt ? formatRelativeDate(latestProgress.updatedAt) : "No activity yet"}</span>
+          </div>
+        </div>
+
+        <div className="grid gap-2 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Shared Indicators</p>
+          <div className="grid grid-cols-1 gap-1.5 text-sm font-semibold text-[#0F172A] sm:grid-cols-3">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className={`h-4 w-4 ${reflectionCount ? "text-[#15803D]" : "text-[#CBD5E1]"}`} aria-hidden="true" strokeWidth={1.9} />
+              Reflections ({reflectionCount})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className={`h-4 w-4 ${actionStepCount ? "text-[#15803D]" : "text-[#CBD5E1]"}`} aria-hidden="true" strokeWidth={1.9} />
+              Action steps ({actionStepCount})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className={`h-4 w-4 ${prayerFocusCount ? "text-[#15803D]" : "text-[#CBD5E1]"}`} aria-hidden="true" strokeWidth={1.9} />
+              Prayer focus ({prayerFocusCount})
+            </span>
+          </div>
+          <p className="text-xs font-semibold leading-5 text-[#64748B]">
+            Personal reflection content stays private to {personName.split(" ")[0] || personName}. Preview the participant view to see what they see.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <AppButton icon="people" onClick={() => onOpenPerson(personId)} tone="white">Open Person Profile</AppButton>
+          <AppButton onClick={onPreviewParticipantView} tone="black">Preview Participant View</AppButton>
+        </div>
+        <AppButton onClick={onClose} tone="white">Close</AppButton>
       </div>
     </Sheet>
   );
@@ -7530,7 +7651,7 @@ function GroupDetailWorkspaceV2({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
-  onOpenJourney: (personId: string) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
@@ -7780,7 +7901,7 @@ function GroupJourneysTabV2({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   onCopyGroupReminder: () => void;
-  onOpenJourney: (personId: string) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   resourceAssignments: DosAppResourceAssignment[];
   workspaceId: string;
 }) {
@@ -7789,9 +7910,15 @@ function GroupJourneysTabV2({
   const activeMembers = group.members.filter((member) => member.status === "active");
   const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
   const groupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
-  const resourceSlugs = Array.from(new Set(groupAssignments.map((assignment) => assignment.resourceSlug)));
-  const focusSlug = resourceSlugs.includes("marks-of-discipleship") ? "marks-of-discipleship" : (resourceSlugs[0] ?? "marks-of-discipleship");
-  const focusResource = getDosResourceBySlug(focusSlug);
+  const activeGroupAssignments = groupAssignments.filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress");
+  // The group's "current journey" is the most recently started active assignment
+  // among its active members - this is the single source of truth that the group
+  // card, each member row, and the View Journey CTA must all agree on.
+  const focusAssignment = (activeGroupAssignments.length ? activeGroupAssignments : groupAssignments)
+    .slice()
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0] ?? null;
+  const focusSlug = focusAssignment?.resourceSlug ?? null;
+  const focusResource = focusSlug ? getDosResourceBySlug(focusSlug) : null;
   const sessions = focusResource?.content?.guidedResource?.sessions ?? [];
 
   async function sendMemberAccess(member: DosAppGroupMember) {
@@ -7848,8 +7975,8 @@ function GroupJourneysTabV2({
         eyebrow="Current Journey"
         title={focusResource?.title ?? "No journey yet"}
       >
-        {!focusResource ? (
-          <SectionEmptyState text="Assign Discipleship to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
+        {!focusResource || !focusSlug ? (
+          <SectionEmptyState text="Assign a Guided Journey resource to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
         ) : (
           <>
             <div className="flex items-center gap-3">
@@ -7901,7 +8028,7 @@ function GroupJourneysTabV2({
                         {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId)} type="button">
+                        <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, focusSlug as string, Boolean(assignment))} type="button">
                           {assignment ? "View Journey" : "Assign"}
                         </button>
                         <button
@@ -7979,7 +8106,7 @@ function GroupsWorkspace({
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
-  onOpenJourney: (personId: string) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
@@ -11994,13 +12121,12 @@ function ResourceAssignmentFormSheet({
         {assignment ? <input name="id" type="hidden" value={assignment.id} /> : null}
         <DosFormSection icon="library" title={resource.title}>
           {!personId && !assignment ? (
-            <DosFormField label="Person">
-              <select className={FieldInputClass(false)} defaultValue={selectedPersonId} name="person_id" required>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>{person.name}</option>
-                ))}
-              </select>
-            </DosFormField>
+            <FormOptionSelect
+              defaultValue={selectedPersonId}
+              label="Person"
+              name="person_id"
+              options={people.map((person) => ({ label: person.name, value: person.id }))}
+            />
           ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DosFormField label="Start Date">
@@ -12010,13 +12136,12 @@ function ResourceAssignmentFormSheet({
               <input className={FieldInputClass(false)} defaultValue={dueDate} name="due_date" type="date" />
             </DosFormField>
           </div>
-          <DosFormField label="Follow-Up Cadence">
-            <select className={FieldInputClass(false)} defaultValue={cadence} name="follow_up_cadence">
-              {dosResourceAssignmentFollowUpCadences.map((option) => (
-                <option key={option} value={option}>{resourceAssignmentFollowUpCadenceLabels[option]}</option>
-              ))}
-            </select>
-          </DosFormField>
+          <FormOptionSelect
+            defaultValue={cadence}
+            label="Follow-Up Cadence"
+            name="follow_up_cadence"
+            options={dosResourceAssignmentFollowUpCadences.map((option) => ({ label: resourceAssignmentFollowUpCadenceLabels[option], value: option }))}
+          />
           <DosFormField label="Personal Message">
             <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={assignment?.personalMessage ?? resource.assignmentDefaults?.defaultMessage ?? ""} name="personal_message" />
           </DosFormField>
@@ -12060,15 +12185,18 @@ function ResourceAssignmentCheckInSheet({
             <DosFormField label="Date">
               <input className={FieldInputClass(false)} defaultValue={todayResourceAssignmentDateKey()} name="date" type="date" />
             </DosFormField>
-            <DosFormField label="Status Update">
-              <select className={FieldInputClass(false)} defaultValue="going_well" name="status_update">
-                <option value="going_well">Going well</option>
-                <option value="needs_encouragement">Needs encouragement</option>
-                <option value="in_progress">In progress</option>
-                <option value="paused">Paused</option>
-                <option value="completed">Completed</option>
-              </select>
-            </DosFormField>
+            <FormOptionSelect
+              defaultValue="going_well"
+              label="Status Update"
+              name="status_update"
+              options={[
+                { label: "Going well", value: "going_well" },
+                { label: "Needs encouragement", value: "needs_encouragement" },
+                { label: "In progress", value: "in_progress" },
+                { label: "Paused", value: "paused" },
+                { label: "Completed", value: "completed" },
+              ]}
+            />
           </div>
           <DosFormField label="Check-In Note">
             <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="general_update" required />
@@ -33439,6 +33567,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
   const [guidedResourceDetail, setGuidedResourceDetail] = useState<GuidedResourceDetailState>(null);
+  const [leaderJourneyProgress, setLeaderJourneyProgress] = useState<LeaderJourneyProgressState>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
   const loggedMeetings = useMemo(() => data.meetings.filter((meeting) => meeting.meetingStatus === "logged"), [data.meetings]);
   const ministryLoggedMeetings = useMemo(
@@ -33598,6 +33727,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     guidedResourceDetail?.slug ? getDosResourceBySlug(guidedResourceDetail.slug) : null
   ), [guidedResourceDetail?.slug]);
   const guidedResourceProgressPersonId = guidedResourceDetail?.personId ?? myRecordPerson?.id ?? null;
+  const leaderJourneyResource = useMemo(() => (
+    leaderJourneyProgress?.resourceSlug ? getDosResourceBySlug(leaderJourneyProgress.resourceSlug) : null
+  ), [leaderJourneyProgress?.resourceSlug]);
+  const leaderJourneyPerson = useMemo(() => (
+    leaderJourneyProgress?.personId ? people.find((person) => person.id === leaderJourneyProgress.personId) ?? null : null
+  ), [leaderJourneyProgress?.personId, people]);
+  const leaderJourneyAssignment = useMemo(() => (
+    leaderJourneyProgress
+      ? data.resourceAssignments.find((assignment) => assignment.personId === leaderJourneyProgress.personId && assignment.resourceSlug === leaderJourneyProgress.resourceSlug) ?? null
+      : null
+  ), [data.resourceAssignments, leaderJourneyProgress]);
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
   const selectedExternalCalendarEvent = useMemo(() => (
     externalCalendarEvents.find((event) => event.id === selectedExternalCalendarEventId) ?? null
@@ -35108,13 +35248,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setResourceAssignmentSheet({ assignment, kind: "check_in" });
   }
 
-  function openGuidedResource(resource: DosResource, personId?: string | null) {
+  function openGuidedResource(resource: DosResource, personId?: string | null, options?: { readOnly?: boolean }) {
     if (!isGuidedResource(resource)) {
       return;
     }
 
     setErrorMessage("");
-    setGuidedResourceDetail({ personId: personId ?? null, slug: resource.slug });
+    setLeaderJourneyProgress(null);
+    setGuidedResourceDetail({ personId: personId ?? null, readOnly: options?.readOnly ?? false, slug: resource.slug });
+  }
+
+  function openLeaderJourneyProgress(personId: string, resourceSlug: string) {
+    setErrorMessage("");
+    setGuidedResourceDetail(null);
+    setLeaderJourneyProgress({ personId, resourceSlug });
   }
 
   async function saveGuidedResourceProgress(request: {
@@ -38534,11 +38681,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       }
                     }}
                     onOpenGroupJoinRequests={openGroupJoinRequests}
-                    onOpenJourney={(personId) => {
-                      const marksOfDiscipleship = getDosResourceBySlug("marks-of-discipleship");
+                    onOpenJourney={(personId, resourceSlug, hasAssignment) => {
+                      if (hasAssignment) {
+                        openLeaderJourneyProgress(personId, resourceSlug);
+                        return;
+                      }
 
-                      if (marksOfDiscipleship) {
-                        openGuidedResource(marksOfDiscipleship, personId);
+                      const resource = getDosResourceBySlug(resourceSlug);
+
+                      if (resource) {
+                        openGuidedResource(resource, personId);
                       }
                     }}
                     onRemoveMember={removeGroupMember}
@@ -39319,7 +39471,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             errorMessage={errorMessage}
             guidedResourceProgress={data.guidedResourceProgress}
             isSubmitting={isSubmitting}
-            onAssign={(resource) => {
+            onAssign={guidedResourceDetail?.readOnly ? undefined : (resource) => {
               setGuidedResourceDetail(null);
               openResourceAssignmentCreate(resource, guidedResourceProgressPersonId);
             }}
@@ -39334,7 +39486,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openMoreApp("library");
             }}
             personId={guidedResourceProgressPersonId}
+            readOnly={guidedResourceDetail?.readOnly ?? false}
             resource={selectedGuidedResource}
+          />
+        ) : null}
+
+        {leaderJourneyProgress && leaderJourneyResource && leaderJourneyPerson && isGuidedResource(leaderJourneyResource) ? (
+          <LeaderJourneyProgressSheet
+            assignment={leaderJourneyAssignment}
+            guidedResourceProgress={data.guidedResourceProgress}
+            onClose={() => setLeaderJourneyProgress(null)}
+            onOpenPerson={(personId) => {
+              setLeaderJourneyProgress(null);
+              openPersonDetail(personId);
+            }}
+            onPreviewParticipantView={() => {
+              openGuidedResource(leaderJourneyResource, leaderJourneyProgress.personId, { readOnly: true });
+            }}
+            personId={leaderJourneyProgress.personId}
+            personName={leaderJourneyPerson.name}
+            resource={leaderJourneyResource}
           />
         ) : null}
 
