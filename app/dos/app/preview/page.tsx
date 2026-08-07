@@ -833,7 +833,7 @@ function buildDosPreviewDemoData(): DosAppData {
     commitments: [],
     externalCalendarEvents: [],
     featureFlags: {
-      commitmentsAccountability: false,
+      commitmentsAccountability: true,
       groupsSimplifiedV2: true,
     },
     fruit,
@@ -1056,6 +1056,7 @@ function buildDosPreviewDemoData(): DosAppData {
     reminders,
     resourceAssignments: [
       {
+        assignmentContext: "group",
         assignedByUserId: "demo-user-ryan",
         completedAt: null,
         createdAt: demoTimestamp,
@@ -1067,6 +1068,8 @@ function buildDosPreviewDemoData(): DosAppData {
         personId: "demo-person-tim-tran",
         personalMessage: "Walk through this six-week discipleship resource and capture one reflection after each session.",
         resourceSlug: "marks-of-discipleship",
+        sharingLevel: "leader_progress",
+        sourceGroupId: "demo-group-2three2",
         startDate: "2026-07-15",
         status: "in_progress",
         updatedAt: demoTimestamp,

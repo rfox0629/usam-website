@@ -1,11 +1,15 @@
 export const dosResourceAssignmentStatuses = ["not_started", "in_progress", "completed", "paused"] as const;
 export const dosResourceAssignmentFollowUpCadences = ["none", "midpoint_and_completion", "due_only", "weekly"] as const;
 export const dosResourceAssignmentFollowUpKinds = ["midpoint", "completion"] as const;
+export const dosResourceAssignmentContexts = ["self", "person", "group", "library"] as const;
+export const dosResourceAssignmentSharingLevels = ["leader_progress", "shared_responses"] as const;
 export const resourceAssignmentFollowUpScheduleHeading = "Growth follow-up due";
 
 export type DosResourceAssignmentStatus = typeof dosResourceAssignmentStatuses[number];
 export type DosResourceAssignmentFollowUpCadence = typeof dosResourceAssignmentFollowUpCadences[number];
 export type DosResourceAssignmentFollowUpKind = typeof dosResourceAssignmentFollowUpKinds[number];
+export type DosResourceAssignmentContext = typeof dosResourceAssignmentContexts[number];
+export type DosResourceAssignmentSharingLevel = typeof dosResourceAssignmentSharingLevels[number];
 
 export function isDosResourceAssignmentStatus(value: string): value is DosResourceAssignmentStatus {
   return dosResourceAssignmentStatuses.includes(value as DosResourceAssignmentStatus);
@@ -13,6 +17,14 @@ export function isDosResourceAssignmentStatus(value: string): value is DosResour
 
 export function isDosResourceAssignmentFollowUpCadence(value: string): value is DosResourceAssignmentFollowUpCadence {
   return dosResourceAssignmentFollowUpCadences.includes(value as DosResourceAssignmentFollowUpCadence);
+}
+
+export function isDosResourceAssignmentContext(value: string): value is DosResourceAssignmentContext {
+  return dosResourceAssignmentContexts.includes(value as DosResourceAssignmentContext);
+}
+
+export function isDosResourceAssignmentSharingLevel(value: string): value is DosResourceAssignmentSharingLevel {
+  return dosResourceAssignmentSharingLevels.includes(value as DosResourceAssignmentSharingLevel);
 }
 
 export function todayResourceAssignmentDateKey() {

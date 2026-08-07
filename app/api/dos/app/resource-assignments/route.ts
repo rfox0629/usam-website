@@ -18,7 +18,9 @@ import {
   firstAssignmentPayloadValue,
   isMissingResourceAssignmentsSchema,
   mapResourceAssignmentRow,
+  normalizeResourceAssignmentContext,
   normalizeResourceAssignmentFollowUpCadence,
+  normalizeResourceAssignmentSharingLevel,
   normalizeResourceAssignmentStatus,
   resourceAssignmentCommitmentStatusPatch,
   resourceAssignmentErrorResponse,
@@ -30,6 +32,10 @@ import {
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, status, completed_date, created_by_user_id, created_at, updated_at";
+
+function payloadBoolean(value: unknown) {
+  return value === true || value === "true" || value === "1";
+}
 
 async function createLinkedCommitment({
   assignedBy,
@@ -180,7 +186,58 @@ export async function POST(request: Request) {
     firstAssignmentPayloadValue(payload, "followUpCadence", "follow_up_cadence"),
     resource.assignmentDefaults?.followUpCadence ?? "midpoint_and_completion",
   );
+  const requestedSourceGroupId = asString(firstAssignmentPayloadValue(payload, "sourceGroupId", "source_group_id"));
+  const requestedAssignmentContext = normalizeResourceAssignmentContext(
+    firstAssignmentPayloadValue(payload, "assignmentContext", "assignment_context"),
+    requestedSourceGroupId ? "group" : "person",
+  );
+  const sourceGroupId = requestedSourceGroupId || null;
+  const assignmentContext = sourceGroupId ? "group" : requestedAssignmentContext;
+  const sharingLevel = normalizeResourceAssignmentSharingLevel(firstAssignmentPayloadValue(payload, "sharingLevel", "sharing_level"));
   const assignedBy = authResult.authorization.status === "authorized" ? authResult.authorization.userId : null;
+  const reuseExisting = payloadBoolean(firstDefined(payload.reuseExisting, payload.reuse_existing));
+
+  if (assignmentContext === "group" && !sourceGroupId) {
+    return NextResponse.json({ error: "Group context is required for a group assignment." }, { status: 400 });
+  }
+
+  if (sourceGroupId) {
+    if (!isUuid(sourceGroupId)) {
+      return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    }
+
+    const groupResult = await supabase
+      .from("dos_groups")
+      .select("id")
+      .eq("id", sourceGroupId)
+      .eq("workspace_id", workspaceResult.workspaceId)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (groupResult.error) {
+      return resourceAssignmentErrorResponse(groupResult.error);
+    }
+
+    if (!groupResult.data) {
+      return NextResponse.json({ error: "Group not found in this workspace." }, { status: 404 });
+    }
+
+    const membershipResult = await supabase
+      .from("dos_group_members")
+      .select("id")
+      .eq("group_id", sourceGroupId)
+      .eq("person_id", person.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (membershipResult.error) {
+      return resourceAssignmentErrorResponse(membershipResult.error);
+    }
+
+    if (!membershipResult.data) {
+      return NextResponse.json({ error: `${person.name} is not an active member of this group.` }, { status: 400 });
+    }
+  }
 
   const existingResult = await supabase
     .from("dos_resource_assignments")
@@ -193,6 +250,17 @@ export async function POST(request: Request) {
 
   if (existingResult.error) {
     return resourceAssignmentErrorResponse(existingResult.error);
+  }
+
+  if (existingResult.data && !reuseExisting) {
+    return NextResponse.json({
+      assignment: mapResourceAssignmentRow(existingResult.data as Record<string, unknown>),
+      duplicate: true,
+      error: `${person.name} already has an active assignment for ${resource.title}.`,
+      ok: false,
+      person: { id: person.id, name: person.name },
+      resource: { slug: resource.slug, title: resource.title },
+    }, { status: 409 });
   }
 
   let linkedCommitmentId = existingResult.data?.linked_commitment_id ? String(existingResult.data.linked_commitment_id) : null;
@@ -235,6 +303,7 @@ export async function POST(request: Request) {
   }
 
   const assignmentPayload = {
+    assignment_context: assignmentContext,
     assigned_by_user_id: assignedBy,
     due_date: dueDate,
     follow_up_cadence: followUpCadence,
@@ -242,6 +311,8 @@ export async function POST(request: Request) {
     person_id: person.id,
     personal_message: personalMessage,
     resource_slug: resource.slug,
+    sharing_level: sharingLevel,
+    source_group_id: sourceGroupId,
     start_date: startDate,
     status: existingResult.data?.status === "paused" ? "in_progress" : existingResult.data?.status ?? "not_started",
     workspace_id: workspaceResult.workspaceId,
@@ -250,11 +321,14 @@ export async function POST(request: Request) {
     ? await supabase
       .from("dos_resource_assignments")
       .update({
+        assignment_context: assignmentPayload.assignment_context,
         due_date: assignmentPayload.due_date,
         follow_up_cadence: assignmentPayload.follow_up_cadence,
         linked_commitment_id: assignmentPayload.linked_commitment_id,
         paused_at: null,
         personal_message: assignmentPayload.personal_message,
+        sharing_level: assignmentPayload.sharing_level,
+        source_group_id: assignmentPayload.source_group_id,
         start_date: assignmentPayload.start_date,
         status: assignmentPayload.status,
       })
@@ -375,8 +449,30 @@ export async function PATCH(request: Request) {
     updates.follow_up_cadence = normalizeResourceAssignmentFollowUpCadence(firstAssignmentPayloadValue(payload, "followUpCadence", "follow_up_cadence"));
   }
 
+  if (payload.assignmentContext !== undefined || payload.assignment_context !== undefined) {
+    updates.assignment_context = normalizeResourceAssignmentContext(firstAssignmentPayloadValue(payload, "assignmentContext", "assignment_context"));
+  }
+
+  if (payload.sourceGroupId !== undefined || payload.source_group_id !== undefined) {
+    const nextSourceGroupId = asString(firstAssignmentPayloadValue(payload, "sourceGroupId", "source_group_id"));
+
+    if (nextSourceGroupId && !isUuid(nextSourceGroupId)) {
+      return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    }
+
+    updates.source_group_id = nextSourceGroupId || null;
+  }
+
+  if (payload.sharingLevel !== undefined || payload.sharing_level !== undefined) {
+    updates.sharing_level = normalizeResourceAssignmentSharingLevel(firstAssignmentPayloadValue(payload, "sharingLevel", "sharing_level"));
+  }
+
   if (nextStatus) {
     Object.assign(updates, resourceAssignmentStatusPatch(nextStatus));
+  }
+
+  if (updates.assignment_context === "group" && !updates.source_group_id && !existing.source_group_id) {
+    return NextResponse.json({ error: "Group context is required for a group assignment." }, { status: 400 });
   }
 
   if (!Object.keys(updates).length) {

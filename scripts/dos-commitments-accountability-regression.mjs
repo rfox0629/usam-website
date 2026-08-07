@@ -107,7 +107,7 @@ assertIncludes(loader, "commitmentsAccountability", "loader maps commitments fea
 assertIncludes(loader, "latestActivityByPersonId.set(commitment.person_id", "commitments affect person activity");
 assertIncludes(loader, "accountabilityCheckInCommitments", "loader returns check-in links");
 assertIncludes(loader, "meetingsCount: meetings.filter((meeting) => meeting.meetingStatus === \"logged\").length + accountabilityCheckInRows.length", "loader meeting count includes accountability check-ins");
-assertIncludes(preview, "commitmentsAccountability: false", "preview keeps feature disabled");
+assertIncludes(preview, "commitmentsAccountability: true", "preview enables assignment/accountability UX validation");
 assertIncludes(apiHelper, "-[89ab][0-9a-f]{3}-[0-9a-f]{12}", "UUID validation accepts normal UUID group separators");
 
 assertMatches(client, /name="general_update"[\s\S]*required/, "check-in general update is required");

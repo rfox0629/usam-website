@@ -28,6 +28,7 @@ function assertCountAtLeast(source, needle, count, label) {
 }
 
 const migration = read("supabase/migrations/20260713113226_dos_resource_assignments.sql");
+const assignmentContextMigration = read("supabase/migrations/20260807145500_dos_journey_assignment_context.sql");
 const catalog = read("src/lib/dos/resource-catalog.ts");
 const assignmentTypes = read("src/lib/dos/resource-assignments.ts");
 const assignmentApiHelper = read("src/lib/dos/resource-assignments-api.ts");
@@ -49,9 +50,16 @@ assertIncludes(migration, "grant select, insert, update on table public.dos_reso
 assertIncludes(migration, "public.can_access_dos_workspace(workspace_id, array['admin', 'editor', 'viewer'])", "migration preserves workspace read scope");
 assertIncludes(migration, "public.can_access_dos_workspace(workspace_id, array['admin', 'editor'])", "migration preserves workspace write scope");
 assertIncludes(migration, "Library remains the source of truth", "migration documents catalog ownership");
+assertIncludes(assignmentContextMigration, "assignment_context text not null default 'person'", "assignment context migration stores assignment origin");
+assertIncludes(assignmentContextMigration, "source_group_id uuid references public.dos_groups", "assignment context migration stores optional group context");
+assertIncludes(assignmentContextMigration, "sharing_level text not null default 'leader_progress'", "assignment context migration stores leader sharing default");
+assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_check", "group assignments must carry group context");
+assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_idx", "group context lookup must be indexed");
 
 assertIncludes(assignmentTypes, "dosResourceAssignmentStatuses", "assignment status helpers exist");
 assertIncludes(assignmentTypes, "dosResourceAssignmentFollowUpCadences", "assignment cadence helpers exist");
+assertIncludes(assignmentTypes, "dosResourceAssignmentContexts", "assignment context helpers exist");
+assertIncludes(assignmentTypes, "dosResourceAssignmentSharingLevels", "assignment sharing-level helpers exist");
 assertIncludes(assignmentTypes, "resourceAssignmentCommitmentTitle", "linked commitment title helper exists");
 assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleHeading = \"Growth follow-up due\"", "follow-up schedule display heading exists");
 assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleMarker", "follow-up schedules carry assignment marker");
@@ -67,6 +75,9 @@ assertIncludes(catalog, 'followUpCadence: "midpoint_and_completion"', "reading p
 
 assertIncludes(assignmentApiHelper, "resolveAssignableDosResource", "API helper validates assignable resources");
 assertIncludes(assignmentApiHelper, "mapResourceAssignmentRow", "API helper maps assignment rows");
+assertIncludes(assignmentApiHelper, "normalizeResourceAssignmentContext", "API helper normalizes assignment context");
+assertIncludes(assignmentApiHelper, "normalizeResourceAssignmentSharingLevel", "API helper normalizes sharing levels");
+assertIncludes(assignmentApiHelper, "sourceGroupId: row.source_group_id", "API helper maps group context");
 assertIncludes(assignmentApiHelper, "resourceAssignmentCommitmentStatusPatch", "API helper syncs assignment status to commitment status");
 assertIncludes(assignmentApiHelper, "syncResourceAssignmentFollowUpSchedules", "API helper syncs accountability schedules");
 assertIncludes(assignmentApiHelper, "pauseResourceAssignmentFollowUpSchedules", "API helper pauses due resource follow-ups");
@@ -87,6 +98,13 @@ assertIncludes(assignmentApiHelper, "status: \"paused\"", "stale future follow-u
 
 assertIncludes(assignmentsRoute, "dos_person_commitments", "assignment creation creates/updates linked commitment");
 assertIncludes(assignmentsRoute, "dos_resource_assignments", "assignment route writes assignments");
+assertIncludes(assignmentsRoute, "reuseExisting", "assignment route requires explicit duplicate reuse");
+assertIncludes(assignmentsRoute, "duplicate: true", "assignment route returns duplicate warnings");
+assertIncludes(assignmentsRoute, "{ status: 409 }", "assignment route must not silently overwrite active duplicates");
+assertIncludes(assignmentsRoute, ".from(\"dos_groups\")", "assignment route validates group context");
+assertIncludes(assignmentsRoute, ".from(\"dos_group_members\")", "assignment route validates group membership context");
+assertIncludes(assignmentsRoute, "assignment_context: assignmentContext", "assignment route writes canonical assignment context");
+assertIncludes(assignmentsRoute, "source_group_id: sourceGroupId", "assignment route writes group context");
 assertIncludes(assignmentsRoute, "loadWorkspacePerson", "assignment route scopes person to workspace");
 assertIncludes(assignmentsRoute, "resourceAssignmentCommitmentStatusPatch", "assignment status syncs commitment");
 assertIncludes(assignmentsRoute, "syncResourceAssignmentFollowUpSchedules", "assignment route syncs follow-up schedules");
@@ -106,6 +124,12 @@ assertIncludes(preview, "resourceAssignments:", "preview supplies resource assig
 assertIncludes(client, "ResourceAssignmentFormSheet", "client has assignment form sheet");
 assertIncludes(client, "ResourceAssignmentCheckInSheet", "client has assignment check-in sheet");
 assertIncludes(client, "ResourceAssignmentSuccessSheet", "client has assignment success/share sheet");
+assertIncludes(client, "ResourceAssignmentDuplicateSheet", "client warns before reusing active duplicate assignments");
+assertIncludes(client, "AssignTargetPickerSheet", "Library Assign asks who the assignment is for");
+assertIncludes(client, "Who is this for?", "Library Assign target picker uses the required prompt");
+assertIncludes(client, "GroupJourneyAssignSheet", "Groups can assign journeys to selected members");
+assertIncludes(client, "computeGroupFocusAssignment", "group journey view derives from canonical assignments");
+assertIncludes(client, "groupNamesForAssignmentContext", "person profile exposes assignment context");
 assertIncludes(client, "ResourceAssignmentCard", "client has reusable assignment card");
 assertIncludes(client, "Assigned Resources", "person Growth/My Record show assigned resources");
 assertIncludes(client, "Completed Resources", "person Growth/My Record show completed resources");
@@ -120,7 +144,13 @@ assertIncludes(client, "Mark Complete", "dashboard exposes completion action for
 assertIncludes(client, "Reschedule", "dashboard exposes reschedule action for due follow-ups");
 assertIncludes(client, "onLogResourceCheckIn(assignment)", "dashboard uses resource check-in flow for resource follow-ups");
 assertIncludes(client, "resourceAssignmentFollowUpScheduleDisplayTitle", "client hides resource assignment schedule marker");
-assertIncludes(client, "onAssign={openResourceAssignmentCreate}", "Library list wires Assign action");
+assertIncludes(client, "onAssign={openAssignTargetPicker}", "Library list routes Assign through target picker");
+assertIncludes(client, "openResourceAssignmentCreate(resource, myPersonId, { assignmentContext: \"self\" })", "Library Assign supports Myself target");
+assertIncludes(client, "openResourceAssignmentCreate(resource, null, { assignmentContext: \"library\" })", "Library Assign supports Person target through the canonical assignment form");
+assertIncludes(client, "assignmentContext: \"group\"", "Group Journey assignment writes group context");
+assertIncludes(client, "sourceGroupId", "Client carries source group id for group-context assignments");
+assertIncludes(client, "reuseExistingResourceAssignment", "duplicate warning offers explicit existing-assignment reuse");
+assertIncludes(client, "openLeaderJourneyProgress(personId, resource.slug)", "Person profile opens leader progress instead of editable private participant fields");
 assertIncludes(client, "Read Online", "assignment card keeps online reading action");
 assertIncludes(client, "Download PDF", "Library card keeps PDF action");
 assertIncludes(client, "getDosResourceBySlug", "client resolves canonical catalog metadata by slug");
