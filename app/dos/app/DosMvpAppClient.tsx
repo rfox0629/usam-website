@@ -12185,15 +12185,18 @@ function ResourceAssignmentCheckInSheet({
             <DosFormField label="Date">
               <input className={FieldInputClass(false)} defaultValue={todayResourceAssignmentDateKey()} name="date" type="date" />
             </DosFormField>
-            <DosFormField label="Status Update">
-              <select className={FieldInputClass(false)} defaultValue="going_well" name="status_update">
-                <option value="going_well">Going well</option>
-                <option value="needs_encouragement">Needs encouragement</option>
-                <option value="in_progress">In progress</option>
-                <option value="paused">Paused</option>
-                <option value="completed">Completed</option>
-              </select>
-            </DosFormField>
+            <FormOptionSelect
+              defaultValue="going_well"
+              label="Status Update"
+              name="status_update"
+              options={[
+                { label: "Going well", value: "going_well" },
+                { label: "Needs encouragement", value: "needs_encouragement" },
+                { label: "In progress", value: "in_progress" },
+                { label: "Paused", value: "paused" },
+                { label: "Completed", value: "completed" },
+              ]}
+            />
           </div>
           <DosFormField label="Check-In Note">
             <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="general_update" required />
