@@ -22,6 +22,7 @@ const app = read("app/dos/app/DosMvpAppClient.tsx");
 const loader = read("src/lib/dos/missionary-app.ts");
 const apiRoute = read("app/api/dos/app/guided-resource-progress/route.ts");
 const migration = read("supabase/migrations/20260713160238_dos_guided_resource_progress.sql");
+const assignmentContextMigration = read("supabase/migrations/20260807145500_dos_journey_assignment_context.sql");
 const preview = read("app/dos/app/preview/page.tsx");
 const sharedGroupRoute = read("app/dos/[collectiveSlug]/page.tsx");
 
@@ -54,6 +55,9 @@ assertIncludes(migration, "public.can_access_dos_workspace(workspace_id, array['
 assertIncludes(migration, "public.can_access_dos_workspace(workspace_id, array['admin', 'editor'])", "Progress write policy must use DOS editor access.");
 assertIncludes(migration, "catalog_resource_slug", "Migration must make group resources catalog-aware.");
 assertIncludes(migration, "'guided_resource'", "Group resources must allow guided_resource as a resource type.");
+assertIncludes(assignmentContextMigration, "drop policy if exists \"DOS users can read guided resource progress\"", "Privacy migration must replace broad guided progress read policy.");
+assertIncludes(assignmentContextMigration, "drop policy if exists \"DOS editors can manage guided resource progress\"", "Privacy migration must replace broad guided progress write policy.");
+assertIncludes(assignmentContextMigration, "private_dos.current_dos_identity_person_ids(workspace_id)", "Guided progress RLS must be tied to verified participant identity.");
 
 assertIncludes(loader, "export type DosAppGuidedResourceProgress", "DOS loader must expose guided progress type.");
 assertIncludes(loader, "guidedResourceProgress: DosAppGuidedResourceProgress[]", "DOS app data must include guided resource progress.");
@@ -67,6 +71,9 @@ assertIncludes(apiRoute, "resource.type !== \"guided_resource\"", "Progress API 
 assertIncludes(apiRoute, "guidedResource.sessions.find", "Progress API must validate session ids against the catalog.");
 assertIncludes(apiRoute, "loadWorkspacePerson", "Progress API must scope progress to a workspace person.");
 assertIncludes(apiRoute, "requireCommitmentsFeature", "Progress API must reuse the existing commitments/assignment feature gate.");
+assertIncludes(apiRoute, "canWritePrivateGuidedProgress", "Progress API must enforce private participant ownership before saving.");
+assertIncludes(apiRoute, "Only ${person.name}'s linked participant identity can save private journey progress.", "Progress API must reject leader edits of participant-private fields.");
+assertIncludes(apiRoute, ".from(\"dos_identity_links\")", "Progress API must recognize future account-claim identity links.");
 assertIncludes(apiRoute, ".from(\"dos_guided_resource_progress\")", "Progress API must persist to guided resource progress.");
 assertIncludes(apiRoute, ".from(\"dos_user_learning_books\")", "Progress API must sync guided journeys to My Record Learning books.");
 assertIncludes(apiRoute, ".from(\"dos_user_learning_chapter_notes\")", "Progress API must sync guided journey reflections to My Record Learning notes.");

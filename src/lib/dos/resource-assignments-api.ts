@@ -12,6 +12,8 @@ import {
   defaultResourceAssignmentDueDate,
   dosResourceAssignmentFollowUpCadences,
   isDosResourceAssignmentFollowUpCadence,
+  isDosResourceAssignmentContext,
+  isDosResourceAssignmentSharingLevel,
   isDosResourceAssignmentStatus,
   normalizeResourceAssignmentDateKey,
   resourceAssignmentFollowUpDates,
@@ -21,6 +23,8 @@ import {
   todayResourceAssignmentDateKey,
   type DosResourceAssignmentFollowUpKind,
   type DosResourceAssignmentFollowUpCadence,
+  type DosResourceAssignmentContext,
+  type DosResourceAssignmentSharingLevel,
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
@@ -28,7 +32,7 @@ import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 type SupabaseQueryError = { message?: string } | null | undefined;
 type ResourceAssignmentSupabase = ReturnType<typeof createSupabaseAdminClient>;
 
-export const resourceAssignmentSelect = "id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, created_at, updated_at";
+export const resourceAssignmentSelect = "id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, assignment_context, source_group_id, sharing_level, created_at, updated_at";
 export const resourceAssignmentFollowUpScheduleSelect = "id, workspace_id, person_id, title, frequency, day_of_week, scheduled_time, start_date, next_check_in, status, created_by_user_id, created_at, updated_at";
 
 export function isMissingResourceAssignmentsSchema(error: SupabaseQueryError) {
@@ -36,6 +40,9 @@ export function isMissingResourceAssignmentsSchema(error: SupabaseQueryError) {
 
   return message.includes("dos_resource_assignments")
     || message.includes("linked_commitment_id")
+    || message.includes("assignment_context")
+    || message.includes("source_group_id")
+    || message.includes("sharing_level")
     || isMissingCommitmentsSchema(error);
 }
 
@@ -53,6 +60,18 @@ export function normalizeResourceAssignmentFollowUpCadence(value: unknown, fallb
   const nextValue = asString(value);
 
   return nextValue && isDosResourceAssignmentFollowUpCadence(nextValue) ? nextValue : fallback;
+}
+
+export function normalizeResourceAssignmentContext(value: unknown, fallback: DosResourceAssignmentContext = "person") {
+  const nextValue = asString(value);
+
+  return nextValue && isDosResourceAssignmentContext(nextValue) ? nextValue : fallback;
+}
+
+export function normalizeResourceAssignmentSharingLevel(value: unknown, fallback: DosResourceAssignmentSharingLevel = "leader_progress") {
+  const nextValue = asString(value);
+
+  return nextValue && isDosResourceAssignmentSharingLevel(nextValue) ? nextValue : fallback;
 }
 
 export function resolveAssignableDosResource(value: unknown): DosResource | null {
@@ -84,6 +103,7 @@ export function assignmentFollowUpCadenceOptions() {
 
 export function mapResourceAssignmentRow(row: Record<string, unknown>) {
   return {
+    assignmentContext: normalizeResourceAssignmentContext(row.assignment_context),
     assignedByUserId: row.assigned_by_user_id ? String(row.assigned_by_user_id) : null,
     completedAt: row.completed_at ? String(row.completed_at) : null,
     createdAt: row.created_at ? String(row.created_at) : null,
@@ -95,6 +115,8 @@ export function mapResourceAssignmentRow(row: Record<string, unknown>) {
     personId: String(row.person_id),
     personalMessage: row.personal_message ? String(row.personal_message) : null,
     resourceSlug: String(row.resource_slug),
+    sharingLevel: normalizeResourceAssignmentSharingLevel(row.sharing_level),
+    sourceGroupId: row.source_group_id ? String(row.source_group_id) : null,
     startDate: String(row.start_date ?? todayResourceAssignmentDateKey()),
     status: normalizeResourceAssignmentStatus(row.status),
     updatedAt: row.updated_at ? String(row.updated_at) : null,

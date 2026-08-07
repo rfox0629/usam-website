@@ -38,6 +38,68 @@ function guidedResourceProgressErrorResponse(error: SupabaseQueryError) {
   return NextResponse.json({ error: error?.message ?? "Unable to save guided resource progress." }, { status: 500 });
 }
 
+function isMissingIdentityLinkSchema(error: SupabaseQueryError) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("dos_identity_links")
+    || (message.includes("schema cache") && message.includes("verification_status"));
+}
+
+function normalizedEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+async function canWritePrivateGuidedProgress({
+  personId,
+  supabase,
+  userEmail,
+  userId,
+  workspaceId,
+}: {
+  personId: string;
+  supabase: SupabaseAdminClient;
+  userEmail: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const identityResult = await supabase
+    .from("dos_identity_links")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("person_id", personId)
+    .eq("user_id", userId)
+    .eq("verification_status", "verified")
+    .limit(1)
+    .maybeSingle();
+
+  if (identityResult.error && !isMissingIdentityLinkSchema(identityResult.error)) {
+    return { allowed: false, error: identityResult.error };
+  }
+
+  if (identityResult.data) {
+    return { allowed: true, error: null };
+  }
+
+  const personResult = await supabase
+    .from("missionary_field_people")
+    .select("created_by, email")
+    .eq("id", personId)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .maybeSingle();
+
+  if (personResult.error) {
+    return { allowed: false, error: personResult.error };
+  }
+
+  const person = personResult.data as { created_by?: string | null; email?: string | null } | null;
+  const personEmail = normalizedEmail(person?.email);
+
+  return {
+    allowed: Boolean((personEmail && personEmail === userEmail) || (person?.created_by && person.created_by === userId)),
+    error: null,
+  };
+}
+
 function asLimitedText(value: unknown, maxLength: number) {
   const text = asNullableString(value);
 
@@ -335,6 +397,22 @@ export async function POST(request: Request) {
 
   if (!person) {
     return NextResponse.json({ error: "Person not found in this workspace." }, { status: 404 });
+  }
+
+  const privateWriteAccess = await canWritePrivateGuidedProgress({
+    personId: person.id,
+    supabase,
+    userEmail: authResult.authorization.email,
+    userId: authResult.authorization.userId,
+    workspaceId: workspaceResult.workspaceId,
+  });
+
+  if (privateWriteAccess.error) {
+    return guidedResourceProgressErrorResponse(privateWriteAccess.error);
+  }
+
+  if (!privateWriteAccess.allowed) {
+    return NextResponse.json({ error: `Only ${person.name}'s linked participant identity can save private journey progress.` }, { status: 403 });
   }
 
   const assignmentId = asString(firstDefined(payload.assignmentId, payload.assignment_id));

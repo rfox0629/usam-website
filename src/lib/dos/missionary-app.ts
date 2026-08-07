@@ -42,8 +42,12 @@ import {
 import { dosGroupsSimplifiedFeatureFlag } from "@/src/lib/dos/groups";
 import {
   isDosResourceAssignmentFollowUpCadence,
+  isDosResourceAssignmentContext,
+  isDosResourceAssignmentSharingLevel,
   isDosResourceAssignmentStatus,
+  type DosResourceAssignmentContext,
   type DosResourceAssignmentFollowUpCadence,
+  type DosResourceAssignmentSharingLevel,
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -586,6 +590,7 @@ export type DosAppPersonCommitment = {
 };
 
 export type DosAppResourceAssignment = {
+  assignmentContext: DosResourceAssignmentContext;
   assignedByUserId: string | null;
   completedAt: string | null;
   createdAt: string | null;
@@ -597,6 +602,8 @@ export type DosAppResourceAssignment = {
   personId: string;
   personalMessage: string | null;
   resourceSlug: string;
+  sharingLevel: DosResourceAssignmentSharingLevel;
+  sourceGroupId: string | null;
   startDate: string;
   status: DosResourceAssignmentStatus;
   updatedAt: string | null;
@@ -1401,6 +1408,7 @@ type AccountabilityCheckInCommitmentRow = {
 };
 
 type ResourceAssignmentRow = {
+  assignment_context: string | null;
   assigned_by_user_id: string | null;
   completed_at: string | null;
   created_at: string | null;
@@ -1412,6 +1420,8 @@ type ResourceAssignmentRow = {
   person_id: string;
   personal_message: string | null;
   resource_slug: string;
+  sharing_level: string | null;
+  source_group_id: string | null;
   start_date: string;
   status: string | null;
   updated_at: string | null;
@@ -3681,7 +3691,7 @@ async function loadAccountabilityCheckInsForWorkspace(supabase: SupabaseAdminCli
 async function loadResourceAssignmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const result = await supabase
     .from("dos_resource_assignments")
-    .select("id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, created_at, updated_at")
+    .select("id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, assignment_context, source_group_id, sharing_level, created_at, updated_at")
     .eq("workspace_id", workspaceId)
     .order("due_date", { ascending: true })
     .order("updated_at", { ascending: false });
@@ -4923,6 +4933,7 @@ export async function loadDosAppData(
     workspaceId: link.workspace_id,
   }));
   const resourceAssignments: DosAppResourceAssignment[] = resourceAssignmentRows.map((assignment) => ({
+    assignmentContext: isDosResourceAssignmentContext(assignment.assignment_context ?? "") ? assignment.assignment_context as DosResourceAssignmentContext : "person",
     assignedByUserId: assignment.assigned_by_user_id,
     completedAt: assignment.completed_at,
     createdAt: assignment.created_at,
@@ -4934,6 +4945,8 @@ export async function loadDosAppData(
     personId: assignment.person_id,
     personalMessage: cleanOptionalText(assignment.personal_message),
     resourceSlug: assignment.resource_slug,
+    sharingLevel: isDosResourceAssignmentSharingLevel(assignment.sharing_level ?? "") ? assignment.sharing_level as DosResourceAssignmentSharingLevel : "leader_progress",
+    sourceGroupId: assignment.source_group_id,
     startDate: assignment.start_date,
     status: mapResourceAssignmentStatus(assignment.status),
     updatedAt: assignment.updated_at,

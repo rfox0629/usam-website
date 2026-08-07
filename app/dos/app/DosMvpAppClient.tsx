@@ -27,6 +27,7 @@ import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/per
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
+  dosResourceCatalog,
   dosSendableResourceCategories,
   getDosAssessmentResources,
   getDosResourceBySlug,
@@ -97,7 +98,9 @@ import {
   resourceAssignmentFollowUpScheduleHeading,
   resourceAssignmentCommitmentTitle,
   todayResourceAssignmentDateKey,
+  type DosResourceAssignmentContext,
   type DosResourceAssignmentFollowUpCadence,
+  type DosResourceAssignmentSharingLevel,
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
 
@@ -448,6 +451,7 @@ const dosAssessmentResourceItems = getDosAssessmentResources();
 const dosDiscipleshipResourceItems = getDosResourcesByCategory("Discipleship");
 const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
+const dosAssignableResourceItems = dosResourceCatalog.filter((resource) => resource.assignable);
 
 const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
   { helper: "Around the table", label: "Kitchen Table", value: "kitchen_table" },
@@ -1009,7 +1013,15 @@ type CommitmentSheetState =
   | null;
 type CommitmentNotice = { personId?: string | null; text: string; tone: "error" | "success" } | null;
 type ResourceAssignmentSheetState =
-  | { assignment?: DosAppResourceAssignment | null; kind: "assign"; personId?: string | null; resource: DosResource }
+  | {
+      assignment?: DosAppResourceAssignment | null;
+      assignmentContext?: DosResourceAssignmentContext;
+      kind: "assign";
+      personId?: string | null;
+      resource: DosResource;
+      sharingLevel?: DosResourceAssignmentSharingLevel;
+      sourceGroupId?: string | null;
+    }
   | { assignment: DosAppResourceAssignment; kind: "check_in" }
   | null;
 type GuidedResourceDetailState = {
@@ -1027,6 +1039,14 @@ type ResourceAssignmentNotice = {
   personalMessage: string | null;
   resourceSlug: string;
   text: string;
+} | null;
+type AssignTargetPickerState = { resource: DosResource } | null;
+type GroupJourneyAssignState = { group: DosAppGroup; resource: DosResource | null } | null;
+type ResourceAssignmentDuplicateState = {
+  assignment: DosAppResourceAssignment;
+  personName: string;
+  requestPayload: Record<string, unknown>;
+  resourceTitle: string;
 } | null;
 type PrayerRequestView = "answered" | "praying";
 type PrayerWorkspaceTab = "answered" | "prayer_team" | "prayers";
@@ -7621,6 +7641,7 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress,
   isPreview,
   notice,
+  onAssignJourney,
   onBack,
   onCopyGroupReminder,
   onCopyPublicLink,
@@ -7643,6 +7664,7 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   notice: string;
+  onAssignJourney: () => void;
   onBack: () => void;
   onCopyGroupReminder: () => void;
   onCopyPublicLink: () => void;
@@ -7743,6 +7765,7 @@ function GroupDetailWorkspaceV2({
           group={group}
           guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
+          onAssignJourney={onAssignJourney}
           onCopyGroupReminder={onCopyGroupReminder}
           onOpenJourney={onOpenJourney}
           resourceAssignments={resourceAssignments}
@@ -7888,10 +7911,50 @@ function GroupPeopleTabV2({
   );
 }
 
+// A group never owns its own copy of an assignment - "the group's current journey" is
+// always derived from its active members' canonical dos_resource_assignments rows (the
+// most recently started active one). Shared by the group Journeys tab and by the Person
+// profile so both surfaces agree on why a person has a given journey.
+function computeGroupFocusAssignment(group: DosAppGroup, resourceAssignments: readonly DosAppResourceAssignment[]) {
+  const activeMembers = group.members.filter((member) => member.status === "active");
+  const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
+  const groupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
+  const explicitGroupAssignments = groupAssignments.filter((assignment) => assignment.sourceGroupId === group.id);
+  const focusPool = explicitGroupAssignments.length ? explicitGroupAssignments : groupAssignments;
+  const activeGroupAssignments = focusPool.filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress");
+  const focusAssignment = (activeGroupAssignments.length ? activeGroupAssignments : focusPool)
+    .slice()
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0] ?? null;
+
+  return { activeMembers, focusAssignment, groupAssignments, memberPersonIds };
+}
+
+function groupNamesForAssignmentContext({
+  assignment,
+  groups,
+  resourceAssignments,
+}: {
+  assignment: DosAppResourceAssignment;
+  groups: readonly DosAppGroup[];
+  resourceAssignments: readonly DosAppResourceAssignment[];
+}): string[] {
+  if (assignment.sourceGroupId) {
+    return groups
+      .filter((group) => group.id === assignment.sourceGroupId)
+      .map((group) => group.name);
+  }
+
+  return groups
+    .filter((group) => group.members.some((member) => member.status === "active" && member.personId === assignment.personId))
+    .filter((group) => computeGroupFocusAssignment(group, resourceAssignments).focusAssignment?.id === assignment.id)
+    .map((group) => group.name);
+}
+
 function GroupJourneysTabV2({
   group,
   guidedResourceProgress,
   isPreview,
+  onAssignJourney,
   onCopyGroupReminder,
   onOpenJourney,
   resourceAssignments,
@@ -7900,6 +7963,7 @@ function GroupJourneysTabV2({
   group: DosAppGroup;
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
+  onAssignJourney: () => void;
   onCopyGroupReminder: () => void;
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   resourceAssignments: DosAppResourceAssignment[];
@@ -7907,16 +7971,10 @@ function GroupJourneysTabV2({
 }) {
   const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
-  const activeMembers = group.members.filter((member) => member.status === "active");
-  const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
-  const groupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
-  const activeGroupAssignments = groupAssignments.filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress");
   // The group's "current journey" is the most recently started active assignment
   // among its active members - this is the single source of truth that the group
   // card, each member row, and the View Journey CTA must all agree on.
-  const focusAssignment = (activeGroupAssignments.length ? activeGroupAssignments : groupAssignments)
-    .slice()
-    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0] ?? null;
+  const { activeMembers, focusAssignment, groupAssignments } = computeGroupFocusAssignment(group, resourceAssignments);
   const focusSlug = focusAssignment?.resourceSlug ?? null;
   const focusResource = focusSlug ? getDosResourceBySlug(focusSlug) : null;
   const sessions = focusResource?.content?.guidedResource?.sessions ?? [];
@@ -7967,16 +8025,26 @@ function GroupJourneysTabV2({
     <div className="grid gap-3">
       <DesktopPanel
         action={(
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onCopyGroupReminder} type="button">
-            <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            Copy Group Reminder
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={onAssignJourney} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Assign Journey
+            </button>
+            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onCopyGroupReminder} type="button">
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              Copy Group Reminder
+            </button>
+          </div>
         )}
         eyebrow="Current Journey"
         title={focusResource?.title ?? "No journey yet"}
       >
         {!focusResource || !focusSlug ? (
-          <SectionEmptyState text="Assign a Guided Journey resource to a member to start this group's journey. Use Assign from the Library or a person's record." title="No journey started." />
+          <SectionEmptyState
+            action={<CompactButton icon="add" onClick={onAssignJourney}>Assign Journey</CompactButton>}
+            text="Assign a Guided Journey resource to this group's active members, or from a person's record."
+            title="No journey started."
+          />
         ) : (
           <>
             <div className="flex items-center gap-3">
@@ -8054,6 +8122,165 @@ function GroupJourneysTabV2({
   );
 }
 
+function GroupJourneyAssignSheet({
+  errorMessage,
+  group,
+  initialResource,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  errorMessage: string;
+  group: DosAppGroup;
+  initialResource: DosResource | null;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (resourceSlug: string, personIds: string[]) => void;
+}) {
+  const activeMembers = group.members.filter((member) => member.status === "active");
+  const [selectedResource, setSelectedResource] = useState<DosResource | null>(initialResource);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(activeMembers.map((member) => member.personId));
+
+  function togglePersonId(personId: string) {
+    setSelectedPersonIds((current) => (current.includes(personId) ? current.filter((id) => id !== personId) : [...current, personId]));
+  }
+
+  if (!selectedResource) {
+    return (
+      <Sheet onClose={onClose} showEyebrow={false} title="Assign a Journey">
+        <div className="grid gap-3">
+          <p className="text-sm leading-6 text-[#64748B]">Choose a Library resource to assign to {group.name}.</p>
+          <CatalogResourceList actionLabel="Select" onAssign={setSelectedResource} resources={dosAssignableResourceItems} />
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Assign a Journey">
+      <div className="grid gap-4">
+        <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+          <p className="text-sm font-black text-[#0F172A]">{selectedResource.title}</p>
+          {initialResource ? null : (
+            <button className="mt-1 text-xs font-bold text-[#2563EB]" onClick={() => setSelectedResource(null)} type="button">Choose a different resource</button>
+          )}
+        </div>
+        <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel>Participants</FieldLabel>
+            <button
+              className="text-xs font-bold text-[#2563EB]"
+              onClick={() => setSelectedPersonIds(selectedPersonIds.length === activeMembers.length ? [] : activeMembers.map((member) => member.personId))}
+              type="button"
+            >
+              {selectedPersonIds.length === activeMembers.length ? "Clear all" : "Select all"}
+            </button>
+          </div>
+          <div className="mt-2 grid max-h-64 gap-2 overflow-y-auto pr-1">
+            {activeMembers.length ? activeMembers.map((member) => (
+              <label className="flex items-center gap-2 text-sm font-bold text-[#0F172A]" key={member.id}>
+                <input checked={selectedPersonIds.includes(member.personId)} className="h-4 w-4 rounded border-[#BFDBFE] text-[#2563EB]" onChange={() => togglePersonId(member.personId)} type="checkbox" />
+                {member.personName}
+              </label>
+            )) : <p className="text-sm font-semibold text-[#64748B]">No active members yet.</p>}
+          </div>
+        </div>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton
+            disabled={isSubmitting || !selectedPersonIds.length}
+            icon="commitment"
+            onClick={() => onSubmit(selectedResource.slug, selectedPersonIds)}
+            tone="black"
+          >
+            {isSubmitting ? "Assigning..." : `Assign to ${selectedPersonIds.length} ${selectedPersonIds.length === 1 ? "Member" : "Members"}`}
+          </AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function AssignTargetPickerSheet({
+  groups,
+  myRecordPersonId,
+  onAssignGroup,
+  onAssignMyself,
+  onAssignPerson,
+  onClose,
+  resource,
+}: {
+  groups: readonly DosAppGroup[];
+  myRecordPersonId?: string | null;
+  onAssignGroup: (group: DosAppGroup) => void;
+  onAssignMyself: () => void;
+  onAssignPerson: () => void;
+  onClose: () => void;
+  resource: DosResource;
+}) {
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const activeGroups = groups.filter((group) => group.active);
+
+  if (showGroupPicker) {
+    return (
+      <Sheet onClose={onClose} showEyebrow={false} title="Choose a Group">
+        <div className="grid gap-2">
+          {activeGroups.length ? activeGroups.map((group) => (
+            <button
+              className="flex min-h-12 items-center justify-between rounded-[18px] border border-[#DCEBFF] bg-white px-4 text-left text-sm font-black text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
+              key={group.id}
+              onClick={() => onAssignGroup(group)}
+              type="button"
+            >
+              {group.name}
+              <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+            </button>
+          )) : <SectionEmptyState text="Create a group before assigning a journey to one." title="No groups yet." />}
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Who is this for?">
+      <div className="grid gap-3">
+        <p className="text-sm leading-6 text-[#64748B]">Assign &ldquo;{resource.title}&rdquo; to:</p>
+        <div className="grid gap-2">
+          <button
+            className="flex min-h-14 items-center gap-3 rounded-[18px] border border-[#DCEBFF] bg-white px-4 text-left transition-colors hover:bg-[#F8FBFF] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!myRecordPersonId}
+            onClick={onAssignMyself}
+            type="button"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]"><User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-[#0F172A]">Myself</span>
+              <span className="block text-xs font-semibold text-[#64748B]">
+                {myRecordPersonId ? "Start this journey for your own record." : "Link your DOS record to assign to yourself."}
+              </span>
+            </span>
+          </button>
+          <button className="flex min-h-14 items-center gap-3 rounded-[18px] border border-[#DCEBFF] bg-white px-4 text-left transition-colors hover:bg-[#F8FBFF]" onClick={onAssignPerson} type="button">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]"><UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-[#0F172A]">Person</span>
+              <span className="block text-xs font-semibold text-[#64748B]">Assign to one person for direct discipleship.</span>
+            </span>
+          </button>
+          <button className="flex min-h-14 items-center gap-3 rounded-[18px] border border-[#DCEBFF] bg-white px-4 text-left transition-colors hover:bg-[#F8FBFF]" onClick={() => setShowGroupPicker(true)} type="button">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]"><Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-black text-[#0F172A]">Group / Community</span>
+              <span className="block text-xs font-semibold text-[#64748B]">Assign to selected or all active members.</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function GroupsWorkspace({
   groups,
   groupsNotice,
@@ -8061,6 +8288,7 @@ function GroupsWorkspace({
   isSimplifiedV2,
   isPreview,
   onAddPrayer,
+  onAssignJourney,
   onCopyGroupReminder,
   onCopyPublicDirectoryLink,
   onCopyPublicLink,
@@ -8094,6 +8322,7 @@ function GroupsWorkspace({
   isSimplifiedV2: boolean;
   isPreview: boolean;
   onAddPrayer: () => void;
+  onAssignJourney: (group: DosAppGroup) => void;
   onCopyGroupReminder: (group: DosAppGroup) => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
@@ -8129,6 +8358,7 @@ function GroupsWorkspace({
           guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
           notice={groupsNotice}
+          onAssignJourney={() => onAssignJourney(selectedGroup)}
           onBack={() => onOpenGroup("")}
           onCopyGroupReminder={() => onCopyGroupReminder(selectedGroup)}
           onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
@@ -11399,6 +11629,24 @@ function resourceAssignmentTypeLabel(assignment: DosAppResourceAssignment) {
   return resource ? resourceTypeLabel(resource) : "Resource";
 }
 
+function resourceAssignmentContextLabel(assignment: DosAppResourceAssignment, groupNames: readonly string[]) {
+  if (groupNames.length) {
+    return `Group context: ${groupNames.join(", ")}`;
+  }
+
+  switch (assignment.assignmentContext) {
+    case "self":
+      return "Self-guided assignment";
+    case "group":
+      return "Group assignment";
+    case "library":
+      return "Library assignment";
+    case "person":
+    default:
+      return "Direct discipleship";
+  }
+}
+
 function resourceAssignmentDueLabel(assignment: DosAppResourceAssignment) {
   if (assignment.status === "completed" && assignment.completedAt) {
     return `Completed ${formatDate(assignment.completedAt)}`;
@@ -11479,6 +11727,7 @@ function ResourceAssignmentStatusPill({ status }: { status: DosResourceAssignmen
 function ResourceAssignmentCard({
   assignment,
   compact = false,
+  groupNames = [],
   onEditDates,
   onOpenGuidedResource,
   onLogCheckIn,
@@ -11488,6 +11737,7 @@ function ResourceAssignmentCard({
 }: {
   assignment: DosAppResourceAssignment;
   compact?: boolean;
+  groupNames?: string[];
   onEditDates?: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource?: (resource: DosResource) => void;
   onLogCheckIn?: (assignment: DosAppResourceAssignment) => void;
@@ -11515,6 +11765,10 @@ function ResourceAssignmentCard({
           </span>
           <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">
             Started {formatDate(assignment.startDate)} · {resourceAssignmentDueLabel(assignment)}
+          </span>
+          <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-[#2563EB]">
+            <Users className="h-3 w-3 shrink-0" aria-hidden="true" strokeWidth={2} />
+            {resourceAssignmentContextLabel(assignment, groupNames)}
           </span>
           {assignment.personalMessage ? (
             <span className="mt-2 line-clamp-2 block text-sm leading-6 text-[#475569]">{assignment.personalMessage}</span>
@@ -12090,8 +12344,43 @@ function ResourceAssignmentSuccessSheet({
   );
 }
 
+function ResourceAssignmentDuplicateSheet({
+  duplicate,
+  isSubmitting,
+  onClose,
+  onReuseExisting,
+  onViewExisting,
+}: {
+  duplicate: NonNullable<ResourceAssignmentDuplicateState>;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onReuseExisting: () => void;
+  onViewExisting: () => void;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Assignment Already Active">
+      <div className="grid gap-4">
+        <div className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3">
+          <p className="text-sm font-black text-[#0F172A]">{duplicate.personName} already has {duplicate.resourceTitle} assigned.</p>
+          <p className="mt-1 text-sm leading-6 text-[#9A3412]">
+            Use the existing journey so Library, Person profile, Group, and My Record all reference the same progress record.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <AppButton icon="log" onClick={onViewExisting} tone="black">View Existing</AppButton>
+          <AppButton disabled={isSubmitting} icon="commitment" onClick={onReuseExisting} tone="white">
+            {isSubmitting ? "Updating..." : "Reuse Existing"}
+          </AppButton>
+        </div>
+        <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+      </div>
+    </Sheet>
+  );
+}
+
 function ResourceAssignmentFormSheet({
   assignment,
+  assignmentContext,
   errorMessage,
   isSubmitting,
   onClose,
@@ -12099,8 +12388,11 @@ function ResourceAssignmentFormSheet({
   people,
   personId,
   resource,
+  sharingLevel,
+  sourceGroupId,
 }: {
   assignment?: DosAppResourceAssignment | null;
+  assignmentContext?: DosResourceAssignmentContext;
   errorMessage: string;
   isSubmitting: boolean;
   onClose: () => void;
@@ -12108,16 +12400,24 @@ function ResourceAssignmentFormSheet({
   people: DosAppPerson[];
   personId?: string | null;
   resource: DosResource;
+  sharingLevel?: DosResourceAssignmentSharingLevel;
+  sourceGroupId?: string | null;
 }) {
   const selectedPersonId = personId ?? assignment?.personId ?? people[0]?.id ?? "";
   const startDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
   const dueDate = assignment?.dueDate ?? defaultResourceAssignmentDueDate(startDate, resource.assignmentDefaults?.durationDays);
   const cadence = assignment?.followUpCadence ?? resource.assignmentDefaults?.followUpCadence ?? "midpoint_and_completion";
+  const context = assignmentContext ?? assignment?.assignmentContext ?? "person";
+  const groupContextId = sourceGroupId ?? assignment?.sourceGroupId ?? "";
+  const assignmentSharingLevel = sharingLevel ?? assignment?.sharingLevel ?? "leader_progress";
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Resource Assignment" : "Assign Resource"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="assignment_context" type="hidden" value={context} />
         <input name="resource_slug" type="hidden" value={resource.slug} />
+        <input name="sharing_level" type="hidden" value={assignmentSharingLevel} />
+        <input name="source_group_id" type="hidden" value={groupContextId} />
         {assignment ? <input name="id" type="hidden" value={assignment.id} /> : null}
         <DosFormSection icon="library" title={resource.title}>
           {!personId && !assignment ? (
@@ -32010,8 +32310,10 @@ function PersonDetailOverlay({
   circleScore,
   commitments,
   commitmentsEnabled,
+  allResourceAssignments,
   fruitEvents,
   fruitItems,
+  groups,
   initialDetailTab,
   index,
   leaderReflections,
@@ -32024,6 +32326,7 @@ function PersonDetailOverlay({
   onAddAccountabilitySchedule,
   onAddReminder,
   onAddPrayerRequest,
+  onAssignResource,
   onCompleteCommitment,
   onEditReminder,
   onEditCommitment,
@@ -32056,8 +32359,10 @@ function PersonDetailOverlay({
   circleScore?: DosRelationshipScore | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
+  allResourceAssignments: DosAppResourceAssignment[];
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
+  groups: DosAppGroup[];
   initialDetailTab?: PersonDetailTab | null;
   index: number;
   leaderReflections: DosAppLeaderReflection[];
@@ -32070,6 +32375,7 @@ function PersonDetailOverlay({
   onAddAccountabilitySchedule: () => void;
   onAddReminder: () => void;
   onAddPrayerRequest: () => void;
+  onAssignResource: (personId: string) => void;
   onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
   onEditReminder: (reminderId: string) => void;
   onEditCommitment: (commitment: DosAppPersonCommitment) => void;
@@ -32717,6 +33023,7 @@ function PersonDetailOverlay({
                   {activeResourceAssignments.map((assignment) => (
                     <ResourceAssignmentCard
                       assignment={assignment}
+                      groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
                       key={assignment.id}
                       onEditDates={onEditResourceAssignment}
                       onLogCheckIn={onLogResourceCheckIn}
@@ -32726,9 +33033,14 @@ function PersonDetailOverlay({
                       onPause={onPauseResourceAssignment}
                     />
                   ))}
+                  <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
                 </div>
               ) : (
-                <SectionEmptyState text="Assignable Library resources will appear here when a leader gives this person a growth resource." title="No active resources." />
+                <SectionEmptyState
+                  action={<CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>}
+                  text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person."
+                  title="No active resources."
+                />
               )}
             </DetailCard>
 
@@ -32739,6 +33051,7 @@ function PersonDetailOverlay({
                     <ResourceAssignmentCard
                       assignment={assignment}
                       compact
+                      groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
                       key={assignment.id}
                       onEditDates={onEditResourceAssignment}
                       onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
@@ -33565,7 +33878,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
+  const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
+  const [assignResourcePickerPersonId, setAssignResourcePickerPersonId] = useState<string | null>(null);
+  const [assignTargetPicker, setAssignTargetPicker] = useState<AssignTargetPickerState>(null);
+  const [groupJourneyAssign, setGroupJourneyAssign] = useState<GroupJourneyAssignState>(null);
   const [guidedResourceDetail, setGuidedResourceDetail] = useState<GuidedResourceDetailState>(null);
   const [leaderJourneyProgress, setLeaderJourneyProgress] = useState<LeaderJourneyProgressState>(null);
   const visibleFruit = useMemo(() => data.fruit.filter((fruit) => fruit.status !== "archived"), [data.fruit]);
@@ -35213,7 +35530,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     openAccountabilityCheckIn(schedule.personId, schedule);
   }
 
-  function openResourceAssignmentCreate(resource: DosResource, personId?: string | null) {
+  function openResourceAssignmentCreate(
+    resource: DosResource,
+    personId?: string | null,
+    options?: {
+      assignmentContext?: DosResourceAssignmentContext;
+      sharingLevel?: DosResourceAssignmentSharingLevel;
+      sourceGroupId?: string | null;
+    },
+  ) {
     if (!commitmentsEnabled) {
       setErrorMessage("Commitments and accountability are not enabled for this workspace.");
       return;
@@ -35226,7 +35551,121 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     setErrorMessage("");
     setResourceAssignmentNotice(null);
-    setResourceAssignmentSheet({ kind: "assign", personId: personId ?? null, resource });
+    setResourceAssignmentDuplicate(null);
+    setResourceAssignmentSheet({
+      assignmentContext: options?.assignmentContext ?? (personId ? "person" : "library"),
+      kind: "assign",
+      personId: personId ?? null,
+      resource,
+      sharingLevel: options?.sharingLevel ?? "leader_progress",
+      sourceGroupId: options?.sourceGroupId ?? null,
+    });
+  }
+
+  function openAssignResourcePicker(personId: string) {
+    if (!commitmentsEnabled) {
+      setErrorMessage("Commitments and accountability are not enabled for this workspace.");
+      return;
+    }
+
+    setErrorMessage("");
+    setAssignResourcePickerPersonId(personId);
+  }
+
+  function closeAssignResourcePicker() {
+    setAssignResourcePickerPersonId(null);
+  }
+
+  function openAssignTargetPicker(resource: DosResource) {
+    if (!commitmentsEnabled) {
+      setErrorMessage("Commitments and accountability are not enabled for this workspace.");
+      return;
+    }
+
+    setErrorMessage("");
+    setAssignTargetPicker({ resource });
+  }
+
+  function closeAssignTargetPicker() {
+    setAssignTargetPicker(null);
+  }
+
+  function openGroupJourneyAssign(group: DosAppGroup, resource?: DosResource | null) {
+    setErrorMessage("");
+    setResourceAssignmentDuplicate(null);
+    setGroupJourneyAssign({ group, resource: resource ?? null });
+  }
+
+  function closeGroupJourneyAssign() {
+    setGroupJourneyAssign(null);
+  }
+
+  async function handleGroupJourneyAssignSubmit(resourceSlug: string, personIds: string[]) {
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Demo changes are not saved.");
+      return;
+    }
+
+    if (!personIds.length) {
+      setErrorMessage("Choose at least one active member to assign.");
+      return;
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+    const startDate = todayResourceAssignmentDateKey();
+    const sourceGroupId = groupJourneyAssign?.group.id ?? null;
+    let duplicateCount = 0;
+    let failureCount = 0;
+    let successCount = 0;
+
+    for (const personId of personIds) {
+      try {
+        const response = await fetch("/api/dos/app/resource-assignments", {
+          body: JSON.stringify({
+            assignmentContext: "group",
+            personId,
+            resourceSlug,
+            sharingLevel: "leader_progress",
+            sourceGroupId,
+            startDate,
+            workspaceId: data.workspace.id,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+
+        if (response.status === 409) {
+          duplicateCount += 1;
+        } else if (response.ok) {
+          successCount += 1;
+        } else {
+          failureCount += 1;
+        }
+      } catch {
+        failureCount += 1;
+      }
+    }
+
+    setIsSubmitting(false);
+
+    if (successCount === 0 && duplicateCount === personIds.length) {
+      setErrorMessage("Every selected member already has this active journey. Use the existing assignments or edit them intentionally.");
+      return;
+    }
+
+    if (failureCount === personIds.length) {
+      setErrorMessage("Unable to assign this journey. Try again.");
+      return;
+    }
+
+    router.refresh();
+    setGroupJourneyAssign(null);
+    setGroupsNotice(
+      failureCount || duplicateCount
+        ? `Assigned to ${successCount} of ${personIds.length} members. ${duplicateCount ? `${duplicateCount} already had this journey.` : ""}${failureCount ? ` ${failureCount} could not be assigned.` : ""}`.trim()
+        : `Assigned to ${personIds.length} ${personIds.length === 1 ? "member" : "members"}.`,
+    );
   }
 
   function openResourceAssignmentEdit(assignment: DosAppResourceAssignment) {
@@ -35286,27 +35725,85 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  async function submitResourceAssignmentRequest(
+    payload: Record<string, unknown>,
+    method: "PATCH" | "POST" = "POST",
+  ) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Demo changes are not saved.");
+      return null;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/resource-assignments", {
+        body: JSON.stringify({
+          ...payload,
+          workspaceId: data.workspace.id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method,
+      });
+      const result = await response.json().catch(() => ({})) as {
+        assignment?: DosAppResourceAssignment;
+        duplicate?: boolean;
+        error?: string;
+        person?: { id: string; name: string };
+        resource?: { slug: string; title: string };
+      };
+
+      if (response.status === 409 && result.duplicate && result.assignment) {
+        const resource = getDosResourceBySlug(result.assignment.resourceSlug);
+        const person = people.find((item) => item.id === result.assignment?.personId);
+
+        setResourceAssignmentDuplicate({
+          assignment: result.assignment,
+          personName: result.person?.name ?? person?.name ?? "This person",
+          requestPayload: payload,
+          resourceTitle: result.resource?.title ?? resource?.title ?? "this resource",
+        });
+        setErrorMessage("");
+        return null;
+      }
+
+      if (!response.ok || !result.assignment) {
+        throw new Error(result.error ?? "Unable to save assignment.");
+      }
+
+      router.refresh();
+
+      return result;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to save assignment.");
+      return null;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleResourceAssignmentSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const id = String(formData.get("id") ?? "").trim();
-    const result = await submitJson(
-      "/api/dos/app/resource-assignments",
-      {
-        dueDate: String(formData.get("due_date") ?? ""),
-        followUpCadence: String(formData.get("follow_up_cadence") ?? ""),
-        id,
-        personId: String(formData.get("person_id") ?? ""),
-        personalMessage: String(formData.get("personal_message") ?? ""),
-        resourceSlug: String(formData.get("resource_slug") ?? ""),
-        startDate: String(formData.get("start_date") ?? ""),
-      },
-      id ? "PATCH" : "POST",
-      false,
-    ) as { assignment?: DosAppResourceAssignment } | null;
+    const result = await submitResourceAssignmentRequest({
+      assignmentContext: String(formData.get("assignment_context") ?? ""),
+      dueDate: String(formData.get("due_date") ?? ""),
+      followUpCadence: String(formData.get("follow_up_cadence") ?? ""),
+      id,
+      personId: String(formData.get("person_id") ?? ""),
+      personalMessage: String(formData.get("personal_message") ?? ""),
+      resourceSlug: String(formData.get("resource_slug") ?? ""),
+      sharingLevel: String(formData.get("sharing_level") ?? ""),
+      sourceGroupId: String(formData.get("source_group_id") ?? ""),
+      startDate: String(formData.get("start_date") ?? ""),
+    }, id ? "PATCH" : "POST");
 
     if (result?.assignment) {
       setResourceAssignmentSheet(null);
+      setResourceAssignmentDuplicate(null);
       setResourceAssignmentNotice({
         assignmentId: result.assignment.id,
         personId: result.assignment.personId,
@@ -35315,6 +35812,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         text: id ? "Resource assignment updated." : "Resource assigned.",
       });
     }
+  }
+
+  async function reuseExistingResourceAssignment() {
+    if (!resourceAssignmentDuplicate) {
+      return;
+    }
+
+    const result = await submitResourceAssignmentRequest({
+      ...resourceAssignmentDuplicate.requestPayload,
+      reuseExisting: true,
+    }, "POST");
+
+    if (result?.assignment) {
+      setResourceAssignmentDuplicate(null);
+      setResourceAssignmentSheet(null);
+      setResourceAssignmentNotice({
+        assignmentId: result.assignment.id,
+        personId: result.assignment.personId,
+        personalMessage: result.assignment.personalMessage,
+        resourceSlug: result.assignment.resourceSlug,
+        text: "Existing journey reused.",
+      });
+    }
+  }
+
+  function viewExistingResourceAssignment() {
+    if (!resourceAssignmentDuplicate) {
+      return;
+    }
+
+    const assignment = resourceAssignmentDuplicate.assignment;
+    const resource = resourceAssignmentResource(assignment);
+
+    setResourceAssignmentDuplicate(null);
+    setResourceAssignmentSheet(null);
+
+    if (resource && isGuidedResource(resource)) {
+      openLeaderJourneyProgress(assignment.personId, assignment.resourceSlug);
+      return;
+    }
+
+    openPersonDetail(assignment.personId);
   }
 
   async function setResourceAssignmentStatus(assignment: DosAppResourceAssignment, status: DosResourceAssignmentStatus) {
@@ -38657,6 +39196,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     isSimplifiedV2={data.featureFlags.groupsSimplifiedV2 === true}
                     isPreview={isPreview}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
+                    onAssignJourney={(group) => openGroupJourneyAssign(group)}
                     onCopyGroupReminder={copyGroupReminderMessage}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
@@ -38690,7 +39230,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       const resource = getDosResourceBySlug(resourceSlug);
 
                       if (resource) {
-                        openGuidedResource(resource, personId);
+                        openGuidedResource(resource, personId, { readOnly: true });
                       }
                     }}
                     onRemoveMember={removeGroupMember}
@@ -38911,13 +39451,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <LibrarySection
                         title="Commands of Jesus"
                       >
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosCommandResourceItems} workspaceSlug={data.workspace.slug} />
+                        <CatalogResourceList onAssign={openAssignTargetPicker} resources={dosCommandResourceItems} workspaceSlug={data.workspace.slug} />
                       </LibrarySection>
 
                       <LibrarySection title="Discipleship">
                         <CatalogResourceList
                           guidedResourceProgress={data.guidedResourceProgress}
-                          onAssign={openResourceAssignmentCreate}
+                          onAssign={openAssignTargetPicker}
                           onOpenGuidedResource={(resource) => openGuidedResource(resource, myRecordPerson?.id ?? null)}
                           progressPersonId={myRecordPerson?.id ?? null}
                           resources={dosDiscipleshipResourceItems}
@@ -38942,7 +39482,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </LibrarySection>
 
                       <LibrarySection title="Relationships">
-                        <CatalogResourceList onAssign={openResourceAssignmentCreate} resources={dosRelationshipResourceItems} workspaceSlug={data.workspace.slug} />
+                        <CatalogResourceList onAssign={openAssignTargetPicker} resources={dosRelationshipResourceItems} workspaceSlug={data.workspace.slug} />
                       </LibrarySection>
 
                       <LibrarySection title="Prayer">
@@ -39187,12 +39727,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               accountabilityCheckInLinks={data.accountabilityCheckInCommitments}
               accountabilityCheckIns={selectedPersonAccountabilityCheckIns}
               accountabilitySchedules={selectedPersonAccountabilitySchedules}
+              allResourceAssignments={data.resourceAssignments}
               answeredPrayerByReminderId={answeredPrayerByReminderId}
               assessmentResults={data.assessmentResults}
               commitments={selectedPersonCommitments}
               commitmentsEnabled={commitmentsEnabled}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
+              groups={groups}
               initialDetailTab={requestedDetailTab}
               index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
               leaderReflections={data.leaderReflections}
@@ -39205,6 +39747,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
             onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
+            onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
             onEdit={() => openPersonEdit(selectedPerson)}
             onEditCommitment={openCommitmentEdit}
@@ -39217,7 +39760,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
-            onOpenGuidedResource={openGuidedResource}
+            onOpenGuidedResource={(resource, personId) => {
+              if (personId && personId !== myRecordPerson?.id) {
+                openLeaderJourneyProgress(personId, resource.slug);
+                return;
+              }
+
+              openGuidedResource(resource, personId);
+            }}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
@@ -39465,6 +40015,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
+        {resourceAssignmentDuplicate ? (
+          <ResourceAssignmentDuplicateSheet
+            duplicate={resourceAssignmentDuplicate}
+            isSubmitting={isSubmitting}
+            onClose={() => setResourceAssignmentDuplicate(null)}
+            onReuseExisting={() => void reuseExistingResourceAssignment()}
+            onViewExisting={viewExistingResourceAssignment}
+          />
+        ) : null}
+
         {selectedGuidedResource && isGuidedResource(selectedGuidedResource) ? (
           <GuidedResourceDetailSheet
             assignments={data.resourceAssignments}
@@ -39473,7 +40033,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSubmitting={isSubmitting}
             onAssign={guidedResourceDetail?.readOnly ? undefined : (resource) => {
               setGuidedResourceDetail(null);
-              openResourceAssignmentCreate(resource, guidedResourceProgressPersonId);
+              openResourceAssignmentCreate(resource, guidedResourceProgressPersonId, {
+                assignmentContext: guidedResourceProgressPersonId === myRecordPerson?.id ? "self" : "person",
+              });
             }}
             onClose={() => setGuidedResourceDetail(null)}
             onReviewNotes={() => {
@@ -39512,6 +40074,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {resourceAssignmentSheet?.kind === "assign" ? (
           <ResourceAssignmentFormSheet
             assignment={resourceAssignmentSheet.assignment ?? null}
+            assignmentContext={resourceAssignmentSheet.assignmentContext}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onClose={() => setResourceAssignmentSheet(null)}
@@ -39519,6 +40082,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             people={people}
             personId={resourceAssignmentSheet.personId ?? resourceAssignmentSheet.assignment?.personId ?? null}
             resource={resourceAssignmentSheet.resource}
+            sharingLevel={resourceAssignmentSheet.sharingLevel}
+            sourceGroupId={resourceAssignmentSheet.sourceGroupId}
           />
         ) : null}
 
@@ -39529,6 +40094,65 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSubmitting={isSubmitting}
             onClose={() => setResourceAssignmentSheet(null)}
             onSubmit={handleResourceAssignmentCheckInSubmit}
+          />
+        ) : null}
+
+        {assignResourcePickerPersonId ? (
+          <Sheet onClose={closeAssignResourcePicker} showEyebrow={false} title="Assign a Journey">
+            <div className="grid gap-3">
+              <p className="text-sm leading-6 text-[#64748B]">
+                Choose a Library resource to assign to {people.find((person) => person.id === assignResourcePickerPersonId)?.name ?? "this person"}.
+              </p>
+              <CatalogResourceList
+                actionLabel="Assign"
+                onAssign={(resource) => {
+                  const personId = assignResourcePickerPersonId;
+                  closeAssignResourcePicker();
+                  openResourceAssignmentCreate(resource, personId, { assignmentContext: "person" });
+                }}
+                resources={dosAssignableResourceItems}
+                workspaceSlug={data.workspace.slug}
+              />
+            </div>
+          </Sheet>
+        ) : null}
+
+        {assignTargetPicker ? (
+          <AssignTargetPickerSheet
+            groups={groups}
+            myRecordPersonId={myRecordPerson?.id ?? null}
+            onAssignGroup={(group) => {
+              const resource = assignTargetPicker.resource;
+              closeAssignTargetPicker();
+              openGroupJourneyAssign(group, resource);
+            }}
+            onAssignMyself={() => {
+              const resource = assignTargetPicker.resource;
+              const myPersonId = myRecordPerson?.id ?? null;
+              closeAssignTargetPicker();
+
+              if (myPersonId) {
+                openResourceAssignmentCreate(resource, myPersonId, { assignmentContext: "self" });
+              }
+            }}
+            onAssignPerson={() => {
+              const resource = assignTargetPicker.resource;
+              closeAssignTargetPicker();
+              openResourceAssignmentCreate(resource, null, { assignmentContext: "library" });
+            }}
+            onClose={closeAssignTargetPicker}
+            resource={assignTargetPicker.resource}
+          />
+        ) : null}
+
+        {groupJourneyAssign ? (
+          <GroupJourneyAssignSheet
+            errorMessage={errorMessage}
+            group={groupJourneyAssign.group}
+            initialResource={groupJourneyAssign.resource}
+            isSubmitting={isSubmitting}
+            onClose={closeGroupJourneyAssign}
+            onSubmit={handleGroupJourneyAssignSubmit}
           />
         ) : null}
 
