@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -5659,6 +5659,17 @@ function resourceTypeLabel(resource: DosResource) {
   }
 }
 
+// Reading plans progress day-by-day; every other guided resource progresses
+// week-by-week. Never derive this label from session count alone.
+function resourceSessionUnitLabel(resource: DosResource): "Day" | "Week" {
+  return resource.type === "reading_plan" ? "Day" : "Week";
+}
+
+function resourceSessionCountLabel(resource: DosResource, count: number) {
+  const unit = resourceSessionUnitLabel(resource);
+  return `${count} ${count === 1 ? unit : `${unit}s`}`;
+}
+
 function CatalogResourceList({
   actionLabel,
   guidedResourceProgress,
@@ -5892,19 +5903,21 @@ function GuidedResourceDetailSheet({
             </p>
           ) : null}
 
-          <div className="grid gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-            <section className="grid content-start gap-2">
-              {sessions.map((session) => {
-                const sessionProgress = progressBySession.get(session.id) ?? null;
-                const completed = Boolean(sessionProgress?.completedAt);
+          <section className="grid gap-2" aria-label={isReadingPlan ? "Reading plan days" : "Guided journey weeks"}>
+            {sessions.map((session) => {
+              const sessionProgress = progressBySession.get(session.id) ?? null;
+              const completed = Boolean(sessionProgress?.completedAt);
+              const isOpen = selectedSession?.id === session.id;
 
-                return (
+              return (
+                <div
+                  className={`overflow-hidden rounded-[20px] border transition-colors ${isOpen ? "border-[#BFDBFE] bg-[#F8FBFF]" : "border-[#E2E8F0] bg-white"}`}
+                  key={session.id}
+                >
                   <button
-                    className={`flex min-w-0 items-center gap-3 rounded-[20px] border px-3 py-3 text-left transition-colors ${
-                      selectedSession?.id === session.id ? "border-[#BFDBFE] bg-[#EBF2FF]" : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                    }`}
-                    key={session.id}
-                    onClick={() => setSelectedSessionId(session.id)}
+                    aria-expanded={isOpen}
+                    className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
+                    onClick={() => setSelectedSessionId(isOpen ? "" : session.id)}
                     type="button"
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#F8FAFC] text-[#64748B]"}`}>
@@ -5912,151 +5925,151 @@ function GuidedResourceDetailSheet({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-black leading-5 text-[#0F172A]">{session.title}</span>
-                      <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{session.assignment}</span>
+                      {!isOpen ? <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{session.assignment}</span> : null}
                     </span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={1.9} />
                   </button>
-                );
-              })}
-            </section>
 
-            {selectedSession ? (
-              <section className="grid gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Reading Plan Day" : "Guided Journey Session"}</p>
-                    <h4 className="mt-1 text-lg font-black leading-6 text-[#0F172A]">{selectedSession.title}</h4>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading Assignment: {selectedSession.assignment}</p>
-                  </div>
-                  {selectedProgress?.completedAt ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
-                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                      Complete
-                    </span>
-                  ) : null}
-                </div>
-                {selectedSession.beginWithPrayer ? (
-                  <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Begin With Prayer</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.beginWithPrayer}</p>
-                  </div>
-                ) : null}
-                {selectedSession.bigIdea || selectedSession.keyScriptures?.length ? (
-                  <div className="grid gap-3">
-                    {selectedSession.bigIdea ? (
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                  {isOpen && selectedSession ? (
+                    <div className="grid gap-3 border-t border-[#EAF2FF] px-3 pb-4 pt-3 sm:px-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Reading Plan Day" : "Guided Journey Session"}</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading Assignment: {selectedSession.assignment}</p>
+                        </div>
+                        {selectedProgress?.completedAt ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                            Complete
+                          </span>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {selectedSession.keyScriptures?.length ? (
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                      {selectedSession.beginWithPrayer ? (
+                        <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Begin With Prayer</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.beginWithPrayer}</p>
+                        </div>
+                      ) : null}
+                      {selectedSession.bigIdea || selectedSession.keyScriptures?.length ? (
+                        <div className="grid gap-3">
+                          {selectedSession.bigIdea ? (
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                            </div>
+                          ) : null}
+                          {selectedSession.keyScriptures?.length ? (
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {selectedSession.memoryVerse ? (
+                        <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Weekly Memory Verse</p>
+                          <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
+                          {selectedSession.memoryVerse.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{selectedSession.memoryVerse.note}</p> : null}
+                        </div>
+                      ) : null}
+                      {selectedSession.discussionQuestions?.length ? (
+                        <div className="grid gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
+                          <ul className="grid gap-2">
+                            {selectedSession.discussionQuestions.map((question) => (
+                              <li className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {selectedSession.lookForChrist ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Look for Christ</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.lookForChrist}</p>
+                            </div>
+                          ) : null}
+                          {selectedSession.listenCarefully ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Listen Carefully</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.listenCarefully}</p>
+                            </div>
+                          ) : null}
+                          {selectedSession.respondPersonally ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Respond Personally</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.respondPersonally}</p>
+                            </div>
+                          ) : null}
+                          {selectedSession.moveTowardOthers ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Move Toward Others</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.moveTowardOthers}</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3">
+                        {selectedSession.personalReflection ? (
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}</p>
+                            <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
+                          </div>
+                        ) : null}
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.actionStep}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Prayer Response" : "Pray"}</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.prayerFocus}</p>
+                        </div>
+                        {selectedSession.multiply ? (
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Multiply</p>
+                            <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.multiply}</p>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                {selectedSession.memoryVerse ? (
-                  <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Weekly Memory Verse</p>
-                    <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
-                    {selectedSession.memoryVerse.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{selectedSession.memoryVerse.note}</p> : null}
-                  </div>
-                ) : null}
-                {selectedSession.discussionQuestions?.length ? (
-                  <div className="grid gap-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
-                    <ul className="grid gap-2">
-                      {selectedSession.discussionQuestions.map((question) => (
-                        <li className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {selectedSession.lookForChrist ? (
-                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Look for Christ</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.lookForChrist}</p>
-                      </div>
-                    ) : null}
-                    {selectedSession.listenCarefully ? (
-                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Listen Carefully</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.listenCarefully}</p>
-                      </div>
-                    ) : null}
-                    {selectedSession.respondPersonally ? (
-                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Respond Personally</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.respondPersonally}</p>
-                      </div>
-                    ) : null}
-                    {selectedSession.moveTowardOthers ? (
-                      <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Move Toward Others</p>
-                        <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.moveTowardOthers}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div className="grid gap-3">
-                  {selectedSession.personalReflection ? (
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}</p>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
+                      {selectedSession.leaderNotes ? (
+                        <details className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                          <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
+                          <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
+                        </details>
+                      ) : null}
+                      <form className="grid gap-3 border-t border-[#EAF2FF] pt-3" onSubmit={(event) => {
+                        event.preventDefault();
+                        void saveProgress();
+                      }}>
+                        <DosFormField label={isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}>
+                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
+                        </DosFormField>
+                        <DosFormField label={isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}>
+                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
+                        </DosFormField>
+                        <DosFormField label={isReadingPlan ? "Prayer Response" : "Pray"}>
+                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
+                        </DosFormField>
+                        {!readOnly ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p> : null}
+                        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting || readOnly} type="submit">
+                            {isSubmitting ? "Saving..." : "Save Reflection"}
+                          </button>
+                          <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                            {isReadingPlan ? "Mark Day Complete" : "Mark Session Complete"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   ) : null}
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.actionStep}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Prayer Response" : "Pray"}</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.prayerFocus}</p>
-                  </div>
-                  {selectedSession.multiply ? (
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Multiply</p>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.multiply}</p>
-                    </div>
-                  ) : null}
                 </div>
-                {selectedSession.leaderNotes ? (
-                  <details className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2">
-                    <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
-                    <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
-                  </details>
-                ) : null}
-                <form className="grid gap-3 border-t border-[#EAF2FF] pt-3" onSubmit={(event) => {
-                  event.preventDefault();
-                  void saveProgress();
-                }}>
-                  <DosFormField label={isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
-                  </DosFormField>
-                  <DosFormField label={isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
-                  </DosFormField>
-                  <DosFormField label={isReadingPlan ? "Prayer Response" : "Pray"}>
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
-                  </DosFormField>
-                  {!readOnly ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p> : null}
-                  {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting || readOnly} type="submit">
-                      {isSubmitting ? "Saving..." : "Save Reflection"}
-                    </button>
-                    <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
-                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                      {isReadingPlan ? "Mark Day Complete" : "Mark Session Complete"}
-                    </button>
-                  </div>
-                </form>
-              </section>
-            ) : null}
-          </div>
+              );
+            })}
+          </section>
         </div>
       </div>
     </Sheet>
@@ -7664,7 +7677,7 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   notice: string;
-  onAssignJourney: () => void;
+  onAssignJourney: (resource?: DosResource) => void;
   onBack: () => void;
   onCopyGroupReminder: () => void;
   onCopyPublicLink: () => void;
@@ -7765,6 +7778,7 @@ function GroupDetailWorkspaceV2({
           group={group}
           guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
+          key={group.id}
           onAssignJourney={onAssignJourney}
           onCopyGroupReminder={onCopyGroupReminder}
           onOpenJourney={onOpenJourney}
@@ -7929,6 +7943,63 @@ function computeGroupFocusAssignment(group: DosAppGroup, resourceAssignments: re
   return { activeMembers, focusAssignment, groupAssignments, memberPersonIds };
 }
 
+type GroupJourneyRowState = "current" | "upcoming" | "completed";
+
+type GroupJourneyRow = {
+  assignments: DosAppResourceAssignment[];
+  latestDate: string | null;
+  resource: DosResource;
+  resourceSlug: string;
+  state: GroupJourneyRowState;
+};
+
+// A group can run multiple journeys at once (e.g. a reading plan sprint alongside a
+// guided-journey study). Each distinct resource_slug assigned to the group's active
+// members becomes its own row so journeys never overwrite or hide one another.
+function computeGroupJourneyRows(group: DosAppGroup, resourceAssignments: readonly DosAppResourceAssignment[]) {
+  const activeMembers = group.members.filter((member) => member.status === "active");
+  const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
+  const allGroupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
+  const explicitGroupAssignments = allGroupAssignments.filter((assignment) => assignment.sourceGroupId === group.id);
+  const groupAssignments = explicitGroupAssignments.length ? explicitGroupAssignments : allGroupAssignments;
+
+  const assignmentsBySlug = new Map<string, DosAppResourceAssignment[]>();
+  groupAssignments.forEach((assignment) => {
+    const list = assignmentsBySlug.get(assignment.resourceSlug) ?? [];
+    list.push(assignment);
+    assignmentsBySlug.set(assignment.resourceSlug, list);
+  });
+
+  const rows: GroupJourneyRow[] = [];
+  assignmentsBySlug.forEach((assignments, resourceSlug) => {
+    const resource = getDosResourceBySlug(resourceSlug);
+    if (!resource) {
+      return;
+    }
+
+    const state: GroupJourneyRowState = assignments.every((assignment) => assignment.status === "completed")
+      ? "completed"
+      : assignments.every((assignment) => assignment.status === "not_started")
+        ? "upcoming"
+        : "current";
+    const latestDate = assignments
+      .slice()
+      .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0]?.startDate ?? null;
+
+    rows.push({ assignments, latestDate, resource, resourceSlug, state });
+  });
+
+  rows.sort((a, b) => new Date(b.latestDate ?? 0).getTime() - new Date(a.latestDate ?? 0).getTime());
+
+  return {
+    activeMembers,
+    completedRows: rows.filter((row) => row.state === "completed"),
+    currentRows: rows.filter((row) => row.state === "current"),
+    groupAssignments,
+    upcomingRows: rows.filter((row) => row.state === "upcoming"),
+  };
+}
+
 function groupNamesForAssignmentContext({
   assignment,
   groups,
@@ -7963,7 +8034,7 @@ function GroupJourneysTabV2({
   group: DosAppGroup;
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
-  onAssignJourney: () => void;
+  onAssignJourney: (resource?: DosResource) => void;
   onCopyGroupReminder: () => void;
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   resourceAssignments: DosAppResourceAssignment[];
@@ -7971,13 +8042,17 @@ function GroupJourneysTabV2({
 }) {
   const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
-  // The group's "current journey" is the most recently started active assignment
-  // among its active members - this is the single source of truth that the group
-  // card, each member row, and the View Journey CTA must all agree on.
-  const { activeMembers, focusAssignment, groupAssignments } = computeGroupFocusAssignment(group, resourceAssignments);
-  const focusSlug = focusAssignment?.resourceSlug ?? null;
-  const focusResource = focusSlug ? getDosResourceBySlug(focusSlug) : null;
-  const sessions = focusResource?.content?.guidedResource?.sessions ?? [];
+  // Explicit selection state. `null` means "no explicit pick yet - default to the
+  // first current journey"; "" means the user deliberately collapsed every row.
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
+
+  const { activeMembers, completedRows, currentRows, groupAssignments, upcomingRows } = computeGroupJourneyRows(group, resourceAssignments);
+  const hasAnyJourney = currentRows.length > 0 || upcomingRows.length > 0 || completedRows.length > 0;
+  const effectiveExpandedSlug = expandedSlug === null ? (currentRows[0]?.resourceSlug ?? upcomingRows[0]?.resourceSlug ?? null) : (expandedSlug || null);
+
+  function toggleExpand(resourceSlug: string) {
+    setExpandedSlug(effectiveExpandedSlug === resourceSlug ? "" : resourceSlug);
+  }
 
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
@@ -8021,12 +8096,23 @@ function GroupJourneysTabV2({
     }
   }
 
+  const rowCardProps = {
+    activeMembers,
+    groupAssignments,
+    guidedResourceProgress,
+    onAssignMore: onAssignJourney,
+    onOpenJourney,
+    onSendMemberAccess: sendMemberAccess,
+    onToggleExpand: toggleExpand,
+    sendingMemberAccessId,
+  };
+
   return (
     <div className="grid gap-3">
       <DesktopPanel
         action={(
           <div className="flex flex-wrap justify-end gap-2">
-            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={onAssignJourney} type="button">
+            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={() => onAssignJourney()} type="button">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
               Assign Journey
             </button>
@@ -8036,30 +8122,19 @@ function GroupJourneysTabV2({
             </button>
           </div>
         )}
-        eyebrow="Current Journey"
-        title={focusResource?.title ?? "No journey yet"}
+        eyebrow="Journeys"
+        title={hasAnyJourney ? `${currentRows.length + upcomingRows.length} active · ${completedRows.length} completed` : "No journey yet"}
       >
-        {!focusResource || !focusSlug ? (
+        {!hasAnyJourney ? (
           <SectionEmptyState
-            action={<CompactButton icon="add" onClick={onAssignJourney}>Assign Journey</CompactButton>}
-            text="Assign a Guided Journey resource to this group's active members, or from a person's record."
+            action={<CompactButton icon="add" onClick={() => onAssignJourney()}>Assign Journey</CompactButton>}
+            text="Assign a Guided Journey or Reading Plan resource to this group's active members, or from a person's record."
             title="No journey started."
           />
         ) : (
-          <>
-            <div className="flex items-center gap-3">
-              {focusResource.coverImage ? (
-                <img
-                  alt={focusResource.coverImage.alt}
-                  className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.08)]"
-                  loading="lazy"
-                  src={focusResource.coverImage.src}
-                />
-              ) : null}
-              <p className="text-sm font-semibold leading-6 text-[#64748B]">{sessions.length} weeks · {activeMembers.length} active {activeMembers.length === 1 ? "member" : "members"}</p>
-            </div>
+          <div className="grid gap-4">
             {memberAccessMessage ? (
-              <p className={`mt-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
+              <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
                 memberAccessMessage.tone === "success"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border-red-200 bg-red-50 text-red-700"
@@ -8068,56 +8143,164 @@ function GroupJourneysTabV2({
                 {memberAccessMessage.text}
               </p>
             ) : null}
-            <div className="mt-3 grid gap-2">
-              {activeMembers.length ? activeMembers.map((member) => {
-                const assignment = groupAssignments.find((item) => item.personId === member.personId && item.resourceSlug === focusSlug) ?? null;
-                const progressRows = guidedResourceProgress.filter((item) => item.personId === member.personId && item.resourceSlug === focusSlug);
-                const completedSessionIds = new Set(progressRows.filter((item) => item.completedAt).map((item) => item.sessionId));
-                const currentWeek = sessions.find((session) => !completedSessionIds.has(session.id));
-                const latestProgress = progressRows.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
-                const status = !assignment
-                  ? "Not assigned"
-                  : sessions.length > 0 && completedSessionIds.size === sessions.length
-                    ? "Completed"
-                    : progressRows.length
-                      ? "In progress"
-                      : "Not started";
 
-                return (
-                  <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                        <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
-                          {status}
-                          {assignment && currentWeek ? ` · ${currentWeek.title}` : ""}
-                          {latestProgress?.reflection ? " · Reflection submitted" : ""}
-                        </p>
-                        {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, focusSlug as string, Boolean(assignment))} type="button">
-                          {assignment ? "View Journey" : "Assign"}
-                        </button>
-                        <button
-                          className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={sendingMemberAccessId === member.id}
-                          onClick={() => void sendMemberAccess(member)}
-                          type="button"
-                        >
-                          {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }) : (
-                <SectionEmptyState text="Add people to this group before assigning a journey." title="No active members." />
-              )}
-            </div>
-          </>
+            {currentRows.length ? (
+              <div className="grid gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Current</p>
+                {currentRows.map((row) => (
+                  <GroupJourneyRowCard {...rowCardProps} isExpanded={effectiveExpandedSlug === row.resourceSlug} key={row.resourceSlug} row={row} />
+                ))}
+              </div>
+            ) : null}
+
+            {upcomingRows.length ? (
+              <div className="grid gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Upcoming</p>
+                {upcomingRows.map((row) => (
+                  <GroupJourneyRowCard {...rowCardProps} isExpanded={effectiveExpandedSlug === row.resourceSlug} key={row.resourceSlug} row={row} />
+                ))}
+              </div>
+            ) : null}
+
+            {completedRows.length ? (
+              <details className="group rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  Completed ({completedRows.length})
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
+                </summary>
+                <div className="mt-2 grid gap-2">
+                  {completedRows.map((row) => (
+                    <GroupJourneyRowCard {...rowCardProps} isExpanded={effectiveExpandedSlug === row.resourceSlug} key={row.resourceSlug} row={row} />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </div>
         )}
       </DesktopPanel>
+    </div>
+  );
+}
+
+function GroupJourneyRowCard({
+  activeMembers,
+  groupAssignments,
+  guidedResourceProgress,
+  isExpanded,
+  onAssignMore,
+  onOpenJourney,
+  onSendMemberAccess,
+  onToggleExpand,
+  row,
+  sendingMemberAccessId,
+}: {
+  activeMembers: DosAppGroupMember[];
+  groupAssignments: DosAppResourceAssignment[];
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
+  isExpanded: boolean;
+  onAssignMore: (resource?: DosResource) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onSendMemberAccess: (member: DosAppGroupMember) => void;
+  onToggleExpand: (resourceSlug: string) => void;
+  row: GroupJourneyRow;
+  sendingMemberAccessId: string | null;
+}) {
+  const { assignments, resource, resourceSlug, state } = row;
+  const sessions = guidedResourceSessions(resource);
+  const completedCount = assignments.filter((assignment) => assignment.status === "completed").length;
+  const inProgressCount = assignments.filter((assignment) => assignment.status === "in_progress").length;
+  const dateLabel = state === "completed"
+    ? `Completed ${formatShortDate(row.latestDate)}`
+    : state === "upcoming"
+      ? `Assigned ${formatShortDate(row.latestDate)}`
+      : `Started ${formatShortDate(row.latestDate)}`;
+
+  return (
+    <div className={`overflow-hidden rounded-[20px] border transition-colors ${isExpanded ? "border-[#BFDBFE] bg-[#F8FBFF]" : "border-[#EAF2FF] bg-white"}`}>
+      <button
+        aria-expanded={isExpanded}
+        className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
+        onClick={() => onToggleExpand(resourceSlug)}
+        type="button"
+      >
+        {resource.coverImage ? (
+          <img
+            alt={resource.coverImage.alt}
+            className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.08)]"
+            loading="lazy"
+            src={resource.coverImage.src}
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black text-[#0F172A]">{resource.title}</p>
+          <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">
+            {resourceTypeLabel(resource)} · {resourceSessionCountLabel(resource, sessions.length)}
+          </p>
+          <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">
+            {assignments.length}/{activeMembers.length} {activeMembers.length === 1 ? "member" : "members"}
+            {completedCount ? ` · ${completedCount} completed` : ""}
+            {state === "current" && inProgressCount ? ` · ${inProgressCount} in progress` : ""}
+            {" · "}{dateLabel}
+          </p>
+        </div>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={1.9} />
+      </button>
+
+      {isExpanded ? (
+        <div className="grid gap-2 border-t border-[#EAF2FF] px-3 pb-3 pt-3">
+          <div className="flex justify-end">
+            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={() => onAssignMore(resource)} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+              Manage Members
+            </button>
+          </div>
+          {activeMembers.length ? activeMembers.map((member) => {
+            const assignment = groupAssignments.find((item) => item.personId === member.personId && item.resourceSlug === resourceSlug) ?? null;
+            const progressRows = guidedResourceProgress.filter((item) => item.personId === member.personId && item.resourceSlug === resourceSlug);
+            const completedSessionIds = new Set(progressRows.filter((item) => item.completedAt).map((item) => item.sessionId));
+            const currentSession = sessions.find((session) => !completedSessionIds.has(session.id));
+            const latestProgress = progressRows.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
+            const status = !assignment
+              ? "Not assigned"
+              : sessions.length > 0 && completedSessionIds.size === sessions.length
+                ? "Completed"
+                : progressRows.length
+                  ? "In progress"
+                  : "Not started";
+
+            return (
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
+                      {status}
+                      {assignment && currentSession ? ` · ${currentSession.title}` : ""}
+                      {latestProgress?.reflection ? " · Reflection submitted" : ""}
+                    </p>
+                    {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
+                      {assignment ? "View Journey" : "Assign"}
+                    </button>
+                    <button
+                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={sendingMemberAccessId === member.id}
+                      onClick={() => onSendMemberAccess(member)}
+                      type="button"
+                    >
+                      {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }) : (
+            <SectionEmptyState text="Add people to this group before assigning a journey." title="No active members." />
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -8322,7 +8505,7 @@ function GroupsWorkspace({
   isSimplifiedV2: boolean;
   isPreview: boolean;
   onAddPrayer: () => void;
-  onAssignJourney: (group: DosAppGroup) => void;
+  onAssignJourney: (group: DosAppGroup, resource?: DosResource) => void;
   onCopyGroupReminder: (group: DosAppGroup) => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
@@ -8358,7 +8541,7 @@ function GroupsWorkspace({
           guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
           notice={groupsNotice}
-          onAssignJourney={() => onAssignJourney(selectedGroup)}
+          onAssignJourney={(resource) => onAssignJourney(selectedGroup, resource)}
           onBack={() => onOpenGroup("")}
           onCopyGroupReminder={() => onCopyGroupReminder(selectedGroup)}
           onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
@@ -9460,14 +9643,14 @@ function GroupDetailTabBar({
   tabs?: ReadonlyArray<SegmentedTabOption<GroupDetailTab>>;
 }) {
   return (
-    <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1">
+    <div className="-mx-1 grid min-w-0 grid-cols-3 gap-2 px-1 pb-1 sm:flex sm:overflow-x-auto">
       {tabs.map((option) => {
         const selected = tab === option.value;
 
         return (
           <button
             aria-pressed={selected}
-            className={`min-h-9 shrink-0 rounded-full px-3 text-xs font-black transition-colors ${
+            className={`min-h-9 min-w-0 rounded-full px-2 text-[11px] font-black transition-colors sm:shrink-0 sm:px-3 sm:text-xs ${
               selected ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]" : "border border-[#DCEBFF] bg-white text-[#64748B] hover:border-[#BFDBFE] hover:text-[#0F172A]"
             }`}
             key={option.value}
@@ -11746,7 +11929,8 @@ function ResourceAssignmentCard({
   onPause?: (assignment: DosAppResourceAssignment) => void;
 }) {
   const resource = resourceAssignmentResource(assignment);
-  const href = resource?.type === "guided_resource" ? "#" : resource?.path ?? "#";
+  const isInAppJourney = Boolean(resource && isGuidedResource(resource));
+  const href = isInAppJourney ? "#" : resource?.path ?? "#";
   const downloadPath = resource?.downloadPath ?? null;
 
   return (
@@ -11790,7 +11974,7 @@ function ResourceAssignmentCard({
         </span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {resource?.type === "guided_resource" ? (
+        {isInAppJourney && resource ? (
           <button className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" onClick={() => onOpenGuidedResource?.(resource)} type="button">
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
             Continue
@@ -12297,15 +12481,18 @@ function CommitmentSuccessSheet({
 function ResourceAssignmentSuccessSheet({
   notice,
   onClose,
+  onOpenJourney,
   onOpenPerson,
 }: {
   notice: NonNullable<ResourceAssignmentNotice>;
   onClose: () => void;
+  onOpenJourney: (resource: DosResource, personId: string) => void;
   onOpenPerson: (personId: string) => void;
 }) {
   const [copyMessage, setCopyMessage] = useState("");
   const resource = getDosResourceBySlug(notice.resourceSlug);
   const publicUrl = resource && resource.type !== "guided_resource" && typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource?.type === "guided_resource" ? "" : resource?.path ?? "";
+  const canOpenJourney = Boolean(resource && isGuidedResource(resource));
 
   async function copyText(value: string, label: string) {
     try {
@@ -12327,6 +12514,9 @@ function ResourceAssignmentSuccessSheet({
           </article>
         ) : null}
         {copyMessage ? <p className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-bold leading-5 text-[#1D4ED8]">{copyMessage}</p> : null}
+        {canOpenJourney && resource ? (
+          <AppButton icon="library" onClick={() => onOpenJourney(resource, notice.personId)} tone="black">Open Journey</AppButton>
+        ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {publicUrl ? <AppButton icon="send" onClick={() => void copyText(publicUrl, "Public link")} tone="white">Copy Public Link</AppButton> : null}
           {notice.personalMessage ? <AppButton icon="log" onClick={() => void copyText(notice.personalMessage as string, "Message")} tone="white">Copy Message</AppButton> : null}
@@ -12336,7 +12526,7 @@ function ResourceAssignmentSuccessSheet({
               Open PDF
             </a>
           ) : null}
-          <AppButton icon="people" onClick={() => onOpenPerson(notice.personId)} tone="black">Open Person Profile</AppButton>
+          <AppButton icon="people" onClick={() => onOpenPerson(notice.personId)} tone={canOpenJourney ? "white" : "black"}>Open Person Profile</AppButton>
         </div>
         <AppButton onClick={onClose} tone="white">Done</AppButton>
       </div>
@@ -12404,6 +12594,7 @@ function ResourceAssignmentFormSheet({
   sourceGroupId?: string | null;
 }) {
   const selectedPersonId = personId ?? assignment?.personId ?? people[0]?.id ?? "";
+  const selectedPersonName = people.find((person) => person.id === selectedPersonId)?.name ?? null;
   const startDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
   const dueDate = assignment?.dueDate ?? defaultResourceAssignmentDueDate(startDate, resource.assignmentDefaults?.durationDays);
   const cadence = assignment?.followUpCadence ?? resource.assignmentDefaults?.followUpCadence ?? "midpoint_and_completion";
@@ -12436,21 +12627,33 @@ function ResourceAssignmentFormSheet({
               <input className={FieldInputClass(false)} defaultValue={dueDate} name="due_date" type="date" />
             </DosFormField>
           </div>
-          <FormOptionSelect
-            defaultValue={cadence}
-            label="Follow-Up Cadence"
-            name="follow_up_cadence"
-            options={dosResourceAssignmentFollowUpCadences.map((option) => ({ label: resourceAssignmentFollowUpCadenceLabels[option], value: option }))}
-          />
-          <DosFormField label="Personal Message">
-            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={assignment?.personalMessage ?? resource.assignmentDefaults?.defaultMessage ?? ""} name="personal_message" />
-          </DosFormField>
         </DosFormSection>
-        <DosFormSection icon="commitment" title="Linked Commitment">
-          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold leading-6 text-[#475569]">
-            {resourceAssignmentCommitmentTitle(resource.title)}
+
+        <details className="group rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            Follow-Up &amp; Message (Optional)
+            <ChevronDown className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
+          </summary>
+          <div className="mt-3 grid gap-3">
+            <FormOptionSelect
+              defaultValue={cadence}
+              label="Follow-Up Cadence"
+              name="follow_up_cadence"
+              options={dosResourceAssignmentFollowUpCadences.map((option) => ({ label: resourceAssignmentFollowUpCadenceLabels[option], value: option }))}
+            />
+            <DosFormField label="Personal Message">
+              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={assignment?.personalMessage ?? resource.assignmentDefaults?.defaultMessage ?? ""} name="personal_message" />
+            </DosFormField>
+          </div>
+        </details>
+
+        <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Linked Commitment</p>
+          <p className="mt-1 text-xs leading-5 text-[#64748B]">
+            Marking this journey complete also completes {selectedPersonName ? `${selectedPersonName}'s` : "their"} commitment "{resourceAssignmentCommitmentTitle(resource.title)}" - no extra setup needed.
           </p>
-        </DosFormSection>
+        </div>
+
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
           <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : assignment ? "Save Assignment" : "Assign Resource"}</AppButton>
@@ -29343,7 +29546,7 @@ function MyRecordResourceAssignmentRow({
 }) {
   const assignedBy = assignment.assignedByUserId ? "DOS user" : "DOS";
   const resource = resourceAssignmentResource(assignment);
-  const guidedResource = resource?.type === "guided_resource" ? resource : null;
+  const guidedResource = resource && isGuidedResource(resource) ? resource : null;
   const canOpenGuidedResource = Boolean(guidedResource && onOpenGuidedResource);
   const hasActions = Boolean(
     canOpenGuidedResource
@@ -35703,6 +35906,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setLeaderJourneyProgress({ personId, resourceSlug });
   }
 
+  // A newly assigned or edited journey should never dead-end. Self-assignments open the
+  // editable participant sheet directly; assignments to someone else open the leader's
+  // read-only progress summary (which still offers "Preview Participant View").
+  function openJourneyForPerson(resource: DosResource, personId?: string | null) {
+    if (personId && personId !== myRecordPerson?.id) {
+      openLeaderJourneyProgress(personId, resource.slug);
+      return;
+    }
+
+    openGuidedResource(resource, personId);
+  }
+
   async function saveGuidedResourceProgress(request: {
     actionStep: string;
     assignmentId?: string | null;
@@ -39196,7 +39411,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     isSimplifiedV2={data.featureFlags.groupsSimplifiedV2 === true}
                     isPreview={isPreview}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
-                    onAssignJourney={(group) => openGroupJourneyAssign(group)}
+                    onAssignJourney={(group, resource) => openGroupJourneyAssign(group, resource)}
                     onCopyGroupReminder={copyGroupReminderMessage}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
@@ -39760,14 +39975,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenMeeting={openMeetingDetail}
-            onOpenGuidedResource={(resource, personId) => {
-              if (personId && personId !== myRecordPerson?.id) {
-                openLeaderJourneyProgress(personId, resource.slug);
-                return;
-              }
-
-              openGuidedResource(resource, personId);
-            }}
+            onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
@@ -40008,6 +40216,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <ResourceAssignmentSuccessSheet
             notice={resourceAssignmentNotice}
             onClose={() => setResourceAssignmentNotice(null)}
+            onOpenJourney={(resource, personId) => {
+              setResourceAssignmentNotice(null);
+              openJourneyForPerson(resource, personId);
+            }}
             onOpenPerson={(personId) => {
               setResourceAssignmentNotice(null);
               openPersonDetail(personId);
