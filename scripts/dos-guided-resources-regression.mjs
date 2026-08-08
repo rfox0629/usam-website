@@ -67,7 +67,7 @@ assertIncludes(loader, "guidedResourceProgress,", "DOS loader must return guided
 assertIncludes(loader, "catalogResourceSlug", "Group resource data must expose catalog resource slugs.");
 
 assertIncludes(apiRoute, "getDosResourceBySlug(resourceSlug)", "Progress API must resolve the resource from the catalog.");
-assertIncludes(apiRoute, "resource.type !== \"guided_resource\"", "Progress API must only accept guided resources.");
+assertIncludes(apiRoute, "resource.type !== \"guided_resource\" && resource.type !== \"reading_plan\"", "Progress API must accept guided resources and reading plans (both use session-based progress).");
 assertIncludes(apiRoute, "guidedResource.sessions.find", "Progress API must validate session ids against the catalog.");
 assertIncludes(apiRoute, "loadWorkspacePerson", "Progress API must scope progress to a workspace person.");
 assertIncludes(apiRoute, "requireCommitmentsFeature", "Progress API must reuse the existing commitments/assignment feature gate.");

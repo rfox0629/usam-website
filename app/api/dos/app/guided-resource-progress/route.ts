@@ -363,7 +363,11 @@ export async function POST(request: Request) {
   const resource = getDosResourceBySlug(resourceSlug);
   const guidedResource = resource?.content?.guidedResource ?? null;
 
-  if (!resource || resource.type !== "guided_resource" || !guidedResource) {
+  // Reading plans (e.g. "14 Days Through the New Testament") use the same session-based
+  // progress model as guided_resource journeys, and the in-app UI routes both types
+  // through this endpoint - only guided_resource/reading_plan resources with sessions
+  // are valid here.
+  if (!resource || (resource.type !== "guided_resource" && resource.type !== "reading_plan") || !guidedResource) {
     return NextResponse.json({ error: "Choose a guided Library resource." }, { status: 400 });
   }
 
