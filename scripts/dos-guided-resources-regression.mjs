@@ -83,13 +83,19 @@ assertIncludes(apiRoute, "completed_at", "Progress API must save completion time
 assertIncludes(app, "function GuidedResourceDetailSheet", "DOS app must render a guided resource detail sheet.");
 assertIncludes(app, "GUIDED JOURNEY", "Guided resource UI must show the finalized Guided Journey badge.");
 assertIncludes(app, "FEATURED", "Guided resource UI must show featured badge when configured.");
-assertIncludes(app, "Why We Chose This Resource", "Guided Journey UI must show why the resource was chosen.");
-assertIncludes(app, "Weekly Memory Verse", "Guided Journey UI must show weekly memory verse content.");
-assertIncludes(app, "Search the Scriptures", "Guided Journey UI must show Scripture search prompts.");
+assertIncludes(app, "Why We Recommend This", "Guided Journey UI must show a short recommendation for the resource.");
+assertIncludes(app, "Memory Verse", "Guided Journey UI must show memory verse content when defined.");
+assertIncludes(app, "Scripture", "Guided Journey UI must show Scripture references.");
 assertIncludes(app, "Discuss Together", "Guided Journey UI must show discussion prompts.");
-assertIncludes(app, "Reflect Personally", "Guided Journey UI must show reflection prompts.");
-assertIncludes(app, "Walk It Out", "Guided Journey UI must show obedience prompts.");
-assertIncludes(app, "Multiply", "Guided Journey UI must show multiplication prompts.");
+assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
+
+assertIncludes(app, "Your Reflection", "Guided Journey UI must separate group discussion from personal reflection.");
+assertIncludes(app, "What stood out?", "Guided Journey UI must use the canonical first reflection prompt.");
+assertIncludes(app, "What is the main thing you learned or noticed?", "Guided Journey UI must show the helper prompt for What stood out?.");
+assertIncludes(app, "What will you do with it?", "Guided Journey UI must use the canonical second reflection prompt.");
+assertIncludes(app, "How does this apply to your life or what is one next step?", "Guided Journey UI must show the helper prompt for What will you do with it?.");
+assertIncludes(app, "helper=\"What do you want to pray or ask God about?\" label=\"Prayer\"", "Guided Journey UI must use the canonical Prayer reflection prompt with its helper copy.");
+assertIncludes(app, "selectedSession.discussionQuestions.slice(0, 3)", "Guided Journey UI must cap displayed discussion prompts to at most three.");
 assertIncludes(app, "Commissioning", "Completed Guided Journeys must render a commissioning page.");
 assertIncludes(app, "Review My Notes", "Commissioning page must link to My Record notes.");
 assertIncludes(app, "Start Next Resource", "Commissioning page must link back to the Library.");

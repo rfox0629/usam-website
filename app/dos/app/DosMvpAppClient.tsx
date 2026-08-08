@@ -5340,18 +5340,6 @@ function guidedResourceProgressBySession(progress: readonly DosAppGuidedResource
   return new Map(progress.map((item) => [item.sessionId, item]));
 }
 
-function guidedResourceDifficultyLabel(resource: DosResource) {
-  if (resource.difficulty === "beginner") {
-    return "Beginner";
-  }
-
-  if (resource.difficulty === "advanced") {
-    return "Advanced";
-  }
-
-  return resource.difficulty === "intermediate" ? "Intermediate" : "Guided";
-}
-
 function CatalogResourceRow({
   actionLabel = "Open",
   guidedResourceProgress = [],
@@ -5422,7 +5410,6 @@ function CatalogResourceRow({
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               <span>{`Type: ${typeLabel}`}</span>
               {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
-              <span>{guidedResourceDifficultyLabel(resource)}</span>
             </div>
             <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
             {completion.total ? (
@@ -5818,14 +5805,10 @@ function GuidedResourceDetailSheet({
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
                 {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
                 <p className="mt-2 text-sm leading-6 text-[#64748B]">{resource.description}</p>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold text-[#64748B]">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B]">
                   <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
                     <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Duration</span>
                     <span className="mt-1 block text-[#0F172A]">{resource.estimatedDuration ?? "Resource"}</span>
-                  </span>
-                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Difficulty</span>
-                    <span className="mt-1 block text-[#0F172A]">{guidedResourceDifficultyLabel(resource)}</span>
                   </span>
                   <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
                     <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Days" : "Sessions"}</span>
@@ -5861,7 +5844,7 @@ function GuidedResourceDetailSheet({
 
           {guidedResource?.whyChosen ? (
             <section className="rounded-[24px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "How This Plan Works" : "Why We Chose This Resource"}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "How This Plan Works" : "Why We Recommend This"}</p>
               <p className="mt-2 text-sm leading-6 text-[#334155]">{guidedResource.whyChosen}</p>
             </section>
           ) : null}
@@ -5931,11 +5914,11 @@ function GuidedResourceDetailSheet({
                   </button>
 
                   {isOpen && selectedSession ? (
-                    <div className="grid gap-3 border-t border-[#EAF2FF] px-3 pb-4 pt-3 sm:px-4">
+                    <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-4 pt-3 sm:px-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Reading Plan Day" : "Guided Journey Session"}</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading Assignment: {selectedSession.assignment}</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading: {selectedSession.assignment}</p>
                         </div>
                         {selectedProgress?.completedAt ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
@@ -5944,95 +5927,43 @@ function GuidedResourceDetailSheet({
                           </span>
                         ) : null}
                       </div>
-                      {selectedSession.beginWithPrayer ? (
-                        <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Begin With Prayer</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.beginWithPrayer}</p>
-                        </div>
+                      {selectedSession.bigIdea ? (
+                        <p className="text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
                       ) : null}
-                      {selectedSession.bigIdea || selectedSession.keyScriptures?.length ? (
-                        <div className="grid gap-3">
-                          {selectedSession.bigIdea ? (
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Main Idea</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
-                            </div>
-                          ) : null}
+                      {selectedSession.keyScriptures?.length || selectedSession.memoryVerse ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
                           {selectedSession.keyScriptures?.length ? (
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Search the Scriptures</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(", ")}</p>
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
                             </div>
                           ) : null}
-                        </div>
-                      ) : null}
-                      {selectedSession.memoryVerse ? (
-                        <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Weekly Memory Verse</p>
-                          <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
-                          {selectedSession.memoryVerse.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{selectedSession.memoryVerse.note}</p> : null}
+                          {selectedSession.memoryVerse ? (
+                            <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Memory Verse</p>
+                              <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                       {selectedSession.discussionQuestions?.length ? (
-                        <div className="grid gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discuss Together</p>
-                          <ul className="grid gap-2">
-                            {selectedSession.discussionQuestions.map((question) => (
-                              <li className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#0F172A]" key={question}>{question}</li>
+                        <div className="grid gap-1.5">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Discuss Together - for the group, not required here</p>
+                          <ul className="grid gap-1.5">
+                            {selectedSession.discussionQuestions.slice(0, 3).map((question) => (
+                              <li className="rounded-[14px] bg-[#F8FAFC] px-3 py-2 text-xs font-medium leading-5 text-[#475569]" key={question}>{question}</li>
                             ))}
                           </ul>
                         </div>
                       ) : null}
                       {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {selectedSession.lookForChrist ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Look for Christ</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.lookForChrist}</p>
-                            </div>
-                          ) : null}
-                          {selectedSession.listenCarefully ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Listen Carefully</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.listenCarefully}</p>
-                            </div>
-                          ) : null}
-                          {selectedSession.respondPersonally ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Respond Personally</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.respondPersonally}</p>
-                            </div>
-                          ) : null}
-                          {selectedSession.moveTowardOthers ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Move Toward Others</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.moveTowardOthers}</p>
-                            </div>
-                          ) : null}
-                        </div>
+                        <ul className="grid gap-1 rounded-[16px] bg-[#F8FAFC] px-3 py-2.5 text-xs leading-5 text-[#475569]">
+                          {selectedSession.lookForChrist ? <li><span className="font-bold text-[#334155]">Look for Christ - </span>{selectedSession.lookForChrist}</li> : null}
+                          {selectedSession.listenCarefully ? <li><span className="font-bold text-[#334155]">Listen Carefully - </span>{selectedSession.listenCarefully}</li> : null}
+                          {selectedSession.respondPersonally ? <li><span className="font-bold text-[#334155]">Respond Personally - </span>{selectedSession.respondPersonally}</li> : null}
+                          {selectedSession.moveTowardOthers ? <li><span className="font-bold text-[#334155]">Move Toward Others - </span>{selectedSession.moveTowardOthers}</li> : null}
+                        </ul>
                       ) : null}
-                      <div className="grid gap-3">
-                        {selectedSession.personalReflection ? (
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}</p>
-                            <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.personalReflection}</p>
-                          </div>
-                        ) : null}
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.actionStep}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Prayer Response" : "Pray"}</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.prayerFocus}</p>
-                        </div>
-                        {selectedSession.multiply ? (
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Multiply</p>
-                            <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.multiply}</p>
-                          </div>
-                        ) : null}
-                      </div>
                       {selectedSession.leaderNotes ? (
                         <details className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
                           <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
@@ -6043,13 +5974,14 @@ function GuidedResourceDetailSheet({
                         event.preventDefault();
                         void saveProgress();
                       }}>
-                        <DosFormField label={isReadingPlan ? "Summary & Reflection" : "Reflect Personally"}>
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Your Reflection</p>
+                        <DosFormField helper="What is the main thing you learned or noticed?" label="What stood out?">
                           <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
                         </DosFormField>
-                        <DosFormField label={isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"}>
+                        <DosFormField helper="How does this apply to your life or what is one next step?" label="What will you do with it?">
                           <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
                         </DosFormField>
-                        <DosFormField label={isReadingPlan ? "Prayer Response" : "Pray"}>
+                        <DosFormField helper="What do you want to pray or ask God about?" label="Prayer">
                           <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
                         </DosFormField>
                         {!readOnly ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p> : null}

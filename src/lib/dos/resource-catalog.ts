@@ -845,7 +845,7 @@ const discipleshipResources = [
             title: "Week 6 - Commissioned to Continue",
           },
         ],
-        whyChosen: "We chose this resource because it gives missionaries and groups a focused, six-week path for examining discipleship without turning formation into a checklist. The companion sessions keep the book primary, add Scripture-shaped reflection, and help each participant move toward obedience, community, and disciple-making.",
+        whyChosen: "A.W. Tozer's Discipleship is a foundational resource that helps Christians wrestle with what it actually means to be a disciple of Jesus and move from belief toward obedience.",
       },
       subtitle: "A six-week guided book resource for reflecting on discipleship, obedience, and faithful growth.",
     },
