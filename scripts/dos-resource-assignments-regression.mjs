@@ -28,7 +28,7 @@ function assertCountAtLeast(source, needle, count, label) {
 }
 
 const migration = read("supabase/migrations/20260713113226_dos_resource_assignments.sql");
-const assignmentContextMigration = read("supabase/migrations/20260807145500_dos_journey_assignment_context.sql");
+const assignmentContextMigration = read("supabase/migrations/20260807151800_dos_journey_assignment_context.sql");
 const catalog = read("src/lib/dos/resource-catalog.ts");
 const assignmentTypes = read("src/lib/dos/resource-assignments.ts");
 const assignmentApiHelper = read("src/lib/dos/resource-assignments-api.ts");

@@ -22,7 +22,7 @@ const app = read("app/dos/app/DosMvpAppClient.tsx");
 const loader = read("src/lib/dos/missionary-app.ts");
 const apiRoute = read("app/api/dos/app/guided-resource-progress/route.ts");
 const migration = read("supabase/migrations/20260713160238_dos_guided_resource_progress.sql");
-const assignmentContextMigration = read("supabase/migrations/20260807145500_dos_journey_assignment_context.sql");
+const assignmentContextMigration = read("supabase/migrations/20260807151800_dos_journey_assignment_context.sql");
 const preview = read("app/dos/app/preview/page.tsx");
 const sharedGroupRoute = read("app/dos/[collectiveSlug]/page.tsx");
 
