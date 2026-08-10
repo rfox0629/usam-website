@@ -21,6 +21,7 @@ type GatheringsPayload = {
   groupId?: unknown;
   location?: unknown;
   occurrences?: unknown;
+  skip?: unknown;
   slug?: unknown;
   startsAt?: unknown;
   title?: unknown;
@@ -216,6 +217,9 @@ export async function POST(request: Request) {
     }
 
     const endsAt = asString(payload.endsAt);
+    // "skip" lazily materializes an already-canceled occurrence so a leader can skip a single
+    // week of a recurring rhythm without ever having pre-generated that gathering row.
+    const isSkip = payload.skip === true;
     const insertResult = await supabase
       .from("dos_group_gatherings")
       .insert({
@@ -224,7 +228,7 @@ export async function POST(request: Request) {
         group_id: groupId,
         location: asNullableString(payload.location),
         starts_at: startsAt,
-        status: "scheduled",
+        status: isSkip ? "canceled" : "scheduled",
         title: asString(payload.title) || "Group Gathering",
       })
       .select("id, group_id, title, starts_at, ends_at, location, description, status")

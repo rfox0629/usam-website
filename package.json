@@ -10,6 +10,7 @@
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",
+    "test:dos-groups-recurring-rhythm": "node scripts/dos-groups-recurring-rhythm-regression.mjs",
     "test:dos-public-sites": "node scripts/dos-public-sites-regression.mjs",
     "test:dos-group-member-portal": "node scripts/dos-group-member-portal-regression.mjs",
     "test:dos-group-home-ux": "node scripts/dos-group-home-ux-regression.mjs",

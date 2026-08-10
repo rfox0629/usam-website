@@ -425,7 +425,10 @@ assertIncludes(groupOverviewV2Source, 'label="Leaders"', "Groups V2 Overview mus
 assertNotIncludes(groupOverviewV2Source, "GroupQuickAction", "Groups V2 Overview must not repeat header actions.");
 assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview must not own public link actions.");
 assertIncludes(groupGatheringsTabSource, "nextUpcomingGroupGathering(group)", "Groups V2 Gatherings tab must scope contextual workflow to the true next gathering.");
-assertIncludes(groupGatheringsTabSource, "nextGathering?.id === gathering.id", "Groups V2 Route Builder must attach to the next eligible gathering row.");
+assertIncludes(groupGatheringsTabSource, "nextExpectedGroupOccurrence(group)", "Groups V2 Gatherings tab must derive the next gathering from the recurring rhythm when no occurrence has been logged yet.");
+assertIncludes(groupGatheringsTabSource, "expectedNext.gathering ? (", "Groups V2 Gatherings tab must distinguish a logged next gathering from a derived one.");
+assertIncludes(groupGatheringsTabSource, "Edit this occurrence", "Groups V2 Gatherings tab must let a leader materialize an exception to a derived next occurrence.");
+assertIncludes(groupGatheringsTabSource, "onSkipDerivedGathering", "Groups V2 Gatherings tab must let a leader skip a derived next occurrence without pre-generating gatherings.");
 assertIncludes(groupGatheringsTabSource, '<GroupRouteBuilderPlaceholder className="mt-3" compact />', "Groups V2 Route Builder must render compactly inside Gatherings.");
 assertNotIncludes(groupWorkflowBannerSource, "GroupRouteBuilderPlaceholder", "Groups Route Builder must not render above tabs or inside the standalone workflow banner.");
 assertIncludes(appClient, "groupCapacitySettingLabel", "Groups V2 must keep capacity labeling in settings/editing contexts.");

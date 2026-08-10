@@ -1685,6 +1685,63 @@ function nextUpcomingGroupGathering(group: DosAppGroup) {
   return groupUpcomingGatherings(group)[0] ?? null;
 }
 
+// A recurring group should always know when it meets next without a leader pre-generating
+// occurrence rows. When no future dos_group_gatherings row exists (the normal case for a
+// weekly group that hasn't logged an exception), fall back to the next occurrence implied by
+// the recurring rhythm itself. A materialized future gathering always wins - it represents an
+// explicit override/exception (edited time, one-off, etc).
+type GroupNextOccurrence = {
+  endsAt: string | null;
+  gathering: DosAppGroupGathering | null;
+  isDerived: boolean;
+  location: string | null;
+  startsAt: string;
+  title: string;
+};
+
+function nextExpectedGroupOccurrence(group: DosAppGroup): GroupNextOccurrence | null {
+  const scheduled = nextUpcomingGroupGathering(group);
+
+  if (scheduled) {
+    return {
+      endsAt: scheduled.endsAt,
+      gathering: scheduled,
+      isDerived: false,
+      location: scheduled.location,
+      startsAt: scheduled.startsAt,
+      title: scheduled.title,
+    };
+  }
+
+  const derived = computeGroupScheduleOccurrences(group, 1)[0];
+
+  if (!derived) {
+    return null;
+  }
+
+  return {
+    endsAt: derived.endsAt,
+    gathering: null,
+    isDerived: true,
+    location: derived.location,
+    startsAt: derived.startsAt,
+    title: derived.title,
+  };
+}
+
+function formatNextGroupOccurrence(group: DosAppGroup) {
+  const next = nextExpectedGroupOccurrence(group);
+
+  if (!next) {
+    return "Not scheduled";
+  }
+
+  const start = formatTime(next.startsAt);
+  const end = formatTime(next.endsAt);
+
+  return [formatDate(next.startsAt), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
+}
+
 function formatGroupGatheringTime(gathering: DosAppGroupGathering | null) {
   if (!gathering) {
     return "Not scheduled";
@@ -6149,11 +6206,11 @@ function LeaderJourneyProgressSheet({
   const prayerFocusCount = personProgress.filter((item) => item.prayerFocus).length;
   const status = !assignment
     ? "Not assigned"
-    : completion.total > 0 && completion.completed === completion.total
+    : assignment.status === "completed" || (completion.total > 0 && completion.completed === completion.total)
       ? "Completed"
-      : personProgress.length
-        ? "In progress"
-        : "Not started";
+      : assignment.status === "in_progress" || personProgress.length
+        ? `In progress · ${completion.completed}/${completion.total}`
+        : "Assigned · Not started";
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={`${personName} - ${resource.title}`}>
@@ -7420,8 +7477,6 @@ function GroupCard({
   onViewPublicGroup: () => void;
   pendingRequestCount?: number;
 }) {
-  const nextGathering = nextUpcomingGroupGathering(group);
-
   return (
     <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF]">
       <button
@@ -7439,7 +7494,7 @@ function GroupCard({
           <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</span>
           <span className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
             <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "No rhythm set"}</span>
-            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatNextGroupOccurrence(group)}</span>
             <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
             <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLocationSummary(group)}</span>
           </span>
@@ -7637,7 +7692,6 @@ function GroupsWorkspaceV2({
       {groupsNotice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{groupsNotice}</p> : null}
       <section className="grid gap-3">
         {visibleGroups.length ? visibleGroups.map((group) => {
-          const nextGathering = nextUpcomingGroupGathering(group);
           const pendingRequestCount = pendingRequestCounts[group.id] ?? 0;
           const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
 
@@ -7654,7 +7708,7 @@ function GroupsWorkspaceV2({
                   <span className="mt-1 line-clamp-2 block text-sm leading-5 text-[#475569]">{group.tagline ?? group.description ?? "Recurring discipleship rhythm."}</span>
                   <span className="mt-3 grid gap-1.5 text-[11px] font-bold text-[#64748B] sm:grid-cols-2 lg:grid-cols-4">
                     <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "Rhythm TBD"}</span>
-                    <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
+                    <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatNextGroupOccurrence(group)}</span>
                     <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
                     <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLeaderCountLabel(leaders.length)}</span>
                   </span>
@@ -7711,6 +7765,7 @@ function GroupDetailWorkspaceV2({
   onOpenJourney,
   onRemoveMember,
   onSchedule,
+  onSkipDerivedGathering,
   onTabChange,
   onViewPublicGroup,
   pendingRequestCount,
@@ -7722,7 +7777,7 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   notice: string;
-  onAddOneOffGathering: () => void;
+  onAddOneOffGathering: (initialDraft?: GroupGatheringOccurrenceDraft | null) => void;
   onAssignJourney: (resource?: DosResource) => void;
   onBack: () => void;
   onCancelGathering: (gathering: DosAppGroupGathering) => void;
@@ -7737,6 +7792,7 @@ function GroupDetailWorkspaceV2({
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
+  onSkipDerivedGathering: (occurrence: GroupGatheringOccurrenceDraft) => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onViewPublicGroup: () => void;
   pendingRequestCount: number;
@@ -7746,11 +7802,12 @@ function GroupDetailWorkspaceV2({
 }) {
   const selectedTab = normalizeGroupV2Tab(tab);
   const nextGathering = nextUpcomingGroupGathering(group);
+  const expectedNextOccurrence = nextExpectedGroupOccurrence(group);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
   const meetingActionLabel = nextGathering && isTodayDate(nextGathering.startsAt) && !nextGathering.startedAt ? "Start Gathering" : "Log Gathering";
-  const nextGatheringSummary = nextGathering
-    ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
+  const nextGatheringSummary = expectedNextOccurrence
+    ? `${isTodayDate(expectedNextOccurrence.startsAt) ? "Today" : formatShortDate(expectedNextOccurrence.startsAt)}${formatTime(expectedNextOccurrence.startsAt) ? ` · ${formatTime(expectedNextOccurrence.startsAt)}` : ""}`
     : "Not scheduled";
   const moreActions = [
     { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Group", onClick: onEditGroup },
@@ -7820,7 +7877,7 @@ function GroupDetailWorkspaceV2({
       </section>
       <GroupDetailTabBar onChange={onTabChange} tab={selectedTab} tabs={groupV2DetailTabs} />
       {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
-      {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
+      {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={expectedNextOccurrence} pendingRequestCount={pendingRequestCount} /> : null}
       {selectedTab === "journeys" ? (
         <GroupJourneysTabV2
           group={group}
@@ -7843,6 +7900,7 @@ function GroupDetailWorkspaceV2({
           onCancelGathering={onCancelGathering}
           onEditGathering={onEditGathering}
           onManageSchedule={onSchedule}
+          onSkipDerivedGathering={onSkipDerivedGathering}
         />
       ) : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
@@ -7880,7 +7938,7 @@ function GroupOverviewTabV2({
   pendingRequestCount,
 }: {
   group: DosAppGroup;
-  nextGathering: DosAppGroupGathering | null;
+  nextGathering: GroupNextOccurrence | null;
   pendingRequestCount: number;
 }) {
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
@@ -7917,7 +7975,11 @@ function GroupOverviewTabV2({
   );
 }
 
-function GroupOverviewNextGatheringCard({ gathering }: { gathering: DosAppGroupGathering | null }) {
+function GroupOverviewNextGatheringCard({ gathering }: { gathering: GroupNextOccurrence | null }) {
+  const start = gathering ? formatTime(gathering.startsAt) : null;
+  const end = gathering?.endsAt ? formatTime(gathering.endsAt) : null;
+  const timeLabel = gathering ? [formatDate(gathering.startsAt), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ") : null;
+
   return (
     <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-white px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
       <div className="flex items-center gap-2 text-[#2563EB]">
@@ -7925,8 +7987,9 @@ function GroupOverviewNextGatheringCard({ gathering }: { gathering: DosAppGroupG
         <p className="truncate text-[10px] font-black uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>Next Gathering</p>
       </div>
       <p className="mt-2 truncate text-sm font-black text-[#0F172A]">{gathering?.title ?? "Not scheduled"}</p>
-      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering ? formatGroupGatheringTime(gathering) : "Schedule in Gatherings"}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{timeLabel ?? "Set a recurring rhythm in Settings"}</p>
       {gathering?.location ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering.location}</p> : null}
+      {gathering?.isDerived ? <p className="mt-1 truncate text-[11px] font-semibold text-[#94A3B8]">Derived from recurring rhythm</p> : null}
     </div>
   );
 }
@@ -8000,14 +8063,19 @@ function computeGroupFocusAssignment(group: DosAppGroup, resourceAssignments: re
   return { activeMembers, focusAssignment, groupAssignments, memberPersonIds };
 }
 
-type GroupJourneyRowState = "current" | "upcoming" | "completed";
+// A Journey's group-level lifecycle is its own study-period timing, never the aggregate
+// completion state of its participants - a group can have an incomplete participant on a
+// Journey whose study period has still ended, and that must read as "past", not "current".
+type GroupJourneyRowState = "current" | "past" | "upcoming";
 
 type GroupJourneyRow = {
   assignments: DosAppResourceAssignment[];
+  earliestStartDate: string | null;
   latestDate: string | null;
   resource: DosResource;
   resourceSlug: string;
   state: GroupJourneyRowState;
+  studyPeriodEndDate: string | null;
 };
 
 // A group can run multiple journeys at once (e.g. a reading plan sprint alongside a
@@ -8028,31 +8096,49 @@ function computeGroupJourneyRows(group: DosAppGroup, resourceAssignments: readon
   });
 
   const rows: GroupJourneyRow[] = [];
+  const now = Date.now();
+
   assignmentsBySlug.forEach((assignments, resourceSlug) => {
     const resource = getDosResourceBySlug(resourceSlug);
     if (!resource) {
       return;
     }
 
-    const state: GroupJourneyRowState = assignments.every((assignment) => assignment.status === "completed")
-      ? "completed"
-      : assignments.every((assignment) => assignment.status === "not_started")
-        ? "upcoming"
-        : "current";
+    const startTimes = assignments.map((assignment) => new Date(assignment.startDate).getTime()).filter((time) => !Number.isNaN(time));
+    const earliestStartTime = startTimes.length ? Math.min(...startTimes) : null;
+    const dueTimes = assignments
+      .map((assignment) => (assignment.dueDate ? new Date(assignment.dueDate).getTime() : null))
+      .filter((time): time is number => time !== null && !Number.isNaN(time));
+    // Only trust the study-period end date when every assignment in the row has one - a
+    // partial set would understate when the group's study period actually ends.
+    const studyPeriodEndTime = dueTimes.length === assignments.length && dueTimes.length > 0 ? Math.max(...dueTimes) : null;
+    const state: GroupJourneyRowState = earliestStartTime !== null && earliestStartTime > now
+      ? "upcoming"
+      : studyPeriodEndTime !== null
+        ? (studyPeriodEndTime < now ? "past" : "current")
+        : (assignments.every((assignment) => assignment.status === "completed") ? "past" : "current");
     const latestDate = assignments
       .slice()
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0]?.startDate ?? null;
 
-    rows.push({ assignments, latestDate, resource, resourceSlug, state });
+    rows.push({
+      assignments,
+      earliestStartDate: earliestStartTime !== null ? new Date(earliestStartTime).toISOString() : null,
+      latestDate,
+      resource,
+      resourceSlug,
+      state,
+      studyPeriodEndDate: studyPeriodEndTime !== null ? new Date(studyPeriodEndTime).toISOString() : null,
+    });
   });
 
   rows.sort((a, b) => new Date(b.latestDate ?? 0).getTime() - new Date(a.latestDate ?? 0).getTime());
 
   return {
     activeMembers,
-    completedRows: rows.filter((row) => row.state === "completed"),
     currentRows: rows.filter((row) => row.state === "current"),
     groupAssignments,
+    pastRows: rows.filter((row) => row.state === "past"),
     upcomingRows: rows.filter((row) => row.state === "upcoming"),
   };
 }
@@ -8103,8 +8189,13 @@ function GroupJourneysTabV2({
   // first current journey"; "" means the user deliberately collapsed every row.
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
 
-  const { activeMembers, completedRows, currentRows, groupAssignments, upcomingRows } = computeGroupJourneyRows(group, resourceAssignments);
-  const hasAnyJourney = currentRows.length > 0 || upcomingRows.length > 0 || completedRows.length > 0;
+  const { activeMembers, currentRows, groupAssignments, pastRows, upcomingRows } = computeGroupJourneyRows(group, resourceAssignments);
+  const hasAnyJourney = currentRows.length > 0 || upcomingRows.length > 0 || pastRows.length > 0;
+  const journeysSummary = [
+    currentRows.length ? `${currentRows.length} current` : null,
+    upcomingRows.length ? `${upcomingRows.length} upcoming` : null,
+    pastRows.length ? `${pastRows.length} past` : null,
+  ].filter(Boolean).join(" · ");
   const effectiveExpandedSlug = expandedSlug === null ? (currentRows[0]?.resourceSlug ?? upcomingRows[0]?.resourceSlug ?? null) : (expandedSlug || null);
 
   function toggleExpand(resourceSlug: string) {
@@ -8180,7 +8271,7 @@ function GroupJourneysTabV2({
           </div>
         )}
         eyebrow="Journeys"
-        title={hasAnyJourney ? `${currentRows.length + upcomingRows.length} active · ${completedRows.length} completed` : "No journey yet"}
+        title={hasAnyJourney ? journeysSummary : "No journey yet"}
       >
         {!hasAnyJourney ? (
           <SectionEmptyState
@@ -8219,14 +8310,14 @@ function GroupJourneysTabV2({
               </div>
             ) : null}
 
-            {completedRows.length ? (
+            {pastRows.length ? (
               <details className="group rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
                 <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  Completed ({completedRows.length})
+                  Past · Study period ended ({pastRows.length})
                   <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
                 </summary>
                 <div className="mt-2 grid gap-2">
-                  {completedRows.map((row) => (
+                  {pastRows.map((row) => (
                     <GroupJourneyRowCard {...rowCardProps} isExpanded={effectiveExpandedSlug === row.resourceSlug} key={row.resourceSlug} row={row} />
                   ))}
                 </div>
@@ -8266,11 +8357,20 @@ function GroupJourneyRowCard({
   const sessions = guidedResourceSessions(resource);
   const completedCount = assignments.filter((assignment) => assignment.status === "completed").length;
   const inProgressCount = assignments.filter((assignment) => assignment.status === "in_progress").length;
-  const dateLabel = state === "completed"
-    ? `Completed ${formatShortDate(row.latestDate)}`
+  const stateLabel = state === "past" ? "Past" : state === "upcoming" ? "Upcoming" : "Current";
+  const stateTone = state === "past" ? "gray" : state === "upcoming" ? "blue" : "green";
+  // Group Journey lifecycle (Current/Upcoming/Past) is date-driven and independent of
+  // participant completion, so this date range never implies every participant finished.
+  const dateRangeLabel = state === "past"
+    ? `Study period ended ${formatShortDate(row.studyPeriodEndDate ?? row.latestDate)}`
     : state === "upcoming"
-      ? `Assigned ${formatShortDate(row.latestDate)}`
-      : `Started ${formatShortDate(row.latestDate)}`;
+      ? `Starts ${formatShortDate(row.earliestStartDate ?? row.latestDate)}`
+      : row.studyPeriodEndDate
+        ? `${formatShortDate(row.earliestStartDate ?? row.latestDate)} - ${formatShortDate(row.studyPeriodEndDate)}`
+        : `Started ${formatShortDate(row.latestDate)}`;
+  const participantSummary = state === "past"
+    ? `${completedCount} of ${assignments.length} ${assignments.length === 1 ? "participant" : "participants"} completed`
+    : `${assignments.length}/${activeMembers.length} ${activeMembers.length === 1 ? "member" : "members"}${completedCount ? ` · ${completedCount} completed` : ""}${inProgressCount ? ` · ${inProgressCount} in progress` : ""}`;
 
   return (
     <div className={`overflow-hidden rounded-[20px] border transition-colors ${isExpanded ? "border-[#BFDBFE] bg-[#F8FBFF]" : "border-[#EAF2FF] bg-white"}`}>
@@ -8289,15 +8389,15 @@ function GroupJourneyRowCard({
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-[#0F172A]">{resource.title}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="truncate text-sm font-black text-[#0F172A]">{resource.title}</p>
+            <GroupPill tone={stateTone}>{stateLabel}</GroupPill>
+          </div>
           <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">
-            {resourceTypeLabel(resource)} · {resourceSessionCountLabel(resource, sessions.length)}
+            {resourceTypeLabel(resource)} · {resourceSessionCountLabel(resource, sessions.length)}{resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}
           </p>
           <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">
-            {assignments.length}/{activeMembers.length} {activeMembers.length === 1 ? "member" : "members"}
-            {completedCount ? ` · ${completedCount} completed` : ""}
-            {state === "current" && inProgressCount ? ` · ${inProgressCount} in progress` : ""}
-            {" · "}{dateLabel}
+            {participantSummary}{" · "}{dateRangeLabel}
           </p>
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isExpanded ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={1.9} />
@@ -8317,13 +8417,17 @@ function GroupJourneyRowCard({
             const completedSessionIds = new Set(progressRows.filter((item) => item.completedAt).map((item) => item.sessionId));
             const currentSession = sessions.find((session) => !completedSessionIds.has(session.id));
             const latestProgress = progressRows.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
+            const isSessionComplete = sessions.length > 0 && completedSessionIds.size === sessions.length;
+            // Participant progress is reported independently of the row's Current/Upcoming/Past
+            // lifecycle badge above - a Past (study-period-ended) journey can still honestly
+            // show a participant as "Assigned - Not started" rather than implying completion.
             const status = !assignment
               ? "Not assigned"
-              : sessions.length > 0 && completedSessionIds.size === sessions.length
+              : assignment.status === "completed" || isSessionComplete
                 ? "Completed"
-                : progressRows.length
-                  ? "In progress"
-                  : "Not started";
+                : assignment.status === "in_progress" || progressRows.length
+                  ? `In progress${sessions.length ? ` · ${completedSessionIds.size}/${sessions.length}` : ""}`
+                  : "Assigned · Not started";
 
             return (
               <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
@@ -8549,6 +8653,7 @@ function GroupsWorkspace({
   onSchedule,
   onSearchChange,
   onSelectListView,
+  onSkipDerivedGathering,
   onTakeAttendance,
   onViewPublicGroup,
   pendingRequestCounts,
@@ -8564,7 +8669,7 @@ function GroupsWorkspace({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isSimplifiedV2: boolean;
   isPreview: boolean;
-  onAddOneOffGathering: () => void;
+  onAddOneOffGathering: (initialDraft?: GroupGatheringOccurrenceDraft | null) => void;
   onAddPrayer: () => void;
   onAssignJourney: (group: DosAppGroup, resource?: DosResource) => void;
   onCancelGathering: (gathering: DosAppGroupGathering) => void;
@@ -8586,6 +8691,7 @@ function GroupsWorkspace({
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
   onSelectListView: (view: GroupsListView) => void;
+  onSkipDerivedGathering: (occurrence: GroupGatheringOccurrenceDraft) => void;
   onTakeAttendance: () => void;
   onViewPublicGroup: (group: DosAppGroup) => void;
   pendingRequestCounts: Record<string, number>;
@@ -8619,6 +8725,7 @@ function GroupsWorkspace({
           onOpenJourney={onOpenJourney}
           onRemoveMember={onRemoveMember}
           onSchedule={onSchedule}
+          onSkipDerivedGathering={onSkipDerivedGathering}
           onTabChange={onDetailTabChange}
           onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
           pendingRequestCount={pendingRequestCounts[selectedGroup.id] ?? 0}
@@ -8647,6 +8754,7 @@ function GroupsWorkspace({
         onLogAsTable={onLogAsTable}
         onRemoveMember={onRemoveMember}
         onSchedule={onSchedule}
+        onSkipDerivedGathering={onSkipDerivedGathering}
         onTabChange={onDetailTabChange}
         onTakeAttendance={onTakeAttendance}
         onViewPublicGroup={() => onViewPublicGroup(selectedGroup)}
@@ -8758,6 +8866,7 @@ function GroupDetailWorkspace({
   onLogAsTable,
   onRemoveMember,
   onSchedule,
+  onSkipDerivedGathering,
   onTabChange,
   onTakeAttendance,
   tab,
@@ -8766,7 +8875,7 @@ function GroupDetailWorkspace({
   group: DosAppGroup;
   isPreview: boolean;
   notice: string;
-  onAddOneOffGathering: () => void;
+  onAddOneOffGathering: (initialDraft?: GroupGatheringOccurrenceDraft | null) => void;
   onAddPrayer: () => void;
   onBack: () => void;
   onCancelGathering: (gathering: DosAppGroupGathering) => void;
@@ -8780,6 +8889,7 @@ function GroupDetailWorkspace({
   onLogAsTable: () => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
+  onSkipDerivedGathering: (occurrence: GroupGatheringOccurrenceDraft) => void;
   onTabChange: (tab: GroupDetailTab) => void;
   onTakeAttendance: () => void;
   tab: GroupDetailTab;
@@ -9059,6 +9169,7 @@ function GroupDetailWorkspace({
           onCancelGathering={onCancelGathering}
           onEditGathering={onEditGathering}
           onManageSchedule={onSchedule}
+          onSkipDerivedGathering={onSkipDerivedGathering}
         />
       ) : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
@@ -9769,6 +9880,7 @@ function GroupOverviewTab({
   prayerDrafts: GroupPrayerDraft[];
 }) {
   const upcoming = groupUpcomingGatherings(group).slice(0, 3);
+  const expectedNext = nextExpectedGroupOccurrence(group);
   const recentPrayerTitles = [
     ...prayerDrafts.map((request) => request.title || "New prayer request"),
     ...group.prayerRequests.map((request) => request.title),
@@ -9777,8 +9889,8 @@ function GroupOverviewTab({
   const upcomingCount = groupUpcomingGatherings(group).length;
   const mobileSummaryItems = [
     {
-      body: nextGathering ? formatGroupGatheringTime(nextGathering) : "Schedule the next rhythm.",
-      meta: nextGathering?.location ?? "Location TBD",
+      body: nextGathering ? formatGroupGatheringTime(nextGathering) : formatNextGroupOccurrence(group),
+      meta: nextGathering?.location ?? expectedNext?.location ?? "Location TBD",
       title: "Next Gathering",
     },
     {
@@ -9832,7 +9944,11 @@ function GroupOverviewTab({
           eyebrow="Next"
           title="Next Gathering"
         >
-          {nextGathering ? <GroupGatheringRow gathering={nextGathering} /> : <p className="text-sm text-[#64748B]">No gathering scheduled.</p>}
+          {nextGathering ? (
+            <GroupGatheringRow gathering={nextGathering} />
+          ) : (
+            <p className="text-sm text-[#64748B]">{expectedNext ? `Next: ${formatNextGroupOccurrence(group)} (derived from recurring rhythm)` : "Set a recurring rhythm in Settings."}</p>
+          )}
         </DesktopPanel>
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
           <DesktopPanel eyebrow="Attendance" title="Attendance Trend">
@@ -11362,22 +11478,25 @@ function GroupScheduleGenerateSheet({
 
 function GroupGatheringFormSheet({
   gathering,
+  initialDraft,
   isSubmitting,
   message,
   onClose,
   onSave,
 }: {
   gathering: DosAppGroupGathering | null;
+  initialDraft?: GroupGatheringOccurrenceDraft | null;
   isSubmitting: boolean;
   message: { text: string; tone: "error" | "success" } | null;
   onClose: () => void;
   onSave: (payload: { description: string; endsAt: string | null; location: string; startsAt: string; title: string }) => void;
 }) {
-  const [title, setTitle] = useState(gathering?.title ?? "Group Gathering");
-  const [date, setDate] = useState(gathering ? isoToDateInputValue(gathering.startsAt) : todayDateValue());
-  const [startTime, setStartTime] = useState(gathering ? isoToTimeInputValue(gathering.startsAt) : "18:00");
-  const [endTime, setEndTime] = useState(gathering?.endsAt ? isoToTimeInputValue(gathering.endsAt) : "");
-  const [location, setLocation] = useState(gathering?.location ?? "");
+  const seed = gathering ?? initialDraft ?? null;
+  const [title, setTitle] = useState(seed?.title ?? "Group Gathering");
+  const [date, setDate] = useState(seed ? isoToDateInputValue(seed.startsAt) : todayDateValue());
+  const [startTime, setStartTime] = useState(seed ? isoToTimeInputValue(seed.startsAt) : "18:00");
+  const [endTime, setEndTime] = useState(seed?.endsAt ? isoToTimeInputValue(seed.endsAt) : "");
+  const [location, setLocation] = useState(seed?.location ?? "");
   const [description, setDescription] = useState(gathering?.description ?? "");
 
   function submit() {
@@ -11397,7 +11516,7 @@ function GroupGatheringFormSheet({
   }
 
   return (
-    <Sheet onClose={onClose} title={gathering ? "Edit Gathering" : "Add One-off Gathering"}>
+    <Sheet onClose={onClose} title={gathering ? "Edit Gathering" : initialDraft ? "Edit This Occurrence" : "Add One-off Gathering"}>
       <div className="grid gap-4">
         {message ? (
           <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
@@ -11516,54 +11635,96 @@ function GroupGatheringsTab({
   onCancelGathering,
   onEditGathering,
   onManageSchedule,
+  onSkipDerivedGathering,
 }: {
   group: DosAppGroup;
   isPreview: boolean;
-  onAddOneOff: () => void;
+  onAddOneOff: (initialDraft?: GroupGatheringOccurrenceDraft | null) => void;
   onCancelGathering: (gathering: DosAppGroupGathering) => void;
   onEditGathering: (gathering: DosAppGroupGathering) => void;
   onManageSchedule: () => void;
+  onSkipDerivedGathering: (occurrence: GroupGatheringOccurrenceDraft) => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const upcoming = groupUpcomingGatherings(group);
+  const nextScheduled = nextUpcomingGroupGathering(group);
+  const otherUpcoming = nextScheduled ? upcoming.filter((gathering) => gathering.id !== nextScheduled.id) : upcoming;
   const upcomingIds = new Set(upcoming.map((gathering) => gathering.id));
   const past = sortedGroupGatherings(group).filter((gathering) => !upcomingIds.has(gathering.id)).reverse();
-  const nextGathering = nextUpcomingGroupGathering(group);
+  const expectedNext = nextExpectedGroupOccurrence(group);
   const showRouteBuilder = isRouteBuilderEligibleGroup(group);
 
   return (
     <DesktopPanel
       action={(
-        <div className="flex flex-wrap gap-2 sm:justify-end">
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]" onClick={onManageSchedule} type="button">
-            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            {group.rhythmLabel ? "Schedule Gatherings" : "Set Up Schedule"}
-          </button>
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddOneOff} type="button">
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            One-off Gathering
-          </button>
-        </div>
+        <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={() => onAddOneOff()} type="button">
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+          One-off Gathering
+        </button>
       )}
       eyebrow="Gatherings"
-      title={upcoming.length ? `${upcoming.length} upcoming` : "No upcoming gatherings"}
+      title={group.rhythmLabel ?? "No recurring rhythm set"}
     >
-      {upcoming.length ? (
-        <div className="grid gap-2">
-          {upcoming.map((gathering) => (
-            <GroupGatheringRow gathering={gathering} isPreview={isPreview} key={gathering.id} onCancel={onCancelGathering} onEdit={onEditGathering}>
-              {showRouteBuilder && nextGathering?.id === gathering.id ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Next Gathering</p>
+      {expectedNext ? (
+        expectedNext.gathering ? (
+          <div className="mt-2">
+            <GroupGatheringRow gathering={expectedNext.gathering} isPreview={isPreview} onCancel={onCancelGathering} onEdit={onEditGathering}>
+              {showRouteBuilder ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
             </GroupGatheringRow>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="mt-2 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-[#0F172A]">{expectedNext.title}</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{formatNextGroupOccurrence(group)}</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{expectedNext.location ?? "Location TBD"}</p>
+              </div>
+              <GroupPill tone="blue">from rhythm</GroupPill>
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-[#94A3B8]">Derived from the recurring rhythm - not yet its own logged gathering.</p>
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#EAF2FF] pt-3">
+              <button
+                className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isPreview}
+                onClick={() => onAddOneOff({ endsAt: expectedNext.endsAt, location: expectedNext.location, startsAt: expectedNext.startsAt, title: expectedNext.title })}
+                type="button"
+              >
+                Edit this occurrence
+              </button>
+              <button
+                className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isPreview}
+                onClick={() => onSkipDerivedGathering({ endsAt: expectedNext.endsAt, location: expectedNext.location, startsAt: expectedNext.startsAt, title: expectedNext.title })}
+                type="button"
+              >
+                Skip
+              </button>
+            </div>
+            {showRouteBuilder ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
+          </div>
+        )
       ) : (
         <SectionEmptyState
-          action={<CompactButton icon="calendar" onClick={onManageSchedule}>Schedule Gatherings</CompactButton>}
-          text={group.rhythmLabel ? "Generate upcoming occurrences from the group's recurring rhythm, or add a one-off gathering." : "Set the group's recurring rhythm in Settings, then schedule real upcoming gatherings here."}
-          title="No gatherings scheduled yet."
+          action={<CompactButton icon="settings" onClick={onManageSchedule}>Set Recurring Rhythm</CompactButton>}
+          text="Set the group's weekly day/time rhythm in Settings so DOS can show when this group meets next."
+          title="No recurring rhythm set yet."
         />
       )}
-      {showRouteBuilder && !nextGathering ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
+      {otherUpcoming.length ? (
+        <div className="mt-4 grid gap-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Also Scheduled</p>
+          {otherUpcoming.map((gathering) => (
+            <GroupGatheringRow gathering={gathering} isPreview={isPreview} key={gathering.id} onCancel={onCancelGathering} onEdit={onEditGathering} />
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-4">
+        <button className="text-xs font-black text-[#64748B] transition-colors hover:text-[#2563EB]" onClick={onManageSchedule} type="button">
+          Advanced: schedule several gatherings at once
+        </button>
+      </div>
       {past.length ? (
         <div className="mt-4 border-t border-[#EAF2FF] pt-3">
           <button className="text-xs font-black text-[#2563EB]" onClick={() => setShowHistory((current) => !current)} type="button">
@@ -34485,7 +34646,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [isScheduleGatheringsOpen, setIsScheduleGatheringsOpen] = useState(false);
-  const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: DosAppGroupGathering | null; groupId: string } | null>(null);
+  const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: DosAppGroupGathering | null; groupId: string; initialDraft?: GroupGatheringOccurrenceDraft | null } | null>(null);
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
@@ -35509,14 +35670,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGatheringMessage(null);
   }
 
-  function openOneOffGatheringSheet() {
+  function openOneOffGatheringSheet(initialDraft?: GroupGatheringOccurrenceDraft | null) {
     if (!selectedGroup) {
       return;
     }
 
     setGroupsNotice("");
     setGatheringMessage(null);
-    setGatheringFormSheet({ gathering: null, groupId: selectedGroup.id });
+    setGatheringFormSheet({ gathering: null, groupId: selectedGroup.id, initialDraft: initialDraft ?? null });
   }
 
   function openEditGatheringSheet(gathering: DosAppGroupGathering) {
@@ -36044,6 +36205,63 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const saved = fillGatheringDefaults(result.gathering);
 
       mergeGroupGatherings(groupId, (gatherings) => gatherings.map((item) => (item.id === saved.id ? saved : item)));
+      setGroupsNotice("Gathering skipped.");
+      router.refresh();
+    } catch (error) {
+      setGroupsNotice(error instanceof Error ? error.message : "Unable to skip this gathering.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // Skipping a derived (not-yet-materialized) occurrence lazily creates a single canceled
+  // dos_group_gatherings row for that date, so leaders can skip one week of a recurring
+  // rhythm without ever pre-generating occurrence rows for the group.
+  async function skipDerivedOccurrence(occurrence: GroupGatheringOccurrenceDraft) {
+    if (!selectedGroup) {
+      return;
+    }
+
+    if (isPreview) {
+      setGroupsNotice("Preview mode is read-only. Demo changes are not saved.");
+      return;
+    }
+
+    if (!window.confirm(`Skip ${occurrence.title} on ${formatDate(occurrence.startsAt)}?`)) {
+      return;
+    }
+
+    const groupId = selectedGroup.id;
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/gatherings", {
+        body: JSON.stringify({
+          action: "one_off",
+          description: null,
+          endsAt: occurrence.endsAt,
+          groupId,
+          location: occurrence.location,
+          skip: true,
+          startsAt: occurrence.startsAt,
+          title: occurrence.title,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; gathering?: DosAppGroupGathering; ok?: boolean };
+
+      if (!response.ok || !result.gathering) {
+        throw new Error(result.error ?? "Unable to skip this gathering.");
+      }
+
+      const saved = fillGatheringDefaults(result.gathering);
+
+      mergeGroupGatherings(groupId, (gatherings) => [...gatherings, saved]);
       setGroupsNotice("Gathering skipped.");
       router.refresh();
     } catch (error) {
@@ -40083,6 +40301,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onSchedule={openScheduleGatheringsSheet}
                     onSearchChange={setGroupQuery}
                     onSelectListView={setGroupsView}
+                    onSkipDerivedGathering={(occurrence) => void skipDerivedOccurrence(occurrence)}
                     onTakeAttendance={() => showGroupsPlaceholder("Take Attendance")}
                     onViewPublicGroup={viewPublicGroup}
                     pendingRequestCounts={pendingGroupJoinRequestCounts}
@@ -41093,6 +41312,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {gatheringFormSheet ? (
           <GroupGatheringFormSheet
             gathering={gatheringFormSheet.gathering}
+            initialDraft={gatheringFormSheet.initialDraft}
             isSubmitting={isSubmitting}
             message={gatheringMessage}
             onClose={closeGatheringFormSheet}
