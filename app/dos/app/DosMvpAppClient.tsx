@@ -309,7 +309,11 @@ type GroupSettingsSavePayload = {
   endTime: string;
   groupId: string;
   leaderPersonId: string;
+  locationAddress: string;
+  locationLabel: string;
   name: string;
+  recurrenceEffectiveDate: string;
+  recurrenceEndDate: string;
   rhythmLabel: string;
   scriptureReference: string;
   scriptureText: string;
@@ -1698,6 +1702,166 @@ function groupMemberCountLabel(count: number) {
 
 function groupCapacitySettingLabel(capacity: number | null) {
   return typeof capacity === "number" && capacity > 0 ? `${capacity}` : "No limit";
+}
+
+function groupLocationSummary(group: DosAppGroup) {
+  const label = group.locationLabel ?? group.defaultLocation;
+
+  return [label, group.locationAddress].filter(Boolean).join(" — ") || "Location TBD";
+}
+
+function groupScheduleWindowLabel(group: DosAppGroup) {
+  if (!group.recurrenceEffectiveDate) {
+    return "Not set";
+  }
+
+  const start = formatDate(group.recurrenceEffectiveDate);
+
+  return group.recurrenceEndDate ? `${start} – ${formatDate(group.recurrenceEndDate)}` : `${start} – ongoing`;
+}
+
+function localDateAndMinutesToIso(date: Date, minutes: number | null) {
+  if (minutes === null) {
+    return null;
+  }
+
+  const combined = new Date(date);
+  combined.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+
+  return combined.toISOString();
+}
+
+type GroupGatheringOccurrenceDraft = {
+  endsAt: string | null;
+  location: string | null;
+  startsAt: string;
+  title: string;
+};
+
+// Derives real upcoming occurrence dates from the group's recurring rhythm (Settings ->
+// weekly schedule slots + effective/end date) so "Schedule Gatherings" can materialize
+// dos_group_gatherings rows instead of leaving the header rhythm as the only source of truth.
+function computeGroupScheduleOccurrences(group: DosAppGroup, countPerSlot: number): GroupGatheringOccurrenceDraft[] {
+  const slots = parseGroupRhythmSlots(group).filter((slot) => slot.dayOfWeek && slot.startTime);
+
+  if (!slots.length) {
+    return [];
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const effectiveDate = group.recurrenceEffectiveDate ? new Date(`${group.recurrenceEffectiveDate}T00:00:00`) : today;
+  const startDate = effectiveDate.getTime() > today.getTime() ? effectiveDate : today;
+  const endDate = group.recurrenceEndDate ? new Date(`${group.recurrenceEndDate}T23:59:59`) : null;
+  const location = groupLocationSummary(group);
+  const locationValue = location === "Location TBD" ? null : location;
+  const occurrences: GroupGatheringOccurrenceDraft[] = [];
+
+  slots.forEach((slot) => {
+    const targetWeekday = groupWeekdayOptions.findIndex((day) => day === slot.dayOfWeek);
+
+    if (targetWeekday < 0) {
+      return;
+    }
+
+    const startMinutes = groupTimeToMinutes(slot.startTime);
+
+    if (startMinutes === null) {
+      return;
+    }
+
+    const endMinutes = slot.endTime ? groupTimeToMinutes(slot.endTime) : null;
+    const cursor = new Date(startDate);
+
+    while (cursor.getDay() !== targetWeekday) {
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    for (let generated = 0; generated < countPerSlot; generated += 1) {
+      if (endDate && cursor.getTime() > endDate.getTime()) {
+        break;
+      }
+
+      const startsAt = localDateAndMinutesToIso(cursor, startMinutes);
+
+      if (startsAt) {
+        occurrences.push({
+          endsAt: localDateAndMinutesToIso(cursor, endMinutes),
+          location: locationValue,
+          startsAt,
+          title: group.name,
+        });
+      }
+
+      cursor.setDate(cursor.getDate() + 7);
+    }
+  });
+
+  return occurrences.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+}
+
+function fillGatheringDefaults(row: {
+  description: string | null;
+  endsAt: string | null;
+  id: string;
+  location: string | null;
+  startsAt: string;
+  status: "scheduled" | "completed" | "canceled";
+  title: string;
+}): DosAppGroupGathering {
+  return {
+    actingLeaderPersonId: null,
+    attendance: [],
+    completedAt: null,
+    description: row.description,
+    endsAt: row.endsAt,
+    fruitSummary: null,
+    id: row.id,
+    linkedTableEventId: null,
+    location: row.location,
+    ministryEventId: null,
+    sharedFollowUp: null,
+    sharedNotes: null,
+    sharedPrayerSummary: null,
+    startsAt: row.startsAt,
+    startedAt: null,
+    status: row.status,
+    title: row.title,
+  };
+}
+
+function isoToDateInputValue(value: string) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function isoToTimeInputValue(value: string) {
+  const date = parseDisplayDate(value);
+
+  if (!date) {
+    return "";
+  }
+
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function dateAndTimeInputToIso(dateValue: string, timeValue: string) {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const date = new Date(`${dateValue}T${timeValue}:00`);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function groupSearchText(group: DosAppGroup) {
@@ -5361,7 +5525,6 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
-  const isFeaturedReadingPlan = resource.type === "reading_plan" && resource.featured && !onClick;
   const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
@@ -5407,10 +5570,11 @@ function CatalogResourceRow({
             </div>
             <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
             {resource.author ? <p className="mt-1 text-xs font-bold leading-5 text-[#475569]">{resource.author}</p> : null}
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              <span>{`Type: ${typeLabel}`}</span>
-              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
-            </div>
+            {resource.estimatedDuration ? (
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                <span>{`Duration: ${resource.estimatedDuration}`}</span>
+              </div>
+            ) : null}
             <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
             {completion.total ? (
               <div className="mt-3">
@@ -5436,14 +5600,16 @@ function CatalogResourceRow({
               Assign
             </button>
           ) : null}
-          <button
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            onClick={() => onOpenGuidedResource?.(resource)}
-            type="button"
-          >
-            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            {completion.completed ? "Continue" : "Open"}
-          </button>
+          {onOpenGuidedResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
+              onClick={() => onOpenGuidedResource(resource)}
+              type="button"
+            >
+              <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              {completion.completed ? "Continue" : "Open"}
+            </button>
+          ) : null}
           {purchaseLink ? (
             <a
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
@@ -5455,62 +5621,6 @@ function CatalogResourceRow({
               Purchase Book
             </a>
           ) : resource.downloadPath ? (
-            <a
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
-              download
-              href={resource.downloadPath}
-            >
-              <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Download PDF
-            </a>
-          ) : null}
-        </div>
-      </article>
-    );
-  }
-
-  if (isFeaturedReadingPlan) {
-    return (
-      <article className="px-3.5 py-3.5">
-        <div className="flex items-start gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
-            <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
-                FEATURED
-              </span>
-              <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                READING PLAN
-              </span>
-            </div>
-            <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              <span>{`Type: ${typeLabel}`}</span>
-              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
-          {canAssignResource ? (
-            <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
-              onClick={() => onAssign?.(resource)}
-              type="button"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
-            </button>
-          ) : null}
-          <a
-            className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            href={resourceHref}
-          >
-            Read Online
-          </a>
-          {resource.downloadPath ? (
             <a
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
               download
@@ -6504,7 +6614,7 @@ function DesktopPanel({
   return (
     <section className={`${compact ? "rounded-[22px] p-3.5 xl:p-4" : "rounded-[24px] p-4 xl:p-5"} border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)] ${className}`}>
       {eyebrow || title ? (
-        <div className={`${compact ? "mb-2.5" : "mb-3"} flex items-start justify-between gap-3`}>
+        <div className={`${compact ? "mb-2.5" : "mb-3"} flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between`}>
           <div className="min-w-0">
             {eyebrow ? (
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
@@ -7310,7 +7420,7 @@ function GroupCard({
   onViewPublicGroup: () => void;
   pendingRequestCount?: number;
 }) {
-  const nextGathering = nextGroupGathering(group);
+  const nextGathering = nextUpcomingGroupGathering(group);
 
   return (
     <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.05)] transition-colors hover:border-[#93C5FD] hover:bg-[#FBFDFF]">
@@ -7331,7 +7441,7 @@ function GroupCard({
             <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "No rhythm set"}</span>
             <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{formatGroupGatheringTime(nextGathering)}</span>
             <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
-            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{group.defaultLocation ?? "Location TBD"}</span>
+            <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLocationSummary(group)}</span>
           </span>
         </span>
         <ChevronRight className="hidden h-5 w-5 text-[#94A3B8] min-[560px]:block" aria-hidden="true" strokeWidth={1.9} />
@@ -7527,7 +7637,7 @@ function GroupsWorkspaceV2({
       {groupsNotice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{groupsNotice}</p> : null}
       <section className="grid gap-3">
         {visibleGroups.length ? visibleGroups.map((group) => {
-          const nextGathering = nextGroupGathering(group);
+          const nextGathering = nextUpcomingGroupGathering(group);
           const pendingRequestCount = pendingRequestCounts[group.id] ?? 0;
           const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
 
@@ -7586,10 +7696,13 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress,
   isPreview,
   notice,
+  onAddOneOffGathering,
   onAssignJourney,
   onBack,
+  onCancelGathering,
   onCopyGroupReminder,
   onCopyPublicLink,
+  onEditGathering,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
@@ -7609,10 +7722,13 @@ function GroupDetailWorkspaceV2({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isPreview: boolean;
   notice: string;
+  onAddOneOffGathering: () => void;
   onAssignJourney: (resource?: DosResource) => void;
   onBack: () => void;
+  onCancelGathering: (gathering: DosAppGroupGathering) => void;
   onCopyGroupReminder: () => void;
   onCopyPublicLink: () => void;
+  onEditGathering: (gathering: DosAppGroupGathering) => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
@@ -7719,7 +7835,16 @@ function GroupDetailWorkspaceV2({
         />
       ) : null}
       {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
-      {selectedTab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {selectedTab === "gatherings" ? (
+        <GroupGatheringsTab
+          group={group}
+          isPreview={isPreview}
+          onAddOneOff={onAddOneOffGathering}
+          onCancelGathering={onCancelGathering}
+          onEditGathering={onEditGathering}
+          onManageSchedule={onSchedule}
+        />
+      ) : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
       {isMoreActionsOpen ? (
         <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
@@ -8043,7 +8168,7 @@ function GroupJourneysTabV2({
     <div className="grid gap-3">
       <DesktopPanel
         action={(
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={() => onAssignJourney()} type="button">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
               Assign Journey
@@ -8402,13 +8527,16 @@ function GroupsWorkspace({
   guidedResourceProgress,
   isSimplifiedV2,
   isPreview,
+  onAddOneOffGathering,
   onAddPrayer,
   onAssignJourney,
+  onCancelGathering,
   onCopyGroupReminder,
   onCopyPublicDirectoryLink,
   onCopyPublicLink,
   onCreateGroup,
   onDetailTabChange,
+  onEditGathering,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
@@ -8436,13 +8564,16 @@ function GroupsWorkspace({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isSimplifiedV2: boolean;
   isPreview: boolean;
+  onAddOneOffGathering: () => void;
   onAddPrayer: () => void;
   onAssignJourney: (group: DosAppGroup, resource?: DosResource) => void;
+  onCancelGathering: (gathering: DosAppGroupGathering) => void;
   onCopyGroupReminder: (group: DosAppGroup) => void;
   onCopyPublicDirectoryLink: () => void;
   onCopyPublicLink: (group: DosAppGroup) => void;
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
+  onEditGathering: (gathering: DosAppGroupGathering) => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
@@ -8473,10 +8604,13 @@ function GroupsWorkspace({
           guidedResourceProgress={guidedResourceProgress}
           isPreview={isPreview}
           notice={groupsNotice}
+          onAddOneOffGathering={onAddOneOffGathering}
           onAssignJourney={(resource) => onAssignJourney(selectedGroup, resource)}
           onBack={() => onOpenGroup("")}
+          onCancelGathering={onCancelGathering}
           onCopyGroupReminder={() => onCopyGroupReminder(selectedGroup)}
           onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
+          onEditGathering={onEditGathering}
           onEditGroup={onEditGroup}
           onInvite={onInvite}
           onJoinRequestAccepted={onJoinRequestAccepted}
@@ -8500,9 +8634,12 @@ function GroupsWorkspace({
         group={selectedGroup}
         isPreview={isPreview}
         notice={groupsNotice}
+        onAddOneOffGathering={onAddOneOffGathering}
         onAddPrayer={onAddPrayer}
         onBack={() => onOpenGroup("")}
+        onCancelGathering={onCancelGathering}
         onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
+        onEditGathering={onEditGathering}
         onEditGroup={onEditGroup}
         onInvite={onInvite}
         onJoinRequestAccepted={onJoinRequestAccepted}
@@ -8607,9 +8744,12 @@ function GroupDetailWorkspace({
   group,
   isPreview,
   notice,
+  onAddOneOffGathering,
   onAddPrayer,
   onBack,
+  onCancelGathering,
   onCopyPublicLink,
+  onEditGathering,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
@@ -8626,9 +8766,12 @@ function GroupDetailWorkspace({
   group: DosAppGroup;
   isPreview: boolean;
   notice: string;
+  onAddOneOffGathering: () => void;
   onAddPrayer: () => void;
   onBack: () => void;
+  onCancelGathering: (gathering: DosAppGroupGathering) => void;
   onCopyPublicLink: () => void;
+  onEditGathering: (gathering: DosAppGroupGathering) => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
@@ -8855,7 +8998,7 @@ function GroupDetailWorkspace({
         </div>
         <div className="grid border-t border-[#EAF2FF] md:grid-cols-4">
           <GroupFact icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Rhythm" value={group.rhythmLabel ?? "No rhythm set"} />
-          <GroupFact icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Location" value={group.defaultLocation ?? "Location TBD"} />
+          <GroupFact icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Location" value={groupLocationSummary(group)} />
           <GroupFact icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leader" value={group.leaderName ?? "Not assigned"} />
           <GroupFact icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
         </div>
@@ -8908,7 +9051,16 @@ function GroupDetailWorkspace({
       <GroupDetailTabBar onChange={onTabChange} tab={tab} />
       {tab === "overview" ? <GroupOverviewTab activityItems={activityItems} attendanceSummary={attendanceSummary} followUpDrafts={followUpDrafts} fruitDrafts={fruitDrafts} group={group} nextGathering={nextGathering} onStartGathering={startGathering} prayerDrafts={prayerDrafts} /> : null}
       {tab === "members" ? <GroupMembersTab group={group} isPreview={isPreview} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
-      {tab === "gatherings" ? <GroupGatheringsTab group={group} /> : null}
+      {tab === "gatherings" ? (
+        <GroupGatheringsTab
+          group={group}
+          isPreview={isPreview}
+          onAddOneOff={onAddOneOffGathering}
+          onCancelGathering={onCancelGathering}
+          onEditGathering={onEditGathering}
+          onManageSchedule={onSchedule}
+        />
+      ) : null}
       {tab === "attendance" ? <GroupAttendanceTab attendanceRows={attendanceRows} attendanceSummary={attendanceSummary} guestDrafts={guestDrafts} group={group} isGatheringActive={Boolean(activeGathering)} onAddGuest={addGuestDraft} onTakeAttendance={onTakeAttendance} onUpdateGuest={updateGuestDraft} onUpdateMemberAttendance={updateMemberAttendance} /> : null}
       {tab === "prayer" ? <GroupPrayerTab group={group} onAddPrayer={addPrayerDraft} prayerDrafts={prayerDrafts} /> : null}
       {tab === "resources" ? <GroupResourcesTab group={group} /> : null}
@@ -9853,22 +10005,22 @@ function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
   return "Pending";
 }
 
-function groupMemberAccessLabel(member: DosAppGroupMember) {
+function groupMemberPortalStatusLabel(member: DosAppGroupMember) {
   const status = member.memberAccess?.status;
 
   if (status === "verified") {
-    return "Verified";
+    return "Portal: Active";
   }
 
   if (status === "invited") {
-    return "Invited";
+    return "Portal: Not accessed yet";
   }
 
   if (status === "revoked") {
-    return "Revoked";
+    return "Portal: Revoked";
   }
 
-  return "Not Invited";
+  return "Portal: Not set up";
 }
 
 function GroupMembersTab({
@@ -10223,17 +10375,19 @@ function GroupMembersTab({
                   <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
-                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)} · {groupMemberAccessLabel(member)}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
+                      <p className="mt-0.5 text-[11px] font-bold text-[#94A3B8]">{groupMemberPortalStatusLabel(member)}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status}</GroupPill>
+                      <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status.charAt(0).toUpperCase() + member.status.slice(1)}</GroupPill>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={member.status !== "active" || sendingMemberAccessId === member.id}
                         onClick={() => void sendMemberAccess(member)}
+                        title="Copies a Portal Link for this member's participant journey access. This does not affect group membership."
                         type="button"
                       >
-                        {sendingMemberAccessId === member.id ? "Creating..." : "Access Link"}
+                        {sendingMemberAccessId === member.id ? "Creating..." : "Portal Link"}
                       </button>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-2.5 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -10739,7 +10893,11 @@ function GroupSettingsSheet({
     endTime: scheduleDefaults.endTime,
     groupId: group.id,
     leaderPersonId: groupSettingsLeaderPersonId(group, people),
+    locationAddress: group.locationAddress ?? "",
+    locationLabel: group.locationLabel ?? group.defaultLocation ?? "",
     name: group.name,
+    recurrenceEffectiveDate: group.recurrenceEffectiveDate ?? "",
+    recurrenceEndDate: group.recurrenceEndDate ?? "",
     rhythmLabel: group.rhythmLabel ?? "",
     scriptureReference: group.scriptureReference ?? "",
     scriptureText: group.scriptureText ?? "",
@@ -10809,7 +10967,8 @@ function GroupSettingsSheet({
   }, [group.leaderName, group.leaderPersonId, group.members, people]);
   const publicSlug = slugFromText(draft.slug || draft.name);
   const publicHref = `/groups/${publicSlug}`;
-  const locationChanged = draft.defaultLocation.trim() !== (group.defaultLocation ?? "");
+  const locationChanged = draft.locationLabel.trim() !== (group.locationLabel ?? group.defaultLocation ?? "")
+    || draft.locationAddress.trim() !== (group.locationAddress ?? "");
 
   function updateDraft<K extends keyof GroupSettingsSavePayload>(field: K, value: GroupSettingsSavePayload[K]) {
     setDraft((current) => ({
@@ -11014,11 +11173,28 @@ function GroupSettingsSheet({
                   </div>
                 ))}
               </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block min-w-0">
+                  <FieldLabel>Effective date</FieldLabel>
+                  <input className={`${FieldInputClass()} bg-white`} onChange={(event) => updateDraft("recurrenceEffectiveDate", event.target.value)} type="date" value={draft.recurrenceEffectiveDate} />
+                </label>
+                <label className="block min-w-0">
+                  <FieldLabel>End date (optional)</FieldLabel>
+                  <input className={`${FieldInputClass()} bg-white`} onChange={(event) => updateDraft("recurrenceEndDate", event.target.value)} type="date" value={draft.recurrenceEndDate} />
+                </label>
+              </div>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">Used by "Schedule Gatherings" in the Gatherings tab to generate real upcoming occurrences from this rhythm.</p>
             </section>
-            <label className="block">
-              <FieldLabel>Default location</FieldLabel>
-              <input className={FieldInputClass()} onChange={(event) => updateDraft("defaultLocation", event.target.value)} value={draft.defaultLocation} />
-            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block min-w-0">
+                <FieldLabel>Location label</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("locationLabel", event.target.value)} placeholder="Ryan's House" value={draft.locationLabel} />
+              </label>
+              <label className="block min-w-0">
+                <FieldLabel>Address (optional)</FieldLabel>
+                <input className={FieldInputClass()} onChange={(event) => updateDraft("locationAddress", event.target.value)} placeholder="Street, City, State, ZIP" value={draft.locationAddress} />
+              </label>
+            </div>
             {locationChanged ? (
               <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold text-[#475569]">
                 <input checked={draft.updateFutureGatheringLocations} className="mt-1" onChange={(event) => updateDraft("updateFutureGatheringLocations", event.target.checked)} type="checkbox" />
@@ -11083,15 +11259,215 @@ function GroupSettingsSheet({
   );
 }
 
+function occurrenceTimeLabel(occurrence: GroupGatheringOccurrenceDraft) {
+  const start = formatTime(occurrence.startsAt);
+
+  return [formatDate(occurrence.startsAt), start].filter(Boolean).join(" · ");
+}
+
+function GroupScheduleGenerateSheet({
+  group,
+  isSubmitting,
+  message,
+  onClose,
+  onEditGroupSchedule,
+  onGenerate,
+}: {
+  group: DosAppGroup;
+  isSubmitting: boolean;
+  message: { text: string; tone: "error" | "success" } | null;
+  onClose: () => void;
+  onEditGroupSchedule: () => void;
+  onGenerate: (occurrences: GroupGatheringOccurrenceDraft[]) => void;
+}) {
+  const [countPerSlot, setCountPerSlot] = useState("8");
+  const slots = parseGroupRhythmSlots(group).filter((slot) => slot.dayOfWeek && slot.startTime);
+  const preview = computeGroupScheduleOccurrences(group, Number.parseInt(countPerSlot, 10) || 0);
+
+  return (
+    <Sheet description="Generates real upcoming gatherings from this group's recurring rhythm." onClose={onClose} title="Schedule Gatherings">
+      <div className="grid gap-4">
+        {message ? (
+          <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            message.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {message.text}
+          </p>
+        ) : null}
+
+        {slots.length ? (
+          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Recurring rhythm</p>
+            {slots.map((slot) => (
+              <p className="mt-1 text-sm font-bold text-[#0F172A]" key={slot.id}>{rhythmSlotSummary(slot)}</p>
+            ))}
+            <p className="mt-2 text-xs font-semibold text-[#64748B]">Location: {groupLocationSummary(group)}</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">Effective {groupScheduleWindowLabel(group)}</p>
+            <button className="mt-3 text-xs font-black text-[#2563EB]" onClick={onEditGroupSchedule} type="button">Edit schedule in Settings</button>
+          </div>
+        ) : (
+          <SectionEmptyState
+            action={<CompactButton icon="settings" onClick={onEditGroupSchedule}>Set Up Schedule</CompactButton>}
+            text="Set the group's weekly day/time rhythm in Settings before generating real gathering occurrences."
+            title="No recurring rhythm set yet."
+          />
+        )}
+
+        {slots.length ? (
+          <>
+            <label className="block">
+              <FieldLabel>How many occurrences per weekly slot</FieldLabel>
+              <CompactOptionSelect
+                hideLabel
+                label="Occurrences"
+                onChange={setCountPerSlot}
+                options={[
+                  { label: "4 gatherings", value: "4" },
+                  { label: "8 gatherings", value: "8" },
+                  { label: "12 gatherings", value: "12" },
+                  { label: "26 gatherings", value: "26" },
+                ]}
+                value={countPerSlot}
+              />
+            </label>
+
+            {preview.length ? (
+              <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Preview</p>
+                <p className="mt-1 text-sm font-bold text-[#0F172A]">{occurrenceTimeLabel(preview[0])} through {occurrenceTimeLabel(preview[preview.length - 1])}</p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">{preview.length} occurrence{preview.length === 1 ? "" : "s"} will be created. Dates that already have a scheduled gathering are skipped automatically.</p>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569] transition-colors hover:bg-[#F8FBFF]" onClick={onClose} type="button">
+                Cancel
+              </button>
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.2)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSubmitting || !preview.length}
+                onClick={() => onGenerate(preview)}
+                type="button"
+              >
+                {isSubmitting ? "Scheduling…" : `Schedule ${preview.length} Gathering${preview.length === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
+function GroupGatheringFormSheet({
+  gathering,
+  isSubmitting,
+  message,
+  onClose,
+  onSave,
+}: {
+  gathering: DosAppGroupGathering | null;
+  isSubmitting: boolean;
+  message: { text: string; tone: "error" | "success" } | null;
+  onClose: () => void;
+  onSave: (payload: { description: string; endsAt: string | null; location: string; startsAt: string; title: string }) => void;
+}) {
+  const [title, setTitle] = useState(gathering?.title ?? "Group Gathering");
+  const [date, setDate] = useState(gathering ? isoToDateInputValue(gathering.startsAt) : todayDateValue());
+  const [startTime, setStartTime] = useState(gathering ? isoToTimeInputValue(gathering.startsAt) : "18:00");
+  const [endTime, setEndTime] = useState(gathering?.endsAt ? isoToTimeInputValue(gathering.endsAt) : "");
+  const [location, setLocation] = useState(gathering?.location ?? "");
+  const [description, setDescription] = useState(gathering?.description ?? "");
+
+  function submit() {
+    const startsAt = dateAndTimeInputToIso(date, startTime);
+
+    if (!startsAt) {
+      return;
+    }
+
+    onSave({
+      description,
+      endsAt: endTime ? dateAndTimeInputToIso(date, endTime) : null,
+      location,
+      startsAt,
+      title: title.trim() || "Group Gathering",
+    });
+  }
+
+  return (
+    <Sheet onClose={onClose} title={gathering ? "Edit Gathering" : "Add One-off Gathering"}>
+      <div className="grid gap-4">
+        {message ? (
+          <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
+            message.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          >
+            {message.text}
+          </p>
+        ) : null}
+        <label className="block">
+          <FieldLabel>Title</FieldLabel>
+          <input className={FieldInputClass()} onChange={(event) => setTitle(event.target.value)} value={title} />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block min-w-0">
+            <FieldLabel>Date</FieldLabel>
+            <input className={`${FieldInputClass()} bg-white`} onChange={(event) => setDate(event.target.value)} type="date" value={date} />
+          </label>
+          <label className="block min-w-0">
+            <FieldLabel>Start time</FieldLabel>
+            <input className={`${FieldInputClass()} bg-white`} onChange={(event) => setStartTime(event.target.value)} type="time" value={startTime} />
+          </label>
+          <label className="block min-w-0">
+            <FieldLabel>End time (optional)</FieldLabel>
+            <input className={`${FieldInputClass()} bg-white`} onChange={(event) => setEndTime(event.target.value)} type="time" value={endTime} />
+          </label>
+        </div>
+        <label className="block">
+          <FieldLabel>Location</FieldLabel>
+          <input className={FieldInputClass()} onChange={(event) => setLocation(event.target.value)} placeholder="Ryan's House" value={location} />
+        </label>
+        <label className="block">
+          <FieldLabel>Notes (optional)</FieldLabel>
+          <textarea className={`${FieldInputClass()} min-h-20`} onChange={(event) => setDescription(event.target.value)} value={description} />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#475569] transition-colors hover:bg-[#F8FBFF]" onClick={onClose} type="button">
+            Cancel
+          </button>
+          <button
+            className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.2)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting || !date || !startTime}
+            onClick={submit}
+            type="button"
+          >
+            {isSubmitting ? "Saving…" : gathering ? "Save Changes" : "Add Gathering"}
+          </button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function GroupGatheringRow({
   children,
   compact = false,
   gathering,
+  isPreview = false,
+  onCancel,
+  onEdit,
 }: {
   children?: ReactNode;
   compact?: boolean;
   gathering: DosAppGroupGathering;
+  isPreview?: boolean;
+  onCancel?: (gathering: DosAppGroupGathering) => void;
+  onEdit?: (gathering: DosAppGroupGathering) => void;
 }) {
+  const canManage = gathering.status === "scheduled" && (onEdit || onCancel);
+
   return (
     <div className={`rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] ${compact ? "p-3" : "p-4"}`}>
       <div className="flex items-start justify-between gap-3">
@@ -11104,30 +11480,104 @@ function GroupGatheringRow({
       </div>
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
       {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
+      {canManage ? (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-[#EAF2FF] pt-3">
+          {onEdit ? (
+            <button
+              className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isPreview}
+              onClick={() => onEdit(gathering)}
+              type="button"
+            >
+              Edit
+            </button>
+          ) : null}
+          {onCancel ? (
+            <button
+              className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isPreview}
+              onClick={() => onCancel(gathering)}
+              type="button"
+            >
+              Skip
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {children}
     </div>
   );
 }
 
-function GroupGatheringsTab({ group }: { group: DosAppGroup }) {
-  const gatherings = sortedGroupGatherings(group);
+function GroupGatheringsTab({
+  group,
+  isPreview,
+  onAddOneOff,
+  onCancelGathering,
+  onEditGathering,
+  onManageSchedule,
+}: {
+  group: DosAppGroup;
+  isPreview: boolean;
+  onAddOneOff: () => void;
+  onCancelGathering: (gathering: DosAppGroupGathering) => void;
+  onEditGathering: (gathering: DosAppGroupGathering) => void;
+  onManageSchedule: () => void;
+}) {
+  const [showHistory, setShowHistory] = useState(false);
+  const upcoming = groupUpcomingGatherings(group);
+  const upcomingIds = new Set(upcoming.map((gathering) => gathering.id));
+  const past = sortedGroupGatherings(group).filter((gathering) => !upcomingIds.has(gathering.id)).reverse();
   const nextGathering = nextUpcomingGroupGathering(group);
   const showRouteBuilder = isRouteBuilderEligibleGroup(group);
 
   return (
-    <DesktopPanel eyebrow="Gatherings" title="Schedule">
-      {gatherings.length ? (
+    <DesktopPanel
+      action={(
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]" onClick={onManageSchedule} type="button">
+            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+            {group.rhythmLabel ? "Schedule Gatherings" : "Set Up Schedule"}
+          </button>
+          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddOneOff} type="button">
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+            One-off Gathering
+          </button>
+        </div>
+      )}
+      eyebrow="Gatherings"
+      title={upcoming.length ? `${upcoming.length} upcoming` : "No upcoming gatherings"}
+    >
+      {upcoming.length ? (
         <div className="grid gap-2">
-          {gatherings.map((gathering) => (
-            <GroupGatheringRow gathering={gathering} key={gathering.id}>
+          {upcoming.map((gathering) => (
+            <GroupGatheringRow gathering={gathering} isPreview={isPreview} key={gathering.id} onCancel={onCancelGathering} onEdit={onEditGathering}>
               {showRouteBuilder && nextGathering?.id === gathering.id ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
             </GroupGatheringRow>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-[#64748B]">No gatherings scheduled.</p>
+        <SectionEmptyState
+          action={<CompactButton icon="calendar" onClick={onManageSchedule}>Schedule Gatherings</CompactButton>}
+          text={group.rhythmLabel ? "Generate upcoming occurrences from the group's recurring rhythm, or add a one-off gathering." : "Set the group's recurring rhythm in Settings, then schedule real upcoming gatherings here."}
+          title="No gatherings scheduled yet."
+        />
       )}
       {showRouteBuilder && !nextGathering ? <GroupRouteBuilderPlaceholder className="mt-3" compact /> : null}
+      {past.length ? (
+        <div className="mt-4 border-t border-[#EAF2FF] pt-3">
+          <button className="text-xs font-black text-[#2563EB]" onClick={() => setShowHistory((current) => !current)} type="button">
+            {showHistory ? "Hide" : "Show"} past gatherings ({past.length})
+          </button>
+          {showHistory ? (
+            <div className="mt-3 grid gap-2">
+              {past.map((gathering) => (
+                <GroupGatheringRow compact gathering={gathering} key={gathering.id} />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </DesktopPanel>
   );
 }
@@ -11310,7 +11760,8 @@ function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () =>
           ["Capacity", groupCapacitySettingLabel(group.capacity)],
           ["Public URL", `/groups/${group.slug}`],
           ["Scripture", group.scriptureReference ?? "Not set"],
-          ["Default location", group.defaultLocation ?? "Location TBD"],
+          ["Location", groupLocationSummary(group)],
+          ["Schedule window", groupScheduleWindowLabel(group)],
           ["Meeting link", "Gatherings can link to meeting logs"],
         ].map(([label, value]) => (
           <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={label}>
@@ -11862,7 +12313,6 @@ function ResourceAssignmentCard({
 }) {
   const resource = resourceAssignmentResource(assignment);
   const isInAppJourney = Boolean(resource && isGuidedResource(resource));
-  const href = isInAppJourney ? "#" : resource?.path ?? "#";
   const downloadPath = resource?.downloadPath ?? null;
 
   return (
@@ -11911,8 +12361,12 @@ function ResourceAssignmentCard({
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
             Continue
           </button>
+        ) : resource ? (
+          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={resource.path}>Read Online</a>
         ) : (
-          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={href}>Read Online</a>
+          <span className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#F1F5F9] px-3 text-xs font-black text-[#94A3B8]" title="This resource is no longer in the Library.">
+            Unavailable
+          </span>
         )}
         {downloadPath ? (
           <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#0F172A]" download href={downloadPath}>
@@ -12075,14 +12529,16 @@ function CommitmentsPanel({
   const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
   const historicalCommitments = commitments.filter((commitment) => commitment.status === "completed" || commitment.status === "cancelled");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
+  const pausedSchedules = schedules.filter((schedule) => schedule.status === "paused");
   const nextSchedule = activeSchedules[0] ?? null;
+  const hasHistory = Boolean(historicalCommitments.length || pausedSchedules.length);
 
   return (
     <section className="grid min-w-0 gap-3">
       <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitments">
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${nextSchedule ? "grid-cols-2" : "grid-cols-1"}`}>
           <CompactButton icon="commitment" onClick={onAddCommitment}>New Commitment</CompactButton>
-          <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton>
+          {nextSchedule ? <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton> : null}
         </div>
         {activeCommitments.length ? activeCommitments.map((commitment) => (
           <CommitmentCard
@@ -12096,14 +12552,14 @@ function CommitmentsPanel({
             onPause={onPause}
           />
         )) : (
-          <SectionEmptyState action={<CompactButton icon="commitment" onClick={onAddCommitment}>Add Commitment</CompactButton>} title="No active commitments." />
+          <SectionEmptyState text="Use New Commitment above to add one." title="No active commitments." />
         )}
       </DetailCard>
 
       <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
         <div className="grid gap-2">
           <CompactButton icon="calendar" onClick={onAddSchedule}>Add Check-In Rhythm</CompactButton>
-          {schedules.length ? schedules.map((schedule) => (
+          {activeSchedules.length ? activeSchedules.map((schedule) => (
             <button
               className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
               key={schedule.id}
@@ -12126,10 +12582,10 @@ function CommitmentsPanel({
         </div>
       </DetailCard>
 
-      {historicalCommitments.length ? (
+      {hasHistory ? (
         <details className="rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
           <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            History ({historicalCommitments.length})
+            History ({historicalCommitments.length + pausedSchedules.length})
           </summary>
           <div className="mt-3 grid gap-2">
             {historicalCommitments.map((commitment) => (
@@ -12143,6 +12599,24 @@ function CommitmentsPanel({
                 onEdit={onEdit}
                 onPause={onPause}
               />
+            ))}
+            {pausedSchedules.map((schedule) => (
+              <button
+                className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE]"
+                key={schedule.id}
+                onClick={() => onLogCheckIn(schedule)}
+                type="button"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-[#334155]">{accountabilityScheduleDisplayTitle(schedule)}</span>
+                  <span className="mt-1 block text-xs font-semibold text-[#64748B]">
+                    {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  {accountabilityStatusLabels[schedule.status]}
+                </span>
+              </button>
             ))}
           </div>
         </details>
@@ -32618,7 +33092,6 @@ function PersonDetailOverlay({
       type: "testimony" as const,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
-  const latestOutcomeEntry = personOutcomeEntries[0];
   const selectedOutcomeMeeting = selectedOutcomeEntry
     ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
     : null;
@@ -33129,59 +33602,56 @@ function PersonDetailOverlay({
         {activeDetailTab === "fruit" ? (
           <>
             <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
-              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
                 <FruitSummaryCard
                   icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                   label="Assessments"
                   value={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "None Yet"}
                 />
-                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Observable Fruit" value={String(personOutcomeEntries.length)} />
-                <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Growth" value={latestGrowthDate ? formatRelativeDate(latestGrowthDate) : "Not Yet"} />
+                <FruitSummaryCard icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active Journeys" value={String(activeResourceAssignments.length)} />
+                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
+                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
               </div>
               <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-sm leading-6 text-[#64748B]">
-                Assessments show where this person or relationship is today. Fruit records observable outcomes God has done.
+                What this person is working through now, and what has changed. {latestGrowthDate ? `Last growth activity ${formatRelativeDate(latestGrowthDate)}.` : ""}
               </p>
             </DetailCard>
 
-            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assessment Results">
-              <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-3">
+            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Active Journeys & Assessments">
+              <div className="grid gap-3">
                 <AssessmentResultSummaryCard href={marriageAssessmentHref} results={marriageAssessmentResults} title="Marriage Assessment" />
-                {personAssessmentResultPlaceholders.slice(1).map((assessment) => (
-                  <AssessmentResultPlaceholderCard href={assessment.href} key={assessment.title} title={assessment.title} />
-                ))}
+                {personAssessmentResultPlaceholders.slice(1).length ? (
+                  <p className="rounded-[16px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#64748B]">
+                    Not started yet: {personAssessmentResultPlaceholders.slice(1).map((assessment) => assessment.title).join(" · ")}
+                  </p>
+                ) : null}
+
+                {activeResourceAssignments.length ? activeResourceAssignments.map((assignment) => (
+                  <ResourceAssignmentCard
+                    assignment={assignment}
+                    groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
+                    key={assignment.id}
+                    onEditDates={onEditResourceAssignment}
+                    onLogCheckIn={onLogResourceCheckIn}
+                    onMarkComplete={onMarkResourceAssignmentComplete}
+                    onMarkInProgress={onMarkResourceAssignmentInProgress}
+                    onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                    onPause={onPauseResourceAssignment}
+                  />
+                )) : (
+                  <SectionEmptyState text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person." title="No active journeys." />
+                )}
+                <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
               </div>
             </DetailCard>
 
-            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assigned Resources">
-              {activeResourceAssignments.length ? (
-                <div className="grid gap-3">
-                  {activeResourceAssignments.map((assignment) => (
-                    <ResourceAssignmentCard
-                      assignment={assignment}
-                      groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
-                      key={assignment.id}
-                      onEditDates={onEditResourceAssignment}
-                      onLogCheckIn={onLogResourceCheckIn}
-                      onMarkComplete={onMarkResourceAssignmentComplete}
-                      onMarkInProgress={onMarkResourceAssignmentInProgress}
-                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
-                      onPause={onPauseResourceAssignment}
-                    />
-                  ))}
-                  <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
-                </div>
-              ) : (
-                <SectionEmptyState
-                  action={<CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>}
-                  text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person."
-                  title="No active resources."
-                />
-              )}
-            </DetailCard>
-
             {completedResourceAssignments.length ? (
-              <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Completed Resources">
-                <div className="grid gap-3">
+              <details className="group rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  Completed Journeys ({completedResourceAssignments.length})
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
+                </summary>
+                <div className="mt-3 grid gap-2">
                   {completedResourceAssignments.map((assignment) => (
                     <ResourceAssignmentCard
                       assignment={assignment}
@@ -33193,20 +33663,8 @@ function PersonDetailOverlay({
                     />
                   ))}
                 </div>
-              </DetailCard>
+              </details>
             ) : null}
-
-            <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
-              <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
-                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
-                <FruitSummaryCard
-                  icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Latest Fruit"
-                  value={latestOutcomeEntry ? latestOutcomeEntry.type === "testimony" ? "Testimony Shared" : fruitOutcomeLabel(latestOutcomeEntry.event) : "None Yet"}
-                />
-                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
-              </div>
-            </DetailCard>
 
             <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies & Outcomes">
               {personOutcomeEntries.length ? personOutcomeEntries.map((entry) => (
@@ -33218,10 +33676,26 @@ function PersonDetailOverlay({
               )}
             </DetailCard>
 
-            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones / Timeline">
-              {personGrowthMilestones.length ? personGrowthMilestones.map((milestone) => (
-                <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
-              )) : (
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones">
+              {personGrowthMilestones.length ? (
+                <div className="grid gap-2">
+                  {personGrowthMilestones.slice(0, 3).map((milestone) => (
+                    <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+                  ))}
+                  {personGrowthMilestones.length > 3 ? (
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs font-bold text-[#2563EB]">
+                        View {personGrowthMilestones.length - 3} more
+                      </summary>
+                      <div className="mt-2 grid gap-2">
+                        {personGrowthMilestones.slice(3).map((milestone) => (
+                          <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              ) : (
                 <SectionEmptyState text="Tables, quick reviews, testimonies, and fruit will form the growth timeline here." title="No growth milestones yet." />
               )}
             </DetailCard>
@@ -34010,6 +34484,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupCreateMessage, setGroupCreateMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [isScheduleGatheringsOpen, setIsScheduleGatheringsOpen] = useState(false);
+  const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: DosAppGroupGathering | null; groupId: string } | null>(null);
+  const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
@@ -35017,6 +35494,46 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupSettingsMessage(null);
   }
 
+  function openScheduleGatheringsSheet() {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setGatheringMessage(null);
+    setIsScheduleGatheringsOpen(true);
+  }
+
+  function closeScheduleGatheringsSheet() {
+    setIsScheduleGatheringsOpen(false);
+    setGatheringMessage(null);
+  }
+
+  function openOneOffGatheringSheet() {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setGatheringMessage(null);
+    setGatheringFormSheet({ gathering: null, groupId: selectedGroup.id });
+  }
+
+  function openEditGatheringSheet(gathering: DosAppGroupGathering) {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setGatheringMessage(null);
+    setGatheringFormSheet({ gathering, groupId: selectedGroup.id });
+  }
+
+  function closeGatheringFormSheet() {
+    setGatheringFormSheet(null);
+    setGatheringMessage(null);
+  }
+
   async function createGroup(payload: GroupCreatePayload) {
     setGroupCreateMessage(null);
     setErrorMessage("");
@@ -35357,6 +35874,180 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       router.refresh();
     } catch (error) {
       setGroupSettingsMessage({ text: error instanceof Error ? error.message : "Unable to save group settings.", tone: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function mergeGroupGatherings(groupId: string, updater: (gatherings: DosAppGroupGathering[]) => DosAppGroupGathering[]) {
+    setGroupOverrides((current) => {
+      const existingOverride = current[groupId] ?? {};
+      const baseGroup = groups.find((candidate) => candidate.id === groupId);
+      const baseGatherings = existingOverride.gatherings ?? baseGroup?.gatherings ?? [];
+
+      return {
+        ...current,
+        [groupId]: {
+          ...existingOverride,
+          gatherings: updater(baseGatherings),
+        },
+      };
+    });
+  }
+
+  async function generateGroupGatherings(occurrences: GroupGatheringOccurrenceDraft[]) {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGatheringMessage(null);
+
+    if (isPreview) {
+      setGatheringMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/gatherings", {
+        body: JSON.stringify({
+          action: "generate",
+          groupId: selectedGroup.id,
+          occurrences,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { created?: DosAppGroupGathering[]; error?: string; ok?: boolean; skipped?: number };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to schedule gatherings.");
+      }
+
+      const created = (result.created ?? []).map(fillGatheringDefaults);
+
+      if (created.length) {
+        mergeGroupGatherings(selectedGroup.id, (gatherings) => [...gatherings, ...created]);
+      }
+
+      const skippedNote = result.skipped ? ` (${result.skipped} already scheduled, skipped)` : "";
+
+      setGatheringMessage({ text: `${created.length} gathering${created.length === 1 ? "" : "s"} scheduled${skippedNote}.`, tone: "success" });
+      setGroupsNotice(`${created.length} gathering${created.length === 1 ? "" : "s"} scheduled for ${selectedGroup.name}.`);
+      setIsScheduleGatheringsOpen(false);
+      router.refresh();
+    } catch (error) {
+      setGatheringMessage({ text: error instanceof Error ? error.message : "Unable to schedule gatherings.", tone: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function saveGatheringOccurrence(payload: { description: string; endsAt: string | null; location: string; startsAt: string; title: string }) {
+    if (!gatheringFormSheet) {
+      return;
+    }
+
+    const { gathering, groupId } = gatheringFormSheet;
+
+    setGatheringMessage(null);
+
+    if (isPreview) {
+      setGatheringMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/gatherings", {
+        body: JSON.stringify({
+          action: gathering ? "update" : "one_off",
+          description: payload.description,
+          endsAt: payload.endsAt,
+          gatheringId: gathering?.id,
+          groupId,
+          location: payload.location,
+          startsAt: payload.startsAt,
+          title: payload.title,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: gathering ? "PATCH" : "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; gathering?: DosAppGroupGathering; ok?: boolean };
+
+      if (!response.ok || !result.gathering) {
+        throw new Error(result.error ?? "Unable to save this gathering.");
+      }
+
+      const saved = fillGatheringDefaults(result.gathering);
+
+      mergeGroupGatherings(groupId, (gatherings) => (
+        gathering
+          ? gatherings.map((item) => (item.id === saved.id ? saved : item))
+          : [...gatherings, saved]
+      ));
+      setGroupsNotice(gathering ? "Gathering updated." : "Gathering added.");
+      setGatheringFormSheet(null);
+      router.refresh();
+    } catch (error) {
+      setGatheringMessage({ text: error instanceof Error ? error.message : "Unable to save this gathering.", tone: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function cancelGatheringOccurrence(gathering: DosAppGroupGathering) {
+    if (!selectedGroup) {
+      return;
+    }
+
+    if (isPreview) {
+      setGroupsNotice("Preview mode is read-only. Demo changes are not saved.");
+      return;
+    }
+
+    if (!window.confirm(`Skip "${gathering.title}" on ${formatGroupGatheringTime(gathering)}?`)) {
+      return;
+    }
+
+    const groupId = selectedGroup.id;
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/gatherings", {
+        body: JSON.stringify({
+          action: "cancel",
+          gatheringId: gathering.id,
+          groupId,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; gathering?: DosAppGroupGathering; ok?: boolean };
+
+      if (!response.ok || !result.gathering) {
+        throw new Error(result.error ?? "Unable to skip this gathering.");
+      }
+
+      const saved = fillGatheringDefaults(result.gathering);
+
+      mergeGroupGatherings(groupId, (gatherings) => gatherings.map((item) => (item.id === saved.id ? saved : item)));
+      setGroupsNotice("Gathering skipped.");
+      router.refresh();
+    } catch (error) {
+      setGroupsNotice(error instanceof Error ? error.message : "Unable to skip this gathering.");
     } finally {
       setIsSubmitting(false);
     }
@@ -39342,13 +40033,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     guidedResourceProgress={data.guidedResourceProgress}
                     isSimplifiedV2={data.featureFlags.groupsSimplifiedV2 === true}
                     isPreview={isPreview}
+                    onAddOneOffGathering={openOneOffGatheringSheet}
                     onAddPrayer={() => showGroupsPlaceholder("Add Prayer")}
                     onAssignJourney={(group, resource) => openGroupJourneyAssign(group, resource)}
+                    onCancelGathering={(gathering) => void cancelGatheringOccurrence(gathering)}
                     onCopyGroupReminder={copyGroupReminderMessage}
                     onCopyPublicDirectoryLink={copyPublicGroupsDirectoryLink}
                     onCopyPublicLink={copyPublicGroupLink}
                     onCreateGroup={data.featureFlags.groupsSimplifiedV2 === true ? openGroupCreateSheet : () => showGroupsPlaceholder("New Group")}
                     onDetailTabChange={setGroupDetailTab}
+                    onEditGathering={openEditGatheringSheet}
                     onEditGroup={openGroupSettingsSheet}
                     onInvite={openGroupInviteSheet}
                     onJoinRequestAccepted={applyGroupJoinRequestResult}
@@ -39369,6 +40063,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     }}
                     onOpenGroupJoinRequests={openGroupJoinRequests}
                     onOpenJourney={(personId, resourceSlug, hasAssignment) => {
+                      if (!getDosResourceBySlug(resourceSlug)) {
+                        setErrorMessage("This resource is no longer in the Library.");
+                        return;
+                      }
+
                       if (hasAssignment) {
                         openLeaderJourneyProgress(personId, resourceSlug);
                         return;
@@ -39381,7 +40080,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       }
                     }}
                     onRemoveMember={removeGroupMember}
-                    onSchedule={() => showGroupsPlaceholder("Schedule")}
+                    onSchedule={openScheduleGatheringsSheet}
                     onSearchChange={setGroupQuery}
                     onSelectListView={setGroupsView}
                     onTakeAttendance={() => showGroupsPlaceholder("Take Attendance")}
@@ -40374,6 +41073,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onClose={closeGroupSettingsSheet}
             onSave={saveGroupSettings}
             people={people}
+          />
+        ) : null}
+
+        {isScheduleGatheringsOpen && selectedGroup ? (
+          <GroupScheduleGenerateSheet
+            group={selectedGroup}
+            isSubmitting={isSubmitting}
+            message={gatheringMessage}
+            onClose={closeScheduleGatheringsSheet}
+            onEditGroupSchedule={() => {
+              closeScheduleGatheringsSheet();
+              openGroupSettingsSheet();
+            }}
+            onGenerate={generateGroupGatherings}
+          />
+        ) : null}
+
+        {gatheringFormSheet ? (
+          <GroupGatheringFormSheet
+            gathering={gatheringFormSheet.gathering}
+            isSubmitting={isSubmitting}
+            message={gatheringMessage}
+            onClose={closeGatheringFormSheet}
+            onSave={saveGatheringOccurrence}
           />
         ) : null}
 

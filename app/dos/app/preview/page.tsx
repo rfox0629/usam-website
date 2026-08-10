@@ -527,6 +527,8 @@ function buildDosPreviewDemoData(): DosAppData {
       audience: "men",
       capacity: 20,
       defaultLocation: "Lebanon Hills Trailhead, Eagan, MN",
+      locationAddress: null,
+      locationLabel: "Lebanon Hills Trailhead, Eagan, MN",
       description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
       gatherings: [
         {
@@ -573,6 +575,8 @@ function buildDosPreviewDemoData(): DosAppData {
       leaderName: "George Jenko",
       leaderPersonId: "demo-person-george-jenko",
       memberCount: 2,
+      recurrenceEffectiveDate: null,
+      recurrenceEndDate: null,
       members: [
         {
           id: "demo-group-member-george",
@@ -631,6 +635,8 @@ function buildDosPreviewDemoData(): DosAppData {
       audience: "men",
       capacity: 12,
       defaultLocation: "Location varies",
+      locationAddress: null,
+      locationLabel: "Location varies",
       description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
       gatherings: [
         {
@@ -658,6 +664,8 @@ function buildDosPreviewDemoData(): DosAppData {
       leaderName: "George Jenko",
       leaderPersonId: "demo-person-george-jenko",
       memberCount: 2,
+      recurrenceEffectiveDate: null,
+      recurrenceEndDate: null,
       members: [
         {
           id: "demo-group-tuesday-member-george",
@@ -705,6 +713,8 @@ function buildDosPreviewDemoData(): DosAppData {
       audience: "men",
       capacity: 12,
       defaultLocation: "Location varies",
+      locationAddress: null,
+      locationLabel: "Location varies",
       description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
       gatherings: [
         {
@@ -732,6 +742,8 @@ function buildDosPreviewDemoData(): DosAppData {
       leaderName: "Caleb Rivera",
       leaderPersonId: "demo-person-caleb-rivera",
       memberCount: 2,
+      recurrenceEffectiveDate: null,
+      recurrenceEndDate: null,
       members: [
         {
           id: "demo-group-wednesday-member-caleb",

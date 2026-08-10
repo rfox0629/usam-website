@@ -482,11 +482,15 @@ export type DosAppGroup = {
   imageUrl: string | null;
   leaderName: string | null;
   leaderPersonId: string | null;
+  locationAddress: string | null;
+  locationLabel: string | null;
   memberCount: number;
   members: DosAppGroupMember[];
   name: string;
   prayerRequests: DosAppPrayerRequest[];
   primaryLeaderPersonId: string | null;
+  recurrenceEffectiveDate: string | null;
+  recurrenceEndDate: string | null;
   resources: DosAppGroupResource[];
   rhythmLabel: string | null;
   scriptureReference: string | null;
@@ -1215,8 +1219,12 @@ type GroupRow = {
   id: string;
   image_url: string | null;
   leader_person_id: string | null;
+  location_address?: string | null;
+  location_label?: string | null;
   name: string;
   primary_leader_person_id?: string | null;
+  recurrence_effective_date?: string | null;
+  recurrence_end_date?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
@@ -1302,6 +1310,47 @@ type GroupLoadRows = {
   members: GroupMemberRow[];
   resources: GroupResourceRow[];
 };
+
+function asGroupSettingsRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function groupSettingsString(settings: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  const record = asGroupSettingsRecord(settings);
+
+  return keys
+    .map((key) => {
+      const value = record[key];
+
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    })
+    .find(Boolean) ?? null;
+}
+
+function groupLocationLabel(row: Pick<GroupRow, "default_location" | "location_label" | "settings">) {
+  return row.location_label
+    ?? groupSettingsString(row.settings, "locationLabel", "location_label")
+    ?? row.default_location
+    ?? null;
+}
+
+function groupLocationAddress(row: Pick<GroupRow, "location_address" | "settings">) {
+  return row.location_address
+    ?? groupSettingsString(row.settings, "locationAddress", "location_address")
+    ?? null;
+}
+
+function groupRecurrenceEffectiveDate(row: Pick<GroupRow, "recurrence_effective_date" | "settings">) {
+  return row.recurrence_effective_date
+    ?? groupSettingsString(row.settings, "recurrenceEffectiveDate", "recurrence_effective_date")
+    ?? null;
+}
+
+function groupRecurrenceEndDate(row: Pick<GroupRow, "recurrence_end_date" | "settings">) {
+  return row.recurrence_end_date
+    ?? groupSettingsString(row.settings, "recurrenceEndDate", "recurrence_end_date")
+    ?? null;
+}
 
 type CalendarConnectionRow = {
   calendar_id: string | null;
@@ -3375,21 +3424,30 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     resources: [],
   };
   const baseGroupSelect = "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active";
-  const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings`;
+  const legacyV2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings`;
+  const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings, location_label, location_address, recurrence_effective_date, recurrence_end_date`;
   const v2GroupsResult = await supabase
     .from("dos_groups")
     .select(v2GroupSelect)
     .eq("workspace_id", workspaceId)
     .eq("active", true)
     .order("name", { ascending: true });
-  const groupsResult = v2GroupsResult.error && isMissingColumnError(v2GroupsResult.error)
+  const legacyV2GroupsResult = v2GroupsResult.error && isMissingColumnError(v2GroupsResult.error)
+    ? await supabase
+      .from("dos_groups")
+      .select(legacyV2GroupSelect)
+      .eq("workspace_id", workspaceId)
+      .eq("active", true)
+      .order("name", { ascending: true })
+    : v2GroupsResult;
+  const groupsResult = legacyV2GroupsResult.error && isMissingColumnError(legacyV2GroupsResult.error)
     ? await supabase
       .from("dos_groups")
       .select(baseGroupSelect)
       .eq("workspace_id", workspaceId)
       .eq("active", true)
       .order("name", { ascending: true })
-    : v2GroupsResult;
+    : legacyV2GroupsResult;
 
   if (groupsResult.error) {
     return isMissingWorkflowTable(groupsResult.error, "dos_groups")
@@ -4548,10 +4606,14 @@ export async function loadDosAppData(
       imageUrl: group.image_url,
       leaderName,
       leaderPersonId: group.leader_person_id,
+      locationAddress: groupLocationAddress(group),
+      locationLabel: groupLocationLabel(group),
       memberCount: members.filter((member) => member.status === "active").length,
       members,
       name: group.name,
       prayerRequests,
+      recurrenceEffectiveDate: groupRecurrenceEffectiveDate(group),
+      recurrenceEndDate: groupRecurrenceEndDate(group),
       primaryLeaderPersonId,
       resources,
       rhythmLabel: group.rhythm_label,

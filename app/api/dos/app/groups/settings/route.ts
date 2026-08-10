@@ -13,7 +13,11 @@ type GroupSettingsPayload = {
   endTime?: unknown;
   groupId?: unknown;
   leaderPersonId?: unknown;
+  locationAddress?: unknown;
+  locationLabel?: unknown;
   name?: unknown;
+  recurrenceEffectiveDate?: unknown;
+  recurrenceEndDate?: unknown;
   rhythmLabel?: unknown;
   scriptureReference?: unknown;
   scriptureText?: unknown;
@@ -32,10 +36,15 @@ type GroupRow = {
   description: string | null;
   id: string;
   leader_person_id: string | null;
+  location_address?: string | null;
+  location_label?: string | null;
   name: string;
+  recurrence_effective_date?: string | null;
+  recurrence_end_date?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
+  settings?: Record<string, unknown> | null;
   slug: string;
   tagline: string | null;
   type: string | null;
@@ -84,6 +93,73 @@ function asVisibility(value: unknown) {
 
 function asBoolean(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function asNullableDate(value: unknown) {
+  const text = asString(value);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function isMissingColumnError(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "42703" || /column .* does not exist/i.test(error?.message ?? "");
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function settingString(settings: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  const record = asRecord(settings);
+
+  return keys.map((key) => asNullableString(record[key])).find(Boolean) ?? null;
+}
+
+function groupLocationLabel(group: Pick<GroupRow, "default_location" | "location_label" | "settings">) {
+  return group.location_label
+    ?? settingString(group.settings, "locationLabel", "location_label")
+    ?? group.default_location
+    ?? null;
+}
+
+function groupLocationAddress(group: Pick<GroupRow, "location_address" | "settings">) {
+  return group.location_address
+    ?? settingString(group.settings, "locationAddress", "location_address")
+    ?? null;
+}
+
+function groupRecurrenceEffectiveDate(group: Pick<GroupRow, "recurrence_effective_date" | "settings">) {
+  return group.recurrence_effective_date
+    ?? settingString(group.settings, "recurrenceEffectiveDate", "recurrence_effective_date")
+    ?? null;
+}
+
+function groupRecurrenceEndDate(group: Pick<GroupRow, "recurrence_end_date" | "settings">) {
+  return group.recurrence_end_date
+    ?? settingString(group.settings, "recurrenceEndDate", "recurrence_end_date")
+    ?? null;
+}
+
+function buildGroupSettingsPatch(
+  existingSettings: Record<string, unknown> | null | undefined,
+  values: {
+    locationAddress: string | null;
+    locationLabel: string | null;
+    recurrenceEffectiveDate: string | null;
+    recurrenceEndDate: string | null;
+  },
+) {
+  return {
+    ...asRecord(existingSettings),
+    locationAddress: values.locationAddress,
+    locationLabel: values.locationLabel,
+    recurrenceEffectiveDate: values.recurrenceEffectiveDate,
+    recurrenceEndDate: values.recurrenceEndDate,
+  };
+}
+
+function formatGroupLocation(label: string | null, address: string | null) {
+  return [label, address].filter(Boolean).join(" — ") || null;
 }
 
 function buildRhythmLabel(payload: GroupSettingsPayload) {
@@ -165,8 +241,9 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location";
-  const existingGroupResult = isUuid(groupId)
+  const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location, location_label, location_address, recurrence_effective_date, recurrence_end_date, settings";
+  const legacyGroupSelect = "id, workspace_id, slug, leader_person_id, default_location, settings";
+  const structuredGroupResult = isUuid(groupId)
     ? await supabase
       .from("dos_groups")
       .select(existingGroupSelect)
@@ -179,6 +256,22 @@ export async function PATCH(request: Request) {
       .eq("slug", requestedSlug)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
+  const hasStructuredLocationColumns = !isMissingColumnError(structuredGroupResult.error);
+  const existingGroupResult = structuredGroupResult.error && isMissingColumnError(structuredGroupResult.error)
+    ? isUuid(groupId)
+      ? await supabase
+        .from("dos_groups")
+        .select(legacyGroupSelect)
+        .eq("id", groupId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle()
+      : await supabase
+        .from("dos_groups")
+        .select(legacyGroupSelect)
+        .eq("slug", requestedSlug)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle()
+    : structuredGroupResult;
 
   if (existingGroupResult.error) {
     return NextResponse.json({ error: existingGroupResult.error.message }, { status: 500 });
@@ -252,27 +345,49 @@ export async function PATCH(request: Request) {
     }
   }
 
+  const locationLabel = asNullableString(payload.locationLabel) ?? asNullableString(payload.defaultLocation);
+  const locationAddress = asNullableString(payload.locationAddress);
+  const recurrenceEffectiveDate = asNullableDate(payload.recurrenceEffectiveDate);
+  const recurrenceEndDate = asNullableDate(payload.recurrenceEndDate);
+  const settings = buildGroupSettingsPatch(existingGroupResult.data.settings, {
+    locationAddress,
+    locationLabel,
+    recurrenceEffectiveDate,
+    recurrenceEndDate,
+  });
   const updateRecord = {
     active: asBoolean(payload.active, true),
-    default_location: asNullableString(payload.defaultLocation),
+    default_location: formatGroupLocation(locationLabel, locationAddress),
     description: asNullableString(payload.description),
     leader_person_id: leaderPersonId || null,
     name,
     rhythm_label: buildRhythmLabel(payload),
     scripture_reference: asNullableString(payload.scriptureReference),
     scripture_text: asNullableString(payload.scriptureText),
+    settings,
     slug: requestedSlug,
     tagline: asNullableString(payload.tagline),
     type: asGroupType(payload.type),
     updated_at: new Date().toISOString(),
     visibility: asVisibility(payload.visibility),
   };
+  const structuredUpdateRecord = hasStructuredLocationColumns
+    ? {
+      ...updateRecord,
+      location_address: locationAddress,
+      location_label: locationLabel,
+      recurrence_effective_date: recurrenceEffectiveDate,
+      recurrence_end_date: recurrenceEndDate,
+    }
+    : updateRecord;
   const { data: updatedGroup, error: updateError } = await supabase
     .from("dos_groups")
-    .update(updateRecord)
+    .update(structuredUpdateRecord)
     .eq("id", resolvedGroupId)
     .eq("workspace_id", workspaceId)
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, active")
+    .select(hasStructuredLocationColumns
+      ? "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, location_label, location_address, recurrence_effective_date, recurrence_end_date, leader_person_id, active, settings"
+      : "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, active, settings")
     .single();
 
   if (updateError) {
@@ -323,13 +438,13 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (
-    asBoolean(payload.updateFutureGatheringLocations)
-    && asString(payload.defaultLocation) !== (existingGroupResult.data.default_location ?? "")
-  ) {
+  const locationHasChanged = locationLabel !== groupLocationLabel(existingGroupResult.data)
+    || locationAddress !== groupLocationAddress(existingGroupResult.data);
+
+  if (asBoolean(payload.updateFutureGatheringLocations) && locationHasChanged) {
     const gatheringUpdateResult = await supabase
       .from("dos_group_gatherings")
-      .update({ location: asNullableString(payload.defaultLocation), updated_at: new Date().toISOString() })
+      .update({ location: updateRecord.default_location, updated_at: new Date().toISOString() })
       .eq("group_id", resolvedGroupId)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString());
@@ -339,7 +454,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const group = updatedGroup as GroupRow;
+  const group = updatedGroup as unknown as GroupRow;
   revalidatePath("/groups");
   revalidatePath(`/groups/${group.slug}`);
 
@@ -350,7 +465,11 @@ export async function PATCH(request: Request) {
       description: group.description,
       id: group.id,
       leaderPersonId: group.leader_person_id,
+      locationAddress: groupLocationAddress(group),
+      locationLabel: groupLocationLabel(group),
       name: group.name,
+      recurrenceEffectiveDate: groupRecurrenceEffectiveDate(group),
+      recurrenceEndDate: groupRecurrenceEndDate(group),
       rhythmLabel: group.rhythm_label,
       scriptureReference: group.scripture_reference,
       scriptureText: group.scripture_text,

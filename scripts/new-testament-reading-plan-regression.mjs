@@ -18,11 +18,11 @@ function sliceBetween(source, start, end) {
 
 const catalog = readFileSync("src/lib/dos/resource-catalog.ts", "utf8");
 const guidePage = readFileSync("app/guide/[slug]/page.tsx", "utf8");
-const guideBackButton = readFileSync("app/guide/[slug]/GuideBackToLibraryButton.tsx", "utf8");
+const publicGuidedJourneyView = readFileSync("app/guide/[slug]/PublicGuidedJourneyView.tsx", "utf8");
 const dosClient = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const pdf = readFileSync("public/guides/new-testament-14-days.pdf");
 const pdfStats = statSync("public/guides/new-testament-14-days.pdf");
-const libraryReadingPlanCard = sliceBetween(dosClient, "if (isFeaturedReadingPlan)", "const rowContent");
+const libraryReadingPlanCard = sliceBetween(dosClient, "if (isGuidedResourceCard) {", "const rowContent");
 
 assert(catalog.includes('title: "14 Days Through the New Testament"'), "Catalog should include the reading plan title.");
 assert(catalog.includes('category: "Discipleship"'), "Reading plan should live in Discipleship.");
@@ -41,28 +41,26 @@ assert(catalog.includes("Read the entire New Testament in two weeks while discov
 assert(pdf.subarray(0, 4).toString("utf8") === "%PDF", "Printable reading plan asset should be a PDF.");
 assert(pdfStats.size > 50000, "Printable reading plan PDF should not be empty or truncated.");
 
-assert(guidePage.includes("ShareGuideButton"), "Guide page should expose the Share action.");
-assert(guidePage.includes("Start Reading"), "Guide page should expose the Start Reading action.");
-assert(guidePage.includes("Download PDF"), "Guide page should expose the Download PDF action.");
-assert(guidePage.includes("<FileText"), "Guide page download action should include a PDF icon.");
-assert(guidePage.includes("download href={resource.downloadPath}"), "Guide page PDF action should request a download.");
+assert(guidePage.includes("PublicGuidedJourneyView"), "Guide page should render guided resources through the reusable public guided journey shell.");
+assert(guidePage.includes("resource.content?.guidedResource?.sessions?.length"), "Guide page should route session-based reading plans into the guided journey shell.");
+assert(publicGuidedJourneyView.includes("Download PDF"), "Public guided journey should expose the Download PDF action.");
+assert(publicGuidedJourneyView.includes("<FileText"), "Public guided journey download action should include a PDF icon.");
+assert(publicGuidedJourneyView.includes("download href={resource.downloadPath}"), "Public guided journey PDF action should request a download.");
+assert(publicGuidedJourneyView.includes('progressStorageKey(slug: string)'), "Public guided journey should key browser progress by resource slug.");
+assert(publicGuidedJourneyView.includes("usam-guide-progress"), "Public guided journey should persist self-guided progress in browser storage.");
+assert(publicGuidedJourneyView.includes("loadSavedProgress(resource.slug)"), "Public guided journey should resume saved progress.");
+assert(publicGuidedJourneyView.includes("persistSavedProgress(resource.slug, next)"), "Public guided journey should save day progress.");
+assert(publicGuidedJourneyView.includes("firstOpenSession"), "Public guided journey should resume at the first incomplete day.");
+assert(publicGuidedJourneyView.includes("Save Progress"), "Public guided journey should expose a Save Progress action.");
+assert(publicGuidedJourneyView.includes("Save &amp; Mark Day Complete"), "Public guided journey should expose a completion action.");
+assert(publicGuidedJourneyView.includes("days complete"), "Public guided journey should show reading-plan progress.");
 assert(!guidePage.includes("Open DOS"), "Reading plan guide should not expose an Open DOS public action.");
 assert(!guidePage.includes("Sign in to DOS"), "Reading plan guide should not expose a DOS sign-in action.");
 assert(!guidePage.includes("Access the DOS Library"), "Reading plan guide should not expose a DOS Library public action.");
 assert(!guidePage.includes("Download through DOS"), "Reading plan guide should not route downloads through DOS.");
 assert(!guidePage.includes("getDosAuthorization"), "Public guide should not require DOS authentication.");
-assert(guidePage.includes("GuideBackToLibraryButton"), "Guide page should include the DOS-context Back to Library control.");
-assert(guidePage.includes("isNewTestamentReadingPlan ?"), "Back to Library shell should be limited to the reading plan page.");
+assert(!publicGuidedJourneyView.includes("getDosAuthorization"), "Public guided journey should not require DOS authentication.");
 assert(!guidePage.includes("searchParams: Promise"), "Public guide should not become dynamic just to detect DOS context.");
-assert(guidePage.includes('showGuideFooterActions = resource.slug !== newTestamentReadingPlanSlug'), "Reading plan should hide unrelated public footer actions.");
-assert(guideBackButton.includes("Back to Library"), "Back control should use the requested label.");
-assert(guideBackButton.includes("ArrowLeft"), "Back control should include a left-arrow icon.");
-assert(guideBackButton.includes('params.get("from") === "dos-library"'), "Back control should show when opened from DOS Library context.");
-assert(guideBackButton.includes('new URLSearchParams({ view: "library" })'), "Back fallback should target the DOS Library view.");
-assert(guideBackButton.includes('query.set("workspace", workspace)'), "Back fallback should preserve workspace context when supplied.");
-assert(guideBackButton.includes('referrerUrl.pathname.startsWith("/dos")'), "Back control should only trust same-origin DOS history.");
-assert(guideBackButton.includes("window.history.back()"), "Back control should use browser back navigation when valid.");
-assert(guideBackButton.includes("href={fallbackHref}"), "Back control should keep a reliable fallback href without history.");
 assert(!guidePage.includes("pdf-download-placeholder"), "Guide page should no longer render the PDF placeholder.");
 assert(guidePage.includes("alternates"), "Guide metadata should include canonical alternates.");
 assert(guidePage.includes("openGraph"), "Guide metadata should include OpenGraph data.");
@@ -70,7 +68,7 @@ assert(guidePage.includes("twitter"), "Guide metadata should include Twitter dat
 
 assert(dosClient.includes('const dosDiscipleshipResourceItems = getDosResourcesByCategory("Discipleship")'), "DOS Library should load Discipleship resources.");
 assert(dosClient.includes('<LibrarySection title="Discipleship">'), "DOS Library should render the Discipleship section.");
-assert(dosClient.includes('resource.type === "reading_plan" && resource.featured && !onClick'), "Featured card should not override picker rows with custom click behavior.");
+assert(dosClient.includes("isGuidedResourceCard = isGuidedResource(resource) && !onClick"), "Guided resource card should not override picker rows with custom click behavior.");
 assert(dosClient.includes("dosLibraryResourceHref"), "DOS Library should add context to the reading plan guide URL.");
 assert(dosClient.includes('from: "dos-library"'), "DOS Library guide link should identify DOS Library context.");
 assert(dosClient.includes("query.set(\"workspace\", workspaceSlug)"), "DOS Library guide link should include the active workspace slug.");
@@ -83,11 +81,11 @@ assert(libraryReadingPlanCard.includes("FEATURED"), "Featured reading plan card 
 assert(libraryReadingPlanCard.includes("READING PLAN"), "Featured reading plan card should show a READING PLAN badge.");
 assert(libraryReadingPlanCard.includes("Assign"), "Featured reading plan card should expose the Assign action.");
 assert(libraryReadingPlanCard.includes("onAssign?.(resource)"), "Featured reading plan Assign action should call the Library assignment flow.");
-assert(libraryReadingPlanCard.includes("Read Online"), "Featured reading plan card should link to the canonical web page.");
-assert(libraryReadingPlanCard.includes("resourceHref"), "Read Online should use the DOS-context guide URL.");
+assert(libraryReadingPlanCard.includes("onOpenGuidedResource(resource)"), "Featured reading plan card should open the in-app guided journey.");
+assert(libraryReadingPlanCard.includes('{completion.completed ? "Continue" : "Open"}'), "Featured reading plan card should expose Open/Continue based on progress.");
 assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan card should keep the PDF action.");
 assert(libraryReadingPlanCard.includes("resource.downloadPath"), "Download PDF should use the catalog download path.");
-assert(libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Featured reading plan card should display type metadata.");
+assert(!libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Reading plan card should not duplicate the type badge as a second Type: line.");
 assert(libraryReadingPlanCard.includes("Duration: ${resource.estimatedDuration}"), "Featured reading plan card should display duration metadata.");
 assert(dosClient.includes("resource.content?.subtitle ?? resource.description"), "Featured reading plan card should use the public reading plan description.");
 

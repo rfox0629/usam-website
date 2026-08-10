@@ -132,7 +132,7 @@ assertIncludes(client, "computeGroupFocusAssignment", "group journey view derive
 assertIncludes(client, "groupNamesForAssignmentContext", "person profile exposes assignment context");
 assertIncludes(client, "ResourceAssignmentCard", "client has reusable assignment card");
 assertIncludes(client, "Assigned Resources", "person Growth/My Record show assigned resources");
-assertIncludes(client, "Completed Resources", "person Growth/My Record show completed resources");
+assertIncludes(client, "Completed Journeys (", "person Growth shows a collapsible completed-journeys history");
 assertIncludes(client, "ResourceAssignmentsDashboardCard", "dashboard has resource follow-up presentation");
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
 assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");
@@ -157,6 +157,21 @@ assertIncludes(client, "getDosResourceBySlug", "client resolves canonical catalo
 assertIncludes(client, "setResourceAssignmentStatus(assignment, \"completed\")", "assignment completion action exists");
 assertIncludes(client, "setResourceAssignmentStatus(assignment, assignment.status === \"paused\" ? \"in_progress\" : \"paused\")", "assignment pause/resume action exists");
 assertMatches(client, /name="general_update"[\s\S]*required/, "resource check-in note is required");
+
+// USA-161: Group -> Assign Journey must visibly offer Discipleship, not just theoretically
+// allow it. The picker renders every catalog resource marked assignable, so Discipleship
+// (marks-of-discipleship) must be one of them.
+assertIncludes(catalog, 'id: "discipleship-marks-of-discipleship"', "Discipleship guided journey resource must exist in the catalog");
+
+const discipleshipCatalogIdIndex = catalog.indexOf('id: "discipleship-marks-of-discipleship"');
+
+assertIncludes(
+  catalog.slice(Math.max(0, discipleshipCatalogIdIndex - 12000), discipleshipCatalogIdIndex),
+  "assignable: true",
+  "Discipleship guided journey must be assignable so it appears in the Assign Journey picker",
+);
+assertIncludes(client, "dosAssignableResourceItems = dosResourceCatalog.filter((resource) => resource.assignable)", "Assign Journey picker must list every assignable catalog resource, including Discipleship");
+assertIncludes(client, "resources={dosAssignableResourceItems}", "Group Assign Journey sheet must use the assignable-resources list that includes Discipleship");
 
 assertIncludes(packageJson, "\"test:dos-resource-assignments\"", "package registers resource assignment regression");
 
