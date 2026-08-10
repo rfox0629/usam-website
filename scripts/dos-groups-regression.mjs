@@ -22,6 +22,73 @@ function assertNotIncludes(source, needle, message) {
   assert(!source.includes(needle), message);
 }
 
+function timezoneParts(date, timezone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone: timezone,
+    year: "numeric",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    month: Number(values.month),
+    second: Number(values.second),
+    year: Number(values.year),
+  };
+}
+
+function timezoneOffsetMinutes(date, timezone) {
+  const parts = timezoneParts(date, timezone);
+  const localAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+
+  return (localAsUtc - date.getTime()) / 60_000;
+}
+
+function zonedDateAndMinutesToIso(dateKey, minutes, timezone) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const guess = new Date(localAsUtc);
+  const firstOffset = timezoneOffsetMinutes(guess, timezone);
+  const firstResult = new Date(localAsUtc - firstOffset * 60_000);
+  const verifiedOffset = timezoneOffsetMinutes(firstResult, timezone);
+  const result = verifiedOffset === firstOffset
+    ? firstResult
+    : new Date(localAsUtc - verifiedOffset * 60_000);
+
+  return result.toISOString();
+}
+
+function localScheduleDisplayKey(isoValue, timezone) {
+  const parts = timezoneParts(new Date(isoValue), timezone);
+
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")} ${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+}
+
+const chicagoScheduleRegressionDates = ["2026-03-11", "2026-08-12", "2026-11-04"];
+for (const dateKey of chicagoScheduleRegressionDates) {
+  const startIso = zonedDateAndMinutesToIso(dateKey, 17 * 60 + 30, "America/Chicago");
+  const endIso = zonedDateAndMinutesToIso(dateKey, 18 * 60 + 30, "America/Chicago");
+
+  assert(
+    localScheduleDisplayKey(startIso, "America/Chicago") === `${dateKey} 17:30`,
+    `Chicago recurring start time must stay 17:30 for ${dateKey}.`,
+  );
+  assert(
+    localScheduleDisplayKey(endIso, "America/Chicago") === `${dateKey} 18:30`,
+    `Chicago recurring end time must stay 18:30 for ${dateKey}.`,
+  );
+}
+
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
@@ -409,7 +476,7 @@ assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail head
 assertIncludes(groupDetailV2Source, 'aria-label="More group actions"', "Groups V2 detail header must expose a top-right overflow action for secondary actions instead of a stranded third button.");
 assertIncludes(groupDetailV2Source, "setIsMoreActionsOpen(true)", "Groups V2 overflow action must open the More actions sheet.");
 assertIncludes(groupDetailV2Source, 'label: "Edit Group"', "Groups V2 More menu must include Edit Group.");
-assertIncludes(groupDetailV2Source, 'label: "Edit Rhythm"', "Groups V2 More menu must point schedule edits to the recurring rhythm settings.");
+assertIncludes(groupDetailV2Source, 'label: "Edit Schedule"', "Groups V2 More menu must use leader-facing schedule language.");
 assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
 assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
 assertIncludes(groupDetailV2Source, 'label: "Archive"', "Groups V2 More menu must include authorized archive access.");
@@ -426,9 +493,16 @@ assertIncludes(groupOverviewV2Source, 'label="Leaders"', "Groups V2 Overview mus
 assertNotIncludes(groupOverviewV2Source, "GroupQuickAction", "Groups V2 Overview must not repeat header actions.");
 assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview must not own public link actions.");
 assertIncludes(groupGatheringsTabSource, "expectedGroupGatherings(group, 4)", "Groups V2 Gatherings tab must derive upcoming expectations from recurring rhythm plus exceptions.");
-assertIncludes(groupGatheringsTabSource, "Edit this occurrence", "Groups V2 Gatherings tab must support occurrence-specific overrides.");
+assertIncludes(groupGatheringsTabSource, "Edit this gathering", "Groups V2 Gatherings tab must support gathering-specific schedule edits.");
 assertIncludes(groupGatheringsTabSource, "Skip this week", "Groups V2 Gatherings tab must support skipping only the next occurrence.");
-assertIncludes(groupGatheringsTabSource, "No occurrence row is created until it is logged, edited, skipped, or made one-off.", "Groups V2 Gatherings tab must not require bulk-generated occurrence rows.");
+assertIncludes(groupGatheringsTabSource, "GroupUpcomingGatheringRow", "Groups V2 Gatherings tab must use compact upcoming rows instead of repeated group cards.");
+assertIncludes(groupGatheringsTabSource, "Edit weekly schedule", "Groups V2 Gatherings tab must use clear schedule language.");
+assertIncludes(groupGatheringsTabSource, "Add one-off gathering", "Groups V2 Gatherings tab must expose one-off gatherings without making them the default flow.");
+assertNotIncludes(groupGatheringsTabSource, "Log Gathering", "Groups V2 Gatherings tab must not repeat the header's primary Log Gathering CTA.");
+assertNotIncludes(groupGatheringsTabSource, "Occurrence log + exceptions", "Groups V2 Gatherings tab must not expose implementation terminology.");
+assertNotIncludes(groupGatheringsTabSource, "No occurrence row is created until it is logged, edited, skipped, or made one-off.", "Groups V2 Gatherings tab must not show persistence implementation copy.");
+assertNotIncludes(groupGatheringsTabSource, "Later from rhythm", "Groups V2 Gatherings tab must use compact Upcoming language instead of rhythm internals.");
+assertNotIncludes(groupGatheringsTabSource, "Edit Rhythm", "Groups V2 Gatherings tab must not show Rhythm as a leader action label.");
 assertIncludes(groupGatheringsTabSource, '<GroupRouteBuilderPlaceholder className="mt-3" compact />', "Groups V2 Route Builder must render compactly inside Gatherings.");
 assertNotIncludes(groupGatheringsTabSource, "How many occurrences per weekly slot", "Groups V2 Gatherings tab must not expose the old bulk-generation workflow.");
 assertNotIncludes(groupGatheringsTabSource, "Schedule Gatherings", "Groups V2 Gatherings tab must not ask leaders to pre-generate occurrences.");
@@ -510,10 +584,16 @@ assertIncludes(appClient, "Selecting days and times updates the rhythm label.", 
 assertIncludes(appClient, "expectedGroupGatherings", "Groups must derive the next expected gathering from recurrence plus saved exceptions.");
 assertIncludes(appClient, "skippedDateKeys", "Skipped gatherings must suppress only the intended derived occurrence.");
 assertIncludes(appClient, "oneOffRows", "One-off gatherings must be merged into the upcoming gathering display without changing recurring rhythm.");
-assertIncludes(appClient, "DOS derives the next expected gathering from this rhythm.", "Group Settings must explain that recurrence drives the next gathering.");
+assertIncludes(appClient, "Future gatherings follow this weekly schedule unless you edit, skip, or add a one-off gathering.", "Group Settings must explain schedule behavior in leader-facing language.");
 assertIncludes(appClient, "action: isDerivedGathering ? \"skip\" : \"cancel\"", "Skipping a derived occurrence must persist a single skip exception instead of pausing the group.");
 assertIncludes(groupGatheringsRoute, 'if (action === "skip")', "Gatherings API must support lazy skip exceptions for derived recurring occurrences.");
 assertIncludes(groupGatheringsRoute, 'status: "canceled"', "Lazy skip exceptions must store a canceled occurrence row.");
+assertIncludes(appClient, "function groupZonedDateAndMinutesToIso", "Groups must convert recurring local schedule times through the fixed DOS display timezone.");
+assertIncludes(appClient, "function groupDisplayOffsetMinutes", "Groups timezone conversion must compute the America/Chicago offset instead of relying on browser local time.");
+assertIncludes(appClient, "return groupZonedDateAndMinutesToIso(dateValue, hour * 60 + minute)", "Group gathering edit/save must preserve the configured local schedule time.");
+assertIncludes(appClient, "return displayTimeInputValue(date)", "Group gathering edit sheets must read ISO times in the DOS display timezone.");
+assertNotIncludes(appClient, "function localDateAndMinutesToIso", "Groups must not derive recurring schedule rows with the browser-local timezone.");
+assertNotIncludes(appClient, "combined.setHours", "Groups must not build recurring schedule ISO timestamps with local setHours.");
 assertNotIncludes(appClient, "How many occurrences per weekly slot", "Groups must remove 4/8/12/26 bulk occurrence generation from the normal UI.");
 assertNotIncludes(appClient, "4 gatherings", "Groups must not expose bulk-generation occurrence counts.");
 assertNotIncludes(appClient, "8 gatherings", "Groups must not expose bulk-generation occurrence counts.");
