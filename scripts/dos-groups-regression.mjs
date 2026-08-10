@@ -39,6 +39,7 @@ const joinRequestsMigration = read("supabase/migrations/20260709160043_dos_group
 const prayerRoute = read("app/api/dos/app/prayer-requests/route.ts");
 const groupMembersRoute = read("app/api/dos/app/groups/members/route.ts");
 const groupCreateRoute = read("app/api/dos/app/groups/route.ts");
+const groupGatheringsRoute = read("app/api/dos/app/groups/gatherings/route.ts");
 const groupJoinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
 const groupPendingRequestsRoute = read("app/api/dos/app/groups/pending-requests/route.ts");
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
@@ -401,14 +402,14 @@ for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
   assertIncludes(appClient, `label: "${tab}"`, `Groups V2 must include ${tab} tab.`);
 }
 assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
-assertIncludes(groupDetailV2Source, "nextUpcomingGroupGathering(group)", "Groups V2 detail must use true upcoming gatherings instead of a past fallback.");
-assertIncludes(groupDetailV2Source, "meetingActionLabel", "Groups V2 detail header must choose Start Gathering or Log Gathering from current gathering state.");
+assertIncludes(groupDetailV2Source, "nextExpectedGroupGathering(group)", "Groups V2 detail must derive the next gathering from the recurring rhythm when no occurrence row exists.");
+assertIncludes(groupDetailV2Source, 'const meetingActionLabel = "Log Gathering"', "Groups V2 detail header must use occurrence/log language instead of requiring a pre-generated gathering.");
 assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
 assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
 assertIncludes(groupDetailV2Source, 'aria-label="More group actions"', "Groups V2 detail header must expose a top-right overflow action for secondary actions instead of a stranded third button.");
 assertIncludes(groupDetailV2Source, "setIsMoreActionsOpen(true)", "Groups V2 overflow action must open the More actions sheet.");
 assertIncludes(groupDetailV2Source, 'label: "Edit Group"', "Groups V2 More menu must include Edit Group.");
-assertIncludes(groupDetailV2Source, 'label: "Schedule"', "Groups V2 More menu must include Schedule.");
+assertIncludes(groupDetailV2Source, 'label: "Edit Rhythm"', "Groups V2 More menu must point schedule edits to the recurring rhythm settings.");
 assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
 assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
 assertIncludes(groupDetailV2Source, 'label: "Archive"', "Groups V2 More menu must include authorized archive access.");
@@ -424,9 +425,13 @@ assertIncludes(groupOverviewV2Source, 'label="Completed Gatherings"', "Groups V2
 assertIncludes(groupOverviewV2Source, 'label="Leaders"', "Groups V2 Overview must include leader status.");
 assertNotIncludes(groupOverviewV2Source, "GroupQuickAction", "Groups V2 Overview must not repeat header actions.");
 assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview must not own public link actions.");
-assertIncludes(groupGatheringsTabSource, "nextUpcomingGroupGathering(group)", "Groups V2 Gatherings tab must scope contextual workflow to the true next gathering.");
-assertIncludes(groupGatheringsTabSource, "nextGathering?.id === gathering.id", "Groups V2 Route Builder must attach to the next eligible gathering row.");
+assertIncludes(groupGatheringsTabSource, "expectedGroupGatherings(group, 4)", "Groups V2 Gatherings tab must derive upcoming expectations from recurring rhythm plus exceptions.");
+assertIncludes(groupGatheringsTabSource, "Edit this occurrence", "Groups V2 Gatherings tab must support occurrence-specific overrides.");
+assertIncludes(groupGatheringsTabSource, "Skip this week", "Groups V2 Gatherings tab must support skipping only the next occurrence.");
+assertIncludes(groupGatheringsTabSource, "No occurrence row is created until it is logged, edited, skipped, or made one-off.", "Groups V2 Gatherings tab must not require bulk-generated occurrence rows.");
 assertIncludes(groupGatheringsTabSource, '<GroupRouteBuilderPlaceholder className="mt-3" compact />', "Groups V2 Route Builder must render compactly inside Gatherings.");
+assertNotIncludes(groupGatheringsTabSource, "How many occurrences per weekly slot", "Groups V2 Gatherings tab must not expose the old bulk-generation workflow.");
+assertNotIncludes(groupGatheringsTabSource, "Schedule Gatherings", "Groups V2 Gatherings tab must not ask leaders to pre-generate occurrences.");
 assertNotIncludes(groupWorkflowBannerSource, "GroupRouteBuilderPlaceholder", "Groups Route Builder must not render above tabs or inside the standalone workflow banner.");
 assertIncludes(appClient, "groupCapacitySettingLabel", "Groups V2 must keep capacity labeling in settings/editing contexts.");
 assertIncludes(appClient, '["Capacity", groupCapacitySettingLabel(group.capacity)]', "Groups V2 Settings must show capacity as settings metadata.");
@@ -502,6 +507,18 @@ assertIncludes(appClient, "formatGroupRhythmLabel", "Group Settings must generat
 assertIncludes(appClient, "groupTimeOptions", "Group Settings time controls must use selectable time options.");
 assertIncludes(appClient, "Add day", "Group Settings must allow adding another weekly day.");
 assertIncludes(appClient, "Selecting days and times updates the rhythm label.", "Group Settings must explain the automatic rhythm label behavior.");
+assertIncludes(appClient, "expectedGroupGatherings", "Groups must derive the next expected gathering from recurrence plus saved exceptions.");
+assertIncludes(appClient, "skippedDateKeys", "Skipped gatherings must suppress only the intended derived occurrence.");
+assertIncludes(appClient, "oneOffRows", "One-off gatherings must be merged into the upcoming gathering display without changing recurring rhythm.");
+assertIncludes(appClient, "DOS derives the next expected gathering from this rhythm.", "Group Settings must explain that recurrence drives the next gathering.");
+assertIncludes(appClient, "action: isDerivedGathering ? \"skip\" : \"cancel\"", "Skipping a derived occurrence must persist a single skip exception instead of pausing the group.");
+assertIncludes(groupGatheringsRoute, 'if (action === "skip")', "Gatherings API must support lazy skip exceptions for derived recurring occurrences.");
+assertIncludes(groupGatheringsRoute, 'status: "canceled"', "Lazy skip exceptions must store a canceled occurrence row.");
+assertNotIncludes(appClient, "How many occurrences per weekly slot", "Groups must remove 4/8/12/26 bulk occurrence generation from the normal UI.");
+assertNotIncludes(appClient, "4 gatherings", "Groups must not expose bulk-generation occurrence counts.");
+assertNotIncludes(appClient, "8 gatherings", "Groups must not expose bulk-generation occurrence counts.");
+assertNotIncludes(appClient, "12 gatherings", "Groups must not expose bulk-generation occurrence counts.");
+assertNotIncludes(appClient, "26 gatherings", "Groups must not expose bulk-generation occurrence counts.");
 assertIncludes(appClient, "groupSettingsLeaderPersonId", "Group Settings must resolve the leader selector to a real Field person id.");
 assertIncludes(appClient, "people.filter((person) => isPersistedUuid(person.id))", "Group Settings leader options must avoid fallback non-UUID person ids.");
 assertIncludes(appClient, "group.leaderPersonId && isPersistedUuid(group.leaderPersonId) && !peopleById.has(group.leaderPersonId)", "Group Settings leader options must include the existing leader fallback.");
@@ -626,6 +643,10 @@ assertIncludes(preview, 'name: "2three2"', "DOS preview must render the featured
 assertIncludes(preview, 'tagline: "Run. Pray. Pursue."', "DOS preview must seed the 2three2 tagline.");
 assertIncludes(preview, "name: \"Tuesday Men's Group\"", "DOS preview must seed Tuesday Men's Group.");
 assertIncludes(preview, "name: \"Wednesday Men's Group\"", "DOS preview must seed Wednesday Men's Group.");
+assertIncludes(preview, 'rhythmLabel: "Weekly · Wednesday · 5:30 PM - 6:30 PM"', "DOS preview must exercise the Wednesday 5:30 recurring group scenario.");
+assertIncludes(preview, 'locationAddress: "9745 Oak Shore Dr, Lakeville, MN 55044"', "DOS preview must exercise the recurring group address scenario.");
+assertIncludes(preview, 'id: "demo-assignment-wednesday-discipleship-tim"', "DOS preview must exercise an upcoming Wednesday group Journey assignment.");
+assertIncludes(preview, 'id: "demo-assignment-wednesday-nt-sprint-tim"', "DOS preview must exercise a past incomplete Wednesday group Journey assignment.");
 assertIncludes(preview, 'tagline: "Grow together."', "DOS preview must seed Tuesday Men's Group tagline.");
 assertIncludes(preview, 'tagline: "Brotherhood. Prayer. Discipleship."', "DOS preview must seed Wednesday Men's Group tagline.");
 assertIncludes(preview, 'const prayerRequests: DosAppData["prayerRequests"]', "DOS preview must seed central prayer requests.");
@@ -897,13 +918,22 @@ assert(exists("app/api/dos/app/groups/settings/route.ts"), "Groups must create t
 assert(!exists("app/dos/groups/page.tsx"), "Groups should stay inside the authenticated DOS app surface.");
 
 // USA-161: the shared DesktopPanel header (eyebrow/title + action buttons) must stack
-// vertically on mobile so long titles like "0 active - 1 completed" cannot be crushed
-// into a one-word-per-line column by the action buttons competing for width.
+// vertically on mobile so long titles like "1 current - 0 upcoming - 1 past" cannot be
+// crushed into a one-word-per-line column by the action buttons competing for width.
 assertIncludes(desktopPanelSource, "flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between", "DesktopPanel header must stack vertically below the sm breakpoint");
 assert(
   !desktopPanelSource.includes("flex items-start justify-between gap-3"),
   "DesktopPanel header must not use a non-wrapping flex row that starves the title of width on mobile",
 );
 assertIncludes(groupJourneysTabSource, "sm:justify-end", "Journeys tab action buttons must only right-align at sm+ so they do not fight the summary title for width on mobile");
+assertIncludes(appClient, 'type GroupJourneyRowState = "current" | "upcoming" | "past"', "Group Journey lifecycle must use current/upcoming/past instead of participant-completion buckets.");
+assertIncludes(appClient, "function groupJourneyLifecycle", "Group Journey lifecycle must be derived from assignment start/due dates.");
+assertIncludes(appClient, "groupJourneyAssignmentEndDate", "Journey duration must come from assignment due date/resource duration, not group recurrence.");
+assertIncludes(groupJourneysTabSource, "${currentRows.length} current · ${upcomingRows.length} upcoming · ${pastRows.length} past", "Group Journeys summary must separate current, upcoming, and past study periods.");
+assertIncludes(groupJourneysTabSource, "Past / Study Period Ended", "Past group Journeys must be labeled as study periods instead of completed participant progress.");
+assertIncludes(appClient, "Study period ended", "Past Journey UI must describe ended study periods.");
+assertIncludes(appClient, "participantCompletionLabel", "Participant completion must remain separate from group Journey lifecycle.");
+assertIncludes(appClient, ': "Assigned";', "Member progress rows must show assigned progress separately from group Journey lifecycle.");
+assertNotIncludes(groupJourneysTabSource, "completedRows", "Group Journeys tab must not use completedRows as a lifecycle bucket.");
 
 console.log("DOS groups regression passed.");

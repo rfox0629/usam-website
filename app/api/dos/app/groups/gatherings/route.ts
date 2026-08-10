@@ -240,6 +240,89 @@ export async function POST(request: Request) {
     return NextResponse.json({ gathering: mapGatheringRow(insertResult.data), ok: true });
   }
 
+  if (action === "skip") {
+    const startsAt = asString(payload.startsAt);
+
+    if (!isIsoTimestamp(startsAt)) {
+      return NextResponse.json({ error: "Choose a valid gathering date and time to skip." }, { status: 400 });
+    }
+
+    const existingScheduledResult = await supabase
+      .from("dos_group_gatherings")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("starts_at", startsAt)
+      .eq("status", "scheduled")
+      .limit(1);
+
+    if (existingScheduledResult.error) {
+      return NextResponse.json({ error: existingScheduledResult.error.message }, { status: 500 });
+    }
+
+    const existingScheduled = existingScheduledResult.data?.[0];
+
+    if (existingScheduled?.id) {
+      const updateResult = await supabase
+        .from("dos_group_gatherings")
+        .update({ status: "canceled", updated_at: new Date().toISOString() })
+        .eq("id", existingScheduled.id)
+        .eq("group_id", groupId)
+        .select("id, group_id, title, starts_at, ends_at, location, description, status")
+        .single();
+
+      if (updateResult.error) {
+        return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
+      }
+
+      revalidatePath("/groups");
+      revalidatePath(`/groups/${slug}`);
+
+      return NextResponse.json({ gathering: mapGatheringRow(updateResult.data), ok: true });
+    }
+
+    const existingCanceledResult = await supabase
+      .from("dos_group_gatherings")
+      .select("id, group_id, title, starts_at, ends_at, location, description, status")
+      .eq("group_id", groupId)
+      .eq("starts_at", startsAt)
+      .eq("status", "canceled")
+      .limit(1);
+
+    if (existingCanceledResult.error) {
+      return NextResponse.json({ error: existingCanceledResult.error.message }, { status: 500 });
+    }
+
+    const existingCanceled = existingCanceledResult.data?.[0];
+
+    if (existingCanceled) {
+      return NextResponse.json({ gathering: mapGatheringRow(existingCanceled), ok: true });
+    }
+
+    const endsAt = asString(payload.endsAt);
+    const insertResult = await supabase
+      .from("dos_group_gatherings")
+      .insert({
+        description: asNullableString(payload.description),
+        ends_at: isIsoTimestamp(endsAt) ? endsAt : null,
+        group_id: groupId,
+        location: asNullableString(payload.location),
+        starts_at: startsAt,
+        status: "canceled",
+        title: asString(payload.title) || "Group Gathering",
+      })
+      .select("id, group_id, title, starts_at, ends_at, location, description, status")
+      .single();
+
+    if (insertResult.error) {
+      return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
+    }
+
+    revalidatePath("/groups");
+    revalidatePath(`/groups/${slug}`);
+
+    return NextResponse.json({ gathering: mapGatheringRow(insertResult.data), ok: true });
+  }
+
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
 }
 
