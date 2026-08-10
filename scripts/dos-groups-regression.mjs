@@ -129,6 +129,10 @@ const groupGatheringsTabSource = appClient.slice(
   appClient.indexOf("function GroupGatheringsTab"),
   appClient.indexOf("function GroupAttendanceTab"),
 );
+const groupUpcomingGatheringRowSource = appClient.slice(
+  appClient.indexOf("function GroupUpcomingGatheringRow"),
+  appClient.indexOf("function GroupGatheringsTab"),
+);
 const groupWorkflowBannerSource = appClient.slice(
   appClient.indexOf("function GroupGatheringWorkflowBanner"),
   appClient.indexOf("function GroupRouteBuilderPlaceholder"),
@@ -496,6 +500,10 @@ assertIncludes(groupGatheringsTabSource, "expectedGroupGatherings(group, 4)", "G
 assertIncludes(groupGatheringsTabSource, "Edit this gathering", "Groups V2 Gatherings tab must support gathering-specific schedule edits.");
 assertIncludes(groupGatheringsTabSource, "Skip this week", "Groups V2 Gatherings tab must support skipping only the next occurrence.");
 assertIncludes(groupGatheringsTabSource, "GroupUpcomingGatheringRow", "Groups V2 Gatherings tab must use compact upcoming rows instead of repeated group cards.");
+assertIncludes(groupUpcomingGatheringRowSource, "formatGroupGatheringCompactTime(gathering)", "Upcoming gathering rows must show compact date and time.");
+assertIncludes(groupUpcomingGatheringRowSource, "location.label", "Upcoming gathering rows must keep the leader-facing place label.");
+assertNotIncludes(groupUpcomingGatheringRowSource, "location.address", "Upcoming gathering rows must not repeat the full address.");
+assertNotIncludes(groupUpcomingGatheringRowSource, "<GroupPill", "Upcoming gathering rows must not show internal expected/scheduled badges.");
 assertIncludes(groupGatheringsTabSource, "Edit weekly schedule", "Groups V2 Gatherings tab must use clear schedule language.");
 assertIncludes(groupGatheringsTabSource, "Add one-off gathering", "Groups V2 Gatherings tab must expose one-off gatherings without making them the default flow.");
 assertNotIncludes(groupGatheringsTabSource, "Log Gathering", "Groups V2 Gatherings tab must not repeat the header's primary Log Gathering CTA.");
