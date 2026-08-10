@@ -10013,7 +10013,7 @@ function groupMemberPortalStatusLabel(member: DosAppGroupMember) {
   }
 
   if (status === "invited") {
-    return "Portal: Link sent";
+    return "Portal: Not accessed yet";
   }
 
   if (status === "revoked") {

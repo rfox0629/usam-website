@@ -711,6 +711,10 @@ assertIncludes(groupSettingsRoute, "loadDosGroupRoleAccess", "Group settings API
 assertIncludes(groupSettingsRoute, ".from(\"dos_groups\")", "Group settings API must update dos_groups.");
 assertIncludes(groupSettingsRoute, "isUuid(groupId)", "Group settings API must tolerate legacy non-UUID client group identifiers.");
 assertIncludes(groupSettingsRoute, validUuidFinalSegments, "Group settings API must accept valid UUIDs for group and leader ids.");
+assertIncludes(groupSettingsRoute, "legacyGroupSelect", "Group settings API must fall back when production does not yet have new location/schedule columns.");
+assertIncludes(groupSettingsRoute, "hasStructuredLocationColumns", "Group settings API must detect whether the structured location/schedule columns exist.");
+assertIncludes(groupSettingsRoute, "buildGroupSettingsPatch", "Group settings API must persist location/schedule values into existing group settings for schema-compatible production saves.");
+assertIncludes(missionaryApp, "legacyV2GroupSelect", "DOS group loader must keep existing V2 settings available when new structured columns are absent.");
 assertIncludes(groupSettingsRoute, ".eq(\"slug\", requestedSlug)", "Group settings API must fall back to workspace-scoped slug lookup.");
 assertIncludes(groupSettingsRoute, "const resolvedGroupId = existingGroupResult.data.id", "Group settings API must normalize saves to the real group id.");
 assertIncludes(groupSettingsRoute, ".neq(\"id\", resolvedGroupId)", "Group settings API must validate slug uniqueness excluding the resolved current group.");
@@ -720,6 +724,7 @@ assertIncludes(groupSettingsRoute, "return explicitRhythm || generated || null",
 assertIncludes(groupSettingsRoute, "leaderPersonId = existingGroupResult.data.leader_person_id ?? \"\"", "Group settings API must preserve the existing leader when stale UI submits a non-UUID fallback value.");
 assertIncludes(groupSettingsRoute, "isCurrentGroupLeader", "Group settings API must allow the current valid leader to remain selected.");
 assertIncludes(groupSettingsRoute, "existingLeaderMemberResult", "Group settings API must include existing leader/member records in validation.");
+assertIncludes(missionaryApp, "groupSettingsString(row.settings", "DOS group loader must read location/schedule values from existing group settings when columns are absent.");
 assertIncludes(appClient, "setSelectedGroupId(result.group.id)", "Group Settings must switch from a fallback identifier to the resolved group id after save.");
 assertIncludes(appClient, "const resolvedGroupId = result.group.id || payload.groupId", "Group Settings must key local overrides by the resolved group id.");
 assertIncludes(appClient, "Apply location changes to future scheduled gatherings", "Group Settings must use inline copy for future gathering location updates.");
@@ -732,6 +737,8 @@ assertIncludes(appClient, "Accept & Link", "DOS Pending Requests must make match
 assertIncludes(appClient, "onRemoveMember", "DOS group members tab must wire a private remove-member action.");
 assertIncludes(appClient, "Remove Member", "DOS group members tab must show an inline remove confirmation.");
 assertIncludes(appClient, "Their Person record stays in Field.", "DOS group member removal must explain that Person data is preserved.");
+assertIncludes(appClient, "Portal: Not accessed yet", "DOS group members tab must describe copied/created portal links as not accessed until verified.");
+assertNotIncludes(appClient, "Portal: Link sent", "DOS group members tab must not imply a copied portal link was sent by the system.");
 assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must revalidate the public groups directory after edits.");
 assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must revalidate the public group page after edits.");
 assertIncludes(publicGroupPage, "2three2", "Public group route must render 2three2.");
