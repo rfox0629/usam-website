@@ -1489,6 +1489,69 @@ function displayTimeInputValue(date: Date) {
   return hour && minute ? `${hour}:${minute}` : "";
 }
 
+function groupDisplayOffsetMinutes(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone: dosDisplayTimeZone,
+    year: "numeric",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const localAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second),
+  );
+
+  return (localAsUtc - date.getTime()) / 60_000;
+}
+
+function groupZonedDateAndMinutesToIso(dateKey: string, minutes: number | null) {
+  if (minutes === null || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    return null;
+  }
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+
+  if (![year, month, day, hour, minute].every(Number.isFinite)) {
+    return null;
+  }
+
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const guess = new Date(localAsUtc);
+  const firstOffset = groupDisplayOffsetMinutes(guess);
+  const firstResult = new Date(localAsUtc - firstOffset * 60_000);
+  const verifiedOffset = groupDisplayOffsetMinutes(firstResult);
+  const result = verifiedOffset === firstOffset
+    ? firstResult
+    : new Date(localAsUtc - verifiedOffset * 60_000);
+
+  return result.toISOString();
+}
+
+function addDaysToGroupDateKey(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days, 12, 0, 0, 0));
+
+  return dateKeyFromParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+}
+
+function groupDateKeyWeekday(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+
+  return Number.isNaN(date.getTime()) ? null : date.getUTCDay();
+}
+
 function formatDate(value: string | null) {
   const date = parseDisplayDate(value);
 
@@ -1696,6 +1759,51 @@ function formatGroupGatheringTime(gathering: DosAppGroupGathering | null) {
   return [formatDate(gathering.startsAt), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
 }
 
+function formatGroupGatheringShortDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: dosDisplayTimeZone,
+    weekday: "short",
+  }).format(date);
+}
+
+function formatGroupGatheringTimeRange(gathering: DosAppGroupGathering | null) {
+  if (!gathering) {
+    return "";
+  }
+
+  const start = formatTime(gathering.startsAt);
+  const end = formatTime(gathering.endsAt);
+
+  return start && end ? `${start} - ${end}` : start;
+}
+
+function formatGroupGatheringCompactTime(gathering: DosAppGroupGathering | null) {
+  if (!gathering) {
+    return "Not scheduled";
+  }
+
+  return [formatGroupGatheringShortDate(gathering.startsAt), formatGroupGatheringTimeRange(gathering)].filter(Boolean).join(" · ");
+}
+
+function groupGatheringLocationParts(gathering: DosAppGroupGathering | null, group: DosAppGroup) {
+  const location = gathering?.location ?? groupLocationSummary(group);
+  const [label, ...addressParts] = location.split(/\s+—\s+|\s+-\s+/);
+  const address = addressParts.join(" - ").trim();
+
+  return {
+    address: address || (label !== group.locationAddress ? group.locationAddress ?? "" : ""),
+    label: label?.trim() || "Location TBD",
+  };
+}
+
 function groupMemberCountLabel(count: number) {
   return `${count} ${count === 1 ? "member" : "members"}`;
 }
@@ -1718,17 +1826,6 @@ function groupScheduleWindowLabel(group: DosAppGroup) {
   const start = formatDate(group.recurrenceEffectiveDate);
 
   return group.recurrenceEndDate ? `${start} – ${formatDate(group.recurrenceEndDate)}` : `${start} – ongoing`;
-}
-
-function localDateAndMinutesToIso(date: Date, minutes: number | null) {
-  if (minutes === null) {
-    return null;
-  }
-
-  const combined = new Date(date);
-  combined.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-
-  return combined.toISOString();
 }
 
 type GroupGatheringOccurrenceDraft = {
@@ -1764,11 +1861,11 @@ function computeGroupScheduleOccurrences(group: DosAppGroup, countPerSlot: numbe
   }
 
   const now = new Date();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const effectiveDate = group.recurrenceEffectiveDate ? new Date(`${group.recurrenceEffectiveDate}T00:00:00`) : today;
-  const startDate = effectiveDate.getTime() > today.getTime() ? effectiveDate : today;
-  const endDate = group.recurrenceEndDate ? new Date(`${group.recurrenceEndDate}T23:59:59`) : null;
+  const todayKey = displayDateKey(now);
+  const startDateKey = group.recurrenceEffectiveDate && group.recurrenceEffectiveDate > todayKey
+    ? group.recurrenceEffectiveDate
+    : todayKey;
+  const endDateKey = group.recurrenceEndDate || null;
   const location = groupLocationSummary(group);
   const locationValue = location === "Location TBD" ? null : location;
   const occurrences: GroupGatheringOccurrenceDraft[] = [];
@@ -1787,43 +1884,43 @@ function computeGroupScheduleOccurrences(group: DosAppGroup, countPerSlot: numbe
     }
 
     const endMinutes = slot.endTime ? groupTimeToMinutes(slot.endTime) : null;
-    const cursor = new Date(startDate);
+    let cursorKey = startDateKey;
 
-    while (cursor.getDay() !== targetWeekday) {
-      cursor.setDate(cursor.getDate() + 1);
+    while (groupDateKeyWeekday(cursorKey) !== targetWeekday) {
+      cursorKey = addDaysToGroupDateKey(cursorKey, 1);
     }
 
     while (true) {
-      if (endDate && cursor.getTime() > endDate.getTime()) {
+      if (endDateKey && cursorKey > endDateKey) {
         return;
       }
 
-      const startsAt = localDateAndMinutesToIso(cursor, startMinutes);
+      const startsAt = groupZonedDateAndMinutesToIso(cursorKey, startMinutes);
 
       if (startsAt && new Date(startsAt).getTime() >= now.getTime()) {
         break;
       }
 
-      cursor.setDate(cursor.getDate() + 7);
+      cursorKey = addDaysToGroupDateKey(cursorKey, 7);
     }
 
     for (let generated = 0; generated < countPerSlot; generated += 1) {
-      if (endDate && cursor.getTime() > endDate.getTime()) {
+      if (endDateKey && cursorKey > endDateKey) {
         break;
       }
 
-      const startsAt = localDateAndMinutesToIso(cursor, startMinutes);
+      const startsAt = groupZonedDateAndMinutesToIso(cursorKey, startMinutes);
 
       if (startsAt) {
         occurrences.push({
-          endsAt: localDateAndMinutesToIso(cursor, endMinutes),
+          endsAt: groupZonedDateAndMinutesToIso(cursorKey, endMinutes),
           location: locationValue,
           startsAt,
           title: group.name,
         });
       }
 
-      cursor.setDate(cursor.getDate() + 7);
+      cursorKey = addDaysToGroupDateKey(cursorKey, 7);
     }
   });
 
@@ -1934,11 +2031,7 @@ function isoToDateInputValue(value: string) {
     return "";
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return displayDateKey(date);
 }
 
 function isoToTimeInputValue(value: string) {
@@ -1948,7 +2041,7 @@ function isoToTimeInputValue(value: string) {
     return "";
   }
 
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return displayTimeInputValue(date);
 }
 
 function dateAndTimeInputToIso(dateValue: string, timeValue: string) {
@@ -1956,9 +2049,13 @@ function dateAndTimeInputToIso(dateValue: string, timeValue: string) {
     return null;
   }
 
-  const date = new Date(`${dateValue}T${timeValue}:00`);
+  const [hour, minute] = timeValue.split(":").map(Number);
 
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return null;
+  }
+
+  return groupZonedDateAndMinutesToIso(dateValue, hour * 60 + minute);
 }
 
 function groupSearchText(group: DosAppGroup) {
@@ -7847,11 +7944,11 @@ function GroupDetailWorkspaceV2({
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
   const meetingActionLabel = "Log Gathering";
   const nextGatheringSummary = nextGathering
-    ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatShortDate(nextGathering.startsAt)}${formatTime(nextGathering.startsAt) ? ` · ${formatTime(nextGathering.startsAt)}` : ""}`
+    ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatGroupGatheringShortDate(nextGathering.startsAt)}${formatGroupGatheringTimeRange(nextGathering) ? ` · ${formatGroupGatheringTimeRange(nextGathering)}` : ""}`
     : "Not scheduled";
   const moreActions = [
     { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Group", onClick: onEditGroup },
-    { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Rhythm", onClick: onSchedule },
+    { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Schedule", onClick: onSchedule },
     { icon: <Link2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Copy Link", onClick: onCopyPublicLink },
     { icon: <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Public Page", onClick: onViewPublicGroup },
     ...(!isPreview && group.active ? [{ icon: <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Archive", onClick: onEditGroup }] : []),
@@ -7939,7 +8036,6 @@ function GroupDetailWorkspaceV2({
           onAddOneOff={onAddOneOffGathering}
           onCancelGathering={onCancelGathering}
           onEditGathering={onEditGathering}
-          onLogGathering={onLogAsTable}
           onManageSchedule={onSchedule}
         />
       ) : null}
@@ -8024,7 +8120,6 @@ function GroupOverviewNextGatheringCard({ gathering }: { gathering: GroupGatheri
       </div>
       <p className="mt-2 truncate text-sm font-black text-[#0F172A]">{gathering?.title ?? "Not scheduled"}</p>
       <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering ? formatGroupGatheringTime(gathering) : "Set the recurring rhythm in Settings"}</p>
-      {gathering?.derived ? <p className="mt-1 truncate text-xs font-semibold text-[#2563EB]">Expected from recurring rhythm</p> : null}
       {gathering?.location ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering.location}</p> : null}
     </div>
   );
@@ -9224,7 +9319,6 @@ function GroupDetailWorkspace({
           onAddOneOff={onAddOneOffGathering}
           onCancelGathering={onCancelGathering}
           onEditGathering={onEditGathering}
-          onLogGathering={onLogAsTable}
           onManageSchedule={onSchedule}
         />
       ) : null}
@@ -11350,7 +11444,7 @@ function GroupSettingsSheet({
                   <input className={`${FieldInputClass()} bg-white`} onChange={(event) => updateDraft("recurrenceEndDate", event.target.value)} type="date" value={draft.recurrenceEndDate} />
                 </label>
               </div>
-              <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">DOS derives the next expected gathering from this rhythm. Occurrence rows are saved only for logs, edits, skips, or one-off exceptions.</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">Future gatherings follow this weekly schedule unless you edit, skip, or add a one-off gathering.</p>
             </section>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block min-w-0">
@@ -11464,7 +11558,7 @@ function GroupGatheringFormSheet({
   }
 
   return (
-    <Sheet onClose={onClose} title={gathering ? (isOccurrenceOverride ? "Edit this occurrence" : "Edit Gathering") : "Add One-off Gathering"}>
+    <Sheet onClose={onClose} title={gathering ? (isOccurrenceOverride ? "Edit this gathering" : "Edit Gathering") : "Add One-off Gathering"}>
       <div className="grid gap-4">
         {message ? (
           <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
@@ -11510,7 +11604,7 @@ function GroupGatheringFormSheet({
             onClick={submit}
             type="button"
           >
-            {isSubmitting ? "Saving…" : gathering ? (isOccurrenceOverride ? "Save Occurrence" : "Save Changes") : "Add Gathering"}
+            {isSubmitting ? "Saving…" : gathering ? (isOccurrenceOverride ? "Save Gathering" : "Save Changes") : "Add Gathering"}
           </button>
         </div>
       </div>
@@ -11546,7 +11640,6 @@ function GroupGatheringRow({
         </div>
         <GroupPill tone={gathering.status === "completed" ? "green" : gathering.status === "canceled" ? "gray" : "blue"}>{statusLabel}</GroupPill>
       </div>
-      {gathering.derived && !compact ? <p className="mt-2 text-xs font-semibold leading-5 text-[#2563EB]">Derived from the recurring rhythm. It will be saved only if you log, edit, skip, or add an exception.</p> : null}
       {gathering.description && !compact ? <p className="mt-3 text-sm leading-6 text-[#475569]">{gathering.description}</p> : null}
       {gathering.linkedTableEventId ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Linked meeting log</p> : null}
       {canManage ? (
@@ -11578,13 +11671,27 @@ function GroupGatheringRow({
   );
 }
 
+function GroupUpcomingGatheringRow({ gathering, group }: { gathering: GroupGatheringView; group: DosAppGroup }) {
+  const location = groupGatheringLocationParts(gathering, group);
+
+  return (
+    <div className="grid gap-2 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] sm:items-center">
+      <div className="min-w-0">
+        <p className="text-sm font-black text-[#0F172A]">{formatGroupGatheringCompactTime(gathering)}</p>
+        <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{location.label}</p>
+        {location.address ? <p className="mt-0.5 truncate text-xs font-semibold text-[#94A3B8]">{location.address}</p> : null}
+      </div>
+      {gathering.derived ? <GroupPill tone="gray">Expected</GroupPill> : <GroupPill tone="blue">Scheduled</GroupPill>}
+    </div>
+  );
+}
+
 function GroupGatheringsTab({
   group,
   isPreview,
   onAddOneOff,
   onCancelGathering,
   onEditGathering,
-  onLogGathering,
   onManageSchedule,
 }: {
   group: DosAppGroup;
@@ -11592,7 +11699,6 @@ function GroupGatheringsTab({
   onAddOneOff: () => void;
   onCancelGathering: (gathering: GroupGatheringView) => void;
   onEditGathering: (gathering: GroupGatheringView) => void;
-  onLogGathering: () => void;
   onManageSchedule: () => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
@@ -11605,41 +11711,28 @@ function GroupGatheringsTab({
   const showRouteBuilder = isRouteBuilderEligibleGroup(group);
 
   return (
-    <DesktopPanel
-      action={(
-        <div className="flex flex-wrap gap-2 sm:justify-end">
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]" onClick={onLogGathering} type="button">
-            <Coffee className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            Log Gathering
-          </button>
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onManageSchedule} type="button">
-            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            Edit Rhythm
-          </button>
-          <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddOneOff} type="button">
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
-            Add one-off
-          </button>
-        </div>
-      )}
-      eyebrow="Gatherings"
-      title="Occurrence log + exceptions"
-    >
+    <DesktopPanel eyebrow="Gatherings" title="Schedule">
       {nextGathering ? (
-        <div className="grid gap-3">
+        <div className="grid gap-4">
           <div className="rounded-[20px] border border-[#BFDBFE] bg-[#F8FBFF] p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Next Gathering</p>
-                <h3 className="mt-1 text-base font-black text-[#0F172A]">{formatGroupGatheringTime(nextGathering)}</h3>
-                <p className="mt-1 text-sm font-semibold text-[#475569]">{nextGathering.location ?? groupLocationSummary(group)}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">
-                  {nextGathering.derived ? "Expected from recurring rhythm. No occurrence row is created until it is logged, edited, skipped, or made one-off." : "Saved occurrence or exception."}
-                </p>
+                <h3 className="mt-1 text-base font-black text-[#0F172A]">{formatGroupGatheringCompactTime(nextGathering)}</h3>
+                {(() => {
+                  const location = groupGatheringLocationParts(nextGathering, group);
+
+                  return (
+                    <>
+                      <p className="mt-1 text-sm font-semibold text-[#475569]">{location.label}</p>
+                      {location.address ? <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{location.address}</p> : null}
+                    </>
+                  );
+                })()}
               </div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
                 <button className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50" disabled={isPreview} onClick={() => onEditGathering(nextGathering)} type="button">
-                  Edit this occurrence
+                  Edit this gathering
                 </button>
                 <button className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50" disabled={isPreview} onClick={() => onCancelGathering(nextGathering)} type="button">
                   Skip this week
@@ -11650,27 +11743,38 @@ function GroupGatheringsTab({
           </div>
 
           {laterExpectedRows.length ? (
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Later from rhythm</p>
+            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Upcoming</p>
               <div className="mt-2 grid gap-2">
                 {laterExpectedRows.map((gathering) => (
-                  <GroupGatheringRow compact gathering={gathering} key={gathering.id} />
+                  <GroupUpcomingGatheringRow gathering={gathering} group={group} key={gathering.id} />
                 ))}
               </div>
             </div>
           ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            <button className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onAddOneOff} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Add one-off gathering
+            </button>
+            <button className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onManageSchedule} type="button">
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Edit weekly schedule
+            </button>
+          </div>
         </div>
       ) : (
         <SectionEmptyState
-          action={<CompactButton icon="settings" onClick={onManageSchedule}>Edit Rhythm</CompactButton>}
-          text={group.active ? "Set the weekday, time, and default location in Settings. DOS will derive the next expected gathering without generated occurrence rows." : "This group is archived. Restore it before deriving a next gathering."}
-          title={group.active ? "No recurring rhythm set yet." : "Group is inactive."}
+          action={<CompactButton icon="settings" onClick={onManageSchedule}>Edit weekly schedule</CompactButton>}
+          text={group.active ? "Set the weekday, time, and default location in Settings." : "This group is archived. Restore it before scheduling the next gathering."}
+          title={group.active ? "No weekly schedule set yet." : "Group is inactive."}
         />
       )}
       {past.length ? (
         <div className="mt-4 border-t border-[#EAF2FF] pt-3">
           <button className="text-xs font-black text-[#2563EB]" onClick={() => setShowHistory((current) => !current)} type="button">
-            {showHistory ? "Hide" : "Show"} Recent Gatherings / History ({past.length})
+            {showHistory ? "Hide" : "Show"} Recent Gatherings ({past.length})
           </button>
           {showHistory ? (
             <div className="mt-3 grid gap-2">
