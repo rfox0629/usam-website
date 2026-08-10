@@ -90,8 +90,9 @@ assertIncludes(joinRequestsRoute, "createGroupMemberAccessInvitation", "Acceptin
 assertIncludes(membersRoute, "send_member_access", "Leader members API must support resending member access.");
 assertIncludes(membersRoute, "loadDosGroupRoleAccess", "Member access resend must remain leader-authorized.");
 assertIncludes(missionaryApp, "memberAccess", "DOS payload must expose compact member access summary.");
-assertIncludes(appClient, "Access Link", "Leader UI must expose a compact member access control.");
-assertIncludes(appClient, "groupMemberAccessLabel", "Leader UI must display member access status.");
+assertIncludes(appClient, "Portal Link", "Leader UI must expose a compact member access control.");
+assertIncludes(appClient, "groupMemberPortalStatusLabel", "Leader UI must display member portal status separately from membership status.");
+assertNotIncludes(appClient, "Not Invited", "Leader UI must not conflate participant portal state with group membership language.");
 
 assertIncludes(architectureDoc, "Plain tokens are never stored", "Architecture doc must document token storage safety.");
 assertIncludes(architectureDoc, "Lightweight members do not receive a DOS workspace", "Architecture doc must preserve product boundary.");

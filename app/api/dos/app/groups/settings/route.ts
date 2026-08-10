@@ -13,7 +13,11 @@ type GroupSettingsPayload = {
   endTime?: unknown;
   groupId?: unknown;
   leaderPersonId?: unknown;
+  locationAddress?: unknown;
+  locationLabel?: unknown;
   name?: unknown;
+  recurrenceEffectiveDate?: unknown;
+  recurrenceEndDate?: unknown;
   rhythmLabel?: unknown;
   scriptureReference?: unknown;
   scriptureText?: unknown;
@@ -32,7 +36,11 @@ type GroupRow = {
   description: string | null;
   id: string;
   leader_person_id: string | null;
+  location_address: string | null;
+  location_label: string | null;
   name: string;
+  recurrence_effective_date: string | null;
+  recurrence_end_date: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
@@ -84,6 +92,16 @@ function asVisibility(value: unknown) {
 
 function asBoolean(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function asNullableDate(value: unknown) {
+  const text = asString(value);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function formatGroupLocation(label: string | null, address: string | null) {
+  return [label, address].filter(Boolean).join(" — ") || null;
 }
 
 function buildRhythmLabel(payload: GroupSettingsPayload) {
@@ -165,7 +183,7 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location";
+  const existingGroupSelect = "id, workspace_id, slug, leader_person_id, default_location, location_label, location_address";
   const existingGroupResult = isUuid(groupId)
     ? await supabase
       .from("dos_groups")
@@ -252,12 +270,18 @@ export async function PATCH(request: Request) {
     }
   }
 
+  const locationLabel = asNullableString(payload.locationLabel) ?? asNullableString(payload.defaultLocation);
+  const locationAddress = asNullableString(payload.locationAddress);
   const updateRecord = {
     active: asBoolean(payload.active, true),
-    default_location: asNullableString(payload.defaultLocation),
+    default_location: formatGroupLocation(locationLabel, locationAddress),
     description: asNullableString(payload.description),
     leader_person_id: leaderPersonId || null,
+    location_address: locationAddress,
+    location_label: locationLabel,
     name,
+    recurrence_effective_date: asNullableDate(payload.recurrenceEffectiveDate),
+    recurrence_end_date: asNullableDate(payload.recurrenceEndDate),
     rhythm_label: buildRhythmLabel(payload),
     scripture_reference: asNullableString(payload.scriptureReference),
     scripture_text: asNullableString(payload.scriptureText),
@@ -272,7 +296,7 @@ export async function PATCH(request: Request) {
     .update(updateRecord)
     .eq("id", resolvedGroupId)
     .eq("workspace_id", workspaceId)
-    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, active")
+    .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, location_label, location_address, recurrence_effective_date, recurrence_end_date, leader_person_id, active")
     .single();
 
   if (updateError) {
@@ -323,13 +347,13 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (
-    asBoolean(payload.updateFutureGatheringLocations)
-    && asString(payload.defaultLocation) !== (existingGroupResult.data.default_location ?? "")
-  ) {
+  const locationHasChanged = locationLabel !== (existingGroupResult.data.location_label ?? existingGroupResult.data.default_location ?? null)
+    || locationAddress !== (existingGroupResult.data.location_address ?? null);
+
+  if (asBoolean(payload.updateFutureGatheringLocations) && locationHasChanged) {
     const gatheringUpdateResult = await supabase
       .from("dos_group_gatherings")
-      .update({ location: asNullableString(payload.defaultLocation), updated_at: new Date().toISOString() })
+      .update({ location: updateRecord.default_location, updated_at: new Date().toISOString() })
       .eq("group_id", resolvedGroupId)
       .eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString());
@@ -350,7 +374,11 @@ export async function PATCH(request: Request) {
       description: group.description,
       id: group.id,
       leaderPersonId: group.leader_person_id,
+      locationAddress: group.location_address,
+      locationLabel: group.location_label,
       name: group.name,
+      recurrenceEffectiveDate: group.recurrence_effective_date,
+      recurrenceEndDate: group.recurrence_end_date,
       rhythmLabel: group.rhythm_label,
       scriptureReference: group.scripture_reference,
       scriptureText: group.scripture_text,

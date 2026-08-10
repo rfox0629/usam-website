@@ -482,11 +482,15 @@ export type DosAppGroup = {
   imageUrl: string | null;
   leaderName: string | null;
   leaderPersonId: string | null;
+  locationAddress: string | null;
+  locationLabel: string | null;
   memberCount: number;
   members: DosAppGroupMember[];
   name: string;
   prayerRequests: DosAppPrayerRequest[];
   primaryLeaderPersonId: string | null;
+  recurrenceEffectiveDate: string | null;
+  recurrenceEndDate: string | null;
   resources: DosAppGroupResource[];
   rhythmLabel: string | null;
   scriptureReference: string | null;
@@ -1215,8 +1219,12 @@ type GroupRow = {
   id: string;
   image_url: string | null;
   leader_person_id: string | null;
+  location_address?: string | null;
+  location_label?: string | null;
   name: string;
   primary_leader_person_id?: string | null;
+  recurrence_effective_date?: string | null;
+  recurrence_end_date?: string | null;
   rhythm_label: string | null;
   scripture_reference: string | null;
   scripture_text: string | null;
@@ -3375,7 +3383,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     resources: [],
   };
   const baseGroupSelect = "id, name, slug, description, tagline, scripture_reference, scripture_text, type, visibility, rhythm_label, default_location, leader_person_id, image_url, active";
-  const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings`;
+  const v2GroupSelect = `${baseGroupSelect}, template_key, template_category, audience, activity_type, primary_leader_person_id, capacity, accepting_members, shared_leadership_enabled, settings, location_label, location_address, recurrence_effective_date, recurrence_end_date`;
   const v2GroupsResult = await supabase
     .from("dos_groups")
     .select(v2GroupSelect)
@@ -4548,10 +4556,14 @@ export async function loadDosAppData(
       imageUrl: group.image_url,
       leaderName,
       leaderPersonId: group.leader_person_id,
+      locationAddress: group.location_address ?? null,
+      locationLabel: group.location_label ?? group.default_location ?? null,
       memberCount: members.filter((member) => member.status === "active").length,
       members,
       name: group.name,
       prayerRequests,
+      recurrenceEffectiveDate: group.recurrence_effective_date ?? null,
+      recurrenceEndDate: group.recurrence_end_date ?? null,
       primaryLeaderPersonId,
       resources,
       rhythmLabel: group.rhythm_label,
