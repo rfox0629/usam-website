@@ -11675,13 +11675,11 @@ function GroupUpcomingGatheringRow({ gathering, group }: { gathering: GroupGathe
   const location = groupGatheringLocationParts(gathering, group);
 
   return (
-    <div className="grid gap-2 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,auto)] sm:items-center">
+    <div className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-3">
       <div className="min-w-0">
         <p className="text-sm font-black text-[#0F172A]">{formatGroupGatheringCompactTime(gathering)}</p>
         <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{location.label}</p>
-        {location.address ? <p className="mt-0.5 truncate text-xs font-semibold text-[#94A3B8]">{location.address}</p> : null}
       </div>
-      {gathering.derived ? <GroupPill tone="gray">Expected</GroupPill> : <GroupPill tone="blue">Scheduled</GroupPill>}
     </div>
   );
 }
