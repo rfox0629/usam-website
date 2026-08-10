@@ -5361,7 +5361,6 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
-  const isFeaturedReadingPlan = resource.type === "reading_plan" && resource.featured && !onClick;
   const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
@@ -5407,10 +5406,11 @@ function CatalogResourceRow({
             </div>
             <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
             {resource.author ? <p className="mt-1 text-xs font-bold leading-5 text-[#475569]">{resource.author}</p> : null}
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              <span>{`Type: ${typeLabel}`}</span>
-              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
-            </div>
+            {resource.estimatedDuration ? (
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                <span>{`Duration: ${resource.estimatedDuration}`}</span>
+              </div>
+            ) : null}
             <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
             {completion.total ? (
               <div className="mt-3">
@@ -5436,14 +5436,16 @@ function CatalogResourceRow({
               Assign
             </button>
           ) : null}
-          <button
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            onClick={() => onOpenGuidedResource?.(resource)}
-            type="button"
-          >
-            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            {completion.completed ? "Continue" : "Open"}
-          </button>
+          {onOpenGuidedResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
+              onClick={() => onOpenGuidedResource(resource)}
+              type="button"
+            >
+              <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              {completion.completed ? "Continue" : "Open"}
+            </button>
+          ) : null}
           {purchaseLink ? (
             <a
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
@@ -5455,62 +5457,6 @@ function CatalogResourceRow({
               Purchase Book
             </a>
           ) : resource.downloadPath ? (
-            <a
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
-              download
-              href={resource.downloadPath}
-            >
-              <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Download PDF
-            </a>
-          ) : null}
-        </div>
-      </article>
-    );
-  }
-
-  if (isFeaturedReadingPlan) {
-    return (
-      <article className="px-3.5 py-3.5">
-        <div className="flex items-start gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClassName}`}>
-            <IconComponent className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.8} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
-                FEATURED
-              </span>
-              <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                READING PLAN
-              </span>
-            </div>
-            <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              <span>{`Type: ${typeLabel}`}</span>
-              {resource.estimatedDuration ? <span>{`Duration: ${resource.estimatedDuration}`}</span> : null}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
-          {canAssignResource ? (
-            <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
-              onClick={() => onAssign?.(resource)}
-              type="button"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
-            </button>
-          ) : null}
-          <a
-            className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-            href={resourceHref}
-          >
-            Read Online
-          </a>
-          {resource.downloadPath ? (
             <a
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
               download
@@ -6504,7 +6450,7 @@ function DesktopPanel({
   return (
     <section className={`${compact ? "rounded-[22px] p-3.5 xl:p-4" : "rounded-[24px] p-4 xl:p-5"} border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)] ${className}`}>
       {eyebrow || title ? (
-        <div className={`${compact ? "mb-2.5" : "mb-3"} flex items-start justify-between gap-3`}>
+        <div className={`${compact ? "mb-2.5" : "mb-3"} flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between`}>
           <div className="min-w-0">
             {eyebrow ? (
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
@@ -8043,7 +7989,7 @@ function GroupJourneysTabV2({
     <div className="grid gap-3">
       <DesktopPanel
         action={(
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-3 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={() => onAssignJourney()} type="button">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
               Assign Journey
@@ -11862,7 +11808,6 @@ function ResourceAssignmentCard({
 }) {
   const resource = resourceAssignmentResource(assignment);
   const isInAppJourney = Boolean(resource && isGuidedResource(resource));
-  const href = isInAppJourney ? "#" : resource?.path ?? "#";
   const downloadPath = resource?.downloadPath ?? null;
 
   return (
@@ -11911,8 +11856,12 @@ function ResourceAssignmentCard({
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
             Continue
           </button>
+        ) : resource ? (
+          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={resource.path}>Read Online</a>
         ) : (
-          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={href}>Read Online</a>
+          <span className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#F1F5F9] px-3 text-xs font-black text-[#94A3B8]" title="This resource is no longer in the Library.">
+            Unavailable
+          </span>
         )}
         {downloadPath ? (
           <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#0F172A]" download href={downloadPath}>
@@ -12075,14 +12024,16 @@ function CommitmentsPanel({
   const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
   const historicalCommitments = commitments.filter((commitment) => commitment.status === "completed" || commitment.status === "cancelled");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
+  const pausedSchedules = schedules.filter((schedule) => schedule.status === "paused");
   const nextSchedule = activeSchedules[0] ?? null;
+  const hasHistory = Boolean(historicalCommitments.length || pausedSchedules.length);
 
   return (
     <section className="grid min-w-0 gap-3">
       <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitments">
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${nextSchedule ? "grid-cols-2" : "grid-cols-1"}`}>
           <CompactButton icon="commitment" onClick={onAddCommitment}>New Commitment</CompactButton>
-          <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton>
+          {nextSchedule ? <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton> : null}
         </div>
         {activeCommitments.length ? activeCommitments.map((commitment) => (
           <CommitmentCard
@@ -12096,14 +12047,14 @@ function CommitmentsPanel({
             onPause={onPause}
           />
         )) : (
-          <SectionEmptyState action={<CompactButton icon="commitment" onClick={onAddCommitment}>Add Commitment</CompactButton>} title="No active commitments." />
+          <SectionEmptyState text="Use New Commitment above to add one." title="No active commitments." />
         )}
       </DetailCard>
 
       <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
         <div className="grid gap-2">
           <CompactButton icon="calendar" onClick={onAddSchedule}>Add Check-In Rhythm</CompactButton>
-          {schedules.length ? schedules.map((schedule) => (
+          {activeSchedules.length ? activeSchedules.map((schedule) => (
             <button
               className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
               key={schedule.id}
@@ -12126,10 +12077,10 @@ function CommitmentsPanel({
         </div>
       </DetailCard>
 
-      {historicalCommitments.length ? (
+      {hasHistory ? (
         <details className="rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
           <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            History ({historicalCommitments.length})
+            History ({historicalCommitments.length + pausedSchedules.length})
           </summary>
           <div className="mt-3 grid gap-2">
             {historicalCommitments.map((commitment) => (
@@ -12143,6 +12094,24 @@ function CommitmentsPanel({
                 onEdit={onEdit}
                 onPause={onPause}
               />
+            ))}
+            {pausedSchedules.map((schedule) => (
+              <button
+                className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE]"
+                key={schedule.id}
+                onClick={() => onLogCheckIn(schedule)}
+                type="button"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-[#334155]">{accountabilityScheduleDisplayTitle(schedule)}</span>
+                  <span className="mt-1 block text-xs font-semibold text-[#64748B]">
+                    {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  {accountabilityStatusLabels[schedule.status]}
+                </span>
+              </button>
             ))}
           </div>
         </details>
@@ -32618,7 +32587,6 @@ function PersonDetailOverlay({
       type: "testimony" as const,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
-  const latestOutcomeEntry = personOutcomeEntries[0];
   const selectedOutcomeMeeting = selectedOutcomeEntry
     ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
     : null;
@@ -33129,59 +33097,56 @@ function PersonDetailOverlay({
         {activeDetailTab === "fruit" ? (
           <>
             <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
-              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
                 <FruitSummaryCard
                   icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                   label="Assessments"
                   value={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "None Yet"}
                 />
-                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Observable Fruit" value={String(personOutcomeEntries.length)} />
-                <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Latest Growth" value={latestGrowthDate ? formatRelativeDate(latestGrowthDate) : "Not Yet"} />
+                <FruitSummaryCard icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active Journeys" value={String(activeResourceAssignments.length)} />
+                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
+                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
               </div>
               <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-sm leading-6 text-[#64748B]">
-                Assessments show where this person or relationship is today. Fruit records observable outcomes God has done.
+                What this person is working through now, and what has changed. {latestGrowthDate ? `Last growth activity ${formatRelativeDate(latestGrowthDate)}.` : ""}
               </p>
             </DetailCard>
 
-            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assessment Results">
-              <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-3">
+            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Active Journeys & Assessments">
+              <div className="grid gap-3">
                 <AssessmentResultSummaryCard href={marriageAssessmentHref} results={marriageAssessmentResults} title="Marriage Assessment" />
-                {personAssessmentResultPlaceholders.slice(1).map((assessment) => (
-                  <AssessmentResultPlaceholderCard href={assessment.href} key={assessment.title} title={assessment.title} />
-                ))}
+                {personAssessmentResultPlaceholders.slice(1).length ? (
+                  <p className="rounded-[16px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#64748B]">
+                    Not started yet: {personAssessmentResultPlaceholders.slice(1).map((assessment) => assessment.title).join(" · ")}
+                  </p>
+                ) : null}
+
+                {activeResourceAssignments.length ? activeResourceAssignments.map((assignment) => (
+                  <ResourceAssignmentCard
+                    assignment={assignment}
+                    groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
+                    key={assignment.id}
+                    onEditDates={onEditResourceAssignment}
+                    onLogCheckIn={onLogResourceCheckIn}
+                    onMarkComplete={onMarkResourceAssignmentComplete}
+                    onMarkInProgress={onMarkResourceAssignmentInProgress}
+                    onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                    onPause={onPauseResourceAssignment}
+                  />
+                )) : (
+                  <SectionEmptyState text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person." title="No active journeys." />
+                )}
+                <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
               </div>
             </DetailCard>
 
-            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Assigned Resources">
-              {activeResourceAssignments.length ? (
-                <div className="grid gap-3">
-                  {activeResourceAssignments.map((assignment) => (
-                    <ResourceAssignmentCard
-                      assignment={assignment}
-                      groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
-                      key={assignment.id}
-                      onEditDates={onEditResourceAssignment}
-                      onLogCheckIn={onLogResourceCheckIn}
-                      onMarkComplete={onMarkResourceAssignmentComplete}
-                      onMarkInProgress={onMarkResourceAssignmentInProgress}
-                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
-                      onPause={onPauseResourceAssignment}
-                    />
-                  ))}
-                  <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
-                </div>
-              ) : (
-                <SectionEmptyState
-                  action={<CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>}
-                  text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person."
-                  title="No active resources."
-                />
-              )}
-            </DetailCard>
-
             {completedResourceAssignments.length ? (
-              <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Completed Resources">
-                <div className="grid gap-3">
+              <details className="group rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  Completed Journeys ({completedResourceAssignments.length})
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
+                </summary>
+                <div className="mt-3 grid gap-2">
                   {completedResourceAssignments.map((assignment) => (
                     <ResourceAssignmentCard
                       assignment={assignment}
@@ -33193,20 +33158,8 @@ function PersonDetailOverlay({
                     />
                   ))}
                 </div>
-              </DetailCard>
+              </details>
             ) : null}
-
-            <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Fruit Summary">
-              <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
-                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
-                <FruitSummaryCard
-                  icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Latest Fruit"
-                  value={latestOutcomeEntry ? latestOutcomeEntry.type === "testimony" ? "Testimony Shared" : fruitOutcomeLabel(latestOutcomeEntry.event) : "None Yet"}
-                />
-                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
-              </div>
-            </DetailCard>
 
             <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies & Outcomes">
               {personOutcomeEntries.length ? personOutcomeEntries.map((entry) => (
@@ -33218,10 +33171,26 @@ function PersonDetailOverlay({
               )}
             </DetailCard>
 
-            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones / Timeline">
-              {personGrowthMilestones.length ? personGrowthMilestones.map((milestone) => (
-                <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
-              )) : (
+            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones">
+              {personGrowthMilestones.length ? (
+                <div className="grid gap-2">
+                  {personGrowthMilestones.slice(0, 3).map((milestone) => (
+                    <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+                  ))}
+                  {personGrowthMilestones.length > 3 ? (
+                    <details className="group">
+                      <summary className="cursor-pointer text-xs font-bold text-[#2563EB]">
+                        View {personGrowthMilestones.length - 3} more
+                      </summary>
+                      <div className="mt-2 grid gap-2">
+                        {personGrowthMilestones.slice(3).map((milestone) => (
+                          <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              ) : (
                 <SectionEmptyState text="Tables, quick reviews, testimonies, and fruit will form the growth timeline here." title="No growth milestones yet." />
               )}
             </DetailCard>
@@ -39369,6 +39338,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     }}
                     onOpenGroupJoinRequests={openGroupJoinRequests}
                     onOpenJourney={(personId, resourceSlug, hasAssignment) => {
+                      if (!getDosResourceBySlug(resourceSlug)) {
+                        setErrorMessage("This resource is no longer in the Library.");
+                        return;
+                      }
+
                       if (hasAssignment) {
                         openLeaderJourneyProgress(personId, resourceSlug);
                         return;

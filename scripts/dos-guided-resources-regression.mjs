@@ -111,4 +111,21 @@ assertIncludes(app, "progressPersonId={myRecordPerson?.id ?? null}", "Library ca
 assertIncludes(preview, "guidedResourceProgress:", "Preview DOS data must include guidedResourceProgress.");
 assertIncludes(sharedGroupRoute, "guidedResourceProgress: []", "Shared group scoped DOS data must include guidedResourceProgress.");
 
+// USA-161: assigned Discipleship (and every other guided resource) must always have a
+// working Open/Continue action from a Person profile - never a dead "#" link.
+assert(
+  !app.includes('const href = isInAppJourney ? "#" : resource?.path ?? "#";'),
+  "ResourceAssignmentCard must not fall back to a dead href=\"#\" link when a resource cannot be resolved.",
+);
+assertIncludes(app, "Unavailable", "ResourceAssignmentCard must show an explicit unavailable state instead of a dead link when the assignment's resource cannot be resolved.");
+assertIncludes(app, ') : resource ? (\n          <a className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" href={resource.path}>Read Online</a>', "ResourceAssignmentCard's Read Online fallback must only render for a resolved resource.");
+
+const catalogResourceRowSource = app.slice(app.indexOf("function CatalogResourceRow("), app.indexOf("function dosLibraryResourceHref("));
+
+assert(
+  !catalogResourceRowSource.includes('onClick={() => onOpenGuidedResource?.(resource)}'),
+  "Guided resource card Continue/Open action must not render as a silently-dead button when no onOpenGuidedResource handler is supplied (e.g. inside an assign-journey resource picker).",
+);
+assertIncludes(catalogResourceRowSource, "{onOpenGuidedResource ? (", "Guided resource card must only render the Continue/Open action when a working handler is supplied.");
+
 console.log("DOS guided resources regression checks passed.");

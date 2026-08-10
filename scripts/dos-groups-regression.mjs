@@ -65,6 +65,14 @@ const groupWorkflowBannerSource = appClient.slice(
   appClient.indexOf("function GroupGatheringWorkflowBanner"),
   appClient.indexOf("function GroupRouteBuilderPlaceholder"),
 );
+const desktopPanelSource = appClient.slice(
+  appClient.indexOf("function DesktopPanel("),
+  appClient.indexOf("function DashboardHeaderAction("),
+);
+const groupJourneysTabSource = appClient.slice(
+  appClient.indexOf("function GroupJourneysTabV2("),
+  appClient.indexOf("function GroupJourneyRowCard("),
+);
 const validUuidFinalSegments = "[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const groupsV2BetaWorkspaceFixtures = [
   { alias: "fox-family", initiallyEnabled: true, label: "Ryan", slug: "ryan-fox" },
@@ -880,5 +888,15 @@ assert(exists("app/api/dos/app/groups/members/route.ts"), "Groups must create th
 assert(exists("app/api/dos/app/groups/join-requests/route.ts"), "Groups must create the authenticated join request review route.");
 assert(exists("app/api/dos/app/groups/settings/route.ts"), "Groups must create the authenticated settings route.");
 assert(!exists("app/dos/groups/page.tsx"), "Groups should stay inside the authenticated DOS app surface.");
+
+// USA-161: the shared DesktopPanel header (eyebrow/title + action buttons) must stack
+// vertically on mobile so long titles like "0 active - 1 completed" cannot be crushed
+// into a one-word-per-line column by the action buttons competing for width.
+assertIncludes(desktopPanelSource, "flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between", "DesktopPanel header must stack vertically below the sm breakpoint");
+assert(
+  !desktopPanelSource.includes("flex items-start justify-between gap-3"),
+  "DesktopPanel header must not use a non-wrapping flex row that starves the title of width on mobile",
+);
+assertIncludes(groupJourneysTabSource, "sm:justify-end", "Journeys tab action buttons must only right-align at sm+ so they do not fight the summary title for width on mobile");
 
 console.log("DOS groups regression passed.");

@@ -22,7 +22,7 @@ const guideBackButton = readFileSync("app/guide/[slug]/GuideBackToLibraryButton.
 const dosClient = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const pdf = readFileSync("public/guides/new-testament-14-days.pdf");
 const pdfStats = statSync("public/guides/new-testament-14-days.pdf");
-const libraryReadingPlanCard = sliceBetween(dosClient, "if (isFeaturedReadingPlan)", "const rowContent");
+const libraryReadingPlanCard = sliceBetween(dosClient, "if (isGuidedResourceCard) {", "const rowContent");
 
 assert(catalog.includes('title: "14 Days Through the New Testament"'), "Catalog should include the reading plan title.");
 assert(catalog.includes('category: "Discipleship"'), "Reading plan should live in Discipleship.");
@@ -70,7 +70,7 @@ assert(guidePage.includes("twitter"), "Guide metadata should include Twitter dat
 
 assert(dosClient.includes('const dosDiscipleshipResourceItems = getDosResourcesByCategory("Discipleship")'), "DOS Library should load Discipleship resources.");
 assert(dosClient.includes('<LibrarySection title="Discipleship">'), "DOS Library should render the Discipleship section.");
-assert(dosClient.includes('resource.type === "reading_plan" && resource.featured && !onClick'), "Featured card should not override picker rows with custom click behavior.");
+assert(dosClient.includes("isGuidedResourceCard = isGuidedResource(resource) && !onClick"), "Guided resource card should not override picker rows with custom click behavior.");
 assert(dosClient.includes("dosLibraryResourceHref"), "DOS Library should add context to the reading plan guide URL.");
 assert(dosClient.includes('from: "dos-library"'), "DOS Library guide link should identify DOS Library context.");
 assert(dosClient.includes("query.set(\"workspace\", workspaceSlug)"), "DOS Library guide link should include the active workspace slug.");
@@ -83,11 +83,11 @@ assert(libraryReadingPlanCard.includes("FEATURED"), "Featured reading plan card 
 assert(libraryReadingPlanCard.includes("READING PLAN"), "Featured reading plan card should show a READING PLAN badge.");
 assert(libraryReadingPlanCard.includes("Assign"), "Featured reading plan card should expose the Assign action.");
 assert(libraryReadingPlanCard.includes("onAssign?.(resource)"), "Featured reading plan Assign action should call the Library assignment flow.");
-assert(libraryReadingPlanCard.includes("Read Online"), "Featured reading plan card should link to the canonical web page.");
-assert(libraryReadingPlanCard.includes("resourceHref"), "Read Online should use the DOS-context guide URL.");
+assert(libraryReadingPlanCard.includes("onOpenGuidedResource?.(resource)"), "Featured reading plan card should open the in-app guided journey.");
+assert(libraryReadingPlanCard.includes('{completion.completed ? "Continue" : "Open"}'), "Featured reading plan card should expose Open/Continue based on progress.");
 assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan card should keep the PDF action.");
 assert(libraryReadingPlanCard.includes("resource.downloadPath"), "Download PDF should use the catalog download path.");
-assert(libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Featured reading plan card should display type metadata.");
+assert(!libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Reading plan card should not duplicate the type badge as a second Type: line.");
 assert(libraryReadingPlanCard.includes("Duration: ${resource.estimatedDuration}"), "Featured reading plan card should display duration metadata.");
 assert(dosClient.includes("resource.content?.subtitle ?? resource.description"), "Featured reading plan card should use the public reading plan description.");
 
