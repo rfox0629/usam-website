@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ChevronRight, Heart, Pencil, RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { DosAssessmentQuestion } from "@/src/lib/dos/resource-catalog";
 
@@ -299,6 +300,9 @@ export function MarriageAssessmentClient({
   questions: readonly DosAssessmentQuestion[];
   saveContext?: SaveContext;
 }) {
+  const searchParams = useSearchParams();
+  const backToLibrary = searchParams.get("from") === "dos-library";
+  const libraryHref = "/dos/app?view=library";
   const participants = providedParticipants.length ? providedParticipants : fallbackParticipants;
   const groups = useMemo(() => buildGroups(questions), [questions]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -485,6 +489,13 @@ export function MarriageAssessmentClient({
               >
                 Back to Profile
               </Link>
+            ) : backToLibrary ? (
+              <Link
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-4 text-sm font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] sm:col-span-2"
+                href={libraryHref}
+              >
+                Back to Library
+              </Link>
             ) : null}
           </div>
         </div>
@@ -498,10 +509,10 @@ export function MarriageAssessmentClient({
         <div className="flex items-center justify-between gap-3">
           <Link
             className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:bg-[#EBF2FF]"
-            href="/dos"
+            href={backToLibrary ? libraryHref : "/dos"}
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            DOS
+            {backToLibrary ? "Library" : "DOS"}
           </Link>
           <span className="rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#1D4ED8]">
             {answeredCount}/{requiredCount}

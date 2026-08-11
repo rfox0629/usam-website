@@ -44,10 +44,10 @@ export function RemnantCollectionClient({
       <div className="mx-auto grid w-full max-w-3xl gap-4">
         <Link
           className="inline-flex min-h-10 w-fit items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:bg-[#EBF2FF]"
-          href="/dos"
+          href="/dos/app?view=library&resource=remnant"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-          DOS
+          Library
         </Link>
 
         <header className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.08)] md:p-6">
@@ -89,10 +89,10 @@ export function RemnantCollectionClient({
 
         <Link
           className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#1D4ED8] shadow-[0_12px_28px_rgba(37,99,235,0.08)] transition-colors hover:bg-[#EBF2FF]"
-          href="/dos"
+          href="/dos/app?view=library"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          Back to DOS
+          Back to Library
         </Link>
       </div>
     </main>

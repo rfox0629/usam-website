@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -68,6 +68,7 @@ import {
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
+import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
@@ -453,6 +454,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
 
 const dosCommandResourceItems = getDosResourcesByCategory("Commands of Jesus");
 const dosAssessmentResourceItems = getDosAssessmentResources();
+const dosTableTeachingResourceItems = getDosResourcesByCategory("Table Teachings");
 const dosDiscipleshipResourceItems = getDosResourcesByCategory("Discipleship");
 const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
@@ -1034,6 +1036,12 @@ type GuidedResourceDetailState = {
   readOnly?: boolean;
   slug: string;
 } | null;
+type LibraryResourceViewState =
+  | { kind: "prayer_collection" }
+  | { kind: "prayer_detail"; slug: string }
+  | { kind: "remnant" }
+  | { kind: "resource"; slug: string }
+  | null;
 type LeaderJourneyProgressState = {
   personId: string;
   resourceSlug: string;
@@ -5687,10 +5695,12 @@ function guidedResourcePurchaseLink(resource: DosResource) {
 }
 
 function guidedResourceProgressForPerson({
+  assignmentId,
   personId,
   progress,
   resource,
 }: {
+  assignmentId?: string | null;
   personId?: string | null;
   progress: readonly DosAppGuidedResourceProgress[];
   resource: DosResource;
@@ -5699,20 +5709,29 @@ function guidedResourceProgressForPerson({
     return [];
   }
 
-  return progress.filter((item) => item.personId === personId && item.resourceSlug === resource.slug);
+  const hasAssignmentScope = assignmentId !== undefined;
+
+  return progress.filter((item) => (
+    item.personId === personId
+    && item.resourceSlug === resource.slug
+    && (!hasAssignmentScope
+      || (assignmentId ? item.assignmentId === assignmentId : !item.assignmentId))
+  ));
 }
 
 function guidedResourceCompletion({
+  assignmentId,
   personId,
   progress,
   resource,
 }: {
+  assignmentId?: string | null;
   personId?: string | null;
   progress: readonly DosAppGuidedResourceProgress[];
   resource: DosResource;
 }) {
   const sessions = guidedResourceSessions(resource);
-  const completedSessionIds = new Set(guidedResourceProgressForPerson({ personId, progress, resource })
+  const completedSessionIds = new Set(guidedResourceProgressForPerson({ assignmentId, personId, progress, resource })
     .filter((item) => Boolean(item.completedAt))
     .map((item) => item.sessionId));
   const completed = sessions.filter((session) => completedSessionIds.has(session.id)).length;
@@ -5728,23 +5747,69 @@ function guidedResourceProgressBySession(progress: readonly DosAppGuidedResource
   return new Map(progress.map((item) => [item.sessionId, item]));
 }
 
+function activeResourceAssignmentForPerson({
+  assignments,
+  personId,
+  resource,
+}: {
+  assignments: readonly DosAppResourceAssignment[];
+  personId?: string | null;
+  resource: DosResource;
+}) {
+  if (!personId) {
+    return null;
+  }
+
+  return assignments.find((assignment) => (
+    assignment.personId === personId
+    && assignment.resourceSlug === resource.slug
+    && assignment.status !== "completed"
+  )) ?? null;
+}
+
+function completedResourceAssignmentsForPerson({
+  assignments,
+  personId,
+  resource,
+}: {
+  assignments: readonly DosAppResourceAssignment[];
+  personId?: string | null;
+  resource: DosResource;
+}) {
+  if (!personId) {
+    return [];
+  }
+
+  return assignments.filter((assignment) => (
+    assignment.personId === personId
+    && assignment.resourceSlug === resource.slug
+    && assignment.status === "completed"
+  ));
+}
+
 function CatalogResourceRow({
-  actionLabel = "Open",
+  actionLabel,
   guidedResourceProgress = [],
   onAssign,
   onClick,
+  onOpenResource,
   onOpenGuidedResource,
+  onReviewGuidedResource,
   progressPersonId,
   resource,
+  resourceAssignments = [],
   workspaceSlug,
 }: {
   actionLabel?: string;
   guidedResourceProgress?: readonly DosAppGuidedResourceProgress[];
   onAssign?: (resource: DosResource) => void;
   onClick?: () => void;
+  onOpenResource?: (resource: DosResource) => void;
   onOpenGuidedResource?: (resource: DosResource) => void;
+  onReviewGuidedResource?: (resource: DosResource) => void;
   progressPersonId?: string | null;
   resource: DosResource;
+  resourceAssignments?: readonly DosAppResourceAssignment[];
   workspaceSlug?: string;
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
@@ -5763,8 +5828,23 @@ function CatalogResourceRow({
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
 
   if (isGuidedResourceCard) {
-    const completion = guidedResourceCompletion({ personId: progressPersonId, progress: guidedResourceProgress, resource });
+    const activeAssignment = activeResourceAssignmentForPerson({ assignments: resourceAssignments, personId: progressPersonId, resource });
+    const completedAssignments = completedResourceAssignmentsForPerson({ assignments: resourceAssignments, personId: progressPersonId, resource });
+    const assignmentId = activeAssignment?.id ?? null;
+    const completion = guidedResourceCompletion({ assignmentId, personId: progressPersonId, progress: guidedResourceProgress, resource });
     const purchaseLink = guidedResourcePurchaseLink(resource);
+    const sessions = guidedResourceSessions(resource);
+    const sessionUnit = resourceSessionUnitLabel(resource);
+    const isComplete = completion.total > 0 && completion.completed === completion.total;
+    const hasCompletedInstance = completedAssignments.length > 0 || isComplete;
+    const primaryLabel = activeAssignment
+      ? "Continue"
+      : hasCompletedInstance
+        ? "Start Again"
+        : "Start Journey";
+    const positionLabel = activeAssignment && sessions.length
+      ? `${sessionUnit} ${Math.min(completion.completed + 1, sessions.length)} of ${sessions.length}`
+      : null;
 
     return (
       <article className="px-3.5 py-3.5">
@@ -5820,7 +5900,22 @@ function CatalogResourceRow({
               type="button"
             >
               <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              {completion.completed ? "Continue" : "Open"}
+              {primaryLabel}
+            </button>
+          ) : null}
+          {positionLabel ? (
+            <span className="inline-flex min-h-9 items-center rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-black text-[#1D4ED8]">
+              {positionLabel}
+            </span>
+          ) : null}
+          {hasCompletedInstance && !activeAssignment && onReviewGuidedResource ? (
+            <button
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+              onClick={() => onReviewGuidedResource(resource)}
+              type="button"
+            >
+              <StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Review Previous
             </button>
           ) : null}
           {purchaseLink ? (
@@ -5867,14 +5962,28 @@ function CatalogResourceRow({
         </span>
         <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
-      {!hasDownloadAction ? (
+      {actionLabel ? (
         <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
           {actionLabel}
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
         </span>
-      ) : null}
+      ) : (
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+      )}
     </>
   );
+
+  if (onOpenResource) {
+    return (
+      <button
+        className="group flex min-h-[64px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#FFFFFF]"
+        onClick={() => onOpenResource(resource)}
+        type="button"
+      >
+        {rowContent}
+      </button>
+    );
+  }
 
   if (onClick) {
     return (
@@ -5911,14 +6020,16 @@ function CatalogResourceRow({
           >
             Open
           </a>
-          <a
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
-            download
-            href={resource.downloadPath}
-          >
-            <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            Download PDF
-          </a>
+          {resource.downloadPath ? (
+            <a
+              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]"
+              download
+              href={resource.downloadPath}
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+              Download PDF
+            </a>
+          ) : null}
         </div>
       </article>
     );
@@ -5933,6 +6044,42 @@ function CatalogResourceRow({
     >
       {rowContent}
     </a>
+  );
+}
+
+function LibraryCollectionRow({
+  badge,
+  description,
+  icon,
+  onClick,
+  title,
+}: {
+  badge: string;
+  description: string;
+  icon: ReactNode;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      className="group flex min-h-[64px] w-full min-w-0 items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-white"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EBF2FF] text-[#2563EB]">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{title}</span>
+          <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+            {badge}
+          </span>
+        </span>
+        <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
+    </button>
   );
 }
 
@@ -6000,17 +6147,23 @@ function CatalogResourceList({
   actionLabel,
   guidedResourceProgress,
   onAssign,
+  onOpenResource,
   onOpenGuidedResource,
+  onReviewGuidedResource,
   progressPersonId,
   resources,
+  resourceAssignments,
   workspaceSlug,
 }: {
   actionLabel?: string;
   guidedResourceProgress?: readonly DosAppGuidedResourceProgress[];
   onAssign?: (resource: DosResource) => void;
+  onOpenResource?: (resource: DosResource) => void;
   onOpenGuidedResource?: (resource: DosResource) => void;
+  onReviewGuidedResource?: (resource: DosResource) => void;
   progressPersonId?: string | null;
   resources: readonly DosResource[];
+  resourceAssignments?: readonly DosAppResourceAssignment[];
   workspaceSlug?: string;
 }) {
   return (
@@ -6022,9 +6175,12 @@ function CatalogResourceList({
             guidedResourceProgress={guidedResourceProgress}
             key={resource.id}
             onAssign={onAssign}
+            onOpenResource={onOpenResource}
             onOpenGuidedResource={onOpenGuidedResource}
+            onReviewGuidedResource={onReviewGuidedResource}
             progressPersonId={progressPersonId}
             resource={resource}
+            resourceAssignments={resourceAssignments}
             workspaceSlug={workspaceSlug}
           />
         ))}
@@ -6046,6 +6202,7 @@ function GuidedResourceDetailSheet({
   personId,
   readOnly = false,
   resource,
+  variant = "sheet",
 }: {
   assignments: readonly DosAppResourceAssignment[];
   errorMessage: string;
@@ -6068,13 +6225,18 @@ function GuidedResourceDetailSheet({
   personId?: string | null;
   readOnly?: boolean;
   resource: DosResource;
+  variant?: "page" | "sheet";
 }) {
   const guidedResource = resource.content?.guidedResource ?? null;
   const isReadingPlan = resource.type === "reading_plan";
   const sessions = guidedResourceSessions(resource);
-  const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
+  const linkedAssignment = personId
+    ? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug && assignment.status !== "completed")
+      ?? null
+    : null;
+  const personProgress = guidedResourceProgressForPerson({ assignmentId: linkedAssignment?.id ?? null, personId, progress: guidedResourceProgress, resource });
   const progressBySession = guidedResourceProgressBySession(personProgress);
-  const completion = guidedResourceCompletion({ personId, progress: guidedResourceProgress, resource });
+  const completion = guidedResourceCompletion({ assignmentId: linkedAssignment?.id ?? null, personId, progress: guidedResourceProgress, resource });
   const isJourneyComplete = completion.total > 0 && completion.completed === completion.total;
   const initialSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? sessions[0] ?? null;
   const [selectedSessionId, setSelectedSessionId] = useState(initialSession?.id ?? "");
@@ -6091,11 +6253,6 @@ function GuidedResourceDetailSheet({
   const [reflection, setReflection] = useState(selectedProgress?.reflection ?? "");
   const [actionStep, setActionStep] = useState(selectedProgress?.actionStep ?? "");
   const [prayerFocus, setPrayerFocus] = useState(selectedProgress?.prayerFocus ?? "");
-  const linkedAssignment = personId
-    ? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug && assignment.status !== "completed")
-      ?? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug)
-      ?? null
-    : null;
   const purchaseLink = guidedResourcePurchaseLink(resource);
 
   useEffect(() => {
@@ -6132,10 +6289,8 @@ function GuidedResourceDetailSheet({
     }
   }
 
-  return (
-    <Sheet onClose={onClose} showEyebrow={false} title={resource.title}>
-      <div className="max-h-[72dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
-        <div className="grid gap-4">
+  const content = (
+    <div className="grid gap-4">
           <article className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.05)]">
             <div className="grid gap-4 p-4 sm:grid-cols-[116px_minmax(0,1fr)]">
               {resource.coverImage ? (
@@ -6425,7 +6580,17 @@ function GuidedResourceDetailSheet({
               </article>
             </section>
           ) : null}
-        </div>
+    </div>
+  );
+
+  if (variant === "page") {
+    return content;
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={resource.title}>
+      <div className="max-h-[72dvh] overflow-y-auto pr-1 [scrollbar-width:none]">
+        {content}
       </div>
     </Sheet>
   );
@@ -6452,8 +6617,8 @@ function LeaderJourneyProgressSheet({
 }) {
   const isReadingPlan = resource.type === "reading_plan";
   const sessions = guidedResourceSessions(resource);
-  const personProgress = guidedResourceProgressForPerson({ personId, progress: guidedResourceProgress, resource });
-  const completion = guidedResourceCompletion({ personId, progress: guidedResourceProgress, resource });
+  const personProgress = guidedResourceProgressForPerson({ assignmentId: assignment?.id ?? null, personId, progress: guidedResourceProgress, resource });
+  const completion = guidedResourceCompletion({ assignmentId: assignment?.id ?? null, personId, progress: guidedResourceProgress, resource });
   const completedSessionIds = new Set(personProgress.filter((item) => item.completedAt).map((item) => item.sessionId));
   const currentSession = sessions.find((session) => !completedSessionIds.has(session.id)) ?? null;
   const latestProgress = personProgress.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
@@ -33014,17 +33179,15 @@ function PrayerResourceMiniCard({
   );
 }
 
-function PrayerResourcesLibrarySheet({
+function PrayerResourcesLibraryContent({
   activeCategory,
   onCategoryChange,
-  onClose,
   onOpenResource,
   onQueryChange,
   query,
 }: {
   activeCategory: DosPrayerResourceCategory;
   onCategoryChange: (category: DosPrayerResourceCategory) => void;
-  onClose: () => void;
   onOpenResource: (resource: DosPrayerResource) => void;
   onQueryChange: (value: string) => void;
   query: string;
@@ -33047,54 +33210,79 @@ function PrayerResourcesLibrarySheet({
   });
 
   return (
-    <Sheet description="Open a prayer, share a simple public link, or save it to follow-up for this relationship." onClose={onClose} showEyebrow={false} title="Prayer Resources">
-      <div className="space-y-4">
-        <label className="relative block">
-          <span className="sr-only">Search prayer resources</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
-          <input
-            className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white pl-9 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search prayers"
-            value={query}
-          />
-        </label>
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
-          {dosPrayerResourceCategories.map((category) => {
-            const selected = category === activeCategory;
+    <div className="space-y-4">
+      <label className="relative block">
+        <span className="sr-only">Search prayer resources</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+        <input
+          className="min-h-11 w-full rounded-full border border-[#DCEBFF] bg-white pl-9 pr-4 text-sm font-semibold text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search prayers"
+          value={query}
+        />
+      </label>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+        {dosPrayerResourceCategories.map((category) => {
+          const selected = category === activeCategory;
 
-            return (
-              <button
-                className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors ${selected ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]" : "border border-[#DCEBFF] bg-white text-[#475569]"}`}
-                key={category}
-                onClick={() => onCategoryChange(category)}
-                type="button"
-              >
-                {category}
-              </button>
-            );
-          })}
-        </div>
-        <div className="grid gap-2.5">
-          {resources.length ? (
-            resources.map((resource) => (
-              <PrayerResourceMiniCard key={resource.slug} onOpen={() => onOpenResource(resource)} resource={resource} />
-            ))
-          ) : (
-            <p className="rounded-[20px] border border-[#EAF2FF] bg-white px-4 py-5 text-sm font-semibold leading-6 text-[#64748B]">
-              No matching prayers found.
-            </p>
-          )}
-        </div>
+          return (
+            <button
+              className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors ${selected ? "bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.18)]" : "border border-[#DCEBFF] bg-white text-[#475569]"}`}
+              key={category}
+              onClick={() => onCategoryChange(category)}
+              type="button"
+            >
+              {category}
+            </button>
+          );
+        })}
       </div>
+      <div className="grid gap-2.5">
+        {resources.length ? (
+          resources.map((resource) => (
+            <PrayerResourceMiniCard key={resource.slug} onOpen={() => onOpenResource(resource)} resource={resource} />
+          ))
+        ) : (
+          <p className="rounded-[20px] border border-[#EAF2FF] bg-white px-4 py-5 text-sm font-semibold leading-6 text-[#64748B]">
+            No matching prayers found.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PrayerResourcesLibrarySheet({
+  activeCategory,
+  onCategoryChange,
+  onClose,
+  onOpenResource,
+  onQueryChange,
+  query,
+}: {
+  activeCategory: DosPrayerResourceCategory;
+  onCategoryChange: (category: DosPrayerResourceCategory) => void;
+  onClose: () => void;
+  onOpenResource: (resource: DosPrayerResource) => void;
+  onQueryChange: (value: string) => void;
+  query: string;
+}) {
+  return (
+    <Sheet description="Open a prayer, share a simple public link, or save it to follow-up for this relationship." onClose={onClose} showEyebrow={false} title="Prayer Resources">
+      <PrayerResourcesLibraryContent
+        activeCategory={activeCategory}
+        onCategoryChange={onCategoryChange}
+        onOpenResource={onOpenResource}
+        onQueryChange={onQueryChange}
+        query={query}
+      />
     </Sheet>
   );
 }
 
-function PrayerResourceDetailSheet({
+function PrayerResourceDetailContent({
   fallbackUrl,
   message,
-  onClose,
   onPrayNow,
   onSaveToFollowUp,
   onSendLink,
@@ -33103,7 +33291,6 @@ function PrayerResourceDetailSheet({
 }: {
   fallbackUrl: string;
   message: string;
-  onClose: () => void;
   onPrayNow: () => void;
   onSaveToFollowUp: () => void;
   onSendLink: () => void;
@@ -33111,8 +33298,7 @@ function PrayerResourceDetailSheet({
   resource: DosPrayerResource;
 }) {
   return (
-    <Sheet description={resource.description} onClose={onClose} showEyebrow={false} title={resource.title}>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-[#EBF2FF] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             {resource.category}
@@ -33183,8 +33369,389 @@ function PrayerResourceDetailSheet({
             <AppButton icon="bell" onClick={onSaveToFollowUp} tone="white">Save to Follow-Up</AppButton>
           </div>
         </div>
-      </div>
+    </div>
+  );
+}
+
+function PrayerResourceDetailSheet({
+  fallbackUrl,
+  message,
+  onClose,
+  onPrayNow,
+  onSaveToFollowUp,
+  onSendLink,
+  publicHref,
+  resource,
+}: {
+  fallbackUrl: string;
+  message: string;
+  onClose: () => void;
+  onPrayNow: () => void;
+  onSaveToFollowUp: () => void;
+  onSendLink: () => void;
+  publicHref: string;
+  resource: DosPrayerResource;
+}) {
+  return (
+    <Sheet description={resource.description} onClose={onClose} showEyebrow={false} title={resource.title}>
+      <PrayerResourceDetailContent
+        fallbackUrl={fallbackUrl}
+        message={message}
+        onPrayNow={onPrayNow}
+        onSaveToFollowUp={onSaveToFollowUp}
+        onSendLink={onSendLink}
+        publicHref={publicHref}
+        resource={resource}
+      />
     </Sheet>
+  );
+}
+
+function LibraryResourceBackButton({
+  label = "Library",
+  onClick,
+}: {
+  label?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      onClick={onClick}
+      type="button"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+      {label}
+    </button>
+  );
+}
+
+function LibraryResourceShell({
+  action,
+  backLabel,
+  children,
+  description,
+  icon,
+  onBack,
+  title,
+  typeLabel,
+}: {
+  action?: ReactNode;
+  backLabel?: string;
+  children: ReactNode;
+  description: string;
+  icon: ReactNode;
+  onBack: () => void;
+  title: string;
+  typeLabel: string;
+}) {
+  return (
+    <div className="grid gap-4">
+      <LibraryResourceBackButton label={backLabel} onClick={onBack} />
+      <header className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.055)] md:p-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
+            {icon}
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {typeLabel}
+            </span>
+            <h1 className="mt-2 text-2xl font-black leading-tight text-[#0F172A] md:text-3xl">{title}</h1>
+            <p className="mt-2 text-sm leading-6 text-[#475569]">{description}</p>
+            {action ? <div className="mt-3">{action}</div> : null}
+          </div>
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+function TeachingResourceContent({ resource }: { resource: DosResource }) {
+  const flow = dosConversationFlowDefinitions.find((item) => item.slug === resource.slug) ?? null;
+  const sections = resource.content?.sections ?? [];
+
+  if (flow) {
+    const gospelInvitation = "gospelInvitation" in flow ? flow.gospelInvitation : null;
+
+    return (
+      <div className="grid gap-3">
+        {flow.sections.map((section) => {
+          const sectionDescription = "description" in section ? section.description : null;
+
+          return (
+            <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.id}>
+              <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
+              {sectionDescription ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{sectionDescription}</p> : null}
+              <div className="mt-4 grid gap-3">
+                {section.questions.map((question, index) => {
+                  const prompt = "prompt" in question ? question.prompt : null;
+                  const scriptureRefs = "scriptureRefs" in question ? question.scriptureRefs : null;
+
+                  return (
+                    <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={question.id}>
+                      <div className="flex min-w-0 gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-xs font-black text-[#1D4ED8]">{index + 1}</span>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-black leading-6 text-[#0F172A]">{question.label}</h3>
+                          {prompt ? <p className="mt-1 text-sm leading-6 text-[#475569]">{prompt}</p> : null}
+                          {scriptureRefs?.length ? (
+                            <p className="mt-2 text-xs font-bold leading-5 text-[#1D4ED8]">{scriptureRefs.join(" · ")}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+        {gospelInvitation ? (
+          <section className="rounded-[24px] border border-[#DCEBFF] bg-[#EBF2FF] p-4 text-sm font-bold leading-6 text-[#0F172A]">
+            {gospelInvitation}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {resource.content?.body ? (
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-7 text-[#0F172A] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          {resource.content.body}
+        </section>
+      ) : null}
+      {sections.length ? sections.map((section) => (
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.title}>
+          <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
+          {section.body ? <p className="mt-2 text-sm leading-7 text-[#475569]">{section.body}</p> : null}
+          {section.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{section.scriptureReferences.join(" · ")}</p> : null}
+          {section.items?.length ? (
+            <div className="mt-3 grid gap-2">
+              {section.items.map((item) => (
+                <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item.title}>
+                  <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
+                  {item.body ? <p className="mt-1 text-sm leading-6 text-[#475569]">{item.body}</p> : null}
+                  {item.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{item.scriptureReferences.join(" · ")}</p> : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )) : (
+        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-7 text-[#475569] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          Open the PDF when you need the printable version.
+        </section>
+      )}
+    </div>
+  );
+}
+
+function AssessmentResourceContent({ resource }: { resource: DosResource }) {
+  const assessment = resource.content?.assessment ?? null;
+  const assessmentHref = resource.slug === "marriage-assessment" ? `${resource.path}?from=dos-library` : resource.path;
+
+  return (
+    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      {resource.content?.body ? <p className="text-sm leading-7 text-[#475569]">{resource.content.body}</p> : null}
+      {resource.content?.assessmentScale ? <p className="mt-3 text-sm font-semibold leading-6 text-[#0F172A]">{resource.content.assessmentScale}</p> : null}
+      {assessment ? (
+        <div className="mt-4 grid gap-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {assessment.questions.length} questions · {assessment.participants.join(" / ")}
+          </p>
+          <div className="grid gap-2">
+            {assessment.questions.slice(0, 5).map((question) => (
+              <p className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold leading-6 text-[#0F172A]" key={question.id}>
+                {question.prompt}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {assessmentHref ? (
+        <a className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white" href={assessmentHref}>
+          Start Assessment
+        </a>
+      ) : null}
+    </section>
+  );
+}
+
+function DosRemnantVideoEmbed({ video }: { video: RemnantVideo }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#0F172A] shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
+      <div className="relative aspect-video w-full">
+        {isPlaying ? (
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+            src={remnantEmbedUrl(video)}
+            title={video.title}
+          />
+        ) : (
+          <button
+            aria-label={`Play message: ${video.speaker}`}
+            className="group absolute inset-0 h-full w-full cursor-pointer"
+            onClick={() => setIsPlaying(true)}
+            type="button"
+          >
+            <img alt="" aria-hidden="true" className="h-full w-full object-cover opacity-85 transition-opacity duration-200 group-hover:opacity-100" loading="lazy" src={video.thumbnailUrl} />
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.15),rgba(15,23,42,0.55))]" />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/70 bg-[#2563EB]/85 text-white transition-transform duration-200 group-hover:scale-105">
+                <Play aria-hidden="true" className="ml-1 h-5 w-5" fill="currentColor" strokeWidth={0} />
+              </span>
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#0F172A] px-3.5 py-2.5">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/50">
+          {isPlaying ? "Playing" : "Ready to play"}
+        </p>
+        <a className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#7DD3FC] hover:text-white" href={remnantWatchUrl(video)} rel="noopener noreferrer" target="_blank">
+          Watch on YouTube
+          <ExternalLink aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function RemnantVideoResourceCard({ video }: { video: RemnantVideo }) {
+  return (
+    <article className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      <div className="mb-3.5">
+        <DosRemnantVideoEmbed video={video} />
+      </div>
+      <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]">{video.category}</span>
+      <h3 className="mt-2.5 text-base font-black leading-tight text-[#0F172A]">{video.title}</h3>
+      <p className="mt-1 text-xs font-bold text-[#64748B]">{[video.speaker, video.ministry].filter(Boolean).join(" · ")}</p>
+      <p className="mt-3 text-sm leading-6 text-[#475569]">{video.description}</p>
+      <div className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563EB]">Why It Matters</p>
+        <p className="mt-1.5 text-xs leading-5 text-[#475569]">{video.whyWeRecommendIt}</p>
+      </div>
+    </article>
+  );
+}
+
+function RemnantLibraryResourceContent() {
+  const featured = getFeaturedRemnantVideo();
+  const videos = getRemnantVideos();
+  const remaining = videos.filter((video) => video.id !== featured?.id);
+
+  return (
+    <div className="grid gap-4">
+      {featured ? (
+        <section>
+          <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]">
+            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+            Start Here
+          </p>
+          <RemnantVideoResourceCard video={featured} />
+        </section>
+      ) : null}
+      {remaining.length ? (
+        <section>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]">More Messages</p>
+          <div className="grid gap-3">
+            {remaining.map((video) => (
+              <RemnantVideoResourceCard key={video.id} video={video} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+      <p className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-semibold leading-5 text-[#64748B]">
+        {remnantCollection.disclaimer}
+      </p>
+    </div>
+  );
+}
+
+function LibraryCatalogResourcePage({
+  assignments,
+  errorMessage,
+  guidedResourceProgress,
+  isSubmitting,
+  onAssign,
+  onBack,
+  onReviewNotes,
+  onSaveProgress,
+  onStartNextResource,
+  personId,
+  resource,
+}: {
+  assignments: readonly DosAppResourceAssignment[];
+  errorMessage: string;
+  guidedResourceProgress: readonly DosAppGuidedResourceProgress[];
+  isSubmitting: boolean;
+  onAssign?: (resource: DosResource) => void;
+  onBack: () => void;
+  onReviewNotes: () => void;
+  onSaveProgress: (request: {
+    actionStep: string;
+    assignmentId?: string | null;
+    completed?: boolean;
+    personId: string;
+    prayerFocus: string;
+    reflection: string;
+    resourceSlug: string;
+    sessionId: string;
+  }) => Promise<void>;
+  onStartNextResource: () => void;
+  personId?: string | null;
+  resource: DosResource;
+}) {
+  if (isGuidedResource(resource)) {
+    return (
+      <div className="grid gap-4">
+        <LibraryResourceBackButton onClick={onBack} />
+        <GuidedResourceDetailSheet
+          assignments={assignments}
+          errorMessage={errorMessage}
+          guidedResourceProgress={guidedResourceProgress}
+          isSubmitting={isSubmitting}
+          onAssign={onAssign}
+          onClose={onBack}
+          onReviewNotes={onReviewNotes}
+          onSaveProgress={onSaveProgress}
+          onStartNextResource={onStartNextResource}
+          personId={personId}
+          resource={resource}
+          variant="page"
+        />
+      </div>
+    );
+  }
+
+  const { IconComponent } = catalogResourceIcon(resource.icon);
+  const pdfHref = resource.downloadPath ?? (resource.path.endsWith(".pdf") ? resource.path : null);
+  const action = pdfHref && resource.type !== "assessment" ? (
+    <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" download href={pdfHref}>
+      <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+      Download PDF
+    </a>
+  ) : null;
+
+  return (
+    <LibraryResourceShell
+      action={action}
+      description={resource.description}
+      icon={<IconComponent className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+      onBack={onBack}
+      title={resource.title}
+      typeLabel={resourceTypeLabel(resource)}
+    >
+      {resource.type === "assessment" ? <AssessmentResourceContent resource={resource} /> : <TeachingResourceContent resource={resource} />}
+    </LibraryResourceShell>
   );
 }
 
@@ -34666,6 +35233,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const appScrollRef = useRef<HTMLDivElement | null>(null);
+  const libraryScrollPositionRef = useRef(0);
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const commitmentsEnabled = data.featureFlags.commitmentsAccountability === true;
@@ -34673,6 +35241,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
+  const [libraryResourceView, setLibraryResourceView] = useState<LibraryResourceViewState>(null);
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
@@ -34911,8 +35480,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const draftRecommendedResources = useMemo(() => (
     buildMeetingRecommendations(selectedConversationFlow, conversationResponses)
   ), [conversationResponses, selectedConversationFlow]);
-  const featuredTableTeaching = dosTableTeachingResources[0];
-  const secondaryTableTeachings = dosTableTeachingResources.slice(1);
   const selectedMeeting = useMemo(() => {
     const meeting = data.meetings.find((item) => item.id === selectedMeetingId) ?? null;
 
@@ -34977,6 +35544,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
   ), [selectedPrayerResourceSlug]);
+  const selectedLibraryResource = useMemo(() => (
+    libraryResourceView?.kind === "resource" ? getDosResourceBySlug(libraryResourceView.slug) : null
+  ), [libraryResourceView]);
+  const selectedLibraryPrayerResource = useMemo(() => (
+    libraryResourceView?.kind === "prayer_detail" ? getDosPrayerResourceBySlug(libraryResourceView.slug) : null
+  ), [libraryResourceView]);
   const selectedGuidedResource = useMemo(() => (
     guidedResourceDetail?.slug ? getDosResourceBySlug(guidedResourceDetail.slug) : null
   ), [guidedResourceDetail?.slug]);
@@ -35247,6 +35820,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
+  function rememberLibraryScrollPosition() {
+    libraryScrollPositionRef.current = appScrollRef.current?.scrollTop ?? 0;
+  }
+
+  function restoreLibraryScrollPosition() {
+    requestAnimationFrame(() => {
+      const scrollContainer = appScrollRef.current;
+
+      if (!scrollContainer) {
+        return;
+      }
+
+      scrollContainer.scrollTop = libraryScrollPositionRef.current;
+      scrollContainer.scrollLeft = 0;
+    });
+  }
+
+  function openLibraryResourceView(view: NonNullable<LibraryResourceViewState>) {
+    rememberLibraryScrollPosition();
+    setLibraryResourceView(view);
+    scrollAppToTop();
+  }
+
+  function closeLibraryResourceView() {
+    setLibraryResourceView(null);
+    restoreLibraryScrollPosition();
+  }
+
+  function openLibraryResource(resource: DosResource) {
+    openLibraryResourceView({ kind: "resource", slug: resource.slug });
+  }
+
   function selectMeetingsCalendarDate(date: Date) {
     setSelectedMeetingsCalendarDate(calendarDateKey(date));
 
@@ -35320,11 +35925,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       setActiveTab("more");
       setMoreAppView(requestedView);
+      setLibraryResourceView(null);
       return;
     }
 
+    const requestedResource = searchParams.get("resource");
+    const requestedLibraryView: LibraryResourceViewState = requestedResource === "remnant"
+      ? { kind: "remnant" }
+      : requestedResource === "prayer-resources"
+        ? { kind: "prayer_collection" }
+        : getDosResourceBySlug(requestedResource)
+          ? { kind: "resource", slug: requestedResource as string }
+          : null;
+
     setActiveTab("more");
     setMoreAppView("library");
+    setLibraryResourceView(requestedLibraryView);
   }, [searchParams]);
 
   useEffect(() => {
@@ -35564,6 +36180,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
 	    setActiveTab(tab);
 	    setMoreAppView(null);
+    setLibraryResourceView(null);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -35605,6 +36222,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     setActiveTab("more");
 	    setMoreAppView(nextView);
+    setLibraryResourceView(null);
     if (nextView === "my_record") {
       setMyRecordTab((current) => normalizeMyRecordTab(current));
     }
@@ -39872,8 +40490,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         ]
       : [];
   const suppressGlobalFabForMyRecord = activeTab === "more" && activeMoreAppView === "my_record";
+  const suppressGlobalFabForLibrary = activeTab === "more" && activeMoreAppView === "library";
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
+    && !suppressGlobalFabForLibrary
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -39907,6 +40527,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !selectedScripture;
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
+    && !suppressGlobalFabForLibrary
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -40538,91 +41159,156 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
 
                 {activeMoreAppView === "library" ? (
-                  <>
-                    <div className="flex min-h-9 items-center">
-                      <MoreBackButton onClick={() => setMoreAppView(null)} />
-                    </div>
-                    <TabHero
-                      icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                      onScriptureClick={openScriptureQuickView}
-                      scripture={scriptureReferences.secondPeter318}
-                      subtitle="Resources for conversations, follow up, and discipleship."
-                      title="Grow in truth."
-                    />
-                    <div className="space-y-6">
-                      <LibrarySection title="Table Teachings">
-                        <div className="grid gap-3">
-                          <FeaturedTeachingCard
-                            description={featuredTableTeaching.description}
-                            href={featuredTableTeaching.href}
-                            title={featuredTableTeaching.title}
-                          />
-                          {secondaryTableTeachings.map((teaching) => (
-                            <TableTeachingRow
-                              description={teaching.description}
-                              href={teaching.href}
-                              key={teaching.href}
-                              title={teaching.title}
-                            />
-                          ))}
-                        </div>
-                      </LibrarySection>
-
-                      <LibrarySection
-                        title="Commands of Jesus"
+                  libraryResourceView ? (
+                    libraryResourceView.kind === "resource" && selectedLibraryResource ? (
+                      <LibraryCatalogResourcePage
+                        assignments={data.resourceAssignments}
+                        errorMessage={errorMessage}
+                        guidedResourceProgress={data.guidedResourceProgress}
+                        isSubmitting={isSubmitting}
+                        onAssign={(resource) => openResourceAssignmentCreate(resource, myRecordPerson?.id ?? null, {
+                          assignmentContext: myRecordPerson?.id ? "self" : "library",
+                        })}
+                        onBack={closeLibraryResourceView}
+                        onReviewNotes={() => openMyRecordTab("learning")}
+                        onSaveProgress={saveGuidedResourceProgress}
+                        onStartNextResource={closeLibraryResourceView}
+                        personId={myRecordPerson?.id ?? null}
+                        resource={selectedLibraryResource}
+                      />
+                    ) : libraryResourceView.kind === "remnant" ? (
+                      <LibraryResourceShell
+                        description={remnantCollection.tagline}
+                        icon={<Film className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onBack={closeLibraryResourceView}
+                        title={remnantCollection.title}
+                        typeLabel="Collection"
                       >
-                        <CatalogResourceList onAssign={openAssignTargetPicker} resources={dosCommandResourceItems} workspaceSlug={data.workspace.slug} />
-                      </LibrarySection>
-
-                      <LibrarySection title="Discipleship">
-                        <CatalogResourceList
-                          guidedResourceProgress={data.guidedResourceProgress}
-                          onAssign={openAssignTargetPicker}
-                          onOpenGuidedResource={(resource) => openGuidedResource(resource, myRecordPerson?.id ?? null)}
-                          progressPersonId={myRecordPerson?.id ?? null}
-                          resources={dosDiscipleshipResourceItems}
-                          workspaceSlug={data.workspace.slug}
+                        <RemnantLibraryResourceContent />
+                      </LibraryResourceShell>
+                    ) : libraryResourceView.kind === "prayer_collection" ? (
+                      <LibraryResourceShell
+                        description="Identity, healing, relationships, freedom, and life challenges."
+                        icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onBack={closeLibraryResourceView}
+                        title="Prayer Resources"
+                        typeLabel="Collection"
+                      >
+                        <PrayerResourcesLibraryContent
+                          activeCategory={prayerResourceCategory}
+                          onCategoryChange={setPrayerResourceCategory}
+                          onOpenResource={(resource) => {
+                            setLibraryResourceView({ kind: "prayer_detail", slug: resource.slug });
+                            scrollAppToTop();
+                          }}
+                          onQueryChange={setPrayerResourceSearchQuery}
+                          query={prayerResourceSearchQuery}
                         />
-                      </LibrarySection>
+                      </LibraryResourceShell>
+                    ) : libraryResourceView.kind === "prayer_detail" && selectedLibraryPrayerResource ? (
+                      <LibraryResourceShell
+                        backLabel="Prayer Resources"
+                        description={selectedLibraryPrayerResource.description}
+                        icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onBack={() => {
+                          setLibraryResourceView({ kind: "prayer_collection" });
+                          scrollAppToTop();
+                        }}
+                        title={selectedLibraryPrayerResource.title}
+                        typeLabel="Prayer"
+                      >
+                        <PrayerResourceDetailContent
+                          fallbackUrl={prayerResourceFallbackUrl}
+                          message={prayerResourceMessage}
+                          onPrayNow={() => setPrayerResourceMessage("Pray through the prayer below, then use the reflection questions to listen together.")}
+                          onSaveToFollowUp={() => savePrayerResourceToFollowUp(selectedLibraryPrayerResource)}
+                          onSendLink={() => sendPrayerResourceLink(selectedLibraryPrayerResource)}
+                          publicHref={prayerResourcePublicHref(selectedLibraryPrayerResource)}
+                          resource={selectedLibraryPrayerResource}
+                        />
+                      </LibraryResourceShell>
+                    ) : (
+                      <div className="grid gap-4">
+                        <LibraryResourceBackButton onClick={closeLibraryResourceView} />
+                        <SectionEmptyState text="This Library resource is not available in the current catalog." title="Resource not found." />
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      <div className="flex min-h-9 items-center">
+                        <MoreBackButton onClick={() => setMoreAppView(null)} />
+                      </div>
+                      <TabHero
+                        icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
+                        onScriptureClick={openScriptureQuickView}
+                        scripture={scriptureReferences.secondPeter318}
+                        subtitle="Resources for conversations, follow up, and discipleship."
+                        title="Grow in truth."
+                      />
+                      <div className="space-y-6">
+                        <LibrarySection title="Table Teachings">
+                          <CatalogResourceList
+                            onOpenResource={openLibraryResource}
+                            resources={dosTableTeachingResourceItems}
+                            workspaceSlug={data.workspace.slug}
+                          />
+                        </LibrarySection>
 
-                      <LibrarySection subtext="Sermons and trusted teaching on obedience, evangelism, and formation." title="Remnant">
-                        <Link
-                          className="flex min-w-0 items-center gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)] transition-colors hover:border-[#BFDBFE]"
-                          href="/dos/library/remnant"
-                        >
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
-                            <Film className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-black text-[#0F172A]">Remnant Collection</span>
-                            <span className="mt-1 block text-xs leading-5 text-[#64748B]">Curated video messages for wholehearted disciples.</span>
-                          </span>
-                          <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-                        </Link>
-                      </LibrarySection>
+                        <LibrarySection title="Commands of Jesus">
+                          <CatalogResourceList
+                            onOpenResource={openLibraryResource}
+                            resources={dosCommandResourceItems}
+                            workspaceSlug={data.workspace.slug}
+                          />
+                        </LibrarySection>
 
-                      <LibrarySection title="Relationships">
-                        <CatalogResourceList onAssign={openAssignTargetPicker} resources={dosRelationshipResourceItems} workspaceSlug={data.workspace.slug} />
-                      </LibrarySection>
+                        <LibrarySection title="Discipleship">
+                          <CatalogResourceList
+                            guidedResourceProgress={data.guidedResourceProgress}
+                            onAssign={openAssignTargetPicker}
+                            onOpenGuidedResource={openLibraryResource}
+                            onReviewGuidedResource={() => openMyRecordTab("learning")}
+                            progressPersonId={myRecordPerson?.id ?? null}
+                            resourceAssignments={data.resourceAssignments}
+                            resources={dosDiscipleshipResourceItems}
+                            workspaceSlug={data.workspace.slug}
+                          />
+                        </LibrarySection>
 
-                      <LibrarySection title="Prayer">
-                        <button
-                          className="flex min-w-0 items-center gap-3 rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)]"
-                          onClick={openPrayerResourceLibrary}
-                          type="button"
-                        >
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
-                            <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-black text-[#0F172A]">Prayer Resources</span>
-                            <span className="mt-1 block text-xs leading-5 text-[#64748B]">Identity, healing, relationships, freedom, and life challenges.</span>
-                          </span>
-                          <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-                        </button>
-                      </LibrarySection>
-                    </div>
-                  </>
+                        <LibrarySection title="Remnant">
+                          <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                            <LibraryCollectionRow
+                              badge="Collection"
+                              description="Curated video messages for wholehearted disciples."
+                              icon={<Film className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                              onClick={() => openLibraryResourceView({ kind: "remnant" })}
+                              title="Remnant"
+                            />
+                          </article>
+                        </LibrarySection>
+
+                        <LibrarySection title="Relationships">
+                          <CatalogResourceList
+                            onOpenResource={openLibraryResource}
+                            resources={dosRelationshipResourceItems}
+                            workspaceSlug={data.workspace.slug}
+                          />
+                        </LibrarySection>
+
+                        <LibrarySection title="Prayer">
+                          <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+                            <LibraryCollectionRow
+                              badge="Collection"
+                              description="Identity, healing, relationships, freedom, and life challenges."
+                              icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                              onClick={() => openLibraryResourceView({ kind: "prayer_collection" })}
+                              title="Prayer Resources"
+                            />
+                          </article>
+                        </LibrarySection>
+                      </div>
+                    </>
+                  )
                 ) : null}
 
                 {activeMoreAppView === "in_season" ? (

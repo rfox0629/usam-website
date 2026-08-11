@@ -38,6 +38,13 @@ function guidedResourceProgressErrorResponse(error: SupabaseQueryError) {
   return NextResponse.json({ error: error?.message ?? "Unable to save guided resource progress." }, { status: 500 });
 }
 
+function isGuidedResourceProgressInstanceConstraint(error: SupabaseQueryError) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return message.includes("dos_guided_resource_progress_person_session_unique")
+    || (message.includes("duplicate key") && message.includes("dos_guided_resource_progress"));
+}
+
 function isMissingIdentityLinkSchema(error: SupabaseQueryError) {
   const message = error?.message?.toLowerCase() ?? "";
 
@@ -457,14 +464,19 @@ export async function POST(request: Request) {
 
   const completedProvided = typeof payload.completed === "boolean";
   const createdByUserId = authResult.authorization.status === "authorized" ? authResult.authorization.userId : null;
-  const existingResult = await supabase
+  let existingProgressQuery = supabase
     .from("dos_guided_resource_progress")
     .select(progressSelect)
     .eq("workspace_id", workspaceResult.workspaceId)
     .eq("person_id", person.id)
     .eq("resource_slug", resource.slug)
-    .eq("session_id", session.id)
-    .maybeSingle();
+    .eq("session_id", session.id);
+
+  existingProgressQuery = scopedAssignmentId
+    ? existingProgressQuery.eq("assignment_id", scopedAssignmentId)
+    : existingProgressQuery.is("assignment_id", null);
+
+  const existingResult = await existingProgressQuery.maybeSingle();
 
   if (existingResult.error) {
     return guidedResourceProgressErrorResponse(existingResult.error);
@@ -511,6 +523,12 @@ export async function POST(request: Request) {
       .single();
 
   if (progressResult.error) {
+    if (scopedAssignmentId && isGuidedResourceProgressInstanceConstraint(progressResult.error)) {
+      return NextResponse.json({
+        error: "This Journey instance needs the staged repeat-journey migration before progress can be saved without touching prior reflections.",
+      }, { status: 409 });
+    }
+
     return guidedResourceProgressErrorResponse(progressResult.error);
   }
 
