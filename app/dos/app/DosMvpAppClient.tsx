@@ -6253,7 +6253,7 @@ function GuidedResourceDetailSheet({
                           {selectedSession.chapters.map((chapter) => (
                             <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-white p-3" key={chapter.order}>
                               <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Chapter {chapter.order} · {chapter.assignment}</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{chapter.assignment}</p>
                                 <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{chapter.title}</p>
                               </div>
                               {chapter.bigIdea ? <p className="text-sm font-semibold leading-6 text-[#0F172A]">{chapter.bigIdea}</p> : null}
@@ -6325,7 +6325,7 @@ function GuidedResourceDetailSheet({
                           </button>
                           <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
                             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                            {isReadingPlan ? "Mark Day Complete" : "Mark Session Complete"}
+                            {isReadingPlan ? "Mark Day Complete" : "Mark Week Complete"}
                           </button>
                         </div>
                       </form>

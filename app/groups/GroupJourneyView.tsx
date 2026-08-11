@@ -262,7 +262,7 @@ export function GroupJourneyView({
             {selectedSession.chapters?.length ? (
               selectedSession.chapters.map((chapter) => (
                 <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3" key={chapter.order}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Chapter {chapter.order} · {chapter.assignment} · {chapter.title}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{chapter.assignment} · {chapter.title}</p>
                   {chapter.bigIdea ? <p className="text-sm font-bold leading-6 text-white">{chapter.bigIdea}</p> : null}
                   <JourneyCard accent="gold" eyebrow="Chapter Question">
                     <p className="text-sm font-bold leading-6 text-white">{chapter.chapterQuestion}</p>

@@ -165,8 +165,8 @@ assertIncludes(catalog, 'id: "discipleship-marks-of-discipleship"', "Discipleshi
 
 const discipleshipCatalogIdIndex = catalog.indexOf('id: "discipleship-marks-of-discipleship"');
 
-// USA-162 expanded Discipleship from six weeks / six chapters to twelve weeks
-// covering all thirteen book chapters, so the object is longer than it used to be -
+// USA-162 expanded Discipleship from the obsolete six-week draft to the final
+// seven-week model covering all thirteen book chapters, so the object is longer than it used to be -
 // widen the lookbehind window rather than truncating past "assignable: true".
 assertIncludes(
   catalog.slice(Math.max(0, discipleshipCatalogIdIndex - 20000), discipleshipCatalogIdIndex),
