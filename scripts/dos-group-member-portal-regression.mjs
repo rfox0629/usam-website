@@ -107,12 +107,18 @@ assertIncludes(groupJourneyView, "groupJourneyChapterHeading(chapter)", "Member 
 assertIncludes(groupJourneyView, ">Question<", "Member Journey detail panel must show the simplified chapter question label.");
 assertIncludes(groupJourneyView, ">Scripture<", "Member Journey detail panel must show Scripture after the question.");
 assertIncludes(groupJourneyView, "What stood out?", "Member Journey view must preserve the canonical first weekly reflection prompt.");
+assertIncludes(groupJourneyView, "What stood out to you as you considered this question and chapter?", "Member Journey single-chapter reflection helper must connect to the chapter question.");
+assertIncludes(groupJourneyView, "Looking across both chapters and questions, what stood out most?", "Member Journey two-chapter reflection helper must connect to both questions.");
 assertIncludes(groupJourneyView, "What will you do with it?", "Member Journey view must preserve the canonical second weekly reflection prompt.");
+assertIncludes(groupJourneyView, "What is one response or next step you want to take this week?", "Member Journey two-chapter action helper must stay weekly.");
 assertIncludes(groupJourneyView, "Prayer", "Member Journey view must preserve the canonical prayer reflection prompt.");
+assertIncludes(groupJourneyView, "Your Journey", "Member Journey progress area must use the Journey hierarchy label.");
 assert(groupJourneyView.indexOf("chapter.chapterQuestion") < groupJourneyView.indexOf("chapter.keyScriptures?.length"), "Member Journey Scripture must render after each chapter-specific question.");
 assert(!/<select\b/i.test(groupJourneyView), "Member Journey selector must not use a native select/dropdown.");
 assertNotIncludes(groupJourneyView, "Chapter Question", "Member Journey view must not keep the old Chapter Question card label.");
 assertNotIncludes(groupJourneyView, "Search the Scriptures", "Member Journey view must not keep the old Search the Scriptures card label.");
+assertNotIncludes(groupJourneyView, "Optional Leader Notes", "Member Journey open-week UI must not show Optional Leader Notes.");
+assertNotIncludes(groupJourneyView, "eyebrow=\"Multiply\"", "Member Journey open-week UI must not show the extra Multiply card.");
 
 assertIncludes(architectureDoc, "Plain tokens are never stored", "Architecture doc must document token storage safety.");
 assertIncludes(architectureDoc, "Lightweight members do not receive a DOS workspace", "Architecture doc must preserve product boundary.");

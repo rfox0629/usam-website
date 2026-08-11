@@ -196,12 +196,19 @@ assert(guidedResourceDetailSheet.indexOf("chapter.chapterQuestion") < guidedReso
 assert(!/<select\b/i.test(guidedResourceDetailSheet), "Guided Journey accordion must not use a native select/dropdown for week navigation.");
 assert(!guidedResourceDetailSheet.includes("Reading: {selectedSession.assignment}"), "Guided Journey V2 must not keep the redundant Reading metadata line in the open panel.");
 
-assertIncludes(app, "Your Reflection", "Guided Journey UI must separate group discussion from personal reflection.");
 assertIncludes(app, "What stood out?", "Guided Journey UI must use the canonical first reflection prompt.");
-assertIncludes(app, "What is the main thing you learned or noticed?", "Guided Journey UI must show the helper prompt for What stood out?.");
+assertIncludes(app, "What stood out to you as you considered this question and chapter?", "Single-chapter Guided Journey helper must connect the first response to the chapter question.");
+assertIncludes(app, "Looking across both chapters and questions, what stood out most?", "Two-chapter Guided Journey helper must connect the first response to both chapter questions.");
 assertIncludes(app, "What will you do with it?", "Guided Journey UI must use the canonical second reflection prompt.");
-assertIncludes(app, "How does this apply to your life or what is one next step?", "Guided Journey UI must show the helper prompt for What will you do with it?.");
+assertIncludes(app, "What is one response or next step you want to take?", "Single-chapter Guided Journey action helper must stay concise.");
+assertIncludes(app, "What is one response or next step you want to take this week?", "Two-chapter Guided Journey action helper must stay weekly.");
 assertIncludes(app, "helper=\"What do you want to pray or ask God about?\" label=\"Prayer\"", "Guided Journey UI must use the canonical Prayer reflection prompt with its helper copy.");
+assertIncludes(app, "Your Journey", "Guided Journey progress must move into the Journey area outside the resource card.");
+assert(guidedResourceDetailSheet.indexOf("Your Journey") > guidedResourceDetailSheet.indexOf("</article>"), "Guided Journey progress must render after the resource card closes.");
+assert(guidedResourceDetailSheet.indexOf("{resource.estimatedDuration}") < guidedResourceDetailSheet.indexOf("<h3 className=\"mt-2 text-xl"), "Guided Journey duration must live in the top badge row.");
+assertNotIncludes(guidedResourceDetailSheet, "Optional Leader Notes", "Guided Journey open-week UI must not show Optional Leader Notes.");
+assertNotIncludes(guidedResourceDetailSheet, "Your Reflection", "Guided Journey open-week UI must not show the extra reflection section heading.");
+assertNotIncludes(guidedResourceDetailSheet, "Saved reflections also sync to My Record - Learning.", "Guided Journey open-week UI must not show the My Record sync helper chrome.");
 assertIncludes(app, "selectedSession.chapterQuestion", "Guided Journey UI must render the single canonical chapter question.");
 assertIncludes(app, "Commissioning", "Completed Guided Journeys must render a commissioning page.");
 assertIncludes(app, "Review My Notes", "Commissioning page must link to My Record notes.");
@@ -210,7 +217,6 @@ assertIncludes(app, "Purchase Book", "Guided resource UI must expose purchase li
 assertIncludes(app, "Mark Week Complete", "Guided resource UI must allow weekly completion for book studies.");
 assertNotIncludes(guidedResourceDetailSheet, "Mark Session Complete", "Guided resource UI must not use obsolete Session completion language.");
 assertIncludes(app, "Save Reflection", "Guided resource UI must save reflections to My Record progress.");
-assertIncludes(app, "Saved reflections also sync to My Record - Learning.", "Guided Journey UI must communicate My Record Learning sync.");
 assertIncludes(app, "/api/dos/app/guided-resource-progress", "Guided resource UI must call the progress API.");
 assertIncludes(app, "data.guidedResourceProgress", "Guided resource UI must read progress from DOS data.");
 assertIncludes(app, "onOpenGuidedResource", "Assigned resource cards must open guided resources in-app.");

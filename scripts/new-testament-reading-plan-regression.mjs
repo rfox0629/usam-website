@@ -86,7 +86,7 @@ assert(libraryReadingPlanCard.includes('{completion.completed ? "Continue" : "Op
 assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan card should keep the PDF action.");
 assert(libraryReadingPlanCard.includes("resource.downloadPath"), "Download PDF should use the catalog download path.");
 assert(!libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Reading plan card should not duplicate the type badge as a second Type: line.");
-assert(libraryReadingPlanCard.includes("Duration: ${resource.estimatedDuration}"), "Featured reading plan card should display duration metadata.");
+assert(libraryReadingPlanCard.includes("{resource.estimatedDuration}"), "Featured reading plan card should display duration metadata in the compact badge row.");
 assert(dosClient.includes("resource.content?.subtitle ?? resource.description"), "Featured reading plan card should use the public reading plan description.");
 
 console.log("New Testament reading plan regression passed.");

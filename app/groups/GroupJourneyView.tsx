@@ -101,6 +101,22 @@ function groupJourneyChapterHeading(chapter: DosGuidedResourceSessionChapter) {
   return `Chapter ${chapter.order} · ${chapter.title}`;
 }
 
+function groupJourneyReflectionHelper(session: DosGuidedResourceSession, isReadingPlan: boolean) {
+  if (isReadingPlan || !session.chapters?.length) {
+    return session.personalReflection ?? "What stood out to you as you considered this question and chapter?";
+  }
+
+  return session.chapters.length > 1
+    ? "Looking across both chapters and questions, what stood out most?"
+    : "What stood out to you as you considered this question and chapter?";
+}
+
+function groupJourneyActionHelper(session: DosGuidedResourceSession) {
+  return session.chapters?.length && session.chapters.length > 1
+    ? "What is one response or next step you want to take this week?"
+    : "What is one response or next step you want to take?";
+}
+
 function JourneyCard({
   accent = "neutral",
   children,
@@ -155,6 +171,8 @@ export function GroupJourneyView({
   const isAllComplete = sessions.length > 0 && completedCount === sessions.length;
   const selectedChapterRange = selectedSession ? groupJourneySessionChapterRange(selectedSession, unitLabel) : "";
   const selectedSelectorTitle = selectedSession ? groupJourneySessionSelectorTitle(selectedSession) : "";
+  const reflectionHelper = selectedSession ? groupJourneyReflectionHelper(selectedSession, isReadingPlan) : "";
+  const actionHelper = selectedSession ? groupJourneyActionHelper(selectedSession) : "";
 
   return (
     <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
@@ -182,8 +200,8 @@ export function GroupJourneyView({
 
         <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
           <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.14em] text-white/50">
-            <span>{isAllComplete ? "Journey complete" : "Progress"}</span>
-            <span>{completedCount}/{sessions.length} {unitLabelLower}s complete</span>
+            <span>{isAllComplete ? "Journey complete" : "Your Journey"}</span>
+            <span>{completedCount}/{sessions.length}</span>
           </div>
           <div className="mt-2.5 flex gap-1.5">
             {sessions.map((session) => {
@@ -221,7 +239,7 @@ export function GroupJourneyView({
           </div>
         ) : null}
 
-        <section className="grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
+        <section className="grid gap-2">
           <button
             aria-expanded={isSessionSelectorOpen}
             aria-label={`Choose ${unitLabelLower}`}
@@ -396,28 +414,15 @@ export function GroupJourneyView({
               </div>
             ) : null}
 
-            {selectedSession.multiply ? (
-              <JourneyCard accent="gold" eyebrow="Multiply">
-                <p className="text-sm font-bold leading-6 text-white">{selectedSession.multiply}</p>
-              </JourneyCard>
-            ) : null}
-
-            {selectedSession.leaderNotes ? (
-              <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
-                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Optional Leader Notes</summary>
-                <p className="mt-2 text-sm leading-6 text-white/80">{selectedSession.leaderNotes}</p>
-              </details>
-            ) : null}
-
             <form action={saveGroupMemberJourneyProgress} className="grid gap-3 border-t border-white/10 pt-3" key={selectedSession.id}>
               <input name="slug" type="hidden" value={groupSlug} />
               <input name="resourceSlug" type="hidden" value={resource.slug} />
               <input name="sessionId" type="hidden" value={selectedSession.id} />
 
               {selectedSession.personalReflection ? (
-                <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                <label className="grid gap-1.5">
                   <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">What stood out?</span>
-                  <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.personalReflection}</span>
+                  <span className="text-xs font-bold leading-5 text-white/58">{reflectionHelper}</span>
                   <AutoGrowTextarea
                     className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                     defaultValue={selectedProgress?.reflection ?? ""}
@@ -427,9 +432,9 @@ export function GroupJourneyView({
                 </label>
               ) : null}
 
-              <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+              <label className="grid gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">What will you do with it?</span>
-                <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.actionStep}</span>
+                <span className="text-xs font-bold leading-5 text-white/58">{actionHelper}</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.actionStep ?? ""}
@@ -438,9 +443,9 @@ export function GroupJourneyView({
                 />
               </label>
 
-              <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+              <label className="grid gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Prayer</span>
-                <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.prayerFocus}</span>
+                <span className="text-xs font-bold leading-5 text-white/58">What do you want to pray or ask God about?</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.prayerFocus ?? ""}
