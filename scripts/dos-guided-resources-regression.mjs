@@ -39,12 +39,36 @@ assertIncludes(catalog, "whyChosen", "Guided journeys must explain why the resou
 assertIncludes(catalog, "pathwayTags", "Guided journeys must keep future Pathways metadata extensible.");
 assertIncludes(catalog, "chapterQuestion?: string", "Guided journeys must support a single canonical chapter question.");
 assert(!catalog.includes("DosGuidedResourceMemoryVerse"), "Catalog must no longer define standalone memory verse metadata (removed per USA-162).");
-assert((catalog.match(/id: "week-[1-6]"/g) ?? []).length === 6, "Discipleship (Tozer) must seed six weekly companion sessions.");
-assert((catalog.match(/assignment: "Pages /g) ?? []).length === 6, "Marks sessions must use page-reference reading assignments only.");
-assert((catalog.match(/chapterQuestion: "/g) ?? []).length === 6, "Marks sessions must include exactly one chapter question each.");
+assert((catalog.match(/id: "week-\d+"/g) ?? []).length === 12, "Discipleship (Tozer) must seed twelve weekly companion sessions covering all thirteen book chapters (USA-162 revision).");
+assert(!catalog.includes('id: "week-13"'), "Discipleship (Tozer) must not seed a thirteenth week - chapters 12 and 13 share week 12.");
+assert((catalog.match(/assignment: "Chapter \d+"/g) ?? []).length === 13, "Every one of the thirteen book chapters must have its own chapter-numbered reading assignment (no fabricated page ranges).");
+assertIncludes(catalog, 'assignment: "Chapters 12-13"', "Week 12 must clearly summarize that it carries two chapters.");
+assert((catalog.match(/chapterQuestion: "/g) ?? []).length === 13, "Every one of the thirteen book chapters must include exactly one chapter-specific question.");
 assert(!catalog.includes("memoryVerse"), "Marks sessions must no longer include memory verse sections (removed per USA-162).");
-assert((catalog.match(/multiply: "/g) ?? []).length === 6, "Marks sessions must include Multiply prompts.");
+assert((catalog.match(/multiply: "/g) ?? []).length === 12, "Marks sessions must include one Multiply prompt per week.");
 assert(!catalog.includes("Read the leader-selected"), "Marks sessions must no longer use placeholder reading assignments.");
+assertIncludes(catalog, "type DosGuidedResourceSessionChapter", "Catalog must define a chapter sub-type for weeks that carry more than one book chapter.");
+assertIncludes(catalog, "chapters?: readonly DosGuidedResourceSessionChapter[]", "Guided resource sessions must support an optional multi-chapter breakdown.");
+assertIncludes(catalog, "estimatedDuration: \"12 Weeks\"", "Discipleship (Tozer) must be seeded as a twelve-week Journey (USA-162 revision).");
+assert(!catalog.includes("estimatedDuration: \"6 Weeks\""), "Discipleship (Tozer) must not ship the obsolete six-week duration.");
+assert(!catalog.includes("difficulty: \"intermediate\""), "Discipleship (Tozer) must not show a difficulty stat.");
+[
+  "Marks of Discipleship",
+  "True and False Disciples",
+  '\\"Accepting\\" Christ',
+  "To All Who Received Him",
+  "Obedience Is Not an Option",
+  "You Cannot Face Two Directions",
+  "Crucified with Christ",
+  "Take Up Your Cross",
+  "Loving Righteousness, Hating Evil",
+  "Be Holy!",
+  "The Importance of Deeds",
+  "Preparing for Heaven",
+  "Go and Tell",
+].forEach((chapterTitle) => {
+  assertIncludes(catalog, chapterTitle, `Discipleship (Tozer) must use the real book chapter title "${chapterTitle}" (USA-162 revision).`);
+});
 assertIncludes(catalog, "https://www.moodypublishers.com/discipleship", "Seed resource must include the publisher access link.");
 assertIncludes(catalog, "https://www.amazon.com/Discipleship-Truly-Means-Christian-Collected-Insights/dp/1600668046", "Seed resource must include a retailer purchase link.");
 assertIncludes(catalog, "coverImage", "Guided resources must support a cover image.");
@@ -92,6 +116,11 @@ assertIncludes(app, "Scripture", "Guided Journey UI must show Scripture referenc
 assert(!app.includes("Discuss Together"), "Guided Journey UI must not show the old multi-question discussion list (removed per USA-162).");
 assert(!app.includes('isReadingPlan ? "Days" : "Sessions"'), "Guided Journey UI must not show a redundant Sessions/Days stat alongside Duration (removed per USA-162).");
 assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
+assertIncludes(app, "function guidedResourceSessionHeading", "Guided Journey accordion must render the actual chapter title as the primary heading, separate from the Week label (USA-162 revision).");
+assertIncludes(app, "resourceSessionUnitLabel(resource).toUpperCase()} {session.order}", "Guided Journey accordion rows must show a small secondary WEEK/DAY label above the chapter title (USA-162 revision).");
+assertIncludes(app, "session.chapters?.length", "Guided Journey accordion must render a compact per-chapter subsection for weeks that carry more than one book chapter (e.g. Week 12).");
+assertIncludes(app, "selectedSession.chapters?.length", "Guided Journey detail panel must render each chapter's own question and Scripture for multi-chapter weeks.");
+assert(!/<select\b/i.test(app.slice(app.indexOf("function GuidedResourceDetailSheet"), app.indexOf("function LeaderJourneyProgressSheet"))), "Guided Journey accordion must not use a native select/dropdown for week navigation.");
 
 assertIncludes(app, "Your Reflection", "Guided Journey UI must separate group discussion from personal reflection.");
 assertIncludes(app, "What stood out?", "Guided Journey UI must use the canonical first reflection prompt.");

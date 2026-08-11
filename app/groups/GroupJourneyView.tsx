@@ -219,7 +219,9 @@ export function GroupJourneyView({
                   <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em]">
                     {stateLabel === "Done" ? "✓ Done" : stateLabel === "Current" ? "● Current" : `${unitLabel} ${session.order}`}
                   </span>
-                  <span className="max-w-[9rem] truncate text-xs font-bold">{session.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}</span>
+                  <span className="max-w-[9rem] truncate text-xs font-bold">
+                    {session.chapters?.length ? session.chapters.map((chapter) => chapter.title).join(" & ") : session.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}
+                  </span>
                 </button>
               );
             })}
@@ -233,7 +235,12 @@ export function GroupJourneyView({
           <section className="grid gap-3 rounded-lg border border-white/10 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{selectedSession.title}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{unitLabel} {selectedSession.order}</p>
+                <p className="mt-0.5 text-lg font-black leading-tight text-white">
+                  {selectedSession.chapters?.length
+                    ? selectedSession.chapters.map((chapter) => chapter.title).join(" & ")
+                    : selectedSession.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}
+                </p>
               </div>
               {isComplete ? (
                 <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
@@ -252,23 +259,42 @@ export function GroupJourneyView({
               </JourneyCard>
             ) : null}
 
-            {selectedSession.bigIdea ? (
-              <JourneyCard eyebrow="Main Idea">
-                <p className="text-base font-bold leading-7 text-white">{selectedSession.bigIdea}</p>
-              </JourneyCard>
-            ) : null}
+            {selectedSession.chapters?.length ? (
+              selectedSession.chapters.map((chapter) => (
+                <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3" key={chapter.order}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Chapter {chapter.order} · {chapter.assignment} · {chapter.title}</p>
+                  {chapter.bigIdea ? <p className="text-sm font-bold leading-6 text-white">{chapter.bigIdea}</p> : null}
+                  <JourneyCard accent="gold" eyebrow="Chapter Question">
+                    <p className="text-sm font-bold leading-6 text-white">{chapter.chapterQuestion}</p>
+                  </JourneyCard>
+                  {chapter.keyScriptures?.length ? (
+                    <JourneyCard accent="blue" eyebrow="Search the Scriptures">
+                      <p className="text-sm font-bold leading-6 text-white">{chapter.keyScriptures.join(" · ")}</p>
+                    </JourneyCard>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <>
+                {selectedSession.bigIdea ? (
+                  <JourneyCard eyebrow="Main Idea">
+                    <p className="text-base font-bold leading-7 text-white">{selectedSession.bigIdea}</p>
+                  </JourneyCard>
+                ) : null}
 
-            {selectedSession.chapterQuestion ? (
-              <JourneyCard accent="gold" eyebrow="Chapter Question">
-                <p className="text-sm font-bold leading-6 text-white">{selectedSession.chapterQuestion}</p>
-              </JourneyCard>
-            ) : null}
+                {selectedSession.chapterQuestion ? (
+                  <JourneyCard accent="gold" eyebrow="Chapter Question">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.chapterQuestion}</p>
+                  </JourneyCard>
+                ) : null}
 
-            {selectedSession.keyScriptures?.length ? (
-              <JourneyCard accent="blue" eyebrow="Search the Scriptures">
-                <p className="text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
-              </JourneyCard>
-            ) : null}
+                {selectedSession.keyScriptures?.length ? (
+                  <JourneyCard accent="blue" eyebrow="Search the Scriptures">
+                    <p className="text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
+                  </JourneyCard>
+                ) : null}
+              </>
+            )}
 
             {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
               <div className="grid gap-2 sm:grid-cols-2">

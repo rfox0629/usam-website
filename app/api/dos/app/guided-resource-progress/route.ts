@@ -127,11 +127,19 @@ function learningNotesForSession({
 }
 
 function learningHighlightsForSession(session: DosGuidedResourceSession) {
+  const chapterHighlights = (session.chapters ?? []).flatMap((chapter) => [
+    `Chapter ${chapter.order}: ${chapter.title} (${chapter.assignment})`,
+    chapter.bigIdea ? `Main Idea: ${chapter.bigIdea}` : null,
+    `Chapter Question: ${chapter.chapterQuestion}`,
+    chapter.keyScriptures?.length ? `Search the Scriptures: ${chapter.keyScriptures.join(", ")}` : null,
+  ]);
+
   return [
     `Reading Assignment: ${session.assignment}`,
     session.bigIdea ? `Main Idea: ${session.bigIdea}` : null,
     session.chapterQuestion ? `Chapter Question: ${session.chapterQuestion}` : null,
     session.keyScriptures?.length ? `Search the Scriptures: ${session.keyScriptures.join(", ")}` : null,
+    ...chapterHighlights,
     session.multiply ? `Multiply: ${session.multiply}` : null,
   ].filter(Boolean).join("\n\n").slice(0, 5000);
 }

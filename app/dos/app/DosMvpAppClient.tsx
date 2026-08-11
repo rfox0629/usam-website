@@ -33,6 +33,7 @@ import {
   getDosResourceBySlug,
   getDosResourcesByCategory,
   getSendableDosResources,
+  type DosGuidedResourceSession,
   type DosResource,
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
@@ -5646,6 +5647,11 @@ function guidedResourceSessions(resource: DosResource) {
   return resource.content?.guidedResource?.sessions ?? [];
 }
 
+function guidedResourceSessionHeading(session: DosGuidedResourceSession) {
+  const match = session.title.match(/^(?:Week|Day) \d+\s*[·-]\s*(.*)$/);
+  return match ? match[1] : session.title;
+}
+
 function isGuidedResource(resource: DosResource) {
   return (resource.type === "guided_resource" || resource.type === "reading_plan") && Boolean(resource.content?.guidedResource?.sessions.length);
 }
@@ -6207,8 +6213,23 @@ function GuidedResourceDetailSheet({
                       {completed ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <span className="text-xs font-black">{session.order}</span>}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-black leading-5 text-[#0F172A]">{session.title}</span>
-                      {!isOpen ? <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{session.assignment}</span> : null}
+                      <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                        {resourceSessionUnitLabel(resource).toUpperCase()} {session.order}
+                      </span>
+                      {session.chapters?.length ? (
+                        <span className="mt-0.5 grid gap-0.5">
+                          {session.chapters.map((chapter) => (
+                            <span className="block text-sm font-black leading-5 text-[#0F172A]" key={chapter.order}>{chapter.title}</span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="mt-0.5 block text-sm font-black leading-5 text-[#0F172A]">{guidedResourceSessionHeading(session)}</span>
+                      )}
+                      {!isOpen ? (
+                        <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">
+                          {session.chapters?.length ? session.chapters.map((chapter) => chapter.assignment).join(" · ") : session.assignment}
+                        </span>
+                      ) : null}
                     </span>
                     <ChevronDown className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={1.9} />
                   </button>
@@ -6227,21 +6248,47 @@ function GuidedResourceDetailSheet({
                           </span>
                         ) : null}
                       </div>
-                      {selectedSession.bigIdea ? (
-                        <p className="text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
-                      ) : null}
-                      {selectedSession.chapterQuestion ? (
-                        <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.chapterQuestion}</p>
+                      {selectedSession.chapters?.length ? (
+                        <div className="grid gap-3">
+                          {selectedSession.chapters.map((chapter) => (
+                            <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-white p-3" key={chapter.order}>
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Chapter {chapter.order} · {chapter.assignment}</p>
+                                <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{chapter.title}</p>
+                              </div>
+                              {chapter.bigIdea ? <p className="text-sm font-semibold leading-6 text-[#0F172A]">{chapter.bigIdea}</p> : null}
+                              <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
+                                <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.chapterQuestion}</p>
+                              </div>
+                              {chapter.keyScriptures?.length ? (
+                                <div className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                                  <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.keyScriptures.join(" - ")}</p>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
                         </div>
-                      ) : null}
-                      {selectedSession.keyScriptures?.length ? (
-                        <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
-                        </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          {selectedSession.bigIdea ? (
+                            <p className="text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
+                          ) : null}
+                          {selectedSession.chapterQuestion ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.chapterQuestion}</p>
+                            </div>
+                          ) : null}
+                          {selectedSession.keyScriptures?.length ? (
+                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                       {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
                         <ul className="grid gap-1 rounded-[16px] bg-[#F8FAFC] px-3 py-2.5 text-xs leading-5 text-[#475569]">
                           {selectedSession.lookForChrist ? <li><span className="font-bold text-[#334155]">Look for Christ - </span>{selectedSession.lookForChrist}</li> : null}
