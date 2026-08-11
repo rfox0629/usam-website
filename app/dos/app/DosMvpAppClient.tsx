@@ -5652,6 +5652,30 @@ function guidedResourceSessionHeading(session: DosGuidedResourceSession) {
   return match ? match[1] : session.title;
 }
 
+function guidedResourceSessionChapterRange(session: DosGuidedResourceSession, resource: DosResource) {
+  const unitLabel = resourceSessionUnitLabel(resource);
+
+  if (!session.chapters?.length) {
+    return unitLabel === "Day" ? `Day ${session.order}` : session.assignment;
+  }
+
+  const orders = session.chapters.map((chapter) => chapter.order);
+  const first = Math.min(...orders);
+  const last = Math.max(...orders);
+
+  return first === last ? `Ch. ${first}` : `Ch. ${first}-${last}`;
+}
+
+function guidedResourceSessionSelectorTitle(session: DosGuidedResourceSession) {
+  return session.chapters?.length
+    ? session.chapters.map((chapter) => chapter.title).join(" / ")
+    : guidedResourceSessionHeading(session);
+}
+
+function guidedResourceSessionChapterHeading(chapter: NonNullable<DosGuidedResourceSession["chapters"]>[number]) {
+  return `Chapter ${chapter.order} · ${chapter.title}`;
+}
+
 function isGuidedResource(resource: DosResource) {
   return (resource.type === "guided_resource" || resource.type === "reading_plan") && Boolean(resource.content?.guidedResource?.sessions.length);
 }
@@ -6049,8 +6073,14 @@ function GuidedResourceDetailSheet({
   const isJourneyComplete = completion.total > 0 && completion.completed === completion.total;
   const initialSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? sessions[0] ?? null;
   const [selectedSessionId, setSelectedSessionId] = useState(initialSession?.id ?? "");
+  const [isSessionSelectorOpen, setIsSessionSelectorOpen] = useState(false);
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? initialSession;
   const selectedProgress = selectedSession ? progressBySession.get(selectedSession.id) ?? null : null;
+  const currentSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? null;
+  const selectedUnitLabel = resourceSessionUnitLabel(resource);
+  const selectedUnitLabelLower = selectedUnitLabel.toLowerCase();
+  const selectedChapterRange = selectedSession ? guidedResourceSessionChapterRange(selectedSession, resource) : "";
+  const selectedSelectorTitle = selectedSession ? guidedResourceSessionSelectorTitle(selectedSession) : "";
   const [reflection, setReflection] = useState(selectedProgress?.reflection ?? "");
   const [actionStep, setActionStep] = useState(selectedProgress?.actionStep ?? "");
   const [prayerFocus, setPrayerFocus] = useState(selectedProgress?.prayerFocus ?? "");
@@ -6082,6 +6112,17 @@ function GuidedResourceDetailSheet({
       resourceSlug: resource.slug,
       sessionId: selectedSession.id,
     });
+
+    if (completed) {
+      const selectedIndex = sessions.findIndex((session) => session.id === selectedSession.id);
+      const nextSession = sessions.find((session, index) => index > selectedIndex && !progressBySession.get(session.id)?.completedAt)
+        ?? sessions.find((session) => session.id !== selectedSession.id && !progressBySession.get(session.id)?.completedAt)
+        ?? null;
+
+      if (nextSession) {
+        setSelectedSessionId(nextSession.id);
+      }
+    }
   }
 
   return (
@@ -6192,149 +6233,201 @@ function GuidedResourceDetailSheet({
             </p>
           ) : null}
 
-          <section className="grid gap-2" aria-label={isReadingPlan ? "Reading plan days" : "Guided journey weeks"}>
-            {sessions.map((session) => {
-              const sessionProgress = progressBySession.get(session.id) ?? null;
-              const completed = Boolean(sessionProgress?.completedAt);
-              const isOpen = selectedSession?.id === session.id;
-
-              return (
-                <div
-                  className={`overflow-hidden rounded-[20px] border transition-colors ${isOpen ? "border-[#BFDBFE] bg-[#F8FBFF]" : "border-[#E2E8F0] bg-white"}`}
-                  key={session.id}
+          {selectedSession ? (
+            <section className="grid gap-3" aria-label={isReadingPlan ? "Reading plan day selector" : "Guided journey week selector"}>
+              <div className="relative">
+                <button
+                  aria-expanded={isSessionSelectorOpen}
+                  aria-label={`Choose ${selectedUnitLabelLower}`}
+                  className="flex w-full min-w-0 items-center gap-3 rounded-[22px] border border-[#BFDBFE] bg-white px-4 py-3 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)] transition-colors hover:border-[#93C5FD] hover:bg-[#F8FBFF]"
+                  onClick={() => setIsSessionSelectorOpen((open) => !open)}
+                  type="button"
                 >
-                  <button
-                    aria-expanded={isOpen}
-                    className="flex w-full min-w-0 items-center gap-3 px-3 py-3 text-left"
-                    onClick={() => setSelectedSessionId(isOpen ? "" : session.id)}
-                    type="button"
-                  >
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#F8FAFC] text-[#64748B]"}`}>
-                      {completed ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <span className="text-xs font-black">{session.order}</span>}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      {selectedUnitLabel} {selectedSession.order} of {sessions.length}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[9px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                        {resourceSessionUnitLabel(resource).toUpperCase()} {session.order}
-                      </span>
-                      {session.chapters?.length ? (
-                        <span className="mt-0.5 grid gap-0.5">
-                          {session.chapters.map((chapter) => (
-                            <span className="block text-sm font-black leading-5 text-[#0F172A]" key={chapter.order}>{chapter.title}</span>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 block text-sm font-black leading-5 text-[#0F172A]">{guidedResourceSessionHeading(session)}</span>
-                      )}
-                      {!isOpen ? (
-                        <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">
-                          {session.chapters?.length ? session.chapters.map((chapter) => chapter.assignment).join(" · ") : session.assignment}
-                        </span>
-                      ) : null}
+                    <span className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span className="shrink-0 text-sm font-black leading-5 text-[#0F172A]">{selectedChapterRange}</span>
+                      <span className="min-w-0 text-sm font-semibold leading-5 text-[#334155]">{selectedSelectorTitle}</span>
                     </span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-                  </button>
+                  </span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-[#2563EB] transition-transform ${isSessionSelectorOpen ? "rotate-180" : ""}`} aria-hidden="true" strokeWidth={2} />
+                </button>
 
-                  {isOpen && selectedSession ? (
-                    <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-4 pt-3 sm:px-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Reading Plan Day" : "Guided Journey Session"}</p>
-                          <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Reading: {selectedSession.assignment}</p>
-                        </div>
-                        {selectedProgress?.completedAt ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#DCFCE7] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
-                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                            Complete
-                          </span>
-                        ) : null}
-                      </div>
-                      {selectedSession.chapters?.length ? (
-                        <div className="grid gap-3">
-                          {selectedSession.chapters.map((chapter) => (
-                            <div className="grid gap-2 rounded-[18px] border border-[#EAF2FF] bg-white p-3" key={chapter.order}>
-                              <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{chapter.assignment}</p>
-                                <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{chapter.title}</p>
-                              </div>
-                              {chapter.bigIdea ? <p className="text-sm font-semibold leading-6 text-[#0F172A]">{chapter.bigIdea}</p> : null}
-                              <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
-                                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
-                                <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.chapterQuestion}</p>
-                              </div>
-                              {chapter.keyScriptures?.length ? (
-                                <div className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2">
-                                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
-                                  <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.keyScriptures.join(" - ")}</p>
-                                </div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <>
-                          {selectedSession.bigIdea ? (
-                            <p className="text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
-                          ) : null}
-                          {selectedSession.chapterQuestion ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.chapterQuestion}</p>
-                            </div>
-                          ) : null}
-                          {selectedSession.keyScriptures?.length ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
-                            </div>
-                          ) : null}
-                        </>
-                      )}
-                      {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
-                        <ul className="grid gap-1 rounded-[16px] bg-[#F8FAFC] px-3 py-2.5 text-xs leading-5 text-[#475569]">
-                          {selectedSession.lookForChrist ? <li><span className="font-bold text-[#334155]">Look for Christ - </span>{selectedSession.lookForChrist}</li> : null}
-                          {selectedSession.listenCarefully ? <li><span className="font-bold text-[#334155]">Listen Carefully - </span>{selectedSession.listenCarefully}</li> : null}
-                          {selectedSession.respondPersonally ? <li><span className="font-bold text-[#334155]">Respond Personally - </span>{selectedSession.respondPersonally}</li> : null}
-                          {selectedSession.moveTowardOthers ? <li><span className="font-bold text-[#334155]">Move Toward Others - </span>{selectedSession.moveTowardOthers}</li> : null}
-                        </ul>
-                      ) : null}
-                      {selectedSession.leaderNotes ? (
-                        <details className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                          <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
-                          <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
-                        </details>
-                      ) : null}
-                      <form className="grid gap-3 border-t border-[#EAF2FF] pt-3" onSubmit={(event) => {
-                        event.preventDefault();
-                        void saveProgress();
-                      }}>
-                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Your Reflection</p>
-                        <DosFormField helper="What is the main thing you learned or noticed?" label="What stood out?">
-                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
-                        </DosFormField>
-                        <DosFormField helper="How does this apply to your life or what is one next step?" label="What will you do with it?">
-                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
-                        </DosFormField>
-                        <DosFormField helper="What do you want to pray or ask God about?" label="Prayer">
-                          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
-                        </DosFormField>
-                        {!readOnly ? <p className="text-xs font-semibold leading-5 text-[#64748B]">Saved reflections also sync to My Record - Learning.</p> : null}
-                        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting || readOnly} type="submit">
-                            {isSubmitting ? "Saving..." : "Save Reflection"}
+                {isSessionSelectorOpen ? (
+                  <div className="mt-2 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_18px_42px_rgba(15,23,42,0.1)]">
+                    <div className="divide-y divide-[#EAF2FF]">
+                      {sessions.map((session) => {
+                        const sessionComplete = Boolean(progressBySession.get(session.id)?.completedAt);
+                        const isCurrent = !sessionComplete && currentSession?.id === session.id;
+                        const isSelected = selectedSession.id === session.id;
+                        const stateLabel = sessionComplete ? "Completed" : isCurrent ? "Current" : "Upcoming";
+
+                        return (
+                          <button
+                            className={`flex w-full min-w-0 items-center gap-3 px-3.5 py-3 text-left transition-colors ${
+                              isSelected
+                                ? "bg-[#EBF2FF]"
+                                : isCurrent
+                                  ? "bg-white hover:bg-[#F8FBFF]"
+                                  : "bg-white hover:bg-[#F8FAFC]"
+                            }`}
+                            key={session.id}
+                            onClick={() => {
+                              setSelectedSessionId(session.id);
+                              setIsSessionSelectorOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+                              sessionComplete
+                                ? "border-[#BBF7D0] bg-[#ECFDF3] text-[#15803D]"
+                                : isCurrent
+                                  ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB]"
+                                  : "border-[#E2E8F0] bg-white text-[#64748B]"
+                            }`}>
+                              {sessionComplete ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <span className="text-xs font-black">{session.order}</span>}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                                  {selectedUnitLabel} {session.order}
+                                </span>
+                                <span className="text-xs font-black text-[#0F172A]">{guidedResourceSessionChapterRange(session, resource)}</span>
+                              </span>
+                              <span className="mt-0.5 block text-sm font-semibold leading-5 text-[#334155]">{guidedResourceSessionSelectorTitle(session)}</span>
+                            </span>
+                            <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.11em] ${
+                              sessionComplete
+                                ? "bg-[#ECFDF3] text-[#15803D]"
+                                : isCurrent
+                                  ? "bg-[#EBF2FF] text-[#1D4ED8]"
+                                  : "bg-[#F8FAFC] text-[#64748B]"
+                            }`} style={{ fontFamily: font.rajdhani }}>
+                              {stateLabel}
+                            </span>
                           </button>
-                          <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
-                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-                            {isReadingPlan ? "Mark Day Complete" : "Mark Week Complete"}
-                          </button>
-                        </div>
-                      </form>
+                        );
+                      })}
                     </div>
-                  ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <article className="overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.05)]">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EAF2FF] px-4 py-3.5">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      {selectedUnitLabel} {selectedSession.order} of {sessions.length}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-[#64748B]">{selectedChapterRange}</p>
+                  </div>
+                  {selectedProgress?.completedAt ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
+                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                      Completed
+                    </span>
+                  ) : currentSession?.id === selectedSession.id ? (
+                    <span className="inline-flex items-center rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      Current
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                      Upcoming
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </section>
+
+                <div className="grid gap-5 px-4 py-4">
+                  {selectedSession.chapters?.length ? (
+                    <div className="grid gap-5">
+                      {selectedSession.chapters.map((chapter, index) => (
+                        <section className={`${index > 0 ? "border-t border-[#EAF2FF] pt-5" : ""}`} key={chapter.order}>
+                          <h4 className="text-base font-black leading-6 text-[#0F172A]">{guidedResourceSessionChapterHeading(chapter)}</h4>
+                          {chapter.bigIdea ? <p className="mt-2 text-sm font-medium leading-6 text-[#334155]">{chapter.bigIdea}</p> : null}
+                          {chapter.chapterQuestion ? (
+                            <div className="mt-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Question</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.chapterQuestion}</p>
+                            </div>
+                          ) : null}
+                          {chapter.keyScriptures?.length ? (
+                            <div className="mt-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{chapter.keyScriptures.join(" · ")}</p>
+                            </div>
+                          ) : null}
+                        </section>
+                      ))}
+                    </div>
+                  ) : (
+                    <section>
+                      <h4 className="text-base font-black leading-6 text-[#0F172A]">{selectedSession.assignment} · {guidedResourceSessionHeading(selectedSession)}</h4>
+                      {selectedSession.bigIdea ? <p className="mt-2 text-sm font-medium leading-6 text-[#334155]">{selectedSession.bigIdea}</p> : null}
+                      {selectedSession.chapterQuestion ? (
+                        <div className="mt-3">
+                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Question</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.chapterQuestion}</p>
+                        </div>
+                      ) : null}
+                      {selectedSession.keyScriptures?.length ? (
+                        <div className="mt-3">
+                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" · ")}</p>
+                        </div>
+                      ) : null}
+                    </section>
+                  )}
+
+                  {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
+                    <ul className="grid gap-1 border-t border-[#EAF2FF] pt-4 text-xs leading-5 text-[#475569]">
+                      {selectedSession.lookForChrist ? <li><span className="font-bold text-[#334155]">Look for Christ - </span>{selectedSession.lookForChrist}</li> : null}
+                      {selectedSession.listenCarefully ? <li><span className="font-bold text-[#334155]">Listen Carefully - </span>{selectedSession.listenCarefully}</li> : null}
+                      {selectedSession.respondPersonally ? <li><span className="font-bold text-[#334155]">Respond Personally - </span>{selectedSession.respondPersonally}</li> : null}
+                      {selectedSession.moveTowardOthers ? <li><span className="font-bold text-[#334155]">Move Toward Others - </span>{selectedSession.moveTowardOthers}</li> : null}
+                    </ul>
+                  ) : null}
+
+                  {selectedSession.leaderNotes ? (
+                    <details className="border-t border-[#EAF2FF] pt-4">
+                      <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
+                      <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
+                    </details>
+                  ) : null}
+
+                  <form className="grid gap-3 border-t border-[#EAF2FF] pt-4" onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveProgress();
+                  }}>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Your Reflection</p>
+                      {!readOnly ? <p className="mt-1 text-xs font-medium leading-5 text-[#94A3B8]">Saved reflections also sync to My Record - Learning.</p> : null}
+                    </div>
+                    <DosFormField helper="What is the main thing you learned or noticed?" label="What stood out?">
+                      <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
+                    </DosFormField>
+                    <DosFormField helper="How does this apply to your life or what is one next step?" label="What will you do with it?">
+                      <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
+                    </DosFormField>
+                    <DosFormField helper="What do you want to pray or ask God about?" label="Prayer">
+                      <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="prayer_focus" onChange={(event) => setPrayerFocus(event.target.value)} value={prayerFocus} />
+                    </DosFormField>
+                    {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" disabled={!personId || isSubmitting || readOnly} type="submit">
+                        {isSubmitting ? "Saving..." : "Save Reflection"}
+                      </button>
+                      <button className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white disabled:bg-[#94A3B8]" disabled={!personId || isSubmitting || readOnly} onClick={() => void saveProgress(true)} type="button">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+                        {isReadingPlan ? "Mark Day Complete" : "Mark Week Complete"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </article>
+            </section>
+          ) : null}
         </div>
       </div>
     </Sheet>
