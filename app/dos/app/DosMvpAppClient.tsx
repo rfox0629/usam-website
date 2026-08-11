@@ -5789,28 +5789,17 @@ function CatalogResourceRow({
                 </span>
               ) : null}
               <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {resource.type === "reading_plan" ? "READING PLAN" : "GUIDED RESOURCE"}
+                {resource.type === "reading_plan" ? "READING PLAN" : "GUIDED JOURNEY"}
               </span>
+              {resource.estimatedDuration ? (
+                <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
+                  {resource.estimatedDuration}
+                </span>
+              ) : null}
             </div>
             <h3 className="mt-2 text-sm font-black leading-tight text-[#0F172A]">{resource.title}</h3>
             {resource.author ? <p className="mt-1 text-xs font-bold leading-5 text-[#475569]">{resource.author}</p> : null}
-            {resource.estimatedDuration ? (
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                <span>{`Duration: ${resource.estimatedDuration}`}</span>
-              </div>
-            ) : null}
             <p className="mt-2 text-xs leading-5 text-[#64748B]">{description}</p>
-            {completion.total ? (
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  <span>Progress</span>
-                  <span>{completion.completed}/{completion.total}</span>
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
-                  <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
@@ -5991,6 +5980,22 @@ function resourceSessionCountLabel(resource: DosResource, count: number) {
   return `${count} ${count === 1 ? unit : `${unit}s`}`;
 }
 
+function guidedResourceReflectionHelper(session: DosGuidedResourceSession, isReadingPlan: boolean) {
+  if (isReadingPlan || !session.chapters?.length) {
+    return session.personalReflection ?? "What stood out to you as you considered this question and chapter?";
+  }
+
+  return session.chapters.length > 1
+    ? "Looking across both chapters and questions, what stood out most?"
+    : "What stood out to you as you considered this question and chapter?";
+}
+
+function guidedResourceActionHelper(session: DosGuidedResourceSession) {
+  return session.chapters?.length && session.chapters.length > 1
+    ? "What is one response or next step you want to take this week?"
+    : "What is one response or next step you want to take?";
+}
+
 function CatalogResourceList({
   actionLabel,
   guidedResourceProgress,
@@ -6081,6 +6086,8 @@ function GuidedResourceDetailSheet({
   const selectedUnitLabelLower = selectedUnitLabel.toLowerCase();
   const selectedChapterRange = selectedSession ? guidedResourceSessionChapterRange(selectedSession, resource) : "";
   const selectedSelectorTitle = selectedSession ? guidedResourceSessionSelectorTitle(selectedSession) : "";
+  const reflectionHelper = selectedSession ? guidedResourceReflectionHelper(selectedSession, isReadingPlan) : "";
+  const actionHelper = selectedSession ? guidedResourceActionHelper(selectedSession) : "";
   const [reflection, setReflection] = useState(selectedProgress?.reflection ?? "");
   const [actionStep, setActionStep] = useState(selectedProgress?.actionStep ?? "");
   const [prayerFocus, setPrayerFocus] = useState(selectedProgress?.prayerFocus ?? "");
@@ -6152,25 +6159,23 @@ function GuidedResourceDetailSheet({
                   <span className="rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
                     {isReadingPlan ? "GUIDED READING PLAN" : "GUIDED JOURNEY"}
                   </span>
+                  {resource.estimatedDuration ? (
+                    <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
+                      {resource.estimatedDuration}
+                    </span>
+                  ) : null}
                 </div>
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
                 {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
                 <p className="mt-2 text-sm leading-6 text-[#64748B]">{resource.description}</p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[#64748B]">
-                  <span className="inline-flex min-w-[7rem] flex-col rounded-2xl bg-[#F8FAFC] px-3 py-2">
-                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Duration</span>
-                    <span className="mt-1 block text-[#0F172A]">{resource.estimatedDuration ?? "Resource"}</span>
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                    <span>Progress</span>
-                    <span>{completion.completed}/{completion.total}</span>
+                {guidedResource?.whyChosen ? (
+                  <div className="mt-3 border-t border-[#EAF2FF] pt-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+                      {isReadingPlan ? "How This Plan Works" : "Why We Recommend This"}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#334155]">{guidedResource.whyChosen}</p>
                   </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
-                    <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
-                  </div>
-                </div>
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {purchaseLink ? (
                     <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" href={purchaseLink.href} rel="noopener noreferrer" target="_blank">
@@ -6188,13 +6193,6 @@ function GuidedResourceDetailSheet({
               </div>
             </div>
           </article>
-
-          {guidedResource?.whyChosen ? (
-            <section className="rounded-[24px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "How This Plan Works" : "Why We Recommend This"}</p>
-              <p className="mt-2 text-sm leading-6 text-[#334155]">{guidedResource.whyChosen}</p>
-            </section>
-          ) : null}
 
           {isJourneyComplete ? (
             <section className="rounded-[24px] border border-[#BBF7D0] bg-[#F0FDF4] p-4">
@@ -6235,6 +6233,16 @@ function GuidedResourceDetailSheet({
 
           {selectedSession ? (
             <section className="grid gap-3" aria-label={isReadingPlan ? "Reading plan day selector" : "Guided journey week selector"}>
+              <div className="px-1">
+                <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                  <span>Your Journey</span>
+                  <span>{completion.completed}/{completion.total}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#EAF2FF]">
+                  <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${completion.percent}%` }} />
+                </div>
+              </div>
+
               <div className="relative">
                 <button
                   aria-expanded={isSessionSelectorOpen}
@@ -6389,25 +6397,14 @@ function GuidedResourceDetailSheet({
                     </ul>
                   ) : null}
 
-                  {selectedSession.leaderNotes ? (
-                    <details className="border-t border-[#EAF2FF] pt-4">
-                      <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Optional Leader Notes</summary>
-                      <p className="mt-2 text-sm leading-6 text-[#475569]">{selectedSession.leaderNotes}</p>
-                    </details>
-                  ) : null}
-
                   <form className="grid gap-3 border-t border-[#EAF2FF] pt-4" onSubmit={(event) => {
                     event.preventDefault();
                     void saveProgress();
                   }}>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Your Reflection</p>
-                      {!readOnly ? <p className="mt-1 text-xs font-medium leading-5 text-[#94A3B8]">Saved reflections also sync to My Record - Learning.</p> : null}
-                    </div>
-                    <DosFormField helper="What is the main thing you learned or noticed?" label="What stood out?">
+                    <DosFormField helper={reflectionHelper} label="What stood out?">
                       <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} disabled={!personId || isSubmitting || readOnly} name="reflection" onChange={(event) => setReflection(event.target.value)} value={reflection} />
                     </DosFormField>
-                    <DosFormField helper="How does this apply to your life or what is one next step?" label="What will you do with it?">
+                    <DosFormField helper={actionHelper} label="What will you do with it?">
                       <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} disabled={!personId || isSubmitting || readOnly} name="action_step" onChange={(event) => setActionStep(event.target.value)} value={actionStep} />
                     </DosFormField>
                     <DosFormField helper="What do you want to pray or ask God about?" label="Prayer">
