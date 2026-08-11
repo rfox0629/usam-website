@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
-import type { DosResource } from "@/src/lib/dos/resource-catalog";
+import type { DosGuidedResourceSession, DosGuidedResourceSessionChapter, DosResource } from "@/src/lib/dos/resource-catalog";
 import { saveGroupMemberJourneyProgress } from "./[slug]/member/actions";
 
 function AutoGrowTextarea({ className = "", ...props }: ComponentProps<"textarea">) {
@@ -75,6 +75,32 @@ function journeyStateMessage(state: string | null) {
   }
 }
 
+function groupJourneySessionHeading(session: DosGuidedResourceSession) {
+  return session.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "");
+}
+
+function groupJourneySessionChapterRange(session: DosGuidedResourceSession, unitLabel: "Day" | "Week") {
+  if (!session.chapters?.length) {
+    return unitLabel === "Day" ? `Day ${session.order}` : session.assignment;
+  }
+
+  const orders = session.chapters.map((chapter) => chapter.order);
+  const first = Math.min(...orders);
+  const last = Math.max(...orders);
+
+  return first === last ? `Ch. ${first}` : `Ch. ${first}-${last}`;
+}
+
+function groupJourneySessionSelectorTitle(session: DosGuidedResourceSession) {
+  return session.chapters?.length
+    ? session.chapters.map((chapter) => chapter.title).join(" / ")
+    : groupJourneySessionHeading(session);
+}
+
+function groupJourneyChapterHeading(chapter: DosGuidedResourceSessionChapter) {
+  return `Chapter ${chapter.order} · ${chapter.title}`;
+}
+
 function JourneyCard({
   accent = "neutral",
   children,
@@ -121,11 +147,14 @@ export function GroupJourneyView({
   const completedCount = sessions.filter((session) => Boolean(progressBySession.get(session.id)?.completedAt)).length;
   const firstOpenSession = sessions.find((session) => !progressBySession.get(session.id)?.completedAt) ?? sessions[0] ?? null;
   const [selectedSessionId, setSelectedSessionId] = useState(firstOpenSession?.id ?? sessions[0]?.id ?? "");
+  const [isSessionSelectorOpen, setIsSessionSelectorOpen] = useState(false);
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? sessions[0] ?? null;
   const selectedProgress = selectedSession ? progressBySession.get(selectedSession.id) ?? null : null;
   const message = journeyStateMessage(state);
   const isComplete = Boolean(selectedProgress?.completedAt);
   const isAllComplete = sessions.length > 0 && completedCount === sessions.length;
+  const selectedChapterRange = selectedSession ? groupJourneySessionChapterRange(selectedSession, unitLabel) : "";
+  const selectedSelectorTitle = selectedSession ? groupJourneySessionSelectorTitle(selectedSession) : "";
 
   return (
     <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
@@ -192,42 +221,72 @@ export function GroupJourneyView({
           </div>
         ) : null}
 
-        <section className="relative grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
-          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">{unitLabel}s</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-            {sessions.map((session) => {
-              const sessionComplete = Boolean(progressBySession.get(session.id)?.completedAt);
-              const isCurrent = session.id === firstOpenSession?.id;
-              const isSelected = session.id === selectedSessionId;
-              const stateLabel = sessionComplete ? "Done" : isCurrent ? "Current" : "Upcoming";
+        <section className="grid gap-2 rounded-lg border border-white/10 bg-[#111418] p-3 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
+          <button
+            aria-expanded={isSessionSelectorOpen}
+            aria-label={`Choose ${unitLabelLower}`}
+            className="flex w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-[#5B8DEF]/35 bg-white/[0.03] px-3.5 py-3 text-left transition-colors hover:border-[#5B8DEF]/60"
+            onClick={() => setIsSessionSelectorOpen((open) => !open)}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-[#9DBBFF]">
+                {unitLabel} {selectedSession?.order ?? 1} of {sessions.length}
+              </span>
+              <span className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="shrink-0 text-sm font-black text-white">{selectedChapterRange}</span>
+                <span className="min-w-0 text-sm font-bold leading-5 text-white/70">{selectedSelectorTitle}</span>
+              </span>
+            </span>
+            <span className={`text-lg font-black text-[#F8C56A] transition-transform ${isSessionSelectorOpen ? "rotate-180" : ""}`}>⌄</span>
+          </button>
 
-              return (
-                <button
-                  className={`flex min-h-14 shrink-0 flex-col items-start justify-center gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors ${
-                    isSelected
-                      ? "border-[#C2A14E] bg-[#C2A14E]/14 text-[#F8C56A]"
-                      : sessionComplete
-                        ? "border-[#C2A14E]/30 bg-[#C2A14E]/5 text-white/75 hover:border-[#C2A14E]/50"
-                        : isCurrent
-                          ? "border-[#5B8DEF]/50 bg-[#5B8DEF]/10 text-white/85 hover:border-[#5B8DEF]/70"
-                          : "border-white/10 bg-white/[0.02] text-white/45 hover:border-white/20"
-                  }`}
-                  key={session.id}
-                  onClick={() => setSelectedSessionId(session.id)}
-                  type="button"
-                >
-                  <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em]">
-                    {stateLabel === "Done" ? "✓ Done" : stateLabel === "Current" ? "● Current" : `${unitLabel} ${session.order}`}
-                  </span>
-                  <span className="max-w-[9rem] truncate text-xs font-bold">
-                    {session.chapters?.length ? session.chapters.map((chapter) => chapter.title).join(" & ") : session.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {sessions.length > 3 ? (
-            <span aria-hidden="true" className="pointer-events-none absolute bottom-1 right-3 top-8 w-8 bg-[linear-gradient(90deg,transparent,#111418)]" />
+          {isSessionSelectorOpen ? (
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-[#080A0D]">
+              <div className="divide-y divide-white/10">
+                {sessions.map((session) => {
+                  const sessionComplete = Boolean(progressBySession.get(session.id)?.completedAt);
+                  const isCurrent = session.id === firstOpenSession?.id && !sessionComplete;
+                  const isSelected = session.id === selectedSessionId;
+                  const stateLabel = sessionComplete ? "Completed" : isCurrent ? "Current" : "Upcoming";
+
+                  return (
+                    <button
+                      className={`grid w-full min-w-0 grid-cols-[1fr_auto] gap-3 px-3.5 py-3 text-left transition-colors ${
+                        isSelected
+                          ? "bg-[#C2A14E]/12"
+                          : isCurrent
+                            ? "bg-[#5B8DEF]/8 hover:bg-[#5B8DEF]/12"
+                            : "hover:bg-white/[0.04]"
+                      }`}
+                      key={session.id}
+                      onClick={() => {
+                        setSelectedSessionId(session.id);
+                        setIsSessionSelectorOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{unitLabel} {session.order}</span>
+                          <span className="text-xs font-black text-white/85">{groupJourneySessionChapterRange(session, unitLabel)}</span>
+                        </span>
+                        <span className="mt-0.5 block text-sm font-bold leading-5 text-white/72">{groupJourneySessionSelectorTitle(session)}</span>
+                      </span>
+                      <span className={`self-start rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${
+                        sessionComplete
+                          ? "bg-emerald-400/10 text-emerald-300"
+                          : isCurrent
+                            ? "bg-[#5B8DEF]/16 text-[#9DBBFF]"
+                            : "bg-white/[0.05] text-white/45"
+                      }`}>
+                        {stateLabel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
         </section>
 
@@ -237,10 +296,9 @@ export function GroupJourneyView({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">{unitLabel} {selectedSession.order}</p>
                 <p className="mt-0.5 text-lg font-black leading-tight text-white">
-                  {selectedSession.chapters?.length
-                    ? selectedSession.chapters.map((chapter) => chapter.title).join(" & ")
-                    : selectedSession.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}
+                  {selectedSelectorTitle}
                 </p>
+                <p className="mt-1 text-sm font-bold text-white/50">{selectedChapterRange}</p>
               </div>
               {isComplete ? (
                 <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
@@ -249,31 +307,41 @@ export function GroupJourneyView({
               ) : null}
             </div>
 
-            <JourneyCard eyebrow="Reading Assignment">
-              <p className="text-sm font-bold leading-6 text-white">{selectedSession.assignment}</p>
-            </JourneyCard>
+            {!selectedSession.chapters?.length ? (
+              <JourneyCard eyebrow="Reading Assignment">
+                <p className="text-sm font-bold leading-6 text-white">{selectedSession.assignment}</p>
+              </JourneyCard>
+            ) : null}
 
-            {selectedSession.beginWithPrayer ? (
+            {!selectedSession.chapters?.length && selectedSession.beginWithPrayer ? (
               <JourneyCard accent="gold" eyebrow="Begin With Prayer">
                 <p className="text-sm font-bold leading-6 text-white">{selectedSession.beginWithPrayer}</p>
               </JourneyCard>
             ) : null}
 
             {selectedSession.chapters?.length ? (
-              selectedSession.chapters.map((chapter) => (
-                <div className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3" key={chapter.order}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{chapter.assignment} · {chapter.title}</p>
-                  {chapter.bigIdea ? <p className="text-sm font-bold leading-6 text-white">{chapter.bigIdea}</p> : null}
-                  <JourneyCard accent="gold" eyebrow="Chapter Question">
-                    <p className="text-sm font-bold leading-6 text-white">{chapter.chapterQuestion}</p>
-                  </JourneyCard>
-                  {chapter.keyScriptures?.length ? (
-                    <JourneyCard accent="blue" eyebrow="Search the Scriptures">
-                      <p className="text-sm font-bold leading-6 text-white">{chapter.keyScriptures.join(" · ")}</p>
-                    </JourneyCard>
-                  ) : null}
-                </div>
-              ))
+              <div className="divide-y divide-white/10">
+                {selectedSession.chapters.map((chapter) => (
+                  <section className="grid gap-2 py-4 first:pt-0 last:pb-0" key={chapter.order}>
+                    <div>
+                      <h2 className="text-base font-black leading-6 text-white">{groupJourneyChapterHeading(chapter)}</h2>
+                      {chapter.bigIdea ? <p className="mt-1.5 text-sm font-bold leading-6 text-white/78">{chapter.bigIdea}</p> : null}
+                    </div>
+                    {chapter.chapterQuestion ? (
+                      <div className="grid gap-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#F8C56A]">Question</p>
+                        <p className="text-sm font-bold leading-6 text-white">{chapter.chapterQuestion}</p>
+                      </div>
+                    ) : null}
+                    {chapter.keyScriptures?.length ? (
+                      <div className="grid gap-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Scripture</p>
+                        <p className="text-sm font-bold leading-6 text-white/82">{chapter.keyScriptures.join(" · ")}</p>
+                      </div>
+                    ) : null}
+                  </section>
+                ))}
+              </div>
             ) : (
               <>
                 {selectedSession.bigIdea ? (
@@ -283,18 +351,25 @@ export function GroupJourneyView({
                 ) : null}
 
                 {selectedSession.chapterQuestion ? (
-                  <JourneyCard accent="gold" eyebrow="Chapter Question">
+                  <JourneyCard accent="gold" eyebrow="Question">
                     <p className="text-sm font-bold leading-6 text-white">{selectedSession.chapterQuestion}</p>
                   </JourneyCard>
                 ) : null}
 
                 {selectedSession.keyScriptures?.length ? (
-                  <JourneyCard accent="blue" eyebrow="Search the Scriptures">
+                  <JourneyCard accent="blue" eyebrow="Scripture">
                     <p className="text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
                   </JourneyCard>
                 ) : null}
               </>
             )}
+
+            {selectedSession.beginWithPrayer && selectedSession.chapters?.length ? (
+              <details className="rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Begin With Prayer</summary>
+                <p className="mt-2 text-sm font-bold leading-6 text-white/80">{selectedSession.beginWithPrayer}</p>
+              </details>
+            ) : null}
 
             {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -341,7 +416,8 @@ export function GroupJourneyView({
 
               {selectedSession.personalReflection ? (
                 <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Summary & Reflection" : "Reflect Personally"} — {selectedSession.personalReflection}</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">What stood out?</span>
+                  <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.personalReflection}</span>
                   <AutoGrowTextarea
                     className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                     defaultValue={selectedProgress?.reflection ?? ""}
@@ -352,7 +428,8 @@ export function GroupJourneyView({
               ) : null}
 
               <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Next Step / Walk It Out" : "Walk It Out"} — {selectedSession.actionStep}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">What will you do with it?</span>
+                <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.actionStep}</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.actionStep ?? ""}
@@ -362,7 +439,8 @@ export function GroupJourneyView({
               </label>
 
               <label className="grid gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{isReadingPlan ? "Prayer Response" : "Pray"} — {selectedSession.prayerFocus}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Prayer</span>
+                <span className="text-xs font-bold leading-5 text-white/58">{selectedSession.prayerFocus}</span>
                 <AutoGrowTextarea
                   className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
                   defaultValue={selectedProgress?.prayerFocus ?? ""}
