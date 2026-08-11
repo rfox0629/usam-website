@@ -6109,14 +6109,10 @@ function GuidedResourceDetailSheet({
                 <h3 className="mt-2 text-xl font-black leading-tight text-[#0F172A]">{resource.title}</h3>
                 {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
                 <p className="mt-2 text-sm leading-6 text-[#64748B]">{resource.description}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B]">
-                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[#64748B]">
+                  <span className="inline-flex min-w-[7rem] flex-col rounded-2xl bg-[#F8FAFC] px-3 py-2">
                     <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Duration</span>
                     <span className="mt-1 block text-[#0F172A]">{resource.estimatedDuration ?? "Resource"}</span>
-                  </span>
-                  <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-                    <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>{isReadingPlan ? "Days" : "Sessions"}</span>
-                    <span className="mt-1 block text-[#0F172A]">{sessions.length}</span>
                   </span>
                 </div>
                 <div className="mt-3">
@@ -6234,30 +6230,16 @@ function GuidedResourceDetailSheet({
                       {selectedSession.bigIdea ? (
                         <p className="text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.bigIdea}</p>
                       ) : null}
-                      {selectedSession.keyScriptures?.length || selectedSession.memoryVerse ? (
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {selectedSession.keyScriptures?.length ? (
-                            <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
-                              <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
-                            </div>
-                          ) : null}
-                          {selectedSession.memoryVerse ? (
-                            <div className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2">
-                              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Memory Verse</p>
-                              <p className="mt-1 text-sm font-black leading-6 text-[#0F172A]">{selectedSession.memoryVerse.reference}</p>
-                            </div>
-                          ) : null}
+                      {selectedSession.chapterQuestion ? (
+                        <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>Chapter Question</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.chapterQuestion}</p>
                         </div>
                       ) : null}
-                      {selectedSession.discussionQuestions?.length ? (
-                        <div className="grid gap-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Discuss Together - for the group, not required here</p>
-                          <ul className="grid gap-1.5">
-                            {selectedSession.discussionQuestions.slice(0, 3).map((question) => (
-                              <li className="rounded-[14px] bg-[#F8FAFC] px-3 py-2 text-xs font-medium leading-5 text-[#475569]" key={question}>{question}</li>
-                            ))}
-                          </ul>
+                      {selectedSession.keyScriptures?.length ? (
+                        <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Scripture</p>
+                          <p className="mt-1 text-sm font-semibold leading-6 text-[#0F172A]">{selectedSession.keyScriptures.join(" - ")}</p>
                         </div>
                       ) : null}
                       {selectedSession.lookForChrist || selectedSession.listenCarefully || selectedSession.respondPersonally || selectedSession.moveTowardOthers ? (

@@ -37,10 +37,12 @@ assertIncludes(catalog, "format: \"book\"", "Discipleship (Tozer) must be seeded
 assertIncludes(catalog, "leaderGuideNote", "Guided resources must include leader-created guide space.");
 assertIncludes(catalog, "whyChosen", "Guided journeys must explain why the resource was chosen.");
 assertIncludes(catalog, "pathwayTags", "Guided journeys must keep future Pathways metadata extensible.");
-assertIncludes(catalog, "type DosGuidedResourceMemoryVerse", "Guided journeys must support weekly memory verse metadata.");
+assertIncludes(catalog, "chapterQuestion?: string", "Guided journeys must support a single canonical chapter question.");
+assert(!catalog.includes("DosGuidedResourceMemoryVerse"), "Catalog must no longer define standalone memory verse metadata (removed per USA-162).");
 assert((catalog.match(/id: "week-[1-6]"/g) ?? []).length === 6, "Discipleship (Tozer) must seed six weekly companion sessions.");
 assert((catalog.match(/assignment: "Pages /g) ?? []).length === 6, "Marks sessions must use page-reference reading assignments only.");
-assert((catalog.match(/memoryVerse: \{/g) ?? []).length === 6, "Marks sessions must include weekly memory verse sections.");
+assert((catalog.match(/chapterQuestion: "/g) ?? []).length === 6, "Marks sessions must include exactly one chapter question each.");
+assert(!catalog.includes("memoryVerse"), "Marks sessions must no longer include memory verse sections (removed per USA-162).");
 assert((catalog.match(/multiply: "/g) ?? []).length === 6, "Marks sessions must include Multiply prompts.");
 assert(!catalog.includes("Read the leader-selected"), "Marks sessions must no longer use placeholder reading assignments.");
 assertIncludes(catalog, "https://www.moodypublishers.com/discipleship", "Seed resource must include the publisher access link.");
@@ -84,9 +86,11 @@ assertIncludes(app, "function GuidedResourceDetailSheet", "DOS app must render a
 assertIncludes(app, "GUIDED JOURNEY", "Guided resource UI must show the finalized Guided Journey badge.");
 assertIncludes(app, "FEATURED", "Guided resource UI must show featured badge when configured.");
 assertIncludes(app, "Why We Recommend This", "Guided Journey UI must show a short recommendation for the resource.");
-assertIncludes(app, "Memory Verse", "Guided Journey UI must show memory verse content when defined.");
+assert(!app.includes("Memory Verse"), "Guided Journey UI must not show a Memory Verse block (removed per USA-162).");
+assertIncludes(app, "Chapter Question", "Guided Journey UI must show the single canonical chapter question.");
 assertIncludes(app, "Scripture", "Guided Journey UI must show Scripture references.");
-assertIncludes(app, "Discuss Together", "Guided Journey UI must show discussion prompts.");
+assert(!app.includes("Discuss Together"), "Guided Journey UI must not show the old multi-question discussion list (removed per USA-162).");
+assert(!app.includes('isReadingPlan ? "Days" : "Sessions"'), "Guided Journey UI must not show a redundant Sessions/Days stat alongside Duration (removed per USA-162).");
 assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
 
 assertIncludes(app, "Your Reflection", "Guided Journey UI must separate group discussion from personal reflection.");
@@ -95,7 +99,7 @@ assertIncludes(app, "What is the main thing you learned or noticed?", "Guided Jo
 assertIncludes(app, "What will you do with it?", "Guided Journey UI must use the canonical second reflection prompt.");
 assertIncludes(app, "How does this apply to your life or what is one next step?", "Guided Journey UI must show the helper prompt for What will you do with it?.");
 assertIncludes(app, "helper=\"What do you want to pray or ask God about?\" label=\"Prayer\"", "Guided Journey UI must use the canonical Prayer reflection prompt with its helper copy.");
-assertIncludes(app, "selectedSession.discussionQuestions.slice(0, 3)", "Guided Journey UI must cap displayed discussion prompts to at most three.");
+assertIncludes(app, "selectedSession.chapterQuestion", "Guided Journey UI must render the single canonical chapter question.");
 assertIncludes(app, "Commissioning", "Completed Guided Journeys must render a commissioning page.");
 assertIncludes(app, "Review My Notes", "Commissioning page must link to My Record notes.");
 assertIncludes(app, "Start Next Resource", "Commissioning page must link back to the Library.");

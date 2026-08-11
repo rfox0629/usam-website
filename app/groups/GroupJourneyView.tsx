@@ -219,7 +219,7 @@ export function GroupJourneyView({
                   <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em]">
                     {stateLabel === "Done" ? "✓ Done" : stateLabel === "Current" ? "● Current" : `${unitLabel} ${session.order}`}
                   </span>
-                  <span className="max-w-[9rem] truncate text-xs font-bold">{session.title.replace(/^(Week|Day) \d+\s*-\s*/, "")}</span>
+                  <span className="max-w-[9rem] truncate text-xs font-bold">{session.title.replace(/^(Week|Day) \d+\s*[·-]\s*/, "")}</span>
                 </button>
               );
             })}
@@ -258,25 +258,15 @@ export function GroupJourneyView({
               </JourneyCard>
             ) : null}
 
+            {selectedSession.chapterQuestion ? (
+              <JourneyCard accent="gold" eyebrow="Chapter Question">
+                <p className="text-sm font-bold leading-6 text-white">{selectedSession.chapterQuestion}</p>
+              </JourneyCard>
+            ) : null}
+
             {selectedSession.keyScriptures?.length ? (
               <JourneyCard accent="blue" eyebrow="Search the Scriptures">
                 <p className="text-sm font-bold leading-6 text-white">{selectedSession.keyScriptures.join(" · ")}</p>
-              </JourneyCard>
-            ) : null}
-
-            {selectedSession.memoryVerse ? (
-              <JourneyCard accent="gold" eyebrow="Weekly Memory Verse">
-                <p className="text-sm font-black text-white">{selectedSession.memoryVerse.reference}</p>
-              </JourneyCard>
-            ) : null}
-
-            {selectedSession.discussionQuestions?.length ? (
-              <JourneyCard eyebrow="Discuss Together">
-                <ul className="grid gap-2">
-                  {selectedSession.discussionQuestions.map((question) => (
-                    <li className="rounded-lg border border-white/10 bg-[#080A0D] px-3 py-2 text-sm leading-6 text-white/90" key={question}>{question}</li>
-                  ))}
-                </ul>
               </JourneyCard>
             ) : null}
 

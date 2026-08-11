@@ -22,24 +22,17 @@ export type DosResourceAccessLink = {
 
 export type DosResourceAssignmentTarget = "group" | "individual" | "organization";
 
-export type DosGuidedResourceMemoryVerse = {
-  note?: string;
-  reference: string;
-  trackingStatus?: "future";
-};
-
 export type DosGuidedResourceSession = {
   actionStep: string;
   assignment: string;
   beginWithPrayer?: string;
   bigIdea?: string;
-  discussionQuestions?: readonly string[];
+  chapterQuestion?: string;
   id: string;
   keyScriptures?: readonly string[];
   leaderNotes?: string;
   listenCarefully?: string;
   lookForChrist?: string;
-  memoryVerse?: DosGuidedResourceMemoryVerse;
   moveTowardOthers?: string;
   multiply?: string;
   order: number;
@@ -710,139 +703,85 @@ const discipleshipResources = [
             actionStep: "Choose one concrete act of obedience you can practice before the next gathering, and tell one trusted person what you chose.",
             assignment: "Pages 9-24",
             bigIdea: "Following Jesus starts with a surrendered yes, not merely a private admiration for him.",
-            discussionQuestions: [
-              "Where do you see the difference between admiring Jesus and following him?",
-              "What makes costly obedience difficult in ordinary life?",
-              "What would a clear yes to Jesus look like this week?",
-            ],
+            chapterQuestion: "Where in your life is admiration for Jesus still waiting to become obedience?",
             id: "week-1",
             keyScriptures: ["Luke 9:23-24", "John 8:31-32", "Mark 1:16-20"],
             leaderNotes: "Keep the group focused on personal response rather than abstract definitions. Invite each person to name one specific area where following Jesus needs to become visible.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "Luke 9:23",
-              trackingStatus: "future",
-            },
             multiply: "Ask one person this week, \"What is Jesus teaching you to obey right now?\" Listen without correcting or performing.",
             order: 1,
             personalReflection: "Where has discipleship stayed in my intentions but not yet become obedience?",
             prayerFocus: "Ask the Lord for an undivided heart and the courage to respond to his call.",
-            title: "Week 1 - The Surrendered Yes",
+            title: "Week 1 · True and False Disciples",
           },
           {
             actionStep: "Identify one spiritual substitute you are tempted to trust, then replace it with one act of direct obedience.",
             assignment: "Pages 25-42",
             bigIdea: "A disciple does not confuse religious activity, knowledge, or reputation with faithful obedience to Jesus.",
-            discussionQuestions: [
-              "What can make faith look mature while leaving obedience untouched?",
-              "How do Scripture, community, and humility help expose self-deception?",
-              "What fruit would show that our group is becoming more obedient, not just more informed?",
-            ],
+            chapterQuestion: "What would change this week if you moved from knowing about Jesus to fully receiving him?",
             id: "week-2",
             keyScriptures: ["Matthew 7:21-27", "James 1:22-25", "2 Corinthians 13:5"],
             leaderNotes: "Avoid turning this session into accusation. Lead with shared humility and let Scripture examine everyone, including the leader.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "James 1:22",
-              trackingStatus: "future",
-            },
             multiply: "Invite a mature believer to ask you one honest question about your obedience, then answer plainly.",
             order: 2,
             personalReflection: "Where am I tempted to settle for the appearance of discipleship instead of the reality?",
             prayerFocus: "Pray for truthfulness before God and freedom from spiritual pretense.",
-            title: "Week 2 - Beyond Appearance",
+            title: "Week 2 · To All Who Received Him",
           },
           {
             actionStep: "Write down one command of Jesus you already understand, and obey it in a measurable way this week.",
             assignment: "Pages 43-60",
             bigIdea: "Love for Jesus becomes credible when it takes the form of trust, surrender, and practiced obedience.",
-            discussionQuestions: [
-              "Why is agreement easier than obedience?",
-              "How can we discern the next faithful step without overcomplicating it?",
-              "What kind of accountability helps obedience stay rooted in love rather than pressure?",
-            ],
+            chapterQuestion: "What is one command of Jesus you have been treating as optional?",
             id: "week-3",
             keyScriptures: ["John 14:15", "John 15:9-11", "1 John 2:3-6"],
             leaderNotes: "Ask for practical examples. If a response stays vague, gently invite the person to name the next observable action.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "John 14:15",
-              trackingStatus: "future",
-            },
             multiply: "Help one newer believer choose a simple obedience step from Scripture and pray with them before they act.",
             order: 3,
             personalReflection: "What command of Jesus is currently becoming personal for me?",
             prayerFocus: "Ask the Holy Spirit for a responsive heart and obedience that flows from love.",
-            title: "Week 3 - Obedience That Loves",
+            title: "Week 3 · Obedience Is Not an Option",
           },
           {
             actionStep: "Remove or limit one distraction for seven days and use that space for Scripture, prayer, or service.",
             assignment: "Pages 61-78",
             bigIdea: "Jesus forms disciples by reordering loves, habits, and attention around his kingdom.",
-            discussionQuestions: [
-              "What most often competes for your attention and affection?",
-              "How can spiritual practices stay relational instead of performative?",
-              "Which habit would help your love for Jesus become more steady?",
-            ],
+            chapterQuestion: "What competing direction is pulling you away from wholehearted devotion to Jesus?",
             id: "week-4",
             keyScriptures: ["Colossians 3:1-4", "Psalm 27:4", "Romans 12:1-2"],
             leaderNotes: "Keep habit discussion concrete and non-competitive. The goal is renewed affection for Christ, not public comparison of disciplines.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "Colossians 3:2",
-              trackingStatus: "future",
-            },
             multiply: "Share one Scripture or practice that is helping your attention return to Jesus, and invite someone else to try it with you.",
             order: 4,
             personalReflection: "What is one desire I want the Lord to purify or strengthen?",
             prayerFocus: "Pray for renewed hunger for God and a life ordered by worship.",
-            title: "Week 4 - Ordered Loves",
+            title: "Week 4 · You Cannot Face Two Directions",
           },
           {
             actionStep: "Serve or encourage one person in a quiet, costly, and specific way before the next session.",
             assignment: "Pages 79-96",
             bigIdea: "Discipleship becomes visible through Christlike character, costly love, and faithful witness.",
-            discussionQuestions: [
-              "Where should discipleship become more visible in ordinary life?",
-              "What kind of service stretches you in a healthy way?",
-              "How can our witness stay humble, clear, and loving?",
-            ],
+            chapterQuestion: "Who is one person you can serve or love in a costly, visible way this week?",
             id: "week-5",
             keyScriptures: ["John 13:34-35", "Matthew 5:14-16", "Galatians 5:22-25"],
             leaderNotes: "Tie discussion to real relationships and local ministry context. Keep witness connected to love, not performance.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "John 13:35",
-              trackingStatus: "future",
-            },
             multiply: "Invite someone into a simple act of service with you rather than only telling them about it afterward.",
             order: 5,
             personalReflection: "Who is God asking me to love, serve, or witness to this week?",
             prayerFocus: "Ask for Christlike love that becomes practical, visible, and humble.",
-            title: "Week 5 - Visible Love",
+            title: "Week 5 · The Importance of Deeds",
           },
           {
             actionStep: "Write a thirty-day obedience plan with one rhythm, one relationship, and one disciple-making step.",
             assignment: "Pages 97-112",
             bigIdea: "A disciple keeps following Jesus and helps others follow him through faithful, ordinary multiplication.",
-            discussionQuestions: [
-              "What has become clearer over these six weeks?",
-              "What rhythm will help you continue beyond this resource?",
-              "Who could you invite, encourage, or help disciple next?",
-            ],
+            chapterQuestion: "Who is God asking you to disciple, invite, or point toward Jesus next?",
             id: "week-6",
             keyScriptures: ["Matthew 28:18-20", "2 Timothy 2:2", "Philippians 1:6"],
             leaderNotes: "Close by commissioning obedience. Help participants leave with a next step, not just a completed resource.",
-            memoryVerse: {
-              note: "Future memorization tracking will let participants mark this verse as practicing or memorized.",
-              reference: "Matthew 28:19-20",
-              trackingStatus: "future",
-            },
             multiply: "Choose one person to encourage toward Jesus during the next thirty days, and schedule the first conversation.",
             order: 6,
             personalReflection: "What is one concrete next step in my ongoing discipleship after this resource?",
             prayerFocus: "Pray for perseverance, multiplication, and a life that keeps bearing fruit.",
-            title: "Week 6 - Commissioned to Continue",
+            title: "Week 6 · Go and Tell",
           },
         ],
         whyChosen: "A.W. Tozer's Discipleship is a foundational resource that helps Christians wrestle with what it actually means to be a disciple of Jesus and move from belief toward obedience.",
