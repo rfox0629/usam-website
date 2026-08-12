@@ -143,7 +143,7 @@ export function GroupJourneyView({
         ) : null}
 
         <section className="grid gap-3">
-          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} theme="dark" />
+          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} themeName="dark" unitLabel={unitLabel} />
           {assignment?.personalMessage ? (
             <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-6 text-white/75">
               &ldquo;{assignment.personalMessage}&rdquo;
@@ -177,7 +177,7 @@ export function GroupJourneyView({
             onToggle={() => setIsSessionSelectorOpen((open) => !open)}
             selectedSession={selectedSession}
             sessions={sessions}
-            theme="dark"
+            themeName="dark"
             unitLabel={unitLabel}
           />
         ) : null}
@@ -195,7 +195,7 @@ export function GroupJourneyView({
               ) : null}
             </div>
 
-            <GuidedJourneyChapterContent session={selectedSession} theme="dark" unitLabel={unitLabel} />
+            <GuidedJourneyChapterContent session={selectedSession} themeName="dark" unitLabel={unitLabel} />
 
             <form action={saveGroupMemberJourneyProgress} className="grid gap-3 border-t border-white/10 pt-3" key={selectedSession.id}>
               <input name="slug" type="hidden" value={groupSlug} />

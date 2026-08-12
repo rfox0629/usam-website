@@ -170,13 +170,16 @@ assertIncludes(apiRoute, "syncGuidedResourceToMyRecordLearning", "Progress API m
 assertIncludes(apiRoute, "completed_at", "Progress API must save completion timestamps.");
 
 assertIncludes(app, "function GuidedResourceDetailSheet", "DOS app must render a guided resource detail sheet.");
-assertIncludes(app, "GUIDED JOURNEY", "Guided resource UI must show the finalized Guided Journey badge.");
-assertIncludes(app, "FEATURED", "Guided resource UI must show featured badge when configured.");
+assertIncludes(app, '"Guided Reading Plan" : "Guided Journey"', "Guided resource UI must show the canonical Guided Journey eyebrow.");
+assertIncludes(app, "isFeatured={Boolean(resource.featured)}", "Guided resource UI must pass the featured state to the canonical resource header.");
+assertIncludes(sharedJourneyUi, "Featured", "Canonical resource header must render the Featured chip.");
 assertIncludes(app, "resourceSummary = guidedResource?.whyChosen ?? resource.description", "Guided Journey UI must show one compact resource recommendation/description.");
 assertNotIncludes(guidedResourceDetailSheet, "Why We Recommend This", "Guided Journey resource card must not reintroduce the old recommendation section heading.");
 assert(!app.includes("Memory Verse"), "Guided Journey UI must not show a Memory Verse block (removed per USA-162).");
-assertIncludes(sharedJourneyUi, 'label="QUESTION"', "Guided Journey UI must show the single canonical chapter question with the simplified mockup label.");
-assertIncludes(sharedJourneyUi, 'label="SCRIPTURE"', "Guided Journey UI must show Scripture references after the question.");
+assertIncludes(sharedJourneyUi, "function JourneyQuestionBand", "Guided Journey UI must show the canonical warm full-width question band.");
+assertIncludes(sharedJourneyUi, "function guidedJourneyQuestionLabel", "Question band must use the canonical This Week's / Today's Question label.");
+assertIncludes(sharedJourneyUi, "Chapter ${chapter.order} · Question", "Multi-chapter weeks must label each chapter question separately.");
+assertIncludes(sharedJourneyUi, "function JourneyScripture", "Guided Journey UI must show Scripture as tappable hairline rows after the question.");
 assert(!app.includes("Discuss Together"), "Guided Journey UI must not show the old multi-question discussion list (removed per USA-162).");
 assert(!app.includes('isReadingPlan ? "Days" : "Sessions"'), "Guided Journey UI must not show a redundant Sessions/Days stat alongside Duration (removed per USA-162).");
 assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
@@ -196,22 +199,22 @@ assertIncludes(sharedJourneyUi, "guidedJourneySessionChapterRange(session, unitL
 assertIncludes(app, "setIsSessionSelectorOpen(false)", "Selecting a week/day must close the custom selector.");
 assertIncludes(sharedJourneyUi, "const chapters = session.chapters ?? []", "Guided Journey selector must render compact per-chapter titles, including two-chapter weeks in the final seven-week model.");
 assertIncludes(sharedJourneyUi, "chapters.map((chapter)", "Guided Journey detail panel must render each chapter's own question and Scripture for multi-chapter weeks.");
-assertIncludes(sharedJourneyUi, "guidedJourneyChapterHeading(chapter)", "Guided Journey detail panel must render chapter number before chapter title.");
-assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("chapter.keyScriptures?.join"), "Supporting Scripture must render after the chapter-specific question.");
+assertIncludes(sharedJourneyUi, "kicker={`Chapter ${chapter.order}`}", "Guided Journey reading layout must render the chapter number as an editorial kicker above the title.");
+assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("references={chapter.keyScriptures"), "Supporting Scripture must render after the chapter-specific question.");
 assert(!/<select\b/i.test(guidedResourceDetailSheet), "Guided Journey accordion must not use a native select/dropdown for week navigation.");
 assert(!guidedResourceDetailSheet.includes("Reading: {selectedSession.assignment}"), "Guided Journey V2 must not keep the redundant Reading metadata line in the open panel.");
 
 assertIncludes(app, "What stood out?", "Guided Journey UI must use the canonical first reflection prompt.");
-assertIncludes(sharedJourneyUi, "What stood out from this chapter?", "Single-chapter Guided Journey helper must connect the first response to the chapter question.");
-assertIncludes(sharedJourneyUi, "What stood out across these chapters?", "Two-chapter Guided Journey helper must connect the first response to both chapter questions.");
+assertIncludes(sharedJourneyUi, "What stood out to you as you considered this question and chapter?", "Single-chapter Guided Journey helper must connect the first response to the chapter question.");
+assertIncludes(sharedJourneyUi, "Looking across both chapters and questions, what stood out most?", "Two-chapter Guided Journey helper must connect the first response to both chapter questions.");
 assertIncludes(app, "What will you do with it?", "Guided Journey UI must use the canonical second reflection prompt.");
-assertIncludes(sharedJourneyUi, "What will you do with this chapter this week?", "Single-chapter Guided Journey action helper must stay concise and weekly.");
-assertIncludes(sharedJourneyUi, "What will you do with these chapters this week?", "Two-chapter Guided Journey action helper must stay weekly.");
-assertIncludes(app, ">PRAYER<", "Guided Journey UI must use the canonical Prayer reflection prompt without extra helper chrome.");
-assertNotIncludes(guidedResourceDetailSheet, "What do you want to pray or ask God about?", "Guided Journey UI must not show extra prayer helper copy in the mockup refresh.");
+assertIncludes(sharedJourneyUi, "What is one response or next step you want to take?", "Single-chapter Guided Journey action helper must match the canonical mockup.");
+assertIncludes(sharedJourneyUi, "What is one response or next step you want to take this week?", "Two-chapter Guided Journey action helper must stay weekly.");
+assertIncludes(app, 'label="Prayer"', "Guided Journey UI must keep the canonical Prayer response field.");
+assertIncludes(sharedJourneyUi, "What do you want to pray or ask God about?", "Prayer field must carry the canonical mockup helper copy.");
 assertIncludes(sharedJourneyUi, "Your Journey", "Guided Journey progress must move into the Journey area outside the resource card.");
-assert(guidedResourceDetailSheet.indexOf("GuidedJourneyProgress") > guidedResourceDetailSheet.indexOf("</article>"), "Guided Journey progress must render after the resource card closes.");
-assert(guidedResourceDetailSheet.indexOf("resource.estimatedDuration.toUpperCase()") < guidedResourceDetailSheet.indexOf("<h3 className=\"mt-2 text-xl"), "Guided Journey duration must live in the top badge row.");
+assert(guidedResourceDetailSheet.indexOf("GuidedJourneyProgress") > guidedResourceDetailSheet.indexOf("GuidedJourneyResourceHeader"), "Your Journey band must render after the resource section, never inside it.");
+assertIncludes(guidedResourceDetailSheet, "resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : \"\"", "Guided Journey duration must live in the resource eyebrow.");
 assertNotIncludes(guidedResourceDetailSheet, "Optional Leader Notes", "Guided Journey open-week UI must not show Optional Leader Notes.");
 assertNotIncludes(guidedResourceDetailSheet, "Your Reflection", "Guided Journey open-week UI must not show the extra reflection section heading.");
 assertNotIncludes(guidedResourceDetailSheet, "Saved reflections also sync to My Record - Learning.", "Guided Journey open-week UI must not show the My Record sync helper chrome.");
@@ -220,9 +223,9 @@ assertIncludes(app, "Commissioning", "Completed Guided Journeys must render a co
 assertIncludes(app, "Review Notes", "Commissioning page must link to My Record notes.");
 assertIncludes(app, "Start Next Resource", "Commissioning page must link back to the Library.");
 assertIncludes(app, "Purchase Book", "Guided resource UI must expose purchase links.");
-assertIncludes(app, "Complete Week", "Guided resource UI must allow weekly completion for book studies.");
+assertIncludes(app, 'const unitNoun = isReadingPlan ? "Day" : "Week"', "Guided resource UI must allow weekly completion for book studies and daily completion for reading plans.");
 assertNotIncludes(guidedResourceDetailSheet, "Mark Session Complete", "Guided resource UI must not use obsolete Session completion language.");
-assertIncludes(app, "Save", "Guided resource UI must save reflections to My Record progress.");
+assertIncludes(app, "Save and finish later", "Guided resource UI must let participants save without completing.");
 assertIncludes(app, "/api/dos/app/guided-resource-progress", "Guided resource UI must call the progress API.");
 assertIncludes(app, "data.guidedResourceProgress", "Guided resource UI must read progress from DOS data.");
 assertIncludes(app, "onOpenGuidedResource", "Assigned resource cards must open guided resources in-app.");
@@ -249,3 +252,26 @@ assert(
 assertIncludes(catalogResourceRowSource, "{onOpenGuidedResource ? (", "Guided resource card must only render the Continue/Open action when a working handler is supplied.");
 
 console.log("DOS guided resources regression checks passed.");
+
+// --- Canonical mockup conformance (journey-canonical-mockup_1.html) ---
+assertIncludes(sharedJourneyUi, "function GuidedJourneyResourceHeader", "Journey must use the open light resource section, not an enclosing card.");
+assertNotIncludes(sharedJourneyUi, "rounded-[20px] border border-[#D6E4F7]", "Canonical Journey must not reintroduce the old enclosing resource card.");
+assertIncludes(sharedJourneyUi, "Your Journey", "Journey must render the tinted Your Journey band.");
+assertIncludes(sharedJourneyUi, "function guidedJourneyBandCaption", "Your Journey band must show Start with Week 1 / remaining / completed captions.");
+assertIncludes(sharedJourneyUi, "Start with ${unitLabel} 1", "Your Journey band must prompt Start with Week 1 before any unit is complete.");
+assertIncludes(sharedJourneyUi, "function GuidedJourneyCompactNav", "Returning participants must get the compact sticky resource nav.");
+assertIncludes(app, "hasStarted ? compactNav : null", "Resource chrome must recede once the participant is actively progressing.");
+assertIncludes(sharedJourneyUi, "function GuidedJourneyDock", "Journey must provide the canonical completion dock.");
+assertIncludes(app, 'secondaryLabel="Save and finish later"', "Completion dock must offer Save and finish later.");
+assertIncludes(app, "Complete ${unitNoun} ${selectedSession.order}", "Completion dock primary action must name the unit being completed.");
+assertIncludes(sharedJourneyUi, "function GuidedJourneyLayout", "Desktop must use the two-column rail + reading column architecture.");
+assertIncludes(sharedJourneyUi, "min-[900px]:grid-cols-[352px_minmax(0,1fr)]", "Desktop rail must be a fixed left column above the 900px breakpoint.");
+assertIncludes(sharedJourneyUi, "min-[900px]:max-w-[700px]", "Desktop reading column must keep a book-like measure.");
+assertIncludes(app, "GuidedJourneyResponses", "Journey must use the shared response presentation.");
+assertIncludes(sharedJourneyUi, "chapters this {unitLabel.toLowerCase()}", "Multi-chapter weeks must announce the chapter count.");
+assert(!app.includes("YOUR REFLECTION"), "Canonical Journey must not reintroduce a YOUR REFLECTION heading.");
+assert(!app.includes("Leader Notes"), "Canonical Journey must not reintroduce optional leader notes in the participant view.");
+assertIncludes(app, "What stood out?", "Journey must keep the three canonical saved response fields.");
+assertIncludes(app, "What will you do with it?", "Journey must keep the three canonical saved response fields.");
+assertIncludes(app, "guidedJourneyPrayerHelper()", "Journey must keep the canonical prayer helper copy.");
+console.log("Canonical mockup conformance checks passed.");
