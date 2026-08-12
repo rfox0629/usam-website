@@ -82,7 +82,11 @@ assert(libraryReadingPlanCard.includes("READING PLAN"), "Featured reading plan c
 assert(libraryReadingPlanCard.includes("Assign"), "Featured reading plan card should expose the Assign action.");
 assert(libraryReadingPlanCard.includes("onAssign?.(resource)"), "Featured reading plan Assign action should call the Library assignment flow.");
 assert(libraryReadingPlanCard.includes("onOpenGuidedResource(resource)"), "Featured reading plan card should open the in-app guided journey.");
-assert(libraryReadingPlanCard.includes('{completion.completed ? "Continue" : "Open"}'), "Featured reading plan card should expose Open/Continue based on progress.");
+assert(libraryReadingPlanCard.includes('const primaryLabel = activeAssignment'), "Featured reading plan card should derive the canonical Journey CTA state.");
+assert(libraryReadingPlanCard.includes('"Continue"'), "Featured reading plan card should expose Continue for active assignments.");
+assert(libraryReadingPlanCard.includes('"Start Journey"'), "Featured reading plan card should expose Start Journey when there is no active instance.");
+assert(libraryReadingPlanCard.includes('"Start Again"'), "Featured reading plan card should expose Start Again only after completed history.");
+assert(libraryReadingPlanCard.includes("Review Previous"), "Featured reading plan card should expose Review Previous for completed history.");
 assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan card should keep the PDF action.");
 assert(libraryReadingPlanCard.includes("resource.downloadPath"), "Download PDF should use the catalog download path.");
 assert(!libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Reading plan card should not duplicate the type badge as a second Type: line.");
