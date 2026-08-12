@@ -6328,6 +6328,21 @@ function GuidedResourceDetailSheet({
     />
   ) : null;
 
+  // Desktop rail: the space exists, so the map stays open (mockup `weekSel(R,1,true)`).
+  const railSelector = selectedSession ? (
+    <GuidedJourneySessionSelector
+      alwaysExpanded
+      completedSessionIds={completedSessionIds}
+      currentSessionId={currentSessionId}
+      isOpen
+      onSelect={(sessionId) => setSelectedSessionId(sessionId)}
+      onToggle={() => undefined}
+      selectedSession={selectedSession}
+      sessions={sessions}
+      unitLabel={selectedUnitLabel}
+    />
+  ) : null;
+
   const reading = selectedSession ? (
     <>
       <GuidedJourneyChapterContent session={selectedSession} unitLabel={selectedUnitLabel} />
@@ -6410,6 +6425,13 @@ function GuidedResourceDetailSheet({
 
   const dockPrimaryLabel = selectedSession ? `Complete ${unitNoun} ${selectedSession.order}` : `Complete ${unitNoun}`;
 
+  // The DOS scroll container is padded (pb-40 under md, md:pb-10) to clear the
+  // absolute bottom tab bar, and sticky `bottom` resolves against that padding
+  // box. Offset it back down so the dock rides just above the tab bar instead
+  // of floating ~89px up the screen with content visible underneath.
+  const dockStickyBottom =
+    "bottom-[calc(env(safe-area-inset-bottom)-89px)] md:bottom-[-40px] min-[900px]:bottom-0";
+
   const stickyDock = selectedSession ? (
     <GuidedJourneyDock
       onPrimary={() => void saveProgress(true)}
@@ -6417,6 +6439,7 @@ function GuidedResourceDetailSheet({
       primaryDisabled={!canWrite}
       primaryLabel={isSubmitting ? "Saving..." : dockPrimaryLabel}
       secondaryLabel="Save and finish later"
+      stickyBottomClassName={dockStickyBottom}
     />
   ) : null;
 
@@ -6431,6 +6454,10 @@ function GuidedResourceDetailSheet({
     />
   ) : null;
 
+  // The DOS scroll container is padded at the top (pt-11, md:pt-6); pull the
+  // sticky nav up over it so nothing scrolls through the strip above the bar.
+  const navStickyTop = "top-[-44px] md:top-[-24px]";
+
   const compactNav = (
     <GuidedJourneyCompactNav
       completedCount={completion.completed}
@@ -6438,6 +6465,21 @@ function GuidedResourceDetailSheet({
       coverSrc={resource.coverImage?.src ?? null}
       onBack={onClose}
       positionLabel={positionLabel}
+      stickyTopClassName={navStickyTop}
+      title={resource.title}
+      totalCount={completion.total}
+    />
+  );
+
+  // First open: the resource block below carries the identity, so the bar is
+  // just the way back (mockup `navBar(r, false)`).
+  const simpleNav = (
+    <GuidedJourneyCompactNav
+      completedCount={completion.completed}
+      isCompact={false}
+      onBack={onClose}
+      positionLabel={positionLabel}
+      stickyTopClassName={navStickyTop}
       title={resource.title}
       totalCount={completion.total}
     />
@@ -6445,7 +6487,7 @@ function GuidedResourceDetailSheet({
 
   const singleColumn = (
     <div className="flex min-h-full flex-col bg-white min-[900px]:hidden">
-      {hasStarted ? compactNav : null}
+      {hasStarted ? compactNav : simpleNav}
       {hasStarted ? null : resourceHeader}
       {notices}
       {journeyBand}
@@ -6460,10 +6502,11 @@ function GuidedResourceDetailSheet({
       <GuidedJourneyLayout
         rail={
           <>
+            {simpleNav}
             {resourceHeader}
             {notices}
             {journeyBand}
-            {selector}
+            {railSelector}
           </>
         }
         reading={
@@ -33611,9 +33654,10 @@ function LibraryCatalogResourcePage({
   resource: DosResource;
 }) {
   if (isGuidedResource(resource)) {
+    // The Journey shell renders its own sticky `‹ Library` nav, so no outer
+    // back pill here — one way back, not two.
     return (
-      <div className="grid gap-4">
-        <LibraryResourceBackButton onClick={onBack} />
+      <div className="bg-white">
         <GuidedResourceDetailSheet
           assignments={assignments}
           errorMessage={errorMessage}

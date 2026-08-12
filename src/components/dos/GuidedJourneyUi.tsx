@@ -233,23 +233,23 @@ export function GuidedJourneyResourceHeader({
         <div className="mt-5 flex flex-wrap gap-[10px]">
           {purchaseHref ? (
             <a
-              className={`inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-[11px] border border-[#E3E6EB] bg-white px-4 text-[14.5px] font-semibold ${t.title}`}
+              className={`inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#E3E6EB] bg-white px-3 text-[14.5px] font-semibold ${t.title}`}
               href={purchaseHref}
               rel="noopener noreferrer"
               target="_blank"
             >
               Purchase Book
-              <ExternalLink className="h-3.5 w-3.5 text-[#9AA4B2]" aria-hidden="true" strokeWidth={1.8} />
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#9AA4B2]" aria-hidden="true" strokeWidth={1.8} />
             </a>
           ) : null}
           {primaryAction}
           {onAssign ? (
             <button
-              className="inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-[11px] bg-[#2450C8] px-4 text-[14.5px] font-semibold text-white"
+              className="inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] bg-[#2450C8] px-3 text-[14.5px] font-semibold text-white"
               onClick={onAssign}
               type="button"
             >
-              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              <ClipboardCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />
               Assign
             </button>
           ) : null}
@@ -268,9 +268,11 @@ export function GuidedJourneyCompactNav({
   completedCount,
   coverAlt,
   coverSrc,
+  isCompact = true,
   onBack,
   onClose,
   positionLabel,
+  stickyTopClassName = "top-0",
   themeName = "light",
   title,
   totalCount,
@@ -279,17 +281,30 @@ export function GuidedJourneyCompactNav({
   completedCount: number;
   coverAlt?: string;
   coverSrc?: string | null;
+  /**
+   * Mockup `navBar(r, compact)`. When false the bar is just `‹ Library` (+ close) —
+   * the first-open state, where the full resource block carries the identity.
+   * When true the resource chrome recedes into cover + title + position.
+   */
+  isCompact?: boolean;
   onBack?: () => void;
   onClose?: () => void;
   positionLabel: string;
+  /**
+   * Sticky `top` offset — the mirror of the dock's bottom offset. A host shell
+   * that pads the top of its scroll container must pass a compensating offset,
+   * otherwise content scrolls through the visible strip above the bar.
+   */
+  stickyTopClassName?: string;
   themeName?: GuidedJourneyTheme;
   title: string;
   totalCount: number;
 }) {
   const t = theme[themeName];
+  const surface = themeName === "dark" ? "bg-transparent" : "bg-white";
 
   return (
-    <div className={`sticky top-0 z-20 flex items-center justify-between gap-3 border-b ${t.hair} bg-white px-5 py-3 sm:px-6`}>
+    <div className={`sticky ${stickyTopClassName} z-20 flex items-center justify-between gap-3 border-b ${t.hair} ${surface} px-5 py-3 sm:px-6`}>
       {onBack ? (
         <button
           className={`inline-flex shrink-0 items-center gap-1.5 text-[13.5px] font-semibold ${t.muted}`}
@@ -301,21 +316,23 @@ export function GuidedJourneyCompactNav({
         </button>
       ) : <span />}
 
-      <div className="flex min-w-0 items-center gap-[10px]">
-        {coverSrc ? (
-          <img
-            alt={coverAlt ?? title}
-            className="h-9 w-[26px] shrink-0 rounded-[3px] object-cover shadow-[0_2px_6px_-2px_rgba(0,0,0,0.3)]"
-            src={coverSrc}
-          />
-        ) : null}
-        <div className="min-w-0">
-          <p className={`truncate text-[14px] font-bold tracking-[-0.012em] ${t.title}`}>{title}</p>
-          <p className={`mt-px text-[11.5px] font-semibold ${t.faint}`}>
-            {positionLabel} · {completedCount}/{totalCount} complete
-          </p>
+      {isCompact ? (
+        <div className="flex min-w-0 items-center gap-[10px]">
+          {coverSrc ? (
+            <img
+              alt={coverAlt ?? title}
+              className="h-9 w-[26px] shrink-0 rounded-[3px] object-cover shadow-[0_2px_6px_-2px_rgba(0,0,0,0.3)]"
+              src={coverSrc}
+            />
+          ) : null}
+          <div className="min-w-0">
+            <p className={`truncate text-[14px] font-bold tracking-[-0.012em] ${t.title}`}>{title}</p>
+            <p className={`mt-px text-[11.5px] font-semibold ${t.faint}`}>
+              {positionLabel} · {completedCount}/{totalCount} complete
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {onClose ? (
         <button
@@ -731,6 +748,7 @@ export function GuidedJourneyDock({
   primaryDisabled = false,
   primaryLabel,
   secondaryLabel,
+  stickyBottomClassName = "bottom-0",
   themeName = "light",
 }: {
   isSticky?: boolean;
@@ -739,6 +757,13 @@ export function GuidedJourneyDock({
   primaryDisabled?: boolean;
   primaryLabel: string;
   secondaryLabel?: string;
+  /**
+   * Sticky `bottom` offset. A sticky element resolves `bottom` against its
+   * scrollport's padding box, so a host shell that pads the scroll container
+   * (to clear its own bottom chrome) must pass a compensating offset here or
+   * the dock floats above the fold with content showing beneath it.
+   */
+  stickyBottomClassName?: string;
   themeName?: GuidedJourneyTheme;
 }) {
   const t = theme[themeName];
@@ -764,7 +789,7 @@ export function GuidedJourneyDock({
   }
 
   return (
-    <div className={`sticky bottom-0 z-20 border-t ${t.hair} bg-white px-5 pb-[18px] pt-[14px] shadow-[0_-16px_24px_-18px_rgba(15,21,32,0.22)] sm:px-6`}>
+    <div className={`sticky ${stickyBottomClassName} z-20 border-t ${t.hair} bg-white px-5 pb-[18px] pt-[14px] shadow-[0_-16px_24px_-18px_rgba(15,21,32,0.22)] sm:px-6`}>
       <button
         className="w-full rounded-[12px] bg-[#2450C8] py-[15px] text-center text-[15.5px] font-bold text-white disabled:bg-[#9AA4B2]"
         disabled={primaryDisabled}

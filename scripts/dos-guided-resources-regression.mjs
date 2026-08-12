@@ -260,7 +260,10 @@ assertIncludes(sharedJourneyUi, "Your Journey", "Journey must render the tinted 
 assertIncludes(sharedJourneyUi, "function guidedJourneyBandCaption", "Your Journey band must show Start with Week 1 / remaining / completed captions.");
 assertIncludes(sharedJourneyUi, "Start with ${unitLabel} 1", "Your Journey band must prompt Start with Week 1 before any unit is complete.");
 assertIncludes(sharedJourneyUi, "function GuidedJourneyCompactNav", "Returning participants must get the compact sticky resource nav.");
-assertIncludes(app, "hasStarted ? compactNav : null", "Resource chrome must recede once the participant is actively progressing.");
+assertIncludes(app, "hasStarted ? compactNav : simpleNav", "Resource chrome must recede once the participant is actively progressing.");
+assertIncludes(sharedJourneyUi, "isCompact = true", "Nav must support the mockup's non-compact first-open bar, navBar(r, false).");
+assertIncludes(app, "isCompact={false}", "First open must still render the '‹ Library' bar so there is always a way back.");
+assertIncludes(app, "alwaysExpanded", "Desktop rail must render the week selector expanded, per the mockup.");
 assertIncludes(sharedJourneyUi, "function GuidedJourneyDock", "Journey must provide the canonical completion dock.");
 assertIncludes(app, 'secondaryLabel="Save and finish later"', "Completion dock must offer Save and finish later.");
 assertIncludes(app, "Complete ${unitNoun} ${selectedSession.order}", "Completion dock primary action must name the unit being completed.");
