@@ -33,6 +33,7 @@ const membersRoute = read("app/api/dos/app/groups/members/route.ts");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const groupJourneyView = read("app/groups/GroupJourneyView.tsx");
+const sharedJourneyUi = read("src/components/dos/GuidedJourneyUi.tsx");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
 
 for (const table of [
@@ -95,30 +96,33 @@ assertIncludes(appClient, "Portal Link", "Leader UI must expose a compact member
 assertIncludes(appClient, "groupMemberPortalStatusLabel", "Leader UI must display member portal status separately from membership status.");
 assertNotIncludes(appClient, "Not Invited", "Leader UI must not conflate participant portal state with group membership language.");
 
-assertIncludes(groupJourneyView, "function groupJourneySessionChapterRange", "Member Journey view must expose compact chapter ranges such as Ch. 2-3.");
-assertIncludes(groupJourneyView, "function groupJourneySessionSelectorTitle", "Member Journey view must show compact chapter titles in the custom selector.");
-assertIncludes(groupJourneyView, "function groupJourneyChapterHeading", "Member Journey view must render chapter number before chapter title.");
+assertIncludes(groupJourneyView, "GuidedJourneySessionSelector", "Member Journey view must reuse the shared custom Journey selector.");
+assertIncludes(groupJourneyView, "GuidedJourneyChapterContent", "Member Journey view must reuse the shared chapter renderer.");
+assertIncludes(sharedJourneyUi, "function guidedJourneySessionChapterRange", "Member Journey view must expose compact chapter ranges through shared Journey UI.");
+assertIncludes(sharedJourneyUi, "function guidedJourneySessionSelectorTitle", "Member Journey view must show compact chapter titles in the custom selector.");
+assertIncludes(sharedJourneyUi, "function guidedJourneyChapterHeading", "Member Journey view must render chapter number before chapter title.");
 assertIncludes(groupJourneyView, "isSessionSelectorOpen", "Member Journey view must use one custom week/day selector.");
-assertIncludes(groupJourneyView, "Choose ${unitLabelLower}", "Member Journey selector must be an accessible custom control.");
-assertIncludes(groupJourneyView, "Completed", "Member Journey selector must expose completed state.");
-assertIncludes(groupJourneyView, "Current", "Member Journey selector must expose current state.");
-assertIncludes(groupJourneyView, "Upcoming", "Member Journey selector must expose upcoming state.");
-assertIncludes(groupJourneyView, "groupJourneyChapterHeading(chapter)", "Member Journey detail panel must use chapter-number-first headings.");
-assertIncludes(groupJourneyView, ">Question<", "Member Journey detail panel must show the simplified chapter question label.");
-assertIncludes(groupJourneyView, ">Scripture<", "Member Journey detail panel must show Scripture after the question.");
+assertIncludes(sharedJourneyUi, 'aria-label={`${unitLabel} selector`}', "Member Journey selector must be an accessible custom control.");
+assertIncludes(sharedJourneyUi, "Completed", "Member Journey selector must expose completed state.");
+assertIncludes(sharedJourneyUi, "Current", "Member Journey selector must expose current state.");
+assertIncludes(sharedJourneyUi, "Upcoming", "Member Journey selector must expose upcoming state.");
+assertIncludes(sharedJourneyUi, "guidedJourneyChapterHeading(chapter)", "Member Journey detail panel must use chapter-number-first headings.");
+assertIncludes(sharedJourneyUi, 'label="QUESTION"', "Member Journey detail panel must show the simplified chapter question label.");
+assertIncludes(sharedJourneyUi, 'label="SCRIPTURE"', "Member Journey detail panel must show Scripture after the question.");
 assertIncludes(groupJourneyView, "What stood out?", "Member Journey view must preserve the canonical first weekly reflection prompt.");
-assertIncludes(groupJourneyView, "What stood out to you as you considered this question and chapter?", "Member Journey single-chapter reflection helper must connect to the chapter question.");
-assertIncludes(groupJourneyView, "Looking across both chapters and questions, what stood out most?", "Member Journey two-chapter reflection helper must connect to both questions.");
+assertIncludes(sharedJourneyUi, "What stood out from this chapter?", "Member Journey single-chapter reflection helper must connect to the chapter question.");
+assertIncludes(sharedJourneyUi, "What stood out across these chapters?", "Member Journey two-chapter reflection helper must connect to both questions.");
 assertIncludes(groupJourneyView, "What will you do with it?", "Member Journey view must preserve the canonical second weekly reflection prompt.");
-assertIncludes(groupJourneyView, "What is one response or next step you want to take this week?", "Member Journey two-chapter action helper must stay weekly.");
-assertIncludes(groupJourneyView, "Prayer", "Member Journey view must preserve the canonical prayer reflection prompt.");
-assertIncludes(groupJourneyView, "Your Journey", "Member Journey progress area must use the Journey hierarchy label.");
-assert(groupJourneyView.indexOf("chapter.chapterQuestion") < groupJourneyView.indexOf("chapter.keyScriptures?.length"), "Member Journey Scripture must render after each chapter-specific question.");
+assertIncludes(sharedJourneyUi, "What will you do with these chapters this week?", "Member Journey two-chapter action helper must stay weekly.");
+assertIncludes(groupJourneyView, "PRAYER", "Member Journey view must preserve the canonical prayer reflection prompt.");
+assertIncludes(sharedJourneyUi, "Your Journey", "Member Journey progress area must use the Journey hierarchy label.");
+assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("chapter.keyScriptures?.join"), "Member Journey Scripture must render after each chapter-specific question.");
 assert(!/<select\b/i.test(groupJourneyView), "Member Journey selector must not use a native select/dropdown.");
 assertNotIncludes(groupJourneyView, "Chapter Question", "Member Journey view must not keep the old Chapter Question card label.");
 assertNotIncludes(groupJourneyView, "Search the Scriptures", "Member Journey view must not keep the old Search the Scriptures card label.");
 assertNotIncludes(groupJourneyView, "Optional Leader Notes", "Member Journey open-week UI must not show Optional Leader Notes.");
 assertNotIncludes(groupJourneyView, "eyebrow=\"Multiply\"", "Member Journey open-week UI must not show the extra Multiply card.");
+assertNotIncludes(groupJourneyView, "Voice Response", "Member Journey view must not show the disabled voice placeholder.");
 
 assertIncludes(architectureDoc, "Plain tokens are never stored", "Architecture doc must document token storage safety.");
 assertIncludes(architectureDoc, "Lightweight members do not receive a DOS workspace", "Architecture doc must preserve product boundary.");
