@@ -421,13 +421,22 @@ export const restorationSections: readonly RestorationSection[] = [
   {
     description: "Select only what feels relevant. You may skip anything unclear.",
     fields: [
-      ...hindranceCategories.map((category) => ({
-        contentReview: "review" in category ? category.review : false,
-        id: `hindrance_${category.id}`,
-        label: category.label,
-        options: category.options,
-        type: "checkbox-group" as const,
-      })),
+      ...hindranceCategories.flatMap((category) => [
+        {
+          id: `hasHindrance_${category.id}`,
+          label: `Do any ${category.label.toLowerCase()} items apply?`,
+          options: yesNoOptions,
+          type: "radio" as const,
+        },
+        {
+          contentReview: "review" in category ? category.review : false,
+          id: `hindrance_${category.id}`,
+          label: category.label,
+          options: category.options,
+          type: "checkbox-group" as const,
+          visibleWhen: { fieldId: `hasHindrance_${category.id}`, equals: "Yes" },
+        },
+      ]),
       { id: "otherEmotionalMental", label: "Other emotional or mental issues", type: "textarea" },
       { id: "otherAddictionsMisc", label: "Other addictions or miscellaneous issues", type: "textarea" },
       { id: "otherPhysicalTraumas", label: "Other physical issues or traumas", type: "textarea" },
@@ -439,10 +448,11 @@ export const restorationSections: readonly RestorationSection[] = [
     title: "Personal Hindrance Inventory",
   },
   {
-    description: "Select any items that apply to you or your family or ancestors.",
+    description: "Detailed options open only when relevant.",
     fields: [
-      { id: "occultInvolvement", label: "Occult involvement", options: occultInvolvementOptions, contentReview: true, type: "checkbox-group" },
-      { id: "otherOccult", label: "Other occult involvement not listed above", contentReview: true, type: "textarea" },
+      { id: "hasOccultInvolvement", label: "Have you, your family, or your ancestors had any occult involvement?", options: yesNoOptions, contentReview: true, type: "radio" },
+      { id: "occultInvolvement", label: "Occult involvement", options: occultInvolvementOptions, contentReview: true, type: "checkbox-group", visibleWhen: { fieldId: "hasOccultInvolvement", equals: "Yes" } },
+      { id: "otherOccult", label: "Other occult involvement not listed above", contentReview: true, type: "textarea", visibleWhen: { fieldId: "hasOccultInvolvement", equals: "Yes" } },
     ],
     id: "occult",
     reviewNote: "Occult list is reproduced as source coverage and needs MOR content approval before production.",
@@ -454,11 +464,12 @@ export const restorationSections: readonly RestorationSection[] = [
       { id: "familyTreeSelf", label: "Myself: first name, age, years married", type: "textarea" },
       { id: "familyTreeFather", label: "Father / stepfather: first names, ages, years married", type: "textarea" },
       { id: "familyTreeMother", label: "Mother / stepmother: first names, ages, years married", type: "textarea" },
-      { id: "familyTreeSiblings", label: "My siblings: first names, ages, years married", type: "textarea" },
-      { id: "familyTreeSpouse", label: "My spouse: first name, age, years married", type: "textarea" },
-      { id: "familyTreeExSpouse", label: "X-spouse: first name, age, years married", type: "textarea" },
-      { id: "familyTreeChildren", label: "My children: first names, ages, years married", type: "textarea" },
-      { id: "miscarriagesAbortions", label: "Number of miscarriages / abortions", type: "text" },
+      { id: "familyTreeSiblings", label: "My siblings: first names, ages, years married", type: "textarea", visibleWhen: { fieldId: "hasSiblings", equals: "Yes" } },
+      { id: "familyTreeSpouse", label: "My spouse: first name, age, years married", type: "textarea", visibleWhen: { fieldId: "currentlyMarried", equals: "Yes" } },
+      { id: "familyTreeExSpouse", label: "Former spouse: first name, age, years married", type: "textarea", visibleWhen: { fieldId: "everDivorced", equals: "Yes" } },
+      { id: "familyTreeChildren", label: "My children: first names, ages, years married", type: "textarea", visibleWhen: { fieldId: "hasChildren", equals: "Yes" } },
+      { id: "pregnancyLossHistory", label: "Have you experienced miscarriage or abortion?", options: yesNoOptions, type: "radio" },
+      { id: "miscarriagesAbortions", label: "Number of miscarriages / abortions", type: "text", visibleWhen: { fieldId: "pregnancyLossHistory", equals: "Yes" } },
       { id: "otherRelationshipFigures", label: "Other relationship figures noted on source form", helper: "Boss, coach, teacher, bully, pastor, friends, God.", type: "textarea" },
     ],
     id: "familyTree",
@@ -525,8 +536,22 @@ export function getRestorationSection(sectionId: string) {
   return restorationSections.find((section) => section.id === sectionId);
 }
 
+export function restorationFieldIsVisible(field: RestorationField, values: Record<string, unknown>) {
+  if (!field.visibleWhen) {
+    return true;
+  }
+
+  const conditions = Array.isArray(field.visibleWhen) ? field.visibleWhen : [field.visibleWhen];
+
+  return conditions.some((condition) => {
+    const expected = Array.isArray(condition.equals) ? condition.equals : [condition.equals];
+    return expected.includes(String(values[condition.fieldId] ?? ""));
+  });
+}
+
 export function restorationSectionCompletion(section: RestorationSection, values: Record<string, unknown>) {
-  const answered = section.fields.filter((field) => {
+  const visibleFields = section.fields.filter((field) => restorationFieldIsVisible(field, values));
+  const answered = visibleFields.filter((field) => {
     const value = values[field.id];
 
     if (Array.isArray(value)) {
@@ -538,6 +563,6 @@ export function restorationSectionCompletion(section: RestorationSection, values
 
   return {
     answered,
-    total: section.fields.length,
+    total: visibleFields.length,
   };
 }
