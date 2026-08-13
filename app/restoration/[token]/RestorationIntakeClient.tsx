@@ -16,6 +16,7 @@ import {
 import {
   restorationPreviewAccessCode,
   restorationPreviewEmail,
+  restorationFieldIsVisible,
   restorationSectionCompletion,
   restorationSections,
   type RestorationField,
@@ -89,7 +90,7 @@ function totalProgress(values: IntakeValues) {
 
 function requiredMissing(values: IntakeValues) {
   return restorationSections.flatMap((section) => (
-    section.fields.filter((field) => field.required && !fieldHasValue(field, values)).map((field) => ({
+    section.fields.filter((field) => restorationFieldIsVisible(field, values) && field.required && !fieldHasValue(field, values)).map((field) => ({
       field,
       section,
     }))
@@ -450,13 +451,14 @@ function SectionStep({
 
       <div className="mt-5 grid gap-5">
         {section.id === "welcome" ? <EscalationNotice immediateDanger={values.immediateDanger} /> : null}
-        {section.fields.map((field) => (
-          <FieldControl
-            field={field}
-            key={field.id}
-            onChange={(value) => onUpdate(field.id, value)}
-            value={values[field.id]}
-          />
+        {section.fields.filter((field) => restorationFieldIsVisible(field, values)).map((field) => (
+          <div className="animate-in fade-in slide-in-from-top-1 duration-200" key={field.id}>
+            <FieldControl
+              field={field}
+              onChange={(value) => onUpdate(field.id, value)}
+              value={values[field.id]}
+            />
+          </div>
         ))}
       </div>
 
