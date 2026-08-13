@@ -79,13 +79,9 @@ export default async function RestorationInvitationPage({
 }) {
   const { token } = await params;
 
-  if (process.env.VERCEL_ENV === "production") {
-    return <LiveIntakeUnavailable />;
-  }
-
   if (token !== restorationPreviewToken) {
     return <InvitationUnavailable />;
   }
 
-  return <RestorationIntakeClient token={token} />;
+  return <RestorationIntakeClient token={token} viewOnly />;
 }
