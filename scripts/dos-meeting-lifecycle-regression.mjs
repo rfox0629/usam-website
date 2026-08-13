@@ -120,6 +120,16 @@ assert(
   "Scheduled meetings that reach Needs Logging must remain actionable through the existing meeting sheet.",
 );
 assert(
+  client.includes("function TableActionsDetailCard") &&
+    client.includes("isScheduled?: boolean;") &&
+    client.includes("onLogScheduled?: () => void;") &&
+    client.includes("if (isScheduled)") &&
+    client.includes("Reschedule") &&
+    client.includes("onLogScheduled={() => openScheduledMeetingLog(selectedMeetingWithReview)}") &&
+    client.includes("{isTableMeeting ? ("),
+  "Scheduled meeting detail must expose log, edit/reschedule, and delete actions instead of rendering read-only.",
+);
+assert(
   route.includes("loadMeetingDeleteTarget") &&
     route.includes("loadAffectedMeetingPersonIds") &&
     route.includes("cleanupMeetingReferences") &&

@@ -32560,15 +32560,40 @@ function FruitOutcomesDetailCard({ observedFruit }: { observedFruit: string[] })
 
 function TableActionsDetailCard({
   isSubmitting,
+  isScheduled,
   onDelete,
   onEdit,
   onEditNotes,
+  onLogScheduled,
 }: {
   isSubmitting?: boolean;
+  isScheduled?: boolean;
   onDelete: () => void;
   onEdit: () => void;
   onEditNotes: () => void;
+  onLogScheduled?: () => void;
 }) {
+  if (isScheduled) {
+    return (
+      <DetailCard icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Actions">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)] transition-colors disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting || !onLogScheduled} onClick={onLogScheduled} type="button">
+            <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+            Log Meeting
+          </button>
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#2563EB]" onClick={onEdit} type="button">
+            <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+            Reschedule
+          </button>
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSubmitting} onClick={onDelete} type="button">
+            <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+            Delete Meeting
+          </button>
+        </div>
+      </DetailCard>
+    );
+  }
+
   return (
     <DetailCard icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Actions">
       <div className="grid gap-2 sm:grid-cols-3">
@@ -34866,6 +34891,7 @@ function MeetingDetailOverlay({
   onPrepareQuickReview,
   onPrepareReviewOptions,
   onPrepareTestimonyRequest,
+  onLogScheduled,
   onScheduleNextMeeting,
   onSendReview,
   onSendTestimony,
@@ -34898,6 +34924,7 @@ function MeetingDetailOverlay({
   onPrepareQuickReview: () => void;
   onPrepareReviewOptions: () => void;
   onPrepareTestimonyRequest: () => void;
+  onLogScheduled: () => void;
   onScheduleNextMeeting: () => void;
   onSendReview: () => void;
   onSendTestimony: () => void;
@@ -35045,7 +35072,7 @@ function MeetingDetailOverlay({
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
             {isScheduledMeeting ? "Scheduled" : "Table"}
           </p>
-          {isLoggedTableMeeting ? (
+          {isTableMeeting ? (
             <button className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
               Edit
@@ -35142,12 +35169,14 @@ function MeetingDetailOverlay({
                 {reviewOptionsShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewOptionsShareMessage}</p> : null}
               </div>
             ) : null}
-            {isLoggedTableMeeting ? (
+            {isTableMeeting ? (
               <TableActionsDetailCard
+                isScheduled={isScheduledMeeting}
                 isSubmitting={isSubmitting}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onEditNotes={onEditNotes}
+                onLogScheduled={onLogScheduled}
               />
             ) : null}
             {meeting.recommendedResources.length ? (
@@ -41561,6 +41590,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 handleOpenExistingReviewLink(selectedMeetingReviewUrl);
               }
             }}
+            onLogScheduled={() => openScheduledMeetingLog(selectedMeetingWithReview)}
             onPrepareQuickReview={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "quick_review" })}
             onPrepareReviewOptions={() => setPendingMeetingSendAction({ meeting: selectedMeetingWithReview, type: "review_options" })}
             onPrepareTestimonyRequest={() => {
