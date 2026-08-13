@@ -22,6 +22,7 @@ import {
   type RestorationField,
   type RestorationSection,
 } from "@/src/lib/restoration/intake";
+import { submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 const storageVersion = 1;
@@ -29,12 +30,14 @@ const storageVersion = 1;
 type FieldValue = boolean | string | string[];
 type IntakeValues = Record<string, FieldValue>;
 type SavedDraft = {
+  submissionId?: string | null;
   submittedAt?: string | null;
   updatedAt: string;
   values: IntakeValues;
   version: number;
 };
 type SaveState = "idle" | "saved" | "saving" | "unsaved";
+type SubmitState = "error" | "idle" | "submitting";
 
 function storageKey(token: string) {
   return `usam-restoration-preview:${storageVersion}:${token}`;
@@ -86,6 +89,38 @@ function totalProgress(values: IntakeValues) {
   }, { answered: 0, total: 0 });
 
   return Math.round((totals.answered / totals.total) * 100);
+}
+
+function getTextValue(values: IntakeValues, fieldId: string) {
+  const value = values[fieldId];
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function nameParts(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts.shift() ?? "";
+  const lastName = parts.join(" ");
+
+  return { firstName, lastName };
+}
+
+function visibleValues(values: IntakeValues) {
+  const visibleFieldIds = new Set(
+    restorationSections.flatMap((section) => (
+      section.fields
+        .filter((field) => restorationFieldIsVisible(field, values))
+        .map((field) => field.id)
+    )),
+  );
+
+  return Object.fromEntries(
+    Object.entries(values).filter(([fieldId]) => visibleFieldIds.has(fieldId)),
+  ) as IntakeValues;
 }
 
 function requiredMissing(values: IntakeValues) {
@@ -487,20 +522,26 @@ function SectionStep({
 }
 
 function ReviewStep({
+  isSubmitting,
   onEdit,
   onSubmit,
+  submitError,
   submittedAt,
   values,
   viewOnly,
 }: {
+  isSubmitting: boolean;
   onEdit: (index: number) => void;
   onSubmit: () => void;
+  submitError: string;
   submittedAt: string | null;
   values: IntakeValues;
   viewOnly: boolean;
 }) {
   const missing = requiredMissing(values);
-  const canSubmit = !viewOnly && missing.length === 0 && values.immediateDanger !== "Yes";
+  const email = getTextValue(values, "participantEmail").toLowerCase();
+  const hasValidParticipantEmail = isValidEmail(email);
+  const canSubmit = !viewOnly && !isSubmitting && missing.length === 0 && values.immediateDanger !== "Yes" && hasValidParticipantEmail;
 
   if (submittedAt) {
     return (
@@ -510,7 +551,7 @@ function ReviewStep({
         </div>
         <h2 className="mt-4 text-3xl font-semibold text-[#15120c]">Reflection submitted</h2>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[#5f5748]">
-          In production, this would lock participant editing, notify only authorized MOR operations staff without sensitive answers, and move the record to restricted review.
+          Authorized Operations reviewers can now open this record from the restricted submission detail view.
         </p>
         <StatusPill tone="green">Submitted {formatSavedAt(submittedAt)}</StatusPill>
       </ShellCard>
@@ -559,7 +600,17 @@ function ReviewStep({
           Required items remaining: {missing.map((item) => item.section.shortTitle).join(", ")}.
         </div>
       ) : null}
+      {!hasValidParticipantEmail ? (
+        <div className="mt-5 rounded-2xl border border-[#C2A14E]/35 bg-[#C2A14E]/10 p-4 text-sm leading-6 text-[#5f4d25]">
+          Add a valid secure return email before submitting.
+        </div>
+      ) : null}
       <EscalationNotice immediateDanger={values.immediateDanger} />
+      {submitError ? (
+        <div className="mt-5 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-6 text-red-800">
+          {submitError}
+        </div>
+      ) : null}
 
       <div className="mt-6 flex flex-col gap-3 border-t border-[#ece5d8] pt-5 sm:flex-row sm:justify-end">
         <button
@@ -569,7 +620,7 @@ function ReviewStep({
           style={{ fontFamily: font.rajdhani }}
           type="button"
         >
-          {viewOnly ? "Submission Unavailable" : "Submit Reflection"}
+          {viewOnly ? "Submission Unavailable" : isSubmitting ? "Submitting" : "Submit Reflection"}
           <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
@@ -584,6 +635,8 @@ export function RestorationIntakeClient({ token, viewOnly = false }: { token: st
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState("");
+  const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const hydratedRef = useRef(false);
   const progress = useMemo(() => totalProgress(values), [values]);
   const isReview = activeIndex === restorationSections.length;
@@ -653,17 +706,64 @@ export function RestorationIntakeClient({ token, viewOnly = false }: { token: st
     setSaveState("saved");
   }
 
-  function submitReflection() {
+  async function submitReflection() {
+    if (submitState === "submitting") {
+      return;
+    }
+
+    const email = getTextValue(values, "participantEmail").toLowerCase();
+
+    if (!isValidEmail(email)) {
+      setSubmitError("Add a valid secure return email before submitting.");
+      setSubmitState("error");
+      return;
+    }
+
     const now = new Date().toISOString();
-    window.localStorage.setItem(storageKey(token), JSON.stringify({
-      submittedAt: now,
-      updatedAt: now,
-      values,
-      version: storageVersion,
-    } satisfies SavedDraft));
-    setSubmittedAt(now);
-    setLastSavedAt(now);
-    setSaveState("saved");
+    const participantName = getTextValue(values, "participantName");
+    const { firstName, lastName } = nameParts(participantName);
+    const responseValues = visibleValues(values);
+
+    setSubmitError("");
+    setSubmitState("submitting");
+
+    try {
+      const result = await submitPublicForm({
+        email,
+        firstName,
+        formType: "restoration",
+        lastName,
+        payload: {
+          form: "restoration",
+          submittedAt: now,
+          values: responseValues,
+          version: storageVersion,
+        },
+        phone: getTextValue(values, "participantPhone"),
+        priority: "high",
+        sourcePage: "/restoration",
+      });
+
+      if (!result.ok || !result.id) {
+        throw new Error("Unable to save this reflection.");
+      }
+
+      window.localStorage.setItem(storageKey(token), JSON.stringify({
+        submissionId: result.id,
+        submittedAt: now,
+        updatedAt: now,
+        values: {},
+        version: storageVersion,
+      } satisfies SavedDraft));
+      setSubmittedAt(now);
+      setLastSavedAt(now);
+      setSaveState("saved");
+      setSubmitState("idle");
+      setValues({});
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Unable to submit this reflection.");
+      setSubmitState("error");
+    }
   }
 
   if (!verified) {
@@ -688,7 +788,7 @@ export function RestorationIntakeClient({ token, viewOnly = false }: { token: st
             </div>
 
             <div className="mt-4 grid gap-2">
-              <StatusPill tone="amber">{viewOnly ? "View Only" : "Preview Only"}</StatusPill>
+              <StatusPill tone="amber">{viewOnly ? "View Only" : "Secure Intake"}</StatusPill>
               <StatusPill>{progress}% complete</StatusPill>
               {viewOnly ? (
                 <StatusPill>Answers are not saved</StatusPill>
@@ -749,8 +849,10 @@ export function RestorationIntakeClient({ token, viewOnly = false }: { token: st
 
           {isReview ? (
             <ReviewStep
+              isSubmitting={submitState === "submitting"}
               onEdit={setActiveIndex}
               onSubmit={submitReflection}
+              submitError={submitError}
               submittedAt={submittedAt}
               values={values}
               viewOnly={viewOnly}

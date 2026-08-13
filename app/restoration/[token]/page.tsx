@@ -55,5 +55,5 @@ export default async function RestorationInvitationPage({
     return <InvitationUnavailable />;
   }
 
-  return <RestorationIntakeClient token={token} viewOnly />;
+  return <RestorationIntakeClient token={token} />;
 }

@@ -224,9 +224,9 @@ export const restorationSections: readonly RestorationSection[] = [
   {
     fields: [
       {
-        helper: "Answers entered in this view-only preview are not saved or submitted.",
+        helper: "Only authorized Operations reviewers can open the complete response.",
         id: "previewAcknowledgement",
-        label: "I understand this view-only preview does not save or submit my answers.",
+        label: "I understand this private restoration reflection will be saved for authorized review.",
         required: true,
         type: "checkbox",
       },
@@ -253,7 +253,7 @@ export const restorationSections: readonly RestorationSection[] = [
         type: "radio",
       },
       { id: "participantName", label: "Preferred name for this reflection", type: "text" },
-      { id: "participantEmail", label: "Email for secure return access", type: "email" },
+      { id: "participantEmail", label: "Email for secure return access", required: true, type: "email" },
       { id: "participantPhone", label: "Phone for secure restoration follow-up", type: "text" },
     ],
     id: "welcome",

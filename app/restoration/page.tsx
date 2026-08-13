@@ -44,7 +44,7 @@ export default function RestorationLandingPage() {
               <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
             <p className="mt-3 max-w-md text-sm leading-6 text-[#6b604f]">
-              View-only preview. Answers are not saved or submitted.
+              Private reflection for secure Operations review.
             </p>
           </div>
         </div>
