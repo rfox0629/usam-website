@@ -218,9 +218,9 @@ export const restorationSections: readonly RestorationSection[] = [
   {
     fields: [
       {
-        helper: "This preview stores only fabricated review data locally. The production workflow must use the gated secure persistence design.",
+        helper: "Answers entered in this view-only preview are not saved or submitted.",
         id: "previewAcknowledgement",
-        label: "I understand this branch preview is not for private or real answers.",
+        label: "I understand this view-only preview does not save or submit my answers.",
         required: true,
         type: "checkbox",
       },
