@@ -919,7 +919,7 @@ const discipleshipResources = [
       alt: "Discipleship by A.W. Tozer - book cover",
       src: "/guides/discipleship-cover.jpg",
     },
-    description: "A seven-week Guided Journey with original companion sessions, Scripture search, reflection prompts, leader notes, and disciple-making next steps.",
+    description: "A seven-week book study with original companion sessions, Scripture, reflection prompts, and disciple-making next steps.",
     estimatedDuration: "7 Weeks",
     featured: true,
     icon: "book",

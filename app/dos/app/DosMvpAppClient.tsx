@@ -5800,7 +5800,10 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
-  const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
+  // In the Library every resource is a plain, whole-row-tappable entry that
+  // opens its full Resource page. The richer card with inline actions is only
+  // for the assign pickers, which have no row-level open handler.
+  const isGuidedResourceCard = isGuidedResource(resource) && !onClick && !onOpenResource;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
   const iconContent = resource.emoji ? (
@@ -5812,6 +5815,13 @@ function CatalogResourceRow({
     ? resource.content?.subtitle ?? resource.description
     : resource.description;
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
+  // Book studies and reading plans carry one combined label — "Book Study ·
+  // 7 Weeks", "Reading Plan · 14 Days" — instead of a type chip plus a
+  // separate duration chip. Nothing in the Library says "Guided Journey".
+  const hasCombinedKindLabel = isGuidedResource(resource) && Boolean(resource.estimatedDuration);
+  const rowKindLabel = hasCombinedKindLabel
+    ? `${libraryResourceKindLabel(resource)} · ${resource.estimatedDuration}`
+    : typeLabel;
 
   if (isGuidedResourceCard) {
     const activeAssignment = activeResourceAssignmentForPerson({ assignments: resourceAssignments, personId: progressPersonId, resource });
@@ -5931,21 +5941,33 @@ function CatalogResourceRow({
 
   const rowContent = (
     <>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
-        {iconContent}
-      </span>
+      {resource.coverImage ? (
+        <img
+          alt={resource.coverImage.alt}
+          className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+          loading="lazy"
+          src={resource.coverImage.src}
+        />
+      ) : (
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
+          {iconContent}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{resource.title}</span>
           <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            {typeLabel}
+            {rowKindLabel}
           </span>
-          {resource.estimatedDuration ? (
+          {!hasCombinedKindLabel && resource.estimatedDuration ? (
             <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
               {resource.estimatedDuration}
             </span>
           ) : null}
         </span>
+        {resource.author ? (
+          <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#475569]">{resource.author}</span>
+        ) : null}
         <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
       {actionLabel ? (
@@ -6081,6 +6103,13 @@ function dosLibraryResourceHref(resource: DosResource, workspaceSlug?: string) {
   }
 
   return `${resource.path}?${query.toString()}`;
+}
+
+// Reader-facing name for a book study or reading plan. "Guided Journey" and
+// "Guided Resource" are internal architecture words and never reach the
+// Library.
+function libraryResourceKindLabel(resource: DosResource) {
+  return resource.type === "reading_plan" ? "Reading Plan" : "Book Study";
 }
 
 function resourceTypeLabel(resource: DosResource) {
@@ -6285,7 +6314,9 @@ function GuidedResourceDetailSheet({
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
       description={resourceSummary}
-      eyebrow={`${isReadingPlan ? "Guided Reading Plan" : "Guided Journey"}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
+      // Same reader-facing wording as the Library row, so a resource is a
+      // "Book Study" or "Reading Plan" everywhere it is named.
+      eyebrow={`${libraryResourceKindLabel(resource)}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
       isFeatured={Boolean(resource.featured)}
       onAssign={onAssign ? () => onAssign(resource) : undefined}
       purchaseHref={purchaseLink?.href ?? null}
@@ -41100,9 +41131,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         errorMessage={errorMessage}
                         guidedResourceProgress={data.guidedResourceProgress}
                         isSubmitting={isSubmitting}
-                        onAssign={(resource) => openResourceAssignmentCreate(resource, myRecordPerson?.id ?? null, {
-                          assignmentContext: myRecordPerson?.id ? "self" : "library",
-                        })}
+                        // Assigning moved off the Library row, so the Resource
+                        // page keeps the full "myself / a person / a group"
+                        // picker rather than only self-assigning.
+                        onAssign={openAssignTargetPicker}
                         onBack={closeLibraryResourceView}
                         onOpenScripture={openScriptureQuickView}
                         onReviewNotes={() => openMyRecordTab("learning")}
@@ -41198,13 +41230,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         </LibrarySection>
 
                         <LibrarySection title="Discipleship">
+                          {/*
+                            Plain list entries, same pattern as Commands of Jesus.
+                            Assigning, starting, continuing, progress and purchase
+                            all live on the full Resource page, not in the Library.
+                          */}
                           <CatalogResourceList
-                            guidedResourceProgress={data.guidedResourceProgress}
-                            onAssign={openAssignTargetPicker}
-                            onOpenGuidedResource={openLibraryResource}
-                            onReviewGuidedResource={() => openMyRecordTab("learning")}
-                            progressPersonId={myRecordPerson?.id ?? null}
-                            resourceAssignments={data.resourceAssignments}
+                            onOpenResource={openLibraryResource}
                             resources={dosDiscipleshipResourceItems}
                             workspaceSlug={data.workspace.slug}
                           />

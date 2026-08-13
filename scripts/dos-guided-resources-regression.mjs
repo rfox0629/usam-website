@@ -170,7 +170,7 @@ assertIncludes(apiRoute, "syncGuidedResourceToMyRecordLearning", "Progress API m
 assertIncludes(apiRoute, "completed_at", "Progress API must save completion timestamps.");
 
 assertIncludes(app, "function GuidedResourceDetailSheet", "DOS app must render a guided resource detail sheet.");
-assertIncludes(app, '"Guided Reading Plan" : "Guided Journey"', "Guided resource UI must show the canonical Guided Journey eyebrow.");
+assertIncludes(app, "eyebrow={`${libraryResourceKindLabel(resource)}", "Resource page eyebrow must use the reader-facing Book Study / Reading Plan wording.");
 assertIncludes(app, "isFeatured={Boolean(resource.featured)}", "Guided resource UI must pass the featured state to the canonical resource header.");
 assertIncludes(sharedJourneyUi, "Featured", "Canonical resource header must render the Featured chip.");
 assertIncludes(app, "resourceSummary = guidedResource?.whyChosen ?? resource.description", "Guided Journey UI must show one compact resource recommendation/description.");
@@ -229,7 +229,10 @@ assertIncludes(app, "Save and finish later", "Guided resource UI must let partic
 assertIncludes(app, "/api/dos/app/guided-resource-progress", "Guided resource UI must call the progress API.");
 assertIncludes(app, "data.guidedResourceProgress", "Guided resource UI must read progress from DOS data.");
 assertIncludes(app, "onOpenGuidedResource", "Assigned resource cards must open guided resources in-app.");
-assertIncludes(app, "progressPersonId={myRecordPerson?.id ?? null}", "Library card progress should use the DOS user's My Record person when available.");
+// Library rows deliberately carry no progress state (USA-163); the row-level
+// progress plumbing stays available for the assign pickers and assignment
+// cards that still use it.
+assertIncludes(app, "personId: progressPersonId, resource", "Guided resource card progress must still resolve against a person when supplied.");
 
 assertIncludes(preview, "guidedResourceProgress:", "Preview DOS data must include guidedResourceProgress.");
 assertIncludes(sharedGroupRoute, "guidedResourceProgress: []", "Shared group scoped DOS data must include guidedResourceProgress.");
@@ -300,3 +303,42 @@ assertIncludes(app, "What stood out?", "Journey must keep the three canonical sa
 assertIncludes(app, "What will you do with it?", "Journey must keep the three canonical saved response fields.");
 assertIncludes(app, "guidedJourneyPrayerHelper()", "Journey must keep the canonical prayer helper copy.");
 console.log("Canonical mockup conformance checks passed.");
+
+// --- Library simplification (USA-163) ---
+// Book studies and reading plans are plain, whole-row-tappable Library entries
+// that match the Commands of Jesus pattern. Every action and every piece of
+// progress state belongs to the full Resource page.
+assertIncludes(
+  app,
+  "isGuidedResource(resource) && !onClick && !onOpenResource",
+  "Library rows must render as plain tappable entries, never the inline action card.",
+);
+assertIncludes(app, "function libraryResourceKindLabel", "Library must have a reader-facing kind label.");
+assertIncludes(app, '"Reading Plan" : "Book Study"', "Library must label resources Reading Plan / Book Study.");
+assert(
+  !app.includes('"Guided Reading Plan" : "Guided Journey"'),
+  "Library and Resource page must not use internal 'Guided Journey' wording.",
+);
+assert(
+  !catalog.includes("Guided Journey"),
+  "Library resource copy must not use internal 'Guided Journey' wording.",
+);
+
+const libraryDiscipleshipSection = between(
+  app,
+  '<LibrarySection title="Discipleship">',
+  "</LibrarySection>",
+  "Library Discipleship section",
+);
+assertIncludes(libraryDiscipleshipSection, "onOpenResource={openLibraryResource}", "Library Discipleship rows must open the full Resource page.");
+for (const forbidden of ["onAssign", "onOpenGuidedResource", "onReviewGuidedResource", "progressPersonId", "resourceAssignments"]) {
+  assert(
+    !libraryDiscipleshipSection.includes(forbidden),
+    `Library Discipleship rows must not carry ${forbidden} — actions and progress live on the Resource page.`,
+  );
+}
+
+// Assigning still reaches the full myself / person / group picker, just from
+// the Resource page instead of the Library row.
+assertIncludes(app, "onAssign={openAssignTargetPicker}", "Resource page must keep the full assign target picker.");
+console.log("Library simplification checks passed.");
