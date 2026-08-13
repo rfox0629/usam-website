@@ -20059,8 +20059,26 @@ function MeetingPeopleSelector({
     .filter((person): person is DosAppPerson => Boolean(person));
   const visiblePeople = people.filter((person) => !selectedPersonIds.includes(person.id) && !disabledPersonIds.includes(person.id));
   const hasSearch = query.trim().length > 0;
+  const normalizedQuery = query.trim().toLowerCase();
   const quickAddName = query.trim().replace(/\s+/g, " ");
   const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && visiblePeople.length === 0);
+
+  useEffect(() => {
+    if (!normalizedQuery) {
+      return;
+    }
+
+    const queryMatchesSelectedPerson = selectedPeople.some((person) => {
+      const normalizedName = person.name.trim().toLowerCase();
+      const nameParts = normalizedName.split(/\s+/).filter(Boolean);
+
+      return normalizedName === normalizedQuery || nameParts.includes(normalizedQuery);
+    });
+
+    if (queryMatchesSelectedPerson) {
+      onQueryChange("");
+    }
+  }, [normalizedQuery, onQueryChange, selectedPeople]);
 
   function selectPerson(personId: string) {
     onToggle(personId);

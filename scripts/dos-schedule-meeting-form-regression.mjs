@@ -11,11 +11,23 @@ function assert(condition, message) {
 }
 
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const peopleSelectorStart = appClient.indexOf("function MeetingPeopleSelector");
+const peopleSelectorEnd = appClient.indexOf("function MinistryTeamSelector", peopleSelectorStart);
+const peopleSelectorBlock = appClient.slice(peopleSelectorStart, peopleSelectorEnd);
 const formStart = appClient.indexOf("function ScheduleMeetingForm");
 const formEnd = appClient.indexOf("function ReminderFormContent", formStart);
 const formBlock = appClient.slice(formStart, formEnd);
 
+assert(peopleSelectorStart !== -1 && peopleSelectorEnd !== -1, "MeetingPeopleSelector must exist in DosMvpAppClient.tsx.");
 assert(formStart !== -1 && formEnd !== -1, "ScheduleMeetingForm must exist in DosMvpAppClient.tsx.");
+
+assert(
+  peopleSelectorBlock.includes("const normalizedQuery = query.trim().toLowerCase();")
+    && peopleSelectorBlock.includes("const queryMatchesSelectedPerson = selectedPeople.some((person) => {")
+    && peopleSelectorBlock.includes("return normalizedName === normalizedQuery || nameParts.includes(normalizedQuery);")
+    && peopleSelectorBlock.includes("onQueryChange(\"\");"),
+  "Schedule Meeting must clear stale person search text when the query matches a selected person chip.",
+);
 
 assert(
   formBlock.indexOf('title="Person"') < formBlock.indexOf('title="Timing"')
