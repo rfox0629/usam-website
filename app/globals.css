@@ -106,4 +106,31 @@ body {
     letter-spacing: 0.14em;
     text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
+
+  .dos-v2-prototype .field-control {
+    min-height: 48px;
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #E3E6EB;
+    background: #FFFFFF;
+    padding: 10px 12px;
+    color: #0F1520;
+    font-size: 15px;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .dos-v2-prototype .field-control::placeholder {
+    color: #9AA4B2;
+  }
+
+  .dos-v2-prototype .field-control:focus {
+    border-color: #2450C8;
+    box-shadow: 0 0 0 3px rgba(36, 80, 200, 0.12);
+  }
+
+  .dos-v2-prototype :where(p:not([class]), li:not([class]), dd:not([class])) {
+    color: inherit;
+  }
 }
