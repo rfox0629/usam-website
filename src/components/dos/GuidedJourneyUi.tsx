@@ -12,7 +12,7 @@ import type { DosGuidedResourceSession, DosGuidedResourceSessionChapter } from "
  *   ink #0F1520 · ink-2 #3D4654 · ink-3 #6B7686 · ink-4 #9AA4B2
  *   hair #EDEFF2 · hair-2 #E3E6EB · tint #FBFAF8 · warm #FCFAF6
  *   blue #2450C8 · blue-2 #1B3EA0 · blue-soft #EEF2FD
- *   gold #A07A35 · gold-soft #F6F0E4 · green #1F7A4D · green-soft #EDF7F1
+ *   green #1F7A4D · green-soft #EDF7F1
  *
  * These components are presentational only. All persistence, autosave, voice input,
  * assignment and progress logic stays with the calling surface.
@@ -23,7 +23,7 @@ export type GuidedJourneyTheme = "light" | "dark";
 
 const theme = {
   light: {
-    eyebrow: "text-[#A07A35]",
+    eyebrow: "text-[#2450C8]",
     kicker: "text-[#9AA4B2]",
     title: "text-[#0F1520]",
     body: "text-[#3D4654]",
@@ -147,6 +147,21 @@ export function guidedJourneyPrayerHelper(): string {
   return "What do you want to pray or ask God about?";
 }
 
+/**
+ * Every Scripture reference for a unit, in reading order and de-duplicated.
+ * Scripture sits after the responses as supporting reference material, so a
+ * multi-chapter week contributes one combined list rather than one block per
+ * chapter.
+ */
+export function guidedJourneySessionScriptures(session: DosGuidedResourceSession): readonly string[] {
+  const chapters = session.chapters ?? [];
+  const references = chapters.length > 0
+    ? chapters.flatMap((chapter) => chapter.keyScriptures ?? [])
+    : session.keyScriptures ?? [];
+
+  return Array.from(new Set(references));
+}
+
 export function guidedJourneyBandCaption({
   completedCount,
   totalCount,
@@ -216,7 +231,7 @@ export function GuidedJourneyResourceHeader({
           <h1 className={`text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${t.title}`}>{title}</h1>
           {author ? <p className={`mt-[5px] text-[14.5px] ${t.muted}`}>{author}</p> : null}
           {isFeatured ? (
-            <span className="mt-3 inline-block rounded-full bg-[#F6F0E4] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.11em] text-[#A07A35]">
+            <span className="mt-3 inline-block rounded-full bg-[#EEF2FD] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.11em] text-[#2450C8]">
               Featured
             </span>
           ) : null}
@@ -267,7 +282,6 @@ export function GuidedJourneyCompactNav({
   coverSrc,
   onClose,
   positionLabel,
-  stickyTopClassName = "top-0",
   themeName = "light",
   title,
   totalCount,
@@ -277,12 +291,6 @@ export function GuidedJourneyCompactNav({
   coverSrc?: string | null;
   onClose?: () => void;
   positionLabel: string;
-  /**
-   * Sticky `top` offset. A host shell that pads the top of its scroll container
-   * must pass a compensating offset, otherwise content scrolls through the
-   * visible strip above the bar.
-   */
-  stickyTopClassName?: string;
   themeName?: GuidedJourneyTheme;
   title: string;
   totalCount: number;
@@ -291,7 +299,7 @@ export function GuidedJourneyCompactNav({
   const surface = themeName === "dark" ? "bg-transparent" : "bg-white";
 
   return (
-    <div className={`sticky ${stickyTopClassName} z-20 flex items-center gap-3 border-b ${t.hair} ${surface} px-5 py-3 sm:px-6`}>
+    <div className={`flex items-center gap-3 border-b ${t.hair} ${surface} px-5 py-3 sm:px-6`}>
       <div className="flex min-w-0 flex-1 items-center gap-[10px]">
         {coverSrc ? (
           <img
@@ -501,14 +509,10 @@ export function GuidedJourneySessionSelector({
  * ------------------------------------------------------------------ */
 
 export function GuidedJourneyChapterContent({
-  canOpenScripture,
-  onOpenScripture,
   session,
   themeName = "light",
   unitLabel,
 }: {
-  canOpenScripture?: (reference: string) => boolean;
-  onOpenScripture?: (reference: string, event: ReactMouseEvent<HTMLButtonElement>) => void;
   session: DosGuidedResourceSession;
   themeName?: GuidedJourneyTheme;
   unitLabel: GuidedJourneyUnitLabel;
@@ -529,12 +533,6 @@ export function GuidedJourneyChapterContent({
         <JourneyQuestionBand
           label={guidedJourneyQuestionLabel(unitLabel)}
           question={session.chapterQuestion ?? session.personalReflection ?? session.actionStep}
-          themeName={themeName}
-        />
-        <JourneyScripture
-          canOpenScripture={canOpenScripture}
-          onOpenScripture={onOpenScripture}
-          references={session.keyScriptures ?? []}
           themeName={themeName}
         />
       </div>
@@ -563,12 +561,6 @@ export function GuidedJourneyChapterContent({
           <JourneyQuestionBand
             label={isMultiChapter ? `Chapter ${chapter.order} · Question` : guidedJourneyQuestionLabel(unitLabel)}
             question={chapter.chapterQuestion}
-            themeName={themeName}
-          />
-          <JourneyScripture
-            canOpenScripture={canOpenScripture}
-            onOpenScripture={onOpenScripture}
-            references={chapter.keyScriptures ?? []}
             themeName={themeName}
           />
         </div>
@@ -622,16 +614,20 @@ function JourneyQuestionBand({
   );
 }
 
-function JourneyScripture({
+/**
+ * Scripture for the unit. Rendered after the responses as supporting
+ * reference material rather than beside the question.
+ */
+export function GuidedJourneyScripture({
   canOpenScripture,
   onOpenScripture,
   references,
-  themeName,
+  themeName = "light",
 }: {
   canOpenScripture?: (reference: string) => boolean;
   onOpenScripture?: (reference: string, event: ReactMouseEvent<HTMLButtonElement>) => void;
   references: readonly string[];
-  themeName: GuidedJourneyTheme;
+  themeName?: GuidedJourneyTheme;
 }) {
   const t = theme[themeName];
 
@@ -640,7 +636,7 @@ function JourneyScripture({
   }
 
   return (
-    <section className="px-5 pt-6 sm:px-6" aria-label="Scripture">
+    <section className={`mt-[30px] border-t px-5 pt-6 sm:px-6 ${t.hair}`} aria-label="Scripture">
       <p className={`mb-1 text-[11px] font-bold uppercase tracking-[0.15em] ${t.kicker}`}>Scripture</p>
       {references.map((reference) => {
         const row = (

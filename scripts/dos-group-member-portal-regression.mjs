@@ -108,7 +108,7 @@ assertIncludes(sharedJourneyUi, "Current", "Member Journey selector must expose 
 assertIncludes(sharedJourneyUi, "Upcoming", "Member Journey selector must expose upcoming state.");
 assertIncludes(sharedJourneyUi, "kicker={`Chapter ${chapter.order}`}", "Member Journey detail panel must use chapter-number-first editorial headings.");
 assertIncludes(sharedJourneyUi, "function JourneyQuestionBand", "Member Journey detail panel must show the canonical question band.");
-assertIncludes(sharedJourneyUi, "function JourneyScripture", "Member Journey detail panel must show Scripture rows after the question.");
+assertIncludes(sharedJourneyUi, "export function GuidedJourneyScripture", "Member Journey detail panel must show Scripture rows.");
 assertIncludes(groupJourneyView, "What stood out?", "Member Journey view must preserve the canonical first weekly reflection prompt.");
 assertIncludes(sharedJourneyUi, "What stood out to you as you considered this question and chapter?", "Member Journey single-chapter reflection helper must connect to the chapter question.");
 assertIncludes(sharedJourneyUi, "Looking across both chapters and questions, what stood out most?", "Member Journey two-chapter reflection helper must connect to both questions.");
@@ -116,7 +116,10 @@ assertIncludes(groupJourneyView, "What will you do with it?", "Member Journey vi
 assertIncludes(sharedJourneyUi, "What is one response or next step you want to take this week?", "Member Journey two-chapter action helper must stay weekly.");
 assertIncludes(groupJourneyView, "PRAYER", "Member Journey view must preserve the canonical prayer reflection prompt.");
 assertIncludes(sharedJourneyUi, "Your Journey", "Member Journey progress area must use the Journey hierarchy label.");
-assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("references={chapter.keyScriptures"), "Member Journey Scripture must render after each chapter-specific question.");
+assert(
+  !sharedJourneyUi.includes("references={chapter.keyScriptures"),
+  "Member Journey Scripture must render as one combined list after the responses, not per chapter.",
+);
 assert(!/<select\b/i.test(groupJourneyView), "Member Journey selector must not use a native select/dropdown.");
 assertNotIncludes(groupJourneyView, "Chapter Question", "Member Journey view must not keep the old Chapter Question card label.");
 assertNotIncludes(groupJourneyView, "Search the Scriptures", "Member Journey view must not keep the old Search the Scriptures card label.");

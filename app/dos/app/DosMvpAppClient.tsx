@@ -47,10 +47,12 @@ import {
   GuidedJourneyResourceHeader,
   GuidedJourneyResponseField,
   GuidedJourneyResponses,
+  GuidedJourneyScripture,
   GuidedJourneySessionSelector,
   guidedJourneyActionHelper,
   guidedJourneyPrayerHelper,
   guidedJourneyReflectionHelper,
+  guidedJourneySessionScriptures,
 } from "@/src/components/dos/GuidedJourneyUi";
 import {
   createDefaultDosTableInvitation,
@@ -5811,9 +5813,9 @@ function CatalogResourceRow({
   ) : (
     <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
   );
-  const description = resource.type === "reading_plan"
-    ? resource.content?.subtitle ?? resource.description
-    : resource.description;
+  // Library rows all use the short description so the list keeps one rhythm.
+  // The longer subtitle still carries the public resource pages.
+  const description = resource.description;
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
   // Book studies and reading plans carry one combined label — "Book Study ·
   // 7 Weeks", "Reading Plan · 14 Days" — instead of a type chip plus a
@@ -6324,19 +6326,11 @@ function GuidedResourceDetailSheet({
     />
   );
 
-  const notices = (
-    <>
-      {readOnly ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
-          Preview mode. Changes are not saved.
-        </p>
-      ) : !personId ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#F0E2C4] bg-[#FCFAF6] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#A07A35] sm:mx-6">
-          Connect a person record to save progress.
-        </p>
-      ) : null}
-    </>
-  );
+  const notices = readOnly ? (
+    <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
+      Preview mode. Changes are not saved.
+    </p>
+  ) : null;
 
   const journeyBand = (
     <GuidedJourneyProgress
@@ -6379,18 +6373,7 @@ function GuidedResourceDetailSheet({
 
   const reading = selectedSession ? (
     <>
-      <GuidedJourneyChapterContent
-        canOpenScripture={hasDosJourneyScripture}
-        onOpenScripture={(reference, event) => {
-          const scripture = dosJourneyScripture(reference);
-
-          if (scripture && onOpenScripture) {
-            onOpenScripture(scripture, event);
-          }
-        }}
-        session={selectedSession}
-        unitLabel={selectedUnitLabel}
-      />
+      <GuidedJourneyChapterContent session={selectedSession} unitLabel={selectedUnitLabel} />
 
       <GuidedJourneyResponses>
         <GuidedJourneyResponseField
@@ -6434,6 +6417,19 @@ function GuidedResourceDetailSheet({
           />
         </GuidedJourneyResponseField>
       </GuidedJourneyResponses>
+
+      {/* Scripture closes the week as supporting reference material. */}
+      <GuidedJourneyScripture
+        canOpenScripture={hasDosJourneyScripture}
+        onOpenScripture={(reference, event) => {
+          const scripture = dosJourneyScripture(reference);
+
+          if (scripture && onOpenScripture) {
+            onOpenScripture(scripture, event);
+          }
+        }}
+        references={guidedJourneySessionScriptures(selectedSession)}
+      />
 
       {errorMessage ? (
         <p className="mx-5 mt-4 rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:mx-6">
@@ -6482,10 +6478,6 @@ function GuidedResourceDetailSheet({
     />
   ) : null;
 
-  // The DOS scroll container is padded at the top (pt-11, md:pt-6); pull the
-  // sticky nav up over it so nothing scrolls through the strip above the bar.
-  const navStickyTop = "top-[-44px] md:top-[-24px]";
-
   // Returning participants keep the compact identity strip. The way back lives
   // above the Journey content, so this bar carries no back control of its own.
   const compactNav = (
@@ -6494,7 +6486,6 @@ function GuidedResourceDetailSheet({
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
       positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
       title={resource.title}
       totalCount={completion.total}
     />
@@ -33676,7 +33667,12 @@ function LibraryCatalogResourcePage({
     return (
       <div className="grid gap-3">
         <LibraryResourceBackButton onClick={onBack} />
-        <div className="bg-white">
+        {/*
+          Same rounded surface as every other DOS card, and clipped so the
+          full-bleed Journey bands follow the radius instead of leaving square
+          corners against the DOS background.
+        */}
+        <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
           <GuidedResourceDetailSheet
             assignments={assignments}
             errorMessage={errorMessage}

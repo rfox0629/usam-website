@@ -657,7 +657,7 @@ const discipleshipResources = [
       seoDescription: "Read the entire New Testament in fourteen days with this free Bible reading plan from USA Missionaries.",
       subtitle: "Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ.",
     },
-    description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
+    description: "Read the New Testament in fourteen days, one passage at a time.",
     assignable: true,
     assignmentDefaults: {
       durationDays: 14,
@@ -919,7 +919,7 @@ const discipleshipResources = [
       alt: "Discipleship by A.W. Tozer - book cover",
       src: "/guides/discipleship-cover.jpg",
     },
-    description: "A seven-week book study with original companion sessions, Scripture, reflection prompts, and disciple-making next steps.",
+    description: "What it means to follow Jesus in wholehearted obedience.",
     estimatedDuration: "7 Weeks",
     featured: true,
     icon: "book",

@@ -179,7 +179,21 @@ assert(!app.includes("Memory Verse"), "Guided Journey UI must not show a Memory 
 assertIncludes(sharedJourneyUi, "function JourneyQuestionBand", "Guided Journey UI must show the canonical warm full-width question band.");
 assertIncludes(sharedJourneyUi, "function guidedJourneyQuestionLabel", "Question band must use the canonical This Week's / Today's Question label.");
 assertIncludes(sharedJourneyUi, "Chapter ${chapter.order} · Question", "Multi-chapter weeks must label each chapter question separately.");
-assertIncludes(sharedJourneyUi, "function JourneyScripture", "Guided Journey UI must show Scripture as tappable hairline rows after the question.");
+assertIncludes(sharedJourneyUi, "export function GuidedJourneyScripture", "Journey must show Scripture as tappable hairline rows.");
+assertIncludes(sharedJourneyUi, "export function guidedJourneySessionScriptures", "A multi-chapter unit must combine its Scripture into one list.");
+assertIncludes(app, "<GuidedJourneyScripture", "Scripture must render after the responses as supporting reference material.");
+assert(
+  app.indexOf("<GuidedJourneyScripture") > app.indexOf('label="Prayer"'),
+  "Scripture must sit after the Prayer response, not beside the question.",
+);
+assert(
+  !app.includes("Connect a person record to save progress."),
+  "Journey must not show the connect-a-person-record notice.",
+);
+assert(
+  !sharedJourneyUi.includes("#A07A35") && !sharedJourneyUi.includes("#F6F0E4"),
+  "Journey light theme must not use gold lettering.",
+);
 assert(!app.includes("Discuss Together"), "Guided Journey UI must not show the old multi-question discussion list (removed per USA-162).");
 assert(!app.includes('isReadingPlan ? "Days" : "Sessions"'), "Guided Journey UI must not show a redundant Sessions/Days stat alongside Duration (removed per USA-162).");
 assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
@@ -200,7 +214,10 @@ assertIncludes(app, "setIsSessionSelectorOpen(false)", "Selecting a week/day mus
 assertIncludes(sharedJourneyUi, "const chapters = session.chapters ?? []", "Guided Journey selector must render compact per-chapter titles, including two-chapter weeks in the final seven-week model.");
 assertIncludes(sharedJourneyUi, "chapters.map((chapter)", "Guided Journey detail panel must render each chapter's own question and Scripture for multi-chapter weeks.");
 assertIncludes(sharedJourneyUi, "kicker={`Chapter ${chapter.order}`}", "Guided Journey reading layout must render the chapter number as an editorial kicker above the title.");
-assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("references={chapter.keyScriptures"), "Supporting Scripture must render after the chapter-specific question.");
+assert(
+  !sharedJourneyUi.includes("references={chapter.keyScriptures"),
+  "Scripture must not render per chapter; a unit contributes one combined list after the responses.",
+);
 assert(!/<select\b/i.test(guidedResourceDetailSheet), "Guided Journey accordion must not use a native select/dropdown for week navigation.");
 assert(!guidedResourceDetailSheet.includes("Reading: {selectedSession.assignment}"), "Guided Journey V2 must not keep the redundant Reading metadata line in the open panel.");
 
