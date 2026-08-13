@@ -260,10 +260,32 @@ assertIncludes(sharedJourneyUi, "Your Journey", "Journey must render the tinted 
 assertIncludes(sharedJourneyUi, "function guidedJourneyBandCaption", "Your Journey band must show Start with Week 1 / remaining / completed captions.");
 assertIncludes(sharedJourneyUi, "Start with ${unitLabel} 1", "Your Journey band must prompt Start with Week 1 before any unit is complete.");
 assertIncludes(sharedJourneyUi, "function GuidedJourneyCompactNav", "Returning participants must get the compact sticky resource nav.");
-assertIncludes(app, "hasStarted ? compactNav : simpleNav", "Resource chrome must recede once the participant is actively progressing.");
-assertIncludes(sharedJourneyUi, "isCompact = true", "Nav must support the mockup's non-compact first-open bar, navBar(r, false).");
-assertIncludes(app, "isCompact={false}", "First open must still render the '‹ Library' bar so there is always a way back.");
+assertIncludes(app, "hasStarted ? compactNav : null", "Resource chrome must recede once the participant is actively progressing.");
 assertIncludes(app, "alwaysExpanded", "Desktop rail must render the week selector expanded, per the mockup.");
+
+// --- USA-163 focused revision ---
+// The way back sits above the Journey content, not inside the Journey's own nav.
+assertIncludes(app, "<LibraryResourceBackButton onClick={onBack} />", "'Library' back control must sit above the Journey content.");
+assert(
+  !sharedJourneyUi.includes("backLabel"),
+  "The Journey nav strip must not carry its own back control now that 'Library' sits above the Journey content.",
+);
+
+// Scripture rows are real targets that open the in-app KJV quick view, and a
+// row is only interactive when there is actually text behind it.
+assertIncludes(app, "canOpenScripture={hasDosJourneyScripture}", "Scripture rows must only be tappable when the reference has text.");
+assertIncludes(app, "onOpenScripture={openScriptureQuickView}", "Scripture rows must open the existing DOS scripture quick view.");
+assertIncludes(sharedJourneyUi, "const isOpenable", "Scripture rows must not render a dead chevron affordance.");
+
+// The completion action lives at the natural end of the week, not pinned.
+assert(
+  !sharedJourneyUi.includes("stickyBottomClassName"),
+  "Completion action must sit at the natural end of the week rather than in a pinned dock.",
+);
+assert(
+  !app.includes("stickyDock"),
+  "Journey must not reintroduce a sticky completion dock.",
+);
 assertIncludes(sharedJourneyUi, "function GuidedJourneyDock", "Journey must provide the canonical completion dock.");
 assertIncludes(app, 'secondaryLabel="Save and finish later"', "Completion dock must offer Save and finish later.");
 assertIncludes(app, "Complete ${unitNoun} ${selectedSession.order}", "Completion dock primary action must name the unit being completed.");

@@ -37,6 +37,7 @@ import {
   type DosResource,
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
+import { dosJourneyScripture, hasDosJourneyScripture } from "@/src/lib/dos/journey-scriptures";
 import {
   GuidedJourneyChapterContent,
   GuidedJourneyCompactNav,
@@ -6173,6 +6174,7 @@ function GuidedResourceDetailSheet({
   isSubmitting,
   onAssign,
   onClose,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -6187,6 +6189,7 @@ function GuidedResourceDetailSheet({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onClose: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -6345,7 +6348,18 @@ function GuidedResourceDetailSheet({
 
   const reading = selectedSession ? (
     <>
-      <GuidedJourneyChapterContent session={selectedSession} unitLabel={selectedUnitLabel} />
+      <GuidedJourneyChapterContent
+        canOpenScripture={hasDosJourneyScripture}
+        onOpenScripture={(reference, event) => {
+          const scripture = dosJourneyScripture(reference);
+
+          if (scripture && onOpenScripture) {
+            onOpenScripture(scripture, event);
+          }
+        }}
+        session={selectedSession}
+        unitLabel={selectedUnitLabel}
+      />
 
       <GuidedJourneyResponses>
         <GuidedJourneyResponseField
@@ -6425,27 +6439,10 @@ function GuidedResourceDetailSheet({
 
   const dockPrimaryLabel = selectedSession ? `Complete ${unitNoun} ${selectedSession.order}` : `Complete ${unitNoun}`;
 
-  // The DOS scroll container is padded (pb-40 under md, md:pb-10) to clear the
-  // absolute bottom tab bar, and sticky `bottom` resolves against that padding
-  // box. Offset it back down so the dock rides just above the tab bar instead
-  // of floating ~89px up the screen with content visible underneath.
-  const dockStickyBottom =
-    "bottom-[calc(env(safe-area-inset-bottom)-89px)] md:bottom-[-40px] min-[900px]:bottom-0";
-
-  const stickyDock = selectedSession ? (
+  // One completion action, at the natural end of the week rather than pinned
+  // to the viewport.
+  const completionAction = selectedSession ? (
     <GuidedJourneyDock
-      onPrimary={() => void saveProgress(true)}
-      onSecondary={() => void saveProgress()}
-      primaryDisabled={!canWrite}
-      primaryLabel={isSubmitting ? "Saving..." : dockPrimaryLabel}
-      secondaryLabel="Save and finish later"
-      stickyBottomClassName={dockStickyBottom}
-    />
-  ) : null;
-
-  const inlineDock = selectedSession ? (
-    <GuidedJourneyDock
-      isSticky={false}
       onPrimary={() => void saveProgress(true)}
       onSecondary={() => void saveProgress()}
       primaryDisabled={!canWrite}
@@ -6458,26 +6455,13 @@ function GuidedResourceDetailSheet({
   // sticky nav up over it so nothing scrolls through the strip above the bar.
   const navStickyTop = "top-[-44px] md:top-[-24px]";
 
+  // Returning participants keep the compact identity strip. The way back lives
+  // above the Journey content, so this bar carries no back control of its own.
   const compactNav = (
     <GuidedJourneyCompactNav
       completedCount={completion.completed}
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
-      onBack={onClose}
-      positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
-      title={resource.title}
-      totalCount={completion.total}
-    />
-  );
-
-  // First open: the resource block below carries the identity, so the bar is
-  // just the way back (mockup `navBar(r, false)`).
-  const simpleNav = (
-    <GuidedJourneyCompactNav
-      completedCount={completion.completed}
-      isCompact={false}
-      onBack={onClose}
       positionLabel={positionLabel}
       stickyTopClassName={navStickyTop}
       title={resource.title}
@@ -6487,13 +6471,14 @@ function GuidedResourceDetailSheet({
 
   const singleColumn = (
     <div className="flex min-h-full flex-col bg-white min-[900px]:hidden">
-      {hasStarted ? compactNav : simpleNav}
+      {hasStarted ? compactNav : null}
       {hasStarted ? null : resourceHeader}
       {notices}
       {journeyBand}
       {selector}
       {reading}
-      {stickyDock}
+      {completionAction}
+      <div className="h-6" />
     </div>
   );
 
@@ -6502,7 +6487,6 @@ function GuidedResourceDetailSheet({
       <GuidedJourneyLayout
         rail={
           <>
-            {simpleNav}
             {resourceHeader}
             {notices}
             {journeyBand}
@@ -6512,7 +6496,7 @@ function GuidedResourceDetailSheet({
         reading={
           <>
             {reading}
-            {inlineDock}
+            {completionAction}
           </>
         }
       />
@@ -33626,6 +33610,7 @@ function LibraryCatalogResourcePage({
   isSubmitting,
   onAssign,
   onBack,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -33638,6 +33623,7 @@ function LibraryCatalogResourcePage({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onBack: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -33654,24 +33640,28 @@ function LibraryCatalogResourcePage({
   resource: DosResource;
 }) {
   if (isGuidedResource(resource)) {
-    // The Journey shell renders its own sticky `‹ Library` nav, so no outer
-    // back pill here — one way back, not two.
+    // The way back sits above the Journey content, so the Journey's own nav
+    // strip carries identity only.
     return (
-      <div className="bg-white">
-        <GuidedResourceDetailSheet
-          assignments={assignments}
-          errorMessage={errorMessage}
-          guidedResourceProgress={guidedResourceProgress}
-          isSubmitting={isSubmitting}
-          onAssign={onAssign}
-          onClose={onBack}
-          onReviewNotes={onReviewNotes}
-          onSaveProgress={onSaveProgress}
-          onStartNextResource={onStartNextResource}
-          personId={personId}
-          resource={resource}
-          variant="page"
-        />
+      <div className="grid gap-3">
+        <LibraryResourceBackButton onClick={onBack} />
+        <div className="bg-white">
+          <GuidedResourceDetailSheet
+            assignments={assignments}
+            errorMessage={errorMessage}
+            guidedResourceProgress={guidedResourceProgress}
+            isSubmitting={isSubmitting}
+            onAssign={onAssign}
+            onClose={onBack}
+            onOpenScripture={onOpenScripture}
+            onReviewNotes={onReviewNotes}
+            onSaveProgress={onSaveProgress}
+            onStartNextResource={onStartNextResource}
+            personId={personId}
+            resource={resource}
+            variant="page"
+          />
+        </div>
       </div>
     );
   }
@@ -41114,6 +41104,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                           assignmentContext: myRecordPerson?.id ? "self" : "library",
                         })}
                         onBack={closeLibraryResourceView}
+                        onOpenScripture={openScriptureQuickView}
                         onReviewNotes={() => openMyRecordTab("learning")}
                         onSaveProgress={saveGuidedResourceProgress}
                         onStartNextResource={closeLibraryResourceView}
