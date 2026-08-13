@@ -14,6 +14,14 @@ import {
 } from "@/src/components/dos/GuidedJourneyUi";
 import { saveGroupMemberJourneyProgress } from "./[slug]/member/actions";
 
+function openJourneyScriptureReference(reference: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.open(`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=KJV`, "_blank", "noopener,noreferrer");
+}
+
 function AutoGrowTextarea({ className = "", ...props }: ComponentProps<"textarea">) {
   return (
     <textarea
@@ -195,7 +203,7 @@ export function GroupJourneyView({
               ) : null}
             </div>
 
-            <GuidedJourneyChapterContent session={selectedSession} themeName="dark" unitLabel={unitLabel} />
+            <GuidedJourneyChapterContent onOpenScripture={openJourneyScriptureReference} session={selectedSession} themeName="dark" unitLabel={unitLabel} />
 
             <form action={saveGroupMemberJourneyProgress} className="grid gap-3 border-t border-white/10 pt-3" key={selectedSession.id}>
               <input name="slug" type="hidden" value={groupSlug} />

@@ -6166,6 +6166,14 @@ function CatalogResourceList({
   );
 }
 
+function openJourneyScriptureReference(reference: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.open(`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=KJV`, "_blank", "noopener,noreferrer");
+}
+
 function GuidedResourceDetailSheet({
   assignments,
   errorMessage,
@@ -6345,7 +6353,7 @@ function GuidedResourceDetailSheet({
 
   const reading = selectedSession ? (
     <>
-      <GuidedJourneyChapterContent session={selectedSession} unitLabel={selectedUnitLabel} />
+      <GuidedJourneyChapterContent onOpenScripture={openJourneyScriptureReference} session={selectedSession} unitLabel={selectedUnitLabel} />
 
       <GuidedJourneyResponses>
         <GuidedJourneyResponseField
@@ -6456,14 +6464,19 @@ function GuidedResourceDetailSheet({
 
   // The DOS scroll container is padded at the top (pt-11, md:pt-6); pull the
   // sticky nav up over it so nothing scrolls through the strip above the bar.
-  const navStickyTop = "top-[-44px] md:top-[-24px]";
+  // variant="page" now sits inside a bordered/rounded Library shell that
+  // already respects that padding, so it keeps the plain top offset.
+  const navStickyTop = variant === "page" ? "top-0" : "top-[-44px] md:top-[-24px]";
 
+  // variant="page" is opened from the Library, which renders its own
+  // `‹ Library` pill above this shell (see LibraryCatalogResourcePage), so the
+  // nav here drops its own back arrow to keep one way back, not two.
   const compactNav = (
     <GuidedJourneyCompactNav
       completedCount={completion.completed}
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
-      onBack={onClose}
+      onBack={variant === "page" ? undefined : onClose}
       positionLabel={positionLabel}
       stickyTopClassName={navStickyTop}
       title={resource.title}
@@ -6472,19 +6485,24 @@ function GuidedResourceDetailSheet({
   );
 
   // First open: the resource block below carries the identity, so the bar is
-  // just the way back (mockup `navBar(r, false)`).
-  const simpleNav = (
-    <GuidedJourneyCompactNav
-      completedCount={completion.completed}
-      isCompact={false}
-      onBack={onClose}
-      positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
-      title={resource.title}
-      totalCount={completion.total}
-    />
-  );
+  // just the way back (mockup `navBar(r, false)`). For variant="page" the
+  // Library back pill already covers that, so there is nothing left to show.
+  const simpleNav =
+    variant === "page" ? null : (
+      <GuidedJourneyCompactNav
+        completedCount={completion.completed}
+        isCompact={false}
+        onBack={onClose}
+        positionLabel={positionLabel}
+        stickyTopClassName={navStickyTop}
+        title={resource.title}
+        totalCount={completion.total}
+      />
+    );
 
+  // variant="page" places the completion action at the natural end of the
+  // week (after the response/prayer fields) instead of a fixed slab above the
+  // DOS bottom navigation; variant="sheet" keeps the sticky dock.
   const singleColumn = (
     <div className="flex min-h-full flex-col bg-white min-[900px]:hidden">
       {hasStarted ? compactNav : simpleNav}
@@ -6493,7 +6511,7 @@ function GuidedResourceDetailSheet({
       {journeyBand}
       {selector}
       {reading}
-      {stickyDock}
+      {variant === "page" ? inlineDock : stickyDock}
     </div>
   );
 
@@ -33654,24 +33672,28 @@ function LibraryCatalogResourcePage({
   resource: DosResource;
 }) {
   if (isGuidedResource(resource)) {
-    // The Journey shell renders its own sticky `‹ Library` nav, so no outer
-    // back pill here — one way back, not two.
+    // The `‹ Library` control sits on the outer DOS background, matching the
+    // other Library resource shells, and the Journey shell itself drops its
+    // own back arrow for variant="page" so there is one way back, not two.
     return (
-      <div className="bg-white">
-        <GuidedResourceDetailSheet
-          assignments={assignments}
-          errorMessage={errorMessage}
-          guidedResourceProgress={guidedResourceProgress}
-          isSubmitting={isSubmitting}
-          onAssign={onAssign}
-          onClose={onBack}
-          onReviewNotes={onReviewNotes}
-          onSaveProgress={onSaveProgress}
-          onStartNextResource={onStartNextResource}
-          personId={personId}
-          resource={resource}
-          variant="page"
-        />
+      <div className="grid gap-4">
+        <LibraryResourceBackButton onClick={onBack} />
+        <div className="rounded-[20px] border border-[#EDEFF2] bg-white">
+          <GuidedResourceDetailSheet
+            assignments={assignments}
+            errorMessage={errorMessage}
+            guidedResourceProgress={guidedResourceProgress}
+            isSubmitting={isSubmitting}
+            onAssign={onAssign}
+            onClose={onBack}
+            onReviewNotes={onReviewNotes}
+            onSaveProgress={onSaveProgress}
+            onStartNextResource={onStartNextResource}
+            personId={personId}
+            resource={resource}
+            variant="page"
+          />
+        </div>
       </div>
     );
   }
