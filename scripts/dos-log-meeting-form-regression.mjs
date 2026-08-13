@@ -12,11 +12,23 @@ function assert(condition, message) {
 
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 
+const peopleSelectorStart = appClient.indexOf("function MeetingPeopleSelector");
+const peopleSelectorEnd = appClient.indexOf("function MinistryTeamSelector", peopleSelectorStart);
+const peopleSelectorBlock = appClient.slice(peopleSelectorStart, peopleSelectorEnd);
 const meetingFormStart = appClient.indexOf("function MeetingFormContent");
 const meetingFormEnd = appClient.indexOf("function CalendarConnectionCard", meetingFormStart);
 const meetingFormBlock = appClient.slice(meetingFormStart, meetingFormEnd);
 
+assert(peopleSelectorStart !== -1 && peopleSelectorEnd !== -1, "MeetingPeopleSelector must exist in DosMvpAppClient.tsx.");
 assert(meetingFormStart !== -1 && meetingFormEnd !== -1, "MeetingFormContent must exist in DosMvpAppClient.tsx.");
+
+assert(
+  peopleSelectorBlock.includes("function selectPerson(personId: string)") &&
+    peopleSelectorBlock.includes("onToggle(personId);") &&
+    peopleSelectorBlock.includes("onQueryChange(\"\");") &&
+    peopleSelectorBlock.includes("onClick={() => selectPerson(person.id)}"),
+  "Selecting an existing participant must clear the participants search query after adding the chip.",
+);
 
 assert(
   meetingFormBlock.indexOf('title="Discipleship Role"') < meetingFormBlock.indexOf('title="Participants"')

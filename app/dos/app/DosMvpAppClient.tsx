@@ -20062,6 +20062,11 @@ function MeetingPeopleSelector({
   const quickAddName = query.trim().replace(/\s+/g, " ");
   const canQuickAdd = Boolean(onCreatePerson && hasSearch && quickAddName && visiblePeople.length === 0);
 
+  function selectPerson(personId: string) {
+    onToggle(personId);
+    onQueryChange("");
+  }
+
   return (
     <div className="grid gap-2">
       {selectedPeople.length ? (
@@ -20106,7 +20111,7 @@ function MeetingPeopleSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
-              onClick={() => onToggle(person.id)}
+              onClick={() => selectPerson(person.id)}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
