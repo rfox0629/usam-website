@@ -11,6 +11,11 @@ export type RestorationFieldType =
   | "text"
   | "textarea";
 
+export type RestorationCondition = {
+  equals: string | readonly string[];
+  fieldId: string;
+};
+
 export type RestorationField = {
   contentReview?: boolean;
   helper?: string;
@@ -19,6 +24,7 @@ export type RestorationField = {
   options?: readonly string[];
   required?: boolean;
   type: RestorationFieldType;
+  visibleWhen?: RestorationCondition | readonly RestorationCondition[];
 };
 
 export type RestorationSection = {
@@ -263,7 +269,7 @@ export const restorationSections: readonly RestorationSection[] = [
       { id: "previousDeliverance", label: "Have you previously had deliverance?", options: yesNoOptions, type: "radio" },
       { id: "previousCounseling", label: "Have you previously had counseling?", options: yesNoOptions, type: "radio" },
       { id: "servedMilitary", label: "Have you served in the military?", options: yesNoOptions, type: "radio" },
-      { id: "combatExperience", label: "If yes, were you in combat?", options: yesNoOptions, type: "radio" },
+      { id: "combatExperience", label: "Were you in combat?", options: yesNoOptions, type: "radio", visibleWhen: { fieldId: "servedMilitary", equals: "Yes" } },
     ],
     id: "goals",
     shortTitle: "Goals",
@@ -285,14 +291,16 @@ export const restorationSections: readonly RestorationSection[] = [
         options: yesNoOptions,
         type: "radio",
       },
-      { id: "yearsChristian", label: "How many years have you been a Christian?", type: "text" },
+      { id: "yearsChristian", label: "How many years have you been a Christian?", type: "text", visibleWhen: [{ fieldId: "bornAgainChristian", equals: "Yes" }, { fieldId: "isChristianPhi", equals: "Yes" }] },
       { id: "waterBaptized", label: "Have you been water baptized?", options: yesNoOptions, type: "radio" },
-      { id: "currentChurch", label: "Current church affiliation", type: "text" },
-      { id: "lastChurch", label: "If none, last church affiliation", type: "text" },
+      { id: "hasCurrentChurch", label: "Are you currently connected to a church?", options: yesNoOptions, type: "radio" },
+      { id: "currentChurch", label: "Current church affiliation", type: "text", visibleWhen: { fieldId: "hasCurrentChurch", equals: "Yes" } },
+      { id: "lastChurch", label: "Last church affiliation", type: "text", visibleWhen: { fieldId: "hasCurrentChurch", equals: ["No", "Not sure"] } },
       { id: "spiritualBackground", label: "Describe your spiritual background", type: "textarea" },
       { id: "cultInvolvement", label: "Have you been involved in a cult?", options: yesNoOptions, type: "radio" },
-      { id: "cultName", label: "If yes, name of the cult", type: "text" },
-      { id: "familyOccultActivity", label: "Have you or your relatives participated in occult activities? If yes, list activity and relationship.", type: "textarea" },
+      { id: "cultName", label: "Name of the cult", type: "text", visibleWhen: { fieldId: "cultInvolvement", equals: "Yes" } },
+      { id: "familyOccultInvolvement", label: "Have you or your relatives participated in occult activities?", options: yesNoOptions, type: "radio" },
+      { id: "familyOccultActivity", label: "List the activity and relationship", type: "textarea", visibleWhen: { fieldId: "familyOccultInvolvement", equals: "Yes" } },
       { id: "spiritualIssues", label: "Describe any spiritual issues past or present that you feel are significant.", type: "textarea" },
     ],
     id: "spiritual",
@@ -305,8 +313,10 @@ export const restorationSections: readonly RestorationSection[] = [
       { id: "relationshipProblems", label: "Briefly describe any past or present problems regarding your personal relationships that you feel are significant.", type: "textarea" },
       { id: "physicalHealth", label: "Describe your level of physical health at this time.", options: satisfactionOptions, type: "radio" },
       { id: "mentalHealth", label: "Describe your level of mental health at this time.", options: satisfactionOptions, type: "radio" },
-      { id: "prescriptionMeds", label: "If you are taking prescription meds, give reasons.", type: "textarea" },
-      { id: "nonPrescriptionMeds", label: "If you are taking non-prescription meds, give reasons.", type: "textarea" },
+      { id: "takesPrescriptionMeds", label: "Are you taking prescription medications?", options: yesNoOptions, type: "radio" },
+      { id: "prescriptionMeds", label: "Please share the reasons for these medications", type: "textarea", visibleWhen: { fieldId: "takesPrescriptionMeds", equals: "Yes" } },
+      { id: "takesNonPrescriptionMeds", label: "Are you taking non-prescription medications?", options: yesNoOptions, type: "radio" },
+      { id: "nonPrescriptionMeds", label: "Please share the reasons for these medications", type: "textarea", visibleWhen: { fieldId: "takesNonPrescriptionMeds", equals: "Yes" } },
       { id: "alcoholOrDrugs", label: "Are you using alcohol or illegal drugs to deal with your issues?", options: yesNoOptions, type: "radio" },
       { id: "bloodTransfusion", label: "Have you ever had an operation requiring a blood transfusion?", options: yesNoOptions, type: "radio" },
       { id: "lastWellSeason", label: "When was the last time you felt both physically and emotionally well for some time?", type: "textarea" },
