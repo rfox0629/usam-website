@@ -23,6 +23,7 @@ export function RouteAwareSiteFooter() {
     pathname?.startsWith("/dos")
     || pathname?.startsWith("/groups")
     || pathname?.startsWith("/guide/new-testament-14-days")
+    || pathname?.startsWith("/restoration")
     || pathname?.startsWith("/vision")
     || pathname?.startsWith("/board-briefing")
     || pathname?.startsWith(domainSiteRoutePrefix)

@@ -79,6 +79,13 @@ const publicPages: PublicPageRow[] = [
     route: "/financialfreedom",
     status: "Live",
   },
+  {
+    id: "restoration",
+    owner: "MOR / USA Missionaries",
+    pageName: "Restoration",
+    route: "/restoration",
+    status: "Protected",
+  },
 ];
 
 const publicFormsBase = [
@@ -159,6 +166,13 @@ const publicFormsBase = [
     ownerInbox: "Applications",
     publicRoute: "/join/usam",
   },
+  {
+    formName: "Restoration Reflection",
+    formType: "restoration_intake",
+    inboxHref: "/admin/restoration",
+    ownerInbox: "Restoration",
+    publicRoute: "/restoration",
+  },
 ] satisfies Array<Omit<PublicFormRow, "lastSubmission" | "newPending" | "submissions">>;
 
 const accessGates: AccessGateRow[] = [
@@ -181,6 +195,13 @@ const accessGates: AccessGateRow[] = [
     actionLabel: "Manage",
     gateName: "DOS Access",
     route: "/system/preview",
+    status: "Protected",
+  },
+  {
+    actionHref: "/admin/restoration",
+    actionLabel: "View",
+    gateName: "Restoration Invitations",
+    route: "/restoration/[token]",
     status: "Protected",
   },
 ];
