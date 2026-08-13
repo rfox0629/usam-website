@@ -15,8 +15,6 @@ export const metadata: Metadata = {
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 export default function RestorationLandingPage() {
-  const isProduction = process.env.VERCEL_ENV === "production";
-
   return (
     <main className="min-h-screen bg-[#f7f4ec] px-5 py-8 text-[#15120c] md:px-8 md:py-10">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center">
@@ -36,22 +34,7 @@ export default function RestorationLandingPage() {
         </p>
 
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-          {isProduction ? (
-            <div>
-              <button
-                className="inline-flex min-h-14 cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#C2A14E]/55 px-6 text-sm font-bold uppercase tracking-[0.18em] text-[#15120c]/70 shadow-[0_18px_45px_rgba(122,90,22,0.14)]"
-                disabled
-                style={{ fontFamily: font.rajdhani }}
-                type="button"
-              >
-                Begin My Reflection
-                <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              </button>
-              <p className="mt-3 max-w-md text-sm leading-6 text-[#6b604f]">
-                Secure intake is not accepting live submissions until protected storage is approved.
-              </p>
-            </div>
-          ) : (
+          <div>
             <Link
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-[#C2A14E] px-6 text-sm font-bold uppercase tracking-[0.18em] text-[#15120c] shadow-[0_18px_45px_rgba(122,90,22,0.24)] transition-colors hover:bg-[#d8b65c]"
               href={`/restoration/${restorationPreviewToken}`}
@@ -60,7 +43,10 @@ export default function RestorationLandingPage() {
               Begin My Reflection
               <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
-          )}
+            <p className="mt-3 max-w-md text-sm leading-6 text-[#6b604f]">
+              View-only preview. Answers are not saved or submitted.
+            </p>
+          </div>
         </div>
       </section>
     </main>

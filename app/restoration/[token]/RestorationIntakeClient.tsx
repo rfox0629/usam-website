@@ -489,14 +489,16 @@ function ReviewStep({
   onSubmit,
   submittedAt,
   values,
+  viewOnly,
 }: {
   onEdit: (index: number) => void;
   onSubmit: () => void;
   submittedAt: string | null;
   values: IntakeValues;
+  viewOnly: boolean;
 }) {
   const missing = requiredMissing(values);
-  const canSubmit = missing.length === 0 && values.immediateDanger !== "Yes";
+  const canSubmit = !viewOnly && missing.length === 0 && values.immediateDanger !== "Yes";
 
   if (submittedAt) {
     return (
@@ -565,7 +567,7 @@ function ReviewStep({
           style={{ fontFamily: font.rajdhani }}
           type="button"
         >
-          Submit Reflection
+          {viewOnly ? "Submission Unavailable" : "Submit Reflection"}
           <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
@@ -573,8 +575,8 @@ function ReviewStep({
   );
 }
 
-export function RestorationIntakeClient({ token }: { token: string }) {
-  const [verified, setVerified] = useState(false);
+export function RestorationIntakeClient({ token, viewOnly = false }: { token: string; viewOnly?: boolean }) {
+  const [verified, setVerified] = useState(viewOnly);
   const [values, setValues] = useState<IntakeValues>({});
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -586,6 +588,12 @@ export function RestorationIntakeClient({ token }: { token: string }) {
   const currentSection = restorationSections[activeIndex];
 
   useEffect(() => {
+    if (viewOnly) {
+      setVerified(true);
+      hydratedRef.current = true;
+      return;
+    }
+
     setVerified(window.sessionStorage.getItem(verificationKey(token)) === "true");
 
     const raw = window.localStorage.getItem(storageKey(token));
@@ -603,10 +611,10 @@ export function RestorationIntakeClient({ token }: { token: string }) {
     }
 
     hydratedRef.current = true;
-  }, [token]);
+  }, [token, viewOnly]);
 
   useEffect(() => {
-    if (!verified || !hydratedRef.current || submittedAt) {
+    if (viewOnly || !verified || !hydratedRef.current || submittedAt) {
       return;
     }
 
@@ -625,7 +633,7 @@ export function RestorationIntakeClient({ token }: { token: string }) {
     }, 650);
 
     return () => window.clearTimeout(timeout);
-  }, [submittedAt, token, values, verified]);
+  }, [submittedAt, token, values, verified, viewOnly]);
 
   function updateValue(fieldId: string, value: FieldValue) {
     setValues((current) => ({ ...current, [fieldId]: value }));
@@ -678,27 +686,33 @@ export function RestorationIntakeClient({ token }: { token: string }) {
             </div>
 
             <div className="mt-4 grid gap-2">
-              <StatusPill tone="amber">Preview Only</StatusPill>
+              <StatusPill tone="amber">{viewOnly ? "View Only" : "Preview Only"}</StatusPill>
               <StatusPill>{progress}% complete</StatusPill>
-              <StatusPill>
-                <Clock aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
-                {saveState === "saving" ? "Saving" : saveState === "unsaved" ? "Unsaved" : formatSavedAt(lastSavedAt)}
-              </StatusPill>
+              {viewOnly ? (
+                <StatusPill>Answers are not saved</StatusPill>
+              ) : (
+                <StatusPill>
+                  <Clock aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
+                  {saveState === "saving" ? "Saving" : saveState === "unsaved" ? "Unsaved" : formatSavedAt(lastSavedAt)}
+                </StatusPill>
+              )}
             </div>
 
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e7decd]">
               <div className="h-full rounded-full bg-[#C2A14E]" style={{ width: `${progress}%` }} />
             </div>
 
-            <button
-              className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#d6ccb7] px-3 text-xs font-bold uppercase tracking-[0.16em] text-[#15120c] transition-colors hover:border-[#C2A14E]"
-              onClick={saveNow}
-              style={{ fontFamily: font.rajdhani }}
-              type="button"
-            >
-              <Save aria-hidden="true" className="h-4 w-4" />
-              Save
-            </button>
+            {!viewOnly ? (
+              <button
+                className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#d6ccb7] px-3 text-xs font-bold uppercase tracking-[0.16em] text-[#15120c] transition-colors hover:border-[#C2A14E]"
+                onClick={saveNow}
+                style={{ fontFamily: font.rajdhani }}
+                type="button"
+              >
+                <Save aria-hidden="true" className="h-4 w-4" />
+                Save
+              </button>
+            ) : null}
           </ShellCard>
 
           <div className="mt-4 hidden lg:block">
@@ -737,6 +751,7 @@ export function RestorationIntakeClient({ token }: { token: string }) {
               onSubmit={submitReflection}
               submittedAt={submittedAt}
               values={values}
+              viewOnly={viewOnly}
             />
           ) : currentSection ? (
             <SectionStep
