@@ -23,6 +23,7 @@ import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { ensureDosViewerPerson, syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { resolveDosIdentityForWorkspace } from "@/src/lib/dos/identity";
+import { dosMeetingEventDate, dosMeetingEventSortValue } from "@/src/lib/dos/meeting-lifecycle";
 import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
@@ -2598,10 +2599,20 @@ export function mergeDosMeetingRowsForVisibility<T extends { id: string; ministr
 
 function sortMeetingRows(rows: MeetingRow[]) {
   return rows.sort((first, second) => {
-    const firstDate = latestActivityDate(first.table_date, first.updated_at, first.created_at);
-    const secondDate = latestActivityDate(second.table_date, second.updated_at, second.created_at);
+    const firstDate = dosMeetingEventSortValue({
+      createdAt: first.created_at,
+      scheduledStartAt: first.scheduled_start_at,
+      tableDate: first.table_date,
+      updatedAt: first.updated_at,
+    });
+    const secondDate = dosMeetingEventSortValue({
+      createdAt: second.created_at,
+      scheduledStartAt: second.scheduled_start_at,
+      tableDate: second.table_date,
+      updatedAt: second.updated_at,
+    });
 
-    return activityDateValue(secondDate) - activityDateValue(firstDate);
+    return secondDate - firstDate;
   });
 }
 
@@ -4336,7 +4347,12 @@ export async function loadDosAppData(
       return;
     }
 
-    const activityDate = latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at);
+    const activityDate = dosMeetingEventDate({
+      createdAt: meeting.created_at,
+      scheduledStartAt: meeting.scheduled_start_at,
+      tableDate: meeting.table_date,
+      updatedAt: meeting.updated_at,
+    });
 
     participantIdsForMeeting(meeting).forEach((personId) => {
       const currentDate = latestActivityByPersonId.get(personId);
@@ -4437,7 +4453,7 @@ export async function loadDosAppData(
       fieldVisibility: mapFieldVisibility(person.field_visibility),
       householdNotes: person.household_notes ?? null,
       id: person.id,
-      lastActivityAt: latestActivityDate(person.last_activity_at, latestActivityByPersonId.get(person.id)),
+      lastActivityAt: latestActivityByPersonId.get(person.id) ?? person.last_activity_at,
       name: person.name,
       notes: person.notes,
       phone: person.phone,
@@ -4655,7 +4671,12 @@ export async function loadDosAppData(
       );
 
       return {
-        date: latestActivityDate(meeting.scheduled_start_at, meeting.table_date, meeting.updated_at, meeting.created_at),
+        date: dosMeetingEventDate({
+          createdAt: meeting.created_at,
+          scheduledStartAt: meeting.scheduled_start_at,
+          tableDate: meeting.table_date,
+          updatedAt: meeting.updated_at,
+        }),
         conversationFlowKey,
         conversationResponses: normalizeConversationResponses(conversationFlowKey, meeting.conversation_responses),
         fieldPersonIds: participantIds,

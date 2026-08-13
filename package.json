@@ -28,6 +28,7 @@
     "test:public-profile-prayer-section": "node scripts/public-profile-prayer-section-regression.mjs",
     "test:dos-quick-review": "node scripts/dos-quick-review-regression.mjs",
     "test:dos-review-link-send-state": "node scripts/dos-review-link-send-state-regression.mjs",
+    "test:dos-meeting-lifecycle": "node --no-warnings scripts/dos-meeting-lifecycle-regression.mjs",
     "test:dos-scheduled-table-log": "node scripts/dos-scheduled-table-log-regression.mjs",
     "test:dos-table-next-steps": "node scripts/dos-table-next-steps-regression.mjs",
     "test:dos-table-roles": "node scripts/dos-table-discipleship-roles-regression.mjs",
