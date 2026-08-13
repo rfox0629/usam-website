@@ -13,7 +13,10 @@ function safeNextPath(value: string) {
 }
 
 function requiresAdminAccess(path: string) {
-  return path === "/admin" || path.startsWith("/admin/");
+  return path === "/admin"
+    || path.startsWith("/admin/")
+    || path === "/operations"
+    || path.startsWith("/operations/");
 }
 
 async function requestOrigin() {
