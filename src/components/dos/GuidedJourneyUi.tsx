@@ -10,7 +10,7 @@ import type { DosGuidedResourceSession, DosGuidedResourceSessionChapter } from "
  * Visual + interaction source of truth: journey-canonical-mockup_1.html (founder approved).
  * Tokens below are lifted directly from that file:
  *   ink #0F1520 · ink-2 #3D4654 · ink-3 #6B7686 · ink-4 #9AA4B2
- *   hair #EDEFF2 · hair-2 #E3E6EB · tint #FBFAF8 · warm #FCFAF6
+ *   hair #EDEFF2 · hair-2 #E3E6EB · band #F8FBFF · question #EBF2FF
  *   blue #2450C8 · blue-2 #1B3EA0 · blue-soft #EEF2FD
  *   green #1F7A4D · green-soft #EDF7F1
  *
@@ -28,11 +28,11 @@ const theme = {
     title: "text-[#0F1520]",
     body: "text-[#3D4654]",
     muted: "text-[#6B7686]",
-    faint: "text-[#9AA4B2]",
+    faint: "text-[#64748B]",
     hair: "border-[#EDEFF2]",
     hair2: "border-[#E3E6EB]",
-    band: "bg-[#FBFAF8] border-y border-[#EDEFF2]",
-    warm: "bg-[#FCFAF6]",
+    band: "bg-[#F8FBFF] border-y border-[#EAF2FF]",
+    warm: "bg-[#EBF2FF] border-y border-[#DCEBFF]",
     track: "bg-[#E7E9ED]",
     fill: "bg-[#2450C8]",
     selectorLabel: "text-[#2450C8]",
