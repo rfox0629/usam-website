@@ -23,6 +23,7 @@ const directory = read("app/groups/page.tsx");
 const publicTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const visualSystem = read("app/groups/GroupTemplateVisual.tsx");
+const memberInstallPrompt = read("app/groups/MemberHomeInstallPrompt.tsx");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const routeAwareFooter = read("components/RouteAwareSiteFooter.tsx");
 const groupLogoMark = appClient.slice(appClient.indexOf("function GroupLogoMark"), appClient.indexOf("function groupTypeLabel"));
@@ -42,19 +43,29 @@ for (const requiredPhrase of [
   assertIncludes(visualSystem, requiredPhrase, `Generated template artwork must preserve phrase: ${requiredPhrase}.`);
 }
 
-// USA-57 founder direction reversed the previous dark/gold treatment. These
-// guards previously required `#C2A14E` and `#080A0D` on every Groups surface,
-// which is what locked the drift in place. They now enforce the opposite: the
-// authenticated/public Community surfaces belong to the DOS design system.
-// USA Missionaries gold remains the marketing brand; it is no longer painted
-// onto DOS product surfaces.
-for (const source of [directory, publicTemplate, memberHomeView, visualSystem]) {
-  assertNotIncludes(source, "#C2A14E", "Groups surfaces must not reintroduce the gold Community drift.");
+// USA-57 founder correction: the branding boundary is enforced BY SURFACE,
+// not as a global ban on gold.
+//
+// - USA Missionaries public directory/detail may carry the USA Missionaries
+//   brand, including restrained gold.
+// - Authenticated DOS member/installable surfaces stay on DOS tokens so a
+//   participant never lands in an unrelated black/gold product.
+// - No surface returns to the dark brutalist treatment.
+for (const source of [directory, publicTemplate]) {
+  assertIncludes(source, "usamPublic", "Public USA Missionaries surfaces must use the USA Missionaries public brand tokens.");
+}
+
+for (const source of [memberHomeView, memberInstallPrompt]) {
+  assertNotIncludes(source, "#C2A14E", "DOS member surfaces must not use USA Missionaries gold.");
+  assertIncludes(source, "#2563EB", "DOS member surfaces must use DOS blue.");
+}
+
+for (const source of [directory, publicTemplate, memberHomeView, visualSystem, memberInstallPrompt]) {
   assertNotIncludes(source, "#080A0D", "Groups surfaces must not reintroduce the dark Community drift.");
 }
 
 for (const source of [directory, publicTemplate, memberHomeView]) {
-  assertIncludes(source, "community-design", "Groups surfaces must read the shared DOS Community tokens.");
+  assertIncludes(source, "community-design", "Groups surfaces must read the shared Community token module.");
 }
 
 assertIncludes(visualSystem, "GroupTemplateArtwork", "Generated template artwork component must exist.");
@@ -65,7 +76,7 @@ assertNotIncludes(visualSystem, "2three2 ${titleCase", "Generated artwork must n
 assertIncludes(directory, "formatLeaderLine(group.leaders)", "Directory cards must show leader attribution.");
 assertIncludes(directory, "loadPublicGroupLeaderNames", "Directory must load public leader names through the server helper.");
 assertIncludes(directory, "Find a group near you.", "Directory hero must invite a visitor to find a group.");
-assertIncludes(directory, "GroupTemplateArtwork input={group}", "Directory cards must use generated template artwork.");
+assertIncludes(directory, "<GroupTemplateArtwork brand=\"usam\" input={group} />", "Directory cards must use generated template artwork in the USA Missionaries brand.");
 assertIncludes(directory, "Running Group", "Directory cards must avoid redundant 2three2 running labels.");
 assertNotIncludes(directory, "line-clamp-3", "Directory cards should avoid paragraph-heavy copy.");
 assertIncludes(routeAwareFooter, 'pathname?.startsWith("/groups")', "Groups routes must suppress the full site footer.");

@@ -15,13 +15,12 @@ import {
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
-  communityCard,
-  communityCardInteractive,
-  communityChip,
-  communityChipMuted,
-  communityFieldLabel,
   communityOrgLabel,
-  communityPage,
+  usamPublicCard,
+  usamPublicCardInteractive,
+  usamPublicChipMuted,
+  usamPublicFieldLabel,
+  usamPublicPage,
 } from "./community-design";
 import { buildCommunitySchedule, publicSafeText, type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
@@ -279,7 +278,7 @@ export default async function PublicGroupsDirectoryPage() {
   const { groups, site } = await loadPublicDirectoryData(requestHostname(headersList));
 
   return (
-    <main className={communityPage}>
+    <main className={usamPublicPage}>
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-3">
           <Link className={communityOrgLabel} href="/">
@@ -293,7 +292,7 @@ export default async function PublicGroupsDirectoryPage() {
             />
             {site.displayName}
           </Link>
-          <span className={communityChipMuted}>Groups</span>
+          <span className={usamPublicChipMuted}>Groups</span>
         </header>
 
         <section className="mt-6">
@@ -310,26 +309,26 @@ export default async function PublicGroupsDirectoryPage() {
           <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {groups.map((group) => (
               <Link
-                className={`group flex flex-col overflow-hidden ${communityCardInteractive}`}
+                className={`group flex flex-col overflow-hidden ${usamPublicCardInteractive}`}
                 href={publicGroupPath(group.slug, site)}
                 key={group.slug}
               >
-                <GroupTemplateArtwork input={group} />
+                <GroupTemplateArtwork brand="usam" input={group} />
                 <span className="flex flex-1 flex-col p-4">
                   {publicSafeText(group.location) ? (
                     <span className="mb-2 flex flex-wrap items-center gap-1.5">
-                      <span className={communityChipMuted}>{publicSafeText(group.location)}</span>
+                      <span className={usamPublicChipMuted}>{publicSafeText(group.location)}</span>
                     </span>
                   ) : null}
                   <span className="block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
-                  <span className="mt-1 block text-sm font-bold text-[#1D4ED8]">{group.tagline}</span>
+                  <span className="mt-1 block text-sm font-bold text-[#A47F2A]">{group.tagline}</span>
                   <span className="mt-2 block text-sm font-semibold leading-6 text-[#64748B]">
                     {formatLeaderLine(group.leaders)}
                   </span>
 
                   <span className="mt-auto block pt-4">
-                    <span className="block rounded-2xl bg-[#F8FBFF] px-3 py-2.5">
-                      <span className={communityFieldLabel}>{group.schedule.isDated ? "Next gathering" : "Meets"}</span>
+                    <span className="block rounded-2xl bg-[#FBF9F4] px-3 py-2.5">
+                      <span className={usamPublicFieldLabel}>{group.schedule.isDated ? "Next gathering" : "Meets"}</span>
                       <span className="mt-1 block text-sm font-bold text-[#0F172A]">{group.schedule.headline}</span>
                       <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">{group.schedule.detail}</span>
                     </span>
@@ -339,7 +338,7 @@ export default async function PublicGroupsDirectoryPage() {
             ))}
           </section>
         ) : (
-          <section className={`mt-6 p-6 ${communityCard}`}>
+          <section className={`mt-6 p-6 ${usamPublicCard}`}>
             <p className="text-base font-black text-[#0F172A]">No public groups yet.</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
               Groups appear here once a leader publishes them.
@@ -349,7 +348,7 @@ export default async function PublicGroupsDirectoryPage() {
 
         <footer className="mt-auto pt-8 text-center text-xs font-bold text-[#64748B]">
           Powered by{" "}
-          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+          <Link className="text-[#A47F2A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
             {site.displayName}
           </Link>
         </footer>
