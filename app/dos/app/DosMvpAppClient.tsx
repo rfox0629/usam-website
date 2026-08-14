@@ -37,6 +37,7 @@ import {
   type DosResource,
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
+import { dosJourneyScripture, hasDosJourneyScripture } from "@/src/lib/dos/journey-scriptures";
 import {
   GuidedJourneyChapterContent,
   GuidedJourneyCompactNav,
@@ -46,10 +47,12 @@ import {
   GuidedJourneyResourceHeader,
   GuidedJourneyResponseField,
   GuidedJourneyResponses,
+  GuidedJourneyScripture,
   GuidedJourneySessionSelector,
   guidedJourneyActionHelper,
   guidedJourneyPrayerHelper,
   guidedJourneyReflectionHelper,
+  guidedJourneySessionScriptures,
 } from "@/src/components/dos/GuidedJourneyUi";
 import {
   createDefaultDosTableInvitation,
@@ -5799,7 +5802,10 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
-  const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
+  // In the Library every resource is a plain, whole-row-tappable entry that
+  // opens its full Resource page. The richer card with inline actions is only
+  // for the assign pickers, which have no row-level open handler.
+  const isGuidedResourceCard = isGuidedResource(resource) && !onClick && !onOpenResource;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
   const iconContent = resource.emoji ? (
@@ -5807,10 +5813,17 @@ function CatalogResourceRow({
   ) : (
     <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
   );
-  const description = resource.type === "reading_plan"
-    ? resource.content?.subtitle ?? resource.description
-    : resource.description;
+  // Library rows all use the short description so the list keeps one rhythm.
+  // The longer subtitle still carries the public resource pages.
+  const description = resource.description;
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
+  // Book studies and reading plans carry one combined label — "Book Study ·
+  // 7 Weeks", "Reading Plan · 14 Days" — instead of a type chip plus a
+  // separate duration chip. Nothing in the Library says "Guided Journey".
+  const hasCombinedKindLabel = isGuidedResource(resource) && Boolean(resource.estimatedDuration);
+  const rowKindLabel = hasCombinedKindLabel
+    ? `${libraryResourceKindLabel(resource)} · ${resource.estimatedDuration}`
+    : typeLabel;
 
   if (isGuidedResourceCard) {
     const activeAssignment = activeResourceAssignmentForPerson({ assignments: resourceAssignments, personId: progressPersonId, resource });
@@ -5930,21 +5943,33 @@ function CatalogResourceRow({
 
   const rowContent = (
     <>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
-        {iconContent}
-      </span>
+      {resource.coverImage ? (
+        <img
+          alt={resource.coverImage.alt}
+          className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+          loading="lazy"
+          src={resource.coverImage.src}
+        />
+      ) : (
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
+          {iconContent}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{resource.title}</span>
           <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            {typeLabel}
+            {rowKindLabel}
           </span>
-          {resource.estimatedDuration ? (
+          {!hasCombinedKindLabel && resource.estimatedDuration ? (
             <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
               {resource.estimatedDuration}
             </span>
           ) : null}
         </span>
+        {resource.author ? (
+          <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#475569]">{resource.author}</span>
+        ) : null}
         <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
       {actionLabel ? (
@@ -6082,6 +6107,13 @@ function dosLibraryResourceHref(resource: DosResource, workspaceSlug?: string) {
   return `${resource.path}?${query.toString()}`;
 }
 
+// Reader-facing name for a book study or reading plan. "Guided Journey" and
+// "Guided Resource" are internal architecture words and never reach the
+// Library.
+function libraryResourceKindLabel(resource: DosResource) {
+  return resource.type === "reading_plan" ? "Reading Plan" : "Book Study";
+}
+
 function resourceTypeLabel(resource: DosResource) {
   switch (resource.type) {
     case "assessment":
@@ -6173,6 +6205,7 @@ function GuidedResourceDetailSheet({
   isSubmitting,
   onAssign,
   onClose,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -6187,6 +6220,7 @@ function GuidedResourceDetailSheet({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onClose: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -6282,7 +6316,9 @@ function GuidedResourceDetailSheet({
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
       description={resourceSummary}
-      eyebrow={`${isReadingPlan ? "Guided Reading Plan" : "Guided Journey"}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
+      // Same reader-facing wording as the Library row, so a resource is a
+      // "Book Study" or "Reading Plan" everywhere it is named.
+      eyebrow={`${libraryResourceKindLabel(resource)}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
       isFeatured={Boolean(resource.featured)}
       onAssign={onAssign ? () => onAssign(resource) : undefined}
       purchaseHref={purchaseLink?.href ?? null}
@@ -6290,19 +6326,11 @@ function GuidedResourceDetailSheet({
     />
   );
 
-  const notices = (
-    <>
-      {readOnly ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
-          Preview mode. Changes are not saved.
-        </p>
-      ) : !personId ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#F0E2C4] bg-[#FCFAF6] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#A07A35] sm:mx-6">
-          Connect a person record to save progress.
-        </p>
-      ) : null}
-    </>
-  );
+  const notices = readOnly ? (
+    <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
+      Preview mode. Changes are not saved.
+    </p>
+  ) : null;
 
   const journeyBand = (
     <GuidedJourneyProgress
@@ -6390,6 +6418,19 @@ function GuidedResourceDetailSheet({
         </GuidedJourneyResponseField>
       </GuidedJourneyResponses>
 
+      {/* Scripture closes the week as supporting reference material. */}
+      <GuidedJourneyScripture
+        canOpenScripture={hasDosJourneyScripture}
+        onOpenScripture={(reference, event) => {
+          const scripture = dosJourneyScripture(reference);
+
+          if (scripture && onOpenScripture) {
+            onOpenScripture(scripture, event);
+          }
+        }}
+        references={guidedJourneySessionScriptures(selectedSession)}
+      />
+
       {errorMessage ? (
         <p className="mx-5 mt-4 rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:mx-6">
           {errorMessage}
@@ -6425,27 +6466,10 @@ function GuidedResourceDetailSheet({
 
   const dockPrimaryLabel = selectedSession ? `Complete ${unitNoun} ${selectedSession.order}` : `Complete ${unitNoun}`;
 
-  // The DOS scroll container is padded (pb-40 under md, md:pb-10) to clear the
-  // absolute bottom tab bar, and sticky `bottom` resolves against that padding
-  // box. Offset it back down so the dock rides just above the tab bar instead
-  // of floating ~89px up the screen with content visible underneath.
-  const dockStickyBottom =
-    "bottom-[calc(env(safe-area-inset-bottom)-89px)] md:bottom-[-40px] min-[900px]:bottom-0";
-
-  const stickyDock = selectedSession ? (
+  // One completion action, at the natural end of the week rather than pinned
+  // to the viewport.
+  const completionAction = selectedSession ? (
     <GuidedJourneyDock
-      onPrimary={() => void saveProgress(true)}
-      onSecondary={() => void saveProgress()}
-      primaryDisabled={!canWrite}
-      primaryLabel={isSubmitting ? "Saving..." : dockPrimaryLabel}
-      secondaryLabel="Save and finish later"
-      stickyBottomClassName={dockStickyBottom}
-    />
-  ) : null;
-
-  const inlineDock = selectedSession ? (
-    <GuidedJourneyDock
-      isSticky={false}
       onPrimary={() => void saveProgress(true)}
       onSecondary={() => void saveProgress()}
       primaryDisabled={!canWrite}
@@ -6454,32 +6478,14 @@ function GuidedResourceDetailSheet({
     />
   ) : null;
 
-  // The DOS scroll container is padded at the top (pt-11, md:pt-6); pull the
-  // sticky nav up over it so nothing scrolls through the strip above the bar.
-  const navStickyTop = "top-[-44px] md:top-[-24px]";
-
+  // Returning participants keep the compact identity strip. The way back lives
+  // above the Journey content, so this bar carries no back control of its own.
   const compactNav = (
     <GuidedJourneyCompactNav
       completedCount={completion.completed}
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
-      onBack={onClose}
       positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
-      title={resource.title}
-      totalCount={completion.total}
-    />
-  );
-
-  // First open: the resource block below carries the identity, so the bar is
-  // just the way back (mockup `navBar(r, false)`).
-  const simpleNav = (
-    <GuidedJourneyCompactNav
-      completedCount={completion.completed}
-      isCompact={false}
-      onBack={onClose}
-      positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
       title={resource.title}
       totalCount={completion.total}
     />
@@ -6487,13 +6493,14 @@ function GuidedResourceDetailSheet({
 
   const singleColumn = (
     <div className="flex min-h-full flex-col bg-white min-[900px]:hidden">
-      {hasStarted ? compactNav : simpleNav}
+      {hasStarted ? compactNav : null}
       {hasStarted ? null : resourceHeader}
       {notices}
       {journeyBand}
       {selector}
       {reading}
-      {stickyDock}
+      {completionAction}
+      <div className="h-6" />
     </div>
   );
 
@@ -6502,7 +6509,6 @@ function GuidedResourceDetailSheet({
       <GuidedJourneyLayout
         rail={
           <>
-            {simpleNav}
             {resourceHeader}
             {notices}
             {journeyBand}
@@ -6512,7 +6518,7 @@ function GuidedResourceDetailSheet({
         reading={
           <>
             {reading}
-            {inlineDock}
+            {completionAction}
           </>
         }
       />
@@ -33674,6 +33680,7 @@ function LibraryCatalogResourcePage({
   isSubmitting,
   onAssign,
   onBack,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -33686,6 +33693,7 @@ function LibraryCatalogResourcePage({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onBack: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -33702,24 +33710,33 @@ function LibraryCatalogResourcePage({
   resource: DosResource;
 }) {
   if (isGuidedResource(resource)) {
-    // The Journey shell renders its own sticky `‹ Library` nav, so no outer
-    // back pill here — one way back, not two.
+    // The way back sits above the Journey content, so the Journey's own nav
+    // strip carries identity only.
     return (
-      <div className="bg-white">
-        <GuidedResourceDetailSheet
-          assignments={assignments}
-          errorMessage={errorMessage}
-          guidedResourceProgress={guidedResourceProgress}
-          isSubmitting={isSubmitting}
-          onAssign={onAssign}
-          onClose={onBack}
-          onReviewNotes={onReviewNotes}
-          onSaveProgress={onSaveProgress}
-          onStartNextResource={onStartNextResource}
-          personId={personId}
-          resource={resource}
-          variant="page"
-        />
+      <div className="grid gap-3">
+        <LibraryResourceBackButton onClick={onBack} />
+        {/*
+          Same rounded surface as every other DOS card, and clipped so the
+          full-bleed Journey bands follow the radius instead of leaving square
+          corners against the DOS background.
+        */}
+        <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <GuidedResourceDetailSheet
+            assignments={assignments}
+            errorMessage={errorMessage}
+            guidedResourceProgress={guidedResourceProgress}
+            isSubmitting={isSubmitting}
+            onAssign={onAssign}
+            onClose={onBack}
+            onOpenScripture={onOpenScripture}
+            onReviewNotes={onReviewNotes}
+            onSaveProgress={onSaveProgress}
+            onStartNextResource={onStartNextResource}
+            personId={personId}
+            resource={resource}
+            variant="page"
+          />
+        </div>
       </div>
     );
   }
@@ -41162,10 +41179,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         errorMessage={errorMessage}
                         guidedResourceProgress={data.guidedResourceProgress}
                         isSubmitting={isSubmitting}
-                        onAssign={(resource) => openResourceAssignmentCreate(resource, myRecordPerson?.id ?? null, {
-                          assignmentContext: myRecordPerson?.id ? "self" : "library",
-                        })}
+                        // Assigning moved off the Library row, so the Resource
+                        // page keeps the full "myself / a person / a group"
+                        // picker rather than only self-assigning.
+                        onAssign={openAssignTargetPicker}
                         onBack={closeLibraryResourceView}
+                        onOpenScripture={openScriptureQuickView}
                         onReviewNotes={() => openMyRecordTab("learning")}
                         onSaveProgress={saveGuidedResourceProgress}
                         onStartNextResource={closeLibraryResourceView}
@@ -41259,13 +41278,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         </LibrarySection>
 
                         <LibrarySection title="Discipleship">
+                          {/*
+                            Plain list entries, same pattern as Commands of Jesus.
+                            Assigning, starting, continuing, progress and purchase
+                            all live on the full Resource page, not in the Library.
+                          */}
                           <CatalogResourceList
-                            guidedResourceProgress={data.guidedResourceProgress}
-                            onAssign={openAssignTargetPicker}
-                            onOpenGuidedResource={openLibraryResource}
-                            onReviewGuidedResource={() => openMyRecordTab("learning")}
-                            progressPersonId={myRecordPerson?.id ?? null}
-                            resourceAssignments={data.resourceAssignments}
+                            onOpenResource={openLibraryResource}
                             resources={dosDiscipleshipResourceItems}
                             workspaceSlug={data.workspace.slug}
                           />
