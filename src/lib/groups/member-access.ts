@@ -1,8 +1,15 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
+import {
+  buildDemoGroupMemberSessionToken,
+  demoGroupMemberAccessTokenPrefix,
+  parseDemoGroupMemberAccessToken,
+  parseDemoGroupMemberSessionToken,
+} from "@/src/lib/groups/demo-member-access";
 import { missingPublicSiteSchema, publicGroupPath } from "@/src/lib/groups/public-site";
 import { isRouteBuilderEligibleGroup } from "@/src/lib/groups/route-builder";
 
@@ -302,7 +309,42 @@ function expiresIso(ttlMs: number) {
 }
 
 function isExpired(value: string) {
-  return new Date(value).getTime() <= Date.now();
+  const timestamp = new Date(value).getTime();
+
+  return Number.isNaN(timestamp) || timestamp <= Date.now();
+}
+
+function demoGroupMemberAccessEnabled() {
+  return process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"
+    && (process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview" || process.env.VERCEL_ENV === "development");
+}
+
+export function claimDemoGroupMemberAccessToken(
+  token: string,
+  expectedSlug: string,
+): { error?: "disabled" | "expired" | "invalid"; groupSlug?: string; sessionToken?: string } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { error: "disabled" };
+  }
+
+  if (!token.trim().startsWith(demoGroupMemberAccessTokenPrefix)) {
+    return { error: "disabled" };
+  }
+
+  const payload = parseDemoGroupMemberAccessToken(token);
+
+  if (!payload || payload.groupSlug !== expectedSlug) {
+    return { error: "invalid" };
+  }
+
+  if (isExpired(payload.expiresAt)) {
+    return { error: "expired" };
+  }
+
+  return {
+    groupSlug: payload.groupSlug,
+    sessionToken: buildDemoGroupMemberSessionToken(payload),
+  };
 }
 
 function memberIsActive(member: MemberRow | null | undefined): member is MemberRow {
@@ -693,6 +735,77 @@ function mapRsvpStatus(value: string | null | undefined): "active" | "canceled" 
 
 function mapAttendanceStatus(value: string | null | undefined): "absent" | "guest" | "present" {
   return value === "absent" || value === "guest" ? value : "present";
+}
+
+export function loadDemoGroupMemberPortalData(input: {
+  sessionToken: string | null | undefined;
+  slug: string;
+}): { data?: GroupMemberPortalData; error?: string; unauthorized?: boolean } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { unauthorized: true };
+  }
+
+  const payload = parseDemoGroupMemberSessionToken(input.sessionToken);
+
+  if (!payload || payload.groupSlug !== input.slug || isExpired(payload.expiresAt)) {
+    return { unauthorized: true };
+  }
+
+  const resource = getDosResourceBySlug(payload.resourceSlug);
+  const resourceSlug = resource?.type === "guided_resource" && resource.content?.guidedResource
+    ? payload.resourceSlug
+    : "marks-of-discipleship";
+
+  return {
+    data: {
+      attendance: [],
+      group: {
+        description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
+        id: payload.groupId,
+        location: "Ryan's House",
+        name: payload.groupName,
+        rhythm: "Weekly · Wednesday · 5:30 PM",
+        routeBuilderEligible: false,
+        slug: payload.groupSlug,
+        tagline: "Brotherhood. Prayer. Discipleship.",
+        type: "Discipleship group",
+      },
+      identity: {
+        email: payload.personName === "Tanner Kent" ? "tanner.kent@example.com" : null,
+        id: payload.identityId,
+        name: payload.personName,
+        personId: payload.personId,
+        phone: null,
+      },
+      journeyAssignments: [
+        {
+          completedAt: null,
+          dueDate: null,
+          id: `demo-assignment-${payload.memberId}-${resourceSlug}`,
+          personalMessage: null,
+          resourceSlug,
+          startDate: payload.startDate,
+          status: "not_started",
+        },
+      ],
+      journeyProgress: [],
+      nextGathering: {
+        description: "Study Scripture, pray together, and encourage one another.",
+        endsAt: "2026-08-19T20:00:00-05:00",
+        id: "demo-wednesday-mens-next-gathering",
+        location: "Ryan's House",
+        startsAt: "2026-08-19T18:30:00-05:00",
+        status: "scheduled",
+        title: "Wednesday Men's Group",
+      },
+      prayerRequests: [],
+      preferences: [],
+      resources: [],
+      rsvp: null,
+      sessionId: `demo-session-${payload.identityId}`,
+      updates: [],
+    },
+  };
 }
 
 export async function loadGroupMemberPortalData(

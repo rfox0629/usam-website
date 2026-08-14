@@ -16,6 +16,8 @@ export function groupHomeStateMessage(value: string | null) {
   switch (value) {
     case "access-expired":
       return "That link has expired. Ask your group leader for a fresh one.";
+    case "access-invalid":
+      return "That access link is not valid. Ask your group leader for a fresh one.";
     case "access-requested":
       return "If that email belongs to an active member, your leader can send a fresh link.";
     case "access-unavailable":

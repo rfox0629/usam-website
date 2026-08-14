@@ -86,7 +86,7 @@ export function assignmentStartDateFromPayload(value: unknown) {
 }
 
 export function assignmentDueDateFromPayload(value: unknown, resource: DosResource, startDate: string) {
-  if (value === null || (typeof value === "string" && value.trim() === "")) {
+  if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
     return null;
   }
 

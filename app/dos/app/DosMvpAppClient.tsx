@@ -107,6 +107,10 @@ import {
   routeBuilderComingSoonLabel,
   routeBuilderComingSoonStatus,
 } from "@/src/lib/groups/route-builder";
+import {
+  buildDemoGroupMemberAccessToken,
+  type DemoGroupMemberAccessPayload,
+} from "@/src/lib/groups/demo-member-access";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import {
   addDaysToResourceAssignmentDateKey,
@@ -1081,6 +1085,7 @@ type ResourceAssignmentNotice = {
 type ResourceAssignmentInvitationTarget = {
   groupId: string;
   groupName: string;
+  groupSlug: string;
   memberId: string;
   personId: string;
   personName: string;
@@ -1469,15 +1474,45 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   }
 }
 
+const displayCalendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseDisplayCalendarDateParts(value: string | null | undefined) {
+  const match = value?.trim().match(displayCalendarDatePattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const normalized = new Date(timestamp).toISOString().slice(0, 10);
+
+  return normalized === value?.trim()
+    ? { day, month, year }
+    : null;
+}
+
+function isDisplayCalendarDate(value: string | null | undefined) {
+  return Boolean(parseDisplayCalendarDateParts(value));
+}
+
 function parseDisplayDate(value: string | null) {
   if (!value) {
     return null;
   }
 
-  const normalizedValue = value.includes("T") ? value : `${value}T12:00:00`;
-  const date = new Date(normalizedValue);
+  const calendarParts = parseDisplayCalendarDateParts(value);
+  const date = calendarParts
+    ? new Date(Date.UTC(calendarParts.year, calendarParts.month - 1, calendarParts.day, 12, 0, 0, 0))
+    : new Date(value);
 
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function displayTimeZoneForValue(value: string | null | undefined) {
+  return isDisplayCalendarDate(value) ? "UTC" : dosDisplayTimeZone;
 }
 
 const dosDisplayTimeZone = groupDisplayTimeZone;
@@ -1603,7 +1638,7 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
-    timeZone: dosDisplayTimeZone,
+    timeZone: displayTimeZoneForValue(value),
     year: "numeric",
   }).format(date);
 }
@@ -1618,7 +1653,7 @@ function formatShortDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
-    timeZone: dosDisplayTimeZone,
+    timeZone: displayTimeZoneForValue(value),
   }).format(date);
 }
 
@@ -8455,7 +8490,9 @@ type GroupJourneyRow = {
 };
 
 function groupJourneyDateValue(value: string | null | undefined) {
-  return value ? new Date(`${value.slice(0, 10)}T12:00:00`).getTime() : 0;
+  const parts = parseDisplayCalendarDateParts(value?.slice(0, 10));
+
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) : 0;
 }
 
 function groupJourneyAssignmentEndDate(assignment: DosAppResourceAssignment, resource: DosResource) {
@@ -8622,7 +8659,33 @@ function GroupJourneysTabV2({
 
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
-      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      const previewJourney = currentRows[0] ?? upcomingRows[0] ?? pastRows[0] ?? null;
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl({
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        memberId: member.id,
+        personId: member.personId,
+        personName: member.personName,
+      }, {
+        expiresAt,
+        resourceSlug: previewJourney?.resourceSlug ?? "marks-of-discipleship",
+        startDate: previewJourney?.startDate ?? todayResourceAssignmentDateKey(),
+      });
+
+      if (!accessUrl) {
+        setMemberAccessMessage({ text: "Unable to create a demo member access link.", tone: "error" });
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(accessUrl);
+        setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
+      } catch {
+        setMemberAccessMessage({ text: accessUrl, tone: "success" });
+      }
+
       return;
     }
 
@@ -8649,11 +8712,13 @@ function GroupJourneysTabV2({
         throw new Error(result.error ?? "Unable to create member access link.");
       }
 
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
       try {
-        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
+        await navigator.clipboard.writeText(accessUrl);
         setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
       } catch {
-        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
+        setMemberAccessMessage({ text: accessUrl, tone: "success" });
       }
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
@@ -10709,7 +10774,32 @@ function GroupMembersTab({
 
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
-      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl({
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        memberId: member.id,
+        personId: member.personId,
+        personName: member.personName,
+      }, {
+        expiresAt,
+        resourceSlug: "marks-of-discipleship",
+        startDate: todayResourceAssignmentDateKey(),
+      });
+
+      if (!accessUrl) {
+        setMemberAccessMessage({ text: "Unable to create a demo member access link.", tone: "error" });
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(accessUrl);
+        setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
+      } catch {
+        setMemberAccessMessage({ text: accessUrl, tone: "success" });
+      }
+
       return;
     }
 
@@ -10736,11 +10826,13 @@ function GroupMembersTab({
         throw new Error(result.error ?? "Unable to create member access link.");
       }
 
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
       try {
-        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
+        await navigator.clipboard.writeText(accessUrl);
         setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
       } catch {
-        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
+        setMemberAccessMessage({ text: accessUrl, tone: "success" });
       }
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
@@ -13418,6 +13510,74 @@ function CommitmentSuccessSheet({
   );
 }
 
+const demoParticipantAccessTtlMs = 1000 * 60 * 60 * 24 * 7;
+
+function participantLinkShouldUseCurrentOrigin(url: URL) {
+  const hostname = url.hostname.toLowerCase();
+
+  return hostname === "localhost"
+    || hostname === "127.0.0.1"
+    || hostname.endsWith(".localhost")
+    || hostname.endsWith(".vercel.app");
+}
+
+function participantInvitationUrlForCurrentContext(value: string) {
+  if (typeof window === "undefined") {
+    return value;
+  }
+
+  try {
+    const currentUrl = new URL(window.location.href);
+    const accessUrl = new URL(value, currentUrl.origin);
+
+    if (participantLinkShouldUseCurrentOrigin(currentUrl)) {
+      accessUrl.protocol = currentUrl.protocol;
+      accessUrl.host = currentUrl.host;
+    }
+
+    const vercelShareToken = currentUrl.searchParams.get("_vercel_share");
+
+    if (vercelShareToken && accessUrl.origin === currentUrl.origin) {
+      accessUrl.searchParams.set("_vercel_share", vercelShareToken);
+    }
+
+    return accessUrl.toString();
+  } catch {
+    return value;
+  }
+}
+
+function cleanDemoAccessId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "member";
+}
+
+function buildPreviewParticipantAccessUrl(
+  target: ResourceAssignmentInvitationTarget,
+  input: { expiresAt: string; resourceSlug: string; startDate: string },
+) {
+  if (typeof window === "undefined" || !target.groupSlug) {
+    return "";
+  }
+
+  const payload: DemoGroupMemberAccessPayload = {
+    expiresAt: input.expiresAt,
+    groupId: target.groupId,
+    groupName: target.groupName,
+    groupSlug: target.groupSlug,
+    identityId: `demo-identity-${cleanDemoAccessId(target.groupId)}-${cleanDemoAccessId(target.personId)}`,
+    memberId: target.memberId,
+    personId: target.personId,
+    personName: target.personName,
+    resourceSlug: input.resourceSlug,
+    startDate: input.startDate,
+  };
+  const accessUrl = new URL(`/groups/${encodeURIComponent(target.groupSlug)}/member/access`, window.location.origin);
+
+  accessUrl.searchParams.set("token", buildDemoGroupMemberAccessToken(payload));
+
+  return participantInvitationUrlForCurrentContext(accessUrl.toString());
+}
+
 function ResourceAssignmentSuccessSheet({
   groups,
   isPreview,
@@ -13444,7 +13604,7 @@ function ResourceAssignmentSuccessSheet({
   const canOpenJourney = Boolean(resource && isGuidedResource(resource) && notice.personId);
   const invitationTargets = useMemo(() => {
     if (notice.invitationTargets?.length) {
-      return notice.invitationTargets.filter((target) => target.groupId && target.memberId && target.personId);
+      return notice.invitationTargets.filter((target) => target.groupId && target.groupSlug && target.memberId && target.personId);
     }
 
     if (!notice.personId) {
@@ -13457,6 +13617,7 @@ function ResourceAssignmentSuccessSheet({
         .map((member) => ({
           groupId: group.id,
           groupName: group.name,
+          groupSlug: group.slug,
           memberId: member.id,
           personId: member.personId,
           personName: member.personName,
@@ -13487,16 +13648,42 @@ function ResourceAssignmentSuccessSheet({
   }
 
   async function createInvitation(target: ResourceAssignmentInvitationTarget) {
-    if (isPreview) {
-      setCopyMessage("Preview mode is read-only. No member access link was created.");
-      return null;
-    }
-
     const key = targetKey(target);
     const existing = invitationState[key];
 
     if (existing?.accessUrl) {
       return existing.accessUrl;
+    }
+
+    if (isPreview) {
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl(target, {
+        expiresAt,
+        resourceSlug: notice.resourceSlug,
+        startDate: notice.startDate,
+      });
+
+      if (!accessUrl) {
+        setInvitationState((current) => ({
+          ...current,
+          [key]: {
+            error: "Unable to create a demo member access link.",
+            isLoading: false,
+          },
+        }));
+        return null;
+      }
+
+      setInvitationState((current) => ({
+        ...current,
+        [key]: {
+          accessUrl,
+          expiresAt,
+          isLoading: false,
+        },
+      }));
+
+      return accessUrl;
     }
 
     setInvitationState((current) => ({ ...current, [key]: { ...current[key], isLoading: true } }));
@@ -13519,16 +13706,18 @@ function ResourceAssignmentSuccessSheet({
         throw new Error(result.error ?? "Unable to create member access link.");
       }
 
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
       setInvitationState((current) => ({
         ...current,
         [key]: {
-          accessUrl: result.memberAccess?.accessUrl,
+          accessUrl,
           expiresAt: result.memberAccess?.expiresAt,
           isLoading: false,
         },
       }));
 
-      return result.memberAccess.accessUrl;
+      return accessUrl;
     } catch (error) {
       setInvitationState((current) => ({
         ...current,
@@ -13713,12 +13902,17 @@ function ResourceAssignmentFormSheet({
   sourceGroupId?: string | null;
 }) {
   const selectedPersonId = personId ?? assignment?.personId ?? people[0]?.id ?? "";
-  const startDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
+  const initialStartDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
+  const [startDate, setStartDate] = useState(initialStartDate);
   const estimatedCompletionDate = resourceAssignmentEstimatedCompletionDate(startDate, resource);
   const cadence = assignment?.followUpCadence ?? "none";
   const context = assignmentContext ?? assignment?.assignmentContext ?? "person";
   const groupContextId = sourceGroupId ?? assignment?.sourceGroupId ?? "";
   const assignmentSharingLevel = sharingLevel ?? assignment?.sharingLevel ?? "leader_progress";
+
+  useEffect(() => {
+    setStartDate(initialStartDate);
+  }, [assignment?.id, initialStartDate, resource.slug]);
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Journey" : "Assign Journey"}>
@@ -13740,7 +13934,7 @@ function ResourceAssignmentFormSheet({
             />
           ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
           <DosFormField label="Start Date">
-            <input className={FieldInputClass(false)} defaultValue={startDate} name="start_date" type="date" />
+            <input className={FieldInputClass(false)} name="start_date" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
           </DosFormField>
           <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
             <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Estimate</p>
@@ -37596,22 +37790,41 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   async function handleGroupJourneyAssignSubmit(resourceSlug: string, personIds: string[], options: { reuseExisting: boolean; startDate: string }) {
-    if (isPreview) {
-      setErrorMessage("Preview mode is read-only. Demo changes are not saved.");
-      return;
-    }
-
     if (!personIds.length) {
       setErrorMessage("Choose at least one active member to assign.");
       return;
     }
 
     setErrorMessage("");
-    setIsSubmitting(true);
     const startDate = options.startDate || todayResourceAssignmentDateKey();
     const sourceGroup = groupJourneyAssign?.group ?? null;
     const sourceGroupId = sourceGroup?.id ?? null;
     const selectedMembers = sourceGroup?.members.filter((member) => personIds.includes(member.personId) && member.status === "active") ?? [];
+
+    if (isPreview) {
+      setGroupJourneyAssign(null);
+      setResourceAssignmentNotice({
+        assignmentCount: selectedMembers.length,
+        groupId: sourceGroup?.id ?? null,
+        groupName: sourceGroup?.name ?? null,
+        invitationTargets: selectedMembers.map((member) => ({
+          groupId: sourceGroup?.id ?? "",
+          groupName: sourceGroup?.name ?? "Group",
+          groupSlug: sourceGroup?.slug ?? "",
+          memberId: member.id,
+          personId: member.personId,
+          personName: member.personName,
+        })),
+        kind: "group",
+        personalMessage: null,
+        resourceSlug,
+        startDate,
+        text: `Assigned to ${selectedMembers.length} ${sourceGroup?.name ?? "group"} ${selectedMembers.length === 1 ? "member" : "members"}.`,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     let duplicateCount = 0;
     let failureCount = 0;
     let successCount = 0;
@@ -37677,6 +37890,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         .map((member) => ({
           groupId: sourceGroup?.id ?? "",
           groupName: sourceGroup?.name ?? "Group",
+          groupSlug: sourceGroup?.slug ?? "",
           memberId: member.id,
           personId: member.personId,
           personName: member.personName,
@@ -37823,17 +38037,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const id = String(formData.get("id") ?? "").trim();
+    const personId = String(formData.get("person_id") ?? "");
+    const resourceSlug = String(formData.get("resource_slug") ?? "");
+    const startDate = String(formData.get("start_date") ?? "") || todayResourceAssignmentDateKey();
+
+    if (isPreview && !id) {
+      setErrorMessage("");
+      setResourceAssignmentSheet(null);
+      setResourceAssignmentDuplicate(null);
+      setResourceAssignmentNotice({
+        assignmentId: `demo-assignment-${cleanDemoAccessId(resourceSlug)}-${cleanDemoAccessId(personId)}`,
+        kind: "individual",
+        personId,
+        personName: people.find((person) => person.id === personId)?.name ?? null,
+        personalMessage: null,
+        resourceSlug,
+        startDate,
+        text: "Resource assigned.",
+      });
+      return;
+    }
+
     const result = await submitResourceAssignmentRequest({
       assignmentContext: String(formData.get("assignment_context") ?? ""),
       dueDate: String(formData.get("due_date") ?? ""),
       followUpCadence: String(formData.get("follow_up_cadence") ?? ""),
       id,
-      personId: String(formData.get("person_id") ?? ""),
+      personId,
       personalMessage: String(formData.get("personal_message") ?? ""),
-      resourceSlug: String(formData.get("resource_slug") ?? ""),
+      resourceSlug,
       sharingLevel: String(formData.get("sharing_level") ?? ""),
       sourceGroupId: String(formData.get("source_group_id") ?? ""),
-      startDate: String(formData.get("start_date") ?? ""),
+      startDate,
     }, id ? "PATCH" : "POST");
 
     if (result?.assignment) {

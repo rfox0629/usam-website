@@ -24,17 +24,21 @@ function assertNotIncludes(source, needle, message) {
 
 const migration = read("supabase/migrations/20260717143757_dos_public_groups_member_portal_foundation.sql");
 const memberAccess = read("src/lib/groups/member-access.ts");
+const demoMemberAccess = read("src/lib/groups/demo-member-access.ts");
 const memberPage = read("app/groups/[slug]/member/page.tsx");
+const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const memberInstallPrompt = read("app/groups/MemberHomeInstallPrompt.tsx");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
 const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberJourneyPage = read("app/groups/[slug]/journey/page.tsx");
 const memberManifestRoute = read("app/groups/[slug]/manifest.webmanifest/route.ts");
 const groupLayout = read("app/groups/[slug]/layout.tsx");
 const joinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
 const membersRoute = read("app/api/dos/app/groups/members/route.ts");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const preview = read("app/dos/app/preview/page.tsx");
 const groupJourneyView = read("app/groups/GroupJourneyView.tsx");
 const sharedJourneyUi = read("src/components/dos/GuidedJourneyUi.tsx");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
@@ -71,6 +75,11 @@ assertIncludes(memberAccess, "randomBytes", "Member access helper must generate 
 assertIncludes(memberAccess, "createGroupMemberAccessInvitation", "Member access helper must create invitations.");
 assertIncludes(memberAccess, "claimGroupMemberAccessToken", "Member access helper must claim tokens.");
 assertIncludes(memberAccess, "loadGroupMemberPortalData", "Member access helper must load portal data through active membership checks.");
+assertIncludes(memberAccess, "claimDemoGroupMemberAccessToken", "Demo-safe preview access must reuse the member access claim boundary.");
+assertIncludes(memberAccess, "loadDemoGroupMemberPortalData", "Demo-safe preview access must load the same scoped member home shape.");
+assertIncludes(memberAccess, "process.env.NODE_ENV !== \"production\" || process.env.VERCEL_ENV === \"preview\"", "Demo-safe member access must remain disabled in production.");
+assertIncludes(demoMemberAccess, "demoGroupMemberAccessTokenPrefix", "Demo-safe invitations must use an explicit scoped token prefix.");
+assertIncludes(demoMemberAccess, "demoGroupMemberSessionTokenPrefix", "Demo-safe member sessions must use an explicit scoped session prefix.");
 assertIncludes(memberAccess, "name: person.name ?? \"Group member\"", "Member home data must include the scoped participant name.");
 assertIncludes(memberAccess, "memberIsActive", "Member portal must require active membership.");
 assertIncludes(memberAccess, "groupIsMemberAccessible", "Member portal must require active group/member access.");
@@ -78,7 +87,12 @@ assertIncludes(memberAccess, "Boolean(group && group.active !== false", "Member 
 assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links must resolve through public_sites when available.");
 assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
 assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+assertIncludes(memberAccessRoute, "claimDemoGroupMemberAccessToken", "Member access route must support demo-safe scoped invitations through the canonical route.");
+assertIncludes(memberAccessRoute, "state=access-invalid", "Invalid or missing member access must show a deliberate invalid-access screen.");
 assertIncludes(memberAccessRoute, "NextResponse.redirect(new URL(`${publicGroupPath(result.groupSlug ?? slug)}?state=signed-in`, url.origin))", "Access claim must redirect to stable member home, not a raw journey URL.");
+assertIncludes(memberPage, "loadDemoGroupMemberPortalData", "Member sign-in bridge must recognize demo-safe scoped sessions.");
+assertIncludes(publicGroupPage, "loadDemoGroupMemberPortalData", "Stable public group route must prefer an active scoped member session before public-page 404 handling.");
+assertIncludes(memberJourneyPage, "loadDemoGroupMemberPortalData", "Member Journey route must recognize demo-safe scoped sessions.");
 assertIncludes(groupLayout, "manifest: `${publicGroupPath(slug)}/manifest.webmanifest`", "Group layout must attach a slug-specific manifest.");
 assertIncludes(memberManifestRoute, "start_url: startUrl", "Member manifest must start on the stable group member home.");
 assertIncludes(memberManifestRoute, "scope: `${startUrl}/`", "Member manifest scope must cover the group member experience.");
@@ -88,6 +102,7 @@ assertIncludes(memberManifestRoute, "display: \"standalone\"", "Member manifest 
 assertIncludes(memberPage, "Group Home", "Member sign-in bridge must use Group Home language.");
 assertNotIncludes(memberPage, "Member Portal", "Member sign-in bridge must not present a separate portal.");
 assertIncludes(memberHomeView, "DOS Home", "Member home must present a stable scoped DOS home.");
+assertIncludes(memberHomeView, "access-invalid", "Member home must show a clear invalid-access message.");
 assertIncludes(memberHomeView, "data.identity.name", "Member home must lead with participant identity.");
 assertIncludes(memberHomeView, "Active Journeys", "Member home must focus active Journeys.");
 assertIncludes(memberHomeView, "Continue", "Member home must expose one obvious Continue action.");
@@ -112,12 +127,19 @@ assertIncludes(memberActions, ".upsert(", "RSVP/preferences actions must update 
 assertIncludes(memberActions, ".from(\"prayer_requests\")", "Member prayer must reuse prayer_requests.");
 assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member prayer must default to leaders-only visibility.");
 assertIncludes(memberActions, "requestGroupMemberAccess", "Member portal must provide low-friction access request.");
+assertIncludes(memberActions, "loadDemoGroupMemberPortalData", "Demo-safe save/resume must remain scoped to the member session cookie.");
 
 assertIncludes(joinRequestsRoute, "createGroupMemberAccessInvitation", "Accepting a join request must prepare member access.");
 assertIncludes(membersRoute, "send_member_access", "Leader members API must support resending member access.");
+assertIncludes(membersRoute, "memberAccessUrlForRequest", "Leader member access API must return preview-local working URLs when running on Vercel previews.");
 assertIncludes(membersRoute, "loadDosGroupRoleAccess", "Member access resend must remain leader-authorized.");
 assertIncludes(missionaryApp, "memberAccess", "DOS payload must expose compact member access summary.");
 assertIncludes(appClient, "Portal Link", "Leader UI must expose a compact member access control.");
+assertIncludes(appClient, "participantInvitationUrlForCurrentContext", "Leader UI must canonicalize participant invitation URLs in one helper.");
+assertIncludes(appClient, "_vercel_share", "Protected Vercel preview share links must be preserved on participant invitations.");
+assertIncludes(appClient, "buildPreviewParticipantAccessUrl", "Preview assignments must generate a real demo-safe scoped member access URL.");
+assertIncludes(preview, "Tanner Kent", "DOS preview must include Tanner Kent for USA-170 acceptance.");
+assertIncludes(preview, "demo-group-wednesday-member-tanner", "Tanner Kent must be an active Wednesday Men's Group member in preview data.");
 assertIncludes(appClient, "groupMemberPortalStatusLabel", "Leader UI must display member portal status separately from membership status.");
 assertNotIncludes(appClient, "Not Invited", "Leader UI must not conflate participant portal state with group membership language.");
 
