@@ -2,6 +2,7 @@ export const demoGroupMemberAccessTokenPrefix = "demo_group_member_access.";
 export const demoGroupMemberSessionTokenPrefix = "demo_group_member_session.";
 
 export type DemoGroupMemberAccessPayload = {
+  completedSessionIds?: string[];
   expiresAt: string;
   groupId: string;
   groupName: string;
@@ -49,7 +50,12 @@ function parseDemoPayload(value: string): DemoGroupMemberAccessPayload | null {
       return null;
     }
 
+    const completedSessionIds = Array.isArray(parsed.completedSessionIds)
+      ? parsed.completedSessionIds.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
+
     return {
+      completedSessionIds,
       expiresAt: parsed.expiresAt,
       groupId: parsed.groupId,
       groupName: parsed.groupName,

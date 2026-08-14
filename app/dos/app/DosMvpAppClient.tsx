@@ -1090,6 +1090,11 @@ type ResourceAssignmentInvitationTarget = {
   personId: string;
   personName: string;
 };
+type GroupMemberExperiencePreviewState = ResourceAssignmentInvitationTarget & {
+  resourceSlug: string;
+  startDate: string;
+};
+type ParticipantCopyResult = "copied" | "selectable" | "shared";
 type AssignTargetPickerState = { resource: DosResource } | null;
 type GroupJourneyAssignState = { group: DosAppGroup; resource: DosResource | null } | null;
 type ResourceAssignmentDuplicateState = {
@@ -8645,6 +8650,7 @@ function GroupJourneysTabV2({
 }) {
   const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<GroupMemberExperiencePreviewState | null>(null);
   // Explicit selection state. `null` means "no explicit pick yet - default to the
   // first current journey"; "" means the user deliberately collapsed every row.
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
@@ -8660,6 +8666,7 @@ function GroupJourneysTabV2({
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
       const previewJourney = currentRows[0] ?? upcomingRows[0] ?? pastRows[0] ?? null;
+      const previewResourceSlug = previewJourney?.resourceSlug ?? "marks-of-discipleship";
       const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
       const accessUrl = buildPreviewParticipantAccessUrl({
         groupId: group.id,
@@ -8669,8 +8676,11 @@ function GroupJourneysTabV2({
         personId: member.personId,
         personName: member.personName,
       }, {
+        completedSessionIds: guidedResourceProgress
+          .filter((item) => item.personId === member.personId && item.resourceSlug === previewResourceSlug && item.completedAt)
+          .map((item) => item.sessionId),
         expiresAt,
-        resourceSlug: previewJourney?.resourceSlug ?? "marks-of-discipleship",
+        resourceSlug: previewResourceSlug,
         startDate: previewJourney?.startDate ?? todayResourceAssignmentDateKey(),
       });
 
@@ -8679,12 +8689,12 @@ function GroupJourneysTabV2({
         return;
       }
 
-      try {
-        await navigator.clipboard.writeText(accessUrl);
-        setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: accessUrl, tone: "success" });
-      }
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `${member.personName}'s journey link copied.`), tone: "success" });
 
       return;
     }
@@ -8714,12 +8724,12 @@ function GroupJourneysTabV2({
 
       const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
 
-      try {
-        await navigator.clipboard.writeText(accessUrl);
-        setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: accessUrl, tone: "success" });
-      }
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `${member.personName}'s journey link copied.`), tone: "success" });
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
     } finally {
@@ -8733,6 +8743,16 @@ function GroupJourneysTabV2({
     guidedResourceProgress,
     onAssignMore: onAssignJourney,
     onOpenJourney,
+    onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => setPreviewTarget({
+      groupId: group.id,
+      groupName: group.name,
+      groupSlug: group.slug,
+      memberId: member.id,
+      personId: member.personId,
+      personName: member.personName,
+      resourceSlug,
+      startDate,
+    }),
     onSendMemberAccess: sendMemberAccess,
     onToggleExpand: toggleExpand,
     sendingMemberAccessId,
@@ -8773,6 +8793,25 @@ function GroupJourneysTabV2({
               >
                 {memberAccessMessage.text}
               </p>
+            ) : null}
+
+            {previewTarget ? (
+              <MemberExperiencePreviewPanel
+                guidedResourceProgress={guidedResourceProgress}
+                notice={{
+                  groupId: previewTarget.groupId,
+                  groupName: previewTarget.groupName,
+                  invitationTargets: [previewTarget],
+                  kind: "group",
+                  personalMessage: null,
+                  resourceSlug: previewTarget.resourceSlug,
+                  startDate: previewTarget.startDate,
+                  text: "Leader preview",
+                }}
+                onClose={() => setPreviewTarget(null)}
+                resourceAssignments={resourceAssignments}
+                target={previewTarget}
+              />
             ) : null}
 
             {currentRows.length ? (
@@ -8820,6 +8859,7 @@ function GroupJourneyRowCard({
   isExpanded,
   onAssignMore,
   onOpenJourney,
+  onPreviewMemberExperience,
   onSendMemberAccess,
   onToggleExpand,
   row,
@@ -8831,6 +8871,7 @@ function GroupJourneyRowCard({
   isExpanded: boolean;
   onAssignMore: (resource?: DosResource) => void;
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => void;
   onSendMemberAccess: (member: DosAppGroupMember) => void;
   onToggleExpand: (resourceSlug: string) => void;
   row: GroupJourneyRow;
@@ -8923,6 +8964,13 @@ function GroupJourneyRowCard({
                       type="button"
                     >
                       {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
+                    </button>
+                    <button
+                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
+                      onClick={() => onPreviewMemberExperience(member, resourceSlug, assignment?.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey())}
+                      type="button"
+                    >
+                      Preview {participantFirstName(member.personName)}'s Experience
                     </button>
                   </div>
                 </div>
@@ -9033,8 +9081,14 @@ function GroupJourneyAssignSheet({
           <label className="flex items-start gap-2 rounded-[18px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 text-sm leading-6 text-[#9A3412]">
             <input checked={reuseExisting} className="mt-1 h-4 w-4 rounded border-[#FDBA74] text-[#EA580C]" onChange={(event) => setReuseExisting(event.target.checked)} type="checkbox" />
             <span>
-              <span className="block font-black text-[#0F172A]">Use existing active Journey for {selectedDuplicateMembers.length} {selectedDuplicateMembers.length === 1 ? "member" : "members"}.</span>
-              This keeps one canonical per-person record and ties it to {group.name}.
+              <span className="block font-black text-[#0F172A]">
+                {selectedDuplicateMembers.length === 1
+                  ? `${selectedDuplicateMembers[0]?.personName ?? "This member"} already has this Journey.`
+                  : `${selectedDuplicateMembers.length} members already have this Journey.`}
+              </span>
+              {selectedDuplicateMembers.length === 1
+                ? `Keep ${selectedDuplicateMembers[0]?.personName ?? "this member"}'s progress and connect their Journey to ${group.name}.`
+                : `Keep their progress and connect these Journeys to ${group.name}.`}
             </span>
           </label>
         ) : null}
@@ -10799,12 +10853,12 @@ function GroupMembersTab({
         return;
       }
 
-      try {
-        await navigator.clipboard.writeText(accessUrl);
-        setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: accessUrl, tone: "success" });
-      }
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
 
       return;
     }
@@ -10834,12 +10888,12 @@ function GroupMembersTab({
 
       const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
 
-      try {
-        await navigator.clipboard.writeText(accessUrl);
-        setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: accessUrl, tone: "success" });
-      }
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
     } finally {
@@ -13553,19 +13607,58 @@ function participantInvitationUrlForCurrentContext(value: string) {
   }
 }
 
+async function copyOrShareParticipantText(input: { label: string; url?: string; value: string }): Promise<ParticipantCopyResult> {
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard unavailable");
+    }
+
+    await navigator.clipboard.writeText(input.value);
+
+    return "copied";
+  } catch {
+    if (navigator.share) {
+      try {
+        await navigator.share(input.url
+          ? { title: input.label, url: input.url }
+          : { text: input.value, title: input.label });
+
+        return "shared";
+      } catch {
+        // User cancellation or blocked native share falls through to the selectable text fallback.
+      }
+    }
+  }
+
+  return "selectable";
+}
+
+function participantUrlCopyMessage(result: ParticipantCopyResult, accessUrl: string, successMessage: string) {
+  if (result === "copied") {
+    return successMessage;
+  }
+
+  if (result === "shared") {
+    return "Invitation ready to send.";
+  }
+
+  return `Copy blocked. Select this secure link: ${accessUrl}`;
+}
+
 function cleanDemoAccessId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "member";
 }
 
 function buildPreviewParticipantAccessUrl(
   target: ResourceAssignmentInvitationTarget,
-  input: { expiresAt: string; resourceSlug: string; startDate: string },
+  input: { completedSessionIds?: string[]; expiresAt: string; resourceSlug: string; startDate: string },
 ) {
   if (typeof window === "undefined" || !target.groupSlug) {
     return "";
   }
 
   const payload: DemoGroupMemberAccessPayload = {
+    completedSessionIds: input.completedSessionIds ?? [],
     expiresAt: input.expiresAt,
     groupId: target.groupId,
     groupName: target.groupName,
@@ -13584,7 +13677,110 @@ function buildPreviewParticipantAccessUrl(
   return participantInvitationUrlForCurrentContext(accessUrl.toString());
 }
 
+function participantFirstName(value: string) {
+  return value.trim().split(/\s+/)[0] || "Member";
+}
+
+function MemberExperiencePreviewPanel({
+  guidedResourceProgress,
+  notice,
+  onClose,
+  resourceAssignments,
+  target,
+}: {
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
+  notice: NonNullable<ResourceAssignmentNotice>;
+  onClose: () => void;
+  resourceAssignments: DosAppResourceAssignment[];
+  target: ResourceAssignmentInvitationTarget;
+}) {
+  const resource = getDosResourceBySlug(notice.resourceSlug);
+  const sessions = resource ? guidedResourceSessions(resource) : [];
+  const assignment = resourceAssignments.find((item) => (
+    item.personId === target.personId
+    && item.resourceSlug === notice.resourceSlug
+    && (!target.groupId || item.sourceGroupId === target.groupId || notice.kind === "individual")
+  )) ?? null;
+  const progress = guidedResourceProgress.filter((item) => item.personId === target.personId && item.resourceSlug === notice.resourceSlug);
+  const completedCount = sessions.filter((session) => progress.some((item) => item.sessionId === session.id && item.completedAt)).length;
+  const progressPercent = sessions.length ? Math.round((completedCount / sessions.length) * 100) : 0;
+  const startDate = assignment?.startDate ?? notice.startDate;
+  const completedHistoryCount = resourceAssignments.filter((item) => item.personId === target.personId && item.status === "completed").length;
+
+  return (
+    <article className="overflow-hidden rounded-[22px] border border-[#C2A14E]/35 bg-[#0B0D10] text-[#F5F3EE] shadow-[0_20px_60px_rgba(15,23,42,0.2)]">
+      <div className="border-b border-white/10 bg-[#111418] px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Preview Mode</p>
+            <h3 className="mt-1 text-xl font-black leading-tight text-white">{participantFirstName(target.personName)}'s Group Home</h3>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/60">Read-only preview. No progress, private responses, token, or onboarding state will be changed.</p>
+          </div>
+          <button className="inline-flex min-h-9 items-center justify-center rounded-full border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72" onClick={onClose} type="button">
+            Close Preview
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 p-4">
+        <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">DOS Home</p>
+          <h4 className="mt-2 text-3xl font-black leading-none text-white">{target.personName}</h4>
+          <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{target.groupName}</p>
+        </section>
+
+        <section className="rounded-lg border border-[#C2A14E]/35 bg-[#171B22] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Keep DOS on your phone</p>
+              <p className="mt-2 text-sm font-semibold leading-6 text-white/70">Add it to your Home Screen so you can return each week.</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <span className="inline-flex min-h-10 items-center rounded-sm bg-[#C2A14E] px-3 text-xs font-black text-[#080A0D]">Show Me How</span>
+              <span className="inline-flex min-h-10 items-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72">Maybe Later</span>
+            </div>
+          </div>
+          <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F8C56A]">iPhone / Android</p>
+            <ol className="mt-2 grid gap-1 text-sm font-semibold leading-6 text-white/72">
+              <li>iPhone: open in Safari, tap Share, Add to Home Screen, Open as Web App, Add.</li>
+              <li>Android: Chrome menu, Install app or Add to Home screen.</li>
+            </ol>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Active Journeys</p>
+            <span className="rounded-sm border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/55">1</span>
+          </div>
+          <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-white">{resource?.title ?? notice.resourceSlug}</p>
+                <p className="mt-1 text-xs font-semibold text-white/60">
+                  {sessions.length ? `${completedCount}/${sessions.length} weeks complete` : "Ready to begin"}
+                  {" · "}Starts {formatDate(startDate)}
+                </p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <span className="block h-full rounded-full bg-[#C2A14E]" style={{ width: `${progressPercent}%` }} />
+                </div>
+              </div>
+              <span className="shrink-0 rounded-sm bg-[#C2A14E] px-3 py-2 text-xs font-black text-[#080A0D]">Continue</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-[#111418] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Completed</p>
+          <p className="mt-2 text-sm font-semibold text-white/60">{completedHistoryCount ? `${completedHistoryCount} completed Journey${completedHistoryCount === 1 ? "" : "s"}` : "Completed Journeys will appear here."}</p>
+        </section>
+      </div>
+    </article>
+  );
+}
+
 function ResourceAssignmentSuccessSheet({
+  guidedResourceProgress,
   groups,
   isPreview,
   notice,
@@ -13592,8 +13788,10 @@ function ResourceAssignmentSuccessSheet({
   onOpenGroupParticipants,
   onOpenJourney,
   onOpenPerson,
+  resourceAssignments,
   workspaceId,
 }: {
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
   groups: DosAppGroup[];
   isPreview: boolean;
   notice: NonNullable<ResourceAssignmentNotice>;
@@ -13601,10 +13799,12 @@ function ResourceAssignmentSuccessSheet({
   onOpenGroupParticipants: (groupId: string) => void;
   onOpenJourney: (resource: DosResource, personId: string) => void;
   onOpenPerson: (personId: string) => void;
+  resourceAssignments: DosAppResourceAssignment[];
   workspaceId: string;
 }) {
   const [copyMessage, setCopyMessage] = useState("");
   const [invitationState, setInvitationState] = useState<Record<string, { accessUrl?: string; error?: string; expiresAt?: string; isLoading?: boolean }>>({});
+  const [previewTarget, setPreviewTarget] = useState<ResourceAssignmentInvitationTarget | null>(null);
   const resource = getDosResourceBySlug(notice.resourceSlug);
   const planLine = resource ? `Starts ${formatDate(notice.startDate)} · ${resourceAssignmentPlanLengthLabel(resource)}` : `Starts ${formatDate(notice.startDate)}`;
   const canOpenJourney = Boolean(resource && isGuidedResource(resource) && notice.personId);
@@ -13635,11 +13835,14 @@ function ResourceAssignmentSuccessSheet({
     : `${resource?.title ?? "Discipleship"} assigned to ${notice.personName ?? "participant"}`;
 
   async function copyText(value: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(value);
+    const result = await copyOrShareParticipantText({ label, value });
+
+    if (result === "copied") {
       setCopyMessage(`${label} copied.`);
-    } catch {
-      setCopyMessage(value);
+    } else if (result === "shared") {
+      setCopyMessage("Invitation ready to send.");
+    } else {
+      setCopyMessage(`Copy blocked. Select this text: ${value}`);
     }
   }
 
@@ -13664,6 +13867,9 @@ function ResourceAssignmentSuccessSheet({
     if (isPreview) {
       const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
       const accessUrl = buildPreviewParticipantAccessUrl(target, {
+        completedSessionIds: guidedResourceProgress
+          .filter((item) => item.personId === target.personId && item.resourceSlug === notice.resourceSlug && item.completedAt)
+          .map((item) => item.sessionId),
         expiresAt,
         resourceSlug: notice.resourceSlug,
         startDate: notice.startDate,
@@ -13741,7 +13947,12 @@ function ResourceAssignmentSuccessSheet({
     const accessUrl = await createInvitation(target);
 
     if (accessUrl) {
-      await copyText(accessUrl, `${target.personName}'s link`);
+      const result = await copyOrShareParticipantText({
+        label: `${target.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setCopyMessage(participantUrlCopyMessage(result, accessUrl, `${target.personName}'s link copied.`));
     }
   }
 
@@ -13818,6 +14029,13 @@ function ResourceAssignmentSuccessSheet({
                       >
                         Copy Link
                       </button>
+                      <button
+                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-black text-[#475569]"
+                        onClick={() => setPreviewTarget(target)}
+                        type="button"
+                      >
+                        Preview {participantFirstName(target.personName)}'s Experience
+                      </button>
                     </div>
                   </div>
                   {state.accessUrl ? <p className="mt-2 break-all text-[11px] font-semibold leading-5 text-[#64748B]">{state.accessUrl}</p> : null}
@@ -13832,6 +14050,15 @@ function ResourceAssignmentSuccessSheet({
             Secure participant links require an active Group member identity. Add this person to a Group before inviting them.
           </p>
         )}
+        {previewTarget ? (
+          <MemberExperiencePreviewPanel
+            guidedResourceProgress={guidedResourceProgress}
+            notice={notice}
+            onClose={() => setPreviewTarget(null)}
+            resourceAssignments={resourceAssignments}
+            target={previewTarget}
+          />
+        ) : null}
         {canOpenJourney && resource ? (
           <AppButton icon="library" onClick={() => notice.personId ? onOpenJourney(resource, notice.personId) : undefined} tone="black">Open Journey</AppButton>
         ) : null}
@@ -13867,7 +14094,7 @@ function ResourceAssignmentDuplicateSheet({
         <div className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3">
           <p className="text-sm font-black text-[#0F172A]">{duplicate.personName} already has {duplicate.resourceTitle} assigned.</p>
           <p className="mt-1 text-sm leading-6 text-[#9A3412]">
-            Use the existing journey so Library, Person profile, Group, and My Record all reference the same progress record.
+            Keep {duplicate.personName}'s progress and connect this Journey everywhere it belongs.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -42374,6 +42601,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {resourceAssignmentNotice ? (
           <ResourceAssignmentSuccessSheet
+            guidedResourceProgress={data.guidedResourceProgress}
             groups={groups}
             isPreview={isPreview}
             notice={resourceAssignmentNotice}
@@ -42392,6 +42620,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setResourceAssignmentNotice(null);
               openPersonDetail(personId);
             }}
+            resourceAssignments={data.resourceAssignments}
             workspaceId={data.workspace.id}
           />
         ) : null}
