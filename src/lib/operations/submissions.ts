@@ -59,6 +59,8 @@ export type OperationsSubmissionListItem = {
   isSensitive: boolean;
   nextAction: string | null;
   reviewSummary: string | null;
+  sourceGroupLabel: string;
+  sourceKey: string;
   sourceLabel: string;
   status: OperationsSubmissionStatus;
   submittedAt: string;
@@ -78,6 +80,12 @@ export type OperationsSubmissionDetail = OperationsSubmissionListItem & {
   phone: string | null;
   priority: string | null;
   sourcePage: string | null;
+};
+
+export type OperationsSubmissionSourceOption = {
+  count: number;
+  key: string;
+  label: string;
 };
 
 const baseListColumns = [
@@ -174,23 +182,51 @@ export function operationsSubmissionStatusLabel(status: string | null | undefine
     .join(" ");
 }
 
+const submissionTypeLabels: Record<string, { group: string; label: string }> = {
+  contact: { group: "Website Inquiry", label: "Website Inquiry" },
+  dos_walkthrough_request: { group: "Website Inquiry", label: "DOS Walkthrough" },
+  field_report_access: { group: "Website Inquiry", label: "Field Report Access" },
+  financial_freedom: { group: "Finance", label: "Financial Freedom" },
+  general: { group: "Website Inquiry", label: "General Inquiry" },
+  join_mission_interest: { group: "Missionary Application", label: "Mission Interest" },
+  major_gift: { group: "Finance", label: "Major Gift" },
+  missionary_application: { group: "Missionary Application", label: "Missionary Application" },
+  missionary_profile_review: { group: "Missionary Application", label: "Profile Review" },
+  prayer_request: { group: "Prayer", label: "Prayer Request" },
+  prayer_team_application: { group: "Prayer", label: "Prayer Team" },
+  restoration: { group: "Restoration", label: "Restoration" },
+  support_giving: { group: "Finance", label: "Support Giving" },
+  system_waitlist: { group: "Website Inquiry", label: "System Waitlist" },
+};
+
 function titleFromFormType(formType: string) {
-  if (formType === "restoration") {
-    return "Restoration";
-  }
-
-  if (formType === "missionary_application") {
-    return "Missionary Application";
-  }
-
-  if (formType === "join_mission_interest") {
-    return "Mission Interest";
-  }
-
-  return formType
+  return submissionTypeLabels[formType]?.label ?? formType
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function groupFromFormType(formType: string) {
+  return submissionTypeLabels[formType]?.group ?? titleFromFormType(formType);
+}
+
+export function operationsSubmissionSourceOptions(
+  submissions: OperationsSubmissionListItem[],
+): OperationsSubmissionSourceOption[] {
+  const bySource = new Map<string, OperationsSubmissionSourceOption>();
+
+  submissions.forEach((submission) => {
+    const current = bySource.get(submission.sourceKey);
+
+    bySource.set(submission.sourceKey, {
+      count: (current?.count ?? 0) + 1,
+      key: submission.sourceKey,
+      label: submission.sourceLabel,
+    });
+  });
+
+  return Array.from(bySource.values())
+    .sort((first, second) => first.label.localeCompare(second.label));
 }
 
 function submitterName(row: FormSubmissionRow) {
@@ -244,6 +280,8 @@ function listItemFromRow(row: FormSubmissionRow, authorization: OperationsAuthor
     isSensitive,
     nextAction: reviewValue(row, "nextAction"),
     reviewSummary,
+    sourceGroupLabel: groupFromFormType(row.form_type),
+    sourceKey: row.form_type,
     sourceLabel: titleFromFormType(row.form_type),
     status: statusFor(row.status),
     submittedAt: row.created_at,
