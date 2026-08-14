@@ -11,6 +11,9 @@ export type DosResourceAssignmentFollowUpKind = typeof dosResourceAssignmentFoll
 export type DosResourceAssignmentContext = typeof dosResourceAssignmentContexts[number];
 export type DosResourceAssignmentSharingLevel = typeof dosResourceAssignmentSharingLevels[number];
 
+const resourceAssignmentDateKeyPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+const resourceAssignmentMsPerDay = 24 * 60 * 60 * 1000;
+
 export function isDosResourceAssignmentStatus(value: string): value is DosResourceAssignmentStatus {
   return dosResourceAssignmentStatuses.includes(value as DosResourceAssignmentStatus);
 }
@@ -31,22 +34,54 @@ export function todayResourceAssignmentDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function normalizeResourceAssignmentDateKey(value: string | null | undefined, fallback = todayResourceAssignmentDateKey()) {
-  const trimmed = value?.trim() ?? "";
+function resourceAssignmentDateParts(value: string | null | undefined) {
+  const match = value?.trim().match(resourceAssignmentDateKeyPattern);
 
-  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : fallback;
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const normalized = new Date(timestamp).toISOString().slice(0, 10);
+
+  return normalized === value?.trim()
+    ? { day, month, year }
+    : null;
+}
+
+export function normalizeResourceAssignmentDateKey(value: string | null | undefined, fallback = todayResourceAssignmentDateKey()) {
+  const parsed = resourceAssignmentDateParts(value);
+
+  if (parsed) {
+    return `${String(parsed.year).padStart(4, "0")}-${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
+  }
+
+  const fallbackParsed = resourceAssignmentDateParts(fallback);
+
+  return fallbackParsed
+    ? `${String(fallbackParsed.year).padStart(4, "0")}-${String(fallbackParsed.month).padStart(2, "0")}-${String(fallbackParsed.day).padStart(2, "0")}`
+    : todayResourceAssignmentDateKey();
 }
 
 export function addDaysToResourceAssignmentDateKey(value: string, days: number) {
-  const date = new Date(`${normalizeResourceAssignmentDateKey(value)}T12:00:00.000Z`);
+  const dateKey = normalizeResourceAssignmentDateKey(value);
+  const parts = resourceAssignmentDateParts(dateKey) ?? resourceAssignmentDateParts(todayResourceAssignmentDateKey());
+  const dayCount = Math.max(0, Math.round(days));
 
-  date.setUTCDate(date.getUTCDate() + Math.max(0, Math.round(days)));
+  if (!parts) {
+    return dateKey;
+  }
 
-  return date.toISOString().slice(0, 10);
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day + dayCount)).toISOString().slice(0, 10);
 }
 
 function resourceAssignmentDateValue(value: string) {
-  return new Date(`${normalizeResourceAssignmentDateKey(value)}T12:00:00.000Z`).getTime();
+  const parts = resourceAssignmentDateParts(normalizeResourceAssignmentDateKey(value));
+
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) : 0;
 }
 
 export function defaultResourceAssignmentDueDate(startDate: string, durationDays?: number | null) {
@@ -83,7 +118,7 @@ export function resourceAssignmentFollowUpScheduleDisplayTitle(title: string) {
 export function resourceAssignmentMidpointDate(startDate: string, dueDate: string | null | undefined) {
   const normalizedStartDate = normalizeResourceAssignmentDateKey(startDate);
   const normalizedDueDate = dueDate ? normalizeResourceAssignmentDateKey(dueDate, defaultResourceAssignmentDueDate(normalizedStartDate)) : defaultResourceAssignmentDueDate(normalizedStartDate);
-  const durationDays = Math.max(1, Math.round((resourceAssignmentDateValue(normalizedDueDate) - resourceAssignmentDateValue(normalizedStartDate)) / (24 * 60 * 60 * 1000)));
+  const durationDays = Math.max(1, Math.round((resourceAssignmentDateValue(normalizedDueDate) - resourceAssignmentDateValue(normalizedStartDate)) / resourceAssignmentMsPerDay));
 
   return addDaysToResourceAssignmentDateKey(normalizedStartDate, Math.max(1, Math.floor(durationDays / 2)));
 }

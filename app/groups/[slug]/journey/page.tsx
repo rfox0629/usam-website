@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   groupMemberSessionCookieName,
+  loadDemoGroupMemberPortalData,
   loadGroupMemberPortalData,
   type GroupMemberPortalData,
 } from "@/src/lib/groups/member-access";
@@ -26,12 +27,21 @@ type PageProps = {
 };
 
 async function loadPortal(slug: string) {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
+
+  const demoPortal = loadDemoGroupMemberPortalData({
+    sessionToken,
+    slug,
+  });
+
+  if (demoPortal.data) {
+    return demoPortal;
+  }
+
   if (!isSupabaseAdminConfigured()) {
     return { error: "Group Home is temporarily unavailable." };
   }
-
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
 
   return loadGroupMemberPortalData(createSupabaseAdminClient(), {
     sessionToken,

@@ -195,9 +195,16 @@ assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must u
 assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group display timezone.");
 assertNotIncludes(publicPage, "nextGatheringTimeFor", "Public Group Home must not invent next-gathering times from rhythm text.");
 assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering workflow must show the disabled route placeholder.");
-assertIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home route placeholder must be non-functional.");
-assertIncludes(memberHomeView, "aria-disabled=\"true\"", "Member route placeholder must expose disabled state.");
 assertIncludes(appClient, "aria-disabled=\"true\"", "Leader route placeholder must expose disabled state.");
+assertIncludes(memberHomeView, "DOS Home", "Member Group Home must be the stable participant landing surface.");
+assertIncludes(memberHomeView, "data.identity.name", "Member Group Home must be scoped to the current member identity.");
+assertIncludes(memberHomeView, "Active Journeys", "Member Group Home must prioritize assigned Journeys.");
+assertIncludes(memberHomeView, "Continue", "Member Group Home must include a Journey continuation action.");
+assertIncludes(memberHomeView, "MemberHomeInstallPrompt", "Member Group Home must offer install guidance after successful entry.");
+assertIncludes(memberHomeView, "Scoped DOS member access", "Member Group Home must avoid broad platform access language.");
+assertNotIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home must not expose deferred route placeholders.");
+assertNotIncludes(memberHomeView, "Save RSVP", "Member Group Home must not expose RSVP as a primary participant action.");
+assertNotIncludes(memberHomeView, "Keep Me Updated", "Member Group Home must not expose notification preferences as a primary participant action.");
 
 for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
   assertIncludes(routeBuilder, activity, `Route placeholder eligibility must include ${activity}.`);

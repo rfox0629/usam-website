@@ -6,9 +6,11 @@ import { redirect } from "next/navigation";
 import {
   createGroupMemberAccessInvitation,
   groupMemberSessionCookieName,
+  loadDemoGroupMemberPortalData,
   loadMemberSessionIdentity,
   revokeGroupMemberSession,
 } from "@/src/lib/groups/member-access";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import {
   missingPublicSiteSchema,
   publicGroupPath,
@@ -145,6 +147,24 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
 
   if (!slug || !resourceSlug || !sessionId) {
     redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error");
+  }
+
+  const cookieStore = await cookies();
+  const demoPortal = loadDemoGroupMemberPortalData({
+    sessionToken: cookieStore.get(groupMemberSessionCookieName)?.value ?? null,
+    slug,
+  });
+
+  if (demoPortal.data) {
+    const resource = getDosResourceBySlug(resourceSlug);
+    const sessionExists = resource?.content?.guidedResource?.sessions.some((session) => session.id === sessionId) === true;
+    const assignmentExists = demoPortal.data.journeyAssignments.some((assignment) => assignment.resourceSlug === resourceSlug);
+
+    if (!assignmentExists || !sessionExists) {
+      redirectToJourney(slug, resourceSlug, "journey-error");
+    }
+
+    redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved");
   }
 
   const portalResult = await requireMemberPortal(slug);

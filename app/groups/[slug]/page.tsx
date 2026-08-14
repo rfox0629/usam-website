@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   groupMemberSessionCookieName,
+  loadDemoGroupMemberPortalData,
   loadGroupMemberPortalData,
 } from "@/src/lib/groups/member-access";
 import { loadPublicGroupLeaderNames } from "@/src/lib/groups/group-home-access";
@@ -144,13 +145,6 @@ export default async function PublicGroupPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  const headersList = await headers();
-  const group = await loadPublicGroup(slug, requestHostname(headersList));
-
-  if (!group) {
-    notFound();
-  }
-
   const query = searchParams ? await searchParams : {};
   const requestParam = Array.isArray(query.request) ? query.request[0] : query.request;
   const stateParam = Array.isArray(query.state) ? query.state[0] : query.state;
@@ -168,18 +162,34 @@ export default async function PublicGroupPage({
     );
   }
 
+  const headersList = await headers();
+  const group = await loadPublicGroup(slug, requestHostname(headersList));
+
+  if (!group) {
+    notFound();
+  }
+
   return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
 async function loadMemberGroupHome(slug: string) {
-  if (!isSupabaseAdminConfigured()) {
-    return { data: null };
-  }
-
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
 
   if (!sessionToken) {
+    return { data: null };
+  }
+
+  const demoPortal = loadDemoGroupMemberPortalData({
+    sessionToken,
+    slug,
+  });
+
+  if (demoPortal.data) {
+    return demoPortal;
+  }
+
+  if (!isSupabaseAdminConfigured()) {
     return { data: null };
   }
 
