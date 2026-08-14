@@ -141,6 +141,8 @@ assertIncludes(missionaryApp, "memberAccess", "DOS payload must expose compact m
 assertIncludes(appClient, "Portal Link", "Leader UI must expose a compact member access control.");
 assertIncludes(appClient, "participantInvitationUrlForCurrentContext", "Leader UI must canonicalize participant invitation URLs in one helper.");
 assertIncludes(appClient, "_vercel_share", "Protected Vercel preview share links must be preserved on participant invitations.");
+assertIncludes(appClient, "vercelShareTokenForCurrentContext", "Protected Vercel preview share links must survive Vercel's auth redirect before leader copy actions.");
+assertIncludes(appClient, "dos:vercel-share-token", "Protected Vercel preview share tokens must persist for subsequent Copy Link actions in the same session.");
 assertIncludes(appClient, "buildPreviewParticipantAccessUrl", "Preview assignments must generate a real demo-safe scoped member access URL.");
 assertIncludes(appClient, "completedSessionIds", "Demo-safe participant invitations must carry non-private progress state.");
 assertIncludes(appClient, "Preview {participantFirstName(target.personName)}'s Experience", "Leader UI must expose a read-only participant preview action.");

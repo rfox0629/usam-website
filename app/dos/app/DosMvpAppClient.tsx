@@ -13581,6 +13581,27 @@ function participantLinkShouldUseCurrentOrigin(url: URL) {
     || hostname.endsWith(".vercel.app");
 }
 
+function vercelShareTokenForCurrentContext(currentUrl: URL) {
+  const hashParams = new URLSearchParams(currentUrl.hash.replace(/^#/, ""));
+  const currentToken = currentUrl.searchParams.get("_vercel_share") || hashParams.get("_vercel_share");
+
+  if (currentToken) {
+    try {
+      window.sessionStorage.setItem("dos:vercel-share-token", currentToken);
+    } catch {
+      // Session storage only keeps protected-preview share links stable after Vercel redirects.
+    }
+
+    return currentToken;
+  }
+
+  try {
+    return window.sessionStorage.getItem("dos:vercel-share-token");
+  } catch {
+    return null;
+  }
+}
+
 function participantInvitationUrlForCurrentContext(value: string) {
   if (typeof window === "undefined") {
     return value;
@@ -13595,7 +13616,7 @@ function participantInvitationUrlForCurrentContext(value: string) {
       accessUrl.host = currentUrl.host;
     }
 
-    const vercelShareToken = currentUrl.searchParams.get("_vercel_share");
+    const vercelShareToken = vercelShareTokenForCurrentContext(currentUrl);
 
     if (vercelShareToken && accessUrl.origin === currentUrl.origin) {
       accessUrl.searchParams.set("_vercel_share", vercelShareToken);
