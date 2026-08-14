@@ -1025,7 +1025,7 @@ type GroupActivityItem = {
   meta: string;
   title: string;
 };
-type PersonDetailTab = "activity" | "commitments" | "fruit" | "overview" | "prayer" | "reviews";
+type PersonDetailTab = "details" | "history" | "overview";
 type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
@@ -5234,6 +5234,15 @@ type PersonGrowthMilestone = {
   description: string;
   id: string;
   source: "Assessment" | "Check-In" | "Fruit" | "Quick Review" | "Table" | "Testimony";
+  title: string;
+};
+
+type PersonHistoryEntry = {
+  date: string | null;
+  description: string | null;
+  id: string;
+  kind: "assessment" | "check_in" | "fruit" | "journey" | "meeting" | "prayer" | "quick_review" | "testimony";
+  onClick?: () => void;
   title: string;
 };
 
@@ -33795,6 +33804,227 @@ function ResourcePickerSheet({
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * People V2 profile primitives — ink/blue/gold tokens matching the
+ * canonical Journey refresh (see GuidedJourneyUi.tsx). Whitespace and
+ * one shared list surface stand in for the old per-field bordered cards.
+ * ------------------------------------------------------------------ */
+
+function PDSectionHeading({
+  action,
+  title,
+}: {
+  action?: ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9AA4B2]">{title}</p>
+      {action}
+    </div>
+  );
+}
+
+function PDSection({
+  action,
+  children,
+  title,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-2.5">
+      <PDSectionHeading action={action} title={title} />
+      {children}
+    </section>
+  );
+}
+
+function PDList({ children }: { children: ReactNode }) {
+  return (
+    <div className="divide-y divide-[#EDEFF2] overflow-hidden rounded-[16px] border border-[#EDEFF2] bg-white">
+      {children}
+    </div>
+  );
+}
+
+function PDEmptyRow({ text }: { text: string }) {
+  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-[#9AA4B2]">{text}</p>;
+}
+
+function PDPill({
+  children,
+  tone = "blue",
+}: {
+  children: ReactNode;
+  tone?: "blue" | "gold" | "green" | "neutral";
+}) {
+  const toneClass = {
+    blue: "bg-[#EEF2FD] text-[#1B3EA0]",
+    gold: "bg-[#F6F0E4] text-[#A07A35]",
+    green: "bg-[#EDF7F1] text-[#1F7A4D]",
+    neutral: "bg-[#F3F4F6] text-[#6B7686]",
+  }[tone];
+
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-[6px] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.09em] ${toneClass}`}>
+      {children}
+    </span>
+  );
+}
+
+function PDButton({
+  children,
+  href,
+  onClick,
+  tone = "outline",
+}: {
+  children: ReactNode;
+  href?: string;
+  onClick?: () => void;
+  tone?: "outline" | "solid";
+}) {
+  const className = `inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
+    tone === "solid"
+      ? "bg-[#2450C8] text-white hover:bg-[#1B3EA0]"
+      : "border border-[#E3E6EB] bg-white text-[#0F1520] hover:border-[#0F1520]"
+  }`;
+
+  if (href) {
+    return (
+      <a className={className} href={href} onClick={onClick}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <button className={className} onClick={onClick} type="button">
+      {children}
+    </button>
+  );
+}
+
+function PDRow({
+  action,
+  description,
+  href,
+  icon,
+  meta,
+  onClick,
+  title,
+}: {
+  action?: ReactNode;
+  description?: ReactNode;
+  href?: string;
+  icon?: ReactNode;
+  meta?: ReactNode;
+  onClick?: () => void;
+  title: ReactNode;
+}) {
+  const inner = (
+    <div className="flex min-w-0 items-start gap-3 px-4 py-3.5">
+      {icon ? (
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEF2FD] text-[#2450C8]">
+          {icon}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-[14.5px] font-semibold leading-5 text-[#0F1520]">{title}</p>
+          {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-[#9AA4B2]">{meta}</span> : null}
+        </div>
+        {description ? <div className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{description}</div> : null}
+        {action ? <div className="mt-2.5 flex flex-wrap gap-2">{action}</div> : null}
+      </div>
+      {(onClick || href) && !action ? <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-[#9AA4B2]" aria-hidden="true" strokeWidth={1.8} /> : null}
+    </div>
+  );
+
+  if (href) {
+    return (
+      <a className="block w-full min-w-0 text-left transition-colors hover:bg-[#FBFAF8]" href={href}>
+        {inner}
+      </a>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button className="block w-full min-w-0 text-left transition-colors hover:bg-[#FBFAF8]" onClick={onClick} type="button">
+        {inner}
+      </button>
+    );
+  }
+
+  return <div className="min-w-0">{inner}</div>;
+}
+
+function historyEntryIcon(kind: PersonHistoryEntry["kind"]) {
+  switch (kind) {
+    case "assessment":
+      return <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "check_in":
+      return <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "fruit":
+      return <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "journey":
+      return <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "meeting":
+      return <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "prayer":
+      return <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "quick_review":
+      return <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "testimony":
+      return <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    default:
+      return <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+  }
+}
+
+function historyEntryKindLabel(kind: PersonHistoryEntry["kind"]) {
+  switch (kind) {
+    case "assessment":
+      return "Assessment";
+    case "check_in":
+      return "Accountability";
+    case "fruit":
+      return "Fruit";
+    case "journey":
+      return "Journey";
+    case "meeting":
+      return "Meeting";
+    case "prayer":
+      return "Prayer";
+    case "quick_review":
+      return "Quick Review";
+    case "testimony":
+      return "Testimony";
+    default:
+      return "Update";
+  }
+}
+
+function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
+  return (
+    <PDRow
+      description={(
+        <>
+          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">{historyEntryKindLabel(entry.kind)}</span>
+          {entry.description}
+        </>
+      )}
+      icon={historyEntryIcon(entry.kind)}
+      meta={formatDate(entry.date)}
+      onClick={entry.onClick}
+      title={entry.title}
+    />
+  );
+}
+
 function PersonDetailOverlay({
   accountabilityCheckInLinks,
   accountabilityCheckIns,
@@ -33831,6 +34061,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onMarkPrayerAnswered,
+  onOpenGroup,
   onOpenPrayerResources,
   onOpenReview,
   onOpenMeeting,
@@ -33880,6 +34111,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
+  onOpenGroup: (groupId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
@@ -33895,9 +34127,8 @@ function PersonDetailOverlay({
   workspace: DosAppWorkspace;
 }) {
   const detailScrollRef = useRef<HTMLDivElement | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(commitmentsEnabled ? initialDetailTab ?? "overview" : "overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
-  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
@@ -33927,15 +34158,8 @@ function PersonDetailOverlay({
   const answeredPersonPrayerRequests = personLinkedPrayerRequests
     .filter((request) => request.status === "answered")
     .sort((first, second) => dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt));
-  const upcomingReminders = personReminders.filter((reminder) => isUpcomingDate(nextReminderDate(reminder)));
-  const upcomingTimelineItems = buildUpcomingTimelineItems({
-    includeDashboardHiddenReminders: true,
-    meetings,
-    people: [person],
-    person,
-    reminders,
-  });
-  const upcomingTimelineGroups = groupedUpcomingTimelineItems(upcomingTimelineItems);
+  const personFollowUpReminders = personReminders.filter((reminder) => reminder.reminderType === "follow_up");
+  const personGroups = groups.filter((group) => group.members.some((member) => member.personId === person.id && member.status === "active"));
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || (!review.personId && personMeetings.some((meeting) => meeting.id === review.meetingId)));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || (!testimony.personId && personMeetings.some((meeting) => meeting.id === testimony.meetingId)));
   const personReviewItems = buildSubmittedReviewItems({
@@ -33980,8 +34204,6 @@ function PersonDetailOverlay({
   const selectedOutcomeMeeting = selectedOutcomeEntry
     ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
     : null;
-  const recentMeetings = personLoggedMeetings.slice(0, 3);
-  const loggedInteractionCount = personLoggedMeetings.length + accountabilityCheckIns.length;
   const relationshipTypePill = relationshipTypePillLabel(person);
   const spiritualJourneyPill = deriveSpiritualJourney({
     fruitEvents: personFruitEvents,
@@ -33995,95 +34217,113 @@ function PersonDetailOverlay({
   const lastMeetingDate = [personLoggedMeetings[0]?.date, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
     .filter((date): date is string => Boolean(date))
     .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
-  const personGrowthMilestones: PersonGrowthMilestone[] = [
+  const lastMeeting = personLoggedMeetings[0] ?? null;
+  const nextMeeting = personScheduledMeetings[0] ?? null;
+  const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
+  const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
+  const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
+  const overviewNotes = defaults.notes?.trim() ?? "";
+  const activeAccountabilitySchedules = accountabilitySchedules.filter((schedule) => schedule.status === "active");
+  const activeCommitments = commitments.filter((commitment) => commitment.status === "active");
+  const accountabilityTopics = commitmentsEnabled
+    ? [
+      ...activeAccountabilitySchedules.map((schedule) => ({
+        id: `schedule-${schedule.id}`,
+        isOverdue: dateSortValue(schedule.nextCheckIn) < dateSortValue(todayCommitmentDateKey()),
+        meta: `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(schedule.nextCheckIn)}`,
+        onCheckIn: () => onLogAccountabilityCheckIn(schedule),
+        title: accountabilityScheduleDisplayTitle(schedule),
+      })),
+      ...activeCommitments.map((commitment) => ({
+        id: `commitment-${commitment.id}`,
+        isOverdue: false,
+        meta: commitmentDueLabel(commitment),
+        onCheckIn: () => onAddCommitmentUpdate(commitment),
+        title: commitment.title,
+      })),
+    ]
+    : [];
+  const personHistoryEntries: PersonHistoryEntry[] = [
     ...personAssessmentResults.map((result) => ({
       date: result.completedAt,
-      description: `${result.assessmentTitle} completed with ${result.overallScore}/${result.maxScore} (${result.percentage}%).`,
-      id: `milestone-assessment-${result.id}`,
-      source: "Assessment" as const,
+      description: `${result.overallScore}/${result.maxScore} (${result.percentage}%)`,
+      id: `history-assessment-${result.id}`,
+      kind: "assessment" as const,
       title: result.assessmentTitle,
     })),
     ...personOutcomeEntries.map((entry) => entry.type === "testimony"
       ? {
         date: entry.date,
         description: entry.testimony.whatChanged?.trim() || entry.testimony.story?.trim() || "Shared story recorded.",
-        id: `milestone-${entry.id}`,
-        source: "Testimony" as const,
+        id: `history-${entry.id}`,
+        kind: "testimony" as const,
+        onClick: () => setSelectedOutcomeEntry(entry),
         title: "Testimony Shared",
       }
       : {
         date: entry.date,
         description: fruitNarrative(entry.event),
-        id: `milestone-${entry.id}`,
-        source: "Fruit" as const,
+        id: `history-${entry.id}`,
+        kind: "fruit" as const,
+        onClick: () => setSelectedOutcomeEntry(entry),
         title: fruitOutcomeLabel(entry.event),
       }),
-    ...personParticipantReviews.map((review) => ({
-      date: review.submittedAt,
-      description: review.comments?.trim() || "Participant review submitted.",
-      id: `milestone-review-${review.id}`,
-      source: "Quick Review" as const,
+    ...personReviewItems.filter((item) => item.kind === "quick_review").map((item) => ({
+      date: item.date,
+      description: item.summary,
+      id: `history-${item.id}`,
+      kind: "quick_review" as const,
+      onClick: () => onOpenReview(item),
       title: "Quick Review",
     })),
     ...personLoggedMeetings.map((meeting) => ({
       date: meeting.date,
       description: meetingActivityPreview(meeting, personReflections),
-      id: `milestone-table-${meeting.id}`,
-      source: "Table" as const,
+      id: `history-meeting-${meeting.id}`,
+      kind: "meeting" as const,
+      onClick: () => onOpenMeeting(meeting.id, person.id),
       title: meetingActivityTitle(meeting),
     })),
     ...accountabilityCheckIns.map((checkIn) => ({
       date: checkIn.checkInDate,
       description: checkIn.generalUpdate,
-      id: `milestone-check-in-${checkIn.id}`,
-      source: "Check-In" as const,
+      id: `history-check-in-${checkIn.id}`,
+      kind: "check_in" as const,
       title: "Accountability Check-In",
     })),
-  ]
-    .sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0))
-    .slice(0, 6);
-  const latestGrowthDate = personGrowthMilestones[0]?.date ?? lastMeetingDate;
-  const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
-  const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
-  const commitmentActivityItems = [
-    ...commitments.map((commitment) => ({
-      body: commitment.description || `${commitmentStatusLabels[commitment.status]} · ${commitmentDueLabel(commitment)}`,
-      date: commitment.updatedAt ?? commitment.assignedDate,
-      id: `commitment-${commitment.id}`,
-      title: commitment.title,
-      type: "Commitment",
+    ...resourceAssignments.map((assignment) => ({
+      date: assignment.startDate,
+      description: resourceAssignmentTypeLabel(assignment),
+      id: `history-journey-start-${assignment.id}`,
+      kind: "journey" as const,
+      title: `Started ${resourceAssignmentTitle(assignment)}`,
     })),
-    ...commitments.flatMap((commitment) => commitment.updates.map((update) => ({
-      body: update.progressNote,
-      date: update.updateDate,
-      id: `commitment-update-${update.id}`,
-      title: commitment.title,
-      type: update.progressState ? commitmentProgressLabels[update.progressState] : "Progress Update",
-    }))),
-    ...accountabilityCheckIns.map((checkIn) => ({
-      body: checkIn.generalUpdate,
-      date: checkIn.checkInDate,
-      id: `accountability-check-in-${checkIn.id}`,
-      title: "Accountability Check-In",
-      type: "Check-In",
+    ...completedResourceAssignments.map((assignment) => ({
+      date: assignment.updatedAt ?? assignment.startDate,
+      description: resourceAssignmentTypeLabel(assignment),
+      id: `history-journey-complete-${assignment.id}`,
+      kind: "journey" as const,
+      title: `Completed ${resourceAssignmentTitle(assignment)}`,
     })),
-  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 6);
-  const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
-  const overviewNotes = defaults.notes?.trim() ?? "";
-  const completedGuidedMeetings = personLoggedMeetings.filter((meeting) => meeting.conversationFlowKey !== "none").length;
-  const relationshipSnapshotReasons = Array.from(new Set([
-    loggedInteractionCount ? `${loggedInteractionCount} meeting${loggedInteractionCount === 1 ? "" : "s"} logged` : "",
-    completedGuidedMeetings ? `${completedGuidedMeetings} guided conversation${completedGuidedMeetings === 1 ? "" : "s"} completed` : "",
-    relationshipTypePill !== "New" ? "Active discipleship relationship" : "",
-    personFruitEvents.length ? `${personFruitEvents.length} fruit event${personFruitEvents.length === 1 ? "" : "s"} recorded` : "",
-  ].filter((reason): reason is string => Boolean(reason)))).slice(0, 3);
+    ...answeredPersonPrayerRequests.map((request) => ({
+      date: request.answeredAt ?? request.updatedAt ?? request.createdAt,
+      description: request.answerTestimony ?? request.request,
+      id: `history-prayer-${request.id}`,
+      kind: "prayer" as const,
+      title: `Answered: ${request.title}`,
+    })),
+    ...answeredPrayerReminders.map((reminder) => ({
+      date: answeredPrayerByReminderId[reminder.id] ?? null,
+      description: reminderVisibleNotes(reminder.notes),
+      id: `history-prayer-reminder-${reminder.id}`,
+      kind: "prayer" as const,
+      title: `Answered: ${reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}`,
+    })),
+  ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
     { label: "Overview", value: "overview" },
-    { label: "Activity", value: "activity" },
-    ...(commitmentsEnabled ? [{ label: "Commitments", value: "commitments" as const }] : []),
-    { label: "Reviews", value: "reviews" },
-    { label: "Prayer", value: "prayer" },
-    { label: "Growth", value: "fruit" },
+    { label: "History", value: "history" },
+    { label: "Details", value: "details" },
   ];
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
@@ -34099,11 +34339,10 @@ function PersonDetailOverlay({
   }
 
   useEffect(() => {
-    setActiveDetailTab(commitmentsEnabled ? initialDetailTab ?? "overview" : "overview");
-    setIsSnapshotOpen(false);
+    setActiveDetailTab(initialDetailTab ?? "overview");
     setSelectedOutcomeEntry(null);
     scrollDetailToTop();
-  }, [commitmentsEnabled, initialDetailTab, person.id]);
+  }, [initialDetailTab, person.id]);
 
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
@@ -34132,7 +34371,7 @@ function PersonDetailOverlay({
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
-        <div className={`grid gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)] ${commitmentsEnabled ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-5"}`}>
+        <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
           {detailTabs.map((tab) => (
             <button
               aria-current={activeDetailTab === tab.value ? "page" : undefined}
@@ -34156,434 +34395,254 @@ function PersonDetailOverlay({
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {activeDetailTab === "overview" ? (
           <>
-            <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
-              <SnapshotMetricTile icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Relationship" value={relationshipTypePill} />
-              <EngagementSnapshotTile label={engagementOverviewLabel} score={engagementOverviewScore} />
-              <SnapshotMetricTile icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last Table" value={lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "Not yet"} />
-            </div>
-
-            {commitmentsEnabled ? (
-              <PersonAccountabilitySummaryCard
-                checkIns={accountabilityCheckIns}
-                commitments={commitments}
-                onLogCheckIn={onLogAccountabilityCheckIn}
-                onViewCommitments={() => {
-                  setActiveDetailTab("commitments");
-                  scrollDetailToTop();
-                }}
-                schedules={accountabilitySchedules}
-              />
-            ) : null}
-
-            <section className="rounded-[24px] border border-[#D7F3DD] bg-[#F7FEFA] p-4 shadow-[0_14px_34px_rgba(22,163,74,0.055)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#15803D]" style={{ fontFamily: font.rajdhani }}>
-                Details
-              </p>
-
-              <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 max-[350px]:gap-1.5">
-                <DetailResultTile icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Spiritual Journey" value={spiritualJourneyPill} />
-                <DetailResultTile icon={<User className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Current Circle" value={currentCircleLabel} />
+            <section className="grid gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <PDPill tone="blue">{relationshipTypePill}</PDPill>
+                <PDPill tone="neutral">{engagementOverviewLabel} engagement</PDPill>
+                <PDPill tone="gold">{spiritualJourneyPill}</PDPill>
+                <PDPill tone="neutral">{currentCircleLabel}</PDPill>
               </div>
-
-              <button
-                aria-expanded={isSnapshotOpen}
-                className="mt-3 flex min-h-10 w-full items-center justify-between rounded-2xl bg-white px-3 text-left text-xs font-bold text-[#0F172A] ring-1 ring-[#D7F3DD] transition-colors hover:bg-[#ECFDF3]"
-                onClick={() => setIsSnapshotOpen((current) => !current)}
-                type="button"
-              >
-                More Details
-                <ChevronRight className={`h-4 w-4 text-[#16A34A] transition-transform ${isSnapshotOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.8} />
-              </button>
-
-              {isSnapshotOpen ? (
-                <div className="mt-3 grid gap-3 rounded-2xl bg-white p-3 ring-1 ring-[#D7F3DD]">
-                  <p className="text-xs leading-5 text-[#475569]">Spiritual Journey and Current Circle are based on the activity and fruit recorded with this person.</p>
-                  <div className="grid gap-2">
-                    {relationshipSnapshotReasons.length ? relationshipSnapshotReasons.map((reason) => (
-                      <p className="flex items-start gap-2 text-xs leading-5 text-[#475569]" key={reason}>
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" strokeWidth={1.9} />
-                        <span>{reason}</span>
-                      </p>
-                    )) : (
-                      <p className="flex items-start gap-2 text-xs leading-5 text-[#475569]">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16A34A]" aria-hidden="true" strokeWidth={1.9} />
-                        <span>Log meetings and discipleship activity to help DOS place this relationship.</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : null}
+              <p className="text-[13.5px] leading-[1.5] text-[#6B7686]">
+                Last met {lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "not yet"} · Next meeting {nextMeeting ? formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date) : "not scheduled"}
+              </p>
             </section>
 
-            <DetailCard icon={<Phone className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Contact Information">
-              {person.phone ? (
-                <ContactActionRow
-                  actions={[
-                    { href: phoneActionHref("tel", person.phone), label: "Call" },
-                    { href: phoneActionHref("sms", person.phone), label: "Text" },
-                  ]}
-                  icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                  label="Phone"
-                  primaryHref={phoneActionHref("tel", person.phone)}
-                  value={formatPhoneNumber(person.phone) || person.phone}
-                />
-              ) : null}
-              {person.email ? (
-                <ContactActionRow
-                  actions={[
-                    { href: `mailto:${person.email}`, label: "Email" },
-                  ]}
-                  icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                  label="Email"
-                  primaryHref={`mailto:${person.email}`}
-                  value={person.email}
-                />
-              ) : null}
-              {address ? (
-                <DetailRow
-                  ariaLabel={`Open map for ${address}`}
-                  href={mapHref}
-                  icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                  label="Address"
-                  onClick={(event) => handleAddressMapClick(event, address)}
-                  value={address}
-                />
-              ) : null}
-              {person.church ? <DetailRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Church" value={person.church} /> : null}
-              {defaults.occupation ? <DetailRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Occupation" value={defaults.occupation} /> : null}
-              {defaults.birthday ? <DetailRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Birthday" value={formatDate(defaults.birthday)} /> : null}
-              {!person.phone && !person.email && !address && !person.church && !defaults.occupation && !defaults.birthday ? <p className="text-sm text-[#64748B]">No contact details yet.</p> : null}
-            </DetailCard>
-
-            {overviewNotes ? (
-              <DetailCard icon={<StickyNote className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Notes">
-                <div className="flex min-w-0 gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-sm text-[#0F172A]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">
-                    <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Note</span>
-                    <span className="mt-1 block whitespace-pre-line leading-6 text-[#0F172A]">{overviewNotes}</span>
-                  </span>
-                </div>
-              </DetailCard>
-            ) : null}
-
-            {hasHouseholdContext ? (
-              <DetailCard icon={<Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Household">
-                {person.spouseName ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Spouse" value={person.spouseName} /> : null}
-                {anniversaryReminder ? <DetailRow icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Anniversary" value={formatDate(nextReminderDate(anniversaryReminder))} /> : null}
-                {person.childrenNames ? <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Children" value={person.childrenNames} /> : null}
-                {person.householdNotes ? <DetailRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Household Notes" value={person.householdNotes} /> : null}
-                <div>
-                  <CompactButton icon="bell" onClick={onAddReminder}>Add Household Reminder</CompactButton>
-                </div>
-              </DetailCard>
-            ) : null}
-          </>
-        ) : null}
-
-        {activeDetailTab === "activity" ? (
-          <>
-            <DetailCard icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Activity">
-              <div className="grid min-w-0 grid-cols-3 gap-2 max-[350px]:gap-1.5">
-                <ActivityFilterCard
-                  icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Meetings"
-                  value={loggedInteractionCount}
-                />
-                <ActivityFilterCard
-                  icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Scheduled"
-                  value={personScheduledMeetings.length}
-                />
-                <ActivityFilterCard
-                  icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Reminders"
-                  value={upcomingReminders.length}
-                />
-              </div>
-              <div className="mt-3 grid gap-2">
-                <CompactButton icon="bell" onClick={onAddReminder}>Add Reminder</CompactButton>
-              </div>
-            </DetailCard>
-
-            <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Upcoming">
-              {upcomingTimelineGroups.length ? upcomingTimelineGroups.map(({ group, items }) => (
-                <section className="grid gap-2" key={group}>
-                  <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{group}</p>
-                  {items.map((item) => (
-                    <UpcomingTimelineRow
-                      item={item}
-                      key={item.id}
-                      onEditReminder={onEditReminder}
-                      onOpenMeeting={onOpenMeeting}
-                    />
-                  ))}
-                </section>
-              )) : (
-                <SectionEmptyState action={<CompactButton icon="calendar" onClick={onScheduleMeeting}>Schedule Meeting</CompactButton>} text="Scheduled meetings and reminders will appear here." title="Nothing upcoming." />
+            <PDSection title="Last Meeting">
+              {lastMeeting ? (
+                <PDList>
+                  <PDRow
+                    action={lastMeeting.growthReflection.followUpNeeded ? <PDPill tone="gold">Follow-up needed</PDPill> : undefined}
+                    description={(
+                      <>
+                        <span className="block">{meetingActivityPreview(lastMeeting, personReflections)}</span>
+                        {lastMeeting.growthReflection.actionStep ? <span className="mt-1 block text-[#0F1520]">Next step: {lastMeeting.growthReflection.actionStep}</span> : null}
+                      </>
+                    )}
+                    icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    meta={formatDate(lastMeeting.date)}
+                    onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
+                    title={meetingActivityTitle(lastMeeting)}
+                  />
+                </PDList>
+              ) : (
+                <PDList>
+                  <PDEmptyRow text="No meetings logged yet." />
+                </PDList>
               )}
-            </DetailCard>
-
-            <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Recent Activity">
-              {recentMeetings.length ? recentMeetings.map((meeting) => (
-                <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" key={meeting.id} type="button" onClick={() => onOpenMeeting(meeting.id, person.id)}>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-                    <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold leading-5 text-[#0F172A]">{meetingActivityTitle(meeting)}</span>
-                    <span className="mt-1 block text-xs leading-5 text-[#64748B]">{formatDate(meeting.date)}</span>
-                    <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{meetingActivityPreview(meeting, personReflections)}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-                </button>
-              )) : <SectionEmptyState action={<CompactButton icon="log" onClick={onLogMeeting}>Log Meeting</CompactButton>} text="Log the next conversation when it happens." title="No meetings yet." />}
-            </DetailCard>
-
-            {personParticipantReviews.length ? (
-              <DetailCard icon={<MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Quick Reviews">
-                <div className="grid gap-2.5">
-                  {personParticipantReviews.map((review) => (
-                    <ParticipantReviewRow key={review.id} review={review} />
-                  ))}
-                </div>
-              </DetailCard>
-            ) : null}
+            </PDSection>
 
             {commitmentsEnabled ? (
-              <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitment Activity">
-                {commitmentActivityItems.length ? commitmentActivityItems.map((item) => (
-                  <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={item.id}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.type} · {formatDate(item.date)}</p>
-                      </div>
-                    </div>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#475569]">{item.body}</p>
-                  </div>
-                )) : <SectionEmptyState title="No commitment activity yet." />}
-              </DetailCard>
+              <PDSection action={<PDButton onClick={onAddCommitment}>Add</PDButton>} title="Accountability">
+                {accountabilityTopics.length ? (
+                  <PDList>
+                    {accountabilityTopics.map((topic) => (
+                      <PDRow
+                        action={<PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>}
+                        description={topic.isOverdue ? <PDPill tone="gold">Overdue</PDPill> : undefined}
+                        icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                        key={topic.id}
+                        meta={topic.meta}
+                        title={topic.title}
+                      />
+                    ))}
+                  </PDList>
+                ) : (
+                  <PDList>
+                    <PDEmptyRow text="No active accountability yet." />
+                  </PDList>
+                )}
+              </PDSection>
             ) : null}
 
-            <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Resources Sent">
-              <SectionEmptyState
-                text="Sent date, opened date, completed date, and scores can be tracked later."
-                title="No resources sent yet."
-              />
-            </DetailCard>
-          </>
-        ) : null}
+            <PDSection action={<PDButton onClick={() => onAssignResource(person.id)}>Assign</PDButton>} title="Current Journeys">
+              <PDList>
+                {activeResourceAssignments.map((assignment) => {
+                  const resource = resourceAssignmentResource(assignment);
+                  const isInAppJourney = Boolean(resource && isGuidedResource(resource));
+                  const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
 
-        {activeDetailTab === "commitments" && commitmentsEnabled ? (
-          <CommitmentsPanel
-            checkIns={accountabilityCheckIns}
-            commitments={commitments}
-            links={accountabilityCheckInLinks}
-            onAddCommitment={onAddCommitment}
-            onAddSchedule={onAddAccountabilitySchedule}
-            onAddUpdate={onAddCommitmentUpdate}
-            onComplete={onCompleteCommitment}
-            onEdit={onEditCommitment}
-            onLogCheckIn={onLogAccountabilityCheckIn}
-            onPause={onPauseCommitment}
-            schedules={accountabilitySchedules}
-          />
-        ) : null}
+                  return (
+                    <PDRow
+                      action={(
+                        <>
+                          {isInAppJourney && resource ? (
+                            <PDButton onClick={() => onOpenGuidedResource(resource, assignment.personId)} tone="solid">Continue</PDButton>
+                          ) : resource ? (
+                            <PDButton href={resource.path}>Read Online</PDButton>
+                          ) : null}
+                          <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
+                        </>
+                      )}
+                      description={groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}
+                      icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      key={assignment.id}
+                      meta={resourceAssignmentDueLabel(assignment)}
+                      title={resourceAssignmentTitle(assignment)}
+                    />
+                  );
+                })}
+                <PDRow
+                  action={<PDButton href={marriageAssessmentHref}>{latestMarriageAssessment ? "Retake" : "Start"}</PDButton>}
+                  description={latestMarriageAssessment ? `Completed ${formatDate(latestMarriageAssessment.completedAt)}` : "Structured assessment"}
+                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                  meta={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "Not started"}
+                  title="Marriage Assessment"
+                />
+              </PDList>
+            </PDSection>
 
-        {activeDetailTab === "reviews" ? (
-          <section className="grid min-w-0 gap-3">
-            <SectionHeading title="Reviews" />
-            <SubmittedReviewsList items={personReviewItems} onOpenReview={onOpenReview} />
-          </section>
-        ) : null}
-
-        {activeDetailTab === "prayer" ? (
-          <>
-            <DetailCard icon={<Heart className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Prayer Requests">
+            <PDSection action={<PDButton onClick={onAddPrayerRequest}>Add</PDButton>} title="Prayer">
               {activePersonPrayerRequests.length || activePrayerReminders.length ? (
-                <div className="grid gap-2.5">
+                <PDList>
                   {activePersonPrayerRequests.map((request) => (
-                    <div className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={request.id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
-                          <p className="mt-1 text-xs font-semibold text-[#64748B]">{request.category ?? "Prayer"} · {prayerRequestVisibilityDisplay(request.visibility)}</p>
-                        </div>
-                        <DesktopPrayerStatusPill>{prayerRequestStatusDisplay(request.status)}</DesktopPrayerStatusPill>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[#475569]">{request.request}</p>
-                      {request.followUpAt ? <p className="mt-2 text-xs font-bold text-[#2563EB]">Follow up {formatDate(request.followUpAt)}</p> : null}
-                    </div>
+                    <PDRow
+                      description={request.request}
+                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      key={request.id}
+                      meta={request.category ?? "Prayer"}
+                      title={request.title}
+                    />
                   ))}
                   {activePrayerReminders.map((reminder) => (
-                    <PrayerRequestCard
+                    <PDRow
+                      action={(
+                        <>
+                          <PDButton onClick={() => setPrayedPrayerReminderIds((current) => ({ ...current, [reminder.id]: true }))}>
+                            {prayedPrayerReminderIds[reminder.id] ? "Prayed" : "Pray"}
+                          </PDButton>
+                          <PDButton onClick={() => onMarkPrayerAnswered(reminder.id)} tone="solid">Mark Answered</PDButton>
+                        </>
+                      )}
+                      description={reminderVisibleNotes(reminder.notes)}
+                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                       key={reminder.id}
-                      onMarkAnswered={() => onMarkPrayerAnswered(reminder.id)}
-                      onPrayNow={() => setPrayedPrayerReminderIds((current) => ({ ...current, [reminder.id]: true }))}
-                      reminder={reminder}
+                      meta={prayerFrequencyLabel(reminder.recurrence)}
+                      title={reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}
                     />
                   ))}
-                  {activePrayerReminders.some((reminder) => prayedPrayerReminderIds[reminder.id]) ? (
-                    <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#1D4ED8]">
-                      Prayer noted for this session. Durable prayer logging can be wired later.
-                    </p>
-                  ) : null}
-                </div>
+                </PDList>
               ) : (
-                <SectionEmptyState
-                  action={(
-                    <div className="grid grid-cols-2 gap-2">
-                      <CompactButton icon="prayer" onClick={onAddPrayerRequest}>Add Request</CompactButton>
-                      <CompactButton icon="library" onClick={onOpenPrayerResources}>Resources</CompactButton>
-                    </div>
-                  )}
-                  text="No active prayer requests yet. Add one from a meeting or start with a prayer resource."
-                  title="No active prayer requests yet."
-                />
+                <PDList>
+                  <PDEmptyRow text="No active prayer requests." />
+                </PDList>
               )}
-            </DetailCard>
+            </PDSection>
 
-            <DetailCard icon={<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Answered Prayer">
-              {answeredPersonPrayerRequests.length || answeredPrayerReminders.length ? (
-                <div className="grid gap-2.5">
-                  {answeredPersonPrayerRequests.map((request) => (
-                    <div className="rounded-[20px] border border-[#D7F3DD] bg-[#F7FEFA] p-3" key={request.id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-[#0F172A]">{request.title}</p>
-                          <p className="mt-1 text-xs font-semibold text-[#64748B]">{request.answeredAt ? formatDate(request.answeredAt) : "Answered"}</p>
-                        </div>
-                        <DesktopPrayerStatusPill>Answered</DesktopPrayerStatusPill>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[#475569]">{request.answerTestimony ?? request.request}</p>
-                    </div>
+            <PDSection action={<PDButton onClick={onAddReminder}>Add</PDButton>} title="Next Steps">
+              {personFollowUpReminders.length ? (
+                <PDList>
+                  {personFollowUpReminders.map((reminder) => (
+                    <PDRow
+                      description={reminderVisibleNotes(reminder.notes)}
+                      icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      key={reminder.id}
+                      meta={formatDate(nextReminderDate(reminder))}
+                      onClick={() => onEditReminder(reminder.id)}
+                      title={reminder.title || "Follow up"}
+                    />
                   ))}
-                  {answeredPrayerReminders.map((reminder) => (
-                    <AnsweredPrayerCard answeredAt={answeredPrayerByReminderId[reminder.id]} key={reminder.id} reminder={reminder} />
-                  ))}
-                </div>
+                </PDList>
               ) : (
-                <SectionEmptyState text="Answered prayers will appear here when requests are marked answered." title="No answered prayers yet." />
+                <PDList>
+                  <PDEmptyRow text="No follow-ups queued." />
+                </PDList>
               )}
-            </DetailCard>
+            </PDSection>
 
-            <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Prayer Resources">
-              <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
-                <p className="text-sm font-black leading-5 text-[#0F172A]">Pray through a guided resource.</p>
-                <p className="mt-1 text-xs leading-5 text-[#64748B]">
-                  Open a categorized prayer, share a public link, or save it to follow-up for the next meeting.
-                </p>
-                <div className="mt-3">
-                  <CompactButton icon="library" onClick={onOpenPrayerResources}>Open Prayer Resources</CompactButton>
+            {personGroups.length ? (
+              <PDSection title="Groups">
+                <div className="flex flex-wrap gap-2">
+                  {personGroups.map((group) => (
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#E3E6EB] bg-white px-3 py-2 text-[13px] font-semibold text-[#0F1520] transition-colors hover:border-[#0F1520]"
+                      key={group.id}
+                      onClick={() => onOpenGroup(group.id)}
+                      type="button"
+                    >
+                      <Users className="h-3.5 w-3.5 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+                      {group.name}
+                      {group.leaderPersonId === person.id ? <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#A07A35]">Leader</span> : null}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            </DetailCard>
+              </PDSection>
+            ) : null}
           </>
         ) : null}
 
-        {activeDetailTab === "fruit" ? (
+        {activeDetailTab === "history" ? (
+          <PDSection title="History">
+            {personHistoryEntries.length ? (
+              <PDList>
+                {personHistoryEntries.map((entry) => (
+                  <HistoryRow entry={entry} key={entry.id} />
+                ))}
+              </PDList>
+            ) : (
+              <PDList>
+                <PDEmptyRow text="Meetings, check-ins, journeys, prayer, and reviews will appear here as this relationship grows." />
+              </PDList>
+            )}
+          </PDSection>
+        ) : null}
+
+        {activeDetailTab === "details" ? (
           <>
-            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Snapshot">
-              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
-                <FruitSummaryCard
-                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Assessments"
-                  value={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "None Yet"}
-                />
-                <FruitSummaryCard icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active Journeys" value={String(activeResourceAssignments.length)} />
-                <FruitSummaryCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Count" value={String(personOutcomeEntries.length)} />
-                <FruitSummaryCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Multiplication" value={fruitMultiplicationLabel(personFruitSummary.multiplicationStatus)} />
-              </div>
-              <p className="rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-sm leading-6 text-[#64748B]">
-                What this person is working through now, and what has changed. {latestGrowthDate ? `Last growth activity ${formatRelativeDate(latestGrowthDate)}.` : ""}
-              </p>
-            </DetailCard>
-
-            <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Active Journeys & Assessments">
-              <div className="grid gap-3">
-                <AssessmentResultSummaryCard href={marriageAssessmentHref} results={marriageAssessmentResults} title="Marriage Assessment" />
-                {personAssessmentResultPlaceholders.slice(1).length ? (
-                  <p className="rounded-[16px] border border-dashed border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#64748B]">
-                    Not started yet: {personAssessmentResultPlaceholders.slice(1).map((assessment) => assessment.title).join(" · ")}
-                  </p>
-                ) : null}
-
-                {activeResourceAssignments.length ? activeResourceAssignments.map((assignment) => (
-                  <ResourceAssignmentCard
-                    assignment={assignment}
-                    groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
-                    key={assignment.id}
-                    onEditDates={onEditResourceAssignment}
-                    onLogCheckIn={onLogResourceCheckIn}
-                    onMarkComplete={onMarkResourceAssignmentComplete}
-                    onMarkInProgress={onMarkResourceAssignmentInProgress}
-                    onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
-                    onPause={onPauseResourceAssignment}
+            <PDSection title="Contact">
+              <PDList>
+                {person.phone ? (
+                  <PDRow
+                    action={(
+                      <>
+                        <PDButton href={phoneActionHref("tel", person.phone)}>Call</PDButton>
+                        <PDButton href={phoneActionHref("sms", person.phone)}>Text</PDButton>
+                      </>
+                    )}
+                    icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    meta="Phone"
+                    title={formatPhoneNumber(person.phone) || person.phone}
                   />
-                )) : (
-                  <SectionEmptyState text="Assign a Library resource such as Discipleship or a reading plan to start a journey with this person." title="No active journeys." />
-                )}
-                <CompactButton icon="library" onClick={() => onAssignResource(person.id)}>Assign Journey</CompactButton>
-              </div>
-            </DetailCard>
+                ) : null}
+                {person.email ? (
+                  <PDRow
+                    action={<PDButton href={`mailto:${person.email}`}>Email</PDButton>}
+                    icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    meta="Email"
+                    title={person.email}
+                  />
+                ) : null}
+                {address ? (
+                  <PDRow
+                    href={mapHref}
+                    icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    meta="Address"
+                    title={address}
+                  />
+                ) : null}
+                {person.church ? <PDRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Church" title={person.church} /> : null}
+                {defaults.occupation ? <PDRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Occupation" title={defaults.occupation} /> : null}
+                {defaults.birthday ? <PDRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Birthday" title={formatDate(defaults.birthday)} /> : null}
+                {!person.phone && !person.email && !address && !person.church && !defaults.occupation && !defaults.birthday ? <PDEmptyRow text="No contact details yet." /> : null}
+              </PDList>
+            </PDSection>
 
-            {completedResourceAssignments.length ? (
-              <details className="group rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  Completed Journeys ({completedResourceAssignments.length})
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
-                </summary>
-                <div className="mt-3 grid gap-2">
-                  {completedResourceAssignments.map((assignment) => (
-                    <ResourceAssignmentCard
-                      assignment={assignment}
-                      compact
-                      groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
-                      key={assignment.id}
-                      onEditDates={onEditResourceAssignment}
-                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
-                    />
-                  ))}
-                </div>
-              </details>
+            {hasHouseholdContext ? (
+              <PDSection title="Household">
+                <PDList>
+                  {person.spouseName ? <PDRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Spouse" title={person.spouseName} /> : null}
+                  {anniversaryReminder ? <PDRow icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Anniversary" title={formatDate(nextReminderDate(anniversaryReminder))} /> : null}
+                  {person.childrenNames ? <PDRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Children" title={person.childrenNames} /> : null}
+                  {person.householdNotes ? <PDRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Household Notes" title={person.householdNotes} /> : null}
+                </PDList>
+                <PDButton onClick={onAddReminder}>Add Household Reminder</PDButton>
+              </PDSection>
             ) : null}
 
-            <DetailCard icon={<Mic className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Testimonies & Outcomes">
-              {personOutcomeEntries.length ? personOutcomeEntries.map((entry) => (
-                entry.type === "testimony"
-                  ? <ParticipantTestimonyRow key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} testimony={entry.testimony} />
-                  : <FruitEventRow event={entry.event} key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} />
-              )) : (
-                <SectionEmptyState text="Observable outcomes and shared stories will appear here." title="No outcomes yet." />
-              )}
-            </DetailCard>
-
-            <DetailCard icon={<GitBranch className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Milestones">
-              {personGrowthMilestones.length ? (
-                <div className="grid gap-2">
-                  {personGrowthMilestones.slice(0, 3).map((milestone) => (
-                    <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
-                  ))}
-                  {personGrowthMilestones.length > 3 ? (
-                    <details className="group">
-                      <summary className="cursor-pointer text-xs font-bold text-[#2563EB]">
-                        View {personGrowthMilestones.length - 3} more
-                      </summary>
-                      <div className="mt-2 grid gap-2">
-                        {personGrowthMilestones.slice(3).map((milestone) => (
-                          <GrowthMilestoneRow key={milestone.id} milestone={milestone} />
-                        ))}
-                      </div>
-                    </details>
-                  ) : null}
-                </div>
-              ) : (
-                <SectionEmptyState text="Tables, quick reviews, testimonies, and fruit will form the growth timeline here." title="No growth milestones yet." />
-              )}
-            </DetailCard>
+            {overviewNotes ? (
+              <PDSection title="Notes">
+                <p className="whitespace-pre-line rounded-[16px] border border-[#EDEFF2] bg-[#FBFAF8] p-4 text-[14px] leading-[1.6] text-[#3D4654]">{overviewNotes}</p>
+              </PDSection>
+            ) : null}
           </>
         ) : null}
 
@@ -35396,9 +35455,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const requestedPersonId = searchParams.get("person");
   const requestedGroupId = searchParams.get("openGroup");
   const requestedDetailTab = searchParams.get("tab") === "growth"
-    ? "fruit"
+    ? "history"
     : searchParams.get("tab") === "commitments"
-      ? "commitments"
+      ? "overview"
       : null;
   const people = useMemo(() => {
     const loadedPersonIds = new Set(data.people.map((person) => person.id));
@@ -41561,6 +41620,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
+            onOpenGroup={(groupId) => {
+              setSelectedPersonId(null);
+              openGroupDetail(groupId);
+            }}
             onOpenMeeting={openMeetingDetail}
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
