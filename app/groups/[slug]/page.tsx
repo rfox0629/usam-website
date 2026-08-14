@@ -246,6 +246,16 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
   const supabase = createSupabaseAdminClient();
   const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
   const site = siteResolution.site ?? fallbackUsamPublicSite;
+
+  // Same reason as the directory: an unresolved host cannot match a
+  // `public_site_id`, so the approved Groups would 404 on preview hosts.
+  if (!siteResolution.site) {
+    const hostFallback = fallbackPublicGroups[slug];
+
+    return hostFallback
+      ? toPublicGroupData(hostFallback, fallbackGatherings[slug] ?? null, site, ["Ryan Fox"])
+      : null;
+  }
   const groupQuery = supabase
     .from("dos_groups")
     .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, member_access_enabled, public_site_id, public_status")

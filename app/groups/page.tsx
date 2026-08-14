@@ -179,6 +179,14 @@ async function loadPublicDirectoryData(hostname: string): Promise<PublicDirector
   const supabase = createSupabaseAdminClient();
   const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
   const site = siteResolution.site ?? fallbackUsamPublicSite;
+
+  // Hosts that are not a configured public site — preview deployments, for
+  // example — cannot match any `public_site_id`, so the published query
+  // returns nothing and the directory renders empty. Serve the approved
+  // Groups there instead. Real public hosts resolve a site and are unaffected.
+  if (!siteResolution.site) {
+    return { groups: fallbackPublicDirectoryGroups, site };
+  }
   const publicQuery = supabase
     .from("dos_groups")
     .select("id, name, slug, description, tagline, scripture_reference, type, rhythm_label, default_location, audience, activity_type, public_site_id, public_status")
