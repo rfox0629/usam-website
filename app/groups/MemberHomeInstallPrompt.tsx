@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 
 type MemberHomeInstallPromptProps = {
   identityId: string;
+  /**
+   * Leader preview may show the expanded state for review without touching
+   * the participant's real dismissal state.
+   */
+  previewExpanded?: boolean;
 };
 
 function isStandaloneDisplay() {
@@ -55,9 +60,12 @@ function deviceInstructions(userAgent: string) {
   };
 }
 
-export function MemberHomeInstallPrompt({ identityId }: MemberHomeInstallPromptProps) {
-  const [isDismissed, setIsDismissed] = useState(true);
-  const [showSteps, setShowSteps] = useState(false);
+export function MemberHomeInstallPrompt({ identityId, previewExpanded = false }: MemberHomeInstallPromptProps) {
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showSteps, setShowSteps] = useState(previewExpanded);
+  // First entry may add a one-line invitation above the row. Once dismissed,
+  // only the compact row remains, so install help never dominates the fold.
+  const [showInvitation, setShowInvitation] = useState(false);
   const storageKey = `dos-member-home-install-dismissed:${identityId}`;
   const instructions = useMemo(() => {
     if (typeof window === "undefined") {
@@ -68,42 +76,74 @@ export function MemberHomeInstallPrompt({ identityId }: MemberHomeInstallPromptP
   }, []);
 
   useEffect(() => {
-    if (isStandaloneDisplay()) {
+    const standalone = isStandaloneDisplay();
+
+    setIsStandalone(standalone);
+
+    if (standalone) {
       return;
     }
 
-    setIsDismissed(window.localStorage.getItem(storageKey) === "true");
-  }, [storageKey]);
+    // Leader preview must never read or write the participant's real state.
+    setShowInvitation(previewExpanded || window.localStorage.getItem(storageKey) !== "true");
+  }, [previewExpanded, storageKey]);
 
-  function dismiss() {
-    window.localStorage.setItem(storageKey, "true");
-    setIsDismissed(true);
+  function dismissInvitation() {
+    if (!previewExpanded) {
+      window.localStorage.setItem(storageKey, "true");
+    }
+
+    setShowInvitation(false);
   }
 
-  if (isDismissed) {
+  // Already installed — the row has nothing left to offer.
+  if (isStandalone) {
     return null;
   }
 
   return (
-    <section className="rounded-lg border border-[#C2A14E]/35 bg-[#171B22] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Keep DOS on your phone</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-white/70">Add it to your Home Screen so you can return each week.</p>
+    <section className="rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+      {showInvitation ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#EAF2FF] px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#0F172A]">Keep DOS on your phone</p>
+            <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">
+              Add it to your Home Screen so you can return each week.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-xs font-bold text-white"
+              onClick={() => setShowSteps(true)}
+              type="button"
+            >
+              Show Me How
+            </button>
+            <button
+              className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569]"
+              onClick={dismissInvitation}
+              type="button"
+            >
+              Maybe Later
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button className="inline-flex min-h-10 items-center justify-center rounded-sm bg-[#C2A14E] px-3 text-xs font-black text-[#080A0D]" onClick={() => setShowSteps((value) => !value)} type="button">
-            Show Me How
-          </button>
-          <button className="inline-flex min-h-10 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72" onClick={dismiss} type="button">
-            Maybe Later
-          </button>
-        </div>
-      </div>
+      ) : null}
+
+      <button
+        aria-expanded={showSteps}
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        onClick={() => setShowSteps((value) => !value)}
+        type="button"
+      >
+        <span className="text-sm font-bold text-[#0F172A]">Add DOS to your Home Screen</span>
+        <span className="shrink-0 text-xs font-bold text-[#1D4ED8]">{showSteps ? "Hide" : "Show"}</span>
+      </button>
+
       {showSteps ? (
-        <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F8C56A]">{instructions.title}</p>
-          <ol className="mt-2 grid gap-1 text-sm font-semibold leading-6 text-white/72">
+        <div className="border-t border-[#EAF2FF] px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]">{instructions.title}</p>
+          <ol className="mt-2 grid list-decimal gap-1 pl-4 text-sm font-semibold leading-6 text-[#475569]">
             {instructions.steps.map((step) => (
               <li key={step}>{step}</li>
             ))}

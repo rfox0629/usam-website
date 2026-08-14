@@ -47,8 +47,8 @@ assertIncludes(memberPage, "redirect(`${groupPath}", "Valid member sessions on /
 
 assertIncludes(publicTemplate, "PublicGroupHeader", "Public visitor page must use the minimal Groups header.");
 assertNotIncludes(publicTemplate, "PrimaryNav", "Public visitor page must not use the full public nav.");
-assertIncludes(publicTemplate, "Request to Join", "Public visitor page must keep the join action.");
-assertIncludes(publicTemplate, "Member Sign In", "Public visitor page must keep the sign-in action.");
+assertIncludes(publicTemplate, "Request to join", "Public visitor page must keep the join action.");
+assertIncludes(publicTemplate, "Member sign in", "Public visitor page must keep the sign-in action.");
 assertIncludes(publicTemplate, "Leaders", "Public visitor page must show leaders.");
 assertNotIncludes(publicTemplate, "Manage in DOS", "Public visitor page must not expose DOS management actions.");
 assertNotIncludes(publicTemplate, "group.manageHref", "Public visitor page must not carry management hrefs.");
@@ -60,10 +60,10 @@ assertNotIncludes(publicTemplate, "What You Are Signing Up For", "Public visitor
 assertNotIncludes(publicTemplate, "Member Portal", "Public visitor page must not present a member portal.");
 assertNotIncludes(publicTemplate, "Member Dashboard", "Public visitor page must not present a dashboard.");
 
-assertIncludes(memberHomeView, "DOS Home", "Approved member view must use stable DOS Home language.");
+assertIncludes(memberHomeView, "Group Home", "Approved member view must use stable Group Home language.");
 assertIncludes(memberHomeView, "data.identity.name", "Approved member view must identify the scoped member.");
-assertBefore(memberHomeView, "DOS Home", "Active Journeys", "Member view must start with scoped identity before active Journeys.");
-assertBefore(memberHomeView, "Active Journeys", "Scoped DOS member access", "Member view must keep Journeys as the primary member task.");
+assertBefore(memberHomeView, "Group Home", "Current Journey", "Member view must start with the Group identity before the current Journey.");
+assertBefore(memberHomeView, "Current Journey", "<MemberHomeInstallPrompt", "Member view must keep the Journey above install help.");
 assertIncludes(memberHomeView, "MemberHomeInstallPrompt", "Successful member entry must offer the one-time Home Screen prompt.");
 assertIncludes(memberHomeView, "MemberJourneySummaryRow", "Member view must summarize assigned Journeys.");
 assertIncludes(memberHomeView, "journeyProgress", "Member Journey rows must be progress-aware.");
@@ -84,7 +84,13 @@ assertIncludes(groupHomeAccess, "loadPublicGroupLeaderNames", "Public Group Home
 assertIncludes(groupHomeAccess, "allowedRoles: [\"leader\", \"co_leader\"]", "Management helper must remain leader authorized outside the public Group Home.");
 
 assertIncludes(publicGroupPage, "groupDisplayTimeZone", "Public Group Home must format gatherings in the shared group timezone.");
-assertIncludes(publicGroupPage, "Time TBD", "Public Group Home must avoid inventing a next-gathering time from rhythm copy.");
+// The intent here is right — never fabricate a clock time from rhythm copy —
+// but requiring the literal "Time TBD" is what produced the contradiction the
+// founder flagged: a confident "Weekly · Wednesday · 5:30-6:30" sitting beside
+// "Next gathering: TBD". buildCommunitySchedule enforces the same intent by
+// folding rhythm and dated gathering into one canonical answer.
+assertIncludes(publicGroupPage, "buildCommunitySchedule", "Public Group Home must derive one canonical schedule.");
+assertNotIncludes(publicGroupPage, "Time TBD", "Public Group Home must not contradict the rhythm with a competing TBD time.");
 assertNotIncludes(publicGroupPage, "nextGatheringTimeFor", "Public Group Home must not parse rhythm text into next-gathering time.");
 assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must format gatherings in the shared group timezone.");
 assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group timezone.");

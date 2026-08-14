@@ -4,12 +4,26 @@ import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import type { GroupMemberPortalData } from "@/src/lib/groups/member-access";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { GroupTemplateArtwork } from "./GroupTemplateVisual";
+import {
+  communityCard,
+  communityCardInteractive,
+  communityChip,
+  communityEyebrow,
+  communityFieldLabel,
+  communityOrgLabel,
+  communityPage,
+} from "./community-design";
+import { buildCommunitySchedule } from "./community-schedule";
 import { MemberHomeInstallPrompt } from "./MemberHomeInstallPrompt";
 import { signOutGroupMember } from "./[slug]/member/actions";
 
 type GroupHomeMemberViewProps = {
   data: GroupMemberPortalData;
   message?: string | null;
+  /** Restrained organization co-branding. Independent Groups pass nothing. */
+  organizationName?: string | null;
+  /** Leader preview may expand install help without touching real state. */
+  previewInstallHelp?: boolean;
 };
 
 export function groupHomeStateMessage(value: string | null) {
@@ -47,114 +61,107 @@ export function groupHomeStateMessage(value: string | null) {
   }
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Date TBD";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeZone: groupDisplayTimeZone,
-  }).format(date);
-}
-
-function formatTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Time TBD";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: groupDisplayTimeZone,
-    timeStyle: "short",
-  }).format(date);
-}
-
 export function GroupHomeMemberView({
   data,
   message = null,
+  organizationName = null,
+  previewInstallHelp = false,
 }: GroupHomeMemberViewProps) {
-  const nextGathering = data.nextGathering;
   const groupPath = publicGroupPath(data.group.slug);
   const activeAssignments = data.journeyAssignments.filter((assignment) => assignment.status !== "completed");
   const completedAssignments = data.journeyAssignments.filter((assignment) => assignment.status === "completed");
-  const showInstallPrompt = message === groupHomeStateMessage("signed-in");
-  const visualInput = {
-    name: data.group.name,
-    slug: data.group.slug,
-    tagline: data.group.tagline,
-    type: data.group.type,
-  };
+
+  // The member Home reads the same canonical schedule the public page reads.
+  // A leader time change in DOS lands here without a second copy of the data.
+  const schedule = buildCommunitySchedule({
+    location: data.nextGathering?.location ?? data.group.location,
+    nextGatheringStartsAt: data.nextGathering?.startsAt,
+    nextGatheringTitle: data.nextGathering?.title,
+    rhythmLabel: data.group.rhythm,
+    timeZone: groupDisplayTimeZone,
+  });
 
   return (
-    <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
-      <div className="relative isolate mx-auto grid w-full max-w-3xl gap-3 px-4 py-4 pb-24 sm:px-6 sm:py-6">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-30 opacity-28 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
-        />
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-56 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
-        <header className="grid gap-3 rounded-lg border border-[#C2A14E]/22 bg-[#111418]/90 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:grid-cols-[minmax(0,1fr)_12rem]">
-          <div className="flex flex-col justify-between gap-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">DOS Home</p>
-                <h1 className="mt-2 text-3xl font-black leading-none text-white sm:text-4xl">{data.identity.name}</h1>
-                <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{data.group.name}</p>
-              </div>
-              <form action={signOutGroupMember}>
-                <input name="slug" type="hidden" value={data.group.slug} />
-                <button className="inline-flex min-h-10 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72" type="submit">
-                  Sign Out
-                </button>
-              </form>
+    <main className={communityPage}>
+      <div className="mx-auto grid w-full max-w-2xl gap-3 px-4 py-5 pb-10 sm:px-6">
+        {/* 1 — Group identity first. Tanner should read "this is my group". */}
+        <header className={`p-4 ${communityCard}`}>
+          <GroupTemplateArtwork
+            input={{ name: data.group.name, slug: data.group.slug, tagline: data.group.tagline, type: data.group.type }}
+            size="member"
+          />
+
+          <div className="mt-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {organizationName ? (
+                <p className={communityOrgLabel}>A {organizationName} Group</p>
+              ) : (
+                <p className={communityEyebrow}>Group Home</p>
+              )}
+              <h1 className="mt-1.5 text-2xl font-black leading-tight tracking-tight text-[#0F172A] sm:text-3xl">
+                {data.group.name}
+              </h1>
+              {data.group.tagline ? (
+                <p className="mt-1 text-sm font-bold text-[#1D4ED8]">{data.group.tagline}</p>
+              ) : null}
+              <p className="mt-2 text-sm font-semibold text-[#64748B]">Signed in as {data.identity.name}</p>
             </div>
-            {message ? <p className="rounded-lg border border-emerald-300/30 bg-emerald-400/10 px-3 py-2 text-sm font-bold text-emerald-100">{message}</p> : null}
+            <form action={signOutGroupMember}>
+              <input name="slug" type="hidden" value={data.group.slug} />
+              <button
+                className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                type="submit"
+              >
+                Sign out
+              </button>
+            </form>
           </div>
-          <GroupTemplateArtwork input={visualInput} size="member" />
+
+          {message ? (
+            <p className="mt-3 rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-sm font-bold text-[#15803D]">
+              {message}
+            </p>
+          ) : null}
         </header>
 
-        {showInstallPrompt ? <MemberHomeInstallPrompt identityId={data.identity.id} /> : null}
+        {/* 2 — Next gathering, from the one canonical schedule. */}
+        <section className={`p-4 ${communityCard}`} aria-label="Next gathering">
+          <p className={communityEyebrow}>{schedule.isDated ? "Next gathering" : "Meets"}</p>
+          <p className="mt-1.5 text-lg font-black leading-snug text-[#0F172A]">{schedule.headline}</p>
+          <p className="mt-0.5 text-sm font-semibold leading-6 text-[#64748B]">{schedule.detail}</p>
+          <p className="mt-2.5 border-t border-[#EAF2FF] pt-2.5 text-sm font-semibold leading-6 text-[#475569]">
+            {schedule.location}
+          </p>
+        </section>
 
-        <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Active Journeys</p>
-            <span className="rounded-sm border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/55">
-              {activeAssignments.length}
-            </span>
-          </div>
+        {/* 3 — Current Journey with one obvious Continue. */}
+        <section className={`p-4 ${communityCard}`} aria-label="Current Journey">
+          <p className={communityEyebrow}>Current</p>
           <div className="mt-3 grid gap-2">
-            {activeAssignments.length ? activeAssignments.map((assignment) => (
-              <MemberJourneySummaryRow
-                assignment={assignment}
-                groupPath={groupPath}
-                key={assignment.id}
-                progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
-              />
-            )) : (
-              <p className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-sm font-semibold leading-6 text-white/60">No active Journey is assigned yet.</p>
+            {activeAssignments.length ? (
+              activeAssignments.map((assignment) => (
+                <MemberJourneySummaryRow
+                  assignment={assignment}
+                  groupPath={groupPath}
+                  key={assignment.id}
+                  progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
+                />
+              ))
+            ) : (
+              <p className="rounded-2xl bg-[#F8FBFF] px-3 py-3 text-sm font-semibold leading-6 text-[#64748B]">
+                No Journey is assigned yet. Your leader will send one when it is ready.
+              </p>
             )}
           </div>
         </section>
 
-        <section className="rounded-lg border border-white/10 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Group</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <GroupHomeFact label="Group" value={data.group.name} />
-            <GroupHomeFact label="Rhythm" value={data.group.rhythm} />
-            <GroupHomeFact label="Next" value={nextGathering ? `${formatDate(nextGathering.startsAt)} · ${formatTime(nextGathering.startsAt)}` : "TBD"} />
-          </div>
-        </section>
-
+        {/* 4 — Completed history stays available, quietly. */}
         {completedAssignments.length ? (
-          <section className="rounded-lg border border-white/10 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
+          <section className={`p-4 ${communityCard}`} aria-label="Completed">
             <details>
-              <summary className="flex cursor-pointer list-none items-center justify-between text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">
-                Completed ({completedAssignments.length})
-                <span className="text-white/35">Open</span>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span className={communityEyebrow}>Completed ({completedAssignments.length})</span>
+                <span className="text-xs font-bold text-[#1D4ED8]">Show</span>
               </summary>
               <div className="mt-3 grid gap-2">
                 {completedAssignments.map((assignment) => (
@@ -170,8 +177,11 @@ export function GroupHomeMemberView({
           </section>
         ) : null}
 
-        <footer className="pb-2 text-center text-xs font-bold text-white/42">
-          <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href={groupPath}>
+        {/* 5 — Compact install help, last, collapsed, hidden in standalone. */}
+        <MemberHomeInstallPrompt identityId={data.identity.id} previewExpanded={previewInstallHelp} />
+
+        <footer className="pt-2 text-center text-xs font-bold text-[#64748B]">
+          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href={groupPath}>
             {data.group.name}
           </Link>
           {" · "}Scoped DOS member access
@@ -199,38 +209,56 @@ function MemberJourneySummaryRow({
 
   return (
     <Link
-      className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 transition-colors hover:border-[#C2A14E]/40"
+      className={`flex min-w-0 items-center gap-3 p-3 ${communityCardInteractive}`}
       href={`${groupPath}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        {resource?.coverImage ? (
-          <img
-            alt={resource.coverImage.alt}
-            className="aspect-[2/3] w-10 shrink-0 rounded-md border border-white/10 object-cover"
-            src={resource.coverImage.src}
-          />
-        ) : null}
-        <div className="min-w-0">
-          <p className="truncate text-base font-black text-white">{resource?.title ?? assignment.resourceSlug}</p>
-          <p className="mt-1 text-xs font-semibold text-white/60">
-            {sessions.length ? `${completedCount}/${sessions.length} ${unit} complete` : "Ready to begin"}
-            {isComplete ? " · Complete" : ""}
-          </p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <span className="block h-full rounded-full bg-[#C2A14E]" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-      </div>
-      <span className="shrink-0 rounded-sm bg-[#C2A14E] px-3 py-2 text-xs font-black text-[#080A0D]">{isComplete ? "Review" : "Continue"}</span>
+      {resource?.coverImage ? (
+        <img
+          alt={resource.coverImage.alt}
+          className="aspect-[2/3] w-11 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover"
+          src={resource.coverImage.src}
+        />
+      ) : null}
+
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base font-black text-[#0F172A]">
+          {resource?.title ?? assignment.resourceSlug}
+        </span>
+        <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">
+          {sessions.length ? `${completedCount}/${sessions.length} ${unit} complete` : "Ready to begin"}
+        </span>
+        <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-[#E2E8F0]">
+          <span className="block h-full rounded-full bg-[#2563EB]" style={{ width: `${percent}%` }} />
+        </span>
+      </span>
+
+      <span className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-xs font-bold text-white">
+        {isComplete ? "Review" : "Continue"}
+      </span>
     </Link>
   );
 }
 
-function GroupHomeFact({ label, value }: { label: string; value: string }) {
+/**
+ * Reserved slot for leader announcements. The `dos_group_updates` table exists
+ * but is not yet projected into the member portal payload, and there is no
+ * per-member read state — both are USA-173 work. Rendering nothing is
+ * deliberate: an empty inbox is better than an invented one.
+ */
+export function MemberAnnouncementsSlot({ unreadCount = 0, latest = null }: { latest?: { body: string | null; title: string } | null; unreadCount?: number }) {
+  if (!latest) {
+    return null;
+  }
+
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">{label}</p>
-      <p className="mt-1 text-sm font-black leading-5 text-white">{value}</p>
-    </div>
+    <section className={`p-4 ${communityCard}`} aria-label="Latest update">
+      <div className="flex items-center justify-between gap-3">
+        <p className={communityEyebrow}>Latest update</p>
+        {unreadCount > 0 ? <span className={communityChip}>{unreadCount} new</span> : null}
+      </div>
+      <p className="mt-1.5 text-base font-black leading-snug text-[#0F172A]">{latest.title}</p>
+      {latest.body ? <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{latest.body}</p> : null}
+      <p className={`mt-2 ${communityFieldLabel}`}>From your leader</p>
+    </section>
   );
 }

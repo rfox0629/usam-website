@@ -14,6 +14,16 @@ import {
 } from "@/src/lib/groups/public-site";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import {
+  communityCard,
+  communityCardInteractive,
+  communityChip,
+  communityChipMuted,
+  communityFieldLabel,
+  communityOrgLabel,
+  communityPage,
+} from "./community-design";
+import { buildCommunitySchedule, type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 type PublicDirectoryGroup = {
@@ -21,8 +31,7 @@ type PublicDirectoryGroup = {
   leaders: string[];
   location: string;
   name: string;
-  nextGathering: string;
-  rhythm: string;
+  schedule: CommunitySchedule;
   scriptureReference: string;
   slug: string;
   tagline: string;
@@ -54,8 +63,7 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     leaders: ["Ryan Fox"],
     location: "Lebanon Hills Trailhead, Eagan, MN",
     name: "2three2",
-    nextGathering: "Saturdays at 7:00 AM",
-    rhythm: "Weekly · Saturday · 7:00 AM",
+    schedule: buildCommunitySchedule({ location: "Lebanon Hills Trailhead, Eagan, MN", rhythmLabel: "Weekly · Saturday · 7:00 AM" }),
     scriptureReference: "2 Timothy 2:22",
     slug: "2three2",
     tagline: "Run. Pray. Pursue.",
@@ -66,8 +74,7 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     leaders: ["Ryan Fox"],
     location: "Location TBD",
     name: "Tuesday Men's Group",
-    nextGathering: "Tuesdays at 6:00 AM",
-    rhythm: "Weekly · Tuesday · 6:00 AM",
+    schedule: buildCommunitySchedule({ rhythmLabel: "Weekly · Tuesday · 6:00 AM" }),
     scriptureReference: "",
     slug: "tuesday-mens-group",
     tagline: "Grow together.",
@@ -78,8 +85,7 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
     leaders: ["Ryan Fox"],
     location: "Location TBD",
     name: "Wednesday Men's Group",
-    nextGathering: "Wednesday evenings",
-    rhythm: "Weekly · Wednesday · Evening",
+    schedule: buildCommunitySchedule({ rhythmLabel: "Weekly · Wednesday · Evening" }),
     scriptureReference: "",
     slug: "wednesday-mens-group",
     tagline: "Brotherhood. Prayer. Discipleship.",
@@ -129,27 +135,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
   },
   };
-}
-
-function formatPublicDirectoryDate(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    timeZone: groupDisplayTimeZone,
-    weekday: "long",
-  }).format(date);
 }
 
 function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | "audience" | "name" | "slug" | "type">) {
@@ -268,15 +253,19 @@ async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase
 
   return groupRows.map((group) => {
     const nextGathering = nextGatheringsByGroupId.get(group.id);
-    const nextGatheringDate = formatPublicDirectoryDate(nextGathering?.starts_at);
 
     return {
       description: group.description ?? "A recurring discipleship rhythm.",
       leaders: leadersByGroupId.get(group.id) ?? [],
       location: group.default_location ?? "Location shared after leader confirmation",
       name: group.name,
-      nextGathering: nextGathering ? `${nextGathering.title ?? "Next gathering"} · ${nextGatheringDate || "Time TBD"}` : "Upcoming gathering TBD",
-      rhythm: group.rhythm_label ?? "Recurring",
+      schedule: buildCommunitySchedule({
+        location: group.default_location,
+        nextGatheringStartsAt: nextGathering?.starts_at,
+        nextGatheringTitle: nextGathering?.title,
+        rhythmLabel: group.rhythm_label,
+        timeZone: groupDisplayTimeZone,
+      }),
       scriptureReference: group.scripture_reference ?? "",
       slug: group.slug,
       tagline: group.tagline ?? "Discipleship happens in rhythms.",
@@ -290,69 +279,80 @@ export default async function PublicGroupsDirectoryPage() {
   const { groups, site } = await loadPublicDirectoryData(requestHostname(headersList));
 
   return (
-    <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
-      <section className="relative isolate mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-8 lg:px-10">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-30 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
-        />
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-64 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
-        <div className="flex flex-1 flex-col gap-5">
-          <header className="overflow-hidden rounded-lg border border-[#C2A14E]/22 bg-[#111418]/88 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-            <div className="relative isolate px-5 py-7 text-white sm:px-8 lg:px-10">
-              <Link className="inline-flex items-center gap-3" href="/">
-                <Image alt={site.displayName} className="h-8 w-8 rounded-sm object-contain" height={32} priority src={site.logoUrl ?? "/brand/logo/usam-website-logo.png"} width={32} />
-                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]">{site.displayName} Groups</span>
-              </Link>
-              <h1 className="mt-4 max-w-3xl text-4xl font-black leading-none text-white sm:text-5xl">Groups by {site.displayName}.</h1>
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
-                Public rhythms. Leader operated. Organization published.
-              </p>
-            </div>
-          </header>
-          {groups.length ? (
-            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {groups.map((group) => (
-                <Link
-                  className="group flex min-h-[23rem] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#101317] shadow-[0_18px_48px_rgba(0,0,0,0.28)] transition-colors hover:border-[#C2A14E]/55 hover:bg-[#13171D]"
-                  href={publicGroupPath(group.slug, site)}
-                  key={group.slug}
-                >
-                  <GroupTemplateArtwork input={group} />
-                  <span className="flex flex-1 flex-col p-4">
-                    {group.scriptureReference ? <span className="text-xs font-black text-white/52">{group.scriptureReference}</span> : null}
-                    <span className={group.scriptureReference ? "mt-4 block text-2xl font-black leading-tight text-white" : "block text-2xl font-black leading-tight text-white"}>{group.name}</span>
-                    <span className="mt-1 block text-sm font-black text-[#F8C56A]">{group.tagline}</span>
-                    <span className="mt-3 block text-sm font-semibold text-white/70">{formatLeaderLine(group.leaders)}</span>
-                    <span className="mt-auto grid gap-2 pt-5 text-sm font-bold text-white">
-                      <span className="grid gap-1 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38">Schedule</span>
-                        <span>{group.rhythm}</span>
-                      </span>
-                      <span className="grid gap-1 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38">Next</span>
-                        <span>{group.nextGathering}</span>
-                      </span>
-                      <span className="text-white/60">{group.location}</span>
+    <main className={communityPage}>
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-8 lg:px-10">
+        <header className="flex items-center justify-between gap-3">
+          <Link className={communityOrgLabel} href="/">
+            <Image
+              alt={site.displayName}
+              className="h-7 w-7 rounded-md object-contain"
+              height={28}
+              priority
+              src={site.logoUrl ?? "/brand/logo/usam-website-logo.png"}
+              width={28}
+            />
+            {site.displayName}
+          </Link>
+          <span className={communityChipMuted}>Groups</span>
+        </header>
+
+        <section className="mt-6">
+          <h1 className="text-3xl font-black leading-tight tracking-tight text-[#0F172A] sm:text-4xl">
+            Find a group near you.
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#475569]">
+            Groups meeting in real rhythms, led by people you can actually sit with. Request to join and a leader
+            will follow up.
+          </p>
+        </section>
+
+        {groups.length ? (
+          <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {groups.map((group) => (
+              <Link
+                className={`group flex flex-col overflow-hidden ${communityCardInteractive}`}
+                href={publicGroupPath(group.slug, site)}
+                key={group.slug}
+              >
+                <GroupTemplateArtwork input={group} />
+                <span className="flex flex-1 flex-col p-4">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className={communityChip}>{group.type}</span>
+                    {group.location ? <span className={communityChipMuted}>{group.location}</span> : null}
+                  </span>
+                  <span className="mt-3 block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
+                  <span className="mt-1 block text-sm font-bold text-[#1D4ED8]">{group.tagline}</span>
+                  <span className="mt-2 block text-sm font-semibold leading-6 text-[#64748B]">
+                    {formatLeaderLine(group.leaders)}
+                  </span>
+
+                  <span className="mt-auto block pt-4">
+                    <span className="block rounded-2xl bg-[#F8FBFF] px-3 py-2.5">
+                      <span className={communityFieldLabel}>{group.schedule.isDated ? "Next gathering" : "Meets"}</span>
+                      <span className="mt-1 block text-sm font-bold text-[#0F172A]">{group.schedule.headline}</span>
+                      <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">{group.schedule.detail}</span>
                     </span>
                   </span>
-                </Link>
-              ))}
-            </section>
-          ) : (
-            <section className="rounded-lg border border-white/10 bg-[#111418] p-6 text-sm leading-6 text-white/65 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
-              <p className="font-black text-white">No public groups yet.</p>
-              <p className="mt-1 text-white/65">Groups will appear here when they are ready to share publicly.</p>
-            </section>
-          )}
-        </div>
-        <footer className="pt-6 text-center text-xs font-bold text-white/45">
+                </span>
+              </Link>
+            ))}
+          </section>
+        ) : (
+          <section className={`mt-6 p-6 ${communityCard}`}>
+            <p className="text-base font-black text-[#0F172A]">No public groups yet.</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
+              Groups appear here once a leader publishes them.
+            </p>
+          </section>
+        )}
+
+        <footer className="mt-auto pt-8 text-center text-xs font-bold text-[#64748B]">
           Powered by{" "}
-          <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
             {site.displayName}
           </Link>
         </footer>
-      </section>
+      </div>
     </main>
   );
 }

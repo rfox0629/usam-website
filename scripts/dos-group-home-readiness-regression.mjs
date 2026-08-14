@@ -196,12 +196,15 @@ assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DO
 assertNotIncludes(publicPage, "nextGatheringTimeFor", "Public Group Home must not invent next-gathering times from rhythm text.");
 assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering workflow must show the disabled route placeholder.");
 assertIncludes(appClient, "aria-disabled=\"true\"", "Leader route placeholder must expose disabled state.");
-assertIncludes(memberHomeView, "DOS Home", "Member Group Home must be the stable participant landing surface.");
+assertIncludes(memberHomeView, "Group Home", "Member Group Home must be the stable participant landing surface.");
+assertIncludes(memberHomeView, "data.group.name", "Member Group Home must lead with the Group identity.");
 assertIncludes(memberHomeView, "data.identity.name", "Member Group Home must be scoped to the current member identity.");
-assertIncludes(memberHomeView, "Active Journeys", "Member Group Home must prioritize assigned Journeys.");
+assertIncludes(memberHomeView, "Current Journey", "Member Group Home must prioritize the assigned Journey.");
 assertIncludes(memberHomeView, "Continue", "Member Group Home must include a Journey continuation action.");
 assertIncludes(memberHomeView, "MemberHomeInstallPrompt", "Member Group Home must offer install guidance after successful entry.");
-assertIncludes(memberHomeView, "Scoped DOS member access", "Member Group Home must avoid broad platform access language.");
+// Stronger than the previous copy check: the member Home must not link into
+// the leader/admin DOS workspace at all.
+assertNotIncludes(memberHomeView, "/dos/app", "Member Group Home must avoid broad platform access.");
 assertNotIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home must not expose deferred route placeholders.");
 assertNotIncludes(memberHomeView, "Save RSVP", "Member Group Home must not expose RSVP as a primary participant action.");
 assertNotIncludes(memberHomeView, "Keep Me Updated", "Member Group Home must not expose notification preferences as a primary participant action.");

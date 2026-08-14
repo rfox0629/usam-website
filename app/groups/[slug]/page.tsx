@@ -20,6 +20,7 @@ import {
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
+import { buildCommunitySchedule } from "../community-schedule";
 import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
 
 type PublicGroupRow = {
@@ -278,13 +279,18 @@ async function loadPublicGroupGatheringData(
 function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null, site: PublicSiteConfig, leaders: string[] = []): PublicGroupPageData {
   const typeLabel = publicGroupType(group);
   const content = contentForGroup(group);
-  const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
-  const hasDatedGathering = Boolean(dateParts.day);
   const scriptureReference = group.scripture_reference ?? "";
   const anchor = scriptureAnchor(scriptureReference);
-  const nextGatheringTitle = nextGathering?.title ?? "Next gathering TBD";
-  const nextGatheringTime = hasDatedGathering ? dateParts.time : "Time TBD";
   const publicLocation = group.default_location ?? "Location shared after leader confirmation";
+  // One canonical schedule: a dated gathering leads when it exists, otherwise
+  // the recurring rhythm is the schedule. Never both as rival facts.
+  const schedule = buildCommunitySchedule({
+    location: publicLocation,
+    nextGatheringStartsAt: nextGathering?.starts_at,
+    nextGatheringTitle: nextGathering?.title,
+    rhythmLabel: group.rhythm_label,
+    timeZone: groupDisplayTimeZone,
+  });
 
   return {
     acceptingRequests: group.accepting_members !== false,
@@ -296,13 +302,7 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     location: publicLocation,
     memberAccessEnabled: group.member_access_enabled === true,
     name: group.name,
-    nextGatheringDay: hasDatedGathering ? dateParts.weekday : "See rhythm",
-    nextGatheringLocation: publicLocation,
-    nextGatheringMonth: hasDatedGathering ? dateParts.month : "Soon",
-    nextGatheringNumber: hasDatedGathering ? dateParts.day : "TBD",
-    nextGatheringTime,
-    nextGatheringTitle,
-    rhythm: group.rhythm_label ?? "Recurring",
+    schedule,
     scheduleIntro: content.scheduleIntro,
     scheduleTitle: content.scheduleTitle,
     scriptureReference,
@@ -474,35 +474,6 @@ function publicGroupActivityLabel(group: PublicGroupRow) {
     : group.type === "running"
       ? "Running"
       : "Activity";
-}
-
-function nextGatheringDateParts(value: string | null | undefined) {
-  if (!value) {
-    return {
-      day: "",
-      month: "",
-      time: "",
-      weekday: "",
-    };
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return {
-      day: "",
-      month: "",
-      time: "",
-      weekday: "",
-    };
-  }
-
-  return {
-    day: new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: groupDisplayTimeZone }).format(date),
-    month: new Intl.DateTimeFormat("en-US", { month: "long", timeZone: groupDisplayTimeZone }).format(date),
-    time: new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: groupDisplayTimeZone }).format(date),
-    weekday: new Intl.DateTimeFormat("en-US", { timeZone: groupDisplayTimeZone, weekday: "long" }).format(date),
-  };
 }
 
 function publicGroupType(group: PublicGroupRow) {

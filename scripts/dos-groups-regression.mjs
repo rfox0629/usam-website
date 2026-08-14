@@ -884,10 +884,11 @@ for (const privatePublicTerm of [
   );
 }
 assertIncludes(publicSingleGroupRoute, "PublicGroupHeader", "Public group route must present the minimal Groups header.");
-assertIncludes(publicSingleGroupRoute, "Next Gathering", "Public group route must include Next Gathering.");
+assertIncludes(publicSingleGroupRoute, "Next gathering", "Public group route must include the canonical next gathering.");
+assertIncludes(publicSingleGroupRoute, "buildCommunitySchedule", "Public group route must read one canonical schedule, not rival rhythm/next fields.");
 assertIncludes(publicSingleGroupRoute, "Leaders", "Public group route must show group leaders.");
-assertIncludes(publicSingleGroupRoute, "Request to Join", "Public group route must include Request to Join.");
-assertIncludes(publicSingleGroupRoute, "Sign In", "Public group route must include Sign In.");
+assertIncludes(publicSingleGroupRoute, "Request to join", "Public group route must include the join action.");
+assertIncludes(publicSingleGroupRoute, "Member sign in", "Public group route must include member sign in.");
 assertNotIncludes(publicSingleGroupRoute, "Manage in DOS", "Public Group Home must not expose DOS management actions.");
 assertIncludes(publicSingleGroupRoute, "Request received. A group leader will follow up.", "Public group route must include the requested success state.");
 assertIncludes(publicSingleGroupRoute, "submitGroupJoinRequest", "Public group route must submit the live join request action.");

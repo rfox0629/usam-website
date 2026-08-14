@@ -42,9 +42,19 @@ for (const requiredPhrase of [
   assertIncludes(visualSystem, requiredPhrase, `Generated template artwork must preserve phrase: ${requiredPhrase}.`);
 }
 
+// USA-57 founder direction reversed the previous dark/gold treatment. These
+// guards previously required `#C2A14E` and `#080A0D` on every Groups surface,
+// which is what locked the drift in place. They now enforce the opposite: the
+// authenticated/public Community surfaces belong to the DOS design system.
+// USA Missionaries gold remains the marketing brand; it is no longer painted
+// onto DOS product surfaces.
 for (const source of [directory, publicTemplate, memberHomeView, visualSystem]) {
-  assertIncludes(source, "#C2A14E", "Groups surfaces must preserve USA Missionaries gold.");
-  assertIncludes(source, "#080A0D", "Groups surfaces must preserve the dark USA Missionaries atmosphere.");
+  assertNotIncludes(source, "#C2A14E", "Groups surfaces must not reintroduce the gold Community drift.");
+  assertNotIncludes(source, "#080A0D", "Groups surfaces must not reintroduce the dark Community drift.");
+}
+
+for (const source of [directory, publicTemplate, memberHomeView]) {
+  assertIncludes(source, "community-design", "Groups surfaces must read the shared DOS Community tokens.");
 }
 
 assertIncludes(visualSystem, "GroupTemplateArtwork", "Generated template artwork component must exist.");
@@ -54,19 +64,19 @@ assertIncludes(visualSystem, "Running Group", "Generated activity artwork must a
 assertNotIncludes(visualSystem, "2three2 ${titleCase", "Generated artwork must not repeat 2three2 in the activity label.");
 assertIncludes(directory, "formatLeaderLine(group.leaders)", "Directory cards must show leader attribution.");
 assertIncludes(directory, "loadPublicGroupLeaderNames", "Directory must load public leader names through the server helper.");
-assertIncludes(directory, "Public rhythms. Leader operated. Organization published.", "Directory hero must describe organization-owned groups.");
+assertIncludes(directory, "Find a group near you.", "Directory hero must invite a visitor to find a group.");
 assertIncludes(directory, "GroupTemplateArtwork input={group}", "Directory cards must use generated template artwork.");
 assertIncludes(directory, "Running Group", "Directory cards must avoid redundant 2three2 running labels.");
 assertNotIncludes(directory, "line-clamp-3", "Directory cards should avoid paragraph-heavy copy.");
 assertIncludes(routeAwareFooter, 'pathname?.startsWith("/groups")', "Groups routes must suppress the full site footer.");
 
-assertIncludes(publicTemplate, "Member Sign In", "Public group page must use member-friendly sign-in copy.");
+assertIncludes(publicTemplate, "Member sign in", "Public group page must use member-friendly sign-in copy.");
 assertIncludes(publicTemplate, "group.memberAccessEnabled ?", "Member Sign In must render only when member access is enabled.");
 assertNotIncludes(publicTemplate, "Manage in DOS", "Public group page must not render DOS management actions.");
 assertNotIncludes(publicTemplate, "group.manageHref", "Public group page must not carry management hrefs.");
 assertNotIncludes(publicTemplate, "PrimaryNav", "Public group page must use the minimal Groups header.");
 assertIncludes(publicTemplate, "PublicGroupHeader", "Public group page must render the minimal Groups header.");
-assertIncludes(publicTemplate, "What to Expect", "Public group page must restore the concise What to Expect section.");
+assertIncludes(publicTemplate, "What to expect", "Public group page must restore the concise What to expect section.");
 assertNotIncludes(publicTemplate, "Join the rhythm.", "Public group page must remove the redundant lower join card.");
 assertIncludes(publicTemplate, "Powered by", "Public group page must render a minimal footer.");
 assertIncludes(publicTemplate, "GroupTemplateArtwork", "Public group hero must include generated template artwork.");
@@ -74,8 +84,8 @@ assertIncludes(publicTemplate, "Leaders", "Public group hero must keep leader at
 assertNotIncludes(publicTemplate, "Typical Schedule", "Public group page must stay out of old content-heavy sections.");
 
 assertIncludes(memberHomeView, "GroupTemplateArtwork", "Member Group Home must include generated template artwork.");
-assertIncludes(memberHomeView, "DOS Home", "Member Group Home must present a stable member home.");
-assertIncludes(memberHomeView, "Active Journeys", "Member Group Home must prioritize active Journeys.");
+assertIncludes(memberHomeView, "Group Home", "Member Group Home must present a stable member home.");
+assertIncludes(memberHomeView, "Current Journey", "Member Group Home must prioritize the current Journey.");
 assertIncludes(memberHomeView, "Continue", "Member Group Home must include a clear Continue action.");
 assertIncludes(memberHomeView, "Scoped DOS member access", "Member Group Home must communicate scoped access without platform language.");
 assertNotIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home must not surface deferred route placeholders.");
