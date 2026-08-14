@@ -14,7 +14,7 @@ import {
   communityPrimaryAction,
   communitySecondaryAction,
 } from "./community-design";
-import type { CommunitySchedule } from "./community-schedule";
+import { publicSafeText, type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 export type PublicGroupPageData = {
@@ -78,7 +78,7 @@ export function PublicGroupPageTemplate({
           <div className={`min-w-0 p-5 sm:p-6 ${communityCard}`}>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={communityChip}>{group.typeLabel}</span>
-              {group.location ? <span className={communityChipMuted}>{group.location}</span> : null}
+              {publicSafeText(group.location) ? <span className={communityChipMuted}>{publicSafeText(group.location)}</span> : null}
             </div>
 
             <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-[#0F172A] sm:text-4xl">

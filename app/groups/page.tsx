@@ -23,7 +23,7 @@ import {
   communityOrgLabel,
   communityPage,
 } from "./community-design";
-import { buildCommunitySchedule, type CommunitySchedule } from "./community-schedule";
+import { buildCommunitySchedule, publicSafeText, type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 type PublicDirectoryGroup = {
@@ -316,11 +316,12 @@ export default async function PublicGroupsDirectoryPage() {
               >
                 <GroupTemplateArtwork input={group} />
                 <span className="flex flex-1 flex-col p-4">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <span className={communityChip}>{group.type}</span>
-                    {group.location ? <span className={communityChipMuted}>{group.location}</span> : null}
-                  </span>
-                  <span className="mt-3 block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
+                  {publicSafeText(group.location) ? (
+                    <span className="mb-2 flex flex-wrap items-center gap-1.5">
+                      <span className={communityChipMuted}>{publicSafeText(group.location)}</span>
+                    </span>
+                  ) : null}
+                  <span className="block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
                   <span className="mt-1 block text-sm font-bold text-[#1D4ED8]">{group.tagline}</span>
                   <span className="mt-2 block text-sm font-semibold leading-6 text-[#64748B]">
                     {formatLeaderLine(group.leaders)}

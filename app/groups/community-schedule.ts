@@ -73,11 +73,16 @@ export function buildCommunitySchedule({
   };
 }
 
+/** Placeholder values must never surface as if they were real content. */
+export function publicSafeText(value?: string | null): string {
+  return cleanText(value);
+}
+
 function cleanText(value?: string | null): string {
   const trimmed = (value ?? "").trim();
 
   // Treat placeholder values as absent so they never surface as real content.
-  if (!trimmed || /^(tbd|n\/a|none|unknown)$/i.test(trimmed)) {
+  if (!trimmed || /^(tbd|n\/a|none|unknown)$/i.test(trimmed) || /\btbd\b/i.test(trimmed)) {
     return "";
   }
 
