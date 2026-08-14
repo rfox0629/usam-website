@@ -280,14 +280,17 @@ assertIncludes(client, "setResourceAssignmentStatus(assignment, assignment.statu
 assertMatches(client, /name="general_update"[\s\S]*required/, "resource check-in note is required");
 
 assertIncludes(resourceAssignmentFormSheet, "Start Date", "Assignment launch must ask for Start Date.");
-assertIncludes(resourceAssignmentFormSheet, "onChange={(event) => setStartDate(event.target.value)}", "Assignment estimate must update when the selected start date changes.");
+assertIncludes(resourceAssignmentFormSheet, "DosDateInput", "Assignment launch must use the compact DOS date input instead of the native iOS date pill.");
+assertIncludes(resourceAssignmentFormSheet, "onChange={setStartDate}", "Assignment estimate must update when the selected start date changes.");
 assertIncludes(resourceAssignmentFormSheet, "value={startDate}", "Assignment start date must be controlled for reliable estimate recalculation.");
+assertIncludes(resourceAssignmentFormSheet, "min-[380px]:grid-cols", "Assignment launch should keep person and date compact side-by-side on standard phone widths.");
 assertIncludes(resourceAssignmentFormSheet, "This is not a due date.", "Assignment launch must explain derived completion is not enforced.");
 assertIncludes(resourceAssignmentFormSheet, "Leader Reminder (Optional)", "Assignment launch must demote reminders to a collapsed optional control.");
 assertNotIncludes(resourceAssignmentFormSheet, "Due Date", "Assignment launch must not expose an editable Due Date field.");
 assertNotIncludes(resourceAssignmentFormSheet, "Personal Message", "Assignment launch must not expose a large personal-message field.");
 assertNotIncludes(resourceAssignmentFormSheet, "Linked Commitment", "Assignment launch must not show linked-commitment plumbing.");
 assertIncludes(groupJourneyAssignSheet, "Start Date", "Group assignment launch must ask for Start Date.");
+assertIncludes(groupJourneyAssignSheet, "DosDateInput", "Group assignment launch must use the compact DOS date input.");
 assertIncludes(groupJourneyAssignSheet, "Use existing active Journey", "Group assignment must require an explicit reuse decision for active duplicates.");
 assertIncludes(groupJourneyAssignSheet, "reuseExisting", "Group assignment must submit the explicit reuse decision.");
 assertIncludes(resourceAssignmentSuccessSheet, "Secure Invitation", "Assignment success must surface secure member invitation actions.");

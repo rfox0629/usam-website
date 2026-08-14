@@ -8987,7 +8987,7 @@ function GroupJourneyAssignSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Assign a Journey">
-      <div className="grid gap-4">
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
         <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
           <p className="text-sm font-black text-[#0F172A]">{selectedResource.title}</p>
           <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{resourceAssignmentPlanLengthLabel(selectedResource)} · Est. completion {formatDate(resourceAssignmentEstimatedCompletionDate(startDate, selectedResource))}</p>
@@ -8995,9 +8995,15 @@ function GroupJourneyAssignSheet({
             <button className="mt-1 text-xs font-bold text-[#2563EB]" onClick={() => setSelectedResource(null)} type="button">Choose a different resource</button>
           )}
         </div>
-        <DosFormField label="Start Date">
-          <input className={FieldInputClass(false)} onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
-        </DosFormField>
+        <DosDateInput
+          label="Start Date"
+          maxYear={new Date().getFullYear() + 5}
+          minYear={new Date().getFullYear() - 1}
+          name="group_assignment_start_date"
+          onChange={setStartDate}
+          required
+          value={startDate}
+        />
         <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
           <div className="flex items-center justify-between gap-2">
             <FieldLabel>Participants</FieldLabel>
@@ -13916,7 +13922,7 @@ function ResourceAssignmentFormSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Journey" : "Assign Journey"}>
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="grid min-w-0 gap-4 overflow-x-hidden" onSubmit={onSubmit}>
         <input name="assignment_context" type="hidden" value={context} />
         <input name="due_date" type="hidden" value="" />
         <input name="personal_message" type="hidden" value="" />
@@ -13925,17 +13931,25 @@ function ResourceAssignmentFormSheet({
         <input name="source_group_id" type="hidden" value={groupContextId} />
         {assignment ? <input name="id" type="hidden" value={assignment.id} /> : null}
         <DosFormSection icon="library" title={resource.title}>
-          {!personId && !assignment ? (
-            <FormOptionSelect
-              defaultValue={selectedPersonId}
-              label="Person"
-              name="person_id"
-              options={people.map((person) => ({ label: person.name, value: person.id }))}
+          <div className="grid min-w-0 gap-3 min-[380px]:grid-cols-2">
+            {!personId && !assignment ? (
+              <FormOptionSelect
+                defaultValue={selectedPersonId}
+                label="Person"
+                name="person_id"
+                options={people.map((person) => ({ label: person.name, value: person.id }))}
+              />
+            ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
+            <DosDateInput
+              label="Start Date"
+              maxYear={new Date().getFullYear() + 5}
+              minYear={new Date().getFullYear() - 1}
+              name="start_date"
+              onChange={setStartDate}
+              required
+              value={startDate}
             />
-          ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
-          <DosFormField label="Start Date">
-            <input className={FieldInputClass(false)} name="start_date" onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
-          </DosFormField>
+          </div>
           <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
             <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Estimate</p>
             <p className="mt-1 text-sm font-black text-[#0F172A]">{formatDate(estimatedCompletionDate)}</p>
@@ -15264,14 +15278,14 @@ function Sheet({
 
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
-    : "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
+    : "max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
 
   const content = (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
-      <div className="flex min-h-full items-end justify-center md:items-center">
+    <div className="fixed inset-0 z-[1000] overflow-y-auto overflow-x-hidden bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
+      <div className="flex min-h-full min-w-0 items-end justify-center md:items-center">
         <div
           aria-modal="true"
-          className={`max-h-[calc(100dvh-1.5rem)] w-full border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
+          className={`max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] min-w-0 border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
