@@ -15,8 +15,11 @@
  */
 
 /** Page background: the DOS dawn shell. */
+// The global body is dark, so an explicit solid base sits under the gradient.
+// Without it, any surface taller than the gradient lets the dark body show
+// through — which is exactly how the old dark treatment crept back in.
 export const communityPage =
-  "min-h-screen bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)] text-[#0F172A]";
+  "min-h-screen [background-color:#F8FBFF] bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)] text-[#0F172A]";
 
 /** The standard DOS card. */
 export const communityCard =
