@@ -192,6 +192,7 @@ export type GroupMemberPortalData = {
   identity: {
     email: string | null;
     id: string;
+    name: string;
     personId: string;
     phone: string | null;
   };
@@ -892,6 +893,7 @@ export async function loadGroupMemberPortalData(
       identity: {
         email: identity.verified_email ?? normalizeEmail(person.email),
         id: identity.id,
+        name: person.name ?? "Group member",
         personId: identity.person_id,
         phone: identity.verified_phone ?? normalizePhone(person.phone),
       },

@@ -13,6 +13,12 @@ function assertIncludes(source, needle, label) {
   }
 }
 
+function assertNotIncludes(source, needle, label) {
+  if (source.includes(needle)) {
+    throw new Error(`${label}: unexpectedly found ${needle}`);
+  }
+}
+
 function assertMatches(source, pattern, label) {
   if (!pattern.test(source)) {
     throw new Error(`${label}: missing ${pattern}`);
@@ -38,6 +44,18 @@ const loader = read("src/lib/dos/missionary-app.ts");
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const packageJson = read("package.json");
+const resourceAssignmentFormSheet = client.slice(
+  client.indexOf("function ResourceAssignmentFormSheet"),
+  client.indexOf("function ResourceAssignmentCheckInSheet"),
+);
+const resourceAssignmentSuccessSheet = client.slice(
+  client.indexOf("function ResourceAssignmentSuccessSheet"),
+  client.indexOf("function ResourceAssignmentDuplicateSheet"),
+);
+const groupJourneyAssignSheet = client.slice(
+  client.indexOf("function GroupJourneyAssignSheet"),
+  client.indexOf("function AssignTargetPickerSheet"),
+);
 
 assertIncludes(migration, "create table if not exists public.dos_resource_assignments", "migration creates assignment table");
 assertIncludes(migration, "resource_slug text not null", "migration stores canonical resource slug");
@@ -74,6 +92,8 @@ assertIncludes(catalog, "durationDays: 14", "reading plan assignment duration de
 assertIncludes(catalog, 'followUpCadence: "midpoint_and_completion"', "reading plan defaults midpoint and completion follow-up");
 
 assertIncludes(assignmentApiHelper, "resolveAssignableDosResource", "API helper validates assignable resources");
+assertIncludes(assignmentApiHelper, "value === null", "API helper must preserve intentionally blank due dates.");
+assertIncludes(assignmentApiHelper, "value.trim() === \"\"", "API helper must not silently default blank due dates.");
 assertIncludes(assignmentApiHelper, "mapResourceAssignmentRow", "API helper maps assignment rows");
 assertIncludes(assignmentApiHelper, "normalizeResourceAssignmentContext", "API helper normalizes assignment context");
 assertIncludes(assignmentApiHelper, "normalizeResourceAssignmentSharingLevel", "API helper normalizes sharing levels");
@@ -149,6 +169,8 @@ assertIncludes(client, "openResourceAssignmentCreate(resource, myPersonId, { ass
 assertIncludes(client, "openResourceAssignmentCreate(resource, null, { assignmentContext: \"library\" })", "Library Assign supports Person target through the canonical assignment form");
 assertIncludes(client, "assignmentContext: \"group\"", "Group Journey assignment writes group context");
 assertIncludes(client, "sourceGroupId", "Client carries source group id for group-context assignments");
+assertIncludes(client, "dueDate: \"\"", "Assignment launch must intentionally store no enforced due date.");
+assertIncludes(client, "followUpCadence: \"none\"", "Group assignment launch must not create per-participant due reminders by default.");
 assertIncludes(client, "reuseExistingResourceAssignment", "duplicate warning offers explicit existing-assignment reuse");
 assertIncludes(client, "openLeaderJourneyProgress(personId, resource.slug)", "Person profile opens leader progress instead of editable private participant fields");
 assertIncludes(client, "Read Online", "assignment card keeps online reading action");
@@ -157,6 +179,21 @@ assertIncludes(client, "getDosResourceBySlug", "client resolves canonical catalo
 assertIncludes(client, "setResourceAssignmentStatus(assignment, \"completed\")", "assignment completion action exists");
 assertIncludes(client, "setResourceAssignmentStatus(assignment, assignment.status === \"paused\" ? \"in_progress\" : \"paused\")", "assignment pause/resume action exists");
 assertMatches(client, /name="general_update"[\s\S]*required/, "resource check-in note is required");
+
+assertIncludes(resourceAssignmentFormSheet, "Start Date", "Assignment launch must ask for Start Date.");
+assertIncludes(resourceAssignmentFormSheet, "This is not a due date.", "Assignment launch must explain derived completion is not enforced.");
+assertIncludes(resourceAssignmentFormSheet, "Leader Reminder (Optional)", "Assignment launch must demote reminders to a collapsed optional control.");
+assertNotIncludes(resourceAssignmentFormSheet, "Due Date", "Assignment launch must not expose an editable Due Date field.");
+assertNotIncludes(resourceAssignmentFormSheet, "Personal Message", "Assignment launch must not expose a large personal-message field.");
+assertNotIncludes(resourceAssignmentFormSheet, "Linked Commitment", "Assignment launch must not show linked-commitment plumbing.");
+assertIncludes(groupJourneyAssignSheet, "Start Date", "Group assignment launch must ask for Start Date.");
+assertIncludes(groupJourneyAssignSheet, "Use existing active Journey", "Group assignment must require an explicit reuse decision for active duplicates.");
+assertIncludes(groupJourneyAssignSheet, "reuseExisting", "Group assignment must submit the explicit reuse decision.");
+assertIncludes(resourceAssignmentSuccessSheet, "Secure Invitation", "Assignment success must surface secure member invitation actions.");
+assertIncludes(resourceAssignmentSuccessSheet, "send_member_access", "Assignment success must reuse the scoped member access endpoint.");
+assertIncludes(resourceAssignmentSuccessSheet, "Text Invitation", "Assignment success must offer native share/text flow when supported.");
+assertIncludes(resourceAssignmentSuccessSheet, "Copy Link", "Assignment success must offer secure link copy.");
+assertNotIncludes(resourceAssignmentSuccessSheet, "Copy Public Link", "Assignment success must not fall back to a generic public Journey link.");
 
 // USA-161: Group -> Assign Journey must visibly offer Discipleship, not just theoretically
 // allow it. The picker renders every catalog resource marked assignable, so Discipleship

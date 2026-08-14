@@ -60,19 +60,22 @@ assertNotIncludes(publicTemplate, "What You Are Signing Up For", "Public visitor
 assertNotIncludes(publicTemplate, "Member Portal", "Public visitor page must not present a member portal.");
 assertNotIncludes(publicTemplate, "Member Dashboard", "Public visitor page must not present a dashboard.");
 
-assertIncludes(memberHomeView, "Group Home", "Approved member view must use Group Home language.");
-assertBefore(memberHomeView, "Group Home", ">Next Gathering</p>", "Member view must start with compact group identity before the next gathering.");
-assertBefore(memberHomeView, ">Next Gathering</p>", "Save RSVP", "Member view must prioritize RSVP after next gathering.");
-assertBefore(memberHomeView, "Save RSVP", ">Latest Update</p>", "Latest update should follow RSVP.");
-assertBefore(memberHomeView, ">Latest Update</p>", ">Prayer</p>", "Prayer should follow latest update.");
-assertBefore(memberHomeView, ">Prayer</p>", ">Resources</p>", "Resources should follow prayer.");
-assertBefore(memberHomeView, ">Resources</p>", ">Keep Me Updated</p>", "Keep Me Updated should be last among core member sections.");
+assertIncludes(memberHomeView, "DOS Home", "Approved member view must use stable DOS Home language.");
+assertIncludes(memberHomeView, "data.identity.name", "Approved member view must identify the scoped member.");
+assertBefore(memberHomeView, "DOS Home", "Active Journeys", "Member view must start with scoped identity before active Journeys.");
+assertBefore(memberHomeView, "Active Journeys", "Scoped DOS member access", "Member view must keep Journeys as the primary member task.");
+assertIncludes(memberHomeView, "MemberHomeInstallPrompt", "Successful member entry must offer the one-time Home Screen prompt.");
+assertIncludes(memberHomeView, "MemberJourneySummaryRow", "Member view must summarize assigned Journeys.");
+assertIncludes(memberHomeView, "journeyProgress", "Member Journey rows must be progress-aware.");
+assertIncludes(memberHomeView, "Continue", "Member Journey rows must include a Continue action.");
+assertIncludes(memberHomeView, "Completed (", "Completed Journeys must stay available without competing with active work.");
+assertNotIncludes(memberHomeView, "Save RSVP", "Approved member Group Home must not prioritize RSVP over active Journeys.");
+assertNotIncludes(memberHomeView, "Latest Update", "Approved member Group Home must not surface general update feeds.");
+assertNotIncludes(memberHomeView, "Keep Me Updated", "Approved member Group Home must not surface notification preference controls.");
 assertNotIncludes(memberHomeView, "Attendance", "Approved member Group Home must not show attendance history.");
 assertNotIncludes(memberHomeView, "Workspace", "Approved member Group Home must not expose workspace language.");
 assertNotIncludes(memberHomeView, "Internal", "Approved member Group Home must not expose internal language.");
 assertNotIncludes(memberHomeView, "Manage in DOS", "Approved member Group Home must not expose DOS management actions.");
-assertIncludes(memberHomeView, "data.updates[0]", "Approved member view must feature one latest update.");
-assertIncludes(memberHomeView, "data.updates.slice(1)", "Earlier updates must be secondary.");
 assertIncludes(memberAccess, ".in(\"visibility\", [\"public\", \"group_members\"])", "Member updates must be member-visible or public only.");
 assertIncludes(memberAccess, ".eq(\"visibility\", \"group_members\")", "Member prayer list must show only group-member shared prayer.");
 assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member-submitted prayer must remain leader-only by default.");
@@ -91,8 +94,6 @@ for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
 }
 assertIncludes(routeBuilder, "includes(\"2three2\")", "Route placeholder must be limited to 2three2 templates.");
 assertIncludes(routeBuilder, "is2three2Template\n    &&", "Non-2three2 groups must not pass route placeholder eligibility.");
-assertIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member route placeholder must be clear and non-functional.");
-assertIncludes(memberHomeView, "aria-disabled=\"true\"", "Member route placeholder must be non-functional and accessible.");
 assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering experience must include the route placeholder.");
 assertIncludes(appClient, "Plan and share the route for this gathering.", "Leader route placeholder must use restrained future copy.");
 assertIncludes(appClient, "aria-disabled=\"true\"", "Leader route placeholder must be non-functional and accessible.");

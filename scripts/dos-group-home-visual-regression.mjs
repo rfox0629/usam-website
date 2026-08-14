@@ -74,9 +74,13 @@ assertIncludes(publicTemplate, "Leaders", "Public group hero must keep leader at
 assertNotIncludes(publicTemplate, "Typical Schedule", "Public group page must stay out of old content-heavy sections.");
 
 assertIncludes(memberHomeView, "GroupTemplateArtwork", "Member Group Home must include generated template artwork.");
-assertIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Route placeholder must feel intentional and remain non-functional.");
-assertIncludes(memberHomeView, "Save RSVP", "Member Group Home must preserve RSVP.");
-assertIncludes(memberHomeView, "Keep Me Updated", "Member Group Home must preserve update preferences.");
+assertIncludes(memberHomeView, "DOS Home", "Member Group Home must present a stable member home.");
+assertIncludes(memberHomeView, "Active Journeys", "Member Group Home must prioritize active Journeys.");
+assertIncludes(memberHomeView, "Continue", "Member Group Home must include a clear Continue action.");
+assertIncludes(memberHomeView, "Scoped DOS member access", "Member Group Home must communicate scoped access without platform language.");
+assertNotIncludes(memberHomeView, "Route details will appear here when your leader shares them.", "Member Group Home must not surface deferred route placeholders.");
+assertNotIncludes(memberHomeView, "Save RSVP", "Member Group Home must not preserve RSVP as a primary surface.");
+assertNotIncludes(memberHomeView, "Keep Me Updated", "Member Group Home must not preserve update preferences as a primary surface.");
 assertNotIncludes(memberHomeView, "Member Portal", "Member Group Home must not use portal language.");
 assertNotIncludes(memberHomeView, "Dashboard", "Member Group Home must not use dashboard language.");
 assertNotIncludes(memberHomeView, "Manage in DOS", "Member Group Home must not render DOS management actions.");
