@@ -85,10 +85,10 @@ export default async function OperationsSubmissionDetailPage({
       active="submissions"
       action={<OperationsActionLink href="/operations/submissions" variant="outline">Back to Inbox</OperationsActionLink>}
       authorization={authorization}
-      eyebrow="Submission"
+      eyebrow={submission?.sourceLabel}
       title={submission?.submitter ?? "Submission Detail"}
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         {query.saved ? (
           <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
             Review saved.
@@ -109,7 +109,7 @@ export default async function OperationsSubmissionDetailPage({
 
         {submission ? (
           <>
-            <OperationsPanel eyebrow={submission.sourceLabel} title="Case Summary">
+            <OperationsPanel title="Case Summary">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FieldBlock label="Submitted" value={formatOperationsDate(submission.submittedAt)} />
                 <FieldBlock label="Assigned" value={submission.assignedTo} />
@@ -139,8 +139,8 @@ export default async function OperationsSubmissionDetailPage({
               </div>
             </OperationsPanel>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-              <OperationsPanel eyebrow="Response" title="Secure Full Response">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+              <OperationsPanel title="Secure Full Response">
                 {submission.fullResponse.length > 0 ? (
                   <div className="divide-y divide-slate-100">
                     {submission.fullResponse.map((field) => (
@@ -157,7 +157,7 @@ export default async function OperationsSubmissionDetailPage({
                 )}
               </OperationsPanel>
 
-              <OperationsPanel eyebrow="Review" title="Follow Up">
+              <OperationsPanel title="Follow Up">
                 {submission.canManage ? (
                   <form action={updateSubmissionReviewAction} className="grid gap-4">
                     <input name="id" type="hidden" value={submission.id} />

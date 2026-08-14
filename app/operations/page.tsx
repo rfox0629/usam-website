@@ -69,28 +69,24 @@ export default async function OperationsHomePage() {
       eyebrow="USA Missionaries"
       title="Operations Home"
     >
-      <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <OperationsMetric
-            detail="Real queue signals only"
             href="/operations/submissions"
             label="Needs Attention"
             value={attentionCount}
           />
           <OperationsMetric
-            detail="No response content shown here"
             href="/operations/submissions"
             label="New Submissions"
             value={newSubmissions.length}
           />
           <OperationsMetric
-            detail="From application records"
             href="/operations/missionaries"
             label="Onboarding"
             value={onboardingNeedsReview.length}
           />
           <OperationsMetric
-            detail="Assigned or marked for follow-up"
             href="/operations/submissions"
             label="Follow Up"
             value={followUpSubmissions.length}
@@ -103,10 +99,9 @@ export default async function OperationsHomePage() {
           </section>
         ) : null}
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.8fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.8fr)]">
           <OperationsPanel
             action={canViewSubmissions ? <OperationsActionLink href="/operations/submissions">Open Inbox</OperationsActionLink> : null}
-            eyebrow="Review"
             title="Submissions Needing Review"
           >
             {canViewSubmissions && submissions.length > 0 ? (
@@ -144,7 +139,6 @@ export default async function OperationsHomePage() {
 
           <OperationsPanel
             action={canViewMissionaries ? <OperationsActionLink href="/operations/missionaries">Open</OperationsActionLink> : null}
-            eyebrow="Onboarding"
             title="Missionary Applications"
           >
             {canViewMissionaries && onboardingItems.length > 0 ? (
@@ -176,26 +170,6 @@ export default async function OperationsHomePage() {
             )}
           </OperationsPanel>
         </div>
-
-        <OperationsPanel eyebrow="Destinations" title="Operational Work">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {[
-              { href: "/operations/people", label: "People", value: "Destination ready" },
-              { href: "/operations/finance", label: "Finance & Compliance", value: "Legacy fallback" },
-              { href: "/operations/documents", label: "Documents", value: "Destination ready" },
-              { href: "/operations/organizations", label: "Organizations", value: "Destination ready" },
-            ].map((item) => (
-              <Link
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-[#D8A932]/70 hover:bg-white"
-                href={item.href}
-                key={item.href}
-              >
-                <p className="text-sm font-semibold text-slate-950">{item.label}</p>
-                <p className="mt-1 text-xs text-slate-500">{item.value}</p>
-              </Link>
-            ))}
-          </div>
-        </OperationsPanel>
       </div>
     </OperationsShell>
   );

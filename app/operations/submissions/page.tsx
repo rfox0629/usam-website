@@ -51,14 +51,13 @@ export default async function OperationsSubmissionsPage() {
       active="submissions"
       action={<OperationsActionLink href="/restoration" variant="outline">Restoration Intake</OperationsActionLink>}
       authorization={authorization}
-      eyebrow="Review"
       title="Forms / Submissions"
     >
-      <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
           <OperationsMetric label="New" value={newCount} />
           <OperationsMetric label="Follow Up" value={followUpCount} />
-          <OperationsMetric detail="Full answers stay on case detail" label="Restricted" value={restrictedCount} />
+          <OperationsMetric label="Restricted" value={restrictedCount} />
         </div>
 
         {error ? (
@@ -67,49 +66,41 @@ export default async function OperationsSubmissionsPage() {
           </section>
         ) : null}
 
-        <OperationsPanel eyebrow="Inbox" title="Submission Queue">
+        <OperationsPanel title="Submission Queue">
           {submissions.length > 0 ? (
             <div className="divide-y divide-slate-100">
+              {/* Column labels appear once, not repeated on every row. */}
+              <div className="hidden gap-3 pb-2 lg:grid lg:grid-cols-[minmax(0,1.4fr)_150px_150px_110px]">
+                {["Submission", "Status", "Follow Up", "Submitted"].map((heading) => (
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400" key={heading}>
+                    {heading}
+                  </p>
+                ))}
+              </div>
               {submissions.map((submission) => (
                 <Link
-                  className="grid gap-3 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1.2fr)_170px_150px_170px_120px] lg:items-center"
+                  className="grid gap-2 py-3 first:pt-0 lg:grid-cols-[minmax(0,1.4fr)_150px_150px_110px] lg:items-center lg:gap-3"
                   href={submission.href}
                   key={submission.id}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-950">{submission.submitter}</p>
-                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
-                      {submission.reviewSummary ?? submission.detail}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2 lg:hidden">
-                      <OperationsBadge tone={toneForStatus(submission.status)}>
-                        {operationsSubmissionStatusLabel(submission.status)}
-                      </OperationsBadge>
+                    <p className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-slate-950">{submission.submitter}</span>
                       {submission.isSensitive ? <OperationsBadge tone="red">Restricted</OperationsBadge> : null}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Type</p>
-                    <p className="mt-1 truncate text-sm text-slate-700">{submission.sourceLabel}</p>
-                  </div>
-                  <div className="hidden lg:block">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Status</p>
-                    <div className="mt-1">
-                      <OperationsBadge tone={toneForStatus(submission.status)}>
-                        {operationsSubmissionStatusLabel(submission.status)}
-                      </OperationsBadge>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Follow Up</p>
-                    <p className="mt-1 truncate text-sm text-slate-700">
-                      {submission.nextAction ?? submission.followUpState ?? "Needs review"}
+                    </p>
+                    <p className="mt-1 truncate text-sm text-slate-500">
+                      {submission.sourceLabel} · {submission.reviewSummary ?? submission.detail}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Submitted</p>
-                    <p className="mt-1 text-sm text-slate-700">{formatOperationsDate(submission.submittedAt)}</p>
+                    <OperationsBadge tone={toneForStatus(submission.status)}>
+                      {operationsSubmissionStatusLabel(submission.status)}
+                    </OperationsBadge>
                   </div>
+                  <p className="truncate text-sm text-slate-700">
+                    {submission.nextAction ?? submission.followUpState ?? "Needs review"}
+                  </p>
+                  <p className="text-sm text-slate-500">{formatOperationsDate(submission.submittedAt)}</p>
                 </Link>
               ))}
             </div>

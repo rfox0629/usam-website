@@ -34,11 +34,10 @@ export default async function OperationsMissionariesPage() {
       active="missionaries"
       action={<OperationsActionLink href="/join/usam" variant="outline">Candidate Form</OperationsActionLink>}
       authorization={authorization}
-      eyebrow="Applications"
       title="Missionaries / Onboarding"
     >
-      <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
           <OperationsMetric label="Needs Review" value={needsReview} />
           <OperationsMetric label="Missing Requirements" value={missingRequirements} />
           <OperationsMetric label="Accepted" value={accepted} />
@@ -50,7 +49,7 @@ export default async function OperationsMissionariesPage() {
           </section>
         ) : null}
 
-        <OperationsPanel eyebrow="USA-167 Contract" title="Onboarding Queue">
+        <OperationsPanel title="Onboarding Queue">
           {items.length > 0 ? (
             <div className="grid gap-3">
               {items.map((item) => (
