@@ -121,7 +121,18 @@ assertNotIncludes(memberHomeView, "Member Portal", "Member Group Home must not u
 assertNotIncludes(memberHomeView, "Dashboard", "Member Group Home must not use dashboard language.");
 assertNotIncludes(memberHomeView, "Manage in DOS", "Member Group Home must not render DOS management actions.");
 
-assertIncludes(groupLogoMark, "groupTemplateDisplayLabel(group)", "Internal group cards must use the generated-card label system.");
+// The generated label system is still what names the template; it now renders
+// as a pill beside the Group name rather than being repeated inside the artwork.
+assertIncludes(appClient, "<GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>", "Internal group cards must use the generated-card label system.");
+assertNotIncludes(groupLogoMark, "groupTemplateDisplayLabel(group)", "Internal group artwork must not repeat the template label already shown as a pill.");
+
+// USA-57: the in-app Group listing is part of the DOS ecosystem too.
+assertNotIncludes(groupLogoMark, '"GO"', "Internal group cards must not reintroduce the decorative GO badge.");
+assertIncludes(groupLogoMark, '"2:22"', "Internal group cards keep the scripture anchor for activity Groups.");
+for (const darkGold of ["#F8C56A", "#0B1120", "#060B16"]) {
+  assertNotIncludes(groupLogoMark, darkGold, `Internal group cards must not keep the dark-and-gold treatment (${darkGold}).`);
+}
+assertIncludes(groupLogoMark, "#1D4ED8", "Internal group cards must use DOS blue.");
 assertIncludes(groupLogoMark, "break-words", "Internal group card title and badge text must wrap instead of overlapping.");
 assertNotIncludes(groupLogoMark, "group.imageUrl", "Internal group cards must not render uploaded 2three2 logo artwork.");
 assertNotIncludes(groupLogoMark, "<img", "Internal group cards must use generated artwork, not image tags.");
