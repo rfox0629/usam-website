@@ -75,7 +75,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
 
   if (action) {
     return {
-      accent: action === "RUN" ? "amber" : "blue",
+      accent: "blue",
       label: activityLabel(action),
       lines: [action, "PRAY", "PURSUE"].map((line) => `${line}.`),
       mark: "2:22",
@@ -88,7 +88,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
       accent: "rose",
       label: "Women's Group",
       lines: tagline.length ? tagline : ["GROW.", "PRAY.", "TOGETHER."],
-      mark: "GO",
+      mark: "",
       tone: "community",
     };
   }
@@ -98,7 +98,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
       accent: "amber",
       label: "Men's Group",
       lines: tagline,
-      mark: "GO",
+      mark: "",
       tone: "community",
     };
   }
@@ -108,7 +108,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
       accent: "amber",
       label: "Men's Group",
       lines: tagline.length ? tagline : ["GROW TOGETHER."],
-      mark: "GO",
+      mark: "",
       tone: "community",
     };
   }
@@ -117,7 +117,7 @@ export function groupTemplateVisual(input: GroupTemplateInput): GroupTemplateVis
     accent: "blue",
     label: normalizeText(input.type) || "Discipleship Group",
     lines: tagline.length ? tagline : ["GATHER.", "PRAY.", "GO."],
-    mark: "GO",
+    mark: "",
     tone: "discipleship",
   };
 }
@@ -153,16 +153,10 @@ function accentClass(value: GroupTemplateVisual["accent"]) {
 }
 
 export function GroupTemplateArtwork({
-  brand = "dos",
   className = "",
   input,
   size = "card",
 }: {
-  /**
-   * USA-57 branding boundary. Public USA Missionaries pages carry the
-   * USA Missionaries brand; DOS member/leader surfaces stay on DOS blue.
-   */
-  brand?: "dos" | "usam";
   className?: string;
   input: GroupTemplateInput;
   size?: "card" | "hero" | "member";
@@ -184,15 +178,15 @@ export function GroupTemplateArtwork({
       />
       <div
         aria-hidden="true"
-        className={`absolute inset-0 -z-20 bg-gradient-to-br ${brand === "usam" ? "from-[#F7F0E0] via-[#F3E9D2] to-[#FBF9F4]" : accentClass(visual.accent)}`}
+        className={`absolute inset-0 -z-20 bg-gradient-to-br ${accentClass(visual.accent)}`}
       />
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-24 bg-[linear-gradient(100deg,transparent,rgba(248,197,106,0.24),transparent)]" />
       <div className="flex h-full min-h-[inherit] flex-col justify-between p-4">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className={`min-w-0 break-words text-[10px] font-bold uppercase tracking-[0.16em] ${brand === "usam" ? "text-[#A47F2A]" : "text-[#1D4ED8]"}`}>{visual.label}</p>
-          <span className={`shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold ${brand === "usam" ? "text-[#A47F2A]" : "text-[#1D4ED8]"}`}>
-            {visual.mark}
-          </span>
+        <div className="flex min-w-0 items-start justify-end gap-3">
+          {visual.mark ? (
+            <span className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-[#1D4ED8]">
+              {visual.mark}
+            </span>
+          ) : null}
         </div>
         <div className="mt-5 grid gap-1">
           {visual.lines.map((line) => (

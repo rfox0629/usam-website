@@ -112,6 +112,7 @@ const groupPendingRequestsRoute = read("app/api/dos/app/groups/pending-requests/
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupActions = read("app/groups/actions.ts");
 const publicGroupsDirectoryPage = read("app/groups/page.tsx");
+const communityContent = read("app/groups/community-content.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const publicGroupPageTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
@@ -719,8 +720,14 @@ assertIncludes(groupCreateRoute, "primary_leader_person_id", "New Group API must
 assertIncludes(groupCreateRoute, "role: \"co_leader\"", "New Group API must persist co-leaders.");
 assertIncludes(groupCreateRoute, "role: \"helper\"", "New Group API must persist helpers.");
 assertIncludes(groupMembersRoute, 'role === "helper"', "Group member API must accept helper role.");
-assertIncludes(publicGroupsDirectoryPage, "Running Group", "Public groups directory must avoid redundant 2three2 running labels.");
-assertIncludes(publicSingleGroupRoute, "return `${publicGroupActivityLabel(group)} Group`", "Public group page must avoid redundant 2three2 running labels.");
+assertIncludes(communityContent, 'typeLabel: "Running Group"', "Shared template copy must label the activity template without repeating 2three2.");
+assert(
+  !/typeLabel:\s*"[^"]*2three2/i.test(communityContent),
+  "Shared template copy must avoid redundant 2three2 running labels.",
+);
+for (const surface of [publicGroupsDirectoryPage, publicSingleGroupRoute]) {
+  assertIncludes(surface, "communityCopyFor", "Public Group surfaces must resolve labels from the shared template copy.");
+}
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
 assertIncludes(preview, "groupsSimplifiedV2: true", "DOS preview must match the live Groups V2 default now enabled for real workspaces.");

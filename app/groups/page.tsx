@@ -15,14 +15,17 @@ import {
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import {
-  communityOrgLabel,
-  usamPublicCard,
-  usamPublicCardInteractive,
-  usamPublicChipMuted,
-  usamPublicFieldLabel,
-  usamPublicPage,
+  communityAffiliation,
+  communityCard,
+  communityCardInteractive,
+  communityChip,
+  communityChipMuted,
+  communityFieldLabel,
+  communityInsetPanel,
+  communityPage,
 } from "./community-design";
-import { buildCommunitySchedule, publicSafeText, type CommunitySchedule } from "./community-schedule";
+import { APPROVED_PUBLIC_GROUPS, communityCopyFor } from "./community-content";
+import { buildCommunitySchedule, type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 type PublicDirectoryGroup = {
@@ -56,41 +59,23 @@ type PublicDirectoryGroupRow = {
   type: string | null;
 };
 
-const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = [
-  {
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
+// Built from the one canonical list so the directory and the detail route can
+// never disagree about a Group's schedule or location again.
+const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = APPROVED_PUBLIC_GROUPS.map((group) => {
+  const copy = communityCopyFor(group);
+
+  return {
+    description: copy.description,
     leaders: ["Ryan Fox"],
-    location: "Lebanon Hills Trailhead, Eagan, MN",
-    name: "2three2",
-    schedule: buildCommunitySchedule({ location: "Lebanon Hills Trailhead, Eagan, MN", rhythmLabel: "Weekly · Saturday · 7:00 AM" }),
-    scriptureReference: "2 Timothy 2:22",
-    slug: "2three2",
-    tagline: "Run. Pray. Pursue.",
-    type: "Running Group",
-  },
-  {
-    description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
-    leaders: ["Ryan Fox"],
-    location: "Location TBD",
-    name: "Tuesday Men's Group",
-    schedule: buildCommunitySchedule({ rhythmLabel: "Weekly · Tuesday · 6:00 AM" }),
-    scriptureReference: "",
-    slug: "tuesday-mens-group",
-    tagline: "Grow together.",
-    type: "Men's Group",
-  },
-  {
-    description: "An evening gathering where men encourage one another, study Scripture, pray together, and build authentic Christian community.",
-    leaders: ["Ryan Fox"],
-    location: "Location TBD",
-    name: "Wednesday Men's Group",
-    schedule: buildCommunitySchedule({ rhythmLabel: "Weekly · Wednesday · Evening" }),
-    scriptureReference: "",
-    slug: "wednesday-mens-group",
-    tagline: "Brotherhood. Prayer. Discipleship.",
-    type: "Men's Group",
-  },
-];
+    location: group.defaultLocation,
+    name: group.name,
+    schedule: buildCommunitySchedule({ location: group.defaultLocation, rhythmLabel: group.rhythmLabel }),
+    scriptureReference: group.scriptureReference,
+    slug: group.slug,
+    tagline: copy.tagline,
+    type: copy.typeLabel,
+  };
+});
 
 const groupsShareImage = "/images/usam/groups-share.png";
 
@@ -134,38 +119,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
   },
   };
-}
-
-function publicGroupType(group: Pick<PublicDirectoryGroupRow, "activity_type" | "audience" | "name" | "slug" | "type">) {
-  const value = group.type;
-  const name = group.name ?? "";
-  const activity = group.activity_type;
-
-  if (group.slug?.startsWith("2three2") || name.toLowerCase().includes("2three2")) {
-    const activityLabel = activity === "fitness"
-      ? "General Fitness"
-      : activity
-        ? activity.replace(/^\w/, (letter) => letter.toUpperCase())
-        : value === "running"
-          ? "Running"
-          : "Activity";
-
-    return `${activityLabel} Group`;
-  }
-
-  if (name.toLowerCase().includes("men")) {
-    return "Men's Group";
-  }
-
-  if (value === "running") {
-    return "Running Group";
-  }
-
-  if (value === "mens" || value === "men") {
-    return "Men's Group";
-  }
-
-  return "Discipleship Group";
 }
 
 async function loadPublicDirectoryData(hostname: string): Promise<PublicDirectoryData> {
@@ -260,9 +213,10 @@ async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase
 
   return groupRows.map((group) => {
     const nextGathering = nextGatheringsByGroupId.get(group.id);
+    const copy = communityCopyFor(group);
 
     return {
-      description: group.description ?? "A recurring discipleship rhythm.",
+      description: copy.description,
       leaders: leadersByGroupId.get(group.id) ?? [],
       location: group.default_location ?? "Location shared after leader confirmation",
       name: group.name,
@@ -275,8 +229,8 @@ async function mapDirectoryGroups(groupRows: PublicDirectoryGroupRow[], supabase
       }),
       scriptureReference: group.scripture_reference ?? "",
       slug: group.slug,
-      tagline: group.tagline ?? "Discipleship happens in rhythms.",
-      type: publicGroupType(group),
+      tagline: copy.tagline,
+      type: copy.typeLabel,
     };
   });
 }
@@ -286,10 +240,11 @@ export default async function PublicGroupsDirectoryPage() {
   const { groups, site } = await loadPublicDirectoryData(requestHostname(headersList));
 
   return (
-    <main className={usamPublicPage}>
+    <main className={communityPage}>
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-3">
-          <Link className={communityOrgLabel} href="/">
+          {/* USA Missionaries appears as a quiet publisher label, not a theme. */}
+          <Link className={communityAffiliation} href="/">
             <Image
               alt={site.displayName}
               className="h-7 w-7 rounded-md object-contain"
@@ -300,7 +255,7 @@ export default async function PublicGroupsDirectoryPage() {
             />
             {site.displayName}
           </Link>
-          <span className={usamPublicChipMuted}>Groups</span>
+          <span className={communityChipMuted}>Groups</span>
         </header>
 
         <section className="mt-6">
@@ -314,31 +269,31 @@ export default async function PublicGroupsDirectoryPage() {
         </section>
 
         {groups.length ? (
-          <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <section className="mt-6 grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
             {groups.map((group) => (
               <Link
-                className={`group flex flex-col overflow-hidden ${usamPublicCardInteractive}`}
+                className={`group flex h-full flex-col overflow-hidden ${communityCardInteractive}`}
                 href={publicGroupPath(group.slug, site)}
                 key={group.slug}
               >
-                <GroupTemplateArtwork brand="usam" input={group} />
+                <GroupTemplateArtwork input={group} />
+                {/* One structure for every Group: type, name, tagline, leader,
+                    then a schedule block pinned to the bottom so the cards
+                    line up regardless of how long the copy runs. */}
                 <span className="flex flex-1 flex-col p-4">
-                  {publicSafeText(group.location) ? (
-                    <span className="mb-2 flex flex-wrap items-center gap-1.5">
-                      <span className={usamPublicChipMuted}>{publicSafeText(group.location)}</span>
-                    </span>
-                  ) : null}
-                  <span className="block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
-                  <span className="mt-1 block text-sm font-bold text-[#A47F2A]">{group.tagline}</span>
-                  <span className="mt-2 block text-sm font-semibold leading-6 text-[#64748B]">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className={communityChip}>{group.type}</span>
+                  </span>
+                  <span className="mt-2 block text-xl font-black leading-tight text-[#0F172A]">{group.name}</span>
+                  <span className="mt-1.5 block text-sm font-semibold leading-6 text-[#64748B]">
                     {formatLeaderLine(group.leaders)}
                   </span>
 
                   <span className="mt-auto block pt-4">
-                    <span className="block rounded-2xl bg-[#FBF9F4] px-3 py-2.5">
-                      <span className={usamPublicFieldLabel}>{group.schedule.isDated ? "Next gathering" : "Meets"}</span>
+                    <span className={`block px-3 py-2.5 ${communityInsetPanel}`}>
+                      <span className={communityFieldLabel}>{group.schedule.isDated ? "Next gathering" : "Meets"}</span>
                       <span className="mt-1 block text-sm font-bold text-[#0F172A]">{group.schedule.headline}</span>
-                      <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">{group.schedule.detail}</span>
+                      <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">{group.schedule.location}</span>
                     </span>
                   </span>
                 </span>
@@ -346,7 +301,7 @@ export default async function PublicGroupsDirectoryPage() {
             ))}
           </section>
         ) : (
-          <section className={`mt-6 p-6 ${usamPublicCard}`}>
+          <section className={`mt-6 p-6 ${communityCard}`}>
             <p className="text-base font-black text-[#0F172A]">No public groups yet.</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
               Groups appear here once a leader publishes them.
@@ -356,7 +311,7 @@ export default async function PublicGroupsDirectoryPage() {
 
         <footer className="mt-auto pt-8 text-center text-xs font-bold text-[#64748B]">
           Powered by{" "}
-          <Link className="text-[#A47F2A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
             {site.displayName}
           </Link>
         </footer>

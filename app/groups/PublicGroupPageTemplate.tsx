@@ -3,18 +3,18 @@ import Link from "next/link";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
 import {
-  communityOrgLabel,
-  usamPublicCard,
-  usamPublicChip,
-  usamPublicChipMuted,
-  usamPublicEyebrow,
-  usamPublicFieldLabel,
-  usamPublicInput,
-  usamPublicPage,
-  usamPublicPrimaryAction,
-  usamPublicSecondaryAction,
+  communityAffiliation,
+  communityCard,
+  communityChip,
+  communityEyebrow,
+  communityFieldLabel,
+  communityHairline,
+  communityInput,
+  communityInsetPanel,
+  communityPage,
+  communityPrimaryAction,
 } from "./community-design";
-import { publicSafeText, type CommunitySchedule } from "./community-schedule";
+import { type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 export type PublicGroupPageData = {
@@ -41,19 +41,11 @@ export type PublicGroupPageData = {
   slug: string;
   tagline: string;
   typeLabel: string;
-  typicalSchedule: readonly PublicGroupStep[];
   whatToExpect: readonly PublicGroupDetail[];
-  whoThisIsFor: readonly PublicGroupDetail[];
 };
 
 export type PublicGroupDetail = {
   note: string;
-  title: string;
-};
-
-export type PublicGroupStep = {
-  description: string;
-  meta: string;
   title: string;
 };
 
@@ -70,32 +62,33 @@ export function PublicGroupPageTemplate({
   const leaderText = formatLeaderLine(group.leaders);
 
   return (
-    <main className={usamPublicPage}>
+    <main className={communityPage}>
       <PublicGroupHeader group={group} />
 
       <div className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 sm:px-8 lg:px-10">
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-          <div className={`min-w-0 p-5 sm:p-6 ${usamPublicCard}`}>
+          <div className={`min-w-0 p-5 sm:p-6 ${communityCard}`}>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className={usamPublicChip}>{group.typeLabel}</span>
-              {publicSafeText(group.location) ? <span className={usamPublicChipMuted}>{publicSafeText(group.location)}</span> : null}
+              <span className={communityChip}>{group.typeLabel}</span>
             </div>
 
             <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-[#0F172A] sm:text-4xl">
               <GroupName name={group.name} />
             </h1>
-            <p className="mt-2 text-base font-bold text-[#A47F2A]">{group.tagline}</p>
+            <p className="mt-2 text-base font-bold text-[#1D4ED8]">{group.tagline}</p>
             <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">{group.description}</p>
 
             <dl className="mt-5 grid gap-2 sm:grid-cols-2">
               <PublicFact label="Leaders" value={leaderText} />
-              <PublicFact label="Where" value={group.schedule.location} />
               {group.scriptureReference ? <PublicFact label="Scripture" value={group.scriptureReference} /> : null}
             </dl>
 
-            <div className="mt-6 flex flex-wrap gap-2.5">
+            {/* One clear primary action. Member sign-in stays available for
+                approved members but drops to a quiet link so it never competes
+                with Request to join. */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
               {group.acceptingRequests ? (
-                <a className={usamPublicPrimaryAction} href="#join">
+                <a className={communityPrimaryAction} href="#join">
                   Request to join
                 </a>
               ) : (
@@ -104,7 +97,10 @@ export function PublicGroupPageTemplate({
                 </span>
               )}
               {group.memberAccessEnabled ? (
-                <a className={usamPublicSecondaryAction} href={`${groupPath}/member`}>
+                <a
+                  className="text-sm font-bold text-[#1D4ED8] underline-offset-4 hover:underline"
+                  href={`${groupPath}/member`}
+                >
                   Member sign in
                 </a>
               ) : null}
@@ -112,9 +108,8 @@ export function PublicGroupPageTemplate({
           </div>
 
           <aside className="grid gap-3">
-            <div className={`overflow-hidden ${usamPublicCard}`}>
+            <div className={`overflow-hidden ${communityCard}`}>
               <GroupTemplateArtwork
-                brand="usam"
                 input={{ name: group.name, slug: group.slug, tagline: group.tagline, type: group.typeLabel }}
                 size="hero"
               />
@@ -131,7 +126,7 @@ export function PublicGroupPageTemplate({
 
         <footer className="pt-8 text-center text-xs font-bold text-[#64748B]">
           Powered by{" "}
-          <Link className="text-[#A47F2A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
             {group.siteName}
           </Link>
         </footer>
@@ -147,11 +142,11 @@ export function PublicGroupPageTemplate({
  */
 function CanonicalGatheringCard({ schedule }: { schedule: CommunitySchedule }) {
   return (
-    <div className={`p-4 ${usamPublicCard}`}>
-      <p className={usamPublicEyebrow}>{schedule.isDated ? "Next gathering" : "Meets"}</p>
+    <div className={`p-4 ${communityCard}`}>
+      <p className={communityEyebrow}>{schedule.isDated ? "Next gathering" : "Meets"}</p>
       <p className="mt-2 text-lg font-black leading-snug text-[#0F172A]">{schedule.headline}</p>
       <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{schedule.detail}</p>
-      <p className="mt-3 border-t border-[#EFE6D0] pt-3 text-sm font-semibold leading-6 text-[#475569]">
+      <p className="mt-3 border-t border-[#EAF2FF] pt-3 text-sm font-semibold leading-6 text-[#475569]">
         {schedule.location}
       </p>
     </div>
@@ -160,15 +155,15 @@ function CanonicalGatheringCard({ schedule }: { schedule: CommunitySchedule }) {
 
 function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
   return (
-    <header className="border-b border-[#EFE6D0] bg-white/70">
+    <header className={`border-b bg-white/70 ${communityHairline}`}>
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-8 lg:px-10">
-        <Link className={communityOrgLabel} href={group.siteBasePath || "/groups"}>
+        <Link className={communityAffiliation} href={group.siteBasePath || "/groups"}>
           {group.siteLogoUrl ? (
             <Image alt={group.siteName} className="h-7 w-7 rounded-md object-contain" height={28} src={group.siteLogoUrl} width={28} />
           ) : null}
           A {group.siteName} Group
         </Link>
-        <Link className="shrink-0 text-xs font-bold text-[#A47F2A] underline-offset-4 hover:underline" href={group.siteBasePath || "/groups"}>
+        <Link className="shrink-0 text-xs font-bold text-[#1D4ED8] underline-offset-4 hover:underline" href={group.siteBasePath || "/groups"}>
           All groups
         </Link>
       </div>
@@ -179,14 +174,14 @@ function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
 function WhatToExpectSection({ group }: { group: PublicGroupPageData }) {
   return (
     <section className="mt-4">
-      <div className={`p-5 sm:p-6 ${usamPublicCard}`}>
-        <p className={usamPublicEyebrow}>What to expect</p>
+      <div className={`p-5 sm:p-6 ${communityCard}`}>
+        <p className={communityEyebrow}>What to expect</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0F172A]">{group.scheduleTitle}</h2>
         <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#64748B]">{group.scheduleIntro}</p>
 
         <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           {group.whatToExpect.map((item) => (
-            <article className="rounded-2xl bg-[#FBF9F4] p-4" key={item.title}>
+            <article className={`p-4 ${communityInsetPanel}`} key={item.title}>
               <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
               <p className="mt-1.5 text-sm font-semibold leading-6 text-[#64748B]">{item.note}</p>
             </article>
@@ -201,7 +196,7 @@ function GroupName({ name }: { name: string }) {
   if (name.toLowerCase() === "2three2") {
     return (
       <>
-        2<span className="text-[#C2A14E]">three</span>2
+        2<span className="text-[#1D4ED8]">three</span>2
       </>
     );
   }
@@ -211,8 +206,8 @@ function GroupName({ name }: { name: string }) {
 
 function PublicFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-[#FBF9F4] px-3 py-2.5">
-      <dt className={usamPublicFieldLabel}>{label}</dt>
+    <div className={`px-3 py-2.5 ${communityInsetPanel}`}>
+      <dt className={communityFieldLabel}>{label}</dt>
       <dd className="mt-1 text-sm font-bold leading-6 text-[#0F172A]">{value}</dd>
     </div>
   );
@@ -231,7 +226,7 @@ function JoinRequestPanel({
 
   if (requestState === "received") {
     return (
-      <div className={`p-5 ${usamPublicCard}`}>
+      <div className={`p-5 ${communityCard}`}>
         <p className="text-base font-black text-[#15803D]">Request received. A group leader will follow up.</p>
       </div>
     );
@@ -246,7 +241,7 @@ function JoinRequestPanel({
         : "";
 
   return (
-    <form action={submitGroupJoinRequest} className={`grid gap-3 p-5 sm:grid-cols-2 sm:p-6 ${usamPublicCard}`}>
+    <form action={submitGroupJoinRequest} className={`grid gap-3 p-5 sm:grid-cols-2 sm:p-6 ${communityCard}`}>
       <input name="groupSlug" type="hidden" value={group.slug} />
       <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
 
@@ -267,9 +262,9 @@ function JoinRequestPanel({
       <JoinInput autoComplete="tel" label="Phone" name="phone" type="tel" />
 
       <label className="grid gap-1.5 sm:col-span-2">
-        <span className={usamPublicFieldLabel}>Message</span>
+        <span className={communityFieldLabel}>Message</span>
         <textarea
-          className={`${usamPublicInput} min-h-24 py-3 leading-6`}
+          className={`${communityInput} min-h-24 py-3 leading-6`}
           maxLength={1200}
           name="message"
           placeholder="Tell us a little about your interest."
@@ -277,7 +272,7 @@ function JoinRequestPanel({
       </label>
 
       <div className="sm:col-span-2">
-        <button className={usamPublicPrimaryAction} type="submit">
+        <button className={communityPrimaryAction} type="submit">
           Request to join
         </button>
       </div>
@@ -287,7 +282,7 @@ function JoinRequestPanel({
 
 function JoinClosedPanel() {
   return (
-    <div className={`p-5 ${usamPublicCard}`}>
+    <div className={`p-5 ${communityCard}`}>
       <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">Requests closed</h2>
       <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
         This group is not accepting new requests right now.
@@ -311,8 +306,8 @@ function JoinInput({
 }) {
   return (
     <label className="grid gap-1.5">
-      <span className={usamPublicFieldLabel}>{label}</span>
-      <input autoComplete={autoComplete} className={usamPublicInput} name={name} required={required} type={type} />
+      <span className={communityFieldLabel}>{label}</span>
+      <input autoComplete={autoComplete} className={communityInput} name={name} required={required} type={type} />
     </label>
   );
 }
