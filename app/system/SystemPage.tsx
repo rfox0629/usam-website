@@ -32,8 +32,8 @@ const ministryPartners = [
   {
     category: "Strategic Partner",
     focus: "Freedom • Healing • Discipleship",
-    href: "https://mor-mn.com/",
-    name: "Ministry of Reconciliation",
+    href: "/mission-of-reconciliation",
+    name: "Mission of Reconciliation",
   },
   {
     category: "Church Partner",
@@ -758,6 +758,8 @@ function MethodAndFoundationSection() {
 /* ---------------------------------------------------------------------- */
 
 function PartnerCard({ partner }: { partner: (typeof ministryPartners)[number] }) {
+  const isExternal = partner.href.startsWith("http");
+
   return (
     <article className="group flex h-full flex-col border border-stone-800 bg-black/35 p-6 transition-colors duration-200 hover:border-usam-gold/45 focus-within:border-usam-gold/45">
       <span
@@ -784,13 +786,16 @@ function PartnerCard({ partner }: { partner: (typeof ministryPartners)[number] }
       <a
         className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 border border-stone-700 bg-black/35 px-4 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-stone-200 transition-colors duration-200 hover:border-usam-gold hover:text-usam-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-usam-gold"
         href={partner.href}
-        rel="noopener noreferrer"
+        rel={isExternal ? "noopener noreferrer" : undefined}
         style={{ fontFamily: font.rajdhani }}
-        target="_blank"
+        target={isExternal ? "_blank" : undefined}
       >
         <span>
-          Visit Website
-          <span className="sr-only"> for {partner.name} (opens in a new tab)</span>
+          {isExternal ? "Visit Website" : "Learn More"}
+          <span className="sr-only">
+            {" "}for {partner.name}
+            {isExternal ? " (opens in a new tab)" : ""}
+          </span>
         </span>
         <ExternalLink
           className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5"

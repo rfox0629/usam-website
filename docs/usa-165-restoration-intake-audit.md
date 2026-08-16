@@ -1,10 +1,13 @@
 # USA-165 Restoration Intake Audit
 
 Date: 2026-08-13
+Updated: 2026-08-16
 
 ## Scope
 
-This issue implements a branch-only, non-production preview for the Ministry of Reconciliation restoration doorway and intake workflow. It does not apply migrations, alter RLS, write production data, use production secrets, or store real intake answers.
+This issue originally implemented a branch-only restoration preview. The August 16 production update rebrands the public experience as Mission of Reconciliation, adds the national `/mission-of-reconciliation` page, and makes `/restoration` the public Restoration Journey form.
+
+This update does not apply production migrations, alter production RLS, or write production data. USA-166 remains the gated work for dedicated restoration referrals, server-side drafts, reviewer authorization, answer-level audit trails, and private invitation persistence.
 
 ## Existing Patterns Audited
 
@@ -81,25 +84,28 @@ Assessment:
 
 - Appropriate for ordinary public inquiries and operations inboxes.
 - Too generic for this intake because restoration answers may include abuse, sexual history, addiction, medical, mental-health, self-harm, family, and spiritual history.
-- Does not provide a clear MOR-only answer boundary, draft autosave model, per-section progress, participant return session, or answer-level audit trail.
+- Does not provide a clear Mission of Reconciliation answer boundary, draft autosave model, per-section progress, participant return session, or answer-level audit trail.
 
 Decision:
 
-- Do not store restoration answers in the generic `form_submissions` table.
+- Use the existing `form_submissions` public-form architecture only as the current Operations intake path for the public Restoration Journey form.
+- Do not represent that path as the final dedicated secure restoration persistence model.
+- USA-166 remains required for private referrals, server-side save-and-return, least-privilege reviewer roles, dedicated audit events, and minimum-necessary discipleship handoff data.
 
-## Branch Preview Implementation
+## Current Public Implementation
 
 Implemented in this branch:
 
-- `/restoration`: unlisted invitation doorway with one primary action.
-- `/restoration/[token]`: private-link intake preview using the existing token-route convention.
-- Local-only preview verification: `preview@usam.dev` and `MOR-PREVIEW`.
-- Local-only autosave and save/resume through browser storage.
+- `/mission-of-reconciliation`: national public page for Mission of Reconciliation.
+- `/restoration`: public Restoration Journey form branded as Mission of Reconciliation in partnership with USA Missionaries.
+- `/restoration/[token]`: redirects old private-link preview URLs to `/restoration`.
+- Local autosave and save/resume through browser storage.
 - Visible saved state and review-before-submit.
-- `/admin/restoration`: Command Center review design with fabricated, non-sensitive sample state.
-- Public Experience registry entries for the page, form, and invitation access item.
+- `/admin/restoration`: Command Center review surface that does not expose real answer fixtures.
+- Public Experience registry entries for the page and form.
+- Submissions use `/api/form-submissions` with `formType: "restoration"` and keep sensitive answers out of URLs, analytics events, ordinary email payloads, and fixtures.
 
-The preview intentionally performs no network write and no production persistence.
+Dedicated restoration referral/draft/reviewer persistence is intentionally deferred to USA-166.
 
 ## Production Persistence Recommendation
 
@@ -107,14 +113,14 @@ New schema/RLS is required before this can handle real participant data. This mu
 
 Recommended tables:
 
-- `restoration_referrals`: referral/person/workspace link, invited by, current status, assigned MOR reviewer/team, internal follow-up status, minimal handoff status, expiration/revocation fields, timestamps.
+- `restoration_referrals`: referral/person/workspace link, invited by, current status, assigned Mission of Reconciliation reviewer/team, internal follow-up status, minimal handoff status, expiration/revocation fields, timestamps.
 - `restoration_invitation_tokens`: referral id, hashed token, token purpose, expiration, revoked timestamp, verification attempts, created by, created at. Never store raw tokens.
 - `restoration_drafts`: referral id, participant auth id/session id, section completion JSON, encrypted answer payload or restricted JSONB answer payload, last saved timestamp, draft version, submitted timestamp.
-- `restoration_submissions`: submitted immutable answer snapshot, submitted timestamp, submitted by, review status. Restricted to MOR/authorized operations only.
+- `restoration_submissions`: submitted immutable answer snapshot, submitted timestamp, submitted by, review status. Restricted to Mission of Reconciliation/authorized operations only.
 - `restoration_review_assignments`: referral id, reviewer/team, assigned by, assignment status, timestamps.
 - `restoration_audit_events`: referral id, actor id, actor role, event type, material status change, request metadata without sensitive payload, created at.
 - `restoration_handoffs`: referral id, outcome, minimum necessary handoff summary, next meeting/date, created by, created at.
-- `restoration_mor_authorizations` or a scoped extension of `admin_users`: explicit MOR/operations permission for full-answer review.
+- `restoration_reconciliation_authorizations` or a scoped extension of `admin_users`: explicit Mission of Reconciliation/operations permission for full-answer review.
 
 Status values:
 
@@ -147,14 +153,14 @@ Participant access:
 
 - Participant can access only the referral tied to their verified private invite/session.
 - Participant can update draft answers only before submit and while invite/session is valid.
-- Participant cannot read any other referral, reviewer notes, audit entries beyond allowed self-visible status, or MOR-only review fields.
+- Participant cannot read any other referral, reviewer notes, audit entries beyond allowed self-visible status, or restricted Mission of Reconciliation review fields.
 - Submitted records are locked from participant edit unless a new staff-authorized revision window is created.
 
-MOR / authorized operations access:
+Mission of Reconciliation / authorized operations access:
 
-- Explicit MOR/operations role can read full answer payloads.
+- Explicit Mission of Reconciliation/operations role can read full answer payloads.
 - General Command Center/admin users can see only referral status, assigned staff, next action, and minimum handoff data.
-- Staff assignment and status changes require admin auth and MOR/operations authorization.
+- Staff assignment and status changes require admin auth and Mission of Reconciliation/operations authorization.
 - Audit rows are append-only from trusted server functions/routes.
 
 Public page access:
@@ -170,12 +176,12 @@ Public page access:
 - Autosave endpoints must accept only the allowed field IDs from `src/lib/restoration/intake.ts`.
 - Emails should contain only the private link and generic wording, not status or answer content.
 - Reviewer notifications should contain only referral id/status and a Command Center link.
-- Use HTTPS and existing Supabase managed encryption at rest. Founder/MOR should decide whether application-level field encryption is also required for answer payloads.
+- Use HTTPS and existing Supabase managed encryption at rest. The founder and Mission of Reconciliation leadership should decide whether application-level field encryption is also required for answer payloads.
 - Session timeout and reauthentication are required for participant return and restricted reviewer access.
 - Immediate danger/current abuse/suicidal intent must block normal submission and route the participant to the approved escalation protocol.
 - Retention/deletion policy must be founder-approved before production.
 
-## Content Decisions Requiring Founder/MOR Review
+## Content Decisions Requiring Founder and Mission of Reconciliation Review
 
 - Final informed consent language.
 - Confidentiality limits and mandatory-reporting protocol.
@@ -190,4 +196,4 @@ Public page access:
 
 ## Gate Required
 
-Production persistence requires a separate `Gate: Schema` implementation issue blocked by USA-86. This branch should remain a preview until the schema/RLS/backup gate is approved.
+Dedicated restoration referral and draft persistence requires a separate `Gate: Schema` implementation issue blocked by USA-86. The public page and form can be published, but production schema/RLS mutations remain outside this scope.

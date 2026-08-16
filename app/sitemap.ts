@@ -7,6 +7,7 @@ const staticRoutes = [
   { path: "/", priority: 1 },
   { path: "/system", priority: 0.9 },
   { path: "/missionaries", priority: 0.9 },
+  { path: "/mission-of-reconciliation", priority: 0.9 },
   { path: "/support", priority: 0.8 },
   { path: "/financialfreedom", priority: 0.7 },
   { path: "/join", priority: 0.7 },

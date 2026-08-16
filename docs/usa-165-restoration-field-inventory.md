@@ -2,7 +2,7 @@
 
 Date: 2026-08-13
 
-This inventory maps the founder-supplied Life History Form and Personal Hindrance Inventory prompts to the branch-preview digital intake fields in `src/lib/restoration/intake.ts`.
+This inventory maps the founder-supplied Life History Form and Personal Hindrance Inventory prompts to the current digital intake fields in `src/lib/restoration/intake.ts`.
 
 The source PDFs are not embedded, linked, or committed. This document records coverage and content questions for review.
 
@@ -24,16 +24,16 @@ The source PDFs are not embedded, linked, or committed. This document records co
 
 | Source prompt | Digital section | Digital field id | Notes |
 | --- | --- | --- | --- |
-| Today's date | `goals` | `todaysDate` | Optional in preview; production can default server date. |
-| Applicant's codename | production referral metadata | `restoration_referrals` proposal | Should be generated/stored server-side, not participant-entered. |
-| What prompted you to seek Prayer Counseling and Deliverance assistance? | `goals` | `promptedPrayerCounseling` | Required in preview. |
-| What are your goals for your PCD sessions? | `goals` | `restorationGoals` | Required in preview. |
+| Today's date | `goals` | `todaysDate` | Optional. |
+| Applicant's codename | future referral metadata | `restoration_referrals` proposal | Should be generated/stored server-side, not participant-entered. |
+| What prompted you to seek restoration assistance? | `goals` | `whatBringsYouHere` | Required. |
+| What are your goals for this restoration journey? | `goals` | `restorationGoals` | Required. |
 | Previously had deliverance? | `goals` | `previousDeliverance` | Yes/No/Not sure. |
-| Previously had counseling? | `goals` | `previousCounseling` | Yes/No/Not sure. |
+| Previously received professional care? | `goals` | `previousProfessionalCare` | Yes/No/Not sure. |
 | Currently married? | `relationships` | `currentlyMarried` | Moved from general info into relationships. |
-| How many times married? | `relationships` | `marriageCount` | Text in preview for flexible answers. |
+| How many times married? | `relationships` | `marriageCount` | Text field for flexible answers. |
 | Served in military? | `goals` | `servedMilitary` | Yes/No/Not sure. |
-| If yes, were you in combat? | `goals` | `combatExperience` | Conditional in production. |
+| If yes, were you in combat? | `goals` | `combatExperience` | Conditional. |
 | Are you a born-again Christian? | `spiritual` | `bornAgainChristian` | Preserved. |
 | How many years have you been a Christian? | `spiritual` | `yearsChristian` | Preserved. |
 | Water baptized? | `spiritual` | `waterBaptized` | Preserved. |
@@ -41,7 +41,7 @@ The source PDFs are not embedded, linked, or committed. This document records co
 | If none, last church affiliation | `spiritual` | `lastChurch` | Preserved. |
 | Describe spiritual background | `spiritual` | `spiritualBackground` | Preserved. |
 | Involved in a cult? | `spiritual` | `cultInvolvement` | Flag final wording. |
-| If yes, name of cult | `spiritual` | `cultName` | Conditional in production. |
+| If yes, name of cult | `spiritual` | `cultName` | Conditional. |
 | Have you or relatives participated in occult activities? | `spiritual` | `familyOccultActivity` | Preserved as narrative; detailed checklist is in `occultInvolvement`. |
 | Describe spiritual issues past or present | `spiritual` | `spiritualIssues` | Preserved. |
 | Present satisfaction with life | `lifeHealth` | `lifeSatisfaction` | Converted to 1-5 radio scale. |
@@ -67,7 +67,7 @@ The source PDFs are not embedded, linked, or committed. This document records co
 | Traits disliked about spouse/fiance(e) | `relationships` | `spouseTraitsDislike` | Preserved. |
 | Expectations for spouse/fiance(e) behavior | `relationships` | `spouseExpectations` | Preserved. |
 | Have expectations been met? | `relationships` | `spouseExpectationsMet` | Preserved. |
-| If no, why not? | `relationships` | `spouseExpectationsWhyNot` | Conditional in production. |
+| If no, why not? | `relationships` | `spouseExpectationsWhyNot` | Conditional. |
 | Can you confide in spouse/fiance(e)? | `relationships` | `spouseConfide` | Preserved. |
 | Satisfaction with spouse/fiance(e) | `relationships` | `spouseSatisfaction` | Converted to 1-5 radio scale. |
 | Relationship with spouse/fiance(e)'s family | `relationships` | `spouseFamilyRelationship` | Preserved. |
@@ -84,7 +84,7 @@ The source PDFs are not embedded, linked, or committed. This document records co
 | Mother's first name and occupation | `childhood` | `motherNameOccupation` | Combined first name and occupation. |
 | Stepmother's first name and occupation | `childhood` | `stepmotherNameOccupation` | Combined first name and occupation. |
 | Grew up in orphanage/foster home? | `childhood` | `orphanageFosterHome` | Preserved. |
-| If yes, from age to age | `childhood` | `orphanageFosterAges` | Conditional in production. |
+| If yes, from age to age | `childhood` | `orphanageFosterAges` | Conditional. |
 | Father traits when young | `childhood` | `fatherTraits` | Multi-select from source trait list. |
 | Stepfather traits when young | `childhood` | `stepfatherTraits` | Multi-select from source trait list. |
 | Mother traits when young | `childhood` | `motherTraits` | Multi-select from source trait list. |
@@ -121,21 +121,21 @@ The source PDFs are not embedded, linked, or committed. This document records co
 | Family tree: x-spouse | `familyTree` | `familyTreeExSpouse` | First name, age, years married. |
 | Family tree: children | `familyTree` | `familyTreeChildren` | First names, ages, years married. |
 | Number of miscarriages/abortions | `familyTree` | `miscarriagesAbortions` | Sensitive; final wording and retention needed. |
-| Other relationship figures: boss, coach, teacher, bully, pastor, friends, God | `familyTree` | `otherRelationshipFigures` | Source leaves area largely staff-directed; production split needs review. |
+| Other relationship figures: boss, coach, teacher, bully, pastor, friends, God | `familyTree` | `otherRelationshipFigures` | Source leaves area largely staff-directed; future split needs review. |
 | Office use/team initials | Command Center review | `restoration_review_assignments` proposal | Staff-only, not participant-entered. |
-| Large dotted family-tree area marked leave blank | Command Center review | `restoration_review_notes` proposal | Staff-only; not participant-entered in preview. |
+| Large dotted family-tree area marked leave blank | Command Center review | `restoration_review_notes` proposal | Staff-only; not participant-entered. |
 
 ## Personal Hindrance Inventory Mapping
 
 | Source prompt | Digital section | Digital field id | Notes |
 | --- | --- | --- | --- |
-| Deliverance team leaders | Command Center review | `restoration_review_assignments` proposal | Staff-only. |
+| Restoration team leaders | Command Center review | `restoration_review_assignments` proposal | Staff-only. |
 | Date | `goals` | `todaysDate` | Production can default server date. |
 | Name | `welcome` | `participantName` | Source prompt preserved as preferred name. |
-| Email | `welcome` | `participantEmail` | Also used for secure return verification in preview. |
+| Email | `welcome` | `participantEmail` | Used for follow-up. |
 | Phone | `welcome` | `participantPhone` | Follow-up only. |
 | Are you a Christian? | `spiritual` | `isChristianPhi` | Preserved separately from Life History born-again wording. |
-| Do you believe Jesus has all power and authority, and are you willing to be free? | `spiritual` | `jesusAuthorityFreedom` | Preserved; theological wording requires MOR approval. |
+| Do you believe Jesus has all power and authority, and are you willing to be free? | `spiritual` | `jesusAuthorityFreedom` | Preserved; theological wording requires Mission of Reconciliation approval. |
 | Are you willing to visit past hurtful situations to be free? | `spiritual` | `willingToVisitPastHurt` | Preserved; trauma-informed wording flagged. |
 | Possessiveness checklist | `hindrance` | `hindrance_possessiveness` | Includes Jealousy, Greed, Gambling, Hoarding, Indebtedness, Laziness, Procrastination, Poverty, Stealing, Cheating, Stinginess. |
 | Fears checklist | `hindrance` | `hindrance_fears` | Includes anxiety, authority, closed places, dark, evil/demons, failure, heights, losing salvation, man, unknown, panic attacks, paranoia. |
@@ -150,20 +150,20 @@ The source PDFs are not embedded, linked, or committed. This document records co
 | Traumas checklist | `hindrance` | `hindrance_traumas` | Includes physically/mentally abused, assaulted, raped, traumatic loss, accident, near death experiences. Trauma/mandatory-reporting review required. |
 | Physical Diseases checklist | `hindrance` | `hindrance_physicalDiseases` | Includes autoimmune disease, cancer, Covid 19/vaccines, diabetes, PMS, heart/lung/stroke, kidney stones/cyst, migraines, STD, anesthesia, organ transplant, blood transfusion, vertigo. Medical review required. |
 | Miscellaneous checklist | `hindrance` | `hindrance_miscellaneous` | Includes cursing/cussing, denial, avoidance, exaggeration, forgetfulness, lying, compulsive lying. |
-| False Religions checklist | `hindrance` | `hindrance_falseReligions` | Includes Buddhism, Humanism, Islam, Eastern religions, Hinduism, Confucianism, Jehovah Witnesses, Mormonism, Native American Spiritism, New Age, Atheism, Pantheism, Scientology, Secret societies, White supremacy, Universalism/Unity, Antisemitism, Catholicism, False doctrine. Founder/MOR review required. |
+| False Religions checklist | `hindrance` | `hindrance_falseReligions` | Includes Buddhism, Humanism, Islam, Eastern religions, Hinduism, Confucianism, Jehovah Witnesses, Mormonism, Native American Spiritism, New Age, Atheism, Pantheism, Scientology, Secret societies, White supremacy, Universalism/Unity, Antisemitism, Catholicism, False doctrine. Founder and Mission of Reconciliation review required. |
 | Other emotional or mental issues | `hindrance` | `otherEmotionalMental` | Preserved. |
 | Other addictions or miscellaneous issues | `hindrance` | `otherAddictionsMisc` | Preserved. |
 | Other physical issues or traumas | `hindrance` | `otherPhysicalTraumas` | Preserved. |
 | Other false religions | `hindrance` | `otherFalseReligions` | Preserved; content review required. |
-| Occult involvement checklist | `occult` | `occultInvolvement` | Full source checklist represented as options in `occultInvolvementOptions`. Founder/MOR review required. |
+| Occult involvement checklist | `occult` | `occultInvolvement` | Full source checklist represented as options in `occultInvolvementOptions`. Founder and Mission of Reconciliation review required. |
 | Other occult involvement | `occult` | `otherOccult` | Preserved. |
 | I have read each section and answered truthfully | `additional` | `truthfulInitials` | Converted to checkbox. Production may require initials/signature. |
 | Cannot guarantee end to all problems or desired changes | `additional` | `noGuaranteeInitials` | Converted to checkbox; final wording required. |
 | Physical manifestations / hold harmless | `additional` | `manifestationHoldHarmlessInitials` | Converted to checkbox and explicitly flagged for legal/founder review. |
 | Do not write below this line: born again | Command Center review | staff-only spiritual notes proposal | Staff-only source area. |
 | Do not write below this line: water baptized as infant/adult | Command Center review | staff-only spiritual notes proposal | Staff-only source area; participant-facing water baptism field is `waterBaptized`. |
-| Do not write below this line: baptized in Holy Spirit / speaking in tongues | Command Center review | staff-only spiritual notes proposal | Staff-only source area; founder/MOR decision required. |
-| Do not write below this line: healed of | Command Center review | staff-only spiritual notes proposal | Staff-only source area; founder/MOR decision required. |
+| Do not write below this line: baptized in Holy Spirit / speaking in tongues | Command Center review | staff-only spiritual notes proposal | Staff-only source area; founder/Mission of Reconciliation decision required. |
+| Do not write below this line: healed of | Command Center review | staff-only spiritual notes proposal | Staff-only source area; founder/Mission of Reconciliation decision required. |
 | Additional information for ministers | `additional` | `additionalInformation` | Preserved. |
 | Continue more information below | `additional` | `continuedAnswers` | Preserved. |
 
@@ -173,9 +173,9 @@ All source occult options are represented under `occultInvolvement`:
 
 Amulets; Ancestral spirits; Angel worship; Animal / human sacrifice; Anime; Astral projection; Astrology; Blood sacrifices; Bloody Mary; Channeling; Chanting; Clairvoyance / ESP; Conjuring; Consulting a psychic; Crystal balls; Demon / Baphomet; Deja vu dreams / divination; Dream catchers; Dungeons & Dragons; Eastern Star; Eckankar; Enneagram; Familiar spirits; Fortune telling; Free Masonry; Grave sucking; Graven images; Halloween; Harry Potter books or movies; Hexes / vexes; Horoscopes; Horror movies; Hypnosis; Idolatry; Illuminati / Luciferianism; Imaginary friends; Incense; Kundalini; Levitation; Magic - black or white; Meditation / transcendental meditation; Mediums; Meta-physics; Mind control; Movies about witchcraft; Necromancy; New Age practices; Order of the Rainbow; Ouija board; Palm reading; Pentagram; Pokemon; Reiki; Reincarnation; Satanic ritual abuse; Satanic ritual abortion; Satanic rituals; Satanism; Seances; Secret society of spirits; Shamanism; Shape shifting; Sorcery; Soul travel; Spells; Spirit guide; Spiritism; Superstition; Table tipping; Tarot cards; Tattoos; Tea leaves; Telekinesis; Ungodly music; Voodoo; Water witching; Wiccan; Witch doctors; Witchcraft; Ying Yang; Yoga.
 
-## Content Questions For Founder/MOR Review
+## Content Questions For Founder and Mission of Reconciliation Review
 
-- Whether the source phrase `Prayer Counseling and Deliverance` should remain participant-facing or be replaced with `restoration ministry`/`reflection`.
+- Whether any source-form terminology should be replaced with more relational Mission of Reconciliation language before future gated persistence work.
 - Final confidentiality and mandatory-reporting language.
 - Exact emergency/current danger/suicidal ideation escalation protocol.
 - Whether the participant should be asked for email/phone inside the intake or only at referral creation.
@@ -187,4 +187,4 @@ Amulets; Ancestral spirits; Angel worship; Animal / human sacrifice; Anime; Astr
 - Whether hold-harmless language is legally appropriate.
 - Retention/deletion policy and whether participants can request deletion or correction.
 - Which family-tree fields should be participant-entered versus staff-entered.
-- Minimum safe handoff data after MOR review.
+- Minimum safe handoff data after Mission of Reconciliation review.

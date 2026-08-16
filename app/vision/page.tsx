@@ -731,7 +731,7 @@ function ContributionSection() {
           test the model, find its weak points, and refine the experience before offering it more broadly.
         </p>
         <p className="text-stone-500">
-          A future integration between Ministry of Reconciliation and USA Missionaries may also become a useful
+          A future integration between Mission of Reconciliation and USA Missionaries may also become a useful
           case study on reducing duplicated overhead and strengthening shared infrastructure. That work is
           still exploratory, and nothing here should be read as confirming a completed merger.
         </p>
