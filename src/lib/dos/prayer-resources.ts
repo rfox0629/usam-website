@@ -17,7 +17,7 @@ export type DosPrayerResource = {
   title: string;
 };
 
-export const dosPrayerResourceAttribution = "Used with permission from Ministry of Reconciliation.";
+export const dosPrayerResourceAttribution = "Used with permission from Mission of Reconciliation.";
 
 export const dosPrayerResourceCategories = [
   "Identity & Freedom",

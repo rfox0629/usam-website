@@ -466,7 +466,7 @@ const relationshipResources = [
   {
     category: "Relationships",
     content: {
-      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      attribution: "Used with permission from Mission of Reconciliation and Andy Leenstra.",
       body: "Love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength.",
       credits: "Credits: John and Paula Sandford where applicable.",
       scripture: "Mark 12:30",
@@ -546,7 +546,7 @@ const relationshipResources = [
   {
     category: "Relationships",
     content: {
-      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      attribution: "Used with permission from Mission of Reconciliation and Andy Leenstra.",
       body: "A relational covenant is an agreement I make with God that governs how I do life with others.",
       credits: "Credits: John and Paula Sandford, Transforming the Inner Man where applicable.",
       sections: [
