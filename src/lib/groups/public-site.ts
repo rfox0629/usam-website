@@ -1,6 +1,10 @@
 import "server-only";
 
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+// The pure path helpers live in a client-safe module so the shared member Group
+// Home can compute a group path on the client. Re-exported here so every
+// existing server-side import site keeps working unchanged.
+import { defaultPublicGroupsBasePath, publicGroupPath } from "./public-site-path";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -47,13 +51,13 @@ export type PublicSiteConfig = {
   status: "active" | "inactive" | "archived";
 };
 
+export { defaultPublicGroupsBasePath, publicGroupPath };
+
 export type PublicSiteResolution = {
   allowLegacyGlobalGroups: boolean;
   schemaReady: boolean;
   site: PublicSiteConfig | null;
 };
-
-export const defaultPublicGroupsBasePath = "/groups";
 
 export const fallbackUsamPublicSite: PublicSiteConfig = {
   basePath: defaultPublicGroupsBasePath,
@@ -110,12 +114,6 @@ export function isLocalPublicHostname(hostname: string) {
 
 export function isCanonicalPublicHostname(hostname: string) {
   return normalizeHostname(hostname) === canonicalHostname();
-}
-
-export function publicGroupPath(slug: string, site: Pick<PublicSiteConfig, "basePath"> | null = null) {
-  const basePath = site?.basePath || defaultPublicGroupsBasePath;
-
-  return `${basePath.replace(/\/+$/, "")}/${slug}`;
 }
 
 export function missingPublicSiteSchema(error: { code?: string; message?: string } | null | undefined) {

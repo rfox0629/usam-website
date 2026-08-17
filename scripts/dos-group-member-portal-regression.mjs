@@ -38,6 +38,7 @@ const joinRequestsRoute = read("app/api/dos/app/groups/join-requests/route.ts");
 const membersRoute = read("app/api/dos/app/groups/members/route.ts");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const previewPanel = read("app/dos/app/MemberGroupHomePreview.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const groupJourneyView = read("app/groups/GroupJourneyView.tsx");
 const sharedJourneyUi = read("src/components/dos/GuidedJourneyUi.tsx");
@@ -148,7 +149,10 @@ assertIncludes(appClient, "dos:vercel-share-token", "Protected Vercel preview sh
 assertIncludes(appClient, "buildPreviewParticipantAccessUrl", "Preview assignments must generate a real demo-safe scoped member access URL.");
 assertIncludes(appClient, "completedSessionIds", "Demo-safe participant invitations must carry non-private progress state.");
 assertIncludes(appClient, "Preview {participantFirstName(target.personName)}'s Experience", "Leader UI must expose a read-only participant preview action.");
-assertIncludes(appClient, "Read-only preview. No progress, private responses, token, or onboarding state will be changed.", "Leader preview must not impersonate, write progress, expose private responses, rotate tokens, or alter onboarding state.");
+// USA-170: the preview moved out of the leader client into a thin frame around
+// the shared member Group Home. The read-only promise moved with it.
+assertIncludes(previewPanel, "Read-only — no progress, private responses, token, or onboarding state changes.", "Leader preview must not impersonate, write progress, expose private responses, rotate tokens, or alter onboarding state.");
+assertIncludes(previewPanel, "GroupHomeMemberView", "Leader preview must render the same shared member Group Home as the participant's real secure link.");
 assertIncludes(appClient, "Copy blocked. Select this secure link", "Leader copy actions must provide selectable secure-link fallback when iPhone Safari blocks clipboard.");
 assertIncludes(preview, "Tanner Kent", "DOS preview must include Tanner Kent for USA-170 acceptance.");
 assertIncludes(preview, "demo-group-wednesday-member-tanner", "Tanner Kent must be an active Wednesday Men's Group member in preview data.");
