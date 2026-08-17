@@ -291,15 +291,22 @@ assertNotIncludes(resourceAssignmentFormSheet, "Personal Message", "Assignment l
 assertNotIncludes(resourceAssignmentFormSheet, "Linked Commitment", "Assignment launch must not show linked-commitment plumbing.");
 assertIncludes(groupJourneyAssignSheet, "Start Date", "Group assignment launch must ask for Start Date.");
 assertIncludes(groupJourneyAssignSheet, "DosDateInput", "Group assignment launch must use the compact DOS date input.");
-assertIncludes(groupJourneyAssignSheet, "Use existing active Journey", "Group assignment must require an explicit reuse decision for active duplicates.");
+assertIncludes(groupJourneyAssignSheet, "already has this Journey", "Group assignment must explain duplicate active Journeys in plain member language.");
+assertIncludes(groupJourneyAssignSheet, "Keep their progress", "Group assignment must preserve duplicate prevention without backend wording.");
+assertNotIncludes(groupJourneyAssignSheet, "canonical per-person record", "Group assignment must not expose canonical record terminology to leaders.");
 assertIncludes(groupJourneyAssignSheet, "reuseExisting", "Group assignment must submit the explicit reuse decision.");
 assertIncludes(resourceAssignmentSuccessSheet, "Secure Invitation", "Assignment success must surface secure member invitation actions.");
 assertIncludes(resourceAssignmentSuccessSheet, "send_member_access", "Assignment success must reuse the scoped member access endpoint.");
 assertIncludes(resourceAssignmentSuccessSheet, "Text Invitation", "Assignment success must offer native share/text flow when supported.");
 assertIncludes(resourceAssignmentSuccessSheet, "Copy Link", "Assignment success must offer secure link copy.");
+assertIncludes(resourceAssignmentSuccessSheet, "Preview {participantFirstName(target.personName)}'s Experience", "Assignment success must offer a read-only participant experience preview.");
+assertIncludes(resourceAssignmentSuccessSheet, "MemberExperiencePreviewPanel", "Assignment success must render the lightweight Group Home preview without creating another participant route.");
+assertIncludes(client, "Copy blocked. Select this secure link", "Invitation copy must provide a selectable-link fallback when clipboard/share is blocked.");
 assertIncludes(resourceAssignmentSuccessSheet, "buildPreviewParticipantAccessUrl", "Preview assignment success must generate a real demo-safe member access route.");
 assertIncludes(resourceAssignmentSuccessSheet, "participantInvitationUrlForCurrentContext", "Invitation actions must share one canonical URL normalizer.");
 assertNotIncludes(resourceAssignmentSuccessSheet, "Copy Public Link", "Assignment success must not fall back to a generic public Journey link.");
+assertIncludes(assignmentsRoute, "ensureGroupMemberAccessReady", "Group Journey assignment must prepare existing scoped member access behind the scenes.");
+assertIncludes(assignmentsRoute, "source: \"leader_assignment\"", "Assignment provisioning must not mint or rotate participant invitation tokens.");
 
 // USA-161: Group -> Assign Journey must visibly offer Discipleship, not just theoretically
 // allow it. The picker renders every catalog resource marked assignable, so Discipleship
