@@ -101,10 +101,11 @@ assertIncludes(memberManifestRoute, "display: \"standalone\"", "Member manifest 
 
 assertIncludes(memberPage, "Group Home", "Member sign-in bridge must use Group Home language.");
 assertNotIncludes(memberPage, "Member Portal", "Member sign-in bridge must not present a separate portal.");
-assertIncludes(memberHomeView, "DOS Home", "Member home must present a stable scoped DOS home.");
+assertIncludes(memberHomeView, "Group Home", "Member home must present a stable scoped member home.");
+assertIncludes(memberHomeView, "data.group.name", "Member home must lead with the Group identity.");
 assertIncludes(memberHomeView, "access-invalid", "Member home must show a clear invalid-access message.");
 assertIncludes(memberHomeView, "data.identity.name", "Member home must lead with participant identity.");
-assertIncludes(memberHomeView, "Active Journeys", "Member home must focus active Journeys.");
+assertIncludes(memberHomeView, "Current Journey", "Member home must focus the current Journey.");
 assertIncludes(memberHomeView, "Continue", "Member home must expose one obvious Continue action.");
 assertIncludes(memberHomeView, "Completed (", "Member home must preserve useful completed Journey history.");
 assertIncludes(memberHomeView, "Scoped DOS member access", "Member home must preserve the limited-access boundary in footer copy.");
@@ -116,6 +117,7 @@ assertNotIncludes(memberHomeView, "Notification Preferences", "Approved member G
 assertIncludes(memberInstallPrompt, "Keep DOS on your phone", "Install prompt must use approved launch copy.");
 assertIncludes(memberInstallPrompt, "Add it to your Home Screen so you can return each week.", "Install prompt must explain the weekly return value.");
 assertIncludes(memberInstallPrompt, "Show Me How", "Install prompt must offer walkthrough.");
+assertIncludes(memberInstallPrompt, "Add DOS to your Home Screen", "Install help must collapse to a compact row.");
 assertIncludes(memberInstallPrompt, "Maybe Later", "Install prompt must be dismissible.");
 assertIncludes(memberInstallPrompt, "display-mode: standalone", "Install prompt must hide in installed standalone mode.");
 assertIncludes(memberInstallPrompt, "Open this link in Safari.", "Install prompt must handle iOS in-app browser.");

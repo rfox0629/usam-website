@@ -7734,26 +7734,29 @@ function GroupLogoMark({
   const headlineClassName = large
     ? isLongName ? "text-[30px] min-[560px]:text-[36px]" : "text-[42px] min-[560px]:text-[48px]"
     : isLongName ? "text-[22px] min-[640px]:text-[25px]" : "text-[32px]";
-  const markText = group.templateCategory === "activity" ? "2:22" : "GO";
+  // USA-57: a Group listing is part of the DOS ecosystem, so this card uses the
+  // DOS light system rather than the dark-and-gold treatment. The scripture
+  // anchor stays for activity Groups because it is part of 2THREE2's identity;
+  // the old placeholder mark carried no meaning and is gone. The template label is not
+  // repeated here because the card already renders it as a pill beside the name.
+  const markText = group.templateCategory === "activity" ? "2:22" : "";
 
   return (
-    <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] bg-[#0B1120] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_18%,rgba(37,99,235,0.3),transparent_30%),linear-gradient(135deg,#060B16_0%,#0B1120_54%,#1E293B_100%)]" />
-      <div className="absolute inset-x-6 bottom-0 h-px bg-[#F8C56A]/45" />
+    <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF]`}>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#EBF2FF] via-[#DBEAFE] to-[#F8FBFF]" />
       <div className="relative flex h-full min-h-0 flex-col justify-between gap-3 p-4">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0 break-words text-[9px] font-black uppercase tracking-[0.14em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
-            {groupTemplateDisplayLabel(group)}
-          </span>
-          <span className="shrink-0 rounded-full border border-[#F8C56A]/25 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
-            {markText}
-          </span>
+        <div className="flex min-w-0 items-start justify-end gap-3">
+          {markText ? (
+            <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {markText}
+            </span>
+          ) : null}
         </div>
         <div className="min-w-0">
-          <span className={`${headlineClassName} block break-words font-black leading-none text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+          <span className={`${headlineClassName} block break-words font-black leading-none text-[#0F172A]`} style={{ fontFamily: font.oswald }}>
             {group.name}
           </span>
-          <span className="mt-2 line-clamp-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
+          <span className="mt-2 line-clamp-2 text-[9px] font-black uppercase tracking-[0.17em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>
             {group.tagline ?? "Pursue together"}
           </span>
         </div>

@@ -119,33 +119,33 @@ export function GroupJourneyView({
   const actionHelper = selectedSession ? guidedJourneyActionHelper(selectedSession, isReadingPlan) : "";
 
   return (
-    <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
+    <main className="min-h-screen bg-[#F8FBFF] text-[#0F172A]">
       <div className="mx-auto grid w-full max-w-3xl gap-3 px-4 py-4 pb-28 sm:px-6 sm:py-6">
         <div className="flex items-start gap-4">
           {resource.coverImage ? (
             <img
               alt={resource.coverImage.alt}
-              className="aspect-[2/3] w-20 shrink-0 rounded-lg border border-white/10 object-cover shadow-[0_14px_34px_rgba(0,0,0,0.4)] sm:w-24"
+              className="aspect-[2/3] w-20 shrink-0 rounded-lg border border-[#DCEBFF] bg-white object-cover shadow-[0_14px_34px_rgba(37,99,235,0.08)] sm:w-24"
               src={resource.coverImage.src}
             />
           ) : null}
           <div className="min-w-0">
-            <Link className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={groupPath}>
+            <Link className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" href={groupPath}>
               {groupName}
             </Link>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{resource.title}</h1>
-            {resource.author ? <p className="mt-1 text-sm font-bold text-white/55">— {resource.author}</p> : null}
+            <h1 className="mt-2 text-2xl font-black leading-tight text-[#0F172A] sm:text-3xl">{resource.title}</h1>
+            {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
           </div>
         </div>
 
         {message ? (
-          <p className="rounded-lg border border-[#C2A14E]/35 bg-[#C2A14E]/10 px-3 py-2 text-sm font-bold text-[#F8C56A]">{message}</p>
+          <p className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-sm font-bold text-[#15803D]">{message}</p>
         ) : null}
 
         <section className="grid gap-3">
-          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} themeName="dark" unitLabel={unitLabel} />
+          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} themeName="light" unitLabel={unitLabel} />
           {assignment?.personalMessage ? (
-            <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm leading-6 text-white/75">
+            <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm leading-6 text-[#475569]">
               &ldquo;{assignment.personalMessage}&rdquo;
             </p>
           ) : null}
@@ -155,7 +155,7 @@ export function GroupJourneyView({
           <div className="flex flex-wrap gap-2">
             {otherResourceSlugs.map((slug) => (
               <Link
-                className="inline-flex min-h-9 items-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72"
+                className="inline-flex min-h-9 items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569]"
                 href={`${groupPath}/journey?resource=${encodeURIComponent(slug)}`}
                 key={slug}
               >
@@ -177,16 +177,16 @@ export function GroupJourneyView({
             onToggle={() => setIsSessionSelectorOpen((open) => !open)}
             selectedSession={selectedSession}
             sessions={sessions}
-            themeName="dark"
+            themeName="light"
             unitLabel={unitLabel}
           />
         ) : null}
 
         {selectedSession ? (
-          <section className="grid gap-3 rounded-lg border border-white/10 bg-[#111418] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]">
+          <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#F8C56A]">{unitLabel} {selectedSession.order} of {sessions.length}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">{unitLabel} {selectedSession.order} of {sessions.length}</p>
               </div>
               {isComplete ? (
                 <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-300">
@@ -195,53 +195,53 @@ export function GroupJourneyView({
               ) : null}
             </div>
 
-            <GuidedJourneyChapterContent session={selectedSession} themeName="dark" unitLabel={unitLabel} />
+            <GuidedJourneyChapterContent session={selectedSession} themeName="light" unitLabel={unitLabel} />
 
-            <form action={saveGroupMemberJourneyProgress} className="grid gap-3 border-t border-white/10 pt-3" key={selectedSession.id}>
+            <form action={saveGroupMemberJourneyProgress} className="grid gap-3 border-t border-[#EAF2FF] pt-3" key={selectedSession.id}>
               <input name="slug" type="hidden" value={groupSlug} />
               <input name="resourceSlug" type="hidden" value={resource.slug} />
               <input name="sessionId" type="hidden" value={selectedSession.id} />
 
               <label className="grid gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#F8C56A]">WHAT STOOD OUT?</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">WHAT STOOD OUT?</span>
                 <AutoGrowTextarea
                   aria-label={reflectionHelper || "What stood out?"}
-                  className="min-h-28 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                  className="min-h-28 w-full resize-none overflow-hidden rounded-2xl border border-[#DCEBFF] bg-white px-3 py-3 text-base leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
                   defaultValue={selectedProgress?.reflection ?? ""}
                   name="reflection"
                 />
               </label>
 
               <label className="grid gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#F8C56A]">WHAT WILL YOU DO WITH IT?</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">WHAT WILL YOU DO WITH IT?</span>
                 <AutoGrowTextarea
                   aria-label={actionHelper || "What will you do with it?"}
-                  className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                  className="min-h-20 w-full resize-none overflow-hidden rounded-2xl border border-[#DCEBFF] bg-white px-3 py-3 text-base leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
                   defaultValue={selectedProgress?.actionStep ?? ""}
                   name="actionStep"
                 />
               </label>
 
               <label className="grid gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#F8C56A]">PRAYER</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">PRAYER</span>
                 <AutoGrowTextarea
                   aria-label="Prayer"
-                  className="min-h-20 resize-none overflow-hidden rounded-lg border border-white/12 bg-[#080A0D] px-3 py-3 text-base leading-6 text-white outline-none placeholder:text-white/30 focus:border-[#C2A14E]"
+                  className="min-h-20 w-full resize-none overflow-hidden rounded-2xl border border-[#DCEBFF] bg-white px-3 py-3 text-base leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
                   defaultValue={selectedProgress?.prayerFocus ?? ""}
                   name="prayerFocus"
                 />
               </label>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-4 text-sm font-black text-white" name="intent" type="submit" value="save">
+                <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white" name="intent" type="submit" value="save">
                   Save
                 </button>
                 {isComplete ? (
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/14 bg-white/[0.04] px-4 text-sm font-black text-white/70" name="intent" type="submit" value="reopen">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-5 text-sm font-bold text-[#475569]" name="intent" type="submit" value="reopen">
                     Reopen This {unitLabel}
                   </button>
                 ) : (
-                  <button className="inline-flex min-h-11 items-center justify-center rounded-sm bg-[#C2A14E] px-4 text-sm font-black text-[#080A0D]" name="intent" type="submit" value="complete">
+                  <button className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-sm font-bold text-white" name="intent" type="submit" value="complete">
                     Save &amp; Mark {unitLabel} Complete
                   </button>
                 )}
