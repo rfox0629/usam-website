@@ -300,7 +300,11 @@ assertIncludes(resourceAssignmentSuccessSheet, "send_member_access", "Assignment
 assertIncludes(resourceAssignmentSuccessSheet, "Text Invitation", "Assignment success must offer native share/text flow when supported.");
 assertIncludes(resourceAssignmentSuccessSheet, "Copy Link", "Assignment success must offer secure link copy.");
 assertIncludes(resourceAssignmentSuccessSheet, "Preview {participantFirstName(target.personName)}'s Experience", "Assignment success must offer a read-only participant experience preview.");
-assertIncludes(resourceAssignmentSuccessSheet, "MemberExperiencePreviewPanel", "Assignment success must render the lightweight Group Home preview without creating another participant route.");
+// USA-170: the preview must be the shared member Group Home, not a second
+// hand-built mock of it. `MemberGroupHomePreview` wraps the same
+// `GroupHomeMemberView` the participant's real secure link renders.
+assertIncludes(resourceAssignmentSuccessSheet, "MemberGroupHomePreview", "Assignment success must render the shared member Group Home preview without creating another participant route.");
+assertNotIncludes(client, "MemberExperiencePreviewPanel", "The duplicate legacy preview panel must stay deleted.");
 assertIncludes(client, "Copy blocked. Select this secure link", "Invitation copy must provide a selectable-link fallback when clipboard/share is blocked.");
 assertIncludes(resourceAssignmentSuccessSheet, "buildPreviewParticipantAccessUrl", "Preview assignment success must generate a real demo-safe member access route.");
 assertIncludes(resourceAssignmentSuccessSheet, "participantInvitationUrlForCurrentContext", "Invitation actions must share one canonical URL normalizer.");

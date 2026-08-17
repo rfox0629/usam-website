@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { publicGroupPath } from "@/src/lib/groups/public-site";
+// The client-safe path module, not the `server-only` public-site module: this
+// view also renders inside the DOS leader app as the participant preview.
+import { publicGroupPath } from "@/src/lib/groups/public-site-path";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import type { GroupMemberPortalData } from "@/src/lib/groups/member-access";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
@@ -22,9 +24,20 @@ type GroupHomeMemberViewProps = {
   message?: string | null;
   /** Restrained organization co-branding. Independent Groups pass nothing. */
   organizationName?: string | null;
-  /** Leader preview may expand install help without touching real state. */
-  previewInstallHelp?: boolean;
+  /**
+   * Leader preview mode. Structure and styling are identical to the
+   * participant's real secure link — only the interactive edges go inert, so a
+   * leader can never sign a participant out, navigate into their Journey, or
+   * touch their stored install state from inside the preview.
+   */
+  readOnly?: boolean;
 };
+
+/**
+ * One class string for both the live sign-out submit and the inert preview
+ * stand-in, so preview parity cannot drift through a copied class list.
+ */
+const signOutButtonClass = "inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]";
 
 export function groupHomeStateMessage(value: string | null) {
   switch (value) {
@@ -65,7 +78,7 @@ export function GroupHomeMemberView({
   data,
   message = null,
   organizationName = null,
-  previewInstallHelp = false,
+  readOnly = false,
 }: GroupHomeMemberViewProps) {
   const groupPath = publicGroupPath(data.group.slug);
   const activeAssignments = data.journeyAssignments.filter((assignment) => assignment.status !== "completed");
@@ -81,8 +94,14 @@ export function GroupHomeMemberView({
     timeZone: groupDisplayTimeZone,
   });
 
+  // The participant's real link owns the page, so it is the document `<main>`.
+  // The leader preview renders the identical tree nested inside the DOS app,
+  // where a second `<main>` would be invalid, so the shell tag is the only
+  // difference between the two — every class below is shared.
+  const Shell = readOnly ? "div" : "main";
+
   return (
-    <main className={communityPage}>
+    <Shell className={communityPage}>
       <div className="mx-auto grid w-full max-w-2xl gap-3 px-4 py-5 pb-10 sm:px-6">
         {/* 1 — Group identity first. Tanner should read "this is my group". */}
         <header className={`p-4 ${communityCard}`}>
@@ -106,15 +125,18 @@ export function GroupHomeMemberView({
               ) : null}
               <p className="mt-2 text-sm font-semibold text-[#64748B]">Signed in as {data.identity.name}</p>
             </div>
-            <form action={signOutGroupMember}>
-              <input name="slug" type="hidden" value={data.group.slug} />
-              <button
-                className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                type="submit"
-              >
+            {readOnly ? (
+              <span aria-disabled="true" className={`${signOutButtonClass} cursor-default`}>
                 Sign out
-              </button>
-            </form>
+              </span>
+            ) : (
+              <form action={signOutGroupMember}>
+                <input name="slug" type="hidden" value={data.group.slug} />
+                <button className={signOutButtonClass} type="submit">
+                  Sign out
+                </button>
+              </form>
+            )}
           </div>
 
           {message ? (
@@ -145,6 +167,7 @@ export function GroupHomeMemberView({
                   groupPath={groupPath}
                   key={assignment.id}
                   progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
+                  readOnly={readOnly}
                 />
               ))
             ) : (
@@ -170,6 +193,7 @@ export function GroupHomeMemberView({
                     groupPath={groupPath}
                     key={assignment.id}
                     progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -178,16 +202,20 @@ export function GroupHomeMemberView({
         ) : null}
 
         {/* 5 — Compact install help, last, collapsed, hidden in standalone. */}
-        <MemberHomeInstallPrompt identityId={data.identity.id} previewExpanded={previewInstallHelp} />
+        <MemberHomeInstallPrompt identityId={data.identity.id} readOnly={readOnly} />
 
         <footer className="pt-2 text-center text-xs font-bold text-[#64748B]">
-          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href={groupPath}>
-            {data.group.name}
-          </Link>
+          {readOnly ? (
+            <span className="text-[#1D4ED8]">{data.group.name}</span>
+          ) : (
+            <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href={groupPath}>
+              {data.group.name}
+            </Link>
+          )}
           {" · "}Scoped DOS member access
         </footer>
       </div>
-    </main>
+    </Shell>
   );
 }
 
@@ -195,10 +223,12 @@ function MemberJourneySummaryRow({
   assignment,
   groupPath,
   progress,
+  readOnly = false,
 }: {
   assignment: GroupMemberPortalData["journeyAssignments"][number];
   groupPath: string;
   progress: GroupMemberPortalData["journeyProgress"];
+  readOnly?: boolean;
 }) {
   const resource = getDosResourceBySlug(assignment.resourceSlug);
   const sessions = resource?.content?.guidedResource?.sessions ?? [];
@@ -207,11 +237,11 @@ function MemberJourneySummaryRow({
   const isComplete = assignment.status === "completed";
   const unit = resource?.type === "reading_plan" ? "days" : "weeks";
 
-  return (
-    <Link
-      className={`flex min-w-0 items-center gap-3 p-3 ${communityCardInteractive}`}
-      href={`${groupPath}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}
-    >
+  // One body, two wrappers. The preview renders the participant's row exactly
+  // as they see it; only the navigation is withheld.
+  const rowClassName = `flex min-w-0 items-center gap-3 p-3 ${communityCardInteractive}`;
+  const rowBody = (
+    <>
       {resource?.coverImage ? (
         <img
           alt={resource.coverImage.alt}
@@ -221,7 +251,11 @@ function MemberJourneySummaryRow({
       ) : null}
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-base font-black text-[#0F172A]">
+        {/* Wraps to two lines rather than truncating: at 390px — and inside the
+            narrower leader preview frame — "Discipleship" was clipping to
+            "Disci…". A Journey title is the one thing on this row that must
+            stay readable. */}
+        <span className="block break-words text-base font-black leading-snug text-[#0F172A] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
           {resource?.title ?? assignment.resourceSlug}
         </span>
         <span className="mt-0.5 block text-xs font-semibold text-[#64748B]">
@@ -235,6 +269,16 @@ function MemberJourneySummaryRow({
       <span className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-xs font-bold text-white">
         {isComplete ? "Review" : "Continue"}
       </span>
+    </>
+  );
+
+  if (readOnly) {
+    return <div aria-disabled="true" className={rowClassName}>{rowBody}</div>;
+  }
+
+  return (
+    <Link className={rowClassName} href={`${groupPath}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}>
+      {rowBody}
     </Link>
   );
 }

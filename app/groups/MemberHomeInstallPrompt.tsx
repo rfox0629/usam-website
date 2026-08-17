@@ -5,10 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 type MemberHomeInstallPromptProps = {
   identityId: string;
   /**
-   * Leader preview may show the expanded state for review without touching
-   * the participant's real dismissal state.
+   * Leader preview. The row renders exactly as the participant sees it on first
+   * entry — collapsed, instructions closed — but never reads or writes the
+   * participant's stored dismissal state.
    */
-  previewExpanded?: boolean;
+  readOnly?: boolean;
 };
 
 function isStandaloneDisplay() {
@@ -60,9 +61,11 @@ function deviceInstructions(userAgent: string) {
   };
 }
 
-export function MemberHomeInstallPrompt({ identityId, previewExpanded = false }: MemberHomeInstallPromptProps) {
+export function MemberHomeInstallPrompt({ identityId, readOnly = false }: MemberHomeInstallPromptProps) {
   const [isStandalone, setIsStandalone] = useState(false);
-  const [showSteps, setShowSteps] = useState(previewExpanded);
+  // Instructions stay closed until tapped, in the real portal and the preview
+  // alike. Install help sits at the bottom and never opens itself.
+  const [showSteps, setShowSteps] = useState(false);
   // First entry may add a one-line invitation above the row. Once dismissed,
   // only the compact row remains, so install help never dominates the fold.
   const [showInvitation, setShowInvitation] = useState(false);
@@ -84,12 +87,13 @@ export function MemberHomeInstallPrompt({ identityId, previewExpanded = false }:
       return;
     }
 
-    // Leader preview must never read or write the participant's real state.
-    setShowInvitation(previewExpanded || window.localStorage.getItem(storageKey) !== "true");
-  }, [previewExpanded, storageKey]);
+    // Leader preview must never read or write the participant's real state, so
+    // it always shows the unseen-yet first-entry invitation.
+    setShowInvitation(readOnly || window.localStorage.getItem(storageKey) !== "true");
+  }, [readOnly, storageKey]);
 
   function dismissInvitation() {
-    if (!previewExpanded) {
+    if (!readOnly) {
       window.localStorage.setItem(storageKey, "true");
     }
 

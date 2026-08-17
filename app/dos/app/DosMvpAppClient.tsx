@@ -112,6 +112,8 @@ import {
   type DemoGroupMemberAccessPayload,
 } from "@/src/lib/groups/demo-member-access";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
+import type { LeaderPreviewInput } from "@/src/lib/groups/member-preview";
+import { MemberGroupHomePreview } from "./MemberGroupHomePreview";
 import {
   addDaysToResourceAssignmentDateKey,
   defaultResourceAssignmentDueDate,
@@ -2073,6 +2075,91 @@ function expectedGroupGatherings(group: DosAppGroup, limit = 4): GroupGatheringV
 
 function nextExpectedGroupGathering(group: DosAppGroup) {
   return expectedGroupGatherings(group, 1)[0] ?? null;
+}
+
+/* ------------------------------------------------------------------ *
+ * USA-170 — participant preview parity.
+ *
+ * "Preview {First}'s Experience" renders the same `GroupHomeMemberView` the
+ * participant's real secure link renders. The leader app already holds every
+ * value that view reads; these three adapters shape it into the shared
+ * `buildLeaderPreviewPortalData` input. Nothing here fetches, mints a token, or
+ * writes participant state.
+ * ------------------------------------------------------------------ */
+
+function leaderPreviewGroup(group: DosAppGroup): LeaderPreviewInput["group"] {
+  return {
+    activityTemplate: group.templateCategory === "activity" || group.type === "running",
+    defaultLocation: group.defaultLocation ?? group.locationLabel,
+    description: group.description,
+    id: group.id,
+    name: group.name,
+    rhythm: group.rhythmLabel,
+    slug: group.slug,
+    tagline: group.tagline,
+  };
+}
+
+function leaderPreviewJourneys(
+  resourceAssignments: readonly DosAppResourceAssignment[],
+  personId: string,
+): LeaderPreviewInput["journeys"] {
+  // The real loader scopes to the person, newest start first, with no status
+  // filter — completed Journeys stay visible in the participant's history, so
+  // they stay visible in the preview too.
+  return resourceAssignments
+    .filter((assignment) => assignment.personId === personId)
+    .slice()
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+    .map((assignment) => ({
+      completedAt: assignment.completedAt,
+      dueDate: assignment.dueDate,
+      id: assignment.id,
+      personalMessage: assignment.personalMessage,
+      resourceSlug: assignment.resourceSlug,
+      startDate: assignment.startDate,
+      status: assignment.status ?? "active",
+    }));
+}
+
+/**
+ * Assignment-success previews carry only the invitation target, so resolve the
+ * full group when it is loaded and fall back to the target's own identity when
+ * it is not. Either way the preview reads the same shared component.
+ */
+function previewGroupForTarget(
+  groups: readonly DosAppGroup[],
+  target: ResourceAssignmentInvitationTarget,
+): LeaderPreviewInput["group"] {
+  const group = groups.find((item) => item.id === target.groupId);
+
+  return group
+    ? leaderPreviewGroup(group)
+    : { id: target.groupId, name: target.groupName, slug: target.groupSlug };
+}
+
+function previewNextGatheringForTarget(
+  groups: readonly DosAppGroup[],
+  target: ResourceAssignmentInvitationTarget,
+) {
+  const group = groups.find((item) => item.id === target.groupId);
+
+  return group ? nextExpectedGroupGathering(group) : null;
+}
+
+function leaderPreviewProgress(
+  guidedResourceProgress: readonly DosAppGuidedResourceProgress[],
+  personId: string,
+): LeaderPreviewInput["progress"] {
+  return guidedResourceProgress
+    .filter((item) => item.personId === personId)
+    .map((item) => ({
+      completedAt: item.completedAt,
+      id: item.id,
+      resourceSlug: item.resourceSlug,
+      sessionId: item.sessionId,
+      updatedAt: item.updatedAt,
+    }));
 }
 
 function fillGatheringDefaults(row: {
@@ -8799,21 +8886,13 @@ function GroupJourneysTabV2({
             ) : null}
 
             {previewTarget ? (
-              <MemberExperiencePreviewPanel
-                guidedResourceProgress={guidedResourceProgress}
-                notice={{
-                  groupId: previewTarget.groupId,
-                  groupName: previewTarget.groupName,
-                  invitationTargets: [previewTarget],
-                  kind: "group",
-                  personalMessage: null,
-                  resourceSlug: previewTarget.resourceSlug,
-                  startDate: previewTarget.startDate,
-                  text: "Leader preview",
-                }}
+              <MemberGroupHomePreview
+                group={leaderPreviewGroup(group)}
+                journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+                member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
+                nextGathering={nextExpectedGroupGathering(group)}
                 onClose={() => setPreviewTarget(null)}
-                resourceAssignments={resourceAssignments}
-                target={previewTarget}
+                progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
               />
             ) : null}
 
@@ -8944,10 +9023,10 @@ function GroupJourneyRowCard({
             const progressLabel = assignment && sessions.length ? `${completedSessionIds.size}/${sessions.length}` : "";
 
             return (
-              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+              <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                  <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                    <p className="break-words text-sm font-black text-[#0F172A]">{member.personName}</p>
                     <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
                       {status}
                       {progressLabel ? ` · ${progressLabel}` : ""}
@@ -8956,12 +9035,16 @@ function GroupJourneyRowCard({
                     </p>
                     {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
+                  {/* USA-170: three participant actions, one of them a long
+                      "Preview {First}'s Experience" label, used to sit in a
+                      shrink-0 single-line row and overflow at 390px. They wrap
+                      now, and each button may shrink to its own text. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <button className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-center text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
                       {assignment ? "View Journey" : "Assign"}
                     </button>
                     <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-center text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={sendingMemberAccessId === member.id}
                       onClick={() => onSendMemberAccess(member)}
                       type="button"
@@ -8969,7 +9052,7 @@ function GroupJourneyRowCard({
                       {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
                     </button>
                     <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
+                      className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-center text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
                       onClick={() => onPreviewMemberExperience(member, resourceSlug, assignment?.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey())}
                       type="button"
                     >
@@ -11068,14 +11151,14 @@ function GroupMembersTab({
               const isConfirmingRemoval = memberPendingRemovalId === member.id;
 
               return (
-                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-                  <div className="flex min-w-0 items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                      <p className="break-words text-sm font-black text-[#0F172A]">{member.personName}</p>
                       <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
                       <p className="mt-0.5 text-[11px] font-bold text-[#94A3B8]">{groupMemberPortalStatusLabel(member)}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status.charAt(0).toUpperCase() + member.status.slice(1)}</GroupPill>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
@@ -13705,104 +13788,6 @@ function participantFirstName(value: string) {
   return value.trim().split(/\s+/)[0] || "Member";
 }
 
-function MemberExperiencePreviewPanel({
-  guidedResourceProgress,
-  notice,
-  onClose,
-  resourceAssignments,
-  target,
-}: {
-  guidedResourceProgress: DosAppGuidedResourceProgress[];
-  notice: NonNullable<ResourceAssignmentNotice>;
-  onClose: () => void;
-  resourceAssignments: DosAppResourceAssignment[];
-  target: ResourceAssignmentInvitationTarget;
-}) {
-  const resource = getDosResourceBySlug(notice.resourceSlug);
-  const sessions = resource ? guidedResourceSessions(resource) : [];
-  const assignment = resourceAssignments.find((item) => (
-    item.personId === target.personId
-    && item.resourceSlug === notice.resourceSlug
-    && (!target.groupId || item.sourceGroupId === target.groupId || notice.kind === "individual")
-  )) ?? null;
-  const progress = guidedResourceProgress.filter((item) => item.personId === target.personId && item.resourceSlug === notice.resourceSlug);
-  const completedCount = sessions.filter((session) => progress.some((item) => item.sessionId === session.id && item.completedAt)).length;
-  const progressPercent = sessions.length ? Math.round((completedCount / sessions.length) * 100) : 0;
-  const startDate = assignment?.startDate ?? notice.startDate;
-  const completedHistoryCount = resourceAssignments.filter((item) => item.personId === target.personId && item.status === "completed").length;
-
-  return (
-    <article className="overflow-hidden rounded-[22px] border border-[#C2A14E]/35 bg-[#0B0D10] text-[#F5F3EE] shadow-[0_20px_60px_rgba(15,23,42,0.2)]">
-      <div className="border-b border-white/10 bg-[#111418] px-4 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Preview Mode</p>
-            <h3 className="mt-1 text-xl font-black leading-tight text-white">{participantFirstName(target.personName)}'s Group Home</h3>
-            <p className="mt-1 text-xs font-semibold leading-5 text-white/60">Read-only preview. No progress, private responses, token, or onboarding state will be changed.</p>
-          </div>
-          <button className="inline-flex min-h-9 items-center justify-center rounded-full border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72" onClick={onClose} type="button">
-            Close Preview
-          </button>
-        </div>
-      </div>
-      <div className="grid gap-3 p-4">
-        <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">DOS Home</p>
-          <h4 className="mt-2 text-3xl font-black leading-none text-white">{target.personName}</h4>
-          <p className="mt-2 text-sm font-semibold leading-6 text-white/68">{target.groupName}</p>
-        </section>
-
-        <section className="rounded-lg border border-[#C2A14E]/35 bg-[#171B22] p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Keep DOS on your phone</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-white/70">Add it to your Home Screen so you can return each week.</p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <span className="inline-flex min-h-10 items-center rounded-sm bg-[#C2A14E] px-3 text-xs font-black text-[#080A0D]">Show Me How</span>
-              <span className="inline-flex min-h-10 items-center rounded-sm border border-white/14 bg-white/[0.04] px-3 text-xs font-black text-white/72">Maybe Later</span>
-            </div>
-          </div>
-          <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F8C56A]">iPhone / Android</p>
-            <ol className="mt-2 grid gap-1 text-sm font-semibold leading-6 text-white/72">
-              <li>iPhone: open in Safari, tap Share, Add to Home Screen, Open as Web App, Add.</li>
-              <li>Android: Chrome menu, Install app or Add to Home screen.</li>
-            </ol>
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-[#C2A14E]/22 bg-[#111418] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Active Journeys</p>
-            <span className="rounded-sm border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/55">1</span>
-          </div>
-          <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-black text-white">{resource?.title ?? notice.resourceSlug}</p>
-                <p className="mt-1 text-xs font-semibold text-white/60">
-                  {sessions.length ? `${completedCount}/${sessions.length} weeks complete` : "Ready to begin"}
-                  {" · "}Starts {formatDate(startDate)}
-                </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <span className="block h-full rounded-full bg-[#C2A14E]" style={{ width: `${progressPercent}%` }} />
-                </div>
-              </div>
-              <span className="shrink-0 rounded-sm bg-[#C2A14E] px-3 py-2 text-xs font-black text-[#080A0D]">Continue</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-white/10 bg-[#111418] p-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#F8C56A]">Completed</p>
-          <p className="mt-2 text-sm font-semibold text-white/60">{completedHistoryCount ? `${completedHistoryCount} completed Journey${completedHistoryCount === 1 ? "" : "s"}` : "Completed Journeys will appear here."}</p>
-        </section>
-      </div>
-    </article>
-  );
-}
-
 function ResourceAssignmentSuccessSheet({
   guidedResourceProgress,
   groups,
@@ -14030,15 +14015,18 @@ function ResourceAssignmentSuccessSheet({
               const state = invitationState[targetKey(target)] ?? {};
 
               return (
-                <div className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5" key={targetKey(target)}>
+                <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5" key={targetKey(target)}>
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[#0F172A]">{target.personName}</p>
-                      <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{target.groupName}</p>
+                    <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                      <p className="break-words text-sm font-black text-[#0F172A]">{target.personName}</p>
+                      <p className="mt-0.5 break-words text-xs font-semibold text-[#64748B]">{target.groupName}</p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
+                    {/* Same USA-170 overflow fix as the participant rows: the
+                        action group wraps and shrinks instead of forcing its
+                        max-content width past a 390px viewport. */}
+                    <div className="flex min-w-0 flex-wrap gap-2">
                       <button
-                        className="inline-flex min-h-9 items-center justify-center rounded-full bg-[#0F172A] px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-3 text-center text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={state.isLoading}
                         onClick={() => void shareInvitation(target)}
                         type="button"
@@ -14046,7 +14034,7 @@ function ResourceAssignmentSuccessSheet({
                         {state.isLoading ? "Creating..." : "Text Invitation"}
                       </button>
                       <button
-                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-center text-xs font-black text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={state.isLoading}
                         onClick={() => void copyInvitation(target)}
                         type="button"
@@ -14054,7 +14042,7 @@ function ResourceAssignmentSuccessSheet({
                         Copy Link
                       </button>
                       <button
-                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-black text-[#475569]"
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-center text-xs font-black text-[#475569]"
                         onClick={() => setPreviewTarget(target)}
                         type="button"
                       >
@@ -14075,12 +14063,13 @@ function ResourceAssignmentSuccessSheet({
           </p>
         )}
         {previewTarget ? (
-          <MemberExperiencePreviewPanel
-            guidedResourceProgress={guidedResourceProgress}
-            notice={notice}
+          <MemberGroupHomePreview
+            group={previewGroupForTarget(groups, previewTarget)}
+            journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+            member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
+            nextGathering={previewNextGatheringForTarget(groups, previewTarget)}
             onClose={() => setPreviewTarget(null)}
-            resourceAssignments={resourceAssignments}
-            target={previewTarget}
+            progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
           />
         ) : null}
         {canOpenJourney && resource ? (
