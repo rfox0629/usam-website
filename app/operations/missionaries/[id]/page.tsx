@@ -19,7 +19,12 @@ import {
   OperationsPanel,
   type OperationsTone,
 } from "../../_components/OperationsUI";
-import { updateMissionaryReviewAction } from "./actions";
+import {
+  archiveMissionaryApplicationAction,
+  deleteTestMissionaryApplicationAction,
+  restoreMissionaryApplicationAction,
+  updateMissionaryReviewAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -282,7 +287,9 @@ export default async function OperationsMissionaryDetailPage({
                 </div>
                 <FieldBlock label="Location" value={item.location} />
                 <FieldBlock label="Calling" value={item.callingFocus} />
-                <FieldBlock label="Support Goal" value={item.supportGoalLabel} />
+                <FieldBlock label="Proposed Need" value={item.proposedMonthlyNeedLabel} />
+                <FieldBlock label="Approved Goal" value={item.adminApprovedMonthlyGoalLabel} />
+                <FieldBlock label="Excess Agreement" value={item.excessSupportAgreementAccepted ? "Accepted" : "Not accepted"} />
               </div>
             </OperationsPanel>
 
@@ -331,60 +338,111 @@ export default async function OperationsMissionaryDetailPage({
                 </OperationsPanel>
               </div>
 
-              <OperationsPanel title="Review">
-                {item.canManage ? (
-                  <form action={updateMissionaryReviewAction} className="grid gap-4">
-                    <input name="id" type="hidden" value={item.id} />
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Status</span>
-                      <select
-                        className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
-                        defaultValue={item.statusKey}
-                        name="status"
+              <div className="space-y-4">
+                <OperationsPanel title="Review">
+                  {item.canManage ? (
+                    <form action={updateMissionaryReviewAction} className="grid gap-4">
+                      <input name="id" type="hidden" value={item.id} />
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Status</span>
+                        <select
+                          className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                          defaultValue={item.statusKey}
+                          name="status"
+                        >
+                          {operationsOnboardingStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {onboardingStatusLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Owner</span>
+                        <input
+                          className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                          defaultValue={item.assignedTo ?? ""}
+                          name="assignedTo"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Approved Monthly Goal</span>
+                        <input
+                          className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                          defaultValue={item.adminApprovedMonthlyGoalLabel ?? ""}
+                          inputMode="decimal"
+                          name="adminApprovedMonthlyGoal"
+                          placeholder="$0"
+                        />
+                      </label>
+                      <SelectField defaultValue={item.followUpState ?? item.followUpLabel} label="Follow Up" name="followUpState" options={followUpOptions} />
+                      <SelectField defaultValue={item.interviewState} label="Interview" name="interviewState" options={interviewOptions} />
+                      <SelectField defaultValue={item.decisionState ?? item.decisionLabel} label="Decision" name="decisionState" options={decisionOptions} />
+                      <SelectField defaultValue={item.onboardingStatus} label="Onboarding" name="onboardingStatus" options={onboardingOptions} />
+                      <SelectField defaultValue={item.fundraisingLabel} label="Fundraising" name="supportReadiness" options={readinessOptions} />
+                      <SelectField defaultValue={item.profileReadiness ?? item.profileLabel} label="Profile" name="profileReadiness" options={profileOptions} />
+                      <SelectField defaultValue={item.dosSetupState ?? item.dosSetupLabel} label="DOS Setup" name="dosSetupState" options={dosOptions} />
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Internal Notes</span>
+                        <textarea
+                          className="mt-2 min-h-32 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-950 outline-none focus:border-[#D8A932]"
+                          defaultValue={item.adminNotes ?? ""}
+                          name="adminNotes"
+                        />
+                      </label>
+                      <button
+                        className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#D8A932] px-4 text-[11px] uppercase tracking-[0.14em] text-[#101826] transition hover:bg-[#E7BF57]"
+                        type="submit"
                       >
-                        {operationsOnboardingStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {onboardingStatusLabel(status)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Owner</span>
-                      <input
-                        className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
-                        defaultValue={item.assignedTo ?? ""}
-                        name="assignedTo"
-                      />
-                    </label>
-                    <SelectField defaultValue={item.followUpState ?? item.followUpLabel} label="Follow Up" name="followUpState" options={followUpOptions} />
-                    <SelectField defaultValue={item.interviewState} label="Interview" name="interviewState" options={interviewOptions} />
-                    <SelectField defaultValue={item.decisionState ?? item.decisionLabel} label="Decision" name="decisionState" options={decisionOptions} />
-                    <SelectField defaultValue={item.onboardingStatus} label="Onboarding" name="onboardingStatus" options={onboardingOptions} />
-                    <SelectField defaultValue={item.fundraisingLabel} label="Fundraising" name="supportReadiness" options={readinessOptions} />
-                    <SelectField defaultValue={item.profileReadiness ?? item.profileLabel} label="Profile" name="profileReadiness" options={profileOptions} />
-                    <SelectField defaultValue={item.dosSetupState ?? item.dosSetupLabel} label="DOS Setup" name="dosSetupState" options={dosOptions} />
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Internal Notes</span>
-                      <textarea
-                        className="mt-2 min-h-32 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-950 outline-none focus:border-[#D8A932]"
-                        defaultValue={item.adminNotes ?? ""}
-                        name="adminNotes"
-                      />
-                    </label>
-                    <button
-                      className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#D8A932] px-4 text-[11px] uppercase tracking-[0.14em] text-[#101826] transition hover:bg-[#E7BF57]"
-                      type="submit"
-                    >
-                      Save Review
-                    </button>
-                  </form>
-                ) : (
-                  <OperationsEmptyState>
-                    This application is view-only for your current role.
-                  </OperationsEmptyState>
-                )}
-              </OperationsPanel>
+                        Save Review
+                      </button>
+                    </form>
+                  ) : (
+                    <OperationsEmptyState>
+                      This application is view-only for your current role.
+                    </OperationsEmptyState>
+                  )}
+                </OperationsPanel>
+
+                {item.canManage ? (
+                  <OperationsPanel title="Record Controls">
+                    <div className="grid gap-2">
+                      {item.statusKey === "archived" ? (
+                        <form action={restoreMissionaryApplicationAction}>
+                          <input name="id" type="hidden" value={item.id} />
+                          <button
+                            className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-[11px] uppercase tracking-[0.12em] text-slate-800 transition hover:border-[#D8A932] hover:text-[#7A5200]"
+                            type="submit"
+                          >
+                            Restore
+                          </button>
+                        </form>
+                      ) : (
+                        <form action={archiveMissionaryApplicationAction}>
+                          <input name="id" type="hidden" value={item.id} />
+                          <button
+                            className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-[11px] uppercase tracking-[0.12em] text-slate-800 transition hover:border-[#D8A932] hover:text-[#7A5200]"
+                            type="submit"
+                          >
+                            Archive
+                          </button>
+                        </form>
+                      )}
+                      {item.isTestRecord ? (
+                        <form action={deleteTestMissionaryApplicationAction}>
+                          <input name="id" type="hidden" value={item.id} />
+                          <button
+                            className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 text-[11px] uppercase tracking-[0.12em] text-red-700 transition hover:border-red-300 hover:bg-red-100"
+                            type="submit"
+                          >
+                            Delete Test Record
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                  </OperationsPanel>
+                ) : null}
+              </div>
             </div>
           </>
         ) : null}

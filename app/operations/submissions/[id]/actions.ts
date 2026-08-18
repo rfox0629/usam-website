@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getOperationsAuthorization } from "@/src/lib/operations/auth";
 import {
+  archiveOperationsSubmission,
+  deleteTestOperationsSubmission,
   operationsSubmissionStatuses,
+  restoreOperationsSubmission,
   updateOperationsSubmissionReview,
   type OperationsSubmissionStatus,
 } from "@/src/lib/operations/submissions";
@@ -49,4 +52,66 @@ export async function updateSubmissionReviewAction(formData: FormData) {
   }
 
   redirect(`/operations/submissions/${id}?saved=1`);
+}
+
+export async function archiveSubmissionAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const result = await archiveOperationsSubmission({ authorization, id });
+
+  revalidatePath("/operations");
+  revalidatePath("/operations/submissions");
+  revalidatePath(`/operations/submissions/${id}`);
+
+  if (result.error) {
+    redirect(`/operations/submissions/${id}?error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect(`/operations/submissions/${id}?saved=1`);
+}
+
+export async function restoreSubmissionAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const result = await restoreOperationsSubmission({ authorization, id });
+
+  revalidatePath("/operations");
+  revalidatePath("/operations/submissions");
+  revalidatePath(`/operations/submissions/${id}`);
+
+  if (result.error) {
+    redirect(`/operations/submissions/${id}?error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect(`/operations/submissions/${id}?saved=1`);
+}
+
+export async function deleteTestSubmissionAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const result = await deleteTestOperationsSubmission({ authorization, id });
+
+  revalidatePath("/operations");
+  revalidatePath("/operations/submissions");
+
+  if (result.error) {
+    redirect(`/operations/submissions/${id}?error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect("/operations/submissions?deleted=1");
 }

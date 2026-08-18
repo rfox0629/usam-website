@@ -8,10 +8,12 @@ import {
   usamApplicationStatuses,
   type UsamApplicationStatus,
 } from "@/src/lib/dos/usam-application";
+import { hasOperationsTestMarker, payloadHasOperationsTestMarker } from "@/src/lib/operations/test-records";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type UsamApplicationRow = {
   admin_notes?: string | null;
+  admin_approved_monthly_goal?: number | string | null;
   applicant_email: string | null;
   applicant_name: string | null;
   applicant_phone: string | null;
@@ -20,6 +22,9 @@ type UsamApplicationRow = {
   calling_focus?: string | null;
   contact_payload?: unknown;
   created_at: string;
+  excess_support_agreement_accepted?: boolean | null;
+  excess_support_agreement_accepted_at?: string | null;
+  excess_support_agreement_version?: string | null;
   id: string;
   location?: string | null;
   missionary_profile_id?: string | null;
@@ -28,6 +33,7 @@ type UsamApplicationRow = {
   profile_id?: string | null;
   prayer_needs?: string | null;
   profile_photo_url?: string | null;
+  proposed_monthly_need?: number | string | null;
   references_text?: string | null;
   reviewed_at: string | null;
   status: string | null;
@@ -50,6 +56,7 @@ export type OperationsOnboardingItem = {
   fundraisingLabel: string;
   href: string;
   id: string;
+  isTestRecord: boolean;
   missingRequirements: string[];
   profileLabel: string;
   referencesLabel: string;
@@ -92,6 +99,7 @@ export type OperationsOnboardingDocumentItem = {
 
 export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   adminNotes: string | null;
+  adminApprovedMonthlyGoalLabel: string | null;
   applicantPhone: string | null;
   canManage: boolean;
   callingFocus: string | null;
@@ -99,6 +107,9 @@ export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   decisionState: string | null;
   documents: OperationsOnboardingDocumentItem[];
   dosSetupState: string | null;
+  excessSupportAgreementAccepted: boolean;
+  excessSupportAgreementAcceptedAt: string | null;
+  excessSupportAgreementVersion: string | null;
   followUpState: string | null;
   householdDetails: OperationsOnboardingDetailItem[];
   householdMembers: OperationsOnboardingHouseholdMember[];
@@ -109,6 +120,7 @@ export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   prayerPartners: OperationsOnboardingContactItem[];
   prayerRequests: string[];
   profileReadiness: string | null;
+  proposedMonthlyNeedLabel: string | null;
   references: OperationsOnboardingReferenceItem[];
   reviewedAt: string | null;
   storyAnswers: OperationsOnboardingDetailItem[];
@@ -138,6 +150,7 @@ const applicationColumns = [
   "missionary_profile_id",
   "profile_id",
   "applicant_user_id",
+  "admin_approved_monthly_goal",
   "applicant_name",
   "applicant_email",
   "applicant_phone",
@@ -146,6 +159,10 @@ const applicationColumns = [
   "story_testimony",
   "monthly_budget",
   "support_goal",
+  "proposed_monthly_need",
+  "excess_support_agreement_accepted",
+  "excess_support_agreement_accepted_at",
+  "excess_support_agreement_version",
   "prayer_needs",
   "references_text",
   "profile_photo_url",
@@ -205,6 +222,14 @@ function moneyLabel(value: unknown) {
   }).format(amount);
 }
 
+function moneyNumber(value: unknown) {
+  const amount = typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Number(asString(value).replace(/[$,]/g, ""));
+
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
 function compactDetail(label: string, value: unknown): OperationsOnboardingDetailItem | null {
   const moneyValue = typeof value === "number" ? String(value) : asString(value);
 
@@ -219,6 +244,13 @@ function fullNameFromRecord(record: Record<string, unknown>, fallback = "") {
     || asString(record.name)
     || asString(record.displayName)
     || fallback;
+}
+
+function testApplication(row: UsamApplicationRow) {
+  return hasOperationsTestMarker(row.applicant_email)
+    || hasOperationsTestMarker(row.applicant_name)
+    || hasOperationsTestMarker(row.applicant_phone)
+    || payloadHasOperationsTestMarker(row.contact_payload);
 }
 
 export function onboardingStatusLabel(status: string | null | undefined) {
@@ -328,6 +360,8 @@ function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem 
   const workflow = workflowPayload(row);
   const missing = missingRequirements(row);
   const status = onboardingStatusLabel(row.status);
+  const approvedGoalLabel = moneyLabel(row.admin_approved_monthly_goal);
+  const proposedNeedLabel = moneyLabel(row.proposed_monthly_need) ?? moneyLabel(row.monthly_budget) ?? moneyLabel(row.support_goal);
 
   return {
     assignedTo: cleanText(row.assigned_admin_email),
@@ -338,9 +372,14 @@ function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem 
     dosSetupLabel: row.workspace_id ? "Workspace linked" : "Not connected",
     email: cleanText(row.applicant_email),
     followUpLabel: cleanText(workflow.followUpState) ?? (row.reviewed_at ? "Review complete" : "Review needed"),
-    fundraisingLabel: cleanText(workflow.supportProfile) ?? (row.support_goal ? "Goal captured" : "Pending"),
+    fundraisingLabel: approvedGoalLabel
+      ? `Approved ${approvedGoalLabel}/mo`
+      : proposedNeedLabel
+        ? `Proposed ${proposedNeedLabel}/mo`
+        : cleanText(workflow.supportProfile) ?? "Pending",
     href: `/operations/missionaries/${row.id}`,
     id: row.id,
+    isTestRecord: testApplication(row),
     missingRequirements: missing,
     profileLabel: cleanText(workflow.publicProfileDraft) ?? (row.missionary_profile_id ? "Profile linked" : "Draft needed"),
     referencesLabel: referencesLabel(row),
@@ -458,6 +497,9 @@ function references(row: UsamApplicationRow): OperationsOnboardingReferenceItem[
 function supportDetails(row: UsamApplicationRow) {
   const support = asRecord(asRecord(row.contact_payload).support_json);
   const budget = asRecord(support.budget);
+  const proposedNeed = moneyLabel(row.proposed_monthly_need) ?? moneyLabel(support.proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget);
+  const approvedGoal = moneyLabel(row.admin_approved_monthly_goal);
+  const agreementAccepted = row.excess_support_agreement_accepted === true || support.excessSupportAgreementAccepted === true;
   const budgetDetails = Object.entries(budget)
     .map(([key, value]) => {
       const label = key
@@ -473,10 +515,14 @@ function supportDetails(row: UsamApplicationRow) {
   return [
     compactDetail("Support Needed", support.supportNeed),
     compactDetail("Giving Preference", support.donationLinkPreference),
-    moneyLabel(row.monthly_budget) ? { label: "Monthly Budget", value: moneyLabel(row.monthly_budget) as string } : null,
-    moneyLabel(row.support_goal) ? { label: "Support Goal", value: moneyLabel(row.support_goal) as string } : null,
+    proposedNeed ? { label: "Proposed Monthly Need", value: proposedNeed } : null,
+    approvedGoal ? { label: "Admin Approved Goal", value: approvedGoal } : null,
+    moneyLabel(row.support_goal) ? { label: "Legacy Support Goal", value: moneyLabel(row.support_goal) as string } : null,
     moneyLabel(support.committedSupport) ? { label: "Committed Support", value: moneyLabel(support.committedSupport) as string } : null,
     moneyLabel(support.otherMonthlyIncome) ? { label: "Other Monthly Income", value: moneyLabel(support.otherMonthlyIncome) as string } : null,
+    { label: "Excess Support Agreement", value: agreementAccepted ? "Accepted" : "Not accepted" },
+    compactDetail("Agreement Accepted At", row.excess_support_agreement_accepted_at ?? support.excessSupportAgreementAcceptedAt),
+    compactDetail("Agreement Version", row.excess_support_agreement_version ?? support.excessSupportAgreementVersion),
     ...budgetDetails,
   ].filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
 }
@@ -526,6 +572,7 @@ function detailFromApplication(
   return {
     ...itemFromApplication(row),
     adminNotes: cleanText(row.admin_notes),
+    adminApprovedMonthlyGoalLabel: moneyLabel(row.admin_approved_monthly_goal),
     applicantPhone: cleanText(row.applicant_phone),
     canManage: canManageOperationsModule(authorization, "missionaries"),
     callingFocus: cleanText(row.calling_focus),
@@ -533,6 +580,9 @@ function detailFromApplication(
     decisionState: workflowText(row, "decisionState"),
     documents: documentItems(row),
     dosSetupState: workflowText(row, "dosSetupState") ?? (row.workspace_id ? "Workspace linked" : null),
+    excessSupportAgreementAccepted: row.excess_support_agreement_accepted === true || asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementAccepted === true,
+    excessSupportAgreementAcceptedAt: cleanText(row.excess_support_agreement_accepted_at) ?? cleanText(asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementAcceptedAt),
+    excessSupportAgreementVersion: cleanText(row.excess_support_agreement_version) ?? cleanText(asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementVersion),
     followUpState: workflowText(row, "followUpState"),
     householdDetails: householdDetails(row),
     householdMembers: householdMembers(row),
@@ -543,12 +593,13 @@ function detailFromApplication(
     prayerPartners: prayerPartners(row),
     prayerRequests: prayerRequests(row),
     profileReadiness: workflowText(row, "publicProfileDraft"),
+    proposedMonthlyNeedLabel: moneyLabel(row.proposed_monthly_need) ?? moneyLabel(asRecord(asRecord(row.contact_payload).support_json).proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget),
     references: references(row),
     reviewedAt: row.reviewed_at,
     storyAnswers: storyAnswers(row),
     storyTestimony: cleanText(row.story_testimony),
     supportDetails: support,
-    supportGoalLabel: moneyLabel(row.support_goal),
+    supportGoalLabel: moneyLabel(row.admin_approved_monthly_goal) ?? moneyLabel(row.support_goal),
     updatedAt: row.updated_at ?? null,
     workspaceId: row.workspace_id,
   };
@@ -658,6 +709,7 @@ function profileStatusFor(status: UsamApplicationStatus) {
 
 export async function updateOperationsOnboardingReview({
   adminNotes,
+  adminApprovedMonthlyGoal,
   assignedTo,
   authorization,
   decisionState,
@@ -671,6 +723,7 @@ export async function updateOperationsOnboardingReview({
   supportReadiness,
 }: {
   adminNotes?: string | null;
+  adminApprovedMonthlyGoal?: string | null;
   assignedTo?: string | null;
   authorization: OperationsAuthorization;
   decisionState?: string | null;
@@ -711,6 +764,7 @@ export async function updateOperationsOnboardingReview({
   const row = currentData as unknown as UsamApplicationRow;
   const now = new Date().toISOString();
   const nextStatus = statusValue(status);
+  const approvedMonthlyGoal = moneyNumber(adminApprovedMonthlyGoal);
   const existingPayload = asRecord(row.contact_payload);
   const existingWorkflow = asRecord(existingPayload.workflow_json);
   const assignedAdmin = cleanText(assignedTo) ?? row.assigned_admin_email ?? authorization.email;
@@ -727,6 +781,7 @@ export async function updateOperationsOnboardingReview({
     supportProfile: cleanText(supportReadiness),
   }).filter(([, value]) => value !== undefined));
   const applicationUpdate = {
+    admin_approved_monthly_goal: approvedMonthlyGoal,
     admin_notes: cleanText(adminNotes),
     assigned_admin_email: assignedAdmin,
     contact_payload: {
@@ -758,6 +813,429 @@ export async function updateOperationsOnboardingReview({
 
     if (householdResult.error) {
       return { error: householdResult.error.message };
+    }
+
+    if (approvedMonthlyGoal !== null) {
+      const supportResult = await supabase
+        .from("missionary_support_settings")
+        .upsert({
+          annual_goal: Math.round(approvedMonthlyGoal * 12),
+          household_id: row.workspace_id,
+          monthly_goal: Math.round(approvedMonthlyGoal),
+          show_support: false,
+        }, { onConflict: "household_id" });
+
+      if (supportResult.error) {
+        return { error: supportResult.error.message };
+      }
+    }
+  }
+
+  return { error: null };
+}
+
+async function loadApplicationRow(supabase: ReturnType<typeof createSupabaseAdminClient>, id: string) {
+  const { data, error } = await supabase
+    .from("usam_missionary_applications")
+    .select(applicationColumns)
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    return {
+      error: error?.message ?? "USA Missionaries application not found.",
+      row: null,
+    };
+  }
+
+  return {
+    error: null,
+    row: data as unknown as UsamApplicationRow,
+  };
+}
+
+function restoredApplicationStatus(row: UsamApplicationRow): UsamApplicationStatus {
+  const previousStatus = cleanText(workflowPayload(row).preArchiveStatus);
+
+  if (previousStatus && previousStatus !== "archived" && usamApplicationStatuses.includes(previousStatus as UsamApplicationStatus)) {
+    return previousStatus as UsamApplicationStatus;
+  }
+
+  return "pending_review";
+}
+
+function applicationPayloadWithWorkflow(
+  row: UsamApplicationRow,
+  workflowPatch: Record<string, unknown>,
+) {
+  const existingPayload = asRecord(row.contact_payload);
+  const existingWorkflow = workflowPayload(row);
+
+  return {
+    ...existingPayload,
+    workflow_json: Object.fromEntries(Object.entries({
+      ...existingWorkflow,
+      ...workflowPatch,
+    }).filter(([, value]) => value !== undefined)),
+  };
+}
+
+export async function archiveOperationsOnboardingApplication({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  if (authorization.status !== "authorized" || !canManageOperationsModule(authorization, "missionaries")) {
+    return { error: "You are not authorized to manage missionary applications." };
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    return { error: "Supabase admin environment variables are not configured." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error, row } = await loadApplicationRow(supabase, id);
+
+  if (error || !row) {
+    return { error };
+  }
+
+  if (row.status === "archived") {
+    return { error: null };
+  }
+
+  const now = new Date().toISOString();
+  const currentStatus = statusValue(row.status ?? "");
+  const assignedAdmin = row.assigned_admin_email ?? authorization.email;
+  const applicationResult = await supabase
+    .from("usam_missionary_applications")
+    .update({
+      assigned_admin_email: assignedAdmin,
+      contact_payload: applicationPayloadWithWorkflow(row, {
+        archivedAt: now,
+        archivedBy: authorization.email,
+        lastOperationsReviewAt: now,
+        lastOperationsReviewBy: authorization.email,
+        preArchiveStatus: currentStatus,
+      }),
+      reviewed_at: now,
+      status: "archived",
+    })
+    .eq("id", id);
+
+  if (applicationResult.error) {
+    return { error: applicationResult.error.message };
+  }
+
+  if (row.workspace_id) {
+    const householdResult = await supabase
+      .from("missionary_households")
+      .update({
+        public_visible: false,
+        show_household: false,
+        usam_application_reviewed_at: now,
+        usam_application_status: "archived",
+        usam_assigned_admin_email: assignedAdmin,
+        usam_profile_status: "archived",
+      })
+      .eq("id", row.workspace_id);
+
+    if (householdResult.error) {
+      return { error: householdResult.error.message };
+    }
+  }
+
+  return { error: null };
+}
+
+export async function restoreOperationsOnboardingApplication({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  if (authorization.status !== "authorized" || !canManageOperationsModule(authorization, "missionaries")) {
+    return { error: "You are not authorized to manage missionary applications." };
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    return { error: "Supabase admin environment variables are not configured." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error, row } = await loadApplicationRow(supabase, id);
+
+  if (error || !row) {
+    return { error };
+  }
+
+  if (row.status !== "archived") {
+    return { error: null };
+  }
+
+  const now = new Date().toISOString();
+  const nextStatus = restoredApplicationStatus(row);
+  const assignedAdmin = row.assigned_admin_email ?? authorization.email;
+  const publicVisible = nextStatus === "active";
+  const applicationResult = await supabase
+    .from("usam_missionary_applications")
+    .update({
+      assigned_admin_email: assignedAdmin,
+      contact_payload: applicationPayloadWithWorkflow(row, {
+        lastOperationsReviewAt: now,
+        lastOperationsReviewBy: authorization.email,
+        restoredAt: now,
+        restoredBy: authorization.email,
+      }),
+      reviewed_at: now,
+      status: nextStatus,
+    })
+    .eq("id", id);
+
+  if (applicationResult.error) {
+    return { error: applicationResult.error.message };
+  }
+
+  if (row.workspace_id) {
+    const householdResult = await supabase
+      .from("missionary_households")
+      .update({
+        public_visible: publicVisible,
+        show_household: publicVisible,
+        usam_application_reviewed_at: now,
+        usam_application_status: nextStatus,
+        usam_assigned_admin_email: assignedAdmin,
+        usam_profile_status: profileStatusFor(nextStatus),
+      })
+      .eq("id", row.workspace_id);
+
+    if (householdResult.error) {
+      return { error: householdResult.error.message };
+    }
+  }
+
+  return { error: null };
+}
+
+function applicationPhotoPaths(row: UsamApplicationRow) {
+  const photos = asRecord(asRecord(row.contact_payload).photos_json);
+  const profileUpload = asRecord(photos.profilePhotoUpload);
+  const familyUpload = asRecord(photos.familyPhotoUpload);
+
+  return [
+    cleanText(profileUpload.path),
+    cleanText(familyUpload.path),
+  ].filter((path): path is string => Boolean(path));
+}
+
+export async function deleteTestOperationsOnboardingApplication({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  if (authorization.status !== "authorized" || !canManageOperationsModule(authorization, "missionaries")) {
+    return { error: "You are not authorized to manage missionary applications." };
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    return { error: "Supabase admin environment variables are not configured." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error, row } = await loadApplicationRow(supabase, id);
+
+  if (error || !row) {
+    return { error };
+  }
+
+  if (!testApplication(row)) {
+    return { error: "Only test missionary applications can be deleted from Operations." };
+  }
+
+  const profileResult = row.profile_id
+    ? await supabase
+      .from("profiles")
+      .select("id, email, first_name, last_name, primary_collective_id, user_id")
+      .eq("id", row.profile_id)
+      .maybeSingle()
+    : { data: null, error: null };
+  const householdResult = row.workspace_id
+    ? await supabase
+      .from("missionary_households")
+      .select("id, display_name, slug, usam_application_id")
+      .eq("id", row.workspace_id)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (profileResult.error) {
+    return { error: profileResult.error.message };
+  }
+
+  if (householdResult.error) {
+    return { error: householdResult.error.message };
+  }
+
+  const profile = profileResult.data as {
+    email: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    primary_collective_id: string | null;
+    user_id: string | null;
+  } | null;
+  const household = householdResult.data as {
+    display_name: string | null;
+    slug: string | null;
+    usam_application_id: string | null;
+  } | null;
+  const collectiveResult = profile?.primary_collective_id
+    ? await supabase
+      .from("collectives")
+      .select("id, name, slug")
+      .eq("id", profile.primary_collective_id)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (collectiveResult.error) {
+    return { error: collectiveResult.error.message };
+  }
+
+  const collective = collectiveResult.data as { name: string | null; slug: string | null } | null;
+  const deleteProfile = Boolean(profile)
+    && (
+      hasOperationsTestMarker(profile?.email)
+      || hasOperationsTestMarker(profile?.first_name)
+      || hasOperationsTestMarker(profile?.last_name)
+    );
+  const deleteHousehold = Boolean(household)
+    && (
+      hasOperationsTestMarker(household?.display_name)
+      || hasOperationsTestMarker(household?.slug)
+    );
+  const deleteCollective = Boolean(collective)
+    && (
+      hasOperationsTestMarker(collective?.name)
+      || hasOperationsTestMarker(collective?.slug)
+    );
+  const deleteAuthUserId = deleteProfile && hasOperationsTestMarker(profile?.email)
+    ? row.applicant_user_id ?? profile?.user_id ?? null
+    : null;
+
+  const photoPaths = applicationPhotoPaths(row);
+  if (photoPaths.length > 0) {
+    await supabase.storage.from("usam-application-photos").remove(photoPaths);
+  }
+
+  if (row.workspace_id && deleteHousehold) {
+    const unlinkResult = await supabase
+      .from("missionary_households")
+      .update({ usam_application_id: null })
+      .eq("id", row.workspace_id);
+
+    if (unlinkResult.error) {
+      return { error: unlinkResult.error.message };
+    }
+  }
+
+  const applicationDeleteResult = await supabase
+    .from("usam_missionary_applications")
+    .delete()
+    .eq("id", id);
+
+  if (applicationDeleteResult.error) {
+    return { error: applicationDeleteResult.error.message };
+  }
+
+  if (row.workspace_id && deleteHousehold) {
+    const supportDeleteResult = await supabase
+      .from("missionary_support_settings")
+      .delete()
+      .eq("household_id", row.workspace_id);
+
+    if (supportDeleteResult.error) {
+      return { error: supportDeleteResult.error.message };
+    }
+
+    const teamDeleteResult = await supabase
+      .from("missionary_team_members")
+      .delete()
+      .eq("household_id", row.workspace_id);
+
+    if (teamDeleteResult.error) {
+      return { error: teamDeleteResult.error.message };
+    }
+
+    const householdDeleteResult = await supabase
+      .from("missionary_households")
+      .delete()
+      .eq("id", row.workspace_id);
+
+    if (householdDeleteResult.error) {
+      return { error: householdDeleteResult.error.message };
+    }
+  }
+
+  if (row.profile_id && deleteProfile) {
+    if (row.organization_id) {
+      const membershipDeleteResult = await supabase
+        .from("organization_memberships")
+        .delete()
+        .eq("organization_id", row.organization_id)
+        .eq("profile_id", row.profile_id);
+
+      if (membershipDeleteResult.error) {
+        return { error: membershipDeleteResult.error.message };
+      }
+    }
+
+    const collectiveMembershipDeleteResult = await supabase
+      .from("collective_memberships")
+      .delete()
+      .eq("profile_id", row.profile_id);
+
+    if (collectiveMembershipDeleteResult.error) {
+      return { error: collectiveMembershipDeleteResult.error.message };
+    }
+
+    const profileDeleteResult = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", row.profile_id);
+
+    if (profileDeleteResult.error) {
+      return { error: profileDeleteResult.error.message };
+    }
+  }
+
+  if (profile?.primary_collective_id && deleteCollective) {
+    const collectiveMembershipDeleteResult = await supabase
+      .from("collective_memberships")
+      .delete()
+      .eq("collective_id", profile.primary_collective_id);
+
+    if (collectiveMembershipDeleteResult.error) {
+      return { error: collectiveMembershipDeleteResult.error.message };
+    }
+
+    const collectiveDeleteResult = await supabase
+      .from("collectives")
+      .delete()
+      .eq("id", profile.primary_collective_id);
+
+    if (collectiveDeleteResult.error) {
+      return { error: collectiveDeleteResult.error.message };
+    }
+  }
+
+  if (deleteAuthUserId) {
+    const authResult = await supabase.auth.admin.deleteUser(deleteAuthUserId);
+
+    if (authResult.error && !authResult.error.message.toLowerCase().includes("not found")) {
+      return { error: authResult.error.message };
     }
   }
 

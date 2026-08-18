@@ -8,6 +8,7 @@ import {
   workflowForSubmissionType,
   type OperationsWorkflow,
 } from "@/src/lib/operations/auth";
+import { hasOperationsTestMarker, payloadHasOperationsTestMarker } from "@/src/lib/operations/test-records";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const operationsSubmissionStatuses = [
@@ -57,6 +58,7 @@ export type OperationsSubmissionListItem = {
   href: string;
   id: string;
   isSensitive: boolean;
+  isTestRecord: boolean;
   nextAction: string | null;
   reviewSummary: string | null;
   sourceGroupLabel: string;
@@ -244,6 +246,15 @@ function sensitiveSubmission(row: FormSubmissionRow) {
   return row.form_type === "restoration";
 }
 
+function testSubmission(row: FormSubmissionRow) {
+  return hasOperationsTestMarker(row.email)
+    || hasOperationsTestMarker(row.name)
+    || hasOperationsTestMarker(row.first_name)
+    || hasOperationsTestMarker(row.last_name)
+    || hasOperationsTestMarker(row.source_page)
+    || payloadHasOperationsTestMarker(row.payload);
+}
+
 function reviewMetadata(payload: Record<string, unknown>) {
   const metadata = payload.operations_review;
 
@@ -278,6 +289,7 @@ function listItemFromRow(row: FormSubmissionRow, authorization: OperationsAuthor
     href: `/operations/submissions/${row.id}`,
     id: row.id,
     isSensitive,
+    isTestRecord: testSubmission(row),
     nextAction: reviewValue(row, "nextAction"),
     reviewSummary,
     sourceGroupLabel: groupFromFormType(row.form_type),
@@ -550,10 +562,26 @@ export async function updateOperationsSubmissionReview({
   }
 
   const now = new Date().toISOString();
+  const existingReview = reviewMetadata(detail.submission.payload);
+  const archiveMetadata = status === "archived" && detail.submission.status !== "archived"
+    ? {
+      archivedAt: now,
+      archivedBy: authorization.email,
+      preArchiveStatus: detail.submission.status,
+    }
+    : {};
+  const restoreMetadata = detail.submission.status === "archived" && status !== "archived"
+    ? {
+      restoredAt: now,
+      restoredBy: authorization.email,
+    }
+    : {};
   const payload = {
     ...detail.submission.payload,
     operations_review: {
-      ...reviewMetadata(detail.submission.payload),
+      ...existingReview,
+      ...archiveMetadata,
+      ...restoreMetadata,
       assignedTo: cleanText(assignedTo),
       followUpState: cleanText(followUpState),
       internalNotes: cleanText(internalNotes),
@@ -597,6 +625,123 @@ export async function updateOperationsSubmissionReview({
 
   if (error) {
     return { error: error.message };
+  }
+
+  return { error: null };
+}
+
+function restoredSubmissionStatus(submission: OperationsSubmissionDetail): OperationsSubmissionStatus {
+  const review = reviewMetadata(submission.payload);
+  const previousStatus = cleanText(review.preArchiveStatus);
+
+  if (previousStatus && previousStatus !== "archived" && operationsSubmissionStatuses.includes(previousStatus as OperationsSubmissionStatus)) {
+    return previousStatus as OperationsSubmissionStatus;
+  }
+
+  return "new";
+}
+
+async function loadManageableSubmission(authorization: OperationsAuthorization, id: string) {
+  const detail = await loadOperationsSubmissionDetail({ authorization, id });
+
+  if (detail.unauthorized || authorization.status !== "authorized" || !detail.submission) {
+    return { error: "You are not authorized to manage this submission.", submission: null };
+  }
+
+  if (!detail.submission.canManage || !canAccessOperationsWorkflow(authorization, detail.submission.workflow, "manage")) {
+    return { error: "You are not authorized to manage this submission.", submission: null };
+  }
+
+  return { error: null, submission: detail.submission };
+}
+
+export async function archiveOperationsSubmission({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  const { error, submission } = await loadManageableSubmission(authorization, id);
+
+  if (error || !submission) {
+    return { error };
+  }
+
+  if (submission.status === "archived") {
+    return { error: null };
+  }
+
+  return updateOperationsSubmissionReview({
+    assignedTo: submission.assignedTo,
+    authorization,
+    followUpState: submission.followUpState,
+    id,
+    internalNotes: submission.internalNotes,
+    nextAction: submission.nextAction,
+    reviewSummary: submission.reviewSummary,
+    status: "archived",
+  });
+}
+
+export async function restoreOperationsSubmission({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  const { error, submission } = await loadManageableSubmission(authorization, id);
+
+  if (error || !submission) {
+    return { error };
+  }
+
+  if (submission.status !== "archived") {
+    return { error: null };
+  }
+
+  return updateOperationsSubmissionReview({
+    assignedTo: submission.assignedTo,
+    authorization,
+    followUpState: submission.followUpState,
+    id,
+    internalNotes: submission.internalNotes,
+    nextAction: submission.nextAction,
+    reviewSummary: submission.reviewSummary,
+    status: restoredSubmissionStatus(submission),
+  });
+}
+
+export async function deleteTestOperationsSubmission({
+  authorization,
+  id,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+}) {
+  const { error, submission } = await loadManageableSubmission(authorization, id);
+
+  if (error || !submission) {
+    return { error };
+  }
+
+  if (!submission.isTestRecord) {
+    return { error: "Only test submissions can be deleted from Operations." };
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    return { error: "Supabase admin environment variables are not configured." };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const deleteResult = await supabase
+    .from("form_submissions")
+    .delete()
+    .eq("id", id);
+
+  if (deleteResult.error) {
+    return { error: deleteResult.error.message };
   }
 
   return { error: null };

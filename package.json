@@ -46,6 +46,7 @@
     "test:dos-disclosure-section-overflow": "node scripts/dos-disclosure-section-overflow-regression.mjs",
     "test:new-testament-reading-plan": "node scripts/new-testament-reading-plan-regression.mjs",
     "test:usa-82-launch-validation": "node scripts/usa-82-launch-validation-regression.mjs",
+    "test:usa-174-launch": "node scripts/usa-174-launch-regression.mjs",
     "test:join-contract": "node scripts/join-provisioner-contract-regression.mjs",
     "start": "next start"
   },

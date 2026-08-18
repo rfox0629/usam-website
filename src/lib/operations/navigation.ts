@@ -14,7 +14,7 @@ export const operationsPrimaryNav: OperationsNavItem[] = [
   { href: "/operations/submissions", module: "submissions", status: "live", title: "Submissions" },
   { href: "/operations/missionaries", module: "missionaries", status: "live", title: "Missionaries" },
   { href: "/operations/people", module: "people", status: "planned", title: "People" },
-  { href: "/operations/finance", module: "finance", status: "planned", title: "Finance" },
+  { href: "/operations/finance", module: "finance", status: "live", title: "Finance" },
   { href: "/operations/documents", module: "documents", status: "planned", title: "Documents" },
   { href: "/operations/organizations", module: "organizations", status: "planned", title: "Organizations" },
   { href: "/operations/dashboards", module: "dashboards", status: "planned", title: "Dashboards" },
