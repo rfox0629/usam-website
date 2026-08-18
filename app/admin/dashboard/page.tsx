@@ -6,7 +6,7 @@ import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "National Command Center | USA Missionaries",
+  title: "Dashboard",
   robots: {
     follow: false,
     index: false,

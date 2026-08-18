@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!group) {
     return {
       description: "Find discipleship groups connected to USA Missionaries.",
-      title: "Group | USA Missionaries",
+      title: { absolute: "Group | USA Missionaries" },
     };
   }
 
@@ -126,7 +126,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: "website",
       url,
     },
-    title,
+    title: { absolute: title },
     twitter: {
       card: "summary_large_image",
       description,

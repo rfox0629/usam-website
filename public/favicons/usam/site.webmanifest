@@ -1,22 +1,29 @@
 {
-  "name": "USA Missionaries",
-  "short_name": "USAM",
-  "start_url": "/",
-  "display": "standalone",
   "background_color": "#0D0D0D",
-  "theme_color": "#0D0D0D",
+  "display": "standalone",
   "icons": [
     {
-      "src": "/favicons/usam/icon-192.png",
+      "purpose": "any",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/favicons/usam/icon-192.png",
+      "type": "image/png"
     },
     {
-      "src": "/favicons/usam/icon-512.png",
+      "purpose": "any",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/favicons/usam/icon-512.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/favicons/usam/icon-maskable-512.png",
+      "type": "image/png"
     }
-  ]
+  ],
+  "name": "USA Missionaries",
+  "scope": "/",
+  "short_name": "USAM",
+  "start_url": "/",
+  "theme_color": "#0D0D0D"
 }

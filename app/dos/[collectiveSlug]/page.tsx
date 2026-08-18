@@ -12,7 +12,7 @@ import { DosMvpAppClient } from "../app/DosMvpAppClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOS App | USA Missionaries",
+  title: "Workspace",
   robots: {
     follow: false,
     index: false,

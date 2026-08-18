@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { OperationsInboxPage } from "../_components/OperationsInboxPage";
 
 export const metadata: Metadata = {
-  title: "Partners Inbox | USA Missionaries",
+  title: "Partners Inbox",
   robots: {
     follow: false,
     index: false,

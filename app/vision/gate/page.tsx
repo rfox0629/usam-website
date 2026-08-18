@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "USA Missionaries Vision Briefing",
+  title: "Vision Briefing",
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };

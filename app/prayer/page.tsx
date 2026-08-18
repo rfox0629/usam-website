@@ -3,7 +3,7 @@ import { PrimaryNav } from "../../components/PrimaryNav";
 import { PrayerTeamApplicationModal } from "./PrayerTeamApplicationModal";
 
 export const metadata: Metadata = {
-  title: "Prayer | USA Missionaries",
+  title: "Prayer",
   description: "Join the prayer team and stand with the mission in prayer.",
 };
 

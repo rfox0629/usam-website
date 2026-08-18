@@ -4,7 +4,7 @@ import { redirectLegacyDosRoute } from "../legacy-redirect";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOS App | USA Missionaries",
+  title: "People",
   robots: {
     follow: false,
     index: false,

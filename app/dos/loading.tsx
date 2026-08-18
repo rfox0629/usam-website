@@ -1,1 +1,5 @@
-export { default } from "./app/loading";
+import { DosTargetLoader } from "@/components/dos/DosTargetLoader";
+
+export default function DosPortalLoading() {
+  return <DosTargetLoader />;
+}

@@ -9,7 +9,7 @@ import { UsamOrganizationHubClient } from "./UsamOrganizationHubClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Organization | National Command Center",
+  title: "Organization",
 };
 
 export default async function OrganizationDetailPage({
