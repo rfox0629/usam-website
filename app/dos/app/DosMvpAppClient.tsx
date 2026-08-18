@@ -34254,6 +34254,65 @@ function historyEntryKindLabel(kind: PersonHistoryEntry["kind"]) {
   }
 }
 
+// Human day phrasing for upcoming dates: "today", "tomorrow", a weekday name
+// inside a week, then a plain date. Used by the Person concepts so the page
+// reads relationally instead of like a database record.
+function upcomingDayLabel(value: string | null | undefined, includeTime = false) {
+  const normalized = value ?? null;
+  const parsed = parseDisplayDate(normalized);
+
+  if (!parsed) {
+    return "";
+  }
+
+  const startOfToday = new Date();
+
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const dayDelta = Math.round((new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime() - startOfToday.getTime()) / 86_400_000);
+  const dayLabel = dayDelta <= 0
+    ? "today"
+    : dayDelta === 1
+      ? "tomorrow"
+      : dayDelta < 7
+        ? parsed.toLocaleDateString("en-US", { weekday: "long" })
+        : formatDate(normalized);
+  const hasTime = Boolean(normalized && normalized.includes("T"));
+
+  if (!includeTime || !hasTime) {
+    return dayLabel;
+  }
+
+  return `${dayLabel} · ${parsed.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function followUpDuePhrase(value: string | null | undefined) {
+  const normalized = value ?? null;
+  const parsed = parseDisplayDate(normalized);
+
+  if (!parsed) {
+    return "";
+  }
+
+  const startOfToday = new Date();
+
+  startOfToday.setHours(0, 0, 0, 0);
+
+  if (parsed.getTime() < startOfToday.getTime()) {
+    return `waiting since ${formatDate(normalized)}`;
+  }
+
+  return `by ${upcomingDayLabel(normalized)}`;
+}
+
+type PersonConceptKey = "a" | "b" | "c";
+
+const personConceptNames: Record<PersonConceptKey, string> = {
+  a: "Relationship Brief",
+  b: "Discipleship Path",
+  c: "Conversation Focus",
+};
+
 function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
   return (
     <PDRow
@@ -34384,6 +34443,10 @@ function PersonDetailOverlay({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
+  // Founder concept review (USA-168): three genuinely different Person-page
+  // compositions over the same underlying data, switchable in the preview.
+  const [activeConcept, setActiveConcept] = useState<PersonConceptKey>("a");
+  const [circleInsightStage, setCircleInsightStage] = useState<"insight" | "why" | null>(null);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
@@ -34656,6 +34719,60 @@ function PersonDetailOverlay({
 
     return groupsByMonth;
   })();
+  // ---- Shared meaning-first model for the three founder concepts. All values
+  // derive from the same audited data pipes; only the presentation differs.
+  const conceptMode = workspace.isPreview;
+  const firstName = person.name.split(/\s+/)[0] ?? person.name;
+  const relationshipSignal = `${relationshipTypePill} · ${currentCircleLabel}`;
+  const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
+  const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
+  const conceptPrayerItems = [
+    ...activePersonPrayerRequests.map((request) => ({
+      id: `request-${request.id}`,
+      onOpen: undefined as (() => void) | undefined,
+      text: request.request?.trim() || request.title,
+    })),
+    ...activePrayerReminders.map((reminder) => ({
+      id: `reminder-${reminder.id}`,
+      onOpen: undefined as (() => void) | undefined,
+      text: reminderVisibleNotes(reminder.notes) || reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request",
+    })),
+    ...reflectionPrayerRows.map((reflection) => ({
+      id: `reflection-${reflection.id}`,
+      onOpen: () => onOpenMeeting(reflection.meetingId, person.id),
+      text: reflection.prayerNeeds?.trim() ?? "",
+    })),
+  ].filter((item) => Boolean(item.text));
+  const conceptJourneys = activeResourceAssignments.map((assignment) => {
+    const resource = resourceAssignmentResource(assignment);
+    const isInAppJourney = Boolean(resource && isGuidedResource(resource));
+    const completion = isInAppJourney && resource
+      ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
+      : null;
+    const unitLabel = resource?.type === "reading_plan" ? "Day" : "Week";
+    const currentUnit = completion && completion.total > 0 ? Math.min(completion.completed + 1, completion.total) : null;
+    const sessions = isInAppJourney && resource ? guidedResourceSessions(resource) : [];
+
+    const rawSessionTitle = currentUnit ? sessions[currentUnit - 1]?.title ?? null : null;
+
+    return {
+      assignment,
+      completion,
+      currentSessionTitle: rawSessionTitle ? rawSessionTitle.replace(/^(?:week|day)\s+\d+\s*[·:—-]\s*/i, "") : null,
+      isInAppJourney,
+      percent: completion?.percent ?? 0,
+      resource,
+      stageLabel: currentUnit && completion ? `${unitLabel} ${currentUnit} of ${completion.total}` : resourceAssignmentTypeLabel(assignment),
+      title: resourceAssignmentTitle(assignment),
+    };
+  });
+  const conceptFollowUps = personFollowUpReminders.map((reminder) => ({
+    duePhrase: followUpDuePhrase(nextReminderDate(reminder)),
+    id: reminder.id,
+    note: reminderVisibleNotes(reminder.notes),
+    onOpen: () => onEditReminder(reminder.id),
+    title: reminder.title || "Follow up",
+  }));
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
       const scrollContainer = detailScrollRef.current;
@@ -34674,12 +34791,68 @@ function PersonDetailOverlay({
     setSelectedOutcomeEntry(null);
     setIsCircleReviewOpen(false);
     setIsAddMenuOpen(false);
+    setCircleInsightStage(null);
     scrollDetailToTop();
   }, [initialDetailTab, person.id]);
 
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
       <div className="mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
+      {conceptMode ? (
+        <>
+          {/* Ruthless mobile header: one compact row, relationship signal, no
+              avatar block or oversized actions before the content. */}
+          <header className="flex items-center gap-2.5">
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E3E6EB] bg-white text-[#0F1520]" onClick={onBack} type="button" aria-label="Back to field">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[20px] font-bold leading-tight tracking-tight text-[#0F1520]" style={{ fontFamily: font.oswald }}>
+                {person.name}
+              </h2>
+              {visibleCircleSuggestion ? (
+                <button
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#6B7686]"
+                  onClick={() => setCircleInsightStage("insight")}
+                  type="button"
+                  aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
+                >
+                  {relationshipSignal}
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
+                </button>
+              ) : (
+                <p className="text-[12.5px] font-semibold text-[#6B7686]">{relationshipSignal}</p>
+              )}
+            </div>
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E3E6EB] bg-white text-[#0F1520]" onClick={onEdit} type="button" aria-label="Edit person">
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
+            </button>
+          </header>
+          <nav className="mt-3 flex items-center gap-5 border-b border-[#EDEFF2] pb-2 text-[13px] font-semibold" aria-label="Person views">
+            {([
+              { label: "Now", value: "overview" as const },
+              { label: "Timeline", value: "history" as const },
+              { label: "Contact", value: "details" as const },
+            ]).map((view) => (
+              <button
+                aria-current={activeDetailTab === view.value ? "page" : undefined}
+                className={activeDetailTab === view.value ? "text-[#0F1520]" : "text-[#9AA4B2] transition-colors hover:text-[#6B7686]"}
+                key={view.value}
+                onClick={() => {
+                  setActiveDetailTab(view.value);
+                  scrollDetailToTop();
+                }}
+                type="button"
+              >
+                {view.label}
+              </button>
+            ))}
+            <span className="flex-1" aria-hidden="true" />
+            <button className="text-[#2450C8]" onClick={onLogMeeting} type="button">Log meeting</button>
+          </nav>
+        </>
+      ) : (
+        <>
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to field">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -34737,9 +34910,341 @@ function PersonDetailOverlay({
           ))}
         </div>
       </div>
+        </>
+      )}
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
-        {activeDetailTab === "overview" ? (
+        {conceptMode && activeDetailTab === "overview" && activeConcept === "a" ? (
+          /* CONCEPT A — Relationship Brief: an excellent relational briefing.
+             Narrative-first, one reading column, quiet lead-ins instead of
+             database labels. */
+          <article aria-label="Relationship brief" className="mx-auto mt-2 w-full max-w-[620px]">
+            <section>
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-[15px] font-bold text-[#0F1520]">Last time together</h3>
+                {lastMeeting ? <span className="shrink-0 text-[12px] font-semibold text-[#9AA4B2]">{formatRelativeDate(lastMeeting.date)}</span> : null}
+              </div>
+              {lastMeeting ? (
+                <>
+                  <p className="mt-2 text-[15.5px] leading-[1.62] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
+                  {lastConversationPrayer ? (
+                    <p className="mt-2.5 text-[14.5px] leading-[1.6] text-[#3D4654]">
+                      <span className="font-semibold text-[#0F1520]">Carried into prayer</span> — {lastConversationPrayer}
+                    </p>
+                  ) : null}
+                  {agreedNextStep ? (
+                    <p className="mt-1.5 text-[14.5px] leading-[1.6] text-[#3D4654]">
+                      <span className="font-semibold text-[#0F1520]">You agreed</span> — {agreedNextStep}
+                    </p>
+                  ) : null}
+                  <button className="mt-2.5 text-[13px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                    Read the full notes
+                  </button>
+                </>
+              ) : (
+                <p className="mt-2 text-[14px] leading-[1.6] text-[#9AA4B2]">You haven&apos;t logged time together yet.</p>
+              )}
+            </section>
+
+            <section className="mt-7">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-[15px] font-bold text-[#0F1520]">Walking together</h3>
+                <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => setIsAddMenuOpen(true)} type="button">+ Add</button>
+              </div>
+              <div className="mt-1 divide-y divide-[#F3F4F6]">
+                {conceptJourneys.map((journey) => (
+                  <div className="flex items-center gap-3 py-3" key={journey.assignment.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14.5px] leading-[1.5] text-[#0F1520]">
+                        <span className="font-semibold">{journey.title}</span>
+                        <span className="text-[#6B7686]"> · {journey.stageLabel}</span>
+                      </p>
+                      {journey.completion && journey.completion.total > 0 ? (
+                        <span className="mt-1.5 block h-1 max-w-[220px] overflow-hidden rounded-full bg-[#E7E9ED]">
+                          <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
+                        </span>
+                      ) : null}
+                    </div>
+                    {journey.isInAppJourney && journey.resource ? (
+                      <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                    ) : journey.resource ? (
+                      <PDButton href={journey.resource.path}>Open</PDButton>
+                    ) : null}
+                  </div>
+                ))}
+                {accountabilityTopics.map((topic) => (
+                  <div className="flex items-center gap-3 py-3" key={topic.id}>
+                    <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-[#0F1520]">
+                      <span className="font-semibold">{topic.title}</span>
+                      <span className="text-[#6B7686]"> · {topic.meta}</span>
+                    </p>
+                    <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
+                  </div>
+                ))}
+                {conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).map((item) => (
+                  <div className="py-3" key={item.id}>
+                    <p className="text-[14.5px] leading-[1.6] text-[#3D4654]">
+                      <span className="font-semibold text-[#0F1520]">Remember in prayer</span> — {item.text}
+                    </p>
+                  </div>
+                ))}
+                {!conceptJourneys.length && !accountabilityTopics.length && !conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).length ? (
+                  <p className="py-3 text-[14px] leading-[1.6] text-[#9AA4B2]">Nothing active together yet.</p>
+                ) : null}
+              </div>
+              {!conceptJourneys.length ? (
+                <button className="mt-1 text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                  + Start a Journey together
+                </button>
+              ) : null}
+            </section>
+
+            <section className="mt-7">
+              <h3 className="text-[15px] font-bold text-[#0F1520]">Coming up</h3>
+              <div className="mt-1 divide-y divide-[#F3F4F6]">
+                <div className="flex items-center gap-3 py-3">
+                  {nextMeeting ? (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14.5px] leading-[1.5] text-[#0F1520]">
+                        <span className="font-semibold">{nextMeeting.title?.trim() || "Time together"}</span>
+                        <span className="text-[#6B7686]"> · {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
+                      </p>
+                      {nextMeeting.notes?.trim() ? (
+                        <p className="mt-1 text-[13.5px] leading-[1.55] text-[#6B7686]">{nextMeeting.notes}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="min-w-0 flex-1 text-[14px] leading-[1.6] text-[#9AA4B2]">Nothing on the calendar yet.</p>
+                      <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+                    </>
+                  )}
+                </div>
+                {conceptFollowUps.map((followUp) => (
+                  <button className="block w-full py-3 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
+                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
+                      <span className="font-semibold">{followUp.title}</span>
+                      {followUp.duePhrase ? <span className="text-[#9AA4B2]"> · {followUp.duePhrase}</span> : null}
+                    </p>
+                  </button>
+                ))}
+                {upcomingGatherings.map(({ gathering, group }) => (
+                  <button className="block w-full py-3 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
+                      <span className="font-semibold">{group.name}</span>
+                      <span className="text-[#6B7686]"> · {upcomingDayLabel(gathering.startsAt, true)}</span>
+                    </p>
+                  </button>
+                ))}
+                {personGroups.length && !upcomingGatherings.length ? (
+                  <p className="flex flex-wrap gap-x-4 gap-y-1 py-3 text-[14px]">
+                    {personGroups.map((group) => (
+                      <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
+                        {group.name}
+                      </button>
+                    ))}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          </article>
+        ) : null}
+
+        {conceptMode && activeDetailTab === "overview" && activeConcept === "b" ? (
+          /* CONCEPT B — Discipleship Path: what we're working through and how
+             the relationship is progressing. A vertical path (Now → Next →
+             Recently) with the active Journey as the hero, in book-study
+             visual language. */
+          <div aria-label="Discipleship path" className="mx-auto mt-3 w-full max-w-[660px]">
+            <div className="border-l-2 border-[#EDEFF2] pl-5 md:pl-7">
+              <section className="relative pb-9">
+                <span className="absolute -left-[27px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2450C8] md:-left-[35px]" aria-hidden="true" />
+                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Now</h3>
+                {conceptJourneys.length ? conceptJourneys.map((journey) => (
+                  <div className="mt-3 rounded-[18px] border border-[#EDEFF2] bg-[#FBFAF8] p-4" key={journey.assignment.id}>
+                    <p className="text-[11px] font-bold text-[#A07A35]">Continue together</p>
+                    <p className="mt-1 text-[18px] font-bold leading-snug text-[#0F1520]">{journey.title}</p>
+                    <p className="mt-0.5 text-[13.5px] font-semibold text-[#6B7686]">
+                      {journey.stageLabel}
+                      {journey.currentSessionTitle ? ` · ${journey.currentSessionTitle}` : ""}
+                    </p>
+                    {journey.completion && journey.completion.total > 0 ? (
+                      <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
+                        <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
+                      </span>
+                    ) : null}
+                    <div className="mt-3.5">
+                      {journey.isInAppJourney && journey.resource ? (
+                        <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                      ) : journey.resource ? (
+                        <PDButton href={journey.resource.path}>Open</PDButton>
+                      ) : null}
+                    </div>
+                  </div>
+                )) : (
+                  <button className="mt-3 text-[14px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                    + Start a Journey together
+                  </button>
+                )}
+                {accountabilityTopics.map((topic) => (
+                  <div className="mt-3.5 flex items-center gap-3" key={topic.id}>
+                    <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-[#0F1520]">
+                      <span className="font-semibold">{topic.title}</span>
+                      <span className="text-[#6B7686]"> · {topic.meta}</span>
+                    </p>
+                    <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
+                  </div>
+                ))}
+                {conceptPrayerItems.map((item) => (
+                  <p className="mt-3 text-[14.5px] leading-[1.6] text-[#3D4654]" key={item.id}>
+                    <span className="font-semibold text-[#0F1520]">Praying</span> — {item.text}
+                  </p>
+                ))}
+              </section>
+
+              <section className="relative pb-9">
+                <span className="absolute -left-[26px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[#9AA4B2] md:-left-[34px]" aria-hidden="true" />
+                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Next</h3>
+                <div className="mt-2 grid gap-2.5">
+                  {agreedNextStep ? (
+                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">{agreedNextStep}</p>
+                  ) : null}
+                  {conceptFollowUps.map((followUp) => (
+                    <button className="block text-left text-[14.5px] leading-[1.6] text-[#0F1520]" key={followUp.id} onClick={followUp.onOpen} type="button">
+                      {followUp.title}
+                      {followUp.duePhrase ? <span className="text-[#9AA4B2]"> · {followUp.duePhrase}</span> : null}
+                    </button>
+                  ))}
+                  {nextMeeting ? (
+                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
+                      Together again <span className="text-[#6B7686]">· {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
+                    </p>
+                  ) : (
+                    <button className="text-left text-[14px] font-semibold text-[#2450C8]" onClick={onScheduleMeeting} type="button">
+                      + Schedule your next time together
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              <section className="relative">
+                <span className="absolute -left-[26px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[#E3E6EB] md:-left-[34px]" aria-hidden="true" />
+                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Recently</h3>
+                {lastMeeting ? (
+                  <>
+                    <p className="mt-2 text-[14.5px] leading-[1.62] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
+                    <p className="mt-1 text-[12.5px] font-semibold text-[#9AA4B2]">{formatRelativeDate(lastMeeting.date)}</p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[14px] leading-[1.6] text-[#9AA4B2]">No conversations logged yet.</p>
+                )}
+                <button
+                  className="mt-2.5 text-[13px] font-semibold text-[#2450C8]"
+                  onClick={() => {
+                    setActiveDetailTab("history");
+                    scrollDetailToTop();
+                  }}
+                  type="button"
+                >
+                  See the whole story
+                </button>
+              </section>
+            </div>
+          </div>
+        ) : null}
+
+        {conceptMode && activeDetailTab === "overview" && activeConcept === "c" ? (
+          /* CONCEPT C — Conversation Focus: the moment before the next
+             meaningful conversation. Prompt-led, human-language headings,
+             no cards. */
+          <div aria-label="Conversation focus" className="mx-auto mt-3 w-full max-w-[620px] md:max-w-none">
+            <p className="text-[12px] font-bold text-[#A07A35]">Before you see {firstName}</p>
+            <div className="mt-4 grid gap-6 md:grid-cols-2 md:gap-x-12 md:gap-y-8">
+              {lastMeeting ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Remember</h3>
+                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">
+                    {meetingActivityPreview(lastMeeting, personReflections)}
+                    <span className="text-[#9AA4B2]"> · {formatRelativeDate(lastMeeting.date)}</span>
+                  </p>
+                </div>
+              ) : null}
+              {(conceptFollowUps.length || nextMeeting?.notes?.trim()) ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Ask about</h3>
+                  <div className="mt-1.5 grid gap-1.5">
+                    {conceptFollowUps.map((followUp) => (
+                      <button className="block text-left text-[15px] leading-[1.6] text-[#3D4654]" key={followUp.id} onClick={followUp.onOpen} type="button">
+                        {followUp.title}
+                      </button>
+                    ))}
+                    {nextMeeting?.notes?.trim() ? (
+                      <p className="text-[15px] leading-[1.6] text-[#3D4654]">{nextMeeting.notes}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {conceptPrayerItems.length ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Pray for</h3>
+                  <div className="mt-1.5 grid gap-1.5">
+                    {conceptPrayerItems.map((item) => (
+                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={item.id}>{item.text}</p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {conceptJourneys.length ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Continue</h3>
+                  <div className="mt-1.5 grid gap-1.5">
+                    {conceptJourneys.map((journey) => (
+                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={journey.assignment.id}>
+                        {journey.title} · {journey.stageLabel}
+                        {journey.isInAppJourney && journey.resource ? (
+                          <button className="ml-2 font-semibold text-[#2450C8]" onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} type="button">
+                            Open
+                          </button>
+                        ) : null}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {accountabilityTopics.length ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Accountability</h3>
+                  <div className="mt-1.5 grid gap-1.5">
+                    {accountabilityTopics.map((topic) => (
+                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={topic.id}>
+                        {topic.title}
+                        <button className="ml-2 font-semibold text-[#2450C8]" onClick={topic.onCheckIn} type="button">Check in</button>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {agreedNextStep ? (
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Next step</h3>
+                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">{agreedNextStep}</p>
+                </div>
+              ) : null}
+            </div>
+            <p className="mt-8 border-t border-[#EDEFF2] pt-4 text-[14px] leading-[1.6] text-[#3D4654]">
+              {nextMeeting ? (
+                <>You&apos;re seeing {firstName} <span className="font-semibold text-[#0F1520]">{upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>.</>
+              ) : (
+                <>
+                  No time together on the calendar yet.
+                  <button className="ml-2 font-semibold text-[#2450C8]" onClick={onScheduleMeeting} type="button">Schedule</button>
+                </>
+              )}
+            </p>
+          </div>
+        ) : null}
+
+        {activeDetailTab === "overview" && !conceptMode ? (
           <>
             <section aria-label="Last conversation">
               <PDSectionHeading
@@ -35093,6 +35598,87 @@ function PersonDetailOverlay({
 
       </div>
       </div>
+      {conceptMode ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[88px] z-[900] flex justify-center md:bottom-6">
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[#E3E6EB] bg-white/95 py-1.5 pl-1.5 pr-3 shadow-[0_12px_32px_rgba(15,23,42,0.16)] backdrop-blur">
+            {(["a", "b", "c"] as const).map((conceptKey) => (
+              <button
+                aria-pressed={activeConcept === conceptKey}
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold uppercase transition-colors ${
+                  activeConcept === conceptKey ? "bg-[#0F1520] text-white" : "text-[#6B7686] hover:bg-[#F3F4F6]"
+                }`}
+                key={conceptKey}
+                onClick={() => {
+                  setActiveConcept(conceptKey);
+                  setActiveDetailTab("overview");
+                  scrollDetailToTop();
+                }}
+                type="button"
+              >
+                {conceptKey}
+              </button>
+            ))}
+            <span className="text-[11px] font-semibold text-[#6B7686]">{personConceptNames[activeConcept]}</span>
+          </div>
+        </div>
+      ) : null}
+      {circleInsightStage && visibleCircleSuggestion ? (
+        <Sheet onClose={() => setCircleInsightStage(null)} showEyebrow={false} title="DOS noticed something">
+          <div className="grid gap-3.5 text-[14px] leading-[1.6] text-[#3D4654]">
+            <p className="text-[16px] font-semibold leading-[1.5] text-[#0F1520]">
+              You&apos;ve been spending significantly more time with {firstName} recently.
+            </p>
+            <p>
+              {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions)} meaningful conversations · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} · last 30 days
+            </p>
+            <p>Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
+            <div className="grid gap-2">
+              <AppButton
+                onClick={() => {
+                  setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle);
+                  setCircleInsightStage(null);
+                }}
+                tone="black"
+              >
+                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+              </AppButton>
+              <AppButton
+                onClick={() => {
+                  setDismissedCircleSuggestion(suggestionDismissKey);
+                  setCircleInsightStage(null);
+                }}
+                tone="white"
+              >
+                Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
+              </AppButton>
+            </div>
+            {circleInsightStage === "why" ? (
+              <div className="rounded-2xl bg-[#FBFAF8] p-3.5 text-[13px] leading-[1.6] text-[#3D4654]">
+                <p>
+                  DOS compares your logged one-to-one time over a rolling 30-day window against the people currently in each of your circles. Nothing is inferred — only what you logged counts, and DOS never moves anyone without you.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
+                    <p className="text-[11px] font-bold text-[#9AA4B2]">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
+                    <p className="text-[11px] font-bold text-[#2450C8]">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+                  </div>
+                </div>
+                <p className="mt-3">
+                  {firstName}&apos;s recent pattern ({Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} conversations, {visibleCircleSuggestion.person30.oneToOneCount} one-to-one, last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "—"}) sits closer to your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} than your {circleDisplayName(visibleCircleSuggestion.currentCircle)}.
+                </p>
+              </div>
+            ) : (
+              <button className="text-left text-[13px] font-semibold text-[#2450C8]" onClick={() => setCircleInsightStage("why")} type="button">
+                How DOS worked this out
+              </button>
+            )}
+          </div>
+        </Sheet>
+      ) : null}
       {isAddMenuOpen ? (
         <Sheet description="What are you walking through together?" onClose={() => setIsAddMenuOpen(false)} showEyebrow={false} title="Add">
           <div className="grid gap-2">
