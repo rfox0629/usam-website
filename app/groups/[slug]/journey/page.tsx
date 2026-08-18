@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/groups/member-access";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
+import { communityCard, communityEyebrow, communityPage } from "../../community-design";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { GroupJourneyView } from "../../GroupJourneyView";
 
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Journey | Group Home",
+  title: { absolute: "Journey | Group Home" },
 };
 
 type PageProps = {
@@ -79,15 +80,20 @@ export default async function GroupJourneyPage({ params, searchParams }: PagePro
 
   if (!resourceSlug || !resource || resource.type !== "guided_resource" || !resource.content?.guidedResource) {
     return (
-      <main className="min-h-screen bg-[#080A0D] px-4 py-6 text-[#F5F3EE] sm:px-6">
-        <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-xl flex-col justify-center text-center">
-          <Link className="text-xs font-black uppercase tracking-[0.2em] text-[#C2A14E]" href={groupPath}>
+      <main className={communityPage}>
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center gap-3 px-4 py-8 sm:px-6">
+          <Link className="text-xs font-bold text-[#1D4ED8] underline-offset-4 hover:underline" href={groupPath}>
             Back to Group Home
           </Link>
-          <h1 className="mt-4 text-2xl font-black text-white">No journey assigned yet.</h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-white/60">
-            Your group leader has not assigned a Guided Journey yet. Check back after your next gathering.
-          </p>
+          <section className={`min-w-0 p-5 ${communityCard}`}>
+            <p className={communityEyebrow}>Journey</p>
+            <h1 className="mt-2 break-words text-2xl font-black leading-tight tracking-tight text-[#0F172A]">
+              No Journey assigned yet
+            </h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#475569]">
+              Your group leader has not assigned a Guided Journey yet. Check back after your next gathering.
+            </p>
+          </section>
         </div>
       </main>
     );

@@ -29,7 +29,7 @@ const packageJson = read("package.json");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const publicTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const memberPage = read("app/groups/[slug]/member/page.tsx");
-const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberAccessPage = read("app/groups/[slug]/member/access/page.tsx");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const memberAccess = read("src/lib/groups/member-access.ts");
@@ -42,7 +42,8 @@ assertIncludes(publicGroupPage, "loadGroupMemberPortalData", "Canonical public g
 assertIncludes(publicGroupPage, "GroupHomeMemberView", "Canonical public group page must render the approved member Group Home.");
 assertNotIncludes(publicGroupPage, "loadManageGroupHref", "Canonical public group page must not resolve public management links.");
 assertNotIncludes(publicGroupPage, "loadManageHrefForGroup", "Canonical public group page must not render public management links.");
-assertIncludes(memberAccessRoute, "publicGroupPath(result.groupSlug ?? slug)}?state=signed-in", "Access claim should send members to the canonical Group Home.");
+assertIncludes(memberActions, "publicGroupPath(result.groupSlug ?? slug)}?state=signed-in", "Access claim should send members to the canonical Group Home.");
+assertIncludes(memberAccessPage, "Open Group Home", "The invitation page must offer an explicit redemption action.");
 assertIncludes(memberPage, "redirect(`${groupPath}", "Valid member sessions on /member should redirect to the canonical Group Home.");
 
 assertIncludes(publicTemplate, "PublicGroupHeader", "Public visitor page must use the minimal Groups header.");

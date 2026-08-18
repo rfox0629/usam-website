@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Remnant | DOS Library",
+  title: "Remnant",
 };
 
 export default function DosRemnantCollectionPage() {

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { domainSites } from "@/src/lib/domain-sites";
 import Image from "next/image";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
@@ -26,11 +28,13 @@ export const metadata: Metadata = {
   openGraph: {
     description:
       "Mission of Reconciliation comes alongside people across America with biblical truth, prayer, relationship, and discipleship, helping people find healing, freedom, and restoration in Jesus Christ.",
+    images: [buildDomainSiteSocialImage(domainSites.usam)],
+    siteName: domainSites.usam.siteName,
     title: "Mission of Reconciliation | Healing, Freedom & Restoration",
     type: "website",
     url: morRoutes.home,
   },
-  title: "Mission of Reconciliation | Healing, Freedom & Restoration",
+  title: { absolute: "Mission of Reconciliation | Healing, Freedom & Restoration" },
 };
 
 const journeySteps = [

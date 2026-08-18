@@ -853,7 +853,7 @@ assertIncludes(appClient, "Accept & Link", "DOS Pending Requests must make match
 assertIncludes(appClient, "onRemoveMember", "DOS group members tab must wire a private remove-member action.");
 assertIncludes(appClient, "Remove Member", "DOS group members tab must show an inline remove confirmation.");
 assertIncludes(appClient, "Their Person record stays in Field.", "DOS group member removal must explain that Person data is preserved.");
-assertIncludes(appClient, "Portal: Not accessed yet", "DOS group members tab must describe copied/created portal links as not accessed until verified.");
+assertIncludes(appClient, "Invitation not opened yet", "DOS group members tab must describe copied/created portal links as not opened until verified.");
 assertNotIncludes(appClient, "Portal: Link sent", "DOS group members tab must not imply a copied portal link was sent by the system.");
 assertIncludes(groupSettingsRoute, "revalidatePath(\"/groups\")", "Group Settings must revalidate the public groups directory after edits.");
 assertIncludes(groupSettingsRoute, "revalidatePath(`/groups/${group.slug}`)", "Group Settings must revalidate the public group page after edits.");

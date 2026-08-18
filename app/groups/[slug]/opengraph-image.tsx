@@ -1,67 +1,39 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { headers } from "next/headers";
-import { ImageResponse } from "next/og";
+import { approvedPublicGroupBySlug, communityCopyFor } from "../community-content";
+import {
+  renderGroupsShareCard,
+  resolveShareCardSite,
+  shareCardContentType,
+  shareCardSize,
+} from "../share-card";
 import { loadPublicGroup } from "@/src/lib/public-groups";
 import { requestHostname } from "@/src/lib/groups/public-site";
 
 export const runtime = "nodejs";
-export const alt = "USA Missionaries Discipleship Group";
-export const size = { height: 630, width: 1200 };
-export const contentType = "image/png";
+export const alt = "Discipleship group";
+export const size = shareCardSize;
+export const contentType = shareCardContentType;
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const headersList = await headers();
-  const group = await loadPublicGroup(slug, requestHostname(headersList));
+  const hostname = requestHostname(headersList);
+  const [group, site] = await Promise.all([loadPublicGroup(slug, hostname), resolveShareCardSite(hostname)]);
 
-  const logoBuffer = await readFile(join(process.cwd(), "public/brand/logo/usam-website-logo.png"));
-  const logoSrc = `data:image/png;base64,${logoBuffer.toString("base64")}`;
+  // The approved list is the same canonical source the group page falls back to,
+  // so a card never disagrees with the page it belongs to when the database is
+  // unreachable — on preview deploys, for instance.
+  const approved = approvedPublicGroupBySlug.get(slug);
+  const copy = approved ? communityCopyFor(approved) : null;
 
-  const tagline = group?.tagline ?? "Discipleship happens in rhythms.";
-  const name = group?.name ?? "USA Missionaries";
+  const title = group?.name ?? approved?.name ?? "Discipleship Groups";
+  const subtitle =
+    group?.tagline
+    || group?.description
+    || copy?.tagline
+    || copy?.description
+    || "Find recurring rhythms of prayer, accountability, and community.";
+  const footnote = group?.rhythm || approved?.rhythmLabel || "Discipleship Groups";
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          alignItems: "center",
-          background: "#06111F",
-          backgroundImage:
-            "radial-gradient(circle at 82% 18%, rgba(248,197,106,0.30), transparent 45%), linear-gradient(135deg, rgba(15,23,42,0), rgba(2,6,23,0.72))",
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "center",
-          width: "100%",
-        }}
-      >
-        <div style={{ alignItems: "center", display: "flex", gap: "26px" }}>
-          <img alt="" height={70} src={logoSrc} style={{ objectFit: "contain" }} width={180} />
-          <span
-            style={{
-              color: "#FFFFFF",
-              fontSize: 56,
-              fontWeight: 700,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {name}
-          </span>
-        </div>
-        <span
-          style={{
-            color: "#F8C56A",
-            fontSize: 44,
-            fontWeight: 800,
-            letterSpacing: "-0.01em",
-            marginTop: 28,
-          }}
-        >
-          {tagline}
-        </span>
-      </div>
-    ),
-    { ...size }
-  );
+  return renderGroupsShareCard({ footnote, site, subtitle, title });
 }

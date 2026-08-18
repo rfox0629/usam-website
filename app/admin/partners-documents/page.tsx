@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Partner Documents | Command Center",
+  title: "Partner Documents",
 };
 
 export default async function PartnersDocumentsPage() {

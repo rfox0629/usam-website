@@ -38,7 +38,7 @@ import { getAdminAuthorization } from "@/src/lib/admin-auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Legacy Missionary Workspace | USA Missionaries",
+  title: "Legacy Missionary Workspace",
   robots: {
     follow: false,
     index: false,

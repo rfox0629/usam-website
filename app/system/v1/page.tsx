@@ -6,7 +6,7 @@ import { WaitingListCTA } from "../WaitingListCTA";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
-  title: "System V1 | USA Missionaries",
+  title: "System V1",
   description: "USA Missionaries is building discipleship infrastructure for accountability, leadership, and multiplication.",
 };
 

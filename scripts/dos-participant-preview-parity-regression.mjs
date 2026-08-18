@@ -165,3 +165,37 @@ const membersRoster = appClient.slice(appClient.indexOf("{visibleMembers.length 
 assertNotIncludes(membersRoster, "flex shrink-0 items-center gap-2", "Members roster actions must wrap at 390px too.");
 
 console.log("dos-participant-preview-parity-regression: all checks passed.");
+
+/* ---------------------------------------------------------------- *
+ * USA-170 leader-side follow-through (founder comments, Aug 18).
+ * ---------------------------------------------------------------- */
+
+// Member rows state exactly the four identity conditions, tokenlessly.
+for (const state of ["Person only", "Scoped access active", "Invitation expired", "Linked DOS account"]) {
+  assertIncludes(appClient, `"${state}"`, `Member rows must state the identity condition: ${state}.`);
+}
+assertIncludes(appClient, "authLinked", "Member rows must read the auth-link flag, not guess from names.");
+assertNotIncludes(appClient, "token_hash", "The leader client must never touch token values.");
+assertIncludes(appClient, "Invitation not opened yet", "An active invitation must not claim system delivery.");
+
+// An already-active member takes over the join-request card.
+assertIncludes(appClient, "Already a member", "Join requests must surface an existing active member first.");
+assertIncludes(appClient, "Repair/send Group access", "Join requests must offer access repair for existing members.");
+assertIncludes(appClient, "joinRequestExistingActiveMember", "Existing-member detection must be shared, not inlined.");
+assertBefore(appClient, "existingActiveMember ? (", "possibleMatches.length ? (", "The already-member panel must render before the match picker.");
+assertIncludes(appClient, "None of these — create a new person", "Create new person must be the explicit last resort, not the normal path.");
+assertIncludes(appClient, "maskEmailForLeader", "Ambiguous matches must show masked email, never full contact detail.");
+assertIncludes(appClient, "maskPhoneForLeader", "Ambiguous matches must show masked phone, never full contact detail.");
+
+// The founder-named leader action.
+assertIncludes(appClient, "a fresh link`", "Leaders must have the Send {First} a fresh link action.");
+
+// Desktop columns: no more nested three-column squeeze, no floating listbox
+// in the join-request card.
+assertNotIncludes(appClient, "xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]", "The People tab must not restack three side-by-side columns.");
+assertNotIncludes(appClient, "xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]", "Pending Requests and Members must split the row evenly.");
+{
+  const joinCard = appClient.slice(appClient.indexOf("Choose who this is"), appClient.indexOf("Repair/send Group access"));
+  assert(joinCard.length > 0, "Join-request card markers must exist.");
+  assertNotIncludes(joinCard, "CompactOptionSelect", "The join-request match picker must be inline and contained, not a floating dropdown.");
+}

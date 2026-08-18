@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOS Workspace",
+  title: "Workspace",
   robots: {
     follow: false,
     index: false,

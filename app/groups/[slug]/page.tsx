@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   groupMemberSessionCookieName,
@@ -19,6 +19,7 @@ import {
 } from "@/src/lib/groups/public-site";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import type { GroupMemberPortalResult } from "@/src/lib/groups/member-access";
 import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
 import { APPROVED_PUBLIC_GROUPS, communityCopyFor } from "../community-content";
 import { buildCommunitySchedule } from "../community-schedule";
@@ -77,7 +78,6 @@ const fallbackPublicGroups: Record<string, PublicGroupRow> = Object.fromEntries(
   ]),
 );
 
-const defaultGroupsShareImage = "/images/usam/groups-share.png";
 
 const fallbackGatherings: Record<string, GatheringRow> = {
   "2three2": {
@@ -95,7 +95,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!group) {
     return {
       description: "Find discipleship groups connected to USA Missionaries.",
-      title: "Group | USA Missionaries",
+      title: { absolute: "Group | USA Missionaries" },
     };
   }
 
@@ -104,7 +104,26 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const url = group.siteHostname
     ? `https://${group.siteHostname}${publicGroupPath(group.slug, { basePath: group.siteBasePath })}`
     : `${getCanonicalSiteUrl()}/groups/${group.slug}`;
+  // A group that publishes its own artwork keeps it. Everything else falls
+  // through to opengraph-image.tsx, which draws a card carrying that group's own
+  // name. The `images` key has to be absent for the file convention to apply —
+  // setting it to undefined still counts as declaring it.
   const image = groupShareImageUrl(group.shareImageUrl);
+  const shareImage = image
+    ? {
+        openGraph: {
+          images: [
+            {
+              alt: `${group.name} discipleship group`,
+              height: 630,
+              url: image,
+              width: 1200,
+            },
+          ],
+        },
+        twitter: { images: [image] },
+      }
+    : { openGraph: {}, twitter: {} };
 
   return {
     alternates: {
@@ -113,24 +132,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description,
     openGraph: {
       description,
-      images: [
-        {
-          alt: `${group.name} discipleship group`,
-          height: 630,
-          url: image,
-          width: 1200,
-        },
-      ],
+      ...shareImage.openGraph,
       siteName: group.siteName,
       title,
       type: "website",
       url,
     },
-    title,
+    title: { absolute: title },
     twitter: {
       card: "summary_large_image",
       description,
-      images: [image],
+      ...shareImage.twitter,
       title,
     },
   };
@@ -152,6 +164,14 @@ export default async function PublicGroupPage({
     : null;
   const memberHomeResult = await loadMemberGroupHome(slug);
 
+  // USA-173 coordination: the member holds a valid session but arrived on a
+  // since-renamed public slug (texted link, bookmark, installed start_url).
+  // Send them to the canonical URL rather than letting the rename look like
+  // revoked access.
+  if (memberHomeResult.staleSlug && memberHomeResult.canonicalSlug) {
+    redirect(`${publicGroupPath(memberHomeResult.canonicalSlug)}${stateParam ? `?state=${encodeURIComponent(String(stateParam))}` : ""}`);
+  }
+
   if (memberHomeResult.data) {
     return (
       <GroupHomeMemberView
@@ -171,7 +191,7 @@ export default async function PublicGroupPage({
   return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
-async function loadMemberGroupHome(slug: string) {
+async function loadMemberGroupHome(slug: string): Promise<GroupMemberPortalResult> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
 
@@ -327,18 +347,23 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
   };
 }
 
+/**
+ * A group's own published share artwork, or null to fall through to the
+ * generated per-group card. Returning the generic directory card here is what
+ * made every group unfurl with the same image.
+ */
 function groupShareImageUrl(value: string | null | undefined) {
   const imageUrl = value?.trim();
 
   if (!imageUrl || /\b(?:table|dos-table)\b/i.test(imageUrl)) {
-    return defaultGroupsShareImage;
+    return null;
   }
 
   if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith("/")) {
     return imageUrl;
   }
 
-  return defaultGroupsShareImage;
+  return null;
 }
 
 function scriptureAnchor(reference: string) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { PrimaryNav } from "@/components/PrimaryNav";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection } from "@/src/lib/remnant/content";
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
   description: pageDescription,
   openGraph: {
     description: pageDescription,
+    images: [buildDomainSiteSocialImage(domainSites.usam)],
     siteName: domainSites.usam.siteName,
     title: `${remnantCollection.title} | USA Missionaries`,
     type: "website",
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: `${remnantCollection.title} | USA Missionaries`,
+  title: remnantCollection.title,
 };
 
 function Eyebrow({ children }: { children: ReactNode }) {

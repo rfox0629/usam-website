@@ -6,7 +6,7 @@ import { MissionReviewCTA } from "./MissionReviewCTA";
 import { assignmentArticle } from "./assignments/assignments";
 
 export const metadata: Metadata = {
-  title: "Briefing | USA Missionaries",
+  title: "Briefing",
   description: "Operational briefing and field dashboard for USA Missionaries.",
 };
 

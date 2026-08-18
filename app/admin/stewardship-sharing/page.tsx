@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AdminPlaceholderPage } from "../_components/AdminPlaceholderPage";
 
 export const metadata: Metadata = {
-  title: "Stewardship Sharing | USA Missionaries",
+  title: "Stewardship Sharing",
   robots: {
     follow: false,
     index: false,

@@ -6,7 +6,7 @@ import { ViewTeamComingSoonButton } from "./ViewTeamComingSoonButton";
 import { getPublicSupportProfileOptions } from "@/src/lib/missionaries/support-profile-options";
 
 export const metadata: Metadata = {
-  title: "Support the Mission | USA Missionaries",
+  title: "Support the Mission",
   description: "Support page for helping fuel disciple making across cities.",
 };
 

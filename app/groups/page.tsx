@@ -77,8 +77,6 @@ const fallbackPublicDirectoryGroups: PublicDirectoryGroup[] = APPROVED_PUBLIC_GR
   };
 });
 
-const groupsShareImage = "/images/usam/groups-share.png";
-
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
   const host = requestHostname(headersList);
@@ -96,26 +94,19 @@ export async function generateMetadata(): Promise<Metadata> {
     canonical: url,
   },
   description,
+  // No `images` key: opengraph-image.tsx draws the directory card, in the same
+  // brand language as the individual group cards.
   openGraph: {
     description,
-    images: [
-      {
-        alt: `${site.displayName} Discipleship Groups`,
-        height: 630,
-        url: groupsShareImage,
-        width: 1200,
-      },
-    ],
     siteName: site.displayName,
     title,
     type: "website",
     url,
   },
-  title,
+  title: { absolute: title },
   twitter: {
     card: "summary_large_image",
     description,
-    images: [groupsShareImage],
     title,
   },
   };
