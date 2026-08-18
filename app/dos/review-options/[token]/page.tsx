@@ -5,7 +5,7 @@ import { DosReviewOptionsForm } from "./DosReviewOptionsForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Review Options | DOS",
+  title: "Review Options",
   robots: {
     follow: false,
     index: false,

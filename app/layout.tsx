@@ -1,34 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
 import "./globals.css";
 import { AnalyticsScripts } from "../components/AnalyticsScripts";
 import { RouteAwareSiteFooter } from "../components/RouteAwareSiteFooter";
 import { VercelWebAnalytics } from "../components/VercelWebAnalytics";
+import { buildDomainSiteMetadata, buildDomainSiteViewport } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
-import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 
-const siteName = domainSites.usam.siteName;
-const siteDescription = domainSites.usam.description;
-const canonicalSiteUrl = getCanonicalSiteUrl();
+// USA Missionaries is the default identity for every route: title template,
+// description, favicon family, manifest, and social preview. Surfaces that belong
+// to another brand (DOS under /dos, the domain sites) replace the whole block in
+// their own layout instead of patching individual pages. Pages normally override
+// only title, description, canonical, and social image.
+export const metadata: Metadata = buildDomainSiteMetadata(domainSites.usam, { canonical: null });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(canonicalSiteUrl),
-  title: siteName,
-  description: siteDescription,
-  openGraph: {
-    description: siteDescription,
-    siteName,
-    title: siteName,
-    type: "website",
-    url: canonicalSiteUrl,
-  },
-  twitter: {
-    card: "summary",
-    description: siteDescription,
-    title: siteName,
-  },
-};
+export const viewport: Viewport = buildDomainSiteViewport(domainSites.usam);
 
 export default function RootLayout({
   children,

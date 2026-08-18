@@ -12,7 +12,7 @@ const publicProfileOnlyWorkspaceSlugs = new Set([
 ]);
 
 export const metadata: Metadata = {
-  title: "Circle Engine | USA Missionaries",
+  title: "Circle Engine",
   robots: {
     follow: false,
     index: false,

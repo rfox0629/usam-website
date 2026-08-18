@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { dosAppIcons } from "@/src/lib/dos/icon-metadata";
+import { dosAppIcons } from "@/src/lib/dos/brand-metadata";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

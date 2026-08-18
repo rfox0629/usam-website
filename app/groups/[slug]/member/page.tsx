@@ -39,7 +39,9 @@ import { requestGroupMemberAccess } from "./actions";
 
 export const metadata: Metadata = {
   robots: { follow: false, index: false },
-  title: "Get back into your group | DOS",
+  // The absolute form keeps the site-wide title template off this page (main's
+  // brand refresh); the wording stays honest — this is recovery, not sign-in.
+  title: { absolute: "Get back into your group | DOS" },
 };
 
 type PageProps = {

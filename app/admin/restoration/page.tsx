@@ -17,7 +17,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Restoration Review | Command Center",
+  title: "Restoration Review",
   robots: {
     follow: false,
     index: false,

@@ -8,7 +8,7 @@ import { adminRoles, canManageAdminSettings, getAdminAuthorization, type AdminRo
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Admin Settings | USA Missionaries",
+  title: "Settings",
   robots: {
     follow: false,
     index: false,

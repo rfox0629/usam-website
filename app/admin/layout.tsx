@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminAuthorization } from "@/src/lib/admin-auth";
@@ -6,6 +7,19 @@ import { signOutAdmin } from "../login/actions";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 export const dynamic = "force-dynamic";
+
+// Command Center is internal tooling, so its tabs are named for the tool rather
+// than the public brand, and none of it should ever be indexed.
+export const metadata: Metadata = {
+  robots: {
+    follow: false,
+    index: false,
+  },
+  title: {
+    default: "Command Center",
+    template: "%s | Command Center",
+  },
+};
 
 // /admin is the Command Center. Keep DOS mobile app layouts and route-specific
 // field workflow components out of this route; share only neutral primitives.

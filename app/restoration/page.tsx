@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Restoration Journey | Mission of Reconciliation",
+  title: { absolute: "Restoration Journey | Mission of Reconciliation" },
 };
 
 export default function RestorationPage() {

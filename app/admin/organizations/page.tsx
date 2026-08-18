@@ -8,7 +8,7 @@ import { OrganizationsClient } from "./OrganizationsClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Organizations | National Command Center",
+  title: "Organizations",
 };
 
 export default async function OrganizationsPage() {

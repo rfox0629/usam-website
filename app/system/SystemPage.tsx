@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
@@ -18,7 +19,7 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 const kitchenTableGospelUrl = domainSites["kitchen-table-gospel"].canonicalOrigin;
 const dosUrl = domainSites["discipleship-operating-system"].canonicalOrigin;
 const canonicalUrl = `${domainSites.usam.canonicalOrigin}/system`;
-const socialImage = "/images/usam/default-hero-background.png";
+const socialImage = domainSites.usam.socialImage.path;
 const systemDescription =
   "USA Missionaries trains, equips, and sends ordinary Christians to obey Jesus, make disciples, and serve people wherever they are.";
 
@@ -64,10 +65,8 @@ export const metadata: Metadata = {
     description: systemDescription,
     images: [
       {
+        ...buildDomainSiteSocialImage(domainSites.usam),
         alt: "USA Missionaries System",
-        height: 916,
-        url: socialImage,
-        width: 1718,
       },
     ],
     siteName: domainSites.usam.siteName,
@@ -75,7 +74,7 @@ export const metadata: Metadata = {
     type: "website",
     url: canonicalUrl,
   },
-  title: "System | USA Missionaries",
+  title: "System",
   twitter: {
     card: "summary_large_image",
     description: systemDescription,

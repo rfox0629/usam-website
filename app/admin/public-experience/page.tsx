@@ -10,7 +10,7 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Public Experience | USA Missionaries",
+  title: "Public Experience",
   robots: {
     follow: false,
     index: false,

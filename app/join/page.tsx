@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
-import { dosAppIcons, dosAppManifest } from "@/src/lib/dos/icon-metadata";
+import type { Metadata, Viewport } from "next";
+import { dosAppMetadata, dosAppViewport } from "@/src/lib/dos/brand-metadata";
 import { UsamJoinClient } from "./usam/UsamJoinClient";
 
+// /join is a DOS onboarding surface, so it carries DOS identity even though it
+// sits outside /dos.
 export const metadata: Metadata = {
-  title: "Join DOS | USA Missionaries",
+  ...dosAppMetadata,
   description: "Set up DOS, choose your path, and begin stewarding your field.",
-  icons: dosAppIcons,
-  manifest: dosAppManifest,
+  title: { absolute: "Join DOS" },
 };
+
+export const viewport: Viewport = dosAppViewport;
 
 export default function JoinPage() {
   return <UsamJoinClient />;

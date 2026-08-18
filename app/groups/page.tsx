@@ -111,7 +111,7 @@ export async function generateMetadata(): Promise<Metadata> {
     type: "website",
     url,
   },
-  title,
+  title: { absolute: title },
   twitter: {
     card: "summary_large_image",
     description,

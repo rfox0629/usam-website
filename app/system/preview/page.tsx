@@ -9,7 +9,7 @@ import { ImproveDosFeedbackModal } from "./ImproveDosFeedbackModal";
 import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 
 export const metadata: Metadata = {
-  title: "DOS Preview | USA Missionaries",
+  title: "DOS Preview",
   description: "A protected preview of the Disciple Operating System for invited USA Missionaries partners.",
 };
 

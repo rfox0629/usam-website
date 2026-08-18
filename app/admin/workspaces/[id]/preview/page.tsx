@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const workspacesHref = "/admin/organizations/usa-missionaries?tab=workspaces";
 
 export const metadata: Metadata = {
-  title: "Workspace Intelligence | National Command Center",
+  title: "Workspace Intelligence",
 };
 
 function formatDate(value: string | null | undefined) {

@@ -5,7 +5,7 @@ import { PrimaryNav } from "../../../../components/PrimaryNav";
 import { assignmentArticle, assignmentParagraphs } from "../assignments";
 
 export const metadata: Metadata = {
-  title: `${assignmentArticle.title} | Assignments Completed | USA Missionaries`,
+  title: `${assignmentArticle.title} | Assignments Completed`,
   description: assignmentArticle.excerpt,
 };
 

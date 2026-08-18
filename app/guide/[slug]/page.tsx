@@ -51,11 +51,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!resource) {
     return {
-      title: "Guide | USA Missionaries",
+      title: "Guide",
     };
   }
 
-  const title = `${resource.title} | USA Missionaries`;
+  const title = resource.title;
   const description = resource.content?.seoDescription ?? resource.description;
   const url = `${getCanonicalSiteUrl()}${resource.path}`;
   const coverUrl = resource.coverImage ? `${getCanonicalSiteUrl()}${resource.coverImage.src}` : null;
