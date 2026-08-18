@@ -192,7 +192,7 @@ export default async function OperationsFinancePage({
               {overview.unmappedDesignations.map((entry) => (
                 <div className="grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_90px_110px] sm:items-center" key={entry.fundId ?? entry.label}>
                   <p className="truncate text-sm font-semibold text-slate-950">{entry.label}</p>
-                  <p className="text-sm text-slate-700">{entry.count} gifts</p>
+                  <p className="text-sm text-slate-700">{entry.count} {entry.count === 1 ? "gift" : "gifts"}</p>
                   <p className="text-sm text-slate-700">{entry.amountLabel}</p>
                 </div>
               ))}
