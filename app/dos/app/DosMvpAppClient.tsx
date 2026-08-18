@@ -2696,8 +2696,49 @@ function joinTableFollowUpReminderMetadata(notes: string, meetingId: string) {
   return [`<!-- DOS_TABLE_FOLLOW_UP ${JSON.stringify({ meetingId })} -->`, notes.trim()].filter(Boolean).join("\n").trim();
 }
 
+const reminderAnsweredMetaPattern = /^<!-- DOS_REMINDER_ANSWERED ([\s\S]*?) -->\n?/;
+
+// Persists prayer-reminder "mark answered" state in the reminder's own notes field (same
+// HTML-comment metadata pattern already used for DOS_REMINDER_META / DOS_TABLE_FOLLOW_UP)
+// instead of client-only useState, so the answered state survives a page refresh without a
+// schema change.
+function splitReminderAnsweredMetadata(value: string): { answeredAt: string | null; notes: string } {
+  const rawValue = value.trim();
+  const match = rawValue.match(reminderAnsweredMetaPattern);
+
+  if (!match) {
+    return { answeredAt: null, notes: rawValue };
+  }
+
+  const notes = rawValue.replace(reminderAnsweredMetaPattern, "").trim();
+
+  try {
+    const parsed = JSON.parse(match[1] ?? "{}") as { answeredAt?: unknown };
+
+    return { answeredAt: typeof parsed.answeredAt === "string" ? parsed.answeredAt : null, notes };
+  } catch {
+    return { answeredAt: null, notes };
+  }
+}
+
+function reminderAnsweredAt(value: string | null | undefined) {
+  const afterReminderMeta = splitReminderNotesMetadata(value).notes;
+
+  return splitReminderAnsweredMetadata(afterReminderMeta).answeredAt;
+}
+
+function withReminderAnsweredMetadata(value: string | null | undefined, answeredAt: string | null) {
+  const { meta, notes: afterReminderMeta } = splitReminderNotesMetadata(value);
+  const plainNotes = splitReminderAnsweredMetadata(afterReminderMeta).notes;
+  const withAnswered = answeredAt
+    ? [`<!-- DOS_REMINDER_ANSWERED ${JSON.stringify({ answeredAt })} -->`, plainNotes].filter(Boolean).join("\n").trim()
+    : plainNotes;
+
+  return meta ? joinReminderNotesMetadata(withAnswered, meta) : withAnswered;
+}
+
 function reminderVisibleNotes(value: string | null | undefined) {
-  return splitTableFollowUpReminderMetadata(splitReminderNotesMetadata(value).notes).notes;
+  return splitReminderAnsweredMetadata(splitTableFollowUpReminderMetadata(splitReminderNotesMetadata(value).notes).notes).notes;
 }
 
 function reminderShowsOnDashboard(reminder: DosAppRelationshipReminder) {
@@ -3538,16 +3579,11 @@ function engagementLevelTableLabel(person: DosAppPerson) {
   return `${relationshipScoreLabel(score)} ${overviewEngagementLabel(score)}`;
 }
 
+// Falls back to the same one-to-one/group estimate the circle-suggestion engine uses
+// (meetingMinutesEstimate) so a logged meeting without schedule times still contributes
+// time-invested credit instead of silently counting as 0 minutes.
 function tableDurationMinutes(meeting: DosAppMeeting) {
-  if (!meeting.scheduledStartAt || !meeting.scheduledEndAt) {
-    return 0;
-  }
-
-  const startTime = new Date(meeting.scheduledStartAt).getTime();
-  const endTime = new Date(meeting.scheduledEndAt).getTime();
-  const duration = Math.round((endTime - startTime) / 60_000);
-
-  return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  return meetingMinutesEstimate(meeting);
 }
 
 function accountabilityCheckInDurationMinutes(checkIn: DosAppAccountabilityCheckIn) {
@@ -5241,7 +5277,7 @@ type PersonHistoryEntry = {
   date: string | null;
   description: string | null;
   id: string;
-  kind: "assessment" | "check_in" | "fruit" | "journey" | "meeting" | "prayer" | "quick_review" | "testimony";
+  kind: "assessment" | "check_in" | "fruit" | "gathering" | "journey" | "meeting" | "prayer" | "quick_review" | "testimony";
   onClick?: () => void;
   title: string;
 };
@@ -34176,6 +34212,8 @@ function historyEntryIcon(kind: PersonHistoryEntry["kind"]) {
       return <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
     case "fruit":
       return <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
+    case "gathering":
+      return <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
     case "journey":
       return <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />;
     case "meeting":
@@ -34199,6 +34237,8 @@ function historyEntryKindLabel(kind: PersonHistoryEntry["kind"]) {
       return "Accountability";
     case "fruit":
       return "Fruit";
+    case "gathering":
+      return "Group";
     case "journey":
       return "Journey";
     case "meeting":
@@ -34371,6 +34411,14 @@ function PersonDetailOverlay({
     .sort((first, second) => dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt));
   const personFollowUpReminders = personReminders.filter((reminder) => reminder.reminderType === "follow_up");
   const personGroups = groups.filter((group) => group.members.some((member) => member.personId === person.id && member.status === "active"));
+  // Group gatherings/attendance previously never joined into Person History (known gap) —
+  // surface completed gatherings the person actually attended, across any group, not just
+  // groups they're still an active member of.
+  const personGatheringAttendance = groups.flatMap((group) => group.gatherings
+    .filter((gathering) => gathering.status === "completed")
+    .flatMap((gathering) => gathering.attendance
+      .filter((attendance) => attendance.personId === person.id && attendance.status !== "absent")
+      .map((attendance) => ({ attendance, gathering, group }))));
   const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || (!review.personId && personMeetings.some((meeting) => meeting.id === review.meetingId)));
   const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || (!testimony.personId && personMeetings.some((meeting) => meeting.id === testimony.meetingId)));
   const personReviewItems = buildSubmittedReviewItems({
@@ -34445,8 +34493,16 @@ function PersonDetailOverlay({
   const activeCircleKey = confirmedCircleMove ?? currentCircleKey;
   const currentCircleLabel = circleDisplayName(activeCircleKey);
   const overviewNotes = defaults.notes?.trim() ?? "";
-  const activeAccountabilitySchedules = accountabilitySchedules.filter((schedule) => schedule.status === "active");
-  const activeCommitments = commitments.filter((commitment) => commitment.status === "active");
+  // Journey assignments auto-create a follow-up schedule (title-marker tagged) and a shadow
+  // commitment (linkedCommitmentId) so the Journey itself stays checked-in-on — but showing
+  // those in Accountability duplicates the Current Journeys row for the same assignment.
+  // They remain fully visible/manageable in History and the deeper accountability tools.
+  const activeAccountabilitySchedules = accountabilitySchedules
+    .filter((schedule) => schedule.status === "active")
+    .filter((schedule) => !parseResourceAssignmentFollowUpScheduleTitle(schedule.title));
+  const activeCommitments = commitments
+    .filter((commitment) => commitment.status === "active")
+    .filter((commitment) => !allResourceAssignments.some((assignment) => assignment.linkedCommitmentId === commitment.id));
   const accountabilityTopics = commitmentsEnabled
     ? [
       ...activeAccountabilitySchedules.map((schedule) => ({
@@ -34540,6 +34596,14 @@ function PersonDetailOverlay({
       id: `history-prayer-reminder-${reminder.id}`,
       kind: "prayer" as const,
       title: `Answered: ${reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}`,
+    })),
+    ...personGatheringAttendance.map(({ attendance, gathering, group }) => ({
+      date: gathering.completedAt ?? gathering.startsAt,
+      description: attendance.notes?.trim() || gathering.sharedNotes?.trim() || `Attended as ${attendance.status === "guest" ? "a guest" : "a member"}.`,
+      id: `history-gathering-${gathering.id}-${attendance.id}`,
+      kind: "gathering" as const,
+      onClick: () => onOpenGroup(group.id),
+      title: `${group.name}${gathering.title ? ` — ${gathering.title}` : ""}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
@@ -35598,6 +35662,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [prayerResourceFallbackUrl, setPrayerResourceFallbackUrl] = useState("");
   const [, setSavedPrayerResourceKeys] = useState<string[]>([]);
   const [answeredPrayerByReminderId, setAnsweredPrayerByReminderId] = useState<Record<string, string>>({});
+
+  // Merges in any answered-at markers already persisted on the reminder's notes (see
+  // withReminderAnsweredMetadata) so a refresh/refetch doesn't lose previously answered prayers.
+  useEffect(() => {
+    setAnsweredPrayerByReminderId((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const reminder of data.reminders) {
+        const persistedAnsweredAt = reminderAnsweredAt(reminder.notes);
+
+        if (persistedAnsweredAt && !next[reminder.id]) {
+          next[reminder.id] = persistedAnsweredAt;
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [data.reminders]);
   const [isFirstLaunchWalkthroughOpen, setIsFirstLaunchWalkthroughOpen] = useState(false);
   const [firstLaunchWalkthroughStep, setFirstLaunchWalkthroughStep] = useState(0);
   const [circleSheetView, setCircleSheetView] = useState<CircleFocusView | null>(null);
@@ -37446,10 +37530,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function markPrayerReminderAnswered(reminderId: string) {
+    const reminder = data.reminders.find((item) => item.id === reminderId);
+    const answeredAt = new Date().toISOString();
+
     setAnsweredPrayerByReminderId((current) => current[reminderId] ? current : {
       ...current,
-      [reminderId]: new Date().toISOString(),
+      [reminderId]: answeredAt,
     });
+
+    if (!reminder || reminderAnsweredAt(reminder.notes)) {
+      return;
+    }
+
+    // Writes the answered marker back onto the reminder so it survives a refresh instead of
+    // living only in this client's useState (previously never persisted anywhere).
+    void submitJson("/api/dos/app/reminders", {
+      googleSyncEnabled: reminder.googleSyncEnabled,
+      google_sync_enabled: reminder.googleSyncEnabled,
+      id: reminder.id,
+      notes: withReminderAnsweredMetadata(reminder.notes, answeredAt),
+      personId: reminder.personId,
+      person_id: reminder.personId,
+      recurrence: reminder.recurrence,
+      reminderDate: reminder.reminderDate,
+      reminder_date: reminder.reminderDate,
+      reminderType: reminder.reminderType,
+      reminder_type: reminder.reminderType,
+      title: reminder.title,
+    }, "PATCH", false);
   }
 
   function openPersonDetail(personId: string) {
