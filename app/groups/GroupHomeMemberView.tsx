@@ -46,7 +46,7 @@ export function groupHomeStateMessage(value: string | null) {
     case "access-invalid":
       return "That access link is not valid. Ask your group leader for a fresh one.";
     case "access-requested":
-      return "If that email belongs to an active member, your leader can send a fresh link.";
+      return "If that email matches an active member, we've sent a secure link to it.";
     case "access-unavailable":
       return "Group Home sign-in is not ready yet.";
     case "preferences-error":

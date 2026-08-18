@@ -30,7 +30,7 @@ const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const memberInstallPrompt = read("app/groups/MemberHomeInstallPrompt.tsx");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
-const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberAccessPage = read("app/groups/[slug]/member/access/page.tsx");
 const memberJourneyPage = read("app/groups/[slug]/journey/page.tsx");
 const memberManifestRoute = read("app/groups/[slug]/manifest.webmanifest/route.ts");
 const groupLayout = read("app/groups/[slug]/layout.tsx");
@@ -68,7 +68,8 @@ assertIncludes(migration, "visibility in ('public', 'group_members', 'leaders')"
 assertIncludes(migration, "notification_type in", "Notification preferences must be typed.");
 
 assert(exists("app/groups/[slug]/member/page.tsx"), "Group Home sign-in bridge must exist.");
-assert(exists("app/groups/[slug]/member/access/route.ts"), "Member access claim route must exist.");
+assert(exists("app/groups/[slug]/member/access/page.tsx"), "Member access confirmation page must exist.");
+assert(!exists("app/groups/[slug]/member/access/route.ts"), "Member access must not be a GET route handler that can consume a token as a side effect of being fetched.");
 assert(exists("app/groups/[slug]/manifest.webmanifest/route.ts"), "Group member PWA manifest route must exist.");
 assert(exists("app/groups/[slug]/layout.tsx"), "Group routes must attach member-home manifest metadata.");
 assertIncludes(memberAccess, "createHash(\"sha256\")", "Member access helper must hash tokens.");
@@ -86,11 +87,13 @@ assertIncludes(memberAccess, "memberIsActive", "Member portal must require activ
 assertIncludes(memberAccess, "groupIsMemberAccessible", "Member portal must require active group/member access.");
 assertIncludes(memberAccess, "Boolean(group && group.active !== false", "Member access must not treat missing groups as accessible.");
 assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links must resolve through public_sites when available.");
-assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
-assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
-assertIncludes(memberAccessRoute, "claimDemoGroupMemberAccessToken", "Member access route must support demo-safe scoped invitations through the canonical route.");
-assertIncludes(memberAccessRoute, "state=access-invalid", "Invalid or missing member access must show a deliberate invalid-access screen.");
-assertIncludes(memberAccessRoute, "NextResponse.redirect(new URL(`${publicGroupPath(result.groupSlug ?? slug)}?state=signed-in`, url.origin))", "Access claim must redirect to stable member home, not a raw journey URL.");
+assertIncludes(memberActions, "httpOnly: true", "Member session cookie must be httpOnly.");
+assertIncludes(memberActions, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+assertIncludes(memberActions, "claimDemoGroupMemberAccessToken", "Member access redemption must support demo-safe scoped invitations through the canonical action.");
+assertIncludes(memberActions, "\"access-invalid\"", "Invalid or missing member access must show a deliberate invalid-access screen.");
+assertIncludes(memberActions, "redirectToMember(result.groupSlug ?? slug, \"signed-in\")", "Access claim must redirect to stable member home, not a raw journey URL.");
+assertIncludes(memberAccessPage, "peekGroupMemberAccessToken", "Member access confirmation page must peek the token read-only before rendering.");
+assertNotIncludes(memberAccessPage, "cookies.set", "GET must never set a signed-in session cookie itself — only the explicit POST redemption may.");
 assertIncludes(memberPage, "loadDemoGroupMemberPortalData", "Member sign-in bridge must recognize demo-safe scoped sessions.");
 assertIncludes(publicGroupPage, "loadDemoGroupMemberPortalData", "Stable public group route must prefer an active scoped member session before public-page 404 handling.");
 assertIncludes(memberJourneyPage, "loadDemoGroupMemberPortalData", "Member Journey route must recognize demo-safe scoped sessions.");

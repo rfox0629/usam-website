@@ -288,6 +288,7 @@ type GroupMemberAccessResult = {
   ok?: boolean;
 };
 type GroupPersonMatch = {
+  alreadyMember?: boolean;
   email: string | null;
   id: string;
   matchReasons: ("email" | "phone")[];
@@ -11022,14 +11023,17 @@ function GroupMembersTab({
               const name = groupJoinRequestName(request);
               const isSubmittingRequest = submittingJoinRequest?.endsWith(`:${request.id}`) ?? false;
               const possibleMatches = request.possiblePersonMatches ?? [];
+              const alreadyMemberMatch = possibleMatches.find((person) => person.alreadyMember);
               const selectedPersonChoice = joinRequestPersonChoices[request.id] ?? "";
-              const selectedPersonId = possibleMatches.length === 1
-                ? possibleMatches[0]?.id
-                : selectedPersonChoice && selectedPersonChoice !== "create-new"
-                  ? selectedPersonChoice
-                  : undefined;
-              const createNewPerson = selectedPersonChoice === "create-new";
-              const acceptDisabled = Boolean(submittingJoinRequest) || (possibleMatches.length > 1 && !selectedPersonChoice);
+              const selectedPersonId = alreadyMemberMatch
+                ? alreadyMemberMatch.id
+                : possibleMatches.length === 1
+                  ? possibleMatches[0]?.id
+                  : selectedPersonChoice && selectedPersonChoice !== "create-new"
+                    ? selectedPersonChoice
+                    : undefined;
+              const createNewPerson = !alreadyMemberMatch && selectedPersonChoice === "create-new";
+              const acceptDisabled = Boolean(submittingJoinRequest) || (!alreadyMemberMatch && possibleMatches.length > 1 && !selectedPersonChoice);
 
               return (
                 <article className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3.5" key={request.id}>
@@ -11047,11 +11051,15 @@ function GroupMembersTab({
                     <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#475569]">{request.message}</p>
                   ) : null}
                   {possibleMatches.length ? (
-                    <div className="mt-3 rounded-[16px] border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">
-                        {possibleMatches.length === 1 ? "Possible existing person" : "Possible existing people"}
+                    <div className={`mt-3 rounded-[16px] border px-3 py-2 ${alreadyMemberMatch ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+                      <p className={`text-xs font-black uppercase tracking-[0.12em] ${alreadyMemberMatch ? "text-emerald-700" : "text-amber-700"}`}>
+                        {alreadyMemberMatch ? "Already a member" : possibleMatches.length === 1 ? "Possible existing person" : "Possible existing people"}
                       </p>
-                      {possibleMatches.length === 1 ? (
+                      {alreadyMemberMatch ? (
+                        <p className="mt-1 text-sm font-bold text-[#0F172A]">
+                          {alreadyMemberMatch.name} is already an active member of this group. Accepting will repair their access instead of creating a duplicate.
+                        </p>
+                      ) : possibleMatches.length === 1 ? (
                         <p className="mt-1 text-sm font-bold text-[#0F172A]">
                           {possibleMatches[0]?.name}
                           <span className="font-semibold text-[#64748B]"> · matched by {(possibleMatches[0]?.matchReasons ?? []).join(" + ")}</span>
@@ -11108,7 +11116,7 @@ function GroupMembersTab({
                         type="button"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-                        {isSubmittingRequest ? "Saving..." : possibleMatches.length ? "Accept & Link" : "Accept"}
+                        {isSubmittingRequest ? "Saving..." : alreadyMemberMatch ? "Repair & Link" : possibleMatches.length ? "Accept & Link" : "Accept"}
                       </button>
                     </div>
                   </div>

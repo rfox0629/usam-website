@@ -17,6 +17,7 @@
     "test:dos-group-home-visual": "node scripts/dos-group-home-visual-regression.mjs",
     "test:dos-group-home-readiness": "node scripts/dos-group-home-readiness-regression.mjs",
     "test:dos-identity-security": "node scripts/dos-identity-security-regression.mjs",
+    "test:dos-member-access-crawler-safety": "node scripts/dos-member-access-crawler-safety-regression.mjs",
     "test:dos-portal-provisioning-auth": "node scripts/dos-portal-provisioning-auth-regression.mjs",
     "test:dos-portal-provisioning-auth-behavior": "node scripts/dos-portal-provisioning-auth-behavior.mjs",
     "test:dos-portal-rollback": "node scripts/dos-portal-rollback-regression.mjs",
