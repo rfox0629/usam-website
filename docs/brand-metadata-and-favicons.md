@@ -101,6 +101,29 @@ of each platform cropping differently. USAM and Kitchen Table crop approved
 photos; DOS, which has no approved landscape photo, uses its emblem on its own
 field.
 
+### Groups share cards
+
+Group links are the one place cards are generated per request rather than
+prebuilt, because each group needs its own name on it:
+
+* `app/groups/share-card.tsx` — the single renderer, USAM black and gold with the
+  circular emblem. Tenant sites that set `brand.primaryColor` / `brand.surfaceColor`
+  get their own colors.
+* `app/groups/opengraph-image.tsx` — the directory card.
+* `app/groups/[slug]/opengraph-image.tsx` — per group: name, tagline, and rhythm.
+
+A group that publishes its own artwork (`image_url`) still wins; everything else
+falls through to the generated card. **For that fallthrough to work, the `images`
+key must be absent from `openGraph` — setting it to `undefined` still counts as
+declaring it and suppresses the file convention.** Both routes fall back to
+`APPROVED_PUBLIC_GROUPS`, the same canonical list the group page uses, so a card
+cannot disagree with the page when the database is unreachable.
+
+`public/images/usam/groups-share.png` is no longer referenced by any code. It is
+kept, holding a snapshot of the current directory card, only so links shared
+before this change re-scrape into current branding instead of a 404. Refresh it
+by saving `/groups/opengraph-image` over it.
+
 ## Per-host serving
 
 `middleware.ts` rewrites the well-known root asset paths (`/favicon.ico`,
@@ -123,6 +146,10 @@ the right brand.
   now stands alone with no field at all.
 * Replaced the DOS social preview, which was a 750x1450 portrait screenshot served
   as `summary_large_image`.
+* Replaced the Groups share card. Every group used to unfurl with one generic
+  black/gold "Discipleship Groups" image; each now gets a card with its own name,
+  and `app/groups/[slug]/opengraph-image.tsx` — which already existed but was
+  shadowed by the static image — finally does its job.
 * Retired the old black DOS chrome colors (`#070D14`, `#080A0D`) in favour of DOS
   blue with a white splash.
 * Removed hard-coded brand suffixes from page titles across the app; the layout
