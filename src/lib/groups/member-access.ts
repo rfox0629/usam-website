@@ -687,6 +687,71 @@ export async function createGroupMemberAccessInvitation(
   };
 }
 
+/**
+ * USA-170: read-only inspection of an invitation token.
+ *
+ * The production failure this exists to prevent: `GET /member/access?token=...`
+ * used to redeem on sight. When Ryan texted Tanner an invitation, iMessage's
+ * unfurler fetched the URL and burned the token ~10 seconds later — before
+ * Tanner ever tapped it. He landed on "That link has expired."
+ *
+ * So redemption is now split in two. This half answers "is this link good?"
+ * and performs NO writes: no consume, no rotate, no revoke, no session. It is
+ * what a crawler, a security scanner, a HEAD request, or a browser prefetch
+ * gets, no matter how many times it asks. Establishing the session is
+ * `claimGroupMemberAccessToken`, reachable only through an explicit human POST.
+ */
+export async function inspectGroupMemberAccessToken(
+  supabase: SupabaseAdminClient,
+  token: string,
+): Promise<{
+  groupName?: string;
+  groupSlug?: string;
+  state: "expired" | "invalid" | "revoked" | "valid";
+}> {
+  const cleanedToken = token.trim();
+
+  if (cleanedToken.length < 32) {
+    return { state: "invalid" };
+  }
+
+  const tokenResult = await supabase
+    .from("dos_group_member_access_tokens")
+    .select("id, member_identity_id, group_id, status, expires_at")
+    .eq("token_hash", tokenHash(cleanedToken))
+    .maybeSingle();
+
+  if (tokenResult.error || !tokenResult.data) {
+    return { state: "invalid" };
+  }
+
+  const accessToken = tokenResult.data as AccessTokenRow;
+  const groupResult = await supabase
+    .from("dos_groups")
+    .select("id, name, slug, active, member_access_enabled")
+    .eq("id", accessToken.group_id)
+    .maybeSingle();
+  const group = groupResult.data as { name?: string | null; slug?: string | null } | null;
+  const groupName = group?.name ?? undefined;
+  const groupSlug = group?.slug ?? undefined;
+
+  if (accessToken.status === "used") {
+    // Already redeemed. The holder may still have a live session, so the page
+    // offers "Open Group Home" rather than pretending nothing exists.
+    return { groupName, groupSlug, state: "expired" };
+  }
+
+  if (accessToken.status === "revoked") {
+    return { groupName, groupSlug, state: "revoked" };
+  }
+
+  if (accessToken.status !== "active" || isExpired(accessToken.expires_at)) {
+    return { groupName, groupSlug, state: "expired" };
+  }
+
+  return { groupName, groupSlug, state: "valid" };
+}
+
 export async function claimGroupMemberAccessToken(
   supabase: SupabaseAdminClient,
   token: string,
@@ -908,13 +973,26 @@ export function loadDemoGroupMemberPortalData(input: {
   };
 }
 
+/**
+ * Result of resolving a scoped member session. `staleSlug` + `canonicalSlug`
+ * let a caller redirect a renamed public slug instead of treating the rename
+ * as lost access.
+ */
+export type GroupMemberPortalResult = {
+  canonicalSlug?: string;
+  data?: GroupMemberPortalData | null;
+  error?: string;
+  staleSlug?: boolean;
+  unauthorized?: boolean;
+};
+
 export async function loadGroupMemberPortalData(
   supabase: SupabaseAdminClient,
   input: {
     sessionToken: string | null | undefined;
     slug: string;
   },
-): Promise<{ data?: GroupMemberPortalData; error?: string; unauthorized?: boolean }> {
+): Promise<GroupMemberPortalResult> {
   const sessionToken = input.sessionToken?.trim();
 
   if (!sessionToken) {
@@ -951,11 +1029,18 @@ export async function loadGroupMemberPortalData(
       .eq("group_id", session.group_id)
       .eq("person_id", session.person_id)
       .maybeSingle(),
+    // USA-170/USA-173: resolve the Group by canonical id ONLY.
+    //
+    // This used to also filter `.eq("slug", input.slug)`, which quietly made a
+    // mutable public slug a second condition on the member's own session. The
+    // moment a Group's public slug is renamed, every existing scoped session
+    // would fail this lookup and Tanner's installed Home Screen app, bookmarks,
+    // and already-texted links would all break. The slug is routing; the id is
+    // identity. Stale-slug handling is resolved by the caller below.
     supabase
       .from("dos_groups")
       .select("id, workspace_id, organization_id, public_site_id, public_status, name, slug, description, tagline, type, template_category, template_key, activity_type, rhythm_label, default_location, active, accepting_members, member_access_enabled, member_visible_location_mode")
       .eq("id", session.group_id)
-      .eq("slug", input.slug)
       .maybeSingle(),
     supabase
       .from("missionary_field_people")
@@ -975,6 +1060,34 @@ export async function loadGroupMemberPortalData(
 
   if (!identity || identity.status !== "verified" || !memberIsActive(member) || !groupIsMemberAccessible(group) || !person) {
     return { unauthorized: true };
+  }
+
+  // The session names one Group by id; the URL names one by slug. When they
+  // disagree there are exactly two cases, and they need opposite handling:
+  //
+  //   a) The visitor is browsing a DIFFERENT live Group's public page while
+  //      holding a session for their own. Serving their portal here would
+  //      hijack that navigation, so decline and let the public page render.
+  //   b) The URL slug matches no live Group — it is this member's own Group
+  //      under a since-renamed slug (a texted link, a bookmark, an installed
+  //      Home Screen start_url). Serve the portal and tell the caller the
+  //      canonical slug so it can redirect instead of breaking access.
+  //
+  // Durable slug-history/alias records are USA-173's schema-gated work; this
+  // distinguishes the two cases without any new table.
+  if (group.slug !== input.slug) {
+    const otherGroupResult = await supabase
+      .from("dos_groups")
+      .select("id")
+      .eq("slug", input.slug)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (otherGroupResult.data?.id && otherGroupResult.data.id !== group.id) {
+      return { unauthorized: true };
+    }
+
+    return { canonicalSlug: group.slug, staleSlug: true };
   }
 
   const now = new Date().toISOString();

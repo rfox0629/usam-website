@@ -9,7 +9,7 @@ export async function GET(
   const startUrl = publicGroupPath(slug);
 
   return NextResponse.json({
-    background_color: "#080A0D",
+    background_color: "#F8FBFF",
     display: "standalone",
     icons: [
       {
@@ -29,6 +29,6 @@ export async function GET(
     scope: `${startUrl}/`,
     short_name: "DOS",
     start_url: startUrl,
-    theme_color: "#080A0D",
+    theme_color: "#2563EB",
   });
 }

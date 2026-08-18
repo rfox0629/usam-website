@@ -185,4 +185,56 @@ for (const canonical of [
 assertIncludes(publicTemplate, "group.memberAccessEnabled ?", "Member sign-in must stay gated on member access.");
 assertIncludes(publicTemplate, "Request to join", "Public Group detail must keep one clear join action.");
 
+/* ------------------------------------------------------------------ *
+ * USA-170: every participant-facing state is DOS light/blue.
+ *
+ * The recovery screen, the invitation confirmation, the Journey empty state and
+ * the installed PWA chrome were the last surfaces still rendering the retired
+ * near-black + gold treatment. A participant met that treatment at exactly the
+ * worst moment — locked out of their group.
+ * ------------------------------------------------------------------ */
+
+const memberRecoveryPage = read("app/groups/[slug]/member/page.tsx");
+const invitationPage = read("app/groups/[slug]/member/access/page.tsx");
+const memberJourneyPage = read("app/groups/[slug]/journey/page.tsx");
+const memberManifest = read("app/groups/[slug]/manifest.webmanifest/route.ts");
+
+for (const [name, source] of [
+  ["member recovery", memberRecoveryPage],
+  ["invitation confirmation", invitationPage],
+  ["member Journey", memberJourneyPage],
+]) {
+  for (const retiredHex of ["#C2A14E", "#A47F2A", "#F8C56A", "#0B0D10", "#12151A", "#080A0D", "#111418", "#F5F3EE"]) {
+    assertNotIncludes(source, retiredHex, `The ${name} state must not use the retired black/gold treatment (${retiredHex}).`);
+  }
+  assertIncludes(source, "communityPage", `The ${name} state must use the shared DOS light page shell.`);
+  assertIncludes(source, "community-design", `The ${name} state must read the shared Community token module.`);
+}
+
+assertIncludes(memberRecoveryPage, "communityPrimaryAction", "Recovery must use the DOS blue primary action.");
+assertIncludes(invitationPage, "communityPrimaryAction", "Invitation redemption must use the DOS blue primary action.");
+assertNotIncludes(memberManifest, "#080A0D", "The installed member app must not keep the retired dark chrome.");
+assertIncludes(memberManifest, '"#2563EB"', "The installed member app must use DOS blue as its theme color.");
+
+/**
+ * Language guards must inspect what the page renders, not what its comments
+ * say. These files deliberately quote the old copy to record why it changed.
+ */
+function withoutComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+}
+
+const memberRecoveryCopy = withoutComments(memberRecoveryPage);
+
+// Accurate recovery language: never call a leader-assisted request a sign-in,
+// and never claim a link was sent when only a lookup happened.
+assertNotIncludes(memberRecoveryCopy, "Sign in to your group", "Recovery must not present itself as a member sign-in.");
+assertNotIncludes(memberRecoveryCopy, "Request Access Link", "Recovery must not use the old jargon CTA.");
+assertIncludes(memberRecoveryPage, "for a new Group link", "Recovery must offer a leader-assisted new Group link.");
+assertIncludes(memberRecoveryPage, "recovery-sent", "Recovery must have a distinct delivered state.");
+assertIncludes(memberRecoveryPage, "Sign in with your DOS account", "Recovery must offer real account sign-in separately.");
+
 console.log("dos-group-home-visual-regression: all checks passed.");

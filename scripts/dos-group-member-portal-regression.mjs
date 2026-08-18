@@ -30,7 +30,7 @@ const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const memberInstallPrompt = read("app/groups/MemberHomeInstallPrompt.tsx");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
-const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberAccessPage = read("app/groups/[slug]/member/access/page.tsx");
 const memberJourneyPage = read("app/groups/[slug]/journey/page.tsx");
 const memberManifestRoute = read("app/groups/[slug]/manifest.webmanifest/route.ts");
 const groupLayout = read("app/groups/[slug]/layout.tsx");
@@ -68,7 +68,10 @@ assertIncludes(migration, "visibility in ('public', 'group_members', 'leaders')"
 assertIncludes(migration, "notification_type in", "Notification preferences must be typed.");
 
 assert(exists("app/groups/[slug]/member/page.tsx"), "Group Home sign-in bridge must exist.");
-assert(exists("app/groups/[slug]/member/access/route.ts"), "Member access claim route must exist.");
+// USA-170: the claim surface is a page with an explicit POST, not a GET route
+// handler. A GET handler here is what let iMessage's unfurler redeem the token.
+assert(exists("app/groups/[slug]/member/access/page.tsx"), "Member access claim page must exist.");
+assert(!exists("app/groups/[slug]/member/access/route.ts"), "Member access must not redeem from a GET route handler.");
 assert(exists("app/groups/[slug]/manifest.webmanifest/route.ts"), "Group member PWA manifest route must exist.");
 assert(exists("app/groups/[slug]/layout.tsx"), "Group routes must attach member-home manifest metadata.");
 assertIncludes(memberAccess, "createHash(\"sha256\")", "Member access helper must hash tokens.");
@@ -86,11 +89,15 @@ assertIncludes(memberAccess, "memberIsActive", "Member portal must require activ
 assertIncludes(memberAccess, "groupIsMemberAccessible", "Member portal must require active group/member access.");
 assertIncludes(memberAccess, "Boolean(group && group.active !== false", "Member access must not treat missing groups as accessible.");
 assertIncludes(memberAccess, ".from(\"public_sites\")", "Member access links must resolve through public_sites when available.");
-assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be httpOnly.");
-assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
-assertIncludes(memberAccessRoute, "claimDemoGroupMemberAccessToken", "Member access route must support demo-safe scoped invitations through the canonical route.");
-assertIncludes(memberAccessRoute, "state=access-invalid", "Invalid or missing member access must show a deliberate invalid-access screen.");
-assertIncludes(memberAccessRoute, "NextResponse.redirect(new URL(`${publicGroupPath(result.groupSlug ?? slug)}?state=signed-in`, url.origin))", "Access claim must redirect to stable member home, not a raw journey URL.");
+assertIncludes(memberActions, "httpOnly: true", "Member session cookie must be httpOnly.");
+assertIncludes(memberActions, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+assertIncludes(memberActions, "claimDemoGroupMemberAccessToken", "Redemption must support demo-safe scoped invitations through the canonical action.");
+assertIncludes(memberActions, "access-invalid", "Invalid or missing member access must show a deliberate invalid-access screen.");
+// USA-170: redemption is a POST server action, not a GET route handler, and it
+// redirects using the token's own Group slug so a public rename cannot strand a
+// link that was already sent.
+assertIncludes(memberActions, "publicGroupPath(result.groupSlug ?? slug)}?state=signed-in", "Access claim must redirect to stable member home, not a raw journey URL.");
+assertIncludes(memberAccessPage, "<form action={openGroupMemberAccess}", "Invitation redemption must require an explicit human POST.");
 assertIncludes(memberPage, "loadDemoGroupMemberPortalData", "Member sign-in bridge must recognize demo-safe scoped sessions.");
 assertIncludes(publicGroupPage, "loadDemoGroupMemberPortalData", "Stable public group route must prefer an active scoped member session before public-page 404 handling.");
 assertIncludes(memberJourneyPage, "loadDemoGroupMemberPortalData", "Member Journey route must recognize demo-safe scoped sessions.");

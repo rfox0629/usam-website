@@ -115,3 +115,85 @@ export async function sendGroupJoinRequestNotification(input: SendGroupJoinReque
     status: "sent",
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * USA-170 — member access recovery.
+ *
+ * When a participant lands on an invitation that no longer works, the only
+ * honest recovery path today is to ask their leader for a fresh link: there is
+ * no member-facing invitation email, and minting a token the participant never
+ * receives is what produced the production lockout in the first place.
+ *
+ * This notifies the leader so the request is real. If the provider is not
+ * configured the result is "skipped" and the caller MUST NOT tell the
+ * participant a request was sent.
+ * ------------------------------------------------------------------ */
+
+type SendGroupAccessRecoveryInput = {
+  dashboardUrl: string;
+  groupName: string;
+  leaderEmails: readonly string[];
+  memberName: string;
+  requestedAt: string;
+};
+
+export function buildGroupAccessRecoveryEmail(input: SendGroupAccessRecoveryInput) {
+  const safeName = escapeHtml(input.memberName);
+  const safeGroup = escapeHtml(input.groupName);
+  const when = formatDate(input.requestedAt);
+  const subject = `${input.memberName} needs a new ${input.groupName} link`;
+  const text = [
+    `${input.memberName} tried to open their Group Home for ${input.groupName} and their invitation link no longer works.`,
+    "",
+    `Requested: ${when}`,
+    "",
+    `Send them a fresh secure link: ${input.dashboardUrl}`,
+    "",
+    "Open the group, find them in the member list, and use Send a fresh link.",
+  ].join("\n");
+
+  return {
+    html: [
+      `<p><strong>${safeName}</strong> tried to open their Group Home for <strong>${safeGroup}</strong> and their invitation link no longer works.</p>`,
+      `<p>Requested: ${escapeHtml(when)}</p>`,
+      `<p><a href="${escapeHtml(input.dashboardUrl)}">Send them a fresh secure link</a></p>`,
+      `<p>Open the group, find them in the member list, and use <em>Send a fresh link</em>.</p>`,
+    ].join("\n"),
+    subject,
+    text,
+  };
+}
+
+export async function sendGroupAccessRecoveryNotification(input: SendGroupAccessRecoveryInput): Promise<EmailResult> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.GROUPS_EMAIL_FROM || process.env.PRAYER_EMAIL_FROM || process.env.EMAIL_FROM;
+  const recipients = input.leaderEmails.filter(Boolean);
+
+  if (!resendApiKey || !from || !recipients.length) {
+    console.info("Group access recovery notification skipped: email provider or leader contact is not configured.");
+    return { provider: "placeholder", status: "skipped" };
+  }
+
+  const email = buildGroupAccessRecoveryEmail(input);
+  const response = await fetch("https://api.resend.com/emails", {
+    body: JSON.stringify({
+      from,
+      html: email.html,
+      subject: email.subject,
+      text: email.text,
+      to: recipients,
+    }),
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`Group access recovery notification failed: ${response.status} ${message}`.trim());
+  }
+
+  return { provider: "resend", status: "sent" };
+}
