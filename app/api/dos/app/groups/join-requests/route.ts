@@ -45,9 +45,11 @@ type PersonRow = {
   id: string;
   name: string;
   phone: string | null;
+  status: string | null;
 };
 
-type PersonMatch = PersonRow & {
+type PersonMatch = Omit<PersonRow, "status"> & {
+  alreadyMember: boolean;
   matchReasons: ("email" | "phone")[];
 };
 
@@ -114,6 +116,7 @@ function mapRequest(row: JoinRequestRow, possiblePersonMatches: PersonMatch[] = 
     organizationId: row.organization_id,
     phone: row.phone,
     possiblePersonMatches: possiblePersonMatches.map((person) => ({
+      alreadyMember: person.alreadyMember,
       email: person.email,
       id: person.id,
       matchReasons: person.matchReasons,
@@ -189,6 +192,10 @@ async function requireGroupRequestAccess(
   };
 }
 
+function isArchivedPersonStatus(status: string | null) {
+  return status === "archived" || status === "deleted";
+}
+
 async function findPossiblePersonMatches(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   workspaceId: string,
@@ -196,12 +203,12 @@ async function findPossiblePersonMatches(
 ): Promise<{ people: PersonMatch[] } | { response: NextResponse }> {
   const email = normalizeEmail(joinRequest.email);
   const phone = normalizePhone(joinRequest.phone);
-  const peopleById = new Map<string, PersonMatch>();
+  const peopleById = new Map<string, Omit<PersonMatch, "alreadyMember">>();
 
   if (email) {
     const { data, error } = await supabase
       .from("missionary_field_people")
-      .select("id, name, phone, email")
+      .select("id, name, phone, email, status")
       .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
       .ilike("email", email)
       .order("updated_at", { ascending: false })
@@ -211,19 +218,24 @@ async function findPossiblePersonMatches(
       return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
     }
 
-    ((data ?? []) as PersonRow[]).forEach((person) => {
-      peopleById.set(person.id, {
-        ...person,
-        matchReasons: ["email"],
+    ((data ?? []) as PersonRow[])
+      .filter((person) => !isArchivedPersonStatus(person.status))
+      .forEach((person) => {
+        peopleById.set(person.id, {
+          email: person.email,
+          id: person.id,
+          matchReasons: ["email"],
+          name: person.name,
+          phone: person.phone,
+        });
       });
-    });
   }
 
   if (phone) {
     const phoneValues = Array.from(new Set([phone, joinRequest.phone].filter(Boolean) as string[]));
     const { data, error } = await supabase
       .from("missionary_field_people")
-      .select("id, name, phone, email")
+      .select("id, name, phone, email, status")
       .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
       .in("phone", phoneValues)
       .order("updated_at", { ascending: false })
@@ -233,24 +245,54 @@ async function findPossiblePersonMatches(
       return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
     }
 
-    ((data ?? []) as PersonRow[]).forEach((person) => {
-      const existing = peopleById.get(person.id);
+    ((data ?? []) as PersonRow[])
+      .filter((person) => !isArchivedPersonStatus(person.status))
+      .forEach((person) => {
+        const existing = peopleById.get(person.id);
 
-      if (existing) {
-        if (!existing.matchReasons.includes("phone")) {
-          existing.matchReasons.push("phone");
+        if (existing) {
+          if (!existing.matchReasons.includes("phone")) {
+            existing.matchReasons.push("phone");
+          }
+          return;
         }
-        return;
-      }
 
-      peopleById.set(person.id, {
-        ...person,
-        matchReasons: ["phone"],
+        peopleById.set(person.id, {
+          email: person.email,
+          id: person.id,
+          matchReasons: ["phone"],
+          name: person.name,
+          phone: person.phone,
+        });
       });
-    });
   }
 
-  return { people: Array.from(peopleById.values()) };
+  const candidates = Array.from(peopleById.values());
+  const targetGroupId = joinRequest.group_id ?? joinRequest.source_group_id;
+  const alreadyMemberIds = new Set<string>();
+
+  if (targetGroupId && candidates.length) {
+    const membersResult = await supabase
+      .from("dos_group_members")
+      .select("person_id")
+      .eq("group_id", targetGroupId)
+      .eq("status", "active")
+      .in("person_id", candidates.map((person) => person.id));
+
+    if (membersResult.error) {
+      return { response: NextResponse.json({ error: membersResult.error.message }, { status: 500 }) };
+    }
+
+    (membersResult.data ?? []).forEach((member) => alreadyMemberIds.add(member.person_id));
+  }
+
+  const people = candidates
+    .map((person) => ({ ...person, alreadyMember: alreadyMemberIds.has(person.id) }))
+    // An existing active member of this same group must be the obvious
+    // choice, not one option in a flat list next to "Create new person".
+    .sort((a, b) => Number(b.alreadyMember) - Number(a.alreadyMember));
+
+  return { people };
 }
 
 async function createPersonFromJoinRequest(
@@ -300,7 +342,7 @@ async function acceptJoinRequest(
   joinRequest: JoinRequestRow,
   options: { createNewPerson: boolean; selectedPersonId: string },
 ) {
-  let personResult: { person: PersonRow } | { response: NextResponse };
+  let personResult: { person: Pick<PersonRow, "email" | "id" | "name" | "phone"> } | { response: NextResponse };
 
   if (options.selectedPersonId) {
     if (!isUuid(options.selectedPersonId)) {
@@ -322,7 +364,7 @@ async function acceptJoinRequest(
       return { response: NextResponse.json({ error: "Selected person was not found in this workspace." }, { status: 404 }) };
     }
 
-    personResult = { person: selectedPersonResult.data as PersonRow };
+    personResult = { person: selectedPersonResult.data as Pick<PersonRow, "email" | "id" | "name" | "phone"> };
   } else if (options.createNewPerson) {
     personResult = await createPersonFromJoinRequest(supabase, authorization, workspaceId, joinRequest);
   } else {

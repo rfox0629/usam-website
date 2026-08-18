@@ -355,6 +355,28 @@ export function claimDemoGroupMemberAccessToken(
   };
 }
 
+/**
+ * Demo tokens are stateless (decoded, never persisted as "consumed"), so
+ * repeated GET/HEAD requests are already safe. This wrapper only exists so
+ * the confirmation page can peek a demo token through the same
+ * `GroupMemberAccessPeekResult` shape it uses for real tokens.
+ */
+export function peekDemoGroupMemberAccessToken(token: string, expectedSlug: string): GroupMemberAccessPeekResult {
+  const result = claimDemoGroupMemberAccessToken(token, expectedSlug);
+
+  if (result.sessionToken) {
+    const payload = parseDemoGroupMemberAccessToken(token);
+
+    return { groupName: payload?.groupName, groupSlug: result.groupSlug, status: "ready" };
+  }
+
+  if (result.error === "expired") {
+    return { status: "expired" };
+  }
+
+  return { status: "invalid" };
+}
+
 function memberIsActive(member: MemberRow | null | undefined): member is MemberRow {
   return member?.status === "active";
 }
@@ -474,6 +496,42 @@ async function loadGroupMemberIdentity(
   }
 
   return { error, identity: data as MemberIdentityRow | null };
+}
+
+/**
+ * Self-service recovery rate limit: reuse rather than flood. A token's
+ * plaintext can't be recovered from its stored hash once issued, so a
+ * repeat request inside the window intentionally mints nothing new and
+ * sends nothing new — it just quietly no-ops behind the same generic
+ * confirmation, rather than creating another active token or another email
+ * every time someone resubmits the form.
+ */
+export async function hasRecentActiveGroupMemberAccessToken(
+  supabase: SupabaseAdminClient,
+  input: { groupId: string; personId: string; withinMs: number },
+): Promise<boolean> {
+  const identityResult = await loadGroupMemberIdentity(supabase, input.groupId, input.personId);
+
+  if (!identityResult.identity) {
+    return false;
+  }
+
+  const { data } = await supabase
+    .from("dos_group_member_access_tokens")
+    .select("created_at")
+    .eq("member_identity_id", identityResult.identity.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const createdAt = (data as { created_at?: string } | null)?.created_at;
+
+  if (!createdAt) {
+    return false;
+  }
+
+  return Date.now() - new Date(createdAt).getTime() < input.withinMs;
 }
 
 export async function ensureGroupMemberAccessReady(
@@ -687,6 +745,80 @@ export async function createGroupMemberAccessInvitation(
   };
 }
 
+export type GroupMemberAccessPeekResult = {
+  groupName?: string;
+  groupSlug?: string;
+  status: "expired" | "invalid" | "ready" | "revoked";
+};
+
+/**
+ * Read-only check for an invitation token. Crawlers, link-preview unfurlers,
+ * and repeated GET/HEAD requests must be able to call this safely: it never
+ * writes `consumed_at`, mints a session, or otherwise changes token/identity
+ * state. Only `claimGroupMemberAccessToken`, invoked from an explicit human
+ * POST, may do that.
+ */
+export async function peekGroupMemberAccessToken(
+  supabase: SupabaseAdminClient,
+  token: string,
+): Promise<GroupMemberAccessPeekResult> {
+  const cleanedToken = token.trim();
+
+  if (cleanedToken.length < 32) {
+    return { status: "invalid" };
+  }
+
+  const tokenResult = await supabase
+    .from("dos_group_member_access_tokens")
+    .select("id, member_identity_id, group_id, status, expires_at")
+    .eq("token_hash", tokenHash(cleanedToken))
+    .maybeSingle();
+
+  const accessToken = tokenResult.error ? null : (tokenResult.data as AccessTokenRow | null);
+
+  if (!accessToken) {
+    return { status: "invalid" };
+  }
+
+  if (accessToken.status === "used" || accessToken.status === "revoked") {
+    return { status: "revoked" };
+  }
+
+  if (accessToken.status !== "active") {
+    return { status: "invalid" };
+  }
+
+  if (isExpired(accessToken.expires_at)) {
+    return { status: "expired" };
+  }
+
+  const identityResult = await supabase
+    .from("dos_group_member_identities")
+    .select("id, group_id, status")
+    .eq("id", accessToken.member_identity_id)
+    .maybeSingle();
+
+  const identity = identityResult.error ? null : (identityResult.data as Pick<MemberIdentityRow, "group_id" | "id" | "status"> | null);
+
+  if (!identity || !identityIsUsable(identity as MemberIdentityRow)) {
+    return { status: "invalid" };
+  }
+
+  const groupResult = await supabase
+    .from("dos_groups")
+    .select("id, slug, name, active, member_access_enabled")
+    .eq("id", identity.group_id)
+    .maybeSingle();
+
+  const group = groupResult.error ? null : (groupResult.data as Pick<GroupRow, "active" | "id" | "member_access_enabled" | "name" | "slug"> | null);
+
+  if (!groupIsMemberAccessible(group)) {
+    return { status: "invalid" };
+  }
+
+  return { groupName: group.name, groupSlug: group.slug, status: "ready" };
+}
+
 export async function claimGroupMemberAccessToken(
   supabase: SupabaseAdminClient,
   token: string,
@@ -759,6 +891,31 @@ export async function claimGroupMemberAccessToken(
 
   const sessionToken = newSessionToken();
   const updateTime = nowIso();
+
+  // Claim the token atomically, conditioned on it still being "active", so
+  // two near-simultaneous requests for the same token (the exact shape of a
+  // link-preview crawler's double fetch) can't both pass the earlier active
+  // check and both walk away with a session. Only the request whose UPDATE
+  // actually flips a row proceeds past this point.
+  const consumeResult = await supabase
+    .from("dos_group_member_access_tokens")
+    .update({
+      consumed_at: updateTime,
+      status: "used",
+    })
+    .eq("id", accessToken.id)
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle();
+
+  if (consumeResult.error) {
+    return { error: consumeResult.error.message };
+  }
+
+  if (!consumeResult.data) {
+    return { error: "This member access link has already been used. Request a new one from your group leader." };
+  }
+
   const sessionRevocationResult = await supabase
     .from("dos_group_member_sessions")
     .update({ revoked_at: updateTime })
@@ -786,24 +943,15 @@ export async function claimGroupMemberAccessToken(
     return { error: sessionResult.error.message };
   }
 
-  await Promise.all([
-    supabase
-      .from("dos_group_member_identities")
-      .update({
-        last_accessed_at: updateTime,
-        status: "verified",
-        verification_method: "email_invitation_token",
-        verified_at: identity.verified_at ?? updateTime,
-      })
-      .eq("id", identity.id),
-    supabase
-      .from("dos_group_member_access_tokens")
-      .update({
-        consumed_at: updateTime,
-        status: "used",
-      })
-      .eq("id", accessToken.id),
-  ]);
+  await supabase
+    .from("dos_group_member_identities")
+    .update({
+      last_accessed_at: updateTime,
+      status: "verified",
+      verification_method: "email_invitation_token",
+      verified_at: identity.verified_at ?? updateTime,
+    })
+    .eq("id", identity.id);
 
   return {
     groupSlug: group?.slug,

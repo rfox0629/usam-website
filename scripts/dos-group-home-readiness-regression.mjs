@@ -44,7 +44,7 @@ const publicActions = read("app/groups/actions.ts");
 const publicGroupLoader = read("src/lib/public-groups.ts");
 const memberAccess = read("src/lib/groups/member-access.ts");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
-const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberAccessPage = read("app/groups/[slug]/member/access/page.tsx");
 const memberSignInPage = read("app/groups/[slug]/member/page.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const groupHomeAccess = read("src/lib/groups/group-home-access.ts");
@@ -53,7 +53,7 @@ const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
 
 const publicSurface = `${publicDirectory}\n${publicPage}\n${publicTemplate}\n${publicGroupLoader}`;
-const memberSurface = `${memberAccess}\n${memberActions}\n${memberAccessRoute}\n${memberSignInPage}\n${memberHomeView}`;
+const memberSurface = `${memberAccess}\n${memberActions}\n${memberAccessPage}\n${memberSignInPage}\n${memberHomeView}`;
 
 for (const table of [
   "public_sites",
@@ -169,9 +169,9 @@ assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member-submitted
 assertIncludes(memberActions, "redirectToSignIn(slug, \"access-requested\")", "Access requests must avoid email-membership enumeration.");
 assertIncludes(memberActions, "path: \"/groups\"", "Sign-out cookie clearing must match the session cookie path.");
 assertIncludes(memberActions, "maxAge: 0", "Sign-out must expire the member session cookie.");
-assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be HTTP-only.");
-assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
-assertIncludes(memberAccessRoute, "secure: process.env.NODE_ENV === \"production\"", "Member session cookie must be secure in production.");
+assertIncludes(memberActions, "httpOnly: true", "Member session cookie must be HTTP-only.");
+assertIncludes(memberActions, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+assertIncludes(memberActions, "secure: process.env.NODE_ENV === \"production\"", "Member session cookie must be secure in production.");
 assertNotMatches(memberSurface, /console\.(?:log|warn|error)\([^)]*token/i, "Raw access tokens must not be logged.");
 
 for (const stateChangingAction of [

@@ -115,3 +115,78 @@ export async function sendGroupJoinRequestNotification(input: SendGroupJoinReque
     status: "sent",
   };
 }
+
+type SendGroupMemberAccessRecoveryEmailInput = {
+  accessUrl: string;
+  groupName: string;
+  recipientEmail: string;
+};
+
+function buildGroupMemberAccessRecoveryEmail(input: SendGroupMemberAccessRecoveryEmailInput) {
+  const subject = `Your secure link to ${input.groupName}`;
+  const text = [
+    `Your Discipleship Journey in ${input.groupName} is ready.`,
+    "",
+    `Open Group Home: ${input.accessUrl}`,
+    "",
+    "This link is just for you. If you did not request it, you can ignore this email.",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #0F172A; line-height: 1.6;">
+      <p style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1D4ED8;">${escapeHtml(input.groupName)}</p>
+      <h1 style="font-size: 22px;">Your Discipleship Journey is ready.</h1>
+      <p style="margin-top: 16px;">
+        <a href="${escapeHtml(input.accessUrl)}" style="display:inline-block;border-radius:999px;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#ffffff;font-weight:800;padding:12px 22px;text-decoration:none;">Open Group Home</a>
+      </p>
+      <p style="margin-top: 20px; font-size: 13px; color: #64748B;">This link is just for you. If you did not request it, you can ignore this email.</p>
+    </div>
+  `;
+
+  return { html, subject, text };
+}
+
+/**
+ * Best-effort, same as the join-request notification: a misconfigured
+ * provider returns "skipped" rather than throwing, so the caller can show
+ * the same generic confirmation regardless of whether delivery actually
+ * happened. That keeps the recovery flow enumeration-resistant — the
+ * response never reveals whether the email matched an active member.
+ */
+export async function sendGroupMemberAccessRecoveryEmail(input: SendGroupMemberAccessRecoveryEmailInput): Promise<EmailResult> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.GROUPS_EMAIL_FROM || process.env.PRAYER_EMAIL_FROM || process.env.EMAIL_FROM;
+
+  if (!resendApiKey || !from) {
+    console.info("Group member access recovery email skipped: email provider is not configured.");
+    return {
+      provider: "placeholder",
+      status: "skipped",
+    };
+  }
+
+  const email = buildGroupMemberAccessRecoveryEmail(input);
+  const response = await fetch("https://api.resend.com/emails", {
+    body: JSON.stringify({
+      from,
+      html: email.html,
+      subject: email.subject,
+      text: email.text,
+      to: [input.recipientEmail],
+    }),
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(`Group member access recovery email failed: ${response.status} ${message}`.trim());
+  }
+
+  return {
+    provider: "resend",
+    status: "sent",
+  };
+}

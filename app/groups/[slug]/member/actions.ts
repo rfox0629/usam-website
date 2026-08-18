@@ -4,12 +4,16 @@ import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  claimDemoGroupMemberAccessToken,
+  claimGroupMemberAccessToken,
   createGroupMemberAccessInvitation,
   groupMemberSessionCookieName,
+  hasRecentActiveGroupMemberAccessToken,
   loadDemoGroupMemberPortalData,
   loadMemberSessionIdentity,
   revokeGroupMemberSession,
 } from "@/src/lib/groups/member-access";
+import { sendGroupMemberAccessRecoveryEmail } from "@/src/lib/groups/email";
 import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import {
   missingPublicSiteSchema,
@@ -18,6 +22,8 @@ import {
   resolvePublicSiteForHost,
 } from "@/src/lib/groups/public-site";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+
+const recoveryRequestMinIntervalMs = 5 * 60 * 1000;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const memberNotificationTypes = [
@@ -366,7 +372,7 @@ export async function requestGroupMemberAccess(formData: FormData) {
   const site = siteResolution.site;
   const groupQuery = supabase
     .from("dos_groups")
-    .select("id, slug, active, member_access_enabled, public_site_id, public_status")
+    .select("id, slug, name, active, member_access_enabled, public_site_id, public_status")
     .eq("slug", slug)
     .eq("active", true);
   const groupResult = siteResolution.schemaReady && site?.id
@@ -403,18 +409,101 @@ export async function requestGroupMemberAccess(formData: FormData) {
         : null;
 
       if (matchingPerson && matchingMember) {
-        await createGroupMemberAccessInvitation(supabase, {
-          email,
+        const recentlyRequested = await hasRecentActiveGroupMemberAccessToken(supabase, {
           groupId: groupResult.data.id,
-          memberId: matchingMember.id,
           personId: matchingPerson.id,
-          phone: matchingPerson.phone,
+          withinMs: recoveryRequestMinIntervalMs,
         });
+
+        if (!recentlyRequested) {
+          const invitationResult = await createGroupMemberAccessInvitation(supabase, {
+            email,
+            groupId: groupResult.data.id,
+            memberId: matchingMember.id,
+            personId: matchingPerson.id,
+            phone: matchingPerson.phone,
+          });
+
+          if (invitationResult.invitation) {
+            try {
+              await sendGroupMemberAccessRecoveryEmail({
+                accessUrl: invitationResult.invitation.accessUrl,
+                groupName: groupResult.data.name || "your group",
+                recipientEmail: email,
+              });
+            } catch (error) {
+              console.error("[Group Member Access] Recovery email failed", error);
+            }
+          }
+        }
       }
     }
   }
 
+  // Same redirect regardless of match, delivery, or rate limit: the response
+  // must never reveal whether an email belongs to an active member.
   redirectToSignIn(slug, "access-requested");
+}
+
+/**
+ * The only place that consumes/rotates an invitation token or mints a
+ * session. It is reached only through an explicit human `Open Group Home`
+ * form submit (a real POST) from the read-only confirmation page — never
+ * from the GET that renders that page, so link-preview crawlers, security
+ * scanners, and repeated unauthenticated GET/HEAD requests can never redeem
+ * a participant's one-time access.
+ */
+export async function redeemGroupMemberAccess(formData: FormData) {
+  const slug = formString(formData, "slug");
+  const token = formString(formData, "token");
+
+  if (!slug || !token) {
+    redirectToSignIn(slug || "group", "access-invalid");
+  }
+
+  const demoResult = claimDemoGroupMemberAccessToken(token, slug);
+
+  if (demoResult.sessionToken) {
+    const cookieStore = await cookies();
+
+    cookieStore.set(groupMemberSessionCookieName, demoResult.sessionToken, {
+      httpOnly: true,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/groups",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+    redirectToMember(demoResult.groupSlug ?? slug, "signed-in");
+  }
+
+  if (demoResult.error === "expired") {
+    redirectToSignIn(slug, "access-expired");
+  }
+
+  if (demoResult.error === "invalid") {
+    redirectToSignIn(slug, "access-invalid");
+  }
+
+  if (token.length < 32 || !isSupabaseAdminConfigured()) {
+    redirectToSignIn(slug, "access-unavailable");
+  }
+
+  const result = await claimGroupMemberAccessToken(createSupabaseAdminClient(), token);
+
+  if (!result.sessionToken) {
+    redirectToSignIn(slug, "access-expired");
+  }
+
+  const cookieStore = await cookies();
+
+  cookieStore.set(groupMemberSessionCookieName, result.sessionToken, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/groups",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+  redirectToMember(result.groupSlug ?? slug, "signed-in");
 }
 
 export async function signOutGroupMember(formData: FormData) {
