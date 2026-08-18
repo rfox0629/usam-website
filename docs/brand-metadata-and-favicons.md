@@ -60,8 +60,9 @@ Per brand: `favicon.svg`, `favicon.ico` (16/32/48), `favicon-16x16.png`,
 `favicon-32x32.png`, `favicon-48x48.png`, `icon-192.png`, `icon-512.png`,
 `icon-maskable-512.png`, `apple-touch-icon.png`, and the PWA manifest(s).
 
-* Tab and PWA `any` icons are **circular emblems on transparency**.
-* `apple-touch-icon.png` and `icon-maskable-512.png` are **full-bleed brand
+* Tab and PWA `any` icons sit on **transparency**: USAM and DOS as circular
+  emblems, Kitchen Table as a standalone mark with no field behind it.
+* `apple-touch-icon.png` and `icon-maskable-512.png` are **full-bleed opaque
   fields** — iOS applies its own squircle, and Android crops maskable icons to a
   circle, so the mark is inset well within the safe area.
 * `any` and `maskable` are separate files. They used to be one file declared as
@@ -73,7 +74,21 @@ Marks come from approved brand art, not new logos:
 | --- | --- | --- |
 | USAM | the USAM wordmark from `public/brand/logo/usam-website-logo.png`, extracted by `scripts/brand/extract-usam-mark.py` | black disc, USAM gold edge |
 | DOS | the concentric-circles mark, reversed to white | DOS blue gradient disc (`#2563EB` → `#1D4ED8`) |
-| Kitchen Table | the table mark | cream disc (`#F3E4CC`) with warm brown mark, the Kitchen Table palette rather than USAM gold |
+| Kitchen Table | the table mark, standing alone with no disc | transparent; the mark itself is Kitchen Table accent blue (`#378ADD`) |
+
+### Why the Kitchen Table mark is blue
+
+A standalone mark on transparency has to survive both light and dark browser
+chrome, and that rules out most of the palette: cream and white vanish on light
+chrome, and the warm near-black vanishes on dark chrome. The site's accent blue
+(`#378ADD`) is the only Kitchen Table color that holds on both. It is not the DOS
+blue — DOS is `#2563EB` on a filled disc, and the two read as different marks
+because the shapes differ, which is the same reasoning the Kitchen Table site
+itself uses for sharing an accent with DOS.
+
+Apple touch and maskable icons cannot be transparent — iOS composites them onto
+black and Android needs a full-bleed field to crop — so those two use a white
+field, which keeps them reading as the same background-free mark.
 
 `python3 scripts/brand/build-brand-preview.py` regenerates the review sheets in
 `public/favicons/review/` so they always show what is actually shipping.
@@ -104,7 +119,8 @@ the right brand.
   `public/favicons/dos/app.webmanifest` so both DOS manifests live beside the DOS
   icons.
 * Replaced the old icon artwork: USAM's smooshed square badge, the DOS mark on a
-  black square, and the Kitchen Table mark on a gold box.
+  black square, and the Kitchen Table mark on a gold box. The Kitchen Table mark
+  now stands alone with no field at all.
 * Replaced the DOS social preview, which was a 750x1450 portrait screenshot served
   as `summary_large_image`.
 * Retired the old black DOS chrome colors (`#070D14`, `#080A0D`) in favour of DOS

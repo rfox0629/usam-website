@@ -1,7 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kitchen Table Gospel">
-  <circle cx="32" cy="32" r="32" fill="#F3E4CC"/>
-  <circle cx="32" cy="32" r="30.9" fill="none" stroke="#3A2617" stroke-width="2.2"/>
-  <g fill="#160F0A" transform="translate(6.957 2.652) scale(0.78261)">
+  <g fill="#378ADD" transform="translate(-4.174 -10.391) scale(1.13043)">
     <path d="M17 22H47L55 34H9L17 22Z"/>
     <rect x="15" y="35" width="5.5" height="18"/>
     <rect x="25" y="35" width="4" height="11"/>

@@ -82,9 +82,16 @@ function dosSquare(scale) {
 }
 
 /**
- * Kitchen Table Gospel: the approved table mark in Kitchen Table warm brown on a
- * cream disc — the site's own cream/brown surface colors, not USAM gold.
+ * Kitchen Table Gospel: the approved table mark standing alone, with no disc or
+ * field behind it, in the Kitchen Table site's own accent blue.
+ *
+ * The color is forced by the standalone treatment. Against a transparent field
+ * the mark has to survive both light and dark browser chrome: cream and white
+ * disappear on light chrome, the warm near-black disappears on dark chrome, and
+ * only the accent blue holds on both.
  */
+const ktgBlue = "#378ADD";
+
 const ktgTableBox = { height: 31, width: 46, x: 9, y: 22 };
 
 function ktgTable(fill, targetWidth) {
@@ -98,14 +105,17 @@ function ktgTable(fill, targetWidth) {
 }
 
 function ktgEmblem() {
-  return `<circle cx="32" cy="32" r="32" fill="#F3E4CC"/>
-  <circle cx="32" cy="32" r="30.9" fill="none" stroke="#3A2617" stroke-width="2.2"/>
-  ${ktgTable("#160F0A", 36)}`;
+  return ktgTable(ktgBlue, 52);
 }
 
+/**
+ * Apple touch and maskable icons cannot be transparent — iOS composites them onto
+ * black and Android needs a full-bleed field to crop. White keeps them reading as
+ * the same background-free mark.
+ */
 function ktgSquare(markWidth) {
-  return `<rect width="64" height="64" fill="#F3E4CC"/>
-  ${ktgTable("#160F0A", markWidth)}`;
+  return `<rect width="64" height="64" fill="#FFFFFF"/>
+  ${ktgTable(ktgBlue, markWidth)}`;
 }
 
 function svg(label, body) {
