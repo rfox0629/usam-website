@@ -77,8 +77,36 @@ check("Operations finance is native read-only over Planning Center Giving record
   assert.match(financeLoader, /pco_giving_sync_runs/);
   assert.match(financeLoader, /support_commitment_matches/);
   assert.match(financePage, /loadOperationsFinanceOverview/);
-  assert.doesNotMatch(financePage, /<form/);
-  assert.doesNotMatch(financePage, /action=/);
+  // Finance stays a read-only view of giving. Importing from Planning Center is
+  // the one permitted action, so the guard is that no giving record can be
+  // edited here rather than that the page has no form at all.
+  assert.doesNotMatch(financePage, /<input|<textarea|<select/);
+  const actions = [...financePage.matchAll(/<form\s+action=\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]);
+  assert.deepEqual(actions, ["runPlanningCenterSyncAction"], "sync is the only Finance action");
+});
+
+check("Planning Center sync is server-only, idempotent, and never guesses attribution", () => {
+  const importer = read("src", "lib", "planning-center", "giving-sync.ts");
+  const normalize = read("src", "lib", "planning-center", "giving-normalize.ts");
+  const syncAction = read("app", "operations", "finance", "actions.ts");
+
+  assert.match(importer, /^import "server-only";/m);
+  assert.match(importer, /PCO_APP_ID/);
+  assert.match(importer, /PCO_SECRET/);
+  assert.doesNotMatch(importer, /PLANNING_CENTER_APP_ID|PLANNING_CENTER_SECRET/);
+  assert.match(importer, /onConflict: "pco_donation_id"/);
+  // A second ledger would mean a new donations table; the importer must only
+  // write the canonical PCO tables.
+  assert.doesNotMatch(importer, /create table/i);
+  assert.match(syncAction, /canManageOperationsModule/);
+  assert.match(normalize, /multi_designation/);
+  // Check the code, not the comments that explain why the code avoids this.
+  const normalizeCode = normalize
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(normalizeCode, /levenshtein|similarity|fuzzy|ilike|startsWith\(.*name/i);
+  // Attribution may only ever come from an explicit mapping row.
+  assert.match(normalizeCode, /mappings\.find/);
 });
 
 check("forbidden launch scope is absent", () => {

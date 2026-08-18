@@ -115,6 +115,7 @@ export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   householdMembers: OperationsOnboardingHouseholdMember[];
   interviewState: string | null;
   location: string | null;
+  missionaryProfileId: string | null;
   monthlyBudgetLabel: string | null;
   onboardingStatus: string | null;
   prayerPartners: OperationsOnboardingContactItem[];
@@ -588,6 +589,7 @@ function detailFromApplication(
     householdMembers: householdMembers(row),
     interviewState: workflowText(row, "interviewState"),
     location: cleanText(row.location),
+    missionaryProfileId: cleanText(row.missionary_profile_id),
     monthlyBudgetLabel: moneyLabel(row.monthly_budget),
     onboardingStatus: workflowText(row, "onboardingStatus"),
     prayerPartners: prayerPartners(row),

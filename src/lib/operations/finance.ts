@@ -7,18 +7,27 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PcoGivingRecordRow = {
+  attributed_missionary_profile_id: string | null;
+  attribution_kind: string | null;
+  attribution_source: string | null;
+  campaign_name: string | null;
   designation_name: string | null;
   donation_date: string | null;
   donor_email: string | null;
   donor_first_name: string | null;
   donor_last_name: string | null;
+  donor_display_name: string | null;
   fund_name: string | null;
+  gift_status: string | null;
   gift_type: string | null;
   gross_amount: number | string | null;
   id: string;
+  is_recurring: boolean | null;
   pco_donation_id: string | null;
-  pco_recurring_donation_id: string | null;
+  pco_fund_id: string | null;
+  pco_recurring_source_id: string | null;
   received_at: string | null;
+  refunded: boolean | null;
   status: string | null;
 };
 
@@ -43,8 +52,12 @@ type SupportCommitmentMatchRow = {
   support_commitment_id: string;
 };
 
+export type OperationsFinanceAttribution = "general" | "missionary" | "unmapped" | "ignored";
+
 export type OperationsFinanceGivingRecord = {
   amountLabel: string;
+  attribution: OperationsFinanceAttribution;
+  attributionLabel: string;
   date: string | null;
   designation: string | null;
   donor: string;
@@ -53,7 +66,15 @@ export type OperationsFinanceGivingRecord = {
   id: string;
   planningCenterId: string | null;
   recurringId: string | null;
+  refunded: boolean;
   status: string;
+};
+
+export type OperationsFinanceUnmappedDesignation = {
+  amountLabel: string;
+  count: number;
+  fundId: string | null;
+  label: string;
 };
 
 type CurrentMonthGrossResult = {
@@ -87,9 +108,14 @@ export type OperationsFinanceOverview = {
   needsReviewCount: number;
   records: OperationsFinanceGivingRecord[];
   recentMatches: OperationsFinanceMatch[];
+  generalTotalLabel: string;
+  missionaryTotalLabel: string;
+  refundedCount: number;
   sourceLabel: string;
   syncRuns: OperationsFinanceSyncRun[];
   totalRecordCount: number;
+  unmappedCount: number;
+  unmappedDesignations: OperationsFinanceUnmappedDesignation[];
 };
 
 function isMissingTableError(error: { code?: string; message?: string } | null | undefined, table: string) {
@@ -132,23 +158,42 @@ function titleFromValue(value: string | null | undefined) {
 }
 
 function donorName(row: PcoGivingRecordRow) {
-  return [row.donor_first_name, row.donor_last_name].filter(Boolean).join(" ").trim()
+  return row.donor_display_name
+    || [row.donor_first_name, row.donor_last_name].filter(Boolean).join(" ").trim()
     || row.donor_email
     || "Unknown donor";
 }
 
+const attributionLabels: Record<OperationsFinanceAttribution, string> = {
+  general: "General / USAM",
+  ignored: "Ignored",
+  missionary: "Missionary",
+  unmapped: "Unmapped",
+};
+
+function attributionOf(row: PcoGivingRecordRow): OperationsFinanceAttribution {
+  const kind = row.attribution_kind ?? "unmapped";
+
+  return kind === "general" || kind === "missionary" || kind === "ignored" ? kind : "unmapped";
+}
+
 function givingRecordFromRow(row: PcoGivingRecordRow): OperationsFinanceGivingRecord {
+  const attribution = attributionOf(row);
+
   return {
     amountLabel: moneyLabel(row.gross_amount),
+    attribution,
+    attributionLabel: attributionLabels[attribution],
     date: row.donation_date ?? row.received_at,
-    designation: row.designation_name ?? row.fund_name,
+    designation: row.designation_name ?? row.fund_name ?? row.campaign_name,
     donor: donorName(row),
     email: row.donor_email,
-    giftType: titleFromValue(row.gift_type),
+    giftType: row.is_recurring ? "Recurring" : titleFromValue(row.gift_type),
     id: row.id,
     planningCenterId: row.pco_donation_id,
-    recurringId: row.pco_recurring_donation_id,
-    status: titleFromValue(row.status),
+    recurringId: row.pco_recurring_source_id,
+    refunded: row.refunded === true,
+    status: titleFromValue(row.gift_status ?? row.status),
   };
 }
 
@@ -225,6 +270,83 @@ async function loadCurrentMonthGross(
   return { total };
 }
 
+type AttributionTotals = {
+  general: number;
+  missionary: number;
+  refundedCount: number;
+  unmapped: Map<string, OperationsFinanceUnmappedDesignation & { amount: number }>;
+  unmappedCount: number;
+};
+
+/**
+ * Totals are computed over every imported gift, not just the 100 shown in the
+ * table, so the header numbers describe the whole ledger.
+ */
+async function loadAttributionTotals(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+): Promise<AttributionTotals> {
+  const pageSize = 1000;
+  const totals: AttributionTotals = {
+    general: 0,
+    missionary: 0,
+    refundedCount: 0,
+    unmapped: new Map(),
+    unmappedCount: 0,
+  };
+
+  for (let page = 0; page < 50; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabase
+      .from("pco_giving_records")
+      .select("gross_amount, attribution_kind, refunded, fund_name, campaign_name, pco_fund_id")
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      return totals;
+    }
+
+    const rows = (data ?? []) as {
+      attribution_kind: string | null;
+      campaign_name: string | null;
+      fund_name: string | null;
+      gross_amount: number | string | null;
+      pco_fund_id: string | null;
+      refunded: boolean | null;
+    }[];
+
+    for (const row of rows) {
+      const amount = asNumber(row.gross_amount);
+
+      if (row.refunded === true) {
+        totals.refundedCount += 1;
+        continue;
+      }
+
+      if (row.attribution_kind === "general") {
+        totals.general += amount;
+      } else if (row.attribution_kind === "missionary") {
+        totals.missionary += amount;
+      } else if (row.attribution_kind !== "ignored") {
+        totals.unmappedCount += 1;
+
+        const label = row.fund_name ?? row.campaign_name ?? "No designation";
+        const key = row.pco_fund_id ?? label.toLowerCase();
+        const bucket = totals.unmapped.get(key)
+          ?? { amount: 0, amountLabel: "$0", count: 0, fundId: row.pco_fund_id, label };
+        bucket.count += 1;
+        bucket.amount += amount;
+        totals.unmapped.set(key, bucket);
+      }
+    }
+
+    if (rows.length < pageSize) {
+      break;
+    }
+  }
+
+  return totals;
+}
+
 export async function loadOperationsFinanceOverview({
   authorization,
 }: {
@@ -232,6 +354,11 @@ export async function loadOperationsFinanceOverview({
 }): Promise<OperationsFinanceOverview> {
   const emptyOverview: OperationsFinanceOverview = {
     currentMonthGrossLabel: "$0",
+    generalTotalLabel: "$0",
+    missionaryTotalLabel: "$0",
+    refundedCount: 0,
+    unmappedCount: 0,
+    unmappedDesignations: [],
     lastSync: null,
     matchCount: 0,
     needsReviewCount: 0,
@@ -265,7 +392,7 @@ export async function loadOperationsFinanceOverview({
   ] = await Promise.all([
     supabase
       .from("pco_giving_records")
-      .select("id, pco_donation_id, pco_recurring_donation_id, donor_first_name, donor_last_name, donor_email, gross_amount, gift_type, designation_name, fund_name, donation_date, received_at, status")
+      .select("id, pco_donation_id, pco_recurring_source_id, pco_fund_id, donor_first_name, donor_last_name, donor_display_name, donor_email, gross_amount, gift_type, is_recurring, designation_name, fund_name, campaign_name, donation_date, received_at, status, gift_status, refunded, attribution_kind, attribution_source, attributed_missionary_profile_id")
       .order("donation_date", { ascending: false, nullsFirst: false })
       .limit(100),
     supabase
@@ -303,7 +430,18 @@ export async function loadOperationsFinanceOverview({
   const recentMatches = matchesResult.error && !isMissingTableError(matchesResult.error, "support_commitment_matches")
     ? []
     : ((matchesResult.data ?? []) as SupportCommitmentMatchRow[]).map(matchFromRow);
-  const currentMonthGross = await loadCurrentMonthGross(supabase, monthStart);
+  const [currentMonthGross, attributionTotals] = await Promise.all([
+    loadCurrentMonthGross(supabase, monthStart),
+    loadAttributionTotals(supabase),
+  ]);
+  const unmappedDesignations = Array.from(attributionTotals.unmapped.values())
+    .map((entry) => ({
+      amountLabel: moneyLabel(entry.amount),
+      count: entry.count,
+      fundId: entry.fundId,
+      label: entry.label,
+    }))
+    .sort((a, b) => b.count - a.count);
   const financeError = countResult.error && !isMissingTableError(countResult.error, "pco_giving_records")
     ? countResult.error.message
     : currentMonthGross.error;
@@ -311,6 +449,11 @@ export async function loadOperationsFinanceOverview({
   return {
     currentMonthGrossLabel: moneyLabel(currentMonthGross.total),
     error: financeError,
+    generalTotalLabel: moneyLabel(attributionTotals.general),
+    missionaryTotalLabel: moneyLabel(attributionTotals.missionary),
+    refundedCount: attributionTotals.refundedCount,
+    unmappedCount: attributionTotals.unmappedCount,
+    unmappedDesignations,
     lastSync: syncRuns[0] ?? null,
     matchCount: recentMatches.length,
     needsReviewCount: needsReviewResult.count ?? 0,
@@ -319,5 +462,100 @@ export async function loadOperationsFinanceOverview({
     sourceLabel: "Planning Center Giving",
     syncRuns,
     totalRecordCount: countResult.count ?? records.length,
+  };
+}
+
+export type OperationsMissionaryFunding = {
+  approvedMonthlyGoal: number | null;
+  connected: boolean;
+  excessLabel: string | null;
+  fundedPercent: number | null;
+  gapLabel: string | null;
+  giftCount: number;
+  oneTimeTotalLabel: string;
+  recurringMonthlyLabel: string;
+  reliable: boolean;
+};
+
+/**
+ * Funding numbers are built only from gifts an explicit mapping already
+ * attributed to this missionary. With no mapping the summary reports that it is
+ * not connected rather than showing a misleading $0.
+ */
+export async function loadMissionaryGivingSummary({
+  approvedMonthlyGoal,
+  authorization,
+  missionaryProfileId,
+}: {
+  approvedMonthlyGoal: number | null;
+  authorization: OperationsAuthorization;
+  missionaryProfileId: string | null;
+}): Promise<OperationsMissionaryFunding> {
+  const empty: OperationsMissionaryFunding = {
+    approvedMonthlyGoal,
+    connected: false,
+    excessLabel: null,
+    fundedPercent: null,
+    gapLabel: null,
+    giftCount: 0,
+    oneTimeTotalLabel: moneyLabel(0),
+    recurringMonthlyLabel: moneyLabel(0),
+    reliable: false,
+  };
+
+  if (
+    !missionaryProfileId
+    || authorization.status !== "authorized"
+    || !canAccessOperationsModule(authorization, "finance")
+    || !isSupabaseAdminConfigured()
+  ) {
+    return empty;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("pco_giving_records")
+    .select("gross_amount, is_recurring, refunded, donation_date")
+    .eq("attribution_kind", "missionary")
+    .eq("attributed_missionary_profile_id", missionaryProfileId)
+    .limit(5000);
+
+  if (error) {
+    return empty;
+  }
+
+  const rows = ((data ?? []) as {
+    donation_date: string | null;
+    gross_amount: number | string | null;
+    is_recurring: boolean | null;
+    refunded: boolean | null;
+  }[]).filter((row) => row.refunded !== true);
+
+  if (rows.length === 0) {
+    return { ...empty, connected: true };
+  }
+
+  const recurringMonthly = rows
+    .filter((row) => row.is_recurring === true && isCurrentMonth(row.donation_date))
+    .reduce((sum, row) => sum + asNumber(row.gross_amount), 0);
+  const oneTimeTotal = rows
+    .filter((row) => row.is_recurring !== true)
+    .reduce((sum, row) => sum + asNumber(row.gross_amount), 0);
+
+  const goal = approvedMonthlyGoal && approvedMonthlyGoal > 0 ? approvedMonthlyGoal : null;
+  const fundedPercent = goal ? Math.round((recurringMonthly / goal) * 100) : null;
+  const gap = goal ? Math.max(goal - recurringMonthly, 0) : null;
+  const excess = goal ? Math.max(recurringMonthly - goal, 0) : null;
+
+  return {
+    approvedMonthlyGoal,
+    connected: true,
+    excessLabel: excess !== null && excess > 0 ? moneyLabel(excess) : null,
+    fundedPercent,
+    gapLabel: gap !== null ? moneyLabel(gap) : null,
+    giftCount: rows.length,
+    oneTimeTotalLabel: moneyLabel(oneTimeTotal),
+    recurringMonthlyLabel: moneyLabel(recurringMonthly),
+    reliable: true,
   };
 }

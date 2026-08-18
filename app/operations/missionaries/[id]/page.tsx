@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { canAccessOperationsModule, getOperationsAuthorization } from "@/src/lib/operations/auth";
+import { loadMissionaryGivingSummary } from "@/src/lib/operations/finance";
 import {
   loadOperationsOnboardingDetail,
   onboardingStatusLabel,
@@ -211,6 +212,16 @@ function SelectField({
   );
 }
 
+function moneyNumberFromLabel(label: string | null) {
+  if (!label) {
+    return null;
+  }
+
+  const value = Number(label.replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 export default async function OperationsMissionaryDetailPage({
   params,
   searchParams,
@@ -233,6 +244,11 @@ export default async function OperationsMissionaryDetailPage({
   }
 
   const { error, item, unauthorized } = await loadOperationsOnboardingDetail({ authorization, id });
+  const funding = await loadMissionaryGivingSummary({
+    approvedMonthlyGoal: moneyNumberFromLabel(item?.adminApprovedMonthlyGoalLabel ?? null),
+    authorization,
+    missionaryProfileId: item?.missionaryProfileId ?? null,
+  });
 
   if (unauthorized) {
     return <OperationsAccessDenied active="missionaries" authorization={authorization} title="Missionary Review Access Limited" />;
@@ -291,6 +307,31 @@ export default async function OperationsMissionaryDetailPage({
                 <FieldBlock label="Approved Goal" value={item.adminApprovedMonthlyGoalLabel} />
                 <FieldBlock label="Excess Agreement" value={item.excessSupportAgreementAccepted ? "Accepted" : "Not accepted"} />
               </div>
+            </OperationsPanel>
+
+            <OperationsPanel title="Funding">
+              {funding.reliable ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <FieldBlock label="Proposed Need" value={item.proposedMonthlyNeedLabel} />
+                  <FieldBlock label="Approved Goal" value={item.adminApprovedMonthlyGoalLabel} />
+                  <FieldBlock label="Recurring This Month" value={funding.recurringMonthlyLabel} />
+                  <FieldBlock label="One-Time Total" value={funding.oneTimeTotalLabel} />
+                  <FieldBlock label="Funded" value={funding.fundedPercent === null ? "No approved goal" : `${funding.fundedPercent}%`} />
+                  <FieldBlock label="Gap" value={funding.gapLabel ?? "No approved goal"} />
+                  <FieldBlock label="Potential Excess" value={funding.excessLabel ?? "None"} />
+                  <FieldBlock label="Attributed Gifts" value={`${funding.giftCount}`} />
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <FieldBlock label="Proposed Need" value={item.proposedMonthlyNeedLabel} />
+                  <FieldBlock label="Approved Goal" value={item.adminApprovedMonthlyGoalLabel} />
+                  <FieldBlock label="Excess Agreement" value={item.excessSupportAgreementAccepted ? "Accepted" : "Not accepted"} />
+                  <FieldBlock
+                    label="Giving"
+                    value={funding.connected ? "No attributed giving yet" : "No Planning Center mapping"}
+                  />
+                </div>
+              )}
             </OperationsPanel>
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">

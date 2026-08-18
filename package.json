@@ -49,6 +49,7 @@
     "test:usa-82-launch-validation": "node scripts/usa-82-launch-validation-regression.mjs",
     "test:usa-174-launch": "node scripts/usa-174-launch-regression.mjs",
     "test:join-contract": "node scripts/join-provisioner-contract-regression.mjs",
+    "test:pco-giving-sync": "node scripts/pco-giving-sync-regression.mjs",
     "start": "next start"
   },
   "dependencies": {
