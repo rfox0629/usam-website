@@ -23,6 +23,7 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 const interestOptions = [
   "Become a missionary",
   "Start a Kitchen Table",
+  "Come alongside people through Mission of Reconciliation",
   "Partner with USA Missionaries",
   "Volunteer",
   "Bring this to my church",

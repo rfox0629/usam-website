@@ -170,7 +170,7 @@ assertIncludes(apiRoute, "syncGuidedResourceToMyRecordLearning", "Progress API m
 assertIncludes(apiRoute, "completed_at", "Progress API must save completion timestamps.");
 
 assertIncludes(app, "function GuidedResourceDetailSheet", "DOS app must render a guided resource detail sheet.");
-assertIncludes(app, '"Guided Reading Plan" : "Guided Journey"', "Guided resource UI must show the canonical Guided Journey eyebrow.");
+assertIncludes(app, "eyebrow={`${libraryResourceKindLabel(resource)}", "Resource page eyebrow must use the reader-facing Book Study / Reading Plan wording.");
 assertIncludes(app, "isFeatured={Boolean(resource.featured)}", "Guided resource UI must pass the featured state to the canonical resource header.");
 assertIncludes(sharedJourneyUi, "Featured", "Canonical resource header must render the Featured chip.");
 assertIncludes(app, "resourceSummary = guidedResource?.whyChosen ?? resource.description", "Guided Journey UI must show one compact resource recommendation/description.");
@@ -179,7 +179,21 @@ assert(!app.includes("Memory Verse"), "Guided Journey UI must not show a Memory 
 assertIncludes(sharedJourneyUi, "function JourneyQuestionBand", "Guided Journey UI must show the canonical warm full-width question band.");
 assertIncludes(sharedJourneyUi, "function guidedJourneyQuestionLabel", "Question band must use the canonical This Week's / Today's Question label.");
 assertIncludes(sharedJourneyUi, "Chapter ${chapter.order} · Question", "Multi-chapter weeks must label each chapter question separately.");
-assertIncludes(sharedJourneyUi, "function JourneyScripture", "Guided Journey UI must show Scripture as tappable hairline rows after the question.");
+assertIncludes(sharedJourneyUi, "export function GuidedJourneyScripture", "Journey must show Scripture as tappable hairline rows.");
+assertIncludes(sharedJourneyUi, "export function guidedJourneySessionScriptures", "A multi-chapter unit must combine its Scripture into one list.");
+assertIncludes(app, "<GuidedJourneyScripture", "Scripture must render after the responses as supporting reference material.");
+assert(
+  app.indexOf("<GuidedJourneyScripture") > app.indexOf('label="Prayer"'),
+  "Scripture must sit after the Prayer response, not beside the question.",
+);
+assert(
+  !app.includes("Connect a person record to save progress."),
+  "Journey must not show the connect-a-person-record notice.",
+);
+assert(
+  !sharedJourneyUi.includes("#A07A35") && !sharedJourneyUi.includes("#F6F0E4"),
+  "Journey light theme must not use gold lettering.",
+);
 assert(!app.includes("Discuss Together"), "Guided Journey UI must not show the old multi-question discussion list (removed per USA-162).");
 assert(!app.includes('isReadingPlan ? "Days" : "Sessions"'), "Guided Journey UI must not show a redundant Sessions/Days stat alongside Duration (removed per USA-162).");
 assert(!app.includes("Difficulty"), "Guided Journey UI must not show a Difficulty/Intermediate badge.");
@@ -200,7 +214,10 @@ assertIncludes(app, "setIsSessionSelectorOpen(false)", "Selecting a week/day mus
 assertIncludes(sharedJourneyUi, "const chapters = session.chapters ?? []", "Guided Journey selector must render compact per-chapter titles, including two-chapter weeks in the final seven-week model.");
 assertIncludes(sharedJourneyUi, "chapters.map((chapter)", "Guided Journey detail panel must render each chapter's own question and Scripture for multi-chapter weeks.");
 assertIncludes(sharedJourneyUi, "kicker={`Chapter ${chapter.order}`}", "Guided Journey reading layout must render the chapter number as an editorial kicker above the title.");
-assert(sharedJourneyUi.indexOf("chapter.chapterQuestion") < sharedJourneyUi.indexOf("references={chapter.keyScriptures"), "Supporting Scripture must render after the chapter-specific question.");
+assert(
+  !sharedJourneyUi.includes("references={chapter.keyScriptures"),
+  "Scripture must not render per chapter; a unit contributes one combined list after the responses.",
+);
 assert(!/<select\b/i.test(guidedResourceDetailSheet), "Guided Journey accordion must not use a native select/dropdown for week navigation.");
 assert(!guidedResourceDetailSheet.includes("Reading: {selectedSession.assignment}"), "Guided Journey V2 must not keep the redundant Reading metadata line in the open panel.");
 
@@ -229,7 +246,10 @@ assertIncludes(app, "Save and finish later", "Guided resource UI must let partic
 assertIncludes(app, "/api/dos/app/guided-resource-progress", "Guided resource UI must call the progress API.");
 assertIncludes(app, "data.guidedResourceProgress", "Guided resource UI must read progress from DOS data.");
 assertIncludes(app, "onOpenGuidedResource", "Assigned resource cards must open guided resources in-app.");
-assertIncludes(app, "progressPersonId={myRecordPerson?.id ?? null}", "Library card progress should use the DOS user's My Record person when available.");
+// Library rows deliberately carry no progress state (USA-163); the row-level
+// progress plumbing stays available for the assign pickers and assignment
+// cards that still use it.
+assertIncludes(app, "personId: progressPersonId, resource", "Guided resource card progress must still resolve against a person when supplied.");
 
 assertIncludes(preview, "guidedResourceProgress:", "Preview DOS data must include guidedResourceProgress.");
 assertIncludes(sharedGroupRoute, "guidedResourceProgress: []", "Shared group scoped DOS data must include guidedResourceProgress.");
@@ -260,10 +280,32 @@ assertIncludes(sharedJourneyUi, "Your Journey", "Journey must render the tinted 
 assertIncludes(sharedJourneyUi, "function guidedJourneyBandCaption", "Your Journey band must show Start with Week 1 / remaining / completed captions.");
 assertIncludes(sharedJourneyUi, "Start with ${unitLabel} 1", "Your Journey band must prompt Start with Week 1 before any unit is complete.");
 assertIncludes(sharedJourneyUi, "function GuidedJourneyCompactNav", "Returning participants must get the compact sticky resource nav.");
-assertIncludes(app, "hasStarted ? compactNav : simpleNav", "Resource chrome must recede once the participant is actively progressing.");
-assertIncludes(sharedJourneyUi, "isCompact = true", "Nav must support the mockup's non-compact first-open bar, navBar(r, false).");
-assertIncludes(app, "isCompact={false}", "First open must still render the '‹ Library' bar so there is always a way back.");
+assertIncludes(app, "hasStarted ? compactNav : null", "Resource chrome must recede once the participant is actively progressing.");
 assertIncludes(app, "alwaysExpanded", "Desktop rail must render the week selector expanded, per the mockup.");
+
+// --- USA-163 focused revision ---
+// The way back sits above the Journey content, not inside the Journey's own nav.
+assertIncludes(app, "<LibraryResourceBackButton onClick={onBack} />", "'Library' back control must sit above the Journey content.");
+assert(
+  !sharedJourneyUi.includes("backLabel"),
+  "The Journey nav strip must not carry its own back control now that 'Library' sits above the Journey content.",
+);
+
+// Scripture rows are real targets that open the in-app KJV quick view, and a
+// row is only interactive when there is actually text behind it.
+assertIncludes(app, "canOpenScripture={hasDosJourneyScripture}", "Scripture rows must only be tappable when the reference has text.");
+assertIncludes(app, "onOpenScripture={openScriptureQuickView}", "Scripture rows must open the existing DOS scripture quick view.");
+assertIncludes(sharedJourneyUi, "const isOpenable", "Scripture rows must not render a dead chevron affordance.");
+
+// The completion action lives at the natural end of the week, not pinned.
+assert(
+  !sharedJourneyUi.includes("stickyBottomClassName"),
+  "Completion action must sit at the natural end of the week rather than in a pinned dock.",
+);
+assert(
+  !app.includes("stickyDock"),
+  "Journey must not reintroduce a sticky completion dock.",
+);
 assertIncludes(sharedJourneyUi, "function GuidedJourneyDock", "Journey must provide the canonical completion dock.");
 assertIncludes(app, 'secondaryLabel="Save and finish later"', "Completion dock must offer Save and finish later.");
 assertIncludes(app, "Complete ${unitNoun} ${selectedSession.order}", "Completion dock primary action must name the unit being completed.");
@@ -278,3 +320,42 @@ assertIncludes(app, "What stood out?", "Journey must keep the three canonical sa
 assertIncludes(app, "What will you do with it?", "Journey must keep the three canonical saved response fields.");
 assertIncludes(app, "guidedJourneyPrayerHelper()", "Journey must keep the canonical prayer helper copy.");
 console.log("Canonical mockup conformance checks passed.");
+
+// --- Library simplification (USA-163) ---
+// Book studies and reading plans are plain, whole-row-tappable Library entries
+// that match the Commands of Jesus pattern. Every action and every piece of
+// progress state belongs to the full Resource page.
+assertIncludes(
+  app,
+  "isGuidedResource(resource) && !onClick && !onOpenResource",
+  "Library rows must render as plain tappable entries, never the inline action card.",
+);
+assertIncludes(app, "function libraryResourceKindLabel", "Library must have a reader-facing kind label.");
+assertIncludes(app, '"Reading Plan" : "Book Study"', "Library must label resources Reading Plan / Book Study.");
+assert(
+  !app.includes('"Guided Reading Plan" : "Guided Journey"'),
+  "Library and Resource page must not use internal 'Guided Journey' wording.",
+);
+assert(
+  !catalog.includes("Guided Journey"),
+  "Library resource copy must not use internal 'Guided Journey' wording.",
+);
+
+const libraryDiscipleshipSection = between(
+  app,
+  '<LibrarySection title="Discipleship">',
+  "</LibrarySection>",
+  "Library Discipleship section",
+);
+assertIncludes(libraryDiscipleshipSection, "onOpenResource={openLibraryResource}", "Library Discipleship rows must open the full Resource page.");
+for (const forbidden of ["onAssign", "onOpenGuidedResource", "onReviewGuidedResource", "progressPersonId", "resourceAssignments"]) {
+  assert(
+    !libraryDiscipleshipSection.includes(forbidden),
+    `Library Discipleship rows must not carry ${forbidden} — actions and progress live on the Resource page.`,
+  );
+}
+
+// Assigning still reaches the full myself / person / group picker, just from
+// the Resource page instead of the Library row.
+assertIncludes(app, "onAssign={openAssignTargetPicker}", "Resource page must keep the full assign target picker.");
+console.log("Library simplification checks passed.");

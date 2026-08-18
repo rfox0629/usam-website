@@ -466,7 +466,7 @@ const relationshipResources = [
   {
     category: "Relationships",
     content: {
-      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      attribution: "Used with permission from Mission of Reconciliation and Andy Leenstra.",
       body: "Love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength.",
       credits: "Credits: John and Paula Sandford where applicable.",
       scripture: "Mark 12:30",
@@ -546,7 +546,7 @@ const relationshipResources = [
   {
     category: "Relationships",
     content: {
-      attribution: "Used with permission from Ministry of Reconciliation and Andy Leenstra.",
+      attribution: "Used with permission from Mission of Reconciliation and Andy Leenstra.",
       body: "A relational covenant is an agreement I make with God that governs how I do life with others.",
       credits: "Credits: John and Paula Sandford, Transforming the Inner Man where applicable.",
       sections: [
@@ -657,7 +657,7 @@ const discipleshipResources = [
       seoDescription: "Read the entire New Testament in fourteen days with this free Bible reading plan from USA Missionaries.",
       subtitle: "Read the entire New Testament in two weeks while discovering the life of Jesus, the birth of the Church, and the call to follow Christ.",
     },
-    description: "Read the entire New Testament in fourteen days with a simple prayer and reflection rhythm.",
+    description: "Read the New Testament in fourteen days, one passage at a time.",
     assignable: true,
     assignmentDefaults: {
       durationDays: 14,
@@ -919,7 +919,7 @@ const discipleshipResources = [
       alt: "Discipleship by A.W. Tozer - book cover",
       src: "/guides/discipleship-cover.jpg",
     },
-    description: "A seven-week Guided Journey with original companion sessions, Scripture search, reflection prompts, leader notes, and disciple-making next steps.",
+    description: "What it means to follow Jesus in wholehearted obedience.",
     estimatedDuration: "7 Weeks",
     featured: true,
     icon: "book",

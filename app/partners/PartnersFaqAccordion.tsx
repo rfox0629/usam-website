@@ -63,7 +63,7 @@ const faqItems: readonly FaqItem[] = [
   {
     question: "What role does DOS play?",
     answer:
-      "DOS, the Discipleship Operating System, is the shared technology backbone of the ecosystem. It handles referrals between ministries, follow-up workflows, discipleship tracking, prayer requests, events, testimonies, and outcome reporting. In practice, DOS is what makes a coordinated discipleship journey possible: when a missionary refers someone to Ministry of Reconciliation, DOS carries the context so no one falls through the cracks.",
+      "DOS, the Discipleship Operating System, is the shared technology backbone of the ecosystem. It handles referrals between ministries, follow-up workflows, discipleship tracking, prayer requests, events, testimonies, and outcome reporting. In practice, DOS is what makes a coordinated discipleship journey possible: when a missionary refers someone to Mission of Reconciliation, DOS carries the context so no one falls through the cracks.",
   },
   {
     question: "Can this model scale to other states?",

@@ -37,6 +37,7 @@ import {
   type DosResource,
   type DosResourceIcon,
 } from "@/src/lib/dos/resource-catalog";
+import { dosJourneyScripture, hasDosJourneyScripture } from "@/src/lib/dos/journey-scriptures";
 import {
   GuidedJourneyChapterContent,
   GuidedJourneyCompactNav,
@@ -46,10 +47,12 @@ import {
   GuidedJourneyResourceHeader,
   GuidedJourneyResponseField,
   GuidedJourneyResponses,
+  GuidedJourneyScripture,
   GuidedJourneySessionSelector,
   guidedJourneyActionHelper,
   guidedJourneyPrayerHelper,
   guidedJourneyReflectionHelper,
+  guidedJourneySessionScriptures,
 } from "@/src/components/dos/GuidedJourneyUi";
 import {
   createDefaultDosTableInvitation,
@@ -104,7 +107,13 @@ import {
   routeBuilderComingSoonLabel,
   routeBuilderComingSoonStatus,
 } from "@/src/lib/groups/route-builder";
+import {
+  buildDemoGroupMemberAccessToken,
+  type DemoGroupMemberAccessPayload,
+} from "@/src/lib/groups/demo-member-access";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
+import type { LeaderPreviewInput } from "@/src/lib/groups/member-preview";
+import { MemberGroupHomePreview } from "./MemberGroupHomePreview";
 import {
   addDaysToResourceAssignmentDateKey,
   defaultResourceAssignmentDueDate,
@@ -112,7 +121,6 @@ import {
   parseResourceAssignmentFollowUpScheduleTitle,
   resourceAssignmentFollowUpScheduleDisplayTitle,
   resourceAssignmentFollowUpScheduleHeading,
-  resourceAssignmentCommitmentTitle,
   todayResourceAssignmentDateKey,
   type DosResourceAssignmentContext,
   type DosResourceAssignmentFollowUpCadence,
@@ -1061,12 +1069,34 @@ type LeaderJourneyProgressState = {
   resourceSlug: string;
 } | null;
 type ResourceAssignmentNotice = {
-  assignmentId: string;
-  personId: string;
+  assignmentCount?: number;
+  assignmentId?: string;
+  duplicateCount?: number;
+  failureCount?: number;
+  groupId?: string | null;
+  groupName?: string | null;
+  invitationTargets?: ResourceAssignmentInvitationTarget[];
+  kind: "group" | "individual";
+  personId?: string;
+  personName?: string | null;
   personalMessage: string | null;
   resourceSlug: string;
+  startDate: string;
   text: string;
 } | null;
+type ResourceAssignmentInvitationTarget = {
+  groupId: string;
+  groupName: string;
+  groupSlug: string;
+  memberId: string;
+  personId: string;
+  personName: string;
+};
+type GroupMemberExperiencePreviewState = ResourceAssignmentInvitationTarget & {
+  resourceSlug: string;
+  startDate: string;
+};
+type ParticipantCopyResult = "copied" | "selectable" | "shared";
 type AssignTargetPickerState = { resource: DosResource } | null;
 type GroupJourneyAssignState = { group: DosAppGroup; resource: DosResource | null } | null;
 type ResourceAssignmentDuplicateState = {
@@ -1451,15 +1481,45 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   }
 }
 
+const displayCalendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseDisplayCalendarDateParts(value: string | null | undefined) {
+  const match = value?.trim().match(displayCalendarDatePattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const timestamp = Date.UTC(year, month - 1, day);
+  const normalized = new Date(timestamp).toISOString().slice(0, 10);
+
+  return normalized === value?.trim()
+    ? { day, month, year }
+    : null;
+}
+
+function isDisplayCalendarDate(value: string | null | undefined) {
+  return Boolean(parseDisplayCalendarDateParts(value));
+}
+
 function parseDisplayDate(value: string | null) {
   if (!value) {
     return null;
   }
 
-  const normalizedValue = value.includes("T") ? value : `${value}T12:00:00`;
-  const date = new Date(normalizedValue);
+  const calendarParts = parseDisplayCalendarDateParts(value);
+  const date = calendarParts
+    ? new Date(Date.UTC(calendarParts.year, calendarParts.month - 1, calendarParts.day, 12, 0, 0, 0))
+    : new Date(value);
 
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function displayTimeZoneForValue(value: string | null | undefined) {
+  return isDisplayCalendarDate(value) ? "UTC" : dosDisplayTimeZone;
 }
 
 const dosDisplayTimeZone = groupDisplayTimeZone;
@@ -1585,7 +1645,7 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
-    timeZone: dosDisplayTimeZone,
+    timeZone: displayTimeZoneForValue(value),
     year: "numeric",
   }).format(date);
 }
@@ -1600,7 +1660,7 @@ function formatShortDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
-    timeZone: dosDisplayTimeZone,
+    timeZone: displayTimeZoneForValue(value),
   }).format(date);
 }
 
@@ -2015,6 +2075,91 @@ function expectedGroupGatherings(group: DosAppGroup, limit = 4): GroupGatheringV
 
 function nextExpectedGroupGathering(group: DosAppGroup) {
   return expectedGroupGatherings(group, 1)[0] ?? null;
+}
+
+/* ------------------------------------------------------------------ *
+ * USA-170 — participant preview parity.
+ *
+ * "Preview {First}'s Experience" renders the same `GroupHomeMemberView` the
+ * participant's real secure link renders. The leader app already holds every
+ * value that view reads; these three adapters shape it into the shared
+ * `buildLeaderPreviewPortalData` input. Nothing here fetches, mints a token, or
+ * writes participant state.
+ * ------------------------------------------------------------------ */
+
+function leaderPreviewGroup(group: DosAppGroup): LeaderPreviewInput["group"] {
+  return {
+    activityTemplate: group.templateCategory === "activity" || group.type === "running",
+    defaultLocation: group.defaultLocation ?? group.locationLabel,
+    description: group.description,
+    id: group.id,
+    name: group.name,
+    rhythm: group.rhythmLabel,
+    slug: group.slug,
+    tagline: group.tagline,
+  };
+}
+
+function leaderPreviewJourneys(
+  resourceAssignments: readonly DosAppResourceAssignment[],
+  personId: string,
+): LeaderPreviewInput["journeys"] {
+  // The real loader scopes to the person, newest start first, with no status
+  // filter — completed Journeys stay visible in the participant's history, so
+  // they stay visible in the preview too.
+  return resourceAssignments
+    .filter((assignment) => assignment.personId === personId)
+    .slice()
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+    .map((assignment) => ({
+      completedAt: assignment.completedAt,
+      dueDate: assignment.dueDate,
+      id: assignment.id,
+      personalMessage: assignment.personalMessage,
+      resourceSlug: assignment.resourceSlug,
+      startDate: assignment.startDate,
+      status: assignment.status ?? "active",
+    }));
+}
+
+/**
+ * Assignment-success previews carry only the invitation target, so resolve the
+ * full group when it is loaded and fall back to the target's own identity when
+ * it is not. Either way the preview reads the same shared component.
+ */
+function previewGroupForTarget(
+  groups: readonly DosAppGroup[],
+  target: ResourceAssignmentInvitationTarget,
+): LeaderPreviewInput["group"] {
+  const group = groups.find((item) => item.id === target.groupId);
+
+  return group
+    ? leaderPreviewGroup(group)
+    : { id: target.groupId, name: target.groupName, slug: target.groupSlug };
+}
+
+function previewNextGatheringForTarget(
+  groups: readonly DosAppGroup[],
+  target: ResourceAssignmentInvitationTarget,
+) {
+  const group = groups.find((item) => item.id === target.groupId);
+
+  return group ? nextExpectedGroupGathering(group) : null;
+}
+
+function leaderPreviewProgress(
+  guidedResourceProgress: readonly DosAppGuidedResourceProgress[],
+  personId: string,
+): LeaderPreviewInput["progress"] {
+  return guidedResourceProgress
+    .filter((item) => item.personId === personId)
+    .map((item) => ({
+      completedAt: item.completedAt,
+      id: item.id,
+      resourceSlug: item.resourceSlug,
+      sessionId: item.sessionId,
+      updatedAt: item.updatedAt,
+    }));
 }
 
 function fillGatheringDefaults(row: {
@@ -5799,7 +5944,10 @@ function CatalogResourceRow({
 }) {
   const { className: iconClassName, IconComponent } = catalogResourceIcon(resource.icon);
   const typeLabel = resourceTypeLabel(resource);
-  const isGuidedResourceCard = isGuidedResource(resource) && !onClick;
+  // In the Library every resource is a plain, whole-row-tappable entry that
+  // opens its full Resource page. The richer card with inline actions is only
+  // for the assign pickers, which have no row-level open handler.
+  const isGuidedResourceCard = isGuidedResource(resource) && !onClick && !onOpenResource;
   const hasDownloadAction = Boolean(resource.downloadPath);
   const canAssignResource = Boolean(resource.assignable && onAssign && !onClick);
   const iconContent = resource.emoji ? (
@@ -5807,10 +5955,17 @@ function CatalogResourceRow({
   ) : (
     <IconComponent className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
   );
-  const description = resource.type === "reading_plan"
-    ? resource.content?.subtitle ?? resource.description
-    : resource.description;
+  // Library rows all use the short description so the list keeps one rhythm.
+  // The longer subtitle still carries the public resource pages.
+  const description = resource.description;
   const resourceHref = dosLibraryResourceHref(resource, workspaceSlug);
+  // Book studies and reading plans carry one combined label — "Book Study ·
+  // 7 Weeks", "Reading Plan · 14 Days" — instead of a type chip plus a
+  // separate duration chip. Nothing in the Library says "Guided Journey".
+  const hasCombinedKindLabel = isGuidedResource(resource) && Boolean(resource.estimatedDuration);
+  const rowKindLabel = hasCombinedKindLabel
+    ? `${libraryResourceKindLabel(resource)} · ${resource.estimatedDuration}`
+    : typeLabel;
 
   if (isGuidedResourceCard) {
     const activeAssignment = activeResourceAssignmentForPerson({ assignments: resourceAssignments, personId: progressPersonId, resource });
@@ -5930,21 +6085,33 @@ function CatalogResourceRow({
 
   const rowContent = (
     <>
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
-        {iconContent}
-      </span>
+      {resource.coverImage ? (
+        <img
+          alt={resource.coverImage.alt}
+          className="aspect-[2/3] w-9 shrink-0 rounded-md border border-[#DCEBFF] bg-[#F8FBFF] object-cover shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+          loading="lazy"
+          src={resource.coverImage.src}
+        />
+      ) : (
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
+          {iconContent}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{resource.title}</span>
           <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            {typeLabel}
+            {rowKindLabel}
           </span>
-          {resource.estimatedDuration ? (
+          {!hasCombinedKindLabel && resource.estimatedDuration ? (
             <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#C2410C]" style={{ fontFamily: font.rajdhani }}>
               {resource.estimatedDuration}
             </span>
           ) : null}
         </span>
+        {resource.author ? (
+          <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#475569]">{resource.author}</span>
+        ) : null}
         <span className="mt-0.5 block line-clamp-2 text-xs leading-4 text-[#64748B]">{description}</span>
       </span>
       {actionLabel ? (
@@ -6082,6 +6249,13 @@ function dosLibraryResourceHref(resource: DosResource, workspaceSlug?: string) {
   return `${resource.path}?${query.toString()}`;
 }
 
+// Reader-facing name for a book study or reading plan. "Guided Journey" and
+// "Guided Resource" are internal architecture words and never reach the
+// Library.
+function libraryResourceKindLabel(resource: DosResource) {
+  return resource.type === "reading_plan" ? "Reading Plan" : "Book Study";
+}
+
 function resourceTypeLabel(resource: DosResource) {
   switch (resource.type) {
     case "assessment":
@@ -6173,6 +6347,7 @@ function GuidedResourceDetailSheet({
   isSubmitting,
   onAssign,
   onClose,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -6187,6 +6362,7 @@ function GuidedResourceDetailSheet({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onClose: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -6282,7 +6458,9 @@ function GuidedResourceDetailSheet({
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
       description={resourceSummary}
-      eyebrow={`${isReadingPlan ? "Guided Reading Plan" : "Guided Journey"}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
+      // Same reader-facing wording as the Library row, so a resource is a
+      // "Book Study" or "Reading Plan" everywhere it is named.
+      eyebrow={`${libraryResourceKindLabel(resource)}${resource.estimatedDuration ? ` · ${resource.estimatedDuration}` : ""}`}
       isFeatured={Boolean(resource.featured)}
       onAssign={onAssign ? () => onAssign(resource) : undefined}
       purchaseHref={purchaseLink?.href ?? null}
@@ -6290,19 +6468,11 @@ function GuidedResourceDetailSheet({
     />
   );
 
-  const notices = (
-    <>
-      {readOnly ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
-          Preview mode. Changes are not saved.
-        </p>
-      ) : !personId ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#F0E2C4] bg-[#FCFAF6] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#A07A35] sm:mx-6">
-          Connect a person record to save progress.
-        </p>
-      ) : null}
-    </>
-  );
+  const notices = readOnly ? (
+    <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
+      Preview mode. Changes are not saved.
+    </p>
+  ) : null;
 
   const journeyBand = (
     <GuidedJourneyProgress
@@ -6390,6 +6560,19 @@ function GuidedResourceDetailSheet({
         </GuidedJourneyResponseField>
       </GuidedJourneyResponses>
 
+      {/* Scripture closes the week as supporting reference material. */}
+      <GuidedJourneyScripture
+        canOpenScripture={hasDosJourneyScripture}
+        onOpenScripture={(reference, event) => {
+          const scripture = dosJourneyScripture(reference);
+
+          if (scripture && onOpenScripture) {
+            onOpenScripture(scripture, event);
+          }
+        }}
+        references={guidedJourneySessionScriptures(selectedSession)}
+      />
+
       {errorMessage ? (
         <p className="mx-5 mt-4 rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:mx-6">
           {errorMessage}
@@ -6425,27 +6608,10 @@ function GuidedResourceDetailSheet({
 
   const dockPrimaryLabel = selectedSession ? `Complete ${unitNoun} ${selectedSession.order}` : `Complete ${unitNoun}`;
 
-  // The DOS scroll container is padded (pb-40 under md, md:pb-10) to clear the
-  // absolute bottom tab bar, and sticky `bottom` resolves against that padding
-  // box. Offset it back down so the dock rides just above the tab bar instead
-  // of floating ~89px up the screen with content visible underneath.
-  const dockStickyBottom =
-    "bottom-[calc(env(safe-area-inset-bottom)-89px)] md:bottom-[-40px] min-[900px]:bottom-0";
-
-  const stickyDock = selectedSession ? (
+  // One completion action, at the natural end of the week rather than pinned
+  // to the viewport.
+  const completionAction = selectedSession ? (
     <GuidedJourneyDock
-      onPrimary={() => void saveProgress(true)}
-      onSecondary={() => void saveProgress()}
-      primaryDisabled={!canWrite}
-      primaryLabel={isSubmitting ? "Saving..." : dockPrimaryLabel}
-      secondaryLabel="Save and finish later"
-      stickyBottomClassName={dockStickyBottom}
-    />
-  ) : null;
-
-  const inlineDock = selectedSession ? (
-    <GuidedJourneyDock
-      isSticky={false}
       onPrimary={() => void saveProgress(true)}
       onSecondary={() => void saveProgress()}
       primaryDisabled={!canWrite}
@@ -6454,32 +6620,14 @@ function GuidedResourceDetailSheet({
     />
   ) : null;
 
-  // The DOS scroll container is padded at the top (pt-11, md:pt-6); pull the
-  // sticky nav up over it so nothing scrolls through the strip above the bar.
-  const navStickyTop = "top-[-44px] md:top-[-24px]";
-
+  // Returning participants keep the compact identity strip. The way back lives
+  // above the Journey content, so this bar carries no back control of its own.
   const compactNav = (
     <GuidedJourneyCompactNav
       completedCount={completion.completed}
       coverAlt={resource.coverImage?.alt}
       coverSrc={resource.coverImage?.src ?? null}
-      onBack={onClose}
       positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
-      title={resource.title}
-      totalCount={completion.total}
-    />
-  );
-
-  // First open: the resource block below carries the identity, so the bar is
-  // just the way back (mockup `navBar(r, false)`).
-  const simpleNav = (
-    <GuidedJourneyCompactNav
-      completedCount={completion.completed}
-      isCompact={false}
-      onBack={onClose}
-      positionLabel={positionLabel}
-      stickyTopClassName={navStickyTop}
       title={resource.title}
       totalCount={completion.total}
     />
@@ -6487,13 +6635,14 @@ function GuidedResourceDetailSheet({
 
   const singleColumn = (
     <div className="flex min-h-full flex-col bg-white min-[900px]:hidden">
-      {hasStarted ? compactNav : simpleNav}
+      {hasStarted ? compactNav : null}
       {hasStarted ? null : resourceHeader}
       {notices}
       {journeyBand}
       {selector}
       {reading}
-      {stickyDock}
+      {completionAction}
+      <div className="h-6" />
     </div>
   );
 
@@ -6502,7 +6651,6 @@ function GuidedResourceDetailSheet({
       <GuidedJourneyLayout
         rail={
           <>
-            {simpleNav}
             {resourceHeader}
             {notices}
             {journeyBand}
@@ -6512,7 +6660,7 @@ function GuidedResourceDetailSheet({
         reading={
           <>
             {reading}
-            {inlineDock}
+            {completionAction}
           </>
         }
       />
@@ -7673,26 +7821,29 @@ function GroupLogoMark({
   const headlineClassName = large
     ? isLongName ? "text-[30px] min-[560px]:text-[36px]" : "text-[42px] min-[560px]:text-[48px]"
     : isLongName ? "text-[22px] min-[640px]:text-[25px]" : "text-[32px]";
-  const markText = group.templateCategory === "activity" ? "2:22" : "GO";
+  // USA-57: a Group listing is part of the DOS ecosystem, so this card uses the
+  // DOS light system rather than the dark-and-gold treatment. The scripture
+  // anchor stays for activity Groups because it is part of 2THREE2's identity;
+  // the old placeholder mark carried no meaning and is gone. The template label is not
+  // repeated here because the card already renders it as a pill beside the name.
+  const markText = group.templateCategory === "activity" ? "2:22" : "";
 
   return (
-    <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] bg-[#0B1120] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_18%,rgba(37,99,235,0.3),transparent_30%),linear-gradient(135deg,#060B16_0%,#0B1120_54%,#1E293B_100%)]" />
-      <div className="absolute inset-x-6 bottom-0 h-px bg-[#F8C56A]/45" />
+    <div className={`${sizeClassName} relative isolate shrink-0 overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF]`}>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#EBF2FF] via-[#DBEAFE] to-[#F8FBFF]" />
       <div className="relative flex h-full min-h-0 flex-col justify-between gap-3 p-4">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0 break-words text-[9px] font-black uppercase tracking-[0.14em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
-            {groupTemplateDisplayLabel(group)}
-          </span>
-          <span className="shrink-0 rounded-full border border-[#F8C56A]/25 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#F8C56A]" style={{ fontFamily: font.rajdhani }}>
-            {markText}
-          </span>
+        <div className="flex min-w-0 items-start justify-end gap-3">
+          {markText ? (
+            <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
+              {markText}
+            </span>
+          ) : null}
         </div>
         <div className="min-w-0">
-          <span className={`${headlineClassName} block break-words font-black leading-none text-[#F8C56A]`} style={{ fontFamily: font.oswald }}>
+          <span className={`${headlineClassName} block break-words font-black leading-none text-[#0F172A]`} style={{ fontFamily: font.oswald }}>
             {group.name}
           </span>
-          <span className="mt-2 line-clamp-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/72" style={{ fontFamily: font.rajdhani }}>
+          <span className="mt-2 line-clamp-2 text-[9px] font-black uppercase tracking-[0.17em] text-[#475569]" style={{ fontFamily: font.rajdhani }}>
             {group.tagline ?? "Pursue together"}
           </span>
         </div>
@@ -8434,7 +8585,9 @@ type GroupJourneyRow = {
 };
 
 function groupJourneyDateValue(value: string | null | undefined) {
-  return value ? new Date(`${value.slice(0, 10)}T12:00:00`).getTime() : 0;
+  const parts = parseDisplayCalendarDateParts(value?.slice(0, 10));
+
+  return parts ? Date.UTC(parts.year, parts.month - 1, parts.day) : 0;
 }
 
 function groupJourneyAssignmentEndDate(assignment: DosAppResourceAssignment, resource: DosResource) {
@@ -8447,16 +8600,17 @@ function groupJourneyLifecycle(assignments: DosAppResourceAssignment[], resource
     .filter(Boolean)
     .sort((first, second) => groupJourneyDateValue(first) - groupJourneyDateValue(second))[0] ?? null;
   const endDate = assignments
-    .map((assignment) => groupJourneyAssignmentEndDate(assignment, resource))
+    .map((assignment) => assignment.completedAt?.slice(0, 10) ?? groupJourneyAssignmentEndDate(assignment, resource))
     .filter(Boolean)
     .sort((first, second) => groupJourneyDateValue(second) - groupJourneyDateValue(first))[0] ?? null;
   const todayValue = groupJourneyDateValue(todayDateValue());
+  const allCompleted = assignments.length > 0 && assignments.every((assignment) => assignment.status === "completed");
 
   if (startDate && groupJourneyDateValue(startDate) > todayValue) {
     return { endDate, startDate, state: "upcoming" };
   }
 
-  if (endDate && groupJourneyDateValue(endDate) < todayValue) {
+  if (allCompleted) {
     return { endDate, startDate, state: "past" };
   }
 
@@ -8465,7 +8619,7 @@ function groupJourneyLifecycle(assignments: DosAppResourceAssignment[], resource
 
 function groupJourneyPeriodLabel(row: GroupJourneyRow) {
   if (row.startDate && row.endDate) {
-    return `${formatShortDate(row.startDate)} - ${formatShortDate(row.endDate)}`;
+    return `${formatShortDate(row.startDate)} - est. ${formatShortDate(row.endDate)}`;
   }
 
   if (row.startDate) {
@@ -8586,6 +8740,7 @@ function GroupJourneysTabV2({
 }) {
   const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<GroupMemberExperiencePreviewState | null>(null);
   // Explicit selection state. `null` means "no explicit pick yet - default to the
   // first current journey"; "" means the user deliberately collapsed every row.
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
@@ -8600,7 +8755,37 @@ function GroupJourneysTabV2({
 
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
-      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      const previewJourney = currentRows[0] ?? upcomingRows[0] ?? pastRows[0] ?? null;
+      const previewResourceSlug = previewJourney?.resourceSlug ?? "marks-of-discipleship";
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl({
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        memberId: member.id,
+        personId: member.personId,
+        personName: member.personName,
+      }, {
+        completedSessionIds: guidedResourceProgress
+          .filter((item) => item.personId === member.personId && item.resourceSlug === previewResourceSlug && item.completedAt)
+          .map((item) => item.sessionId),
+        expiresAt,
+        resourceSlug: previewResourceSlug,
+        startDate: previewJourney?.startDate ?? todayResourceAssignmentDateKey(),
+      });
+
+      if (!accessUrl) {
+        setMemberAccessMessage({ text: "Unable to create a demo member access link.", tone: "error" });
+        return;
+      }
+
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `${member.personName}'s journey link copied.`), tone: "success" });
+
       return;
     }
 
@@ -8627,12 +8812,14 @@ function GroupJourneysTabV2({
         throw new Error(result.error ?? "Unable to create member access link.");
       }
 
-      try {
-        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
-        setMemberAccessMessage({ text: `${member.personName}'s journey link copied.`, tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
-      }
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `${member.personName}'s journey link copied.`), tone: "success" });
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
     } finally {
@@ -8646,6 +8833,16 @@ function GroupJourneysTabV2({
     guidedResourceProgress,
     onAssignMore: onAssignJourney,
     onOpenJourney,
+    onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => setPreviewTarget({
+      groupId: group.id,
+      groupName: group.name,
+      groupSlug: group.slug,
+      memberId: member.id,
+      personId: member.personId,
+      personName: member.personName,
+      resourceSlug,
+      startDate,
+    }),
     onSendMemberAccess: sendMemberAccess,
     onToggleExpand: toggleExpand,
     sendingMemberAccessId,
@@ -8686,6 +8883,17 @@ function GroupJourneysTabV2({
               >
                 {memberAccessMessage.text}
               </p>
+            ) : null}
+
+            {previewTarget ? (
+              <MemberGroupHomePreview
+                group={leaderPreviewGroup(group)}
+                journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+                member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
+                nextGathering={nextExpectedGroupGathering(group)}
+                onClose={() => setPreviewTarget(null)}
+                progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
+              />
             ) : null}
 
             {currentRows.length ? (
@@ -8733,6 +8941,7 @@ function GroupJourneyRowCard({
   isExpanded,
   onAssignMore,
   onOpenJourney,
+  onPreviewMemberExperience,
   onSendMemberAccess,
   onToggleExpand,
   row,
@@ -8744,6 +8953,7 @@ function GroupJourneyRowCard({
   isExpanded: boolean;
   onAssignMore: (resource?: DosResource) => void;
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => void;
   onSendMemberAccess: (member: DosAppGroupMember) => void;
   onToggleExpand: (resourceSlug: string) => void;
   row: GroupJourneyRow;
@@ -8813,10 +9023,10 @@ function GroupJourneyRowCard({
             const progressLabel = assignment && sessions.length ? `${completedSessionIds.size}/${sessions.length}` : "";
 
             return (
-              <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+              <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                  <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                    <p className="break-words text-sm font-black text-[#0F172A]">{member.personName}</p>
                     <p className="mt-0.5 text-xs font-semibold text-[#64748B]">
                       {status}
                       {progressLabel ? ` · ${progressLabel}` : ""}
@@ -8825,17 +9035,28 @@ function GroupJourneyRowCard({
                     </p>
                     {latestProgress?.updatedAt ? <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">Last activity {formatRelativeDate(latestProgress.updatedAt)}</p> : null}
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
+                  {/* USA-170: three participant actions, one of them a long
+                      "Preview {First}'s Experience" label, used to sit in a
+                      shrink-0 single-line row and overflow at 390px. They wrap
+                      now, and each button may shrink to its own text. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <button className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-center text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
                       {assignment ? "View Journey" : "Assign"}
                     </button>
                     <button
-                      className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-center text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={sendingMemberAccessId === member.id}
                       onClick={() => onSendMemberAccess(member)}
                       type="button"
                     >
                       {sendingMemberAccessId === member.id ? "Creating..." : "Copy Link"}
+                    </button>
+                    <button
+                      className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-center text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
+                      onClick={() => onPreviewMemberExperience(member, resourceSlug, assignment?.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey())}
+                      type="button"
+                    >
+                      Preview {participantFirstName(member.personName)}'s Experience
                     </button>
                   </div>
                 </div>
@@ -8857,17 +9078,31 @@ function GroupJourneyAssignSheet({
   isSubmitting,
   onClose,
   onSubmit,
+  resourceAssignments,
 }: {
   errorMessage: string;
   group: DosAppGroup;
   initialResource: DosResource | null;
   isSubmitting: boolean;
   onClose: () => void;
-  onSubmit: (resourceSlug: string, personIds: string[]) => void;
+  onSubmit: (resourceSlug: string, personIds: string[], options: { reuseExisting: boolean; startDate: string }) => void;
+  resourceAssignments: DosAppResourceAssignment[];
 }) {
   const activeMembers = group.members.filter((member) => member.status === "active");
   const [selectedResource, setSelectedResource] = useState<DosResource | null>(initialResource);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(activeMembers.map((member) => member.personId));
+  const [startDate, setStartDate] = useState(todayResourceAssignmentDateKey());
+  const [reuseExisting, setReuseExisting] = useState(false);
+  const activeDuplicatePersonIds = new Set(
+    selectedResource
+      ? resourceAssignments
+        .filter((assignment) => assignment.resourceSlug === selectedResource.slug)
+        .filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress" || assignment.status === "paused")
+        .map((assignment) => assignment.personId)
+      : [],
+  );
+  const selectedDuplicateMembers = activeMembers.filter((member) => selectedPersonIds.includes(member.personId) && activeDuplicatePersonIds.has(member.personId));
+  const requiresReuseConfirmation = selectedDuplicateMembers.length > 0;
 
   function togglePersonId(personId: string) {
     setSelectedPersonIds((current) => (current.includes(personId) ? current.filter((id) => id !== personId) : [...current, personId]));
@@ -8886,13 +9121,23 @@ function GroupJourneyAssignSheet({
 
   return (
     <Sheet onClose={onClose} showEyebrow={false} title="Assign a Journey">
-      <div className="grid gap-4">
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
         <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
           <p className="text-sm font-black text-[#0F172A]">{selectedResource.title}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{resourceAssignmentPlanLengthLabel(selectedResource)} · Est. completion {formatDate(resourceAssignmentEstimatedCompletionDate(startDate, selectedResource))}</p>
           {initialResource ? null : (
             <button className="mt-1 text-xs font-bold text-[#2563EB]" onClick={() => setSelectedResource(null)} type="button">Choose a different resource</button>
           )}
         </div>
+        <DosDateInput
+          label="Start Date"
+          maxYear={new Date().getFullYear() + 5}
+          minYear={new Date().getFullYear() - 1}
+          name="group_assignment_start_date"
+          onChange={setStartDate}
+          required
+          value={startDate}
+        />
         <div className="rounded-[18px] border border-[#EAF2FF] bg-white p-3">
           <div className="flex items-center justify-between gap-2">
             <FieldLabel>Participants</FieldLabel>
@@ -8908,17 +9153,37 @@ function GroupJourneyAssignSheet({
             {activeMembers.length ? activeMembers.map((member) => (
               <label className="flex items-center gap-2 text-sm font-bold text-[#0F172A]" key={member.id}>
                 <input checked={selectedPersonIds.includes(member.personId)} className="h-4 w-4 rounded border-[#BFDBFE] text-[#2563EB]" onChange={() => togglePersonId(member.personId)} type="checkbox" />
-                {member.personName}
+                <span className="min-w-0 flex-1 truncate">{member.personName}</span>
+                {activeDuplicatePersonIds.has(member.personId) ? (
+                  <span className="shrink-0 rounded-full border border-[#FED7AA] bg-[#FFF7ED] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#9A3412]">
+                    Active
+                  </span>
+                ) : null}
               </label>
             )) : <p className="text-sm font-semibold text-[#64748B]">No active members yet.</p>}
           </div>
         </div>
+        {requiresReuseConfirmation ? (
+          <label className="flex items-start gap-2 rounded-[18px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2.5 text-sm leading-6 text-[#9A3412]">
+            <input checked={reuseExisting} className="mt-1 h-4 w-4 rounded border-[#FDBA74] text-[#EA580C]" onChange={(event) => setReuseExisting(event.target.checked)} type="checkbox" />
+            <span>
+              <span className="block font-black text-[#0F172A]">
+                {selectedDuplicateMembers.length === 1
+                  ? `${selectedDuplicateMembers[0]?.personName ?? "This member"} already has this Journey.`
+                  : `${selectedDuplicateMembers.length} members already have this Journey.`}
+              </span>
+              {selectedDuplicateMembers.length === 1
+                ? `Keep ${selectedDuplicateMembers[0]?.personName ?? "this member"}'s progress and connect their Journey to ${group.name}.`
+                : `Keep their progress and connect these Journeys to ${group.name}.`}
+            </span>
+          </label>
+        ) : null}
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
           <AppButton
-            disabled={isSubmitting || !selectedPersonIds.length}
+            disabled={isSubmitting || !selectedPersonIds.length || (requiresReuseConfirmation && !reuseExisting)}
             icon="commitment"
-            onClick={() => onSubmit(selectedResource.slug, selectedPersonIds)}
+            onClick={() => onSubmit(selectedResource.slug, selectedPersonIds, { reuseExisting, startDate })}
             tone="black"
           >
             {isSubmitting ? "Assigning..." : `Assign to ${selectedPersonIds.length} ${selectedPersonIds.length === 1 ? "Member" : "Members"}`}
@@ -10655,7 +10920,32 @@ function GroupMembersTab({
 
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
-      setMemberAccessMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl({
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        memberId: member.id,
+        personId: member.personId,
+        personName: member.personName,
+      }, {
+        expiresAt,
+        resourceSlug: "marks-of-discipleship",
+        startDate: todayResourceAssignmentDateKey(),
+      });
+
+      if (!accessUrl) {
+        setMemberAccessMessage({ text: "Unable to create a demo member access link.", tone: "error" });
+        return;
+      }
+
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
+
       return;
     }
 
@@ -10682,12 +10972,14 @@ function GroupMembersTab({
         throw new Error(result.error ?? "Unable to create member access link.");
       }
 
-      try {
-        await navigator.clipboard.writeText(result.memberAccess.accessUrl);
-        setMemberAccessMessage({ text: "Member access link copied.", tone: "success" });
-      } catch {
-        setMemberAccessMessage({ text: result.memberAccess.accessUrl, tone: "success" });
-      }
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
+      const copyResult = await copyOrShareParticipantText({
+        label: `${member.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
     } finally {
@@ -10859,14 +11151,14 @@ function GroupMembersTab({
               const isConfirmingRemoval = memberPendingRemovalId === member.id;
 
               return (
-                <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-                  <div className="flex min-w-0 items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[#0F172A]">{member.personName}</p>
+                <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                      <p className="break-words text-sm font-black text-[#0F172A]">{member.personName}</p>
                       <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
                       <p className="mt-0.5 text-[11px] font-bold text-[#94A3B8]">{groupMemberPortalStatusLabel(member)}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status.charAt(0).toUpperCase() + member.status.slice(1)}</GroupPill>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
@@ -12575,10 +12867,10 @@ const resourceAssignmentStatusLabels: Record<DosResourceAssignmentStatus, string
 };
 
 const resourceAssignmentFollowUpCadenceLabels: Record<DosResourceAssignmentFollowUpCadence, string> = {
-  due_only: "Due date only",
-  midpoint_and_completion: "Midpoint and completion",
-  none: "No follow-up",
-  weekly: "Weekly",
+  due_only: "Completion estimate reminder",
+  midpoint_and_completion: "Midpoint + completion reminders",
+  none: "No leader reminder",
+  weekly: "Weekly leader reminder",
 };
 
 const accountabilityDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -12629,6 +12921,54 @@ function resourceAssignmentTypeLabel(assignment: DosAppResourceAssignment) {
   return resource ? resourceTypeLabel(resource) : "Resource";
 }
 
+function resourceAssignmentEstimatedCompletionDate(startDate: string, resource: DosResource) {
+  return defaultResourceAssignmentDueDate(startDate, resource.assignmentDefaults?.durationDays);
+}
+
+function resourceAssignmentPlanLengthLabel(resource: DosResource) {
+  const duration = resource.estimatedDuration ?? "";
+  const match = duration.match(/^(\d+)\s+(day|days|week|weeks)$/i);
+
+  if (!match) {
+    return duration ? `${duration} plan` : "Resource plan";
+  }
+
+  const number = Number(match[1]);
+  const numberWords: Record<number, string> = {
+    1: "One",
+    2: "Two",
+    3: "Three",
+    4: "Four",
+    5: "Five",
+    6: "Six",
+    7: "Seven",
+    8: "Eight",
+    9: "Nine",
+    10: "Ten",
+    14: "Fourteen",
+  };
+  const unit = match[2].toLowerCase().startsWith("week") ? "week" : "day";
+  const label = numberWords[number] ?? String(number);
+
+  return `${label}-${unit} plan`;
+}
+
+function resourceAssignmentPrimaryActionLabel(resource: DosResource, assignment?: DosAppResourceAssignment | null) {
+  if (assignment) {
+    return "Save Assignment";
+  }
+
+  if (resource.type === "reading_plan") {
+    return "Assign Plan";
+  }
+
+  if (resource.type === "guided_resource") {
+    return "Assign Study";
+  }
+
+  return "Assign Resource";
+}
+
 function resourceAssignmentContextLabel(assignment: DosAppResourceAssignment, groupNames: readonly string[]) {
   if (groupNames.length) {
     return `Group context: ${groupNames.join(", ")}`;
@@ -12648,26 +12988,17 @@ function resourceAssignmentContextLabel(assignment: DosAppResourceAssignment, gr
 }
 
 function resourceAssignmentDueLabel(assignment: DosAppResourceAssignment) {
+  const resource = resourceAssignmentResource(assignment);
+
   if (assignment.status === "completed" && assignment.completedAt) {
     return `Completed ${formatDate(assignment.completedAt)}`;
   }
 
-  if (!assignment.dueDate) {
-    return "No due date";
+  if (!resource) {
+    return "No completion estimate";
   }
 
-  const dueValue = dateSortValue(assignment.dueDate);
-  const todayValue = dateSortValue(todayResourceAssignmentDateKey());
-
-  if (assignment.status !== "completed" && dueValue < todayValue) {
-    return `Overdue · ${formatDate(assignment.dueDate)}`;
-  }
-
-  if (assignment.dueDate === todayResourceAssignmentDateKey()) {
-    return "Due today";
-  }
-
-  return `Due ${formatDate(assignment.dueDate)}`;
+  return `Est. completion ${formatDate(resourceAssignmentEstimatedCompletionDate(assignment.startDate, resource))}`;
 }
 
 function resourceAssignmentFollowUpLabel(assignment: DosAppResourceAssignment) {
@@ -12675,29 +13006,36 @@ function resourceAssignmentFollowUpLabel(assignment: DosAppResourceAssignment) {
     return "Completion recorded";
   }
 
-  if (!assignment.dueDate || assignment.followUpCadence === "none") {
-    return "No follow-up scheduled";
+  if (assignment.followUpCadence === "none") {
+    return "No leader reminder scheduled";
+  }
+
+  const resource = resourceAssignmentResource(assignment);
+  const completionDate = assignment.dueDate ?? (resource ? resourceAssignmentEstimatedCompletionDate(assignment.startDate, resource) : null);
+
+  if (!completionDate) {
+    return "Leader reminder optional";
   }
 
   const today = todayResourceAssignmentDateKey();
 
-  if (dateSortValue(assignment.dueDate) < dateSortValue(today)) {
-    return "Overdue follow-up";
+  if (dateSortValue(completionDate) < dateSortValue(today)) {
+    return "Leader check-in suggested";
   }
 
-  if (assignment.dueDate === today) {
-    return "Completion check-in";
+  if (completionDate === today) {
+    return "Leader check-in today";
   }
 
   if (assignment.followUpCadence === "midpoint_and_completion") {
-    const midpoint = addDaysToResourceAssignmentDateKey(assignment.startDate, Math.max(1, Math.floor((dateSortValue(assignment.dueDate) - dateSortValue(assignment.startDate)) / (2 * 24 * 60 * 60 * 1000))));
+    const midpoint = addDaysToResourceAssignmentDateKey(assignment.startDate, Math.max(1, Math.floor((dateSortValue(completionDate) - dateSortValue(assignment.startDate)) / (2 * 24 * 60 * 60 * 1000))));
 
     if (midpoint <= today) {
-      return "Midpoint check-in";
+      return "Midpoint leader check-in";
     }
   }
 
-  return resourceAssignmentFollowUpCadenceLabels[assignment.followUpCadence];
+  return `Leader reminder · ${resourceAssignmentFollowUpCadenceLabels[assignment.followUpCadence]}`;
 }
 
 function resourceAssignmentStatusTone(status: DosResourceAssignmentStatus) {
@@ -13192,14 +13530,14 @@ function resourceAssignmentDashboardRows(assignments: DosAppResourceAssignment[]
     .filter((assignment) => assignment.status !== "completed")
     .map((assignment) => ({
       assignment,
-      bucket: assignment.dueDate && dateSortValue(assignment.dueDate) < dateSortValue(today)
-        ? "Overdue"
-        : assignment.dueDate === today
-          ? "Due Today"
+      bucket: assignment.status === "paused"
+        ? "Paused"
+        : dateSortValue(assignment.startDate) > dateSortValue(today)
+          ? `Starts ${formatDate(assignment.startDate)}`
           : resourceAssignmentFollowUpLabel(assignment),
       person: personById.get(assignment.personId) ?? null,
     }))
-    .sort((first, second) => dateSortValue(first.assignment.dueDate ?? first.assignment.startDate) - dateSortValue(second.assignment.dueDate ?? second.assignment.startDate));
+    .sort((first, second) => dateSortValue(first.assignment.startDate) - dateSortValue(second.assignment.startDate));
 }
 
 function ResourceAssignmentsDashboardCard({
@@ -13214,7 +13552,7 @@ function ResourceAssignmentsDashboardCard({
   const rows = resourceAssignmentDashboardRows(assignments, people);
   const active = assignments.filter((assignment) => assignment.status !== "completed").length;
   const completed = assignments.filter((assignment) => assignment.status === "completed").length;
-  const overdue = rows.filter((row) => row.bucket === "Overdue").length;
+  const paused = assignments.filter((assignment) => assignment.status === "paused").length;
 
   return (
     <DesktopPanel className="min-w-0" compact eyebrow="Assigned Resources">
@@ -13222,7 +13560,7 @@ function ResourceAssignmentsDashboardCard({
         {[
           ["Active", active],
           ["Completed", completed],
-          ["Overdue", overdue],
+          ["Paused", paused],
         ].map(([label, value]) => (
           <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
             <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
@@ -13318,35 +13656,351 @@ function CommitmentSuccessSheet({
   );
 }
 
-function ResourceAssignmentSuccessSheet({
-  notice,
-  onClose,
-  onOpenJourney,
-  onOpenPerson,
-}: {
-  notice: NonNullable<ResourceAssignmentNotice>;
-  onClose: () => void;
-  onOpenJourney: (resource: DosResource, personId: string) => void;
-  onOpenPerson: (personId: string) => void;
-}) {
-  const [copyMessage, setCopyMessage] = useState("");
-  const resource = getDosResourceBySlug(notice.resourceSlug);
-  const publicUrl = resource && resource.type !== "guided_resource" && typeof window !== "undefined" ? new URL(resource.path, window.location.origin).toString() : resource?.type === "guided_resource" ? "" : resource?.path ?? "";
-  const canOpenJourney = Boolean(resource && isGuidedResource(resource));
+const demoParticipantAccessTtlMs = 1000 * 60 * 60 * 24 * 7;
 
-  async function copyText(value: string, label: string) {
+function participantLinkShouldUseCurrentOrigin(url: URL) {
+  const hostname = url.hostname.toLowerCase();
+
+  return hostname === "localhost"
+    || hostname === "127.0.0.1"
+    || hostname.endsWith(".localhost")
+    || hostname.endsWith(".vercel.app");
+}
+
+function vercelShareTokenForCurrentContext(currentUrl: URL) {
+  const hashParams = new URLSearchParams(currentUrl.hash.replace(/^#/, ""));
+  const currentToken = currentUrl.searchParams.get("_vercel_share") || hashParams.get("_vercel_share");
+
+  if (currentToken) {
     try {
-      await navigator.clipboard.writeText(value);
-      setCopyMessage(`${label} copied.`);
+      window.sessionStorage.setItem("dos:vercel-share-token", currentToken);
     } catch {
-      setCopyMessage(value);
+      // Session storage only keeps protected-preview share links stable after Vercel redirects.
+    }
+
+    return currentToken;
+  }
+
+  try {
+    return window.sessionStorage.getItem("dos:vercel-share-token");
+  } catch {
+    return null;
+  }
+}
+
+function participantInvitationUrlForCurrentContext(value: string) {
+  if (typeof window === "undefined") {
+    return value;
+  }
+
+  try {
+    const currentUrl = new URL(window.location.href);
+    const accessUrl = new URL(value, currentUrl.origin);
+
+    if (participantLinkShouldUseCurrentOrigin(currentUrl)) {
+      accessUrl.protocol = currentUrl.protocol;
+      accessUrl.host = currentUrl.host;
+    }
+
+    const vercelShareToken = vercelShareTokenForCurrentContext(currentUrl);
+
+    if (vercelShareToken && accessUrl.origin === currentUrl.origin) {
+      accessUrl.searchParams.set("_vercel_share", vercelShareToken);
+    }
+
+    return accessUrl.toString();
+  } catch {
+    return value;
+  }
+}
+
+async function copyOrShareParticipantText(input: { label: string; url?: string; value: string }): Promise<ParticipantCopyResult> {
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard unavailable");
+    }
+
+    await navigator.clipboard.writeText(input.value);
+
+    return "copied";
+  } catch {
+    if (navigator.share) {
+      try {
+        await navigator.share(input.url
+          ? { title: input.label, url: input.url }
+          : { text: input.value, title: input.label });
+
+        return "shared";
+      } catch {
+        // User cancellation or blocked native share falls through to the selectable text fallback.
+      }
     }
   }
 
+  return "selectable";
+}
+
+function participantUrlCopyMessage(result: ParticipantCopyResult, accessUrl: string, successMessage: string) {
+  if (result === "copied") {
+    return successMessage;
+  }
+
+  if (result === "shared") {
+    return "Invitation ready to send.";
+  }
+
+  return `Copy blocked. Select this secure link: ${accessUrl}`;
+}
+
+function cleanDemoAccessId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "member";
+}
+
+function buildPreviewParticipantAccessUrl(
+  target: ResourceAssignmentInvitationTarget,
+  input: { completedSessionIds?: string[]; expiresAt: string; resourceSlug: string; startDate: string },
+) {
+  if (typeof window === "undefined" || !target.groupSlug) {
+    return "";
+  }
+
+  const payload: DemoGroupMemberAccessPayload = {
+    completedSessionIds: input.completedSessionIds ?? [],
+    expiresAt: input.expiresAt,
+    groupId: target.groupId,
+    groupName: target.groupName,
+    groupSlug: target.groupSlug,
+    identityId: `demo-identity-${cleanDemoAccessId(target.groupId)}-${cleanDemoAccessId(target.personId)}`,
+    memberId: target.memberId,
+    personId: target.personId,
+    personName: target.personName,
+    resourceSlug: input.resourceSlug,
+    startDate: input.startDate,
+  };
+  const accessUrl = new URL(`/groups/${encodeURIComponent(target.groupSlug)}/member/access`, window.location.origin);
+
+  accessUrl.searchParams.set("token", buildDemoGroupMemberAccessToken(payload));
+
+  return participantInvitationUrlForCurrentContext(accessUrl.toString());
+}
+
+function participantFirstName(value: string) {
+  return value.trim().split(/\s+/)[0] || "Member";
+}
+
+function ResourceAssignmentSuccessSheet({
+  guidedResourceProgress,
+  groups,
+  isPreview,
+  notice,
+  onClose,
+  onOpenGroupParticipants,
+  onOpenJourney,
+  onOpenPerson,
+  resourceAssignments,
+  workspaceId,
+}: {
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
+  groups: DosAppGroup[];
+  isPreview: boolean;
+  notice: NonNullable<ResourceAssignmentNotice>;
+  onClose: () => void;
+  onOpenGroupParticipants: (groupId: string) => void;
+  onOpenJourney: (resource: DosResource, personId: string) => void;
+  onOpenPerson: (personId: string) => void;
+  resourceAssignments: DosAppResourceAssignment[];
+  workspaceId: string;
+}) {
+  const [copyMessage, setCopyMessage] = useState("");
+  const [invitationState, setInvitationState] = useState<Record<string, { accessUrl?: string; error?: string; expiresAt?: string; isLoading?: boolean }>>({});
+  const [previewTarget, setPreviewTarget] = useState<ResourceAssignmentInvitationTarget | null>(null);
+  const resource = getDosResourceBySlug(notice.resourceSlug);
+  const planLine = resource ? `Starts ${formatDate(notice.startDate)} · ${resourceAssignmentPlanLengthLabel(resource)}` : `Starts ${formatDate(notice.startDate)}`;
+  const canOpenJourney = Boolean(resource && isGuidedResource(resource) && notice.personId);
+  const invitationTargets = useMemo(() => {
+    if (notice.invitationTargets?.length) {
+      return notice.invitationTargets.filter((target) => target.groupId && target.groupSlug && target.memberId && target.personId);
+    }
+
+    if (!notice.personId) {
+      return [];
+    }
+
+    return groups.flatMap((group) => (
+      group.members
+        .filter((member) => member.status === "active" && member.personId === notice.personId)
+        .map((member) => ({
+          groupId: group.id,
+          groupName: group.name,
+          groupSlug: group.slug,
+          memberId: member.id,
+          personId: member.personId,
+          personName: member.personName,
+        }))
+    ));
+  }, [groups, notice]);
+  const successTitle = notice.kind === "group"
+    ? `Assigned to ${notice.assignmentCount ?? invitationTargets.length} ${notice.groupName ?? "Group"} ${notice.assignmentCount === 1 ? "member" : "members"}`
+    : `${resource?.title ?? "Discipleship"} assigned to ${notice.personName ?? "participant"}`;
+
+  async function copyText(value: string, label: string) {
+    const result = await copyOrShareParticipantText({ label, value });
+
+    if (result === "copied") {
+      setCopyMessage(`${label} copied.`);
+    } else if (result === "shared") {
+      setCopyMessage("Invitation ready to send.");
+    } else {
+      setCopyMessage(`Copy blocked. Select this text: ${value}`);
+    }
+  }
+
+  function targetKey(target: ResourceAssignmentInvitationTarget) {
+    return `${target.groupId}:${target.memberId}`;
+  }
+
+  function invitationText(target: ResourceAssignmentInvitationTarget, accessUrl: string) {
+    const title = resource?.title ?? "your DOS journey";
+
+    return `${target.personName}, ${title} is ready in DOS. Open your secure link to continue each week: ${accessUrl}`;
+  }
+
+  async function createInvitation(target: ResourceAssignmentInvitationTarget) {
+    const key = targetKey(target);
+    const existing = invitationState[key];
+
+    if (existing?.accessUrl) {
+      return existing.accessUrl;
+    }
+
+    if (isPreview) {
+      const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
+      const accessUrl = buildPreviewParticipantAccessUrl(target, {
+        completedSessionIds: guidedResourceProgress
+          .filter((item) => item.personId === target.personId && item.resourceSlug === notice.resourceSlug && item.completedAt)
+          .map((item) => item.sessionId),
+        expiresAt,
+        resourceSlug: notice.resourceSlug,
+        startDate: notice.startDate,
+      });
+
+      if (!accessUrl) {
+        setInvitationState((current) => ({
+          ...current,
+          [key]: {
+            error: "Unable to create a demo member access link.",
+            isLoading: false,
+          },
+        }));
+        return null;
+      }
+
+      setInvitationState((current) => ({
+        ...current,
+        [key]: {
+          accessUrl,
+          expiresAt,
+          isLoading: false,
+        },
+      }));
+
+      return accessUrl;
+    }
+
+    setInvitationState((current) => ({ ...current, [key]: { ...current[key], isLoading: true } }));
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          action: "send_member_access",
+          groupId: target.groupId,
+          memberId: target.memberId,
+          personId: target.personId,
+          workspaceId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as GroupMemberAccessResult;
+
+      if (!response.ok || !result.memberAccess?.accessUrl) {
+        throw new Error(result.error ?? "Unable to create member access link.");
+      }
+
+      const accessUrl = participantInvitationUrlForCurrentContext(result.memberAccess.accessUrl);
+
+      setInvitationState((current) => ({
+        ...current,
+        [key]: {
+          accessUrl,
+          expiresAt: result.memberAccess?.expiresAt,
+          isLoading: false,
+        },
+      }));
+
+      return accessUrl;
+    } catch (error) {
+      setInvitationState((current) => ({
+        ...current,
+        [key]: {
+          error: error instanceof Error ? error.message : "Unable to create member access link.",
+          isLoading: false,
+        },
+      }));
+
+      return null;
+    }
+  }
+
+  async function copyInvitation(target: ResourceAssignmentInvitationTarget) {
+    const accessUrl = await createInvitation(target);
+
+    if (accessUrl) {
+      const result = await copyOrShareParticipantText({
+        label: `${target.personName}'s DOS invitation`,
+        url: accessUrl,
+        value: accessUrl,
+      });
+      setCopyMessage(participantUrlCopyMessage(result, accessUrl, `${target.personName}'s link copied.`));
+    }
+  }
+
+  async function shareInvitation(target: ResourceAssignmentInvitationTarget) {
+    const accessUrl = await createInvitation(target);
+
+    if (!accessUrl) {
+      return;
+    }
+
+    const text = invitationText(target, accessUrl);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          text,
+          title: `${resource?.title ?? "DOS"} invitation`,
+          url: accessUrl,
+        });
+        setCopyMessage("Invitation ready to send.");
+        return;
+      } catch {
+        // Fall back to copying the message if the native share sheet is canceled or unavailable.
+      }
+    }
+
+    await copyText(text, "Invitation message");
+  }
+
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Resource Assigned">
+    <Sheet onClose={onClose} showEyebrow={false} title={notice.kind === "group" ? "Group Study Assigned" : "Study Assigned"}>
       <div className="grid gap-3">
-        <p className="rounded-[22px] border border-[#BBF7D0] bg-[#F7FEFA] px-4 py-3 text-sm font-semibold leading-6 text-[#15803D]">{notice.text}</p>
+        <div className="rounded-[22px] border border-[#BBF7D0] bg-[#F7FEFA] px-4 py-3">
+          <p className="text-sm font-black leading-6 text-[#14532D]">{successTitle}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-[#15803D]">{planLine}</p>
+          {notice.failureCount || notice.duplicateCount ? (
+            <p className="mt-1 text-xs font-bold leading-5 text-[#166534]">{notice.text}</p>
+          ) : null}
+        </div>
         {resource ? (
           <article className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
             <p className="text-sm font-black text-[#0F172A]">{resource.title}</p>
@@ -13354,19 +14008,79 @@ function ResourceAssignmentSuccessSheet({
           </article>
         ) : null}
         {copyMessage ? <p className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2 text-xs font-bold leading-5 text-[#1D4ED8]">{copyMessage}</p> : null}
+        {invitationTargets.length ? (
+          <div className="grid gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Secure Invitation</p>
+            {invitationTargets.map((target) => {
+              const state = invitationState[targetKey(target)] ?? {};
+
+              return (
+                <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2.5" key={targetKey(target)}>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                      <p className="break-words text-sm font-black text-[#0F172A]">{target.personName}</p>
+                      <p className="mt-0.5 break-words text-xs font-semibold text-[#64748B]">{target.groupName}</p>
+                    </div>
+                    {/* Same USA-170 overflow fix as the participant rows: the
+                        action group wraps and shrinks instead of forcing its
+                        max-content width past a 390px viewport. */}
+                    <div className="flex min-w-0 flex-wrap gap-2">
+                      <button
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-3 text-center text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={state.isLoading}
+                        onClick={() => void shareInvitation(target)}
+                        type="button"
+                      >
+                        {state.isLoading ? "Creating..." : "Text Invitation"}
+                      </button>
+                      <button
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-center text-xs font-black text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={state.isLoading}
+                        onClick={() => void copyInvitation(target)}
+                        type="button"
+                      >
+                        Copy Link
+                      </button>
+                      <button
+                        className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-center text-xs font-black text-[#475569]"
+                        onClick={() => setPreviewTarget(target)}
+                        type="button"
+                      >
+                        Preview {participantFirstName(target.personName)}'s Experience
+                      </button>
+                    </div>
+                  </div>
+                  {state.accessUrl ? <p className="mt-2 break-all text-[11px] font-semibold leading-5 text-[#64748B]">{state.accessUrl}</p> : null}
+                  {state.expiresAt ? <p className="mt-1 text-[11px] font-semibold text-[#94A3B8]">Invite expires {formatDate(state.expiresAt)}.</p> : null}
+                  {state.error ? <p className="mt-2 text-xs font-bold leading-5 text-red-700">{state.error}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-[18px] border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-xs font-bold leading-5 text-[#9A3412]">
+            Secure participant links require an active Group member identity. Add this person to a Group before inviting them.
+          </p>
+        )}
+        {previewTarget ? (
+          <MemberGroupHomePreview
+            group={previewGroupForTarget(groups, previewTarget)}
+            journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+            member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
+            nextGathering={previewNextGatheringForTarget(groups, previewTarget)}
+            onClose={() => setPreviewTarget(null)}
+            progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
+          />
+        ) : null}
         {canOpenJourney && resource ? (
-          <AppButton icon="library" onClick={() => onOpenJourney(resource, notice.personId)} tone="black">Open Journey</AppButton>
+          <AppButton icon="library" onClick={() => notice.personId ? onOpenJourney(resource, notice.personId) : undefined} tone="black">Open Journey</AppButton>
         ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {publicUrl ? <AppButton icon="send" onClick={() => void copyText(publicUrl, "Public link")} tone="white">Copy Public Link</AppButton> : null}
-          {notice.personalMessage ? <AppButton icon="log" onClick={() => void copyText(notice.personalMessage as string, "Message")} tone="white">Copy Message</AppButton> : null}
-          {resource?.downloadPath ? (
-            <a className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#0F172A]" download href={resource.downloadPath}>
-              <FileText className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-              Open PDF
-            </a>
+          {notice.kind === "group" && notice.groupId ? (
+            <AppButton icon="people" onClick={() => onOpenGroupParticipants(notice.groupId as string)} tone="white">View Participants</AppButton>
+          ) : notice.personId ? (
+            <AppButton icon="people" onClick={() => onOpenPerson(notice.personId as string)} tone={canOpenJourney ? "white" : "black"}>Open Person Profile</AppButton>
           ) : null}
-          <AppButton icon="people" onClick={() => onOpenPerson(notice.personId)} tone={canOpenJourney ? "white" : "black"}>Open Person Profile</AppButton>
         </div>
         <AppButton onClick={onClose} tone="white">Done</AppButton>
       </div>
@@ -13393,7 +14107,7 @@ function ResourceAssignmentDuplicateSheet({
         <div className="rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] px-4 py-3">
           <p className="text-sm font-black text-[#0F172A]">{duplicate.personName} already has {duplicate.resourceTitle} assigned.</p>
           <p className="mt-1 text-sm leading-6 text-[#9A3412]">
-            Use the existing journey so Library, Person profile, Group, and My Record all reference the same progress record.
+            Keep {duplicate.personName}'s progress and connect this Journey everywhere it belongs.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -13434,69 +14148,73 @@ function ResourceAssignmentFormSheet({
   sourceGroupId?: string | null;
 }) {
   const selectedPersonId = personId ?? assignment?.personId ?? people[0]?.id ?? "";
-  const selectedPersonName = people.find((person) => person.id === selectedPersonId)?.name ?? null;
-  const startDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
-  const dueDate = assignment?.dueDate ?? defaultResourceAssignmentDueDate(startDate, resource.assignmentDefaults?.durationDays);
-  const cadence = assignment?.followUpCadence ?? resource.assignmentDefaults?.followUpCadence ?? "midpoint_and_completion";
+  const initialStartDate = assignment?.startDate ?? todayResourceAssignmentDateKey();
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const estimatedCompletionDate = resourceAssignmentEstimatedCompletionDate(startDate, resource);
+  const cadence = assignment?.followUpCadence ?? "none";
   const context = assignmentContext ?? assignment?.assignmentContext ?? "person";
   const groupContextId = sourceGroupId ?? assignment?.sourceGroupId ?? "";
   const assignmentSharingLevel = sharingLevel ?? assignment?.sharingLevel ?? "leader_progress";
 
+  useEffect(() => {
+    setStartDate(initialStartDate);
+  }, [assignment?.id, initialStartDate, resource.slug]);
+
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Resource Assignment" : "Assign Resource"}>
-      <form className="grid gap-4" onSubmit={onSubmit}>
+    <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Journey" : "Assign Journey"}>
+      <form className="grid min-w-0 gap-4 overflow-x-hidden" onSubmit={onSubmit}>
         <input name="assignment_context" type="hidden" value={context} />
+        <input name="due_date" type="hidden" value="" />
+        <input name="personal_message" type="hidden" value="" />
         <input name="resource_slug" type="hidden" value={resource.slug} />
         <input name="sharing_level" type="hidden" value={assignmentSharingLevel} />
         <input name="source_group_id" type="hidden" value={groupContextId} />
         {assignment ? <input name="id" type="hidden" value={assignment.id} /> : null}
         <DosFormSection icon="library" title={resource.title}>
-          {!personId && !assignment ? (
-            <FormOptionSelect
-              defaultValue={selectedPersonId}
-              label="Person"
-              name="person_id"
-              options={people.map((person) => ({ label: person.name, value: person.id }))}
+          <div className="grid min-w-0 gap-3 min-[380px]:grid-cols-2">
+            {!personId && !assignment ? (
+              <FormOptionSelect
+                defaultValue={selectedPersonId}
+                label="Person"
+                name="person_id"
+                options={people.map((person) => ({ label: person.name, value: person.id }))}
+              />
+            ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
+            <DosDateInput
+              label="Start Date"
+              maxYear={new Date().getFullYear() + 5}
+              minYear={new Date().getFullYear() - 1}
+              name="start_date"
+              onChange={setStartDate}
+              required
+              value={startDate}
             />
-          ) : <input name="person_id" type="hidden" value={selectedPersonId} />}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Start Date">
-              <input className={FieldInputClass(false)} defaultValue={startDate} name="start_date" type="date" />
-            </DosFormField>
-            <DosFormField label="Due Date">
-              <input className={FieldInputClass(false)} defaultValue={dueDate} name="due_date" type="date" />
-            </DosFormField>
+          </div>
+          <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Estimate</p>
+            <p className="mt-1 text-sm font-black text-[#0F172A]">{formatDate(estimatedCompletionDate)}</p>
+            <p className="mt-1 text-xs leading-5 text-[#64748B]">{resourceAssignmentPlanLengthLabel(resource)} from the start date. This is not a due date.</p>
           </div>
         </DosFormSection>
 
-        <details className="group rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3" open>
+        <details className="group rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
           <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            Follow-Up &amp; Message (Optional)
+            Leader Reminder (Optional)
             <ChevronDown className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180" aria-hidden="true" strokeWidth={1.9} />
           </summary>
           <div className="mt-3 grid gap-3">
             <FormOptionSelect
               defaultValue={cadence}
-              label="Follow-Up Cadence"
+              label="Reminder"
               name="follow_up_cadence"
               options={dosResourceAssignmentFollowUpCadences.map((option) => ({ label: resourceAssignmentFollowUpCadenceLabels[option], value: option }))}
             />
-            <DosFormField label="Personal Message">
-              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-24`} defaultValue={assignment?.personalMessage ?? resource.assignmentDefaults?.defaultMessage ?? ""} name="personal_message" />
-            </DosFormField>
           </div>
         </details>
 
-        <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3.5 py-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Linked Commitment</p>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">
-            Marking this journey complete also completes {selectedPersonName ? `${selectedPersonName}'s` : "their"} commitment "{resourceAssignmentCommitmentTitle(resource.title)}" - no extra setup needed.
-          </p>
-        </div>
-
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : assignment ? "Save Assignment" : "Assign Resource"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : resourceAssignmentPrimaryActionLabel(resource, assignment)}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -14800,14 +15518,14 @@ function Sheet({
 
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
-    : "max-w-lg overflow-y-auto rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
+    : "max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
 
   const content = (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
-      <div className="flex min-h-full items-end justify-center md:items-center">
+    <div className="fixed inset-0 z-[1000] overflow-y-auto overflow-x-hidden bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
+      <div className="flex min-h-full min-w-0 items-end justify-center md:items-center">
         <div
           aria-modal="true"
-          className={`max-h-[calc(100dvh-1.5rem)] w-full border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
+          className={`max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] min-w-0 border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
@@ -33674,6 +34392,7 @@ function LibraryCatalogResourcePage({
   isSubmitting,
   onAssign,
   onBack,
+  onOpenScripture,
   onReviewNotes,
   onSaveProgress,
   onStartNextResource,
@@ -33686,6 +34405,7 @@ function LibraryCatalogResourcePage({
   isSubmitting: boolean;
   onAssign?: (resource: DosResource) => void;
   onBack: () => void;
+  onOpenScripture?: (scripture: ScriptureReference, event: MouseEvent<HTMLButtonElement>) => void;
   onReviewNotes: () => void;
   onSaveProgress: (request: {
     actionStep: string;
@@ -33702,24 +34422,33 @@ function LibraryCatalogResourcePage({
   resource: DosResource;
 }) {
   if (isGuidedResource(resource)) {
-    // The Journey shell renders its own sticky `‹ Library` nav, so no outer
-    // back pill here — one way back, not two.
+    // The way back sits above the Journey content, so the Journey's own nav
+    // strip carries identity only.
     return (
-      <div className="bg-white">
-        <GuidedResourceDetailSheet
-          assignments={assignments}
-          errorMessage={errorMessage}
-          guidedResourceProgress={guidedResourceProgress}
-          isSubmitting={isSubmitting}
-          onAssign={onAssign}
-          onClose={onBack}
-          onReviewNotes={onReviewNotes}
-          onSaveProgress={onSaveProgress}
-          onStartNextResource={onStartNextResource}
-          personId={personId}
-          resource={resource}
-          variant="page"
-        />
+      <div className="grid gap-3">
+        <LibraryResourceBackButton onClick={onBack} />
+        {/*
+          Same rounded surface as every other DOS card, and clipped so the
+          full-bleed Journey bands follow the radius instead of leaving square
+          corners against the DOS background.
+        */}
+        <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+          <GuidedResourceDetailSheet
+            assignments={assignments}
+            errorMessage={errorMessage}
+            guidedResourceProgress={guidedResourceProgress}
+            isSubmitting={isSubmitting}
+            onAssign={onAssign}
+            onClose={onBack}
+            onOpenScripture={onOpenScripture}
+            onReviewNotes={onReviewNotes}
+            onSaveProgress={onSaveProgress}
+            onStartNextResource={onStartNextResource}
+            personId={personId}
+            resource={resource}
+            variant="page"
+          />
+        </div>
       </div>
     );
   }
@@ -36335,9 +37064,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  function openGroupDetail(groupId: string) {
+  function openGroupDetail(groupId: string, tab: GroupDetailTab = "overview") {
     setSelectedGroupId(groupId);
-    setGroupDetailTab("overview");
+    setGroupDetailTab(tab);
     setGroupsNotice("");
     setGroupCreateMessage(null);
     setGroupInviteMessage(null);
@@ -37314,32 +38043,58 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupJourneyAssign(null);
   }
 
-  async function handleGroupJourneyAssignSubmit(resourceSlug: string, personIds: string[]) {
-    if (isPreview) {
-      setErrorMessage("Preview mode is read-only. Demo changes are not saved.");
-      return;
-    }
-
+  async function handleGroupJourneyAssignSubmit(resourceSlug: string, personIds: string[], options: { reuseExisting: boolean; startDate: string }) {
     if (!personIds.length) {
       setErrorMessage("Choose at least one active member to assign.");
       return;
     }
 
     setErrorMessage("");
+    const startDate = options.startDate || todayResourceAssignmentDateKey();
+    const sourceGroup = groupJourneyAssign?.group ?? null;
+    const sourceGroupId = sourceGroup?.id ?? null;
+    const selectedMembers = sourceGroup?.members.filter((member) => personIds.includes(member.personId) && member.status === "active") ?? [];
+
+    if (isPreview) {
+      setGroupJourneyAssign(null);
+      setResourceAssignmentNotice({
+        assignmentCount: selectedMembers.length,
+        groupId: sourceGroup?.id ?? null,
+        groupName: sourceGroup?.name ?? null,
+        invitationTargets: selectedMembers.map((member) => ({
+          groupId: sourceGroup?.id ?? "",
+          groupName: sourceGroup?.name ?? "Group",
+          groupSlug: sourceGroup?.slug ?? "",
+          memberId: member.id,
+          personId: member.personId,
+          personName: member.personName,
+        })),
+        kind: "group",
+        personalMessage: null,
+        resourceSlug,
+        startDate,
+        text: `Assigned to ${selectedMembers.length} ${sourceGroup?.name ?? "group"} ${selectedMembers.length === 1 ? "member" : "members"}.`,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
-    const startDate = todayResourceAssignmentDateKey();
-    const sourceGroupId = groupJourneyAssign?.group.id ?? null;
     let duplicateCount = 0;
     let failureCount = 0;
     let successCount = 0;
+    const duplicatePersonIds = new Set<string>();
+    const failedPersonIds = new Set<string>();
 
     for (const personId of personIds) {
       try {
         const response = await fetch("/api/dos/app/resource-assignments", {
           body: JSON.stringify({
             assignmentContext: "group",
+            dueDate: "",
+            followUpCadence: "none",
             personId,
             resourceSlug,
+            reuseExisting: options.reuseExisting,
             sharingLevel: "leader_progress",
             sourceGroupId,
             startDate,
@@ -37351,13 +38106,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         if (response.status === 409) {
           duplicateCount += 1;
+          duplicatePersonIds.add(personId);
         } else if (response.ok) {
           successCount += 1;
         } else {
           failureCount += 1;
+          failedPersonIds.add(personId);
         }
       } catch {
         failureCount += 1;
+        failedPersonIds.add(personId);
       }
     }
 
@@ -37375,11 +38133,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     router.refresh();
     setGroupJourneyAssign(null);
-    setGroupsNotice(
-      failureCount || duplicateCount
-        ? `Assigned to ${successCount} of ${personIds.length} members. ${duplicateCount ? `${duplicateCount} already had this journey.` : ""}${failureCount ? ` ${failureCount} could not be assigned.` : ""}`.trim()
-        : `Assigned to ${personIds.length} ${personIds.length === 1 ? "member" : "members"}.`,
-    );
+    setResourceAssignmentNotice({
+      assignmentCount: successCount,
+      duplicateCount,
+      failureCount,
+      groupId: sourceGroup?.id ?? null,
+      groupName: sourceGroup?.name ?? null,
+      invitationTargets: selectedMembers
+        .filter((member) => !failedPersonIds.has(member.personId) && !duplicatePersonIds.has(member.personId))
+        .map((member) => ({
+          groupId: sourceGroup?.id ?? "",
+          groupName: sourceGroup?.name ?? "Group",
+          groupSlug: sourceGroup?.slug ?? "",
+          memberId: member.id,
+          personId: member.personId,
+          personName: member.personName,
+        })),
+      kind: "group",
+      personalMessage: null,
+      resourceSlug,
+      startDate,
+      text: failureCount || duplicateCount
+        ? `Assigned to ${successCount} of ${personIds.length} ${personIds.length === 1 ? "member" : "members"}. ${duplicateCount ? `${duplicateCount} still needs an explicit reuse decision.` : ""}${failureCount ? ` ${failureCount} could not be assigned.` : ""}`.trim()
+        : `Assigned to ${personIds.length} ${sourceGroup?.name ?? "group"} ${personIds.length === 1 ? "member" : "members"}.`,
+    });
   }
 
   function openResourceAssignmentEdit(assignment: DosAppResourceAssignment) {
@@ -37514,17 +38291,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const id = String(formData.get("id") ?? "").trim();
+    const personId = String(formData.get("person_id") ?? "");
+    const resourceSlug = String(formData.get("resource_slug") ?? "");
+    const startDate = String(formData.get("start_date") ?? "") || todayResourceAssignmentDateKey();
+
+    if (isPreview && !id) {
+      setErrorMessage("");
+      setResourceAssignmentSheet(null);
+      setResourceAssignmentDuplicate(null);
+      setResourceAssignmentNotice({
+        assignmentId: `demo-assignment-${cleanDemoAccessId(resourceSlug)}-${cleanDemoAccessId(personId)}`,
+        kind: "individual",
+        personId,
+        personName: people.find((person) => person.id === personId)?.name ?? null,
+        personalMessage: null,
+        resourceSlug,
+        startDate,
+        text: "Resource assigned.",
+      });
+      return;
+    }
+
     const result = await submitResourceAssignmentRequest({
       assignmentContext: String(formData.get("assignment_context") ?? ""),
       dueDate: String(formData.get("due_date") ?? ""),
       followUpCadence: String(formData.get("follow_up_cadence") ?? ""),
       id,
-      personId: String(formData.get("person_id") ?? ""),
+      personId,
       personalMessage: String(formData.get("personal_message") ?? ""),
-      resourceSlug: String(formData.get("resource_slug") ?? ""),
+      resourceSlug,
       sharingLevel: String(formData.get("sharing_level") ?? ""),
       sourceGroupId: String(formData.get("source_group_id") ?? ""),
-      startDate: String(formData.get("start_date") ?? ""),
+      startDate,
     }, id ? "PATCH" : "POST");
 
     if (result?.assignment) {
@@ -37532,9 +38330,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setResourceAssignmentDuplicate(null);
       setResourceAssignmentNotice({
         assignmentId: result.assignment.id,
+        kind: "individual",
         personId: result.assignment.personId,
+        personName: people.find((person) => person.id === result.assignment?.personId)?.name ?? null,
         personalMessage: result.assignment.personalMessage,
         resourceSlug: result.assignment.resourceSlug,
+        startDate: result.assignment.startDate,
         text: id ? "Resource assignment updated." : "Resource assigned.",
       });
     }
@@ -37555,9 +38356,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setResourceAssignmentSheet(null);
       setResourceAssignmentNotice({
         assignmentId: result.assignment.id,
+        kind: "individual",
         personId: result.assignment.personId,
+        personName: people.find((person) => person.id === result.assignment?.personId)?.name ?? null,
         personalMessage: result.assignment.personalMessage,
         resourceSlug: result.assignment.resourceSlug,
+        startDate: result.assignment.startDate,
         text: "Existing journey reused.",
       });
     }
@@ -37596,9 +38400,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     if (result?.assignment) {
       setResourceAssignmentNotice({
         assignmentId: result.assignment.id,
+        kind: "individual",
         personId: result.assignment.personId,
+        personName: people.find((person) => person.id === result.assignment?.personId)?.name ?? null,
         personalMessage: result.assignment.personalMessage,
         resourceSlug: result.assignment.resourceSlug,
+        startDate: result.assignment.startDate,
         text: status === "completed" ? "Resource completed." : status === "paused" ? "Resource paused." : "Resource updated.",
       });
     }
@@ -37625,9 +38432,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setResourceAssignmentSheet(null);
       setResourceAssignmentNotice({
         assignmentId: result.assignment.id,
+        kind: "individual",
         personId: result.assignment.personId,
+        personName: people.find((person) => person.id === result.assignment?.personId)?.name ?? null,
         personalMessage: result.assignment.personalMessage,
         resourceSlug: result.assignment.resourceSlug,
+        startDate: result.assignment.startDate,
         text: "Resource check-in saved.",
       });
     }
@@ -41162,10 +41972,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         errorMessage={errorMessage}
                         guidedResourceProgress={data.guidedResourceProgress}
                         isSubmitting={isSubmitting}
-                        onAssign={(resource) => openResourceAssignmentCreate(resource, myRecordPerson?.id ?? null, {
-                          assignmentContext: myRecordPerson?.id ? "self" : "library",
-                        })}
+                        // Assigning moved off the Library row, so the Resource
+                        // page keeps the full "myself / a person / a group"
+                        // picker rather than only self-assigning.
+                        onAssign={openAssignTargetPicker}
                         onBack={closeLibraryResourceView}
+                        onOpenScripture={openScriptureQuickView}
                         onReviewNotes={() => openMyRecordTab("learning")}
                         onSaveProgress={saveGuidedResourceProgress}
                         onStartNextResource={closeLibraryResourceView}
@@ -41259,13 +42071,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         </LibrarySection>
 
                         <LibrarySection title="Discipleship">
+                          {/*
+                            Plain list entries, same pattern as Commands of Jesus.
+                            Assigning, starting, continuing, progress and purchase
+                            all live on the full Resource page, not in the Library.
+                          */}
                           <CatalogResourceList
-                            guidedResourceProgress={data.guidedResourceProgress}
-                            onAssign={openAssignTargetPicker}
-                            onOpenGuidedResource={openLibraryResource}
-                            onReviewGuidedResource={() => openMyRecordTab("learning")}
-                            progressPersonId={myRecordPerson?.id ?? null}
-                            resourceAssignments={data.resourceAssignments}
+                            onOpenResource={openLibraryResource}
                             resources={dosDiscipleshipResourceItems}
                             workspaceSlug={data.workspace.slug}
                           />
@@ -41802,8 +42614,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {resourceAssignmentNotice ? (
           <ResourceAssignmentSuccessSheet
+            guidedResourceProgress={data.guidedResourceProgress}
+            groups={groups}
+            isPreview={isPreview}
             notice={resourceAssignmentNotice}
             onClose={() => setResourceAssignmentNotice(null)}
+            onOpenGroupParticipants={(groupId) => {
+              setResourceAssignmentNotice(null);
+              setActiveTab("more");
+              setMoreAppView("groups");
+              openGroupDetail(groupId, "people");
+            }}
             onOpenJourney={(resource, personId) => {
               setResourceAssignmentNotice(null);
               openJourneyForPerson(resource, personId);
@@ -41812,6 +42633,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setResourceAssignmentNotice(null);
               openPersonDetail(personId);
             }}
+            resourceAssignments={data.resourceAssignments}
+            workspaceId={data.workspace.id}
           />
         ) : null}
 
@@ -41953,6 +42776,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSubmitting={isSubmitting}
             onClose={closeGroupJourneyAssign}
             onSubmit={handleGroupJourneyAssignSubmit}
+            resourceAssignments={data.resourceAssignments}
           />
         ) : null}
 

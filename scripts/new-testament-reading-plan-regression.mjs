@@ -91,6 +91,9 @@ assert(libraryReadingPlanCard.includes("Download PDF"), "Featured reading plan c
 assert(libraryReadingPlanCard.includes("resource.downloadPath"), "Download PDF should use the catalog download path.");
 assert(!libraryReadingPlanCard.includes("Type: ${typeLabel}"), "Reading plan card should not duplicate the type badge as a second Type: line.");
 assert(libraryReadingPlanCard.includes("{resource.estimatedDuration}"), "Featured reading plan card should display duration metadata in the compact badge row.");
-assert(dosClient.includes("resource.content?.subtitle ?? resource.description"), "Featured reading plan card should use the public reading plan description.");
+// The Library row uses the short description so the list keeps one rhythm;
+// the longer public subtitle still carries the public guide pages.
+assert(guidePage.includes("resource.content?.subtitle ?? resource.description"), "Public guide page should use the longer reading plan subtitle.");
+assert(dosClient.includes("const description = resource.description;"), "Library rows should use the short catalog description.");
 
 console.log("New Testament reading plan regression passed.");

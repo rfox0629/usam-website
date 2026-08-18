@@ -10,11 +10,8 @@ import {
   type AdminBadgeTone,
 } from "../_components/AdminUI";
 import {
-  restorationHandoffOutcomes,
-  restorationPreviewToken,
   restorationSectionCompletion,
   restorationSections,
-  restorationStatuses,
 } from "@/src/lib/restoration/intake";
 
 export const dynamic = "force-dynamic";
@@ -27,18 +24,35 @@ export const metadata: Metadata = {
   },
 };
 
+const restorationStatuses = [
+  "invited",
+  "started",
+  "last_saved",
+  "submitted",
+  "under_review",
+  "meeting_scheduled",
+  "in_restoration",
+  "completed",
+  "declined_closed",
+] as const;
+
 type RestorationStatus = (typeof restorationStatuses)[number];
+
+const restorationHandoffOutcomes = [
+  "Begin discipleship",
+  "Begin discipleship alongside focused restoration",
+  "Prioritize focused restoration, then begin structured discipleship",
+] as const;
 
 const previewValues: Record<string, unknown> = {
   careAcknowledgement: true,
   immediateDanger: "No",
   informedConsent: true,
   jesusAuthorityFreedom: "Yes",
-  participantEmail: "preview@usam.dev",
-  participantName: "Preview Participant",
+  participantEmail: "sample@example.com",
+  participantName: "Sample Participant",
   participantPhone: "555-0100",
-  previewAcknowledgement: true,
-  promptedPrayerCounseling: "I want a guided prayer process and a clear restoration next step.",
+  whatBringsYouHere: "I want prayer, truth, and a clear restoration next step.",
   restorationGoals: "Peace, forgiveness, and a healthy discipleship path.",
   truthfulInitials: true,
   waterBaptized: "Yes",
@@ -57,10 +71,10 @@ const referralRows: Array<{
   submittedAt: string;
 }> = [
   {
-    assignedTo: "MOR Preview Team",
+    assignedTo: "Mission of Reconciliation Review Team",
     followUp: "Review consent and schedule first restoration meeting",
     lastSaved: "13 Aug 2026, 10:36 AM",
-    person: "Preview Participant",
+    person: "Sample Participant",
     progress: "6 of 11 sections started",
     referredBy: "USA Missionary",
     status: "under_review",
@@ -83,7 +97,7 @@ const auditEvents = [
   { actor: "Participant", event: "Access verified without answer payload in email or URL", time: "13 Aug 2026, 9:04 AM" },
   { actor: "System", event: "Draft autosaved", time: "13 Aug 2026, 10:36 AM" },
   { actor: "Participant", event: "Submitted reflection", time: "13 Aug 2026, 10:42 AM" },
-  { actor: "Operations", event: "Assigned MOR Preview Team", time: "13 Aug 2026, 10:48 AM" },
+  { actor: "Operations", event: "Assigned Mission of Reconciliation Review Team", time: "13 Aug 2026, 10:48 AM" },
 ];
 
 const statusTone: Record<RestorationStatus, AdminBadgeTone> = {
@@ -153,8 +167,8 @@ export default function RestorationAdminPage() {
   return (
     <AdminShell
       active="forms-pages"
-      action={<AdminActionLink href={`/restoration/${restorationPreviewToken}`} variant="gold">Participant Preview</AdminActionLink>}
-      description="Restricted MOR review workspace for restoration referrals, intake status, and discipleship handoff."
+      action={<AdminActionLink href="/restoration" variant="gold">Open Form</AdminActionLink>}
+      description="Restricted Mission of Reconciliation review workspace for restoration referrals, intake status, and discipleship handoff."
       title="Restoration"
     >
       <div className="space-y-5">
@@ -273,9 +287,9 @@ export default function RestorationAdminPage() {
           <aside className="space-y-5">
             <CompactPanel title="Access Boundary">
               <div className="space-y-3 text-sm leading-6 text-stone-400">
-                <p>Full answers are restricted to MOR and authorized operations roles.</p>
+                <p>Full answers are restricted to Mission of Reconciliation and authorized operations roles.</p>
                 <p>Ordinary DOS/person views receive handoff status only.</p>
-                <p>Branch preview uses fabricated local data and no production persistence.</p>
+                <p>This screen uses non-sensitive sample rows when live review data is unavailable.</p>
               </div>
             </CompactPanel>
 
@@ -283,7 +297,7 @@ export default function RestorationAdminPage() {
               <div className="space-y-4">
                 <div>
                   <FieldLabel>Reviewer</FieldLabel>
-                  <p className="mt-1 text-sm text-stone-100">MOR Preview Team</p>
+                  <p className="mt-1 text-sm text-stone-100">Mission of Reconciliation Review Team</p>
                 </div>
                 <div>
                   <FieldLabel>Internal Follow Up</FieldLabel>
@@ -300,7 +314,8 @@ export default function RestorationAdminPage() {
               <div id="restricted-answers" className="space-y-3">
                 <AdminBadge tone="red">Restricted</AdminBadge>
                 <p className="text-sm leading-6 text-stone-400">
-                  Preview keeps values minimal; production should render the encrypted answer record after server-side role authorization.
+                  Full answers must stay behind server-side authorization. USA-166 remains the gated work
+                  for dedicated restoration referrals, drafts, reviewer roles, and answer-level audit trails.
                 </p>
                 <details className="border border-stone-800/70 bg-[#050505]/70 p-3">
                   <summary

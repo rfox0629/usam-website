@@ -112,6 +112,7 @@ const groupPendingRequestsRoute = read("app/api/dos/app/groups/pending-requests/
 const groupSettingsRoute = read("app/api/dos/app/groups/settings/route.ts");
 const publicGroupActions = read("app/groups/actions.ts");
 const publicGroupsDirectoryPage = read("app/groups/page.tsx");
+const communityContent = read("app/groups/community-content.ts");
 const publicGroupPage = read("app/groups/[slug]/page.tsx");
 const publicGroupPageTemplate = read("app/groups/PublicGroupPageTemplate.tsx");
 const dosWorkspaceRoute = read("app/dos/[collectiveSlug]/page.tsx");
@@ -719,8 +720,14 @@ assertIncludes(groupCreateRoute, "primary_leader_person_id", "New Group API must
 assertIncludes(groupCreateRoute, "role: \"co_leader\"", "New Group API must persist co-leaders.");
 assertIncludes(groupCreateRoute, "role: \"helper\"", "New Group API must persist helpers.");
 assertIncludes(groupMembersRoute, 'role === "helper"', "Group member API must accept helper role.");
-assertIncludes(publicGroupsDirectoryPage, "Running Group", "Public groups directory must avoid redundant 2three2 running labels.");
-assertIncludes(publicSingleGroupRoute, "return `${publicGroupActivityLabel(group)} Group`", "Public group page must avoid redundant 2three2 running labels.");
+assertIncludes(communityContent, 'typeLabel: "Running Group"', "Shared template copy must label the activity template without repeating 2three2.");
+assert(
+  !/typeLabel:\s*"[^"]*2three2/i.test(communityContent),
+  "Shared template copy must avoid redundant 2three2 running labels.",
+);
+for (const surface of [publicGroupsDirectoryPage, publicSingleGroupRoute]) {
+  assertIncludes(surface, "communityCopyFor", "Public Group surfaces must resolve labels from the shared template copy.");
+}
 
 assertIncludes(preview, 'const groups: DosAppData["groups"]', "DOS preview data must include groups.");
 assertIncludes(preview, "groupsSimplifiedV2: true", "DOS preview must match the live Groups V2 default now enabled for real workspaces.");
@@ -884,10 +891,11 @@ for (const privatePublicTerm of [
   );
 }
 assertIncludes(publicSingleGroupRoute, "PublicGroupHeader", "Public group route must present the minimal Groups header.");
-assertIncludes(publicSingleGroupRoute, "Next Gathering", "Public group route must include Next Gathering.");
+assertIncludes(publicSingleGroupRoute, "Next gathering", "Public group route must include the canonical next gathering.");
+assertIncludes(publicSingleGroupRoute, "buildCommunitySchedule", "Public group route must read one canonical schedule, not rival rhythm/next fields.");
 assertIncludes(publicSingleGroupRoute, "Leaders", "Public group route must show group leaders.");
-assertIncludes(publicSingleGroupRoute, "Request to Join", "Public group route must include Request to Join.");
-assertIncludes(publicSingleGroupRoute, "Sign In", "Public group route must include Sign In.");
+assertIncludes(publicSingleGroupRoute, "Request to join", "Public group route must include the join action.");
+assertIncludes(publicSingleGroupRoute, "Member sign in", "Public group route must include member sign in.");
 assertNotIncludes(publicSingleGroupRoute, "Manage in DOS", "Public Group Home must not expose DOS management actions.");
 assertIncludes(publicSingleGroupRoute, "Request received. A group leader will follow up.", "Public group route must include the requested success state.");
 assertIncludes(publicSingleGroupRoute, "submitGroupJoinRequest", "Public group route must submit the live join request action.");

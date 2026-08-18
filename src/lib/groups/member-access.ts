@@ -1,8 +1,15 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
+import {
+  buildDemoGroupMemberSessionToken,
+  demoGroupMemberAccessTokenPrefix,
+  parseDemoGroupMemberAccessToken,
+  parseDemoGroupMemberSessionToken,
+} from "@/src/lib/groups/demo-member-access";
 import { missingPublicSiteSchema, publicGroupPath } from "@/src/lib/groups/public-site";
 import { isRouteBuilderEligibleGroup } from "@/src/lib/groups/route-builder";
 
@@ -171,6 +178,14 @@ export type MemberAccessInvitation = {
   token: string;
 };
 
+type PreparedGroupMemberAccess = {
+  group: Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug">;
+  identity: MemberIdentityRow;
+  member: MemberRow;
+  person: PersonRow;
+  provisionedGroupAccess: boolean;
+};
+
 export type GroupMemberPortalData = {
   attendance: Array<{
     gatheringId: string;
@@ -192,6 +207,7 @@ export type GroupMemberPortalData = {
   identity: {
     email: string | null;
     id: string;
+    name: string;
     personId: string;
     phone: string | null;
   };
@@ -301,7 +317,42 @@ function expiresIso(ttlMs: number) {
 }
 
 function isExpired(value: string) {
-  return new Date(value).getTime() <= Date.now();
+  const timestamp = new Date(value).getTime();
+
+  return Number.isNaN(timestamp) || timestamp <= Date.now();
+}
+
+function demoGroupMemberAccessEnabled() {
+  return process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"
+    && (process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview" || process.env.VERCEL_ENV === "development");
+}
+
+export function claimDemoGroupMemberAccessToken(
+  token: string,
+  expectedSlug: string,
+): { error?: "disabled" | "expired" | "invalid"; groupSlug?: string; sessionToken?: string } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { error: "disabled" };
+  }
+
+  if (!token.trim().startsWith(demoGroupMemberAccessTokenPrefix)) {
+    return { error: "disabled" };
+  }
+
+  const payload = parseDemoGroupMemberAccessToken(token);
+
+  if (!payload || payload.groupSlug !== expectedSlug) {
+    return { error: "invalid" };
+  }
+
+  if (isExpired(payload.expiresAt)) {
+    return { error: "expired" };
+  }
+
+  return {
+    groupSlug: payload.groupSlug,
+    sessionToken: buildDemoGroupMemberSessionToken(payload),
+  };
 }
 
 function memberIsActive(member: MemberRow | null | undefined): member is MemberRow {
@@ -316,6 +367,45 @@ function groupIsMemberAccessible<T extends Pick<GroupRow, "active" | "member_acc
   group: T | null | undefined,
 ): group is T {
   return Boolean(group && group.active !== false && group.member_access_enabled !== false);
+}
+
+async function ensureGroupMemberAccessEnabled(
+  supabase: SupabaseAdminClient,
+  group: Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug"> | null,
+) {
+  if (!group || group.active === false) {
+    return { error: "Group is not active." };
+  }
+
+  if (group.member_access_enabled !== false) {
+    return { group, provisioned: false };
+  }
+
+  const { data, error } = await supabase
+    .from("dos_groups")
+    .update({
+      member_access_enabled: true,
+    })
+    .eq("id", group.id)
+    .eq("active", true)
+    .select("id, slug, active, member_access_enabled, public_site_id")
+    .single();
+
+  if (error || !data) {
+    return missingPublicSiteSchema(error)
+      ? { missingSchema: true }
+      : { error: error?.message ?? "Unable to enable member access for this group." };
+  }
+
+  console.info("[Group Member Access] Auto-enabled scoped member access", {
+    groupId: group.id,
+    slug: group.slug,
+  });
+
+  return {
+    group: data as Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug">,
+    provisioned: true,
+  };
 }
 
 function safeLocationForMember(group: GroupRow, gathering?: Pick<GatheringRow, "location"> | null) {
@@ -386,7 +476,7 @@ async function loadGroupMemberIdentity(
   return { error, identity: data as MemberIdentityRow | null };
 }
 
-export async function createGroupMemberAccessInvitation(
+export async function ensureGroupMemberAccessReady(
   supabase: SupabaseAdminClient,
   input: {
     createdByPersonId?: string | null;
@@ -396,8 +486,9 @@ export async function createGroupMemberAccessInvitation(
     memberId?: string | null;
     personId: string;
     phone?: string | null;
+    source?: "leader_assignment" | "leader_invitation";
   },
-): Promise<{ error?: string; invitation?: MemberAccessInvitation; missingSchema?: boolean }> {
+): Promise<{ access?: PreparedGroupMemberAccess; error?: string; missingSchema?: boolean }> {
   const [groupResult, memberResult, personResult] = await Promise.all([
     supabase
       .from("dos_groups")
@@ -437,8 +528,14 @@ export async function createGroupMemberAccessInvitation(
   const member = memberResult.data as MemberRow | null;
   const person = personResult.data as PersonRow | null;
 
-  if (!group || !groupIsMemberAccessible(group)) {
-    return { error: "Member access is not enabled for this group." };
+  const groupAccess = await ensureGroupMemberAccessEnabled(supabase, group);
+
+  if (groupAccess.missingSchema) {
+    return { missingSchema: true };
+  }
+
+  if (groupAccess.error || !groupAccess.group || !groupIsMemberAccessible(groupAccess.group)) {
+    return { error: groupAccess.error ?? "Member access could not be enabled for this group." };
   }
 
   if (!memberIsActive(member)) {
@@ -466,15 +563,17 @@ export async function createGroupMemberAccessInvitation(
     return { error: existingIdentity.error.message ?? "Unable to load member identity." };
   }
 
+  const source = input.source ?? "leader_invitation";
+  const metadata = {
+    [existingIdentity.identity ? (source === "leader_assignment" ? "lastProvisionedAt" : "lastInvitedAt") : (source === "leader_assignment" ? "firstProvisionedAt" : "firstInvitedAt")]: nowIso(),
+    source,
+  };
   const identityWrite = existingIdentity.identity
     ? await supabase
       .from("dos_group_member_identities")
       .update({
         group_member_id: member.id,
-        metadata: {
-          lastInvitedAt: nowIso(),
-          source: "leader_invitation",
-        },
+        metadata,
         status: existingIdentity.identity.status === "verified" ? "verified" : "invited",
         verification_method: existingIdentity.identity.status === "verified" ? "email_invitation_token" : "leader_approval",
         verified_email: verifiedEmail,
@@ -488,10 +587,7 @@ export async function createGroupMemberAccessInvitation(
       .insert({
         group_id: input.groupId,
         group_member_id: member.id,
-        metadata: {
-          firstInvitedAt: nowIso(),
-          source: "leader_invitation",
-        },
+        metadata,
         person_id: input.personId,
         status: "invited",
         verification_method: "leader_approval",
@@ -508,6 +604,43 @@ export async function createGroupMemberAccessInvitation(
   }
 
   const identity = identityWrite.data as MemberIdentityRow;
+
+  return {
+    access: {
+      group: groupAccess.group,
+      identity,
+      member,
+      person,
+      provisionedGroupAccess: groupAccess.provisioned === true,
+    },
+  };
+}
+
+export async function createGroupMemberAccessInvitation(
+  supabase: SupabaseAdminClient,
+  input: {
+    createdByPersonId?: string | null;
+    createdByUserId?: string | null;
+    email?: string | null;
+    groupId: string;
+    memberId?: string | null;
+    personId: string;
+    phone?: string | null;
+  },
+): Promise<{ error?: string; invitation?: MemberAccessInvitation; missingSchema?: boolean }> {
+  const prepared = await ensureGroupMemberAccessReady(supabase, {
+    ...input,
+    source: "leader_invitation",
+  });
+
+  if (prepared.error || prepared.missingSchema || !prepared.access) {
+    return {
+      error: prepared.error,
+      missingSchema: prepared.missingSchema,
+    };
+  }
+
+  const { group, identity } = prepared.access;
 
   await supabase
     .from("dos_group_member_access_tokens")
@@ -692,6 +825,87 @@ function mapRsvpStatus(value: string | null | undefined): "active" | "canceled" 
 
 function mapAttendanceStatus(value: string | null | undefined): "absent" | "guest" | "present" {
   return value === "absent" || value === "guest" ? value : "present";
+}
+
+export function loadDemoGroupMemberPortalData(input: {
+  sessionToken: string | null | undefined;
+  slug: string;
+}): { data?: GroupMemberPortalData; error?: string; unauthorized?: boolean } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { unauthorized: true };
+  }
+
+  const payload = parseDemoGroupMemberSessionToken(input.sessionToken);
+
+  if (!payload || payload.groupSlug !== input.slug || isExpired(payload.expiresAt)) {
+    return { unauthorized: true };
+  }
+
+  const resource = getDosResourceBySlug(payload.resourceSlug);
+  const resourceSlug = resource?.type === "guided_resource" && resource.content?.guidedResource
+    ? payload.resourceSlug
+    : "marks-of-discipleship";
+  const completedSessionIds = (payload.completedSessionIds ?? []).filter(Boolean);
+
+  return {
+    data: {
+      attendance: [],
+      group: {
+        description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
+        id: payload.groupId,
+        location: "Ryan's House",
+        name: payload.groupName,
+        rhythm: "Weekly · Wednesday · 5:30 PM",
+        routeBuilderEligible: false,
+        slug: payload.groupSlug,
+        tagline: "Brotherhood. Prayer. Discipleship.",
+        type: "Discipleship group",
+      },
+      identity: {
+        email: payload.personName === "Tanner Kent" ? "tanner.kent@example.com" : null,
+        id: payload.identityId,
+        name: payload.personName,
+        personId: payload.personId,
+        phone: null,
+      },
+      journeyAssignments: [
+        {
+          completedAt: null,
+          dueDate: null,
+          id: `demo-assignment-${payload.memberId}-${resourceSlug}`,
+          personalMessage: null,
+          resourceSlug,
+          startDate: payload.startDate,
+          status: "not_started",
+        },
+      ],
+      journeyProgress: completedSessionIds.map((sessionId) => ({
+        actionStep: null,
+        completedAt: payload.startDate,
+        id: `demo-progress-${payload.memberId}-${resourceSlug}-${sessionId}`,
+        prayerFocus: null,
+        reflection: null,
+        resourceSlug,
+        sessionId,
+        updatedAt: payload.startDate,
+      })),
+      nextGathering: {
+        description: "Study Scripture, pray together, and encourage one another.",
+        endsAt: "2026-08-19T20:00:00-05:00",
+        id: "demo-wednesday-mens-next-gathering",
+        location: "Ryan's House",
+        startsAt: "2026-08-19T18:30:00-05:00",
+        status: "scheduled",
+        title: "Wednesday Men's Group",
+      },
+      prayerRequests: [],
+      preferences: [],
+      resources: [],
+      rsvp: null,
+      sessionId: `demo-session-${payload.identityId}`,
+      updates: [],
+    },
+  };
 }
 
 export async function loadGroupMemberPortalData(
@@ -892,6 +1106,7 @@ export async function loadGroupMemberPortalData(
       identity: {
         email: identity.verified_email ?? normalizeEmail(person.email),
         id: identity.id,
+        name: person.name ?? "Group member",
         personId: identity.person_id,
         phone: identity.verified_phone ?? normalizePhone(person.phone),
       },

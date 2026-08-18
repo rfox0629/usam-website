@@ -81,10 +81,10 @@ const publicPages: PublicPageRow[] = [
   },
   {
     id: "restoration",
-    owner: "MOR / USA Missionaries",
+    owner: "Mission of Reconciliation / USA Missionaries",
     pageName: "Restoration",
     route: "/restoration",
-    status: "Protected",
+    status: "Live",
   },
 ];
 
@@ -168,7 +168,7 @@ const publicFormsBase = [
   },
   {
     formName: "Restoration Reflection",
-    formType: "restoration_intake",
+    formType: "restoration",
     inboxHref: "/admin/restoration",
     ownerInbox: "Restoration",
     publicRoute: "/restoration",
@@ -200,9 +200,9 @@ const accessGates: AccessGateRow[] = [
   {
     actionHref: "/admin/restoration",
     actionLabel: "View",
-    gateName: "Restoration Invitations",
-    route: "/restoration/[token]",
-    status: "Protected",
+    gateName: "Restoration Intake",
+    route: "/restoration",
+    status: "Public",
   },
 ];
 

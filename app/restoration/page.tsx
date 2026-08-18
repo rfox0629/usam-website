@@ -1,54 +1,92 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck } from "lucide-react";
-import { restorationPreviewToken } from "@/src/lib/restoration/intake";
+import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
+import { morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { RestorationIntakeClient } from "./RestorationIntakeClient";
 
 export const metadata: Metadata = {
-  title: "Your Path to Freedom | USA Missionaries",
-  description: "Ministry of Reconciliation in partnership with USA Missionaries.",
+  alternates: { canonical: morRoutes.restoration },
+  description:
+    "Begin your restoration journey with Mission of Reconciliation. Share your story confidentially so we can prayerfully consider how to come alongside you. In partnership with USA Missionaries.",
   robots: {
     follow: false,
     index: false,
   },
+  title: "Restoration Journey | Mission of Reconciliation",
 };
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
-export default function RestorationLandingPage() {
+export default function RestorationPage() {
   return (
-    <main className="min-h-screen bg-[#f7f4ec] px-5 py-8 text-[#15120c] md:px-8 md:py-10">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col justify-center">
-        <div className="mb-10 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#7c6b3e]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-          Private Invitation
-        </div>
-
-        <p className="text-[11px] uppercase tracking-[0.24em] text-[#8b7235]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
-          Ministry of Reconciliation in partnership with USA Missionaries
-        </p>
-        <h1 className="mt-5 text-5xl font-semibold uppercase leading-[0.95] text-[#15120c] md:text-7xl" style={{ fontFamily: font.oswald }}>
-          Your Path to Freedom
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-[#4d4639] md:text-xl md:leading-9">
-          Your story matters. You have already taken an important first step by meeting with someone from USA Missionaries. The next step is creating space for Jesus to bring healing, freedom, and reconciliation into the places that have shaped your life.
-        </p>
-
-        <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div>
-            <Link
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-[#C2A14E] px-6 text-sm font-bold uppercase tracking-[0.18em] text-[#15120c] shadow-[0_18px_45px_rgba(122,90,22,0.24)] transition-colors hover:bg-[#d8b65c]"
-              href={`/restoration/${restorationPreviewToken}`}
-              style={{ fontFamily: font.rajdhani }}
+    <>
+      <MissionHeader cta="home" />
+      <main style={{ backgroundColor: morColor.page }}>
+        <section className="px-5 pb-4 pt-12 md:px-8 md:pt-16">
+          <div className="mx-auto w-full max-w-6xl">
+            <p
+              className="text-[11px] uppercase leading-none tracking-[0.24em] md:text-xs"
+              style={{ color: morColor.goldInk, fontFamily: morFont.rajdhani, fontWeight: 700 }}
             >
-              Begin My Reflection
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
-            </Link>
-            <p className="mt-3 max-w-md text-sm leading-6 text-[#6b604f]">
-              Private reflection for secure Operations review.
+              {morBrand.name}
+            </p>
+            <h1
+              className="mt-5 max-w-4xl"
+              style={{
+                color: morColor.ink,
+                fontFamily: morFont.oswald,
+                fontSize: "clamp(2.25rem, 6vw, 4.25rem)",
+                fontWeight: 600,
+                letterSpacing: 0,
+                lineHeight: 1,
+              }}
+            >
+              Restoration Journey
+            </h1>
+            <p
+              className="mt-4 text-[11px] uppercase tracking-[0.2em]"
+              style={{ color: morColor.muted, fontFamily: morFont.rajdhani, fontWeight: 600 }}
+            >
+              {morBrand.partnership}
+            </p>
+
+            <p
+              className="mt-8 max-w-3xl text-[1.0625rem] leading-8 md:text-lg md:leading-9"
+              style={{ color: morColor.body }}
+            >
+              This confidential form gives us an opportunity to understand your story, what you are
+              walking through, and where you are seeking healing, freedom, reconciliation, or
+              restoration. You do not need to have everything figured out. Simply answer as openly as
+              you are comfortable, and we will use what you share to prayerfully consider how we can
+              best come alongside you.
+            </p>
+
+            <div
+              className="mt-8 max-w-3xl border-l-2 pl-5 md:pl-6"
+              style={{ borderColor: morColor.gold }}
+            >
+              <p className="text-[15px] leading-8" style={{ color: morColor.muted }}>
+                Take as long as you need. Your answers save on this device as you go, so you can stop
+                and come back. Nothing is sent until you choose to send it. If you would rather talk
+                something through in person than write it here, leave it blank &mdash; that is
+                completely okay.
+              </p>
+            </div>
+
+            <p className="mt-6 text-[15px] leading-8" style={{ color: morColor.muted }}>
+              New here?{" "}
+              <Link
+                className="underline underline-offset-4"
+                href={morRoutes.home}
+                style={{ color: morColor.goldInk }}
+              >
+                Read about Mission of Reconciliation
+              </Link>
+              .
             </p>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <RestorationIntakeClient />
+      </main>
+    </>
   );
 }

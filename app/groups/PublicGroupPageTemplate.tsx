@@ -1,6 +1,20 @@
+import Image from "next/image";
 import Link from "next/link";
 import { publicGroupPath } from "@/src/lib/groups/public-site";
 import { submitGroupJoinRequest } from "./actions";
+import {
+  communityAffiliation,
+  communityCard,
+  communityChip,
+  communityEyebrow,
+  communityFieldLabel,
+  communityHairline,
+  communityInput,
+  communityInsetPanel,
+  communityPage,
+  communityPrimaryAction,
+} from "./community-design";
+import { type CommunitySchedule } from "./community-schedule";
 import { formatLeaderLine, GroupTemplateArtwork } from "./GroupTemplateVisual";
 
 export type PublicGroupPageData = {
@@ -13,13 +27,8 @@ export type PublicGroupPageData = {
   location: string;
   memberAccessEnabled: boolean;
   name: string;
-  nextGatheringDay: string;
-  nextGatheringLocation: string;
-  nextGatheringMonth: string;
-  nextGatheringNumber: string;
-  nextGatheringTime: string;
-  nextGatheringTitle: string;
-  rhythm: string;
+  /** One canonical schedule. Never a rhythm competing with a separate "next". */
+  schedule: CommunitySchedule;
   scheduleIntro: string;
   scheduleTitle: string;
   scriptureReference: string;
@@ -32,19 +41,11 @@ export type PublicGroupPageData = {
   slug: string;
   tagline: string;
   typeLabel: string;
-  typicalSchedule: readonly PublicGroupStep[];
   whatToExpect: readonly PublicGroupDetail[];
-  whoThisIsFor: readonly PublicGroupDetail[];
 };
 
 export type PublicGroupDetail = {
   note: string;
-  title: string;
-};
-
-export type PublicGroupStep = {
-  description: string;
-  meta: string;
   title: string;
 };
 
@@ -61,92 +62,109 @@ export function PublicGroupPageTemplate({
   const leaderText = formatLeaderLine(group.leaders);
 
   return (
-    <main className="min-h-screen bg-[#080A0D] text-[#F5F3EE]">
+    <main className={communityPage}>
       <PublicGroupHeader group={group} />
-      <section className="relative isolate overflow-hidden border-b border-[#C2A14E]/18 bg-[#080A0D]">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-30 opacity-28 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:28px_28px]"
-        />
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-64 bg-[linear-gradient(110deg,rgba(248,197,106,0.18),transparent_58%)]" />
-        <div className="mx-auto grid max-w-6xl gap-4 px-5 py-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_21rem] lg:px-10 lg:py-8">
-          <div className="min-w-0 rounded-lg border border-white/10 bg-[#111418]/76 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-6">
-            <h1 className="text-5xl font-black leading-none text-white sm:text-6xl">
+
+      <div className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 sm:px-8 lg:px-10">
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <div className={`min-w-0 p-5 sm:p-6 ${communityCard}`}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={communityChip}>{group.typeLabel}</span>
+            </div>
+
+            <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-[#0F172A] sm:text-4xl">
               <GroupName name={group.name} />
             </h1>
-            <p className="mt-3 text-lg font-black text-[#F8C56A]">{group.tagline}</p>
-            <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-white/72 sm:grid-cols-2">
-              <PublicFact label="When" value={group.rhythm} />
-              <PublicFact label="Where" value={group.location} />
+            <p className="mt-2 text-base font-bold text-[#1D4ED8]">{group.tagline}</p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">{group.description}</p>
+
+            <dl className="mt-5 grid gap-2 sm:grid-cols-2">
               <PublicFact label="Leaders" value={leaderText} />
-              <PublicFact label="Scripture" value={group.scriptureReference || "Discipleship rhythm"} />
-            </div>
-            <div className="mt-6 flex flex-wrap gap-3">
+              {group.scriptureReference ? <PublicFact label="Scripture" value={group.scriptureReference} /> : null}
+            </dl>
+
+            {/* One clear primary action. Member sign-in stays available for
+                approved members but drops to a quiet link so it never competes
+                with Request to join. */}
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
               {group.acceptingRequests ? (
-                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-xs font-black uppercase tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665]" href="#join">
-                  Request to Join
+                <a className={communityPrimaryAction} href="#join">
+                  Request to join
                 </a>
               ) : (
-                <span className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/15 px-5 text-xs font-black uppercase tracking-[0.18em] text-white/58">
-                  Requests Closed
+                <span className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-5 text-sm font-bold text-[#64748B]">
+                  Requests closed
                 </span>
               )}
               {group.memberAccessEnabled ? (
-                <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-white/20 px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#C2A14E] hover:text-[#C2A14E]" href={`${groupPath}/member`}>
-                  Member Sign In
+                <a
+                  className="text-sm font-bold text-[#1D4ED8] underline-offset-4 hover:underline"
+                  href={`${groupPath}/member`}
+                >
+                  Member sign in
                 </a>
               ) : null}
             </div>
           </div>
 
           <aside className="grid gap-3">
-            <GroupTemplateArtwork input={{ name: group.name, slug: group.slug, tagline: group.tagline, type: group.typeLabel }} size="hero" />
-            <div className="rounded-lg border border-white/10 bg-[#111418]/88 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F8C56A]">Next Gathering</p>
-              <div className="mt-3 flex items-end gap-3">
-                <p className="text-6xl font-black leading-none text-white">{group.nextGatheringNumber}</p>
-                <div className="pb-1">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-white/45">{group.nextGatheringMonth}</p>
-                  <p className="text-sm font-black text-white">{group.nextGatheringDay}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-base font-black text-white">{group.nextGatheringTitle}</p>
-              <dl className="mt-3 grid gap-2 text-sm leading-6">
-                <GatheringMeta label="Time" value={group.nextGatheringTime} />
-                <GatheringMeta label="Where" value={group.nextGatheringLocation} />
-              </dl>
+            <div className={`overflow-hidden ${communityCard}`}>
+              <GroupTemplateArtwork
+                input={{ name: group.name, slug: group.slug, tagline: group.tagline, type: group.typeLabel }}
+                size="hero"
+              />
             </div>
+            <CanonicalGatheringCard schedule={group.schedule} />
           </aside>
-        </div>
-      </section>
+        </section>
 
-      <WhatToExpectSection group={group} />
+        <WhatToExpectSection group={group} />
 
-      <section className="bg-[#F6F4EF] px-5 py-8 text-[#0F172A] sm:px-8 lg:px-10" id="join">
-        <div className="mx-auto max-w-3xl">
+        <section className="mt-4 scroll-mt-6" id="join">
           {group.acceptingRequests ? <JoinRequestPanel group={group} requestState={requestState} /> : <JoinClosedPanel />}
-        </div>
-      </section>
+        </section>
 
-      <footer className="border-t border-white/10 bg-[#080A0D] px-5 py-6 text-center text-xs font-bold text-white/45 sm:px-8 lg:px-10">
-        Powered by{" "}
-        <Link className="text-[#F8C56A] underline-offset-4 hover:underline" href="https://usamissionaries.org">
-          {group.siteName}
-        </Link>
-      </footer>
+        <footer className="pt-8 text-center text-xs font-bold text-[#64748B]">
+          Powered by{" "}
+          <Link className="text-[#1D4ED8] underline-offset-4 hover:underline" href="https://usamissionaries.org">
+            {group.siteName}
+          </Link>
+        </footer>
+      </div>
     </main>
+  );
+}
+
+/**
+ * The single canonical answer to "when does this meet?". A dated gathering
+ * leads when one exists; otherwise the recurring rhythm is presented as the
+ * schedule rather than being contradicted by a competing "TBD".
+ */
+function CanonicalGatheringCard({ schedule }: { schedule: CommunitySchedule }) {
+  return (
+    <div className={`p-4 ${communityCard}`}>
+      <p className={communityEyebrow}>{schedule.isDated ? "Next gathering" : "Meets"}</p>
+      <p className="mt-2 text-lg font-black leading-snug text-[#0F172A]">{schedule.headline}</p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{schedule.detail}</p>
+      <p className="mt-3 border-t border-[#EAF2FF] pt-3 text-sm font-semibold leading-6 text-[#475569]">
+        {schedule.location}
+      </p>
+    </div>
   );
 }
 
 function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
   return (
-    <header className="border-b border-white/10 bg-[#080A0D]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-8 lg:px-10">
-        <Link className="min-w-0 text-xs font-black uppercase tracking-[0.18em] text-[#F8C56A]" href={group.siteBasePath || "/groups"}>
-          {group.siteName} Groups
+    <header className={`border-b bg-white/70 ${communityHairline}`}>
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-8 lg:px-10">
+        <Link className={communityAffiliation} href={group.siteBasePath || "/groups"}>
+          {group.siteLogoUrl ? (
+            <Image alt={group.siteName} className="h-7 w-7 rounded-md object-contain" height={28} src={group.siteLogoUrl} width={28} />
+          ) : null}
+          A {group.siteName} Group
         </Link>
-        <Link className="shrink-0 text-xs font-black text-white/62 underline-offset-4 hover:text-white hover:underline" href={group.siteBasePath || "/groups"}>
-          All Groups
+        <Link className="shrink-0 text-xs font-bold text-[#1D4ED8] underline-offset-4 hover:underline" href={group.siteBasePath || "/groups"}>
+          All groups
         </Link>
       </div>
     </header>
@@ -155,18 +173,17 @@ function PublicGroupHeader({ group }: { group: PublicGroupPageData }) {
 
 function WhatToExpectSection({ group }: { group: PublicGroupPageData }) {
   return (
-    <section className="bg-[#F6F4EF] px-5 py-8 text-[#0F172A] sm:px-8 lg:px-10">
-      <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)] lg:items-start">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#A47F2A]">What to Expect</p>
-          <h2 className="mt-2 text-2xl font-black text-[#0F172A]">{group.scheduleTitle}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{group.scheduleIntro}</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
+    <section className="mt-4">
+      <div className={`p-5 sm:p-6 ${communityCard}`}>
+        <p className={communityEyebrow}>What to expect</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[#0F172A]">{group.scheduleTitle}</h2>
+        <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#64748B]">{group.scheduleIntro}</p>
+
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           {group.whatToExpect.map((item) => (
-            <article className="rounded-lg border border-[#E7D8B0] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.045)]" key={item.title}>
+            <article className={`p-4 ${communityInsetPanel}`} key={item.title}>
               <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{item.note}</p>
+              <p className="mt-1.5 text-sm font-semibold leading-6 text-[#64748B]">{item.note}</p>
             </article>
           ))}
         </div>
@@ -179,7 +196,7 @@ function GroupName({ name }: { name: string }) {
   if (name.toLowerCase() === "2three2") {
     return (
       <>
-        2<span className="text-[#C2A14E]">three</span>2
+        2<span className="text-[#1D4ED8]">three</span>2
       </>
     );
   }
@@ -189,18 +206,9 @@ function GroupName({ name }: { name: string }) {
 
 function PublicFact({ label, value }: { label: string; value: string }) {
   return (
-    <p className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
-      <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/38">{label}</span>
-      <span className="mt-1 block text-white/82">{value}</span>
-    </p>
-  );
-}
-
-function GatheringMeta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-3 border-t border-white/10 pt-2">
-      <dt className="font-black text-[#F8C56A]">{label}</dt>
-      <dd className="text-right font-semibold text-white/68">{value}</dd>
+    <div className={`px-3 py-2.5 ${communityInsetPanel}`}>
+      <dt className={communityFieldLabel}>{label}</dt>
+      <dd className="mt-1 text-sm font-bold leading-6 text-[#0F172A]">{value}</dd>
     </div>
   );
 }
@@ -218,8 +226,8 @@ function JoinRequestPanel({
 
   if (requestState === "received") {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-        <p className="text-sm font-black text-emerald-700">Request received. A group leader will follow up.</p>
+      <div className={`p-5 ${communityCard}`}>
+        <p className="text-base font-black text-[#15803D]">Request received. A group leader will follow up.</p>
       </div>
     );
   }
@@ -233,34 +241,52 @@ function JoinRequestPanel({
         : "";
 
   return (
-    <form action={submitGroupJoinRequest} className="grid gap-3 rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] sm:grid-cols-2">
+    <form action={submitGroupJoinRequest} className={`grid gap-3 p-5 sm:grid-cols-2 sm:p-6 ${communityCard}`}>
       <input name="groupSlug" type="hidden" value={group.slug} />
       <input name="sourcePath" type="hidden" value={publicGroupPath(group.slug, { basePath: group.siteBasePath })} />
+
       <div className="sm:col-span-2">
-        <h2 className="text-2xl font-black text-[#0F172A]">Request to Join</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">Sent only to group leaders.</p>
+        <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">Request to join</h2>
+        <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Sent only to group leaders.</p>
       </div>
-      {errorText ? <p className="rounded-lg border border-[#F8C56A]/45 bg-[#FFF8E8] px-3 py-2 text-sm font-bold text-[#7A4B00] sm:col-span-2">{errorText}</p> : null}
-      <JoinInput autoComplete="given-name" label="First Name" name="firstName" required />
-      <JoinInput autoComplete="family-name" label="Last Name" name="lastName" required />
+
+      {errorText ? (
+        <p className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-sm font-bold text-[#92400E] sm:col-span-2">
+          {errorText}
+        </p>
+      ) : null}
+
+      <JoinInput autoComplete="given-name" label="First name" name="firstName" required />
+      <JoinInput autoComplete="family-name" label="Last name" name="lastName" required />
       <JoinInput autoComplete="email" label="Email" name="email" required type="email" />
       <JoinInput autoComplete="tel" label="Phone" name="phone" type="tel" />
-      <label className="grid gap-2 sm:col-span-2">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#64748B]">Message</span>
-        <textarea className="min-h-24 rounded-lg border border-[#E0D1AA] bg-white px-3 py-3 text-sm leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#C2A14E]" maxLength={1200} name="message" placeholder="Tell us a little about your interest." />
+
+      <label className="grid gap-1.5 sm:col-span-2">
+        <span className={communityFieldLabel}>Message</span>
+        <textarea
+          className={`${communityInput} min-h-24 py-3 leading-6`}
+          maxLength={1200}
+          name="message"
+          placeholder="Tell us a little about your interest."
+        />
       </label>
-      <button className="inline-flex min-h-11 items-center justify-center rounded-sm border border-[#C2A14E] bg-[#C2A14E] px-5 text-xs font-black uppercase tracking-[0.18em] text-[#0B0D10] transition-colors hover:bg-[#D4B665] sm:col-span-2" type="submit">
-        Request to Join
-      </button>
+
+      <div className="sm:col-span-2">
+        <button className={communityPrimaryAction} type="submit">
+          Request to join
+        </button>
+      </div>
     </form>
   );
 }
 
 function JoinClosedPanel() {
   return (
-    <div className="rounded-lg border border-[#E7D8B0] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
-      <h2 className="text-2xl font-black text-[#0F172A]">Requests Closed</h2>
-      <p className="mt-2 text-sm font-black text-[#64748B]">This group is not accepting new requests right now.</p>
+    <div className={`p-5 ${communityCard}`}>
+      <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">Requests closed</h2>
+      <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">
+        This group is not accepting new requests right now.
+      </p>
     </div>
   );
 }
@@ -279,9 +305,9 @@ function JoinInput({
   type?: string;
 }) {
   return (
-    <label className="grid gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#64748B]">{label}</span>
-      <input autoComplete={autoComplete} className="min-h-11 rounded-lg border border-[#E0D1AA] bg-white px-3 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#C2A14E]" name={name} required={required} type={type} />
+    <label className="grid gap-1.5">
+      <span className={communityFieldLabel}>{label}</span>
+      <input autoComplete={autoComplete} className={communityInput} name={name} required={required} type={type} />
     </label>
   );
 }

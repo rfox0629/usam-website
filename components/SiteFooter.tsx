@@ -22,7 +22,7 @@ export function SiteFooter() {
             className="text-[10px] uppercase tracking-[0.16em] text-stone-600"
             style={{ fontFamily: font.rajdhani }}
           >
-            Kitchen Table Gospel and DOS are USA Missionaries initiatives. MOR is a strategic ministry partner.
+            Kitchen Table Gospel and DOS are USA Missionaries initiatives. Mission of Reconciliation is a strategic ministry partner.
           </p>
           <p
             className="mt-3 text-xs uppercase tracking-[0.18em] text-stone-400"

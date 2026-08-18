@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   groupMemberSessionCookieName,
+  loadDemoGroupMemberPortalData,
   loadGroupMemberPortalData,
 } from "@/src/lib/groups/member-access";
 import { loadPublicGroupLeaderNames } from "@/src/lib/groups/group-home-access";
@@ -19,7 +20,9 @@ import {
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
-import { PublicGroupPageTemplate, type PublicGroupDetail, type PublicGroupPageData, type PublicGroupStep } from "../PublicGroupPageTemplate";
+import { APPROVED_PUBLIC_GROUPS, communityCopyFor } from "../community-content";
+import { buildCommunitySchedule } from "../community-schedule";
+import { PublicGroupPageTemplate, type PublicGroupPageData } from "../PublicGroupPageTemplate";
 
 type PublicGroupRow = {
   accepting_members?: boolean | null;
@@ -48,34 +51,31 @@ type GatheringRow = {
   title: string | null;
 };
 
-type PublicGroupContent = {
-  scheduleIntro: string;
-  scheduleTitle: string;
-  typicalSchedule: readonly PublicGroupStep[];
-  whatToExpect: readonly PublicGroupDetail[];
-  whoThisIsFor: readonly PublicGroupDetail[];
-};
-
-const fallbackPublicGroups: Record<string, PublicGroupRow> = {
-  "2three2": {
-    accepting_members: true,
-    activity_type: "running",
-    audience: "men",
-    default_location: "Lebanon Hills Trailhead, Eagan, MN",
-    description: "A men's discipleship group where we run together, pair up two-by-two, pray for one another, and pursue righteousness, faith, love, and peace.",
-    id: "2three2",
-    image_url: "/images/usam/2three2-share.png",
-    member_access_enabled: true,
-    name: "2three2",
-    organization_id: null,
-    rhythm_label: "Weekly · Saturday · 7:00 AM",
-    scripture_reference: "2 Timothy 2:22",
-    scripture_text: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart.",
-    slug: "2three2",
-    tagline: "Run. Pray. Pursue.",
-    type: "running",
-  },
-};
+// Built from the one canonical list shared with the directory, so the two
+// surfaces cannot drift apart on schedule or location again.
+const fallbackPublicGroups: Record<string, PublicGroupRow> = Object.fromEntries(
+  APPROVED_PUBLIC_GROUPS.map((group) => [
+    group.slug,
+    {
+      accepting_members: group.acceptsJoinRequests,
+      activity_type: group.template === "activity" ? "running" : null,
+      audience: "men",
+      default_location: group.defaultLocation,
+      description: communityCopyFor(group).description,
+      id: group.slug,
+      image_url: group.slug === "2three2" ? "/images/usam/2three2-share.png" : null,
+      member_access_enabled: group.memberAccessEnabled,
+      name: group.name,
+      organization_id: null,
+      rhythm_label: group.rhythmLabel,
+      scripture_reference: group.scriptureReference,
+      scripture_text: group.scriptureText,
+      slug: group.slug,
+      tagline: communityCopyFor(group).tagline,
+      type: group.template === "activity" ? "running" : "mens",
+    } satisfies PublicGroupRow,
+  ]),
+);
 
 const defaultGroupsShareImage = "/images/usam/groups-share.png";
 
@@ -144,13 +144,6 @@ export default async function PublicGroupPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  const headersList = await headers();
-  const group = await loadPublicGroup(slug, requestHostname(headersList));
-
-  if (!group) {
-    notFound();
-  }
-
   const query = searchParams ? await searchParams : {};
   const requestParam = Array.isArray(query.request) ? query.request[0] : query.request;
   const stateParam = Array.isArray(query.state) ? query.state[0] : query.state;
@@ -168,18 +161,34 @@ export default async function PublicGroupPage({
     );
   }
 
+  const headersList = await headers();
+  const group = await loadPublicGroup(slug, requestHostname(headersList));
+
+  if (!group) {
+    notFound();
+  }
+
   return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
 async function loadMemberGroupHome(slug: string) {
-  if (!isSupabaseAdminConfigured()) {
-    return { data: null };
-  }
-
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
 
   if (!sessionToken) {
+    return { data: null };
+  }
+
+  const demoPortal = loadDemoGroupMemberPortalData({
+    sessionToken,
+    slug,
+  });
+
+  if (demoPortal.data) {
+    return demoPortal;
+  }
+
+  if (!isSupabaseAdminConfigured()) {
     return { data: null };
   }
 
@@ -199,6 +208,16 @@ async function loadPublicGroup(slug: string, hostname: string): Promise<PublicGr
   const supabase = createSupabaseAdminClient();
   const siteResolution = await resolvePublicSiteForHost(supabase, hostname);
   const site = siteResolution.site ?? fallbackUsamPublicSite;
+
+  // Same reason as the directory: an unresolved host cannot match a
+  // `public_site_id`, so the approved Groups would 404 on preview hosts.
+  if (!siteResolution.site) {
+    const hostFallback = fallbackPublicGroups[slug];
+
+    return hostFallback
+      ? toPublicGroupData(hostFallback, fallbackGatherings[slug] ?? null, site, ["Ryan Fox"])
+      : null;
+  }
   const groupQuery = supabase
     .from("dos_groups")
     .select("id, name, slug, description, tagline, scripture_reference, scripture_text, type, rhythm_label, default_location, image_url, organization_id, audience, activity_type, accepting_members, member_access_enabled, public_site_id, public_status")
@@ -266,35 +285,34 @@ async function loadPublicGroupGatheringData(
 }
 
 function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | null, site: PublicSiteConfig, leaders: string[] = []): PublicGroupPageData {
-  const typeLabel = publicGroupType(group);
-  const content = contentForGroup(group);
-  const dateParts = nextGatheringDateParts(nextGathering?.starts_at);
-  const hasDatedGathering = Boolean(dateParts.day);
   const scriptureReference = group.scripture_reference ?? "";
   const anchor = scriptureAnchor(scriptureReference);
-  const nextGatheringTitle = nextGathering?.title ?? "Next gathering TBD";
-  const nextGatheringTime = hasDatedGathering ? dateParts.time : "Time TBD";
   const publicLocation = group.default_location ?? "Location shared after leader confirmation";
+  // One canonical schedule: a dated gathering leads when it exists, otherwise
+  // the recurring rhythm is the schedule. Never both as rival facts.
+  const schedule = buildCommunitySchedule({
+    location: publicLocation,
+    nextGatheringStartsAt: nextGathering?.starts_at,
+    nextGatheringTitle: nextGathering?.title,
+    rhythmLabel: group.rhythm_label,
+    timeZone: groupDisplayTimeZone,
+  });
+
+  const copy = communityCopyFor(group);
 
   return {
     acceptingRequests: group.accepting_members !== false,
     anchorMark: anchor.mark,
     anchorSubtext: anchor.subtext,
-    description: group.description ?? "A recurring discipleship rhythm connected with USA Missionaries.",
+    description: copy.description,
     id: group.id,
     leaders,
     location: publicLocation,
     memberAccessEnabled: group.member_access_enabled === true,
     name: group.name,
-    nextGatheringDay: hasDatedGathering ? dateParts.weekday : "See rhythm",
-    nextGatheringLocation: publicLocation,
-    nextGatheringMonth: hasDatedGathering ? dateParts.month : "Soon",
-    nextGatheringNumber: hasDatedGathering ? dateParts.day : "TBD",
-    nextGatheringTime,
-    nextGatheringTitle,
-    rhythm: group.rhythm_label ?? "Recurring",
-    scheduleIntro: content.scheduleIntro,
-    scheduleTitle: content.scheduleTitle,
+    schedule,
+    scheduleIntro: copy.scheduleIntro,
+    scheduleTitle: copy.scheduleTitle,
     scriptureReference,
     scriptureText: group.scripture_text ?? "",
     shareImageUrl: group.image_url,
@@ -303,11 +321,9 @@ function toPublicGroupData(group: PublicGroupRow, nextGathering: GatheringRow | 
     siteHostname: site.id ? site.hostname : null,
     siteLogoUrl: site.logoUrl,
     siteName: site.displayName,
-    tagline: group.tagline ?? "Discipleship happens in rhythms.",
-    typeLabel,
-    typicalSchedule: content.typicalSchedule,
-    whatToExpect: content.whatToExpect,
-    whoThisIsFor: content.whoThisIsFor,
+    tagline: copy.tagline,
+    typeLabel: copy.typeLabel,
+    whatToExpect: copy.whatToExpect,
   };
 }
 
@@ -325,215 +341,13 @@ function groupShareImageUrl(value: string | null | undefined) {
   return defaultGroupsShareImage;
 }
 
-function contentForGroup(group: PublicGroupRow): PublicGroupContent {
-  if (isTwoThreeTwoActivityGroup(group)) {
-    const activityLabel = publicGroupActivityLabel(group).toLowerCase();
-
-    return {
-      scheduleIntro: "Every gathering follows a simple activity rhythm where prayer, Scripture, and honest conversation have room to breathe.",
-      scheduleTitle: "The Rhythm",
-      typicalSchedule: [
-        {
-          description: "Meet up, check in, and pair up two-by-two.",
-          meta: "Start",
-          title: "Gather",
-        },
-        {
-          description: "Each pair prays for one another out loud and on the move.",
-          meta: "On the way",
-          title: "Pray",
-        },
-        {
-          description: "Carry a short passage into the activity and let it shape the conversation.",
-          meta: "Turnaround",
-          title: "Open Scripture",
-        },
-        {
-          description: "Return with one clear commitment for obedience and follow-up.",
-          meta: "Finish",
-          title: "Share Next Steps",
-        },
-      ],
-      whatToExpect: [
-        {
-          note: "Same rhythm each week. Show up and the group is there.",
-          title: "A steady recurring rhythm",
-        },
-        {
-          note: "Paired two-by-two so nobody runs alone and nobody prays alone.",
-          title: "Prayer and accountability",
-        },
-        {
-          note: "A simple check-in during the week. Honest, direct, and encouraging.",
-          title: "Simple follow-up",
-        },
-      ],
-      whoThisIsFor: [
-        {
-          note: "The activity serves the people, not the other way around.",
-          title: `People looking for a ${activityLabel} group`,
-        },
-        {
-          note: "Pursuit is the operative word. This group moves toward Jesus together.",
-          title: "Those pursuing Christ together",
-        },
-        {
-          note: "Come ready for prayer, encouragement, and a practical next step.",
-          title: "Men wanting discipleship and brotherhood",
-        },
-      ],
-    };
-  }
-
-  return {
-    scheduleIntro: "Each gathering keeps the rhythm simple: arrive, open Scripture, pray together, and leave with a clear next step.",
-    scheduleTitle: "The Rhythm",
-    typicalSchedule: [
-      {
-        description: "Arrive, settle in, and share what matters from the week.",
-        meta: "Open",
-        title: "Gather",
-      },
-      {
-        description: "Read Scripture together and listen for one practical step of obedience.",
-        meta: "Scripture",
-        title: "Open the Word",
-      },
-      {
-        description: "Pray honestly for one another and for the people God has placed nearby.",
-        meta: "Prayer",
-        title: "Pray",
-      },
-      {
-        description: "Name one next step and one way the group can follow up.",
-        meta: "Send",
-        title: "Share Next Steps",
-      },
-    ],
-    whatToExpect: [
-      {
-        note: "A consistent place to pursue Jesus with other people.",
-        title: "A steady recurring rhythm",
-      },
-      {
-        note: "Scripture, prayer, accountability, and real follow-up.",
-        title: "Simple discipleship",
-      },
-      {
-        note: "A group leader will help you know what to expect before you come.",
-        title: "A clear first step",
-      },
-    ],
-    whoThisIsFor: [
-      {
-        note: "People who want a consistent discipleship rhythm, not another event.",
-        title: "Those pursuing Christ together",
-      },
-      {
-        note: "People looking for prayer, accountability, and community.",
-        title: "Those wanting spiritual friendship",
-      },
-      {
-        note: "People ready to take a practical next step in obedience.",
-        title: "Those ready for a next step",
-      },
-    ],
-  };
-}
-
-function isTwoThreeTwoActivityGroup(group: PublicGroupRow) {
-  return Boolean(
-    group.activity_type
-    || group.type === "running"
-    || group.slug?.startsWith("2three2")
-    || group.name.toLowerCase().includes("2three2"),
-  );
-}
-
-function publicActivityLabel(activity: string | null | undefined) {
-  if (activity === "fitness") {
-    return "General Fitness";
-  }
-
-  return activity ? activity.replace(/^\w/, (letter) => letter.toUpperCase()) : "Activity";
-}
-
-function publicGroupActivityLabel(group: PublicGroupRow) {
-  return group.activity_type
-    ? publicActivityLabel(group.activity_type)
-    : group.type === "running"
-      ? "Running"
-      : "Activity";
-}
-
-function nextGatheringDateParts(value: string | null | undefined) {
-  if (!value) {
-    return {
-      day: "",
-      month: "",
-      time: "",
-      weekday: "",
-    };
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return {
-      day: "",
-      month: "",
-      time: "",
-      weekday: "",
-    };
-  }
-
-  return {
-    day: new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: groupDisplayTimeZone }).format(date),
-    month: new Intl.DateTimeFormat("en-US", { month: "long", timeZone: groupDisplayTimeZone }).format(date),
-    time: new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: groupDisplayTimeZone }).format(date),
-    weekday: new Intl.DateTimeFormat("en-US", { timeZone: groupDisplayTimeZone, weekday: "long" }).format(date),
-  };
-}
-
-function publicGroupType(group: PublicGroupRow) {
-  const value = group.type;
-  const name = group.name;
-  const activity = group.activity_type;
-
-  if (isTwoThreeTwoActivityGroup(group)) {
-    return `${publicGroupActivityLabel(group)} Group`;
-  }
-
-  if (name.toLowerCase().includes("men")) {
-    return "Men's Group";
-  }
-
-  if (value === "running") {
-    return "Running Group";
-  }
-
-  if (value === "mens" || value === "men" || value === "discipleship") {
-    return "Discipleship Group";
-  }
-
-  if (value === "prayer") {
-    return "Prayer Group";
-  }
-
-  if (value === "study") {
-    return "Bible Study";
-  }
-
-  return "Discipleship Group";
-}
-
 function scriptureAnchor(reference: string) {
   const match = reference.match(/^(.+?)\s+(\d+):(\d+)/);
 
   if (!match) {
     return {
-      mark: "GO",
-      subtext: "Groups",
+      mark: "",
+      subtext: "",
     };
   }
 

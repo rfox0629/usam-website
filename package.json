@@ -12,6 +12,7 @@
     "test:dos-groups": "node scripts/dos-groups-regression.mjs",
     "test:dos-public-sites": "node scripts/dos-public-sites-regression.mjs",
     "test:dos-group-member-portal": "node scripts/dos-group-member-portal-regression.mjs",
+    "test:dos-participant-preview-parity": "node scripts/dos-participant-preview-parity-regression.mjs",
     "test:dos-group-home-ux": "node scripts/dos-group-home-ux-regression.mjs",
     "test:dos-group-home-visual": "node scripts/dos-group-home-visual-regression.mjs",
     "test:dos-group-home-readiness": "node scripts/dos-group-home-readiness-regression.mjs",

@@ -1,0 +1,167 @@
+/**
+ * USA-170 — participant preview parity.
+ *
+ * "Preview {First}'s Experience" and the participant's real secure link must be
+ * the same surface. They used to be two implementations: the real link rendered
+ * `GroupHomeMemberView` in the DOS light/white system, while the leader preview
+ * rendered a separate hand-built black/gold mock that drifted from it.
+ *
+ * These checks pin the single-implementation rule, the read-only contract, and
+ * the 390px layout fix so the duplicate cannot come back quietly.
+ */
+
+import { readFileSync } from "node:fs";
+
+function read(path) {
+  return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function assertIncludes(source, needle, message) {
+  assert(source.includes(needle), message);
+}
+
+function assertNotIncludes(source, needle, message) {
+  assert(!source.includes(needle), message);
+}
+
+function assertBefore(source, first, second, message) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+
+  assert(firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex, message);
+}
+
+const packageJson = read("package.json");
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const previewPanel = read("app/dos/app/MemberGroupHomePreview.tsx");
+const previewAdapter = read("src/lib/groups/member-preview.ts");
+const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
+const memberInstallPrompt = read("app/groups/MemberHomeInstallPrompt.tsx");
+const memberAccess = read("src/lib/groups/member-access.ts");
+const publicGroupPage = read("app/groups/[slug]/page.tsx");
+
+assertIncludes(packageJson, "test:dos-participant-preview-parity", "Package scripts must expose the preview parity check.");
+
+/* ---------------------------------------------------------------- *
+ * One implementation, not two.
+ * ---------------------------------------------------------------- */
+
+assertNotIncludes(appClient, "MemberExperiencePreviewPanel", "The duplicate legacy preview panel must stay deleted.");
+assertIncludes(appClient, "MemberGroupHomePreview", "Leader preview must render the shared member Group Home preview.");
+assertIncludes(previewPanel, "GroupHomeMemberView", "Preview must render the same shared member Group Home component as the real secure link.");
+assertIncludes(publicGroupPage, "GroupHomeMemberView", "The participant's real secure link must render the same shared component.");
+assertIncludes(previewPanel, "buildLeaderPreviewPortalData", "Preview must project leader data into the real portal payload shape.");
+
+// The preview must not grow its own copy of the member Home sections. Every
+// section name below belongs to GroupHomeMemberView alone.
+for (const memberSection of ["Next gathering", "Current Journey", "MemberJourneySummaryRow", "MemberHomeInstallPrompt", "Scoped DOS member access"]) {
+  assertNotIncludes(previewPanel, memberSection, `Preview must not re-implement the member Home section: ${memberSection}.`);
+}
+
+/* ---------------------------------------------------------------- *
+ * DOS light/white with DOS blue actions. No black/gold revival.
+ * ---------------------------------------------------------------- */
+
+assertIncludes(previewPanel, "#1D4ED8", "Preview chrome must use DOS blue actions.");
+for (const retiredHex of ["#C2A14E", "#F8C56A", "#0B0D10", "#111418", "#171B22", "#080A0D", "#060B16"]) {
+  assertNotIncludes(previewPanel, retiredHex, `Preview must not reintroduce the retired black/gold treatment (${retiredHex}).`);
+}
+assertNotIncludes(previewPanel, "text-white/", "Preview must not reintroduce dark-surface text tokens.");
+
+/* ---------------------------------------------------------------- *
+ * Read-only preview. No participant state may move.
+ * ---------------------------------------------------------------- */
+
+assertIncludes(previewPanel, "readOnly", "Preview must render the shared view in read-only mode.");
+assertIncludes(previewPanel, "Read-only", "Preview must tell the leader the surface is read-only.");
+assertIncludes(memberHomeView, "readOnly ? (", "Shared member Home must branch its interactive edges on read-only.");
+assertIncludes(memberHomeView, "signOutGroupMember", "Real member Home must keep the working sign-out action.");
+assertIncludes(memberHomeView, "if (readOnly) {", "Read-only Journey rows must not navigate into the participant's Journey.");
+assertIncludes(memberInstallPrompt, "if (!readOnly) {", "Install help must not write participant dismissal state from a preview.");
+assertIncludes(memberInstallPrompt, "readOnly || window.localStorage.getItem(storageKey)", "Install help must not read participant dismissal state from a preview.");
+
+// A preview projects data the leader already holds. It must not reach for
+// tokens, sessions, or the network.
+for (const forbidden of ["fetch(", "createGroupMemberAccessInvitation", "claimGroupMemberAccessToken", "send_member_access", "document.cookie", "localStorage"]) {
+  assertNotIncludes(previewPanel, forbidden, `Preview must not perform access or state work: ${forbidden}.`);
+  assertNotIncludes(previewAdapter, forbidden, `Preview adapter must stay pure: ${forbidden}.`);
+}
+
+/* ---------------------------------------------------------------- *
+ * Secure access behavior around the preview stays intact.
+ * ---------------------------------------------------------------- */
+
+assertIncludes(appClient, "send_member_access", "Leader Copy Link must keep using the scoped member access endpoint.");
+assertIncludes(appClient, "Copy Link", "Leader participant rows must keep Copy Link.");
+assertIncludes(appClient, "buildPreviewParticipantAccessUrl", "Demo participant access links must survive the preview rewrite.");
+assertIncludes(memberAccess, "revokeGroupMemberSession", "Session revocation must remain available.");
+assertIncludes(memberAccess, "claimGroupMemberAccessToken", "Secure token claim must remain available.");
+
+/* ---------------------------------------------------------------- *
+ * Order: identity, gathering, Journey + Continue first. Install last.
+ * ---------------------------------------------------------------- */
+
+assertBefore(memberHomeView, "Group Home", "Next gathering", "Group identity must come before the next gathering.");
+assertBefore(memberHomeView, "Next gathering", "Current Journey", "Next gathering must come before the current Journey.");
+assertBefore(memberHomeView, "Current Journey", "Completed (", "The current Journey must come before completed history.");
+assertBefore(memberHomeView, "Current Journey", "<MemberHomeInstallPrompt", "Install help must sit below the Journey.");
+assertBefore(memberHomeView, "<MemberHomeInstallPrompt", "Scoped DOS member access", "Install help must sit near the bottom of the page.");
+assertIncludes(memberHomeView, "Continue", "The current Journey must offer a visible Continue.");
+
+// Completed Journeys must survive into the preview, not just the real link.
+assertIncludes(memberHomeView, "completedAssignments.length ?", "Completed Journeys must stay available.");
+assertIncludes(appClient, "completed Journeys stay visible in the participant's history", "Preview journey adapter must document that completed Journeys are preserved.");
+
+/* ---------------------------------------------------------------- *
+ * Install help: collapsed row, expands only on tap.
+ * ---------------------------------------------------------------- */
+
+assertIncludes(memberInstallPrompt, "useState(false)", "Install instructions must start collapsed.");
+assertNotIncludes(memberInstallPrompt, "useState(previewExpanded)", "Preview must not force install instructions open.");
+assertIncludes(memberInstallPrompt, "aria-expanded={showSteps}", "The install row must be an accessible disclosure.");
+assertIncludes(memberInstallPrompt, "onClick={() => setShowSteps((value) => !value)}", "Install instructions must expand only when tapped.");
+assertIncludes(memberInstallPrompt, "Add DOS to your Home Screen", "The collapsed install row must keep its label.");
+
+/* ---------------------------------------------------------------- *
+ * 390px: participant action rows must wrap, never clip.
+ * ---------------------------------------------------------------- */
+
+// Each participant row that carries the preview action is checked in isolation:
+// walk back from the action label to the action group that encloses it.
+const previewActionLabel = "Preview {participantFirstName(";
+const previewActionOffsets = [];
+
+for (let index = appClient.indexOf(previewActionLabel); index >= 0; index = appClient.indexOf(previewActionLabel, index + 1)) {
+  previewActionOffsets.push(index);
+}
+
+assert(previewActionOffsets.length >= 2, "Both leader participant surfaces must offer the preview action.");
+
+for (const offset of previewActionOffsets) {
+  const beforeAction = appClient.slice(0, offset);
+  const actionGroup = beforeAction.slice(beforeAction.lastIndexOf("<div className=\"flex"));
+
+  assertNotIncludes(actionGroup, "shrink-0", "Participant action groups must not pin themselves to their max-content width at 390px.");
+  assertIncludes(actionGroup, "flex-wrap", "Participant action buttons must wrap at narrow widths.");
+  assertIncludes(actionGroup, "min-w-0", "Participant action groups must be allowed to shrink below their content width.");
+
+  // The name column beside the wrapped actions must give up the row rather than
+  // clip: full-basis under 420px, and wrapping text instead of truncation.
+  const nameColumn = beforeAction.slice(beforeAction.lastIndexOf("<div className=\"min-w-0 flex-1 basis-full"));
+
+  assertIncludes(nameColumn, "min-[420px]:basis-auto", "Participant name column must take its own line at 390px.");
+  assertIncludes(nameColumn, "break-words", "Participant names must wrap rather than clip beside wrapped actions.");
+}
+
+// The Members roster shows the same participants with its own action cluster.
+const membersRoster = appClient.slice(appClient.indexOf("{visibleMembers.length ? ("), appClient.indexOf("groupMemberPortalStatusLabel(member)}</p>"));
+
+assertNotIncludes(membersRoster, "flex shrink-0 items-center gap-2", "Members roster actions must wrap at 390px too.");
+
+console.log("dos-participant-preview-parity-regression: all checks passed.");

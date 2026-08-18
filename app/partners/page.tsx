@@ -213,7 +213,7 @@ const units = [
   {
     body: "Reconciliation, freedom, prayer, and long-term spiritual support for people who need more than a first conversation can provide.",
     tag: "Unit: Deeper Care",
-    title: "Ministry of Reconciliation",
+    title: "Mission of Reconciliation",
   },
   {
     body: "Community, teaching, groups, and ongoing formation. Distinct roles, one mission: every unit stronger because the others exist.",
@@ -237,12 +237,12 @@ function RoleSection() {
         <p>
           USA Missionaries does not have to be the expert in every area, and we don&rsquo;t pretend to be. Some
           people need one-on-one discipleship. Some need a group. Some need to be connected to a local church. Some
-          need deeper, specialized ministry through organizations like Ministry of Reconciliation. A front-line team
+          need deeper, specialized ministry through organizations like Mission of Reconciliation. A front-line team
           that tries to do everything ends up doing most of it poorly.
         </p>
         <p>
           We think of this the way specialized teams work together in the field. USA Missionaries is one specialized
-          unit: deployment and first contact. Ministry of Reconciliation is another specialized unit: deeper care
+          unit: deployment and first contact. Mission of Reconciliation is another specialized unit: deeper care
           and reconciliation. Churches and other ministries hold their own distinct roles. The goal is not
           competition between ministries. The goal is coordinated ministry, where every person is handed forward
           with care and nothing falls through the cracks.
@@ -347,7 +347,7 @@ function LevelsSection() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* MOR CASE STUDY                                                          */
+/* MISSION OF RECONCILIATION CASE STUDY                                    */
 /* ---------------------------------------------------------------------- */
 
 const morFlow = [
@@ -360,11 +360,11 @@ const morFlow = [
     title: "Need identified",
   },
   {
-    body: "Through DOS, the person is referred to Ministry of Reconciliation with context and care, not a cold handoff.",
+    body: "Through DOS, the person is referred to Mission of Reconciliation with context and care, not a cold handoff.",
     title: "Referral through DOS",
   },
   {
-    body: "MOR leaders carry the deeper work while the overall discipleship journey remains coordinated.",
+    body: "Mission of Reconciliation leaders carry the deeper work while the overall discipleship journey remains coordinated.",
     title: "Deeper work continues",
   },
   {
@@ -377,7 +377,7 @@ function MorSection() {
   return (
     <Section id="mor" variant="feature">
       <Eyebrow>Sec 05: Featured Case Study</Eyebrow>
-      <SectionHeading>Ministry of Reconciliation</SectionHeading>
+      <SectionHeading>Mission of Reconciliation</SectionHeading>
       <Lede>
         The first integration conversation being explored, and the working model for how a partnership can
         strengthen a ministry without replacing its calling.
@@ -387,19 +387,19 @@ function MorSection() {
         <div>
           <div className="space-y-5 text-[15.5px] leading-8 text-stone-400">
             <p>
-              Ministry of Reconciliation currently serves people through deeper ministry: reconciliation, freedom,
-              prayer, counseling-style care, and long-term spiritual support. Darren Pickett and Andy Leenstra are
+              Mission of Reconciliation currently serves people through deeper ministry: reconciliation, freedom,
+              prayer, Scripture, and long-term discipleship support. Darren Pickett and Andy Leenstra are
               key leaders in the work. Andy also leads another organization that may be considered as part of the
               larger integration conversation.
             </p>
             <p>
-              USA Missionaries&rsquo; goal would not be to replace MOR&rsquo;s calling. It would be to strengthen
-              MOR by systematizing administration, operations, technology, documentation, referrals, donor systems,
+              USA Missionaries&rsquo; goal would not be to replace Mission of Reconciliation&rsquo;s calling. It would be to strengthen
+              Mission of Reconciliation by systematizing administration, operations, technology, documentation, referrals, donor systems,
               and reporting: the load-bearing work that currently competes with ministry time.
             </p>
             <p className="text-stone-200">
               <b className="font-semibold text-stone-100">
-                USA Missionaries may be the front-line deployment team. Ministry of Reconciliation may be the deeper
+                USA Missionaries may be the front-line deployment team. Mission of Reconciliation may be the deeper
                 care and reconciliation team.
               </b>{" "}
               Together, the ministries create a stronger discipleship pathway than either could provide alone.
@@ -427,7 +427,7 @@ function MorSection() {
                 Deeper Care
               </p>
               <p className="mt-2 text-sm leading-6 text-stone-400">
-                <b className="font-semibold text-stone-100">Ministry of Reconciliation</b>: reconciliation,
+                <b className="font-semibold text-stone-100">Mission of Reconciliation</b>: reconciliation,
                 freedom, prayer, and long-term spiritual support for those who need it.
               </p>
             </div>
@@ -685,7 +685,7 @@ function NotAwaySection() {
 const legalRows = [
   {
     optionOne: "Separate nonprofit, fully independent",
-    optionThree: "MOR potentially merges into USA Missionaries or transfers assets / programs as advised by counsel",
+    optionThree: "Mission of Reconciliation potentially merges into USA Missionaries or transfers assets / programs as advised by counsel",
     optionTwo: "Separate legal entities remain",
     row: "Legal Entity",
   },
@@ -847,13 +847,13 @@ const phases = [
     title: "Operational Integration",
   },
   {
-    body: "With legal and CPA counsel, decide the structural future: remain in shared services, create a deeper controlled relationship, merge, dissolve MOR, transfer assets, or operate MOR as a DBA / ministry division of USA Missionaries. Counsel leads; the model follows.",
+    body: "With legal and CPA counsel, decide the structural future: remain in shared services, create a deeper controlled relationship, merge, dissolve Mission of Reconciliation, transfer assets, or operate Mission of Reconciliation as a DBA / ministry division of USA Missionaries. Counsel leads; the model follows.",
     num: "Phase 5",
     time: "9–18 months",
     title: "Legal Integration Decision",
   },
   {
-    body: "Use the MOR integration as a proven model for future ministry partnerships across Minnesota, and eventually all 50 states. Every lesson learned becomes documentation the next partnership inherits.",
+    body: "Use the Mission of Reconciliation integration as a proven model for future ministry partnerships across Minnesota, and eventually all 50 states. Every lesson learned becomes documentation the next partnership inherits.",
     num: "Phase 6",
     time: "Year 2 and beyond",
     title: "National Replication",
