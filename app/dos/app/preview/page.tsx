@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { buildFallbackCircleDataFromActivity } from "@/src/lib/dos/circle-scoring";
+import { buildFallbackCircleDataFromActivity, type DosCircleData, type DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import {
   type DosAppData,
   type DosAppAssessmentResult,
@@ -33,6 +33,16 @@ const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
 const isDemoPreviewRouteEnabled = process.env.DOS_DISABLE_DEMO_PREVIEW !== "true";
+// Most of this fixture is pinned to a fixed demo date so recorded history reads naturally.
+// The deterministic circle-suggestion rolling windows (14/30 days) compare against the real
+// clock, so a handful of meetings below are dated relative to "today" instead of the fixed
+// demo date — otherwise every meeting in this fixture would already be outside every window.
+function daysAgoIso(days: number, hour = 9) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  date.setHours(hour, 0, 0, 0);
+  return date.toISOString();
+}
 type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
   & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
 const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
@@ -103,6 +113,60 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
     tableRole: "ministering",
     timezone: "America/Chicago",
     ...meeting,
+  };
+}
+
+// Simulates a locked dos_circle_overrides row (see src/lib/dos/circle-scoring.ts) so the demo
+// can show a person who was manually placed in a circle and stays there even as their own
+// recent activity outpaces it — the exact scenario Deterministic Circle Logic V1 is meant to
+// surface as a suggestion rather than an automatic move.
+function withManualCircleOverride(
+  circleData: DosCircleData,
+  personId: string,
+  targetCircle: "field" | "my_120" | "seventy" | "three" | "twelve",
+  reason: string,
+): DosCircleData {
+  const listByCircle = {
+    field: circleData.field,
+    my_120: circleData.my120,
+    seventy: circleData.my70,
+    three: circleData.my3,
+    twelve: circleData.my12,
+  };
+  let overriddenScore: DosRelationshipScore | undefined;
+  const remainingByCircle = Object.fromEntries(Object.entries(listByCircle).map(([circle, list]) => [
+    circle,
+    list.filter((score) => {
+      if (score.person.id !== personId) {
+        return true;
+      }
+
+      overriddenScore = score;
+      return false;
+    }),
+  ])) as typeof listByCircle;
+
+  if (!overriddenScore) {
+    return circleData;
+  }
+
+  remainingByCircle[targetCircle] = [
+    ...remainingByCircle[targetCircle],
+    {
+      ...overriddenScore,
+      assignmentSource: "manual",
+      circle: targetCircle,
+      explanation: { ...overriddenScore.explanation, summary: reason },
+    },
+  ];
+
+  return {
+    ...circleData,
+    field: remainingByCircle.field,
+    my12: remainingByCircle.twelve,
+    my120: remainingByCircle.my_120,
+    my3: remainingByCircle.three,
+    my70: remainingByCircle.seventy,
   };
 }
 
@@ -380,8 +444,151 @@ function buildDosPreviewDemoData(): DosAppData {
       type: "coffee",
       updatedAt: "2026-05-14T13:00:00-05:00",
     },
+    // Recent-window fixtures for the deterministic Circle Logic V1 prototype (see comment on
+    // daysAgoIso above). These give the My 3 circle a non-zero rolling benchmark and give Naomi
+    // a sustained one-to-one pattern that clears it, so "Consider moving closer" has real,
+    // computed evidence to show rather than an empty state.
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(22),
+      fieldPersonIds: ["demo-person-george-jenko"],
+      id: "demo-meeting-george-recent-checkin",
+      notes: "Quick check-in on the discipleship group he is starting.",
+      participantNames: ["George Jenko"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Check-In",
+      type: "coffee",
+      updatedAt: daysAgoIso(22),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(26),
+      fieldPersonIds: ["demo-person-brooke-fox"],
+      id: "demo-meeting-brooke-recent-checkin",
+      notes: "Prayed together before the next kitchen table.",
+      participantNames: ["Brooke Fox"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "connection",
+      title: "Prayer Check-In",
+      type: "prayer",
+      updatedAt: daysAgoIso(26),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(18),
+      fieldPersonIds: ["demo-person-tim-tran"],
+      id: "demo-meeting-tim-recent-checkin",
+      notes: "Followed up on the John reading plan.",
+      participantNames: ["Tim Tran"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: daysAgoIso(18),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(2),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-1",
+      notes: "Walked through the John reading plan together.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: daysAgoIso(2),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(4),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-2",
+      notes: "Prayed together about her family situation.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "connection",
+      title: "Prayer Check-In",
+      type: "prayer",
+      updatedAt: daysAgoIso(4),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(6),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-3",
+      notes: "Continued the John reading plan.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: daysAgoIso(6),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(8),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-4",
+      notes: "Talked through what she is learning and next steps.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Discipleship Conversation",
+      type: "discipleship",
+      updatedAt: daysAgoIso(8),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(10),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-5",
+      notes: "Coffee and prayer before her family visit.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "connection",
+      title: "Prayer Check-In",
+      type: "prayer",
+      updatedAt: daysAgoIso(10),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(12),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      id: "demo-meeting-naomi-recent-6",
+      notes: "Checked in on the family follow-up from last month.",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      source: "table",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: daysAgoIso(12),
+    },
   ] satisfies DemoMeetingInput[];
-  const meetings = meetingInputs.map(buildDemoMeeting);
+  // Matches production ordering (missionary_tables is always queried `order("table_date", { ascending: false })`)
+  // so "last meeting" logic sees the true most-recent entry regardless of fixture declaration order.
+  const meetings = meetingInputs
+    .map(buildDemoMeeting)
+    .sort((first, second) => new Date(second.date ?? 0).getTime() - new Date(first.date ?? 0).getTime());
 
   const fruit: DosAppFruit[] = [
     {
@@ -812,21 +1019,26 @@ function buildDosPreviewDemoData(): DosAppData {
     },
   ];
 
-  const circles = buildFallbackCircleDataFromActivity({
-    meetings: meetings.filter((meeting) => meeting.meetingStatus === "logged").map((meeting) => ({
-      date: meeting.date,
-      fieldPersonIds: meeting.fieldPersonIds,
-    })),
-    people: people.map((person) => ({
-      engagementLevel: person.engagementLevel,
-      id: person.id,
-      lastActivityAt: person.lastActivityAt,
-      name: person.name,
-      relationshipType: person.relationshipType,
-      status: person.status,
-    })),
-    workspaceId: demoWorkspaceId,
-  });
+  const circles = withManualCircleOverride(
+    buildFallbackCircleDataFromActivity({
+      meetings: meetings.filter((meeting) => meeting.meetingStatus === "logged").map((meeting) => ({
+        date: meeting.date,
+        fieldPersonIds: meeting.fieldPersonIds,
+      })),
+      people: people.map((person) => ({
+        engagementLevel: person.engagementLevel,
+        id: person.id,
+        lastActivityAt: person.lastActivityAt,
+        name: person.name,
+        relationshipType: person.relationshipType,
+        status: person.status,
+      })),
+      workspaceId: demoWorkspaceId,
+    }),
+    "demo-person-naomi-lee",
+    "twelve",
+    "Pinned to My 12 for workspace stewardship while this relationship is confirmed.",
+  );
 
   return {
     accountabilityCheckInCommitments: [],

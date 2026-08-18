@@ -17905,6 +17905,212 @@ function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePer
   return activeCircle === "seventy" || activeCircle === "my_120" ? items.slice(0, 6) : items;
 }
 
+// Deterministic Circle Logic V1 (USA-168 revision 3, new proposal — see audit).
+// Every input below is read from meetings/check-ins already logged in DOS; nothing here is
+// AI-inferred. Suggestions are advisory only — production placement still requires a human
+// to confirm via the existing dos_circle_overrides pathway (not yet wired to any UI/API route;
+// this prototype simulates the "confirm" step locally instead of calling that endpoint).
+type CircleKey = CircleFocusView | "field";
+
+const circleProximityOrder: CircleKey[] = ["three", "twelve", "seventy", "my_120", "field"];
+
+function closerCircle(circle: CircleKey): CircleKey | null {
+  const index = circleProximityOrder.indexOf(circle);
+  return index > 0 ? circleProximityOrder[index - 1] : null;
+}
+
+function daysSince(dateValue: string | null | undefined) {
+  if (!dateValue) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const normalized = dateValue.includes("T") ? dateValue : `${dateValue}T12:00:00`;
+  const timestamp = new Date(normalized).getTime();
+
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
+}
+
+function medianOf(values: number[]) {
+  if (!values.length) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((first, second) => first - second);
+  const mid = Math.floor(sorted.length / 2);
+
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function meetingIsOneToOne(meeting: DosAppMeeting) {
+  return meeting.fieldPersonIds.length <= 1;
+}
+
+// One-to-one meetings weigh a full "meaningful interaction"; group gatherings weigh less so a
+// well-attended Group doesn't read the same as direct one-on-one investment (spec section 10).
+function meetingInteractionWeight(meeting: DosAppMeeting) {
+  return meetingIsOneToOne(meeting) ? 1 : 0.35;
+}
+
+function meetingMinutesEstimate(meeting: DosAppMeeting) {
+  if (meeting.scheduledStartAt && meeting.scheduledEndAt) {
+    const start = new Date(meeting.scheduledStartAt).getTime();
+    const end = new Date(meeting.scheduledEndAt).getTime();
+
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      return Math.round((end - start) / 60_000);
+    }
+  }
+
+  return meetingIsOneToOne(meeting) ? 45 : 75;
+}
+
+type CircleActivityMetrics = {
+  daysSinceLastMeaningful: number;
+  meaningfulInteractions: number;
+  minutesInvested: number;
+  oneToOneCount: number;
+};
+
+function personCircleActivityMetrics({
+  accountabilityCheckIns,
+  meetings,
+  personId,
+  windowDays,
+}: {
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
+  meetings: DosAppMeeting[];
+  personId: string;
+  windowDays: number;
+}): CircleActivityMetrics {
+  const personMeetings = meetings.filter((meeting) => meeting.meetingStatus === "logged" && meeting.fieldPersonIds.includes(personId));
+  const windowMeetings = personMeetings.filter((meeting) => daysSince(meeting.date) <= windowDays);
+  const personCheckIns = accountabilityCheckIns.filter((checkIn) => checkIn.personId === personId);
+  // Quick accountability check-ins count for less than a substantial one-to-one meeting (spec section 8/10).
+  const windowCheckIns = personCheckIns.filter((checkIn) => daysSince(checkIn.checkInDate) <= windowDays);
+  const lastMeaningfulDays = Math.min(
+    ...personMeetings.filter(meetingIsOneToOne).map((meeting) => daysSince(meeting.date)),
+    ...personCheckIns.map((checkIn) => daysSince(checkIn.checkInDate)),
+    Number.POSITIVE_INFINITY,
+  );
+
+  return {
+    daysSinceLastMeaningful: lastMeaningfulDays,
+    meaningfulInteractions: windowMeetings.reduce((sum, meeting) => sum + meetingInteractionWeight(meeting), 0) + windowCheckIns.length * 0.25,
+    minutesInvested: windowMeetings.reduce((sum, meeting) => sum + meetingMinutesEstimate(meeting) * meetingInteractionWeight(meeting), 0),
+    oneToOneCount: windowMeetings.filter(meetingIsOneToOne).length,
+  };
+}
+
+type CircleBenchmark = {
+  circle: CircleKey;
+  medianDaysSinceLastMeaningful: number;
+  medianInteractions30: number;
+  medianMinutes30: number;
+  memberCount: number;
+};
+
+// Rolling medians drawn from the user's own current My 3 / 12 / 70 / 120 membership — this is
+// deterministic analytics over logged activity, not machine learning (spec section 9).
+function buildCircleBenchmarks({
+  accountabilityCheckIns,
+  circles,
+  meetings,
+}: {
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
+  circles: DosAppData["circles"];
+  meetings: DosAppMeeting[];
+}): Record<CircleKey, CircleBenchmark> {
+  const memberIdsByCircle: Record<CircleKey, string[]> = {
+    field: [],
+    my_120: circles?.my120.map((score) => score.person.id) ?? [],
+    seventy: circles?.my70.map((score) => score.person.id) ?? [],
+    three: circles?.my3.map((score) => score.person.id) ?? [],
+    twelve: circles?.my12.map((score) => score.person.id) ?? [],
+  };
+  const benchmarks = {} as Record<CircleKey, CircleBenchmark>;
+
+  circleProximityOrder.forEach((circle) => {
+    const memberIds = memberIdsByCircle[circle];
+    const metrics = memberIds.map((personId) => personCircleActivityMetrics({ accountabilityCheckIns, meetings, personId, windowDays: 30 }));
+
+    benchmarks[circle] = {
+      circle,
+      medianDaysSinceLastMeaningful: medianOf(metrics.map((item) => (Number.isFinite(item.daysSinceLastMeaningful) ? item.daysSinceLastMeaningful : 90))),
+      medianInteractions30: medianOf(metrics.map((item) => item.meaningfulInteractions)),
+      medianMinutes30: medianOf(metrics.map((item) => item.minutesInvested)),
+      memberCount: memberIds.length,
+    };
+  });
+
+  return benchmarks;
+}
+
+type CircleSuggestion = {
+  benchmarks: Record<CircleKey, CircleBenchmark>;
+  currentCircle: CircleKey;
+  person14: CircleActivityMetrics;
+  person30: CircleActivityMetrics;
+  suggestedCircle: CircleKey;
+};
+
+// Never auto-moves anyone (spec section 7). Requires: the person clears the closer circle's
+// median on both interaction count and time invested, is meaningfully above their own current
+// circle's median (not just barely over), shows sustained evidence in the last 14 days too (not
+// a single busy week), has at least two one-to-one meetings, and the closer circle has enough
+// members to benchmark against confidently.
+function computeCircleSuggestion({
+  accountabilityCheckIns,
+  benchmarks,
+  currentCircle,
+  meetings,
+  personId,
+}: {
+  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
+  benchmarks: Record<CircleKey, CircleBenchmark>;
+  currentCircle: CircleKey;
+  meetings: DosAppMeeting[];
+  personId: string;
+}): CircleSuggestion | null {
+  const closer = closerCircle(currentCircle);
+
+  if (!closer) {
+    return null;
+  }
+
+  const closerBenchmark = benchmarks[closer];
+  const currentBenchmark = benchmarks[currentCircle];
+
+  if (!closerBenchmark || closerBenchmark.memberCount < 2 || closerBenchmark.medianInteractions30 <= 0) {
+    return null;
+  }
+
+  const person30 = personCircleActivityMetrics({ accountabilityCheckIns, meetings, personId, windowDays: 30 });
+  const person14 = personCircleActivityMetrics({ accountabilityCheckIns, meetings, personId, windowDays: 14 });
+  const clearsCloserOnInteractions = person30.meaningfulInteractions >= closerBenchmark.medianInteractions30;
+  const clearsCloserOnTime = closerBenchmark.medianMinutes30 <= 0 || person30.minutesInvested >= closerBenchmark.medianMinutes30;
+  const meaningfullyAboveCurrent = !currentBenchmark || currentBenchmark.medianInteractions30 <= 0
+    || person30.meaningfulInteractions >= currentBenchmark.medianInteractions30 * 1.5;
+  const sustainedInLast14Days = person14.meaningfulInteractions >= closerBenchmark.medianInteractions30 * 0.35;
+
+  if (clearsCloserOnInteractions && clearsCloserOnTime && meaningfullyAboveCurrent && sustainedInLast14Days && person30.oneToOneCount >= 2) {
+    return { benchmarks, currentCircle, person14, person30, suggestedCircle: closer };
+  }
+
+  return null;
+}
+
+function formatInvestedTime(minutes: number) {
+  const roundedMinutes = Math.round(minutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const remainderMinutes = roundedMinutes % 60;
+
+  if (!hours) {
+    return `${remainderMinutes}m`;
+  }
+
+  return remainderMinutes ? `${hours}h ${remainderMinutes}m` : `${hours}h`;
+}
+
 function peopleCircleDetails(activeCircle: PeopleCircleView, circleGroups: CircleLayerGroups, allItems: CircleListItem[]) {
   if (activeCircle === "all") {
     return {
@@ -34031,6 +34237,7 @@ function PersonDetailOverlay({
   accountabilitySchedules,
   answeredPrayerByReminderId,
   assessmentResults,
+  circleBenchmarks,
   circleScore,
   commitments,
   commitmentsEnabled,
@@ -34081,6 +34288,7 @@ function PersonDetailOverlay({
   accountabilitySchedules: DosAppAccountabilitySchedule[];
   answeredPrayerByReminderId: Record<string, string>;
   assessmentResults: DosAppAssessmentResult[];
+  circleBenchmarks: Record<CircleKey, CircleBenchmark>;
   circleScore?: DosRelationshipScore | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
@@ -34130,6 +34338,9 @@ function PersonDetailOverlay({
   const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
+  const [circleSuggestionExpanded, setCircleSuggestionExpanded] = useState(false);
+  const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
+  const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
   const mapHref = address ? mapsHrefForAddress(address) : "";
@@ -34221,7 +34432,18 @@ function PersonDetailOverlay({
   const nextMeeting = personScheduledMeetings[0] ?? null;
   const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
   const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
-  const currentCircleLabel = circleScore ? circleDisplayName(circleScore.circle) : "Field";
+  const currentCircleKey: CircleKey = circleScore?.circle ?? "field";
+  const circleSuggestion = computeCircleSuggestion({
+    accountabilityCheckIns,
+    benchmarks: circleBenchmarks,
+    currentCircle: currentCircleKey,
+    meetings,
+    personId: person.id,
+  });
+  const suggestionDismissKey = circleSuggestion ? `${person.id}:${circleSuggestion.currentCircle}:${circleSuggestion.suggestedCircle}` : null;
+  const visibleCircleSuggestion = confirmedCircleMove || !suggestionDismissKey || dismissedCircleSuggestion === suggestionDismissKey ? null : circleSuggestion;
+  const activeCircleKey = confirmedCircleMove ?? currentCircleKey;
+  const currentCircleLabel = circleDisplayName(activeCircleKey);
   const overviewNotes = defaults.notes?.trim() ?? "";
   const activeAccountabilitySchedules = accountabilitySchedules.filter((schedule) => schedule.status === "active");
   const activeCommitments = commitments.filter((commitment) => commitment.status === "active");
@@ -34400,11 +34622,50 @@ function PersonDetailOverlay({
                 <PDPill tone="blue">{relationshipTypePill}</PDPill>
                 <PDPill tone="neutral">{engagementOverviewLabel} engagement</PDPill>
                 <PDPill tone="gold">{spiritualJourneyPill}</PDPill>
-                <PDPill tone="neutral">{currentCircleLabel}</PDPill>
+                <PDPill tone="neutral">{currentCircleLabel}{confirmedCircleMove ? " (prototype only)" : ""}</PDPill>
+                {personFruitEvents.length ? <PDPill tone="gold">{personFruitEvents.length} fruit</PDPill> : null}
               </div>
               <p className="text-[13.5px] leading-[1.5] text-[#6B7686]">
                 Last met {lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "not yet"} · Next meeting {nextMeeting ? formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date) : "not scheduled"}
               </p>
+              {visibleCircleSuggestion ? (
+                <div className="rounded-2xl border border-[#CFE0FF] bg-[#F5F9FF] p-3">
+                  <button
+                    className="flex w-full items-center justify-between gap-2 text-left text-[13px] font-semibold text-[#1D4ED8]"
+                    onClick={() => setCircleSuggestionExpanded((current) => !current)}
+                    type="button"
+                  >
+                    <span>Consider moving closer to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wide">{circleSuggestionExpanded ? "Hide why" : "Why?"}</span>
+                  </button>
+                  {circleSuggestionExpanded ? (
+                    <div className="mt-2.5 grid gap-2.5 text-[12.5px] leading-[1.5] text-[#334155]">
+                      <p>
+                        Last 30 days: {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} meaningful interactions ({visibleCircleSuggestion.person30.oneToOneCount} one-to-one) · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} together · last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "no recent one-to-one"}.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+                        </div>
+                        <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#1D4ED8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+                        </div>
+                      </div>
+                      <p className="text-[#6B7686]">This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships. DOS never moves anyone automatically — this is a suggestion only.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <PDButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleSuggestionExpanded(false); }} tone="solid">
+                          Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+                        </PDButton>
+                        <PDButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setCircleSuggestionExpanded(false); }}>
+                          Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
+                        </PDButton>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
             <PDSection title="Last Meeting">
@@ -35527,6 +35788,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return new Map(scores.map((score) => [score.person.id, score]));
   }, [data.circles]);
+  const circleBenchmarks = useMemo(() => buildCircleBenchmarks({
+    accountabilityCheckIns: data.accountabilityCheckIns,
+    circles: data.circles,
+    meetings: data.meetings,
+  }), [data.accountabilityCheckIns, data.circles, data.meetings]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
   const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
@@ -41635,6 +41901,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               participantTestimonies={data.participantTestimonies}
               person={selectedPerson}
               prayerRequests={workspacePrayerRequests}
+              circleBenchmarks={circleBenchmarks}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
               workspace={data.workspace}
             />
