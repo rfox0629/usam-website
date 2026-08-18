@@ -15,6 +15,7 @@
     "test:dos-participant-preview-parity": "node scripts/dos-participant-preview-parity-regression.mjs",
     "test:dos-invitation-crawler-safety": "node scripts/dos-invitation-crawler-safety-regression.mjs",
     "test:dos-participant-e2e": "node scripts/dos-participant-e2e-smoke.mjs",
+    "test:dos-leader-e2e": "node scripts/dos-leader-e2e-smoke.mjs",
     "test:dos-group-home-ux": "node scripts/dos-group-home-ux-regression.mjs",
     "test:dos-group-home-visual": "node scripts/dos-group-home-visual-regression.mjs",
     "test:dos-group-home-readiness": "node scripts/dos-group-home-readiness-regression.mjs",

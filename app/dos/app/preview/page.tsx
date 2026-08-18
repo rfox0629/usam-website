@@ -767,6 +767,18 @@ function buildDosPreviewDemoData(): DosAppData {
         {
           id: "demo-group-wednesday-member-caleb",
           joinedAt: demoTimestamp,
+          // Demo identity states cover the four leader-visible conditions from
+          // USA-170: linked account (Caleb), invitation expired (Tim), scoped
+          // access active (Tanner). "Person only" is every member without a
+          // memberAccess record, e.g. the Tuesday group members.
+          memberAccess: {
+            authLinked: true,
+            invitation: "used",
+            status: "verified",
+            verifiedAt: demoTimestamp,
+            verifiedEmail: "caleb.rivera@example.com",
+            verifiedPhone: null,
+          },
           notes: null,
           permissions: { canLogGatherings: true, canManageGroup: true, canManagePeople: true },
           personId: "demo-person-caleb-rivera",
@@ -778,6 +790,14 @@ function buildDosPreviewDemoData(): DosAppData {
         {
           id: "demo-group-wednesday-member-tim",
           joinedAt: demoTimestamp,
+          memberAccess: {
+            authLinked: false,
+            invitation: "expired",
+            status: "invited",
+            verifiedAt: null,
+            verifiedEmail: null,
+            verifiedPhone: null,
+          },
           notes: null,
           permissions: {},
           personId: "demo-person-tim-tran",
@@ -789,6 +809,14 @@ function buildDosPreviewDemoData(): DosAppData {
         {
           id: "demo-group-wednesday-member-tanner",
           joinedAt: "2026-08-10T18:15:00-05:00",
+          memberAccess: {
+            authLinked: false,
+            invitation: "used",
+            status: "verified",
+            verifiedAt: "2026-08-12T13:05:00-05:00",
+            verifiedEmail: "tanner.kent@example.com",
+            verifiedPhone: null,
+          },
           notes: null,
           permissions: {},
           personId: "demo-person-tanner-kent",

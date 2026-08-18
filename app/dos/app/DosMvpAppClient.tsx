@@ -8523,17 +8523,22 @@ function GroupPeopleTabV2({
 }) {
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
 
+  // USA-170 desktop correction: this used to nest the Pending/Members grid
+  // inside a second two-column grid, leaving Pending Requests a compressed
+  // sliver with its match dropdown floating over the Members column. Leaders
+  // is a short list, so it takes a full-width row; the two working panels get
+  // the whole next row as equal halves.
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+    <div className="grid gap-3">
       <DesktopPanel
         action={<button className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" onClick={onInvite} type="button"><Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />Add Person</button>}
         eyebrow="Leaders"
         title="Shared Leadership"
       >
         {leaders.length ? (
-          <div className="grid gap-2">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {leaders.map((member) => (
-              <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={member.id}>
+              <div className="min-w-0 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={member.id}>
                 <p className="text-sm font-black text-[#0F172A]">{member.personName}</p>
                 <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{member.title ?? groupRoleLabel(member.role)}</p>
               </div>
@@ -10759,22 +10764,83 @@ function groupJoinRequestStatusLabel(status: GroupJoinRequest["status"]) {
   return "Pending";
 }
 
+/**
+ * USA-170: masked distinguishing info for ambiguous join-request matches.
+ * Three production candidates were all named "Tanner Kent"; a name alone
+ * cannot distinguish them, and full contact details must not spill onto this
+ * surface. Masked email/phone is enough for a leader to resolve deliberately.
+ */
+function maskEmailForLeader(email: string | null | undefined) {
+  const value = email?.trim() ?? "";
+  const at = value.indexOf("@");
+
+  if (at < 1) {
+    return null;
+  }
+
+  return `${value.slice(0, Math.min(2, at))}***@${value.slice(at + 1)}`;
+}
+
+function maskPhoneForLeader(phone: string | null | undefined) {
+  const digits = phone?.replace(/\D/g, "") ?? "";
+
+  return digits.length >= 4 ? `***${digits.slice(-4)}` : null;
+}
+
+/**
+ * USA-170 join-request correction: when a verified match is already an active
+ * member of this very group, the leader must see that first — not a duplicate
+ * picker with "Create new person" as the normal path.
+ */
+function joinRequestExistingActiveMember(group: DosAppGroup, matches: readonly GroupPersonMatch[]) {
+  for (const match of matches) {
+    const member = group.members.find((item) => item.personId === match.id && item.status === "active");
+
+    if (member) {
+      return member;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * USA-170: a leader must be able to tell, per member, whether they are a
+ * Person only, hold active scoped access, are sitting on an expired
+ * invitation, or have a linked full DOS account — without ever seeing a token.
+ * These four states came directly from the founder's identity-defect report:
+ * the UI must not call a Person-only member "a DOS user".
+ */
 function groupMemberPortalStatusLabel(member: DosAppGroupMember) {
-  const status = member.memberAccess?.status;
+  const access = member.memberAccess;
 
-  if (status === "verified") {
-    return "Portal: Active";
+  if (!access) {
+    return "Person only";
   }
 
-  if (status === "invited") {
-    return "Portal: Not accessed yet";
+  if (access.authLinked) {
+    return "Linked DOS account";
   }
 
-  if (status === "revoked") {
-    return "Portal: Revoked";
+  if (access.status === "revoked") {
+    return "Access revoked";
   }
 
-  return "Portal: Not set up";
+  if (access.status === "verified") {
+    return "Scoped access active";
+  }
+
+  if (access.invitation === "expired") {
+    return "Invitation expired";
+  }
+
+  if (access.invitation === "active") {
+    // Deliberately not "sent": the system only mints and copies the link —
+    // delivery happens in the leader's own messenger.
+    return "Invitation not opened yet";
+  }
+
+  return "Person only";
 }
 
 function GroupMembersTab({
@@ -10841,7 +10907,7 @@ function GroupMembersTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.id, isPreview, workspaceId]);
 
-  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction, options: { createNewPerson?: boolean; personId?: string } = {}) {
+  async function reviewJoinRequest(requestId: string, action: GroupJoinRequestAction, options: { createNewPerson?: boolean; personId?: string; successMessage?: string } = {}) {
     if (isPreview) {
       setJoinRequestsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
       return;
@@ -10885,11 +10951,11 @@ function GroupMembersTab({
         ? current.map((request) => request.id === requestId ? (result.request as GroupJoinRequest) : request)
         : current.filter((request) => request.id !== requestId));
       setJoinRequestsMessage({
-        text: action === "accept"
+        text: options.successMessage ?? (action === "accept"
           ? "Request accepted and added to the group."
           : action === "decline"
             ? "Request declined."
-            : "Request marked reviewed.",
+            : "Request marked reviewed."),
         tone: "success",
       });
     } catch (error) {
@@ -10919,7 +10985,7 @@ function GroupMembersTab({
     }
   }
 
-  async function sendMemberAccess(member: DosAppGroupMember) {
+  async function sendMemberAccess(member: DosAppGroupMember): Promise<boolean> {
     if (isPreview) {
       const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
       const accessUrl = buildPreviewParticipantAccessUrl({
@@ -10937,7 +11003,7 @@ function GroupMembersTab({
 
       if (!accessUrl) {
         setMemberAccessMessage({ text: "Unable to create a demo member access link.", tone: "error" });
-        return;
+        return false;
       }
 
       const copyResult = await copyOrShareParticipantText({
@@ -10945,9 +11011,9 @@ function GroupMembersTab({
         url: accessUrl,
         value: accessUrl,
       });
-      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `Fresh link for ${member.personName} copied.`), tone: "success" });
 
-      return;
+      return true;
     }
 
     setSendingMemberAccessId(member.id);
@@ -10980,16 +11046,38 @@ function GroupMembersTab({
         url: accessUrl,
         value: accessUrl,
       });
-      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, "Member access link copied."), tone: "success" });
+      setMemberAccessMessage({ text: participantUrlCopyMessage(copyResult, accessUrl, `Fresh link for ${member.personName} copied.`), tone: "success" });
+
+      return true;
     } catch (error) {
       setMemberAccessMessage({ text: error instanceof Error ? error.message : "Unable to create member access link.", tone: "error" });
+
+      return false;
     } finally {
       setSendingMemberAccessId(null);
     }
   }
 
+  /**
+   * USA-170: one deliberate action for "this requester is already a member".
+   * Copies a fresh secure link for the existing membership, then links the
+   * pending request to that same canonical person (the server updates the
+   * existing row — it never inserts a duplicate). The success message states
+   * exactly which of the two things happened.
+   */
+  async function repairExistingMemberAccess(request: GroupJoinRequest, member: DosAppGroupMember) {
+    const linkCopied = await sendMemberAccess(member);
+
+    await reviewJoinRequest(request.id, "accept", {
+      personId: member.personId,
+      successMessage: linkCopied
+        ? `Linked this request to ${member.personName}'s existing membership and copied a fresh Group link.`
+        : `Linked this request to ${member.personName}'s existing membership. Creating a fresh link failed — use Send ${participantFirstName(member.personName)} a fresh link.`,
+    });
+  }
+
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] xl:items-start">
+    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
       <DesktopPanel
         action={(
           <button
@@ -11023,6 +11111,9 @@ function GroupMembersTab({
               const name = groupJoinRequestName(request);
               const isSubmittingRequest = submittingJoinRequest?.endsWith(`:${request.id}`) ?? false;
               const possibleMatches = request.possiblePersonMatches ?? [];
+              // USA-170: a match who is already an active member of this group
+              // takes over the card — no duplicate picker, no Create new person.
+              const existingActiveMember = joinRequestExistingActiveMember(group, possibleMatches);
               const selectedPersonChoice = joinRequestPersonChoices[request.id] ?? "";
               const selectedPersonId = possibleMatches.length === 1
                 ? possibleMatches[0]?.id
@@ -11047,10 +11138,20 @@ function GroupMembersTab({
                   {request.message ? (
                     <p className="mt-3 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2 text-sm leading-6 text-[#475569]">{request.message}</p>
                   ) : null}
-                  {possibleMatches.length ? (
-                    <div className="mt-3 rounded-[16px] border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">
-                        {possibleMatches.length === 1 ? "Possible existing person" : "Possible existing people"}
+                  {existingActiveMember ? (
+                    <div className="mt-3 rounded-[16px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-2.5">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#1D4ED8]">Already a member</p>
+                      <p className="mt-1 text-sm font-bold leading-6 text-[#0F172A]">
+                        {existingActiveMember.personName} is already an active member of this group.
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold leading-5 text-[#475569]">
+                        {groupMemberPortalStatusLabel(existingActiveMember)} · Repairing access sends a fresh secure link and links this request to their existing membership — nothing is duplicated.
+                      </p>
+                    </div>
+                  ) : possibleMatches.length ? (
+                    <div className="mt-3 min-w-0 rounded-[16px] border border-[#BFDBFE] bg-white px-3 py-2.5">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#1D4ED8]">
+                        {possibleMatches.length === 1 ? "Possible existing person" : "Choose who this is"}
                       </p>
                       {possibleMatches.length === 1 ? (
                         <p className="mt-1 text-sm font-bold text-[#0F172A]">
@@ -11058,59 +11159,115 @@ function GroupMembersTab({
                           <span className="font-semibold text-[#64748B]"> · matched by {(possibleMatches[0]?.matchReasons ?? []).join(" + ")}</span>
                         </p>
                       ) : (
-                        <div className="mt-2">
-                          <CompactOptionSelect
-                            hideLabel
-                            label="Choose existing person match"
-                            onChange={(value) => setJoinRequestPersonChoices((current) => ({
+                        /* Inline, contained options — the floating listbox this
+                           replaces overlaid the Members column on desktop. Each
+                           row carries masked distinguishing contact info so a
+                           leader can resolve three same-named candidates
+                           deliberately. Create new person is the explicit last
+                           resort, never the normal path. */
+                        <div className="mt-2 grid gap-1.5" role="radiogroup" aria-label="Choose existing person match">
+                          {possibleMatches.map((person) => {
+                            const maskedEmail = maskEmailForLeader(person.email);
+                            const maskedPhone = maskPhoneForLeader(person.phone);
+                            const detail = [
+                              `matched by ${person.matchReasons.join(" + ")}`,
+                              maskedEmail,
+                              maskedPhone,
+                            ].filter(Boolean).join(" · ");
+                            const selected = selectedPersonChoice === person.id;
+
+                            return (
+                              <button
+                                aria-checked={selected}
+                                className={`min-w-0 rounded-xl border px-3 py-2 text-left transition-colors ${
+                                  selected ? "border-[#2563EB] bg-[#EBF2FF]" : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
+                                }`}
+                                key={person.id}
+                                onClick={() => setJoinRequestPersonChoices((current) => ({
+                                  ...current,
+                                  [request.id]: person.id,
+                                }))}
+                                role="radio"
+                                type="button"
+                              >
+                                <span className="block break-words text-sm font-bold text-[#0F172A]">{person.name}</span>
+                                <span className="mt-0.5 block break-words text-xs font-semibold text-[#64748B]">{detail}</span>
+                              </button>
+                            );
+                          })}
+                          <button
+                            aria-checked={createNewPerson}
+                            className={`min-w-0 rounded-xl border border-dashed px-3 py-2 text-left transition-colors ${
+                              createNewPerson ? "border-[#2563EB] bg-[#EBF2FF]" : "border-[#E2E8F0] bg-[#F8FBFF] hover:border-[#BFDBFE]"
+                            }`}
+                            onClick={() => setJoinRequestPersonChoices((current) => ({
                               ...current,
-                              [request.id]: value,
+                              [request.id]: "create-new",
                             }))}
-                            options={[
-                              { label: "Choose existing person or create new", value: "" },
-                              ...possibleMatches.map((person) => ({
-                                helper: `matched by ${person.matchReasons.join(" + ")}`,
-                                label: person.name,
-                                value: person.id,
-                              })),
-                              { label: "Create new person", value: "create-new" },
-                            ]}
-                            value={selectedPersonChoice}
-                          />
+                            role="radio"
+                            type="button"
+                          >
+                            <span className="block text-sm font-bold text-[#475569]">None of these — create a new person</span>
+                            <span className="mt-0.5 block text-xs font-semibold text-[#94A3B8]">Only if this is genuinely someone new.</span>
+                          </button>
                         </div>
                       )}
                     </div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-bold text-[#94A3B8]">{formatRelativeDate(request.submittedAt)} · {request.sourcePath}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {request.status === "pending" ? (
-                        <button
-                          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={Boolean(submittingJoinRequest)}
-                          onClick={() => void reviewJoinRequest(request.id, "review")}
-                          type="button"
-                        >
-                          Mark Reviewed
-                        </button>
-                      ) : null}
-                      <button
-                        className="inline-flex min-h-9 items-center justify-center rounded-full border border-red-200 bg-white px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={Boolean(submittingJoinRequest)}
-                        onClick={() => void reviewJoinRequest(request.id, "decline")}
-                        type="button"
-                      >
-                        Decline
-                      </button>
-                      <button
-                        className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={acceptDisabled}
-                        onClick={() => void reviewJoinRequest(request.id, "accept", { createNewPerson, personId: selectedPersonId })}
-                        type="button"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-                        {isSubmittingRequest ? "Saving..." : possibleMatches.length ? "Accept & Link" : "Accept"}
-                      </button>
+                    <div className="flex min-w-0 flex-wrap gap-2">
+                      {existingActiveMember ? (
+                        <>
+                          <button
+                            className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-center text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={Boolean(submittingJoinRequest)}
+                            onClick={() => void reviewJoinRequest(request.id, "decline", { successMessage: "Request dismissed. Nothing was changed on the existing membership." })}
+                            type="button"
+                          >
+                            Dismiss request
+                          </button>
+                          <button
+                            className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-center text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={Boolean(submittingJoinRequest) || sendingMemberAccessId === existingActiveMember.id}
+                            onClick={() => void repairExistingMemberAccess(request, existingActiveMember)}
+                            type="button"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                            {isSubmittingRequest || sendingMemberAccessId === existingActiveMember.id ? "Repairing..." : "Repair/send Group access"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {request.status === "pending" ? (
+                            <button
+                              className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-center text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                              disabled={Boolean(submittingJoinRequest)}
+                              onClick={() => void reviewJoinRequest(request.id, "review")}
+                              type="button"
+                            >
+                              Mark Reviewed
+                            </button>
+                          ) : null}
+                          <button
+                            className="inline-flex min-h-9 max-w-full items-center justify-center rounded-full border border-red-200 bg-white px-3 text-center text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={Boolean(submittingJoinRequest)}
+                            onClick={() => void reviewJoinRequest(request.id, "decline")}
+                            type="button"
+                          >
+                            Decline
+                          </button>
+                          <button
+                            className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-center text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={acceptDisabled}
+                            onClick={() => void reviewJoinRequest(request.id, "accept", { createNewPerson, personId: selectedPersonId })}
+                            type="button"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+                            {isSubmittingRequest ? "Saving..." : possibleMatches.length ? "Accept & Link" : "Accept"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -11165,10 +11322,10 @@ function GroupMembersTab({
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={member.status !== "active" || sendingMemberAccessId === member.id}
                         onClick={() => void sendMemberAccess(member)}
-                        title="Copies a Portal Link for this member's participant journey access. This does not affect group membership."
+                        title={`Copies a fresh secure Group link for ${member.personName}. Crawler-safe: the link is not consumed until they tap Open Group Home. This does not affect group membership.`}
                         type="button"
                       >
-                        {sendingMemberAccessId === member.id ? "Creating..." : "Portal Link"}
+                        {sendingMemberAccessId === member.id ? "Creating..." : `Send ${participantFirstName(member.personName)} a fresh link`}
                       </button>
                       <button
                         className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-2.5 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"

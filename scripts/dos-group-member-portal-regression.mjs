@@ -148,7 +148,9 @@ assertIncludes(memberAccess, "member_access_enabled: true", "Copy Link must auto
 assertIncludes(memberAccess, "Auto-enabled scoped member access", "Automatic group member-access provisioning must be logged server-side.");
 assertIncludes(memberAccess, "status: \"revoked\"", "Invitation regeneration must revoke prior active tokens before minting one canonical active token.");
 assertIncludes(missionaryApp, "memberAccess", "DOS payload must expose compact member access summary.");
-assertIncludes(appClient, "Portal Link", "Leader UI must expose a compact member access control.");
+// USA-170: the compact access control is now the founder-named action.
+assertIncludes(appClient, "a fresh link`", "Leader UI must expose the Send {First} a fresh link action.");
+assertNotIncludes(appClient, '"Portal Link"', "The old Portal Link label must not return.");
 assertIncludes(appClient, "participantInvitationUrlForCurrentContext", "Leader UI must canonicalize participant invitation URLs in one helper.");
 assertIncludes(appClient, "_vercel_share", "Protected Vercel preview share links must be preserved on participant invitations.");
 assertIncludes(appClient, "vercelShareTokenForCurrentContext", "Protected Vercel preview share links must survive Vercel's auth redirect before leader copy actions.");
