@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
   groupMemberSessionCookieName,
@@ -19,6 +19,7 @@ import {
 } from "@/src/lib/groups/public-site";
 import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import type { GroupMemberPortalResult } from "@/src/lib/groups/member-access";
 import { GroupHomeMemberView, groupHomeStateMessage } from "../GroupHomeMemberView";
 import { APPROVED_PUBLIC_GROUPS, communityCopyFor } from "../community-content";
 import { buildCommunitySchedule } from "../community-schedule";
@@ -152,6 +153,14 @@ export default async function PublicGroupPage({
     : null;
   const memberHomeResult = await loadMemberGroupHome(slug);
 
+  // USA-173 coordination: the member holds a valid session but arrived on a
+  // since-renamed public slug (texted link, bookmark, installed start_url).
+  // Send them to the canonical URL rather than letting the rename look like
+  // revoked access.
+  if (memberHomeResult.staleSlug && memberHomeResult.canonicalSlug) {
+    redirect(`${publicGroupPath(memberHomeResult.canonicalSlug)}${stateParam ? `?state=${encodeURIComponent(String(stateParam))}` : ""}`);
+  }
+
   if (memberHomeResult.data) {
     return (
       <GroupHomeMemberView
@@ -171,7 +180,7 @@ export default async function PublicGroupPage({
   return <PublicGroupPageTemplate group={group} requestState={requestState} />;
 }
 
-async function loadMemberGroupHome(slug: string) {
+async function loadMemberGroupHome(slug: string): Promise<GroupMemberPortalResult> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(groupMemberSessionCookieName)?.value ?? null;
 

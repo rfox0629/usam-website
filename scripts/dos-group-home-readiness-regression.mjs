@@ -44,7 +44,7 @@ const publicActions = read("app/groups/actions.ts");
 const publicGroupLoader = read("src/lib/public-groups.ts");
 const memberAccess = read("src/lib/groups/member-access.ts");
 const memberActions = read("app/groups/[slug]/member/actions.ts");
-const memberAccessRoute = read("app/groups/[slug]/member/access/route.ts");
+const memberAccessPage = read("app/groups/[slug]/member/access/page.tsx");
 const memberSignInPage = read("app/groups/[slug]/member/page.tsx");
 const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const groupHomeAccess = read("src/lib/groups/group-home-access.ts");
@@ -53,7 +53,7 @@ const appClient = read("app/dos/app/DosMvpAppClient.tsx");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
 
 const publicSurface = `${publicDirectory}\n${publicPage}\n${publicTemplate}\n${publicGroupLoader}`;
-const memberSurface = `${memberAccess}\n${memberActions}\n${memberAccessRoute}\n${memberSignInPage}\n${memberHomeView}`;
+const memberSurface = `${memberAccess}\n${memberActions}\n${memberAccessPage}\n${memberSignInPage}\n${memberHomeView}`;
 
 for (const table of [
   "public_sites",
@@ -166,12 +166,24 @@ assertIncludes(memberActions, ".upsert(", "RSVP and preference writes must updat
 assertIncludes(memberActions, "onConflict: \"gathering_id,person_id\"", "RSVP duplicate prevention must be enforced by response shape.");
 assertIncludes(memberActions, "onConflict: \"member_identity_id,group_id,channel,notification_type\"", "Preference duplicate prevention must be enforced by response shape.");
 assertIncludes(memberActions, "visibility: \"group_leaders\"", "Member-submitted prayer must default to leader-only visibility.");
-assertIncludes(memberActions, "redirectToSignIn(slug, \"access-requested\")", "Access requests must avoid email-membership enumeration.");
+// USA-170 renamed this state: the old "access-requested" claimed a link had
+// been requested when the system only performed a membership lookup. The
+// enumeration-resistance intent is unchanged and asserted more directly below —
+// the same neutral outcome whether or not the email matched a member.
+assertIncludes(memberActions, "recovery-requested", "Access requests must avoid email-membership enumeration.");
+assertIncludes(memberActions, "redirectToSignIn(slug, \"recovery-requested\")", "A non-matching email must land on the same neutral recovery state as a matching one.");
+// Scoped to the function body: the doc comment above it deliberately names the
+// old call to record why it was removed.
+const recoveryBody = memberActions.slice(
+  memberActions.indexOf("export async function requestGroupMemberAccess"),
+  memberActions.indexOf("export async function signOutGroupMember"),
+);
+assertNotIncludes(recoveryBody, "createGroupMemberAccessInvitation", "Recovery must never rotate or revoke the leader's live invitation token.");
 assertIncludes(memberActions, "path: \"/groups\"", "Sign-out cookie clearing must match the session cookie path.");
 assertIncludes(memberActions, "maxAge: 0", "Sign-out must expire the member session cookie.");
-assertIncludes(memberAccessRoute, "httpOnly: true", "Member session cookie must be HTTP-only.");
-assertIncludes(memberAccessRoute, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
-assertIncludes(memberAccessRoute, "secure: process.env.NODE_ENV === \"production\"", "Member session cookie must be secure in production.");
+assertIncludes(memberActions, "httpOnly: true", "Member session cookie must be HTTP-only.");
+assertIncludes(memberActions, "sameSite: \"lax\"", "Member session cookie must be same-site protected.");
+assertIncludes(memberActions, "secure: process.env.NODE_ENV === \"production\"", "Member session cookie must be secure in production.");
 assertNotMatches(memberSurface, /console\.(?:log|warn|error)\([^)]*token/i, "Raw access tokens must not be logged.");
 
 for (const stateChangingAction of [

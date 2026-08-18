@@ -12,7 +12,7 @@ export async function GET(
   // "any" and "maskable" are separate assets: the maskable one is padded so a
   // circular Android crop cannot clip the mark.
   return NextResponse.json({
-    background_color: "#FFFFFF",
+    background_color: "#F8FBFF",
     display: "standalone",
     icons: [
       {
