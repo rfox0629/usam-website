@@ -34175,7 +34175,7 @@ function PDRow({
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className="min-w-0 flex-1 truncate text-[14.5px] font-semibold leading-5 text-[#0F1520]">{title}</p>
+          <p className="min-w-0 flex-1 text-[14.5px] font-semibold leading-5 text-[#0F1520] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{title}</p>
           {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-[#9AA4B2]">{meta}</span> : null}
         </div>
         {description ? <div className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{description}</div> : null}
@@ -34285,6 +34285,7 @@ function PersonDetailOverlay({
   fruitEvents,
   fruitItems,
   groups,
+  guidedResourceProgress,
   initialDetailTab,
   index,
   leaderReflections,
@@ -34336,6 +34337,7 @@ function PersonDetailOverlay({
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   groups: DosAppGroup[];
+  guidedResourceProgress: DosAppGuidedResourceProgress[];
   initialDetailTab?: PersonDetailTab | null;
   index: number;
   leaderReflections: DosAppLeaderReflection[];
@@ -34411,6 +34413,15 @@ function PersonDetailOverlay({
     .sort((first, second) => dateSortValue(second.answeredAt ?? second.updatedAt ?? second.createdAt) - dateSortValue(first.answeredAt ?? first.updatedAt ?? first.createdAt));
   const personFollowUpReminders = personReminders.filter((reminder) => reminder.reminderType === "follow_up");
   const personGroups = groups.filter((group) => group.members.some((member) => member.personId === person.id && member.status === "active"));
+  // Prayer needs captured in Leader Reflections stay discoverable from the
+  // Person record: direct person link, or single-person meeting fallback so
+  // group-meeting prayer is not copied to every attendee (USA-168 audit fix).
+  const reflectionPrayerRows = leaderReflections
+    .filter((reflection) => Boolean(reflection.prayerNeeds?.trim()))
+    .filter((reflection) => reflection.personId === person.id
+      || (!reflection.personId && personLoggedMeetings.some((meeting) => meeting.id === reflection.meetingId && meeting.fieldPersonIds.length === 1)))
+    .sort((first, second) => dateSortValue(second.createdAt) - dateSortValue(first.createdAt))
+    .slice(0, 3);
   // Group gatherings/attendance previously never joined into Person History (known gap) —
   // surface completed gatherings the person actually attended, across any group, not just
   // groups they're still an active member of.
@@ -34603,7 +34614,7 @@ function PersonDetailOverlay({
       id: `history-gathering-${gathering.id}-${attendance.id}`,
       kind: "gathering" as const,
       onClick: () => onOpenGroup(group.id),
-      title: `${group.name}${gathering.title ? ` — ${gathering.title}` : ""}`,
+      title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
@@ -34785,6 +34796,10 @@ function PersonDetailOverlay({
                   const resource = resourceAssignmentResource(assignment);
                   const isInAppJourney = Boolean(resource && isGuidedResource(resource));
                   const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
+                  const completion = isInAppJourney && resource
+                    ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
+                    : null;
+                  const hasProgress = Boolean(completion && completion.total > 0);
 
                   return (
                     <PDRow
@@ -34798,10 +34813,19 @@ function PersonDetailOverlay({
                           <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
                         </>
                       )}
-                      description={groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}
+                      description={(
+                        <>
+                          <span className="block">{groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}</span>
+                          {hasProgress && completion ? (
+                            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
+                              <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
+                            </span>
+                          ) : null}
+                        </>
+                      )}
                       icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                       key={assignment.id}
-                      meta={resourceAssignmentDueLabel(assignment)}
+                      meta={hasProgress && completion ? `${completion.completed}/${completion.total}` : resourceAssignmentDueLabel(assignment)}
                       title={resourceAssignmentTitle(assignment)}
                     />
                   );
@@ -34817,7 +34841,7 @@ function PersonDetailOverlay({
             </PDSection>
 
             <PDSection action={<PDButton onClick={onAddPrayerRequest}>Add</PDButton>} title="Prayer">
-              {activePersonPrayerRequests.length || activePrayerReminders.length ? (
+              {activePersonPrayerRequests.length || activePrayerReminders.length || reflectionPrayerRows.length ? (
                 <PDList>
                   {activePersonPrayerRequests.map((request) => (
                     <PDRow
@@ -34843,6 +34867,16 @@ function PersonDetailOverlay({
                       key={reminder.id}
                       meta={prayerFrequencyLabel(reminder.recurrence)}
                       title={reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}
+                    />
+                  ))}
+                  {reflectionPrayerRows.map((reflection) => (
+                    <PDRow
+                      description={reflection.prayerNeeds}
+                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      key={`reflection-prayer-${reflection.id}`}
+                      meta="From meeting"
+                      onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
+                      title="Prayer need from last conversation"
                     />
                   ))}
                 </PDList>
@@ -42010,6 +42044,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               person={selectedPerson}
               prayerRequests={workspacePrayerRequests}
               circleBenchmarks={circleBenchmarks}
+              guidedResourceProgress={data.guidedResourceProgress}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
               workspace={data.workspace}
             />

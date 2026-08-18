@@ -186,7 +186,7 @@ function buildDosPreviewDemoData(): DosAppData {
       id: "demo-person-george-jenko",
       lastActivityAt: "2026-05-27T08:15:00-05:00",
       name: "George Jenko",
-      notes: "Home address: 842 North Ash Ave, Tulsa, OK 74120\nOccupation: Firefighter\nBirthday: 1989-04-11\n\nHungry for Scripture and steady in follow-through.",
+      notes: "Hungry for Scripture and steady in follow-through.\n\nAdditional information:\nHome address: 842 North Ash Ave, Tulsa, OK 74120\nOccupation: Firefighter\nBirthday: 1989-04-11",
       phone: "918-555-0147",
       relationshipContext: "church",
       relationshipType: "Disciple",
