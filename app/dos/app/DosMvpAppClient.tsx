@@ -1025,7 +1025,7 @@ type GroupActivityItem = {
   meta: string;
   title: string;
 };
-type PersonDetailTab = "details" | "history" | "overview";
+type PersonDetailTab = "contact" | "overview" | "timeline";
 type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
@@ -34096,6 +34096,10 @@ function PDEmptyRow({ text }: { text: string }) {
   return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-[#9AA4B2]">{text}</p>;
 }
 
+function PDCategoryTag({ label }: { label: string }) {
+  return <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">{label}</span>;
+}
+
 function PDPill({
   children,
   tone = "blue",
@@ -34271,6 +34275,88 @@ function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
   );
 }
 
+function monthLabelForHistoryDate(date: string | null) {
+  const parsed = parseDisplayDate(date);
+  return parsed ? parsed.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Earlier";
+}
+
+function groupHistoryEntriesByMonth(entries: PersonHistoryEntry[]) {
+  return entries.reduce<Array<{ entries: PersonHistoryEntry[]; label: string }>>((groups, entry) => {
+    const label = monthLabelForHistoryDate(entry.date);
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.entries.push(entry);
+    } else {
+      groups.push({ entries: [entry], label });
+    }
+
+    return groups;
+  }, []);
+}
+
+function CircleSuggestionBanner({ onOpen, suggestedCircle }: { onOpen: () => void; suggestedCircle: CircleKey }) {
+  return (
+    <button
+      className="flex w-full items-center justify-between gap-2 rounded-[11px] border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-left text-[#1D4ED8] transition-colors hover:bg-[#EAF2FF]"
+      onClick={onOpen}
+      type="button"
+    >
+      <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2450C8]" aria-hidden="true" />
+        <span className="truncate">Consider moving closer to {circleDisplayName(suggestedCircle)}</span>
+      </span>
+      <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.09em]">Review</span>
+    </button>
+  );
+}
+
+function AddMenuButton({
+  onAddAccountability,
+  onAddJourney,
+  onAddNextStep,
+  onAddPrayer,
+}: {
+  onAddAccountability: () => void;
+  onAddJourney: () => void;
+  onAddNextStep: () => void;
+  onAddPrayer: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuItems = [
+    { label: "Accountability", onSelect: onAddAccountability },
+    { label: "Journey", onSelect: onAddJourney },
+    { label: "Prayer", onSelect: onAddPrayer },
+    { label: "Next Step", onSelect: onAddNextStep },
+  ];
+
+  return (
+    <div className="relative">
+      <PDButton onClick={() => setIsOpen((current) => !current)}>+ Add</PDButton>
+      {isOpen ? (
+        <>
+          <button aria-label="Close menu" className="fixed inset-0 z-10 cursor-default" onClick={() => setIsOpen(false)} type="button" />
+          <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-44 overflow-hidden rounded-[13px] border border-[#E3E6EB] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+            {menuItems.map((item) => (
+              <button
+                className="block w-full px-4 py-2.5 text-left text-[13px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F8FAFC]"
+                key={item.label}
+                onClick={() => {
+                  item.onSelect();
+                  setIsOpen(false);
+                }}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function PersonDetailOverlay({
   accountabilityCheckInLinks,
   accountabilityCheckIns,
@@ -34380,7 +34466,7 @@ function PersonDetailOverlay({
   const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
-  const [circleSuggestionExpanded, setCircleSuggestionExpanded] = useState(false);
+  const [circleSuggestionSheetOpen, setCircleSuggestionSheetOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
   const defaults = personFormDefaults(person);
@@ -34617,10 +34703,22 @@ function PersonDetailOverlay({
       title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
+  const groupedHistoryEntries = groupHistoryEntriesByMonth(personHistoryEntries);
+  // The Last Conversation card carries forward the prayer need captured in that specific
+  // meeting's reflection; Walking Together shows any other active prayer needs so the two
+  // sections don't repeat the same row (revision 6: "carried forward" vs. "active").
+  const carriedForwardPrayerReflection = lastMeeting
+    ? reflectionPrayerRows.find((reflection) => reflection.meetingId === lastMeeting.id) ?? null
+    : null;
+  const walkingTogetherPrayerReflections = reflectionPrayerRows.filter((reflection) => reflection.id !== carriedForwardPrayerReflection?.id);
+  const hasActiveAccountability = accountabilityTopics.length > 0;
+  const hasActiveJourney = activeResourceAssignments.length > 0 || Boolean(latestMarriageAssessment);
+  const hasActivePrayer = activePersonPrayerRequests.length > 0 || activePrayerReminders.length > 0 || walkingTogetherPrayerReflections.length > 0;
+  const hasWalkingTogetherContent = hasActiveAccountability || hasActiveJourney || hasActivePrayer;
   const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
     { label: "Overview", value: "overview" },
-    { label: "History", value: "history" },
-    { label: "Details", value: "details" },
+    { label: "Timeline", value: "timeline" },
+    { label: "Contact", value: "contact" },
   ];
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
@@ -34692,160 +34790,152 @@ function PersonDetailOverlay({
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {activeDetailTab === "overview" ? (
           <>
-            <section className="grid gap-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <PDPill tone="blue">{relationshipTypePill}</PDPill>
-                <PDPill tone="neutral">{engagementOverviewLabel} engagement</PDPill>
-                <PDPill tone="gold">{spiritualJourneyPill}</PDPill>
-                <PDPill tone="neutral">{currentCircleLabel}{confirmedCircleMove ? " (prototype only)" : ""}</PDPill>
-                {personFruitEvents.length ? <PDPill tone="gold">{personFruitEvents.length} fruit</PDPill> : null}
-              </div>
-              <p className="text-[13.5px] leading-[1.5] text-[#6B7686]">
+            <section className="grid gap-1.5">
+              <p className="text-[14.5px] font-semibold text-[#0F1520]">
+                {spiritualJourneyPill} · {currentCircleLabel}{confirmedCircleMove ? " (prototype only)" : ""}
+              </p>
+              <p className="text-[12.5px] text-[#9AA4B2]">
+                {relationshipTypePill} · {engagementOverviewLabel} engagement{personFruitEvents.length ? ` · ${personFruitEvents.length} fruit` : ""}
+              </p>
+              <p className="text-[13px] leading-[1.5] text-[#6B7686]">
                 Last met {lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "not yet"} · Next meeting {nextMeeting ? formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date) : "not scheduled"}
               </p>
               {visibleCircleSuggestion ? (
-                <div className="rounded-2xl border border-[#CFE0FF] bg-[#F5F9FF] p-3">
-                  <button
-                    className="flex w-full items-center justify-between gap-2 text-left text-[13px] font-semibold text-[#1D4ED8]"
-                    onClick={() => setCircleSuggestionExpanded((current) => !current)}
-                    type="button"
-                  >
-                    <span>Consider moving closer to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}</span>
-                    <span className="text-[11px] font-bold uppercase tracking-wide">{circleSuggestionExpanded ? "Hide why" : "Why?"}</span>
-                  </button>
-                  {circleSuggestionExpanded ? (
-                    <div className="mt-2.5 grid gap-2.5 text-[12.5px] leading-[1.5] text-[#334155]">
-                      <p>
-                        Last 30 days: {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} meaningful interactions ({visibleCircleSuggestion.person30.oneToOneCount} one-to-one) · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} together · last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "no recent one-to-one"}.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
-                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
-                        </div>
-                        <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#1D4ED8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
-                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
-                        </div>
-                      </div>
-                      <p className="text-[#6B7686]">This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships. DOS never moves anyone automatically — this is a suggestion only.</p>
-                      <div className="flex flex-wrap gap-2">
-                        <PDButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleSuggestionExpanded(false); }} tone="solid">
-                          Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
-                        </PDButton>
-                        <PDButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setCircleSuggestionExpanded(false); }}>
-                          Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
-                        </PDButton>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                <CircleSuggestionBanner onOpen={() => setCircleSuggestionSheetOpen(true)} suggestedCircle={visibleCircleSuggestion.suggestedCircle} />
               ) : null}
             </section>
 
-            <PDSection title="Last Meeting">
+            <PDSection title="Last Conversation">
               {lastMeeting ? (
                 <PDList>
                   <PDRow
-                    action={lastMeeting.growthReflection.followUpNeeded ? <PDPill tone="gold">Follow-up needed</PDPill> : undefined}
+                    action={<PDButton onClick={() => onOpenMeeting(lastMeeting.id, person.id)}>View meeting</PDButton>}
                     description={(
                       <>
                         <span className="block">{meetingActivityPreview(lastMeeting, personReflections)}</span>
-                        {lastMeeting.growthReflection.actionStep ? <span className="mt-1 block text-[#0F1520]">Next step: {lastMeeting.growthReflection.actionStep}</span> : null}
+                        {lastMeeting.growthReflection.actionStep ? <span className="mt-1.5 block text-[#0F1520]">Next step: {lastMeeting.growthReflection.actionStep}</span> : null}
+                        {carriedForwardPrayerReflection ? <span className="mt-1 block text-[#0F1520]">Prayer: {carriedForwardPrayerReflection.prayerNeeds}</span> : null}
+                        {lastMeeting.growthReflection.followUpNeeded ? <span className="mt-1.5 inline-block"><PDPill tone="gold">Follow-up needed</PDPill></span> : null}
                       </>
                     )}
                     icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                     meta={formatDate(lastMeeting.date)}
-                    onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
                     title={meetingActivityTitle(lastMeeting)}
                   />
                 </PDList>
               ) : (
                 <PDList>
-                  <PDEmptyRow text="No meetings logged yet." />
+                  <PDRow
+                    action={<PDButton onClick={onLogMeeting}>Log Meeting</PDButton>}
+                    icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    title="No meetings logged yet"
+                  />
                 </PDList>
               )}
             </PDSection>
 
-            {commitmentsEnabled ? (
-              <PDSection action={<PDButton onClick={onAddCommitment}>Add</PDButton>} title="Accountability">
-                {accountabilityTopics.length ? (
-                  <PDList>
-                    {accountabilityTopics.map((topic) => (
-                      <PDRow
-                        action={<PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>}
-                        description={topic.isOverdue ? <PDPill tone="gold">Overdue</PDPill> : undefined}
-                        icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                        key={topic.id}
-                        meta={topic.meta}
-                        title={topic.title}
-                      />
-                    ))}
-                  </PDList>
-                ) : (
-                  <PDList>
-                    <PDEmptyRow text="No active accountability yet." />
-                  </PDList>
-                )}
-              </PDSection>
-            ) : null}
-
-            <PDSection action={<PDButton onClick={() => onAssignResource(person.id)}>Assign</PDButton>} title="Current Journeys">
-              <PDList>
-                {activeResourceAssignments.map((assignment) => {
-                  const resource = resourceAssignmentResource(assignment);
-                  const isInAppJourney = Boolean(resource && isGuidedResource(resource));
-                  const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
-                  const completion = isInAppJourney && resource
-                    ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
-                    : null;
-                  const hasProgress = Boolean(completion && completion.total > 0);
-
-                  return (
+            <PDSection
+              action={(
+                <AddMenuButton
+                  onAddAccountability={onAddCommitment}
+                  onAddJourney={() => onAssignResource(person.id)}
+                  onAddNextStep={onAddReminder}
+                  onAddPrayer={onAddPrayerRequest}
+                />
+              )}
+              title="Walking Together"
+            >
+              {hasWalkingTogetherContent ? (
+                <PDList>
+                  {accountabilityTopics.map((topic) => (
                     <PDRow
-                      action={(
-                        <>
-                          {isInAppJourney && resource ? (
-                            <PDButton onClick={() => onOpenGuidedResource(resource, assignment.personId)} tone="solid">Continue</PDButton>
-                          ) : resource ? (
-                            <PDButton href={resource.path}>Read Online</PDButton>
-                          ) : null}
-                          <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
-                        </>
-                      )}
+                      action={<PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>}
                       description={(
                         <>
-                          <span className="block">{groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}</span>
-                          {hasProgress && completion ? (
-                            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
-                              <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
-                            </span>
-                          ) : null}
+                          <PDCategoryTag label="Accountability" />
+                          {topic.isOverdue ? <PDPill tone="gold">Overdue</PDPill> : null}
                         </>
                       )}
-                      icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={assignment.id}
-                      meta={hasProgress && completion ? `${completion.completed}/${completion.total}` : resourceAssignmentDueLabel(assignment)}
-                      title={resourceAssignmentTitle(assignment)}
+                      icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      key={topic.id}
+                      meta={topic.meta}
+                      title={topic.title}
                     />
-                  );
-                })}
-                <PDRow
-                  action={<PDButton href={marriageAssessmentHref}>{latestMarriageAssessment ? "Retake" : "Start"}</PDButton>}
-                  description={latestMarriageAssessment ? `Completed ${formatDate(latestMarriageAssessment.completedAt)}` : "Structured assessment"}
-                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                  meta={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "Not started"}
-                  title="Marriage Assessment"
-                />
-              </PDList>
-            </PDSection>
+                  ))}
 
-            <PDSection action={<PDButton onClick={onAddPrayerRequest}>Add</PDButton>} title="Prayer">
-              {activePersonPrayerRequests.length || activePrayerReminders.length || reflectionPrayerRows.length ? (
-                <PDList>
+                  {hasActiveJourney ? (
+                    <>
+                      {activeResourceAssignments.map((assignment) => {
+                        const resource = resourceAssignmentResource(assignment);
+                        const isInAppJourney = Boolean(resource && isGuidedResource(resource));
+                        const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
+                        const completion = isInAppJourney && resource
+                          ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
+                          : null;
+                        const hasProgress = Boolean(completion && completion.total > 0);
+
+                        return (
+                          <PDRow
+                            action={(
+                              <>
+                                {isInAppJourney && resource ? (
+                                  <PDButton onClick={() => onOpenGuidedResource(resource, assignment.personId)} tone="solid">Continue</PDButton>
+                                ) : resource ? (
+                                  <PDButton href={resource.path}>Read Online</PDButton>
+                                ) : null}
+                                <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
+                              </>
+                            )}
+                            description={(
+                              <>
+                                <PDCategoryTag label="Journey" />
+                                <span className="block">{groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}</span>
+                                {hasProgress && completion ? (
+                                  <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
+                                    <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                            icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                            key={assignment.id}
+                            meta={hasProgress && completion ? `${completion.completed}/${completion.total}` : resourceAssignmentDueLabel(assignment)}
+                            title={resourceAssignmentTitle(assignment)}
+                          />
+                        );
+                      })}
+                      {latestMarriageAssessment ? (
+                        <PDRow
+                          action={<PDButton href={marriageAssessmentHref}>Retake</PDButton>}
+                          description={(
+                            <>
+                              <PDCategoryTag label="Journey" />
+                              <span className="block">Completed {formatDate(latestMarriageAssessment.completedAt)}</span>
+                            </>
+                          )}
+                          icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                          meta={`${latestMarriageAssessment.percentage}%`}
+                          title="Marriage Assessment"
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <PDRow
+                      action={<PDButton onClick={() => onAssignResource(person.id)}>Add Journey</PDButton>}
+                      description={<PDCategoryTag label="Journey" />}
+                      icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                      title="No active Journey"
+                    />
+                  )}
+
                   {activePersonPrayerRequests.map((request) => (
                     <PDRow
-                      description={request.request}
+                      description={(
+                        <>
+                          <PDCategoryTag label="Prayer" />
+                          {request.request}
+                        </>
+                      )}
                       icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                       key={request.id}
                       meta={request.category ?? "Prayer"}
@@ -34862,54 +34952,67 @@ function PersonDetailOverlay({
                           <PDButton onClick={() => onMarkPrayerAnswered(reminder.id)} tone="solid">Mark Answered</PDButton>
                         </>
                       )}
-                      description={reminderVisibleNotes(reminder.notes)}
+                      description={(
+                        <>
+                          <PDCategoryTag label="Prayer" />
+                          {reminderVisibleNotes(reminder.notes)}
+                        </>
+                      )}
                       icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                       key={reminder.id}
                       meta={prayerFrequencyLabel(reminder.recurrence)}
                       title={reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}
                     />
                   ))}
-                  {reflectionPrayerRows.map((reflection) => (
+                  {walkingTogetherPrayerReflections.map((reflection) => (
                     <PDRow
-                      description={reflection.prayerNeeds}
+                      description={(
+                        <>
+                          <PDCategoryTag label="Prayer" />
+                          {reflection.prayerNeeds}
+                        </>
+                      )}
                       icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
                       key={`reflection-prayer-${reflection.id}`}
                       meta="From meeting"
                       onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
-                      title="Prayer need from last conversation"
+                      title="Prayer need from a past conversation"
                     />
                   ))}
                 </PDList>
               ) : (
-                <PDList>
-                  <PDEmptyRow text="No active prayer requests." />
-                </PDList>
+                <p className="text-[13px] leading-[1.5] text-[#9AA4B2]">Nothing active yet — use "+ Add" above to start.</p>
               )}
             </PDSection>
 
-            <PDSection action={<PDButton onClick={onAddReminder}>Add</PDButton>} title="Next Steps">
-              {personFollowUpReminders.length ? (
-                <PDList>
-                  {personFollowUpReminders.map((reminder) => (
-                    <PDRow
-                      description={reminderVisibleNotes(reminder.notes)}
-                      icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={reminder.id}
-                      meta={formatDate(nextReminderDate(reminder))}
-                      onClick={() => onEditReminder(reminder.id)}
-                      title={reminder.title || "Follow up"}
-                    />
-                  ))}
-                </PDList>
-              ) : (
-                <PDList>
-                  <PDEmptyRow text="No follow-ups queued." />
-                </PDList>
-              )}
-            </PDSection>
-
-            {personGroups.length ? (
-              <PDSection title="Groups">
+            <PDSection title="Next">
+              <PDList>
+                {nextMeeting ? (
+                  <PDRow
+                    icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    meta={formatDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)}
+                    onClick={() => onOpenMeeting(nextMeeting.id, person.id)}
+                    title="Next meeting scheduled"
+                  />
+                ) : (
+                  <PDRow
+                    action={<PDButton onClick={onScheduleMeeting}>Schedule</PDButton>}
+                    icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    title="No meeting scheduled"
+                  />
+                )}
+                {personFollowUpReminders.map((reminder) => (
+                  <PDRow
+                    description={reminderVisibleNotes(reminder.notes)}
+                    icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
+                    key={reminder.id}
+                    meta={formatDate(nextReminderDate(reminder))}
+                    onClick={() => onEditReminder(reminder.id)}
+                    title={reminder.title || "Follow up"}
+                  />
+                ))}
+              </PDList>
+              {personGroups.length ? (
                 <div className="flex flex-wrap gap-2">
                   {personGroups.map((group) => (
                     <button
@@ -34924,28 +35027,33 @@ function PersonDetailOverlay({
                     </button>
                   ))}
                 </div>
-              </PDSection>
-            ) : null}
+              ) : null}
+            </PDSection>
           </>
         ) : null}
 
-        {activeDetailTab === "history" ? (
-          <PDSection title="History">
-            {personHistoryEntries.length ? (
-              <PDList>
-                {personHistoryEntries.map((entry) => (
-                  <HistoryRow entry={entry} key={entry.id} />
+        {activeDetailTab === "timeline" ? (
+          <PDSection title="Timeline">
+            {groupedHistoryEntries.length ? (
+              <div className="grid gap-4">
+                {groupedHistoryEntries.map((group) => (
+                  <div className="grid gap-2" key={group.label}>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9AA4B2]">{group.label}</p>
+                    <PDList>
+                      {group.entries.map((entry) => (
+                        <HistoryRow entry={entry} key={entry.id} />
+                      ))}
+                    </PDList>
+                  </div>
                 ))}
-              </PDList>
+              </div>
             ) : (
-              <PDList>
-                <PDEmptyRow text="Meetings, check-ins, journeys, prayer, and reviews will appear here as this relationship grows." />
-              </PDList>
+              <p className="text-[13px] leading-[1.5] text-[#9AA4B2]">Meetings, check-ins, journeys, prayer, and reviews will appear here as this relationship grows.</p>
             )}
           </PDSection>
         ) : null}
 
-        {activeDetailTab === "details" ? (
+        {activeDetailTab === "contact" ? (
           <>
             <PDSection title="Contact">
               <PDList>
@@ -34996,17 +35104,39 @@ function PersonDetailOverlay({
                 <PDButton onClick={onAddReminder}>Add Household Reminder</PDButton>
               </PDSection>
             ) : null}
-
-            {overviewNotes ? (
-              <PDSection title="Notes">
-                <p className="whitespace-pre-line rounded-[16px] border border-[#EDEFF2] bg-[#FBFAF8] p-4 text-[14px] leading-[1.6] text-[#3D4654]">{overviewNotes}</p>
-              </PDSection>
-            ) : null}
           </>
         ) : null}
 
       </div>
       </div>
+      {visibleCircleSuggestion && circleSuggestionSheetOpen ? (
+        <Sheet onClose={() => setCircleSuggestionSheetOpen(false)} title={`Consider moving closer to ${circleDisplayName(visibleCircleSuggestion.suggestedCircle)}`}>
+          <div className="grid gap-3 text-[13px] leading-[1.5] text-[#334155]">
+            <p>
+              Last 30 days: {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} meaningful interactions ({visibleCircleSuggestion.person30.oneToOneCount} one-to-one) · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} together · last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "no recent one-to-one"}.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+              </div>
+              <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#1D4ED8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+              </div>
+            </div>
+            <p className="text-[#6B7686]">This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships. DOS never moves anyone automatically — this is a suggestion only.</p>
+            <div className="flex flex-wrap gap-2">
+              <PDButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleSuggestionSheetOpen(false); }} tone="solid">
+                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+              </PDButton>
+              <PDButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setCircleSuggestionSheetOpen(false); }}>
+                Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
+              </PDButton>
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
       {selectedOutcomeEntry ? (
         <OutcomeDetailSheet
           entry={selectedOutcomeEntry}
@@ -35834,7 +35964,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const requestedPersonId = searchParams.get("person");
   const requestedGroupId = searchParams.get("openGroup");
   const requestedDetailTab = searchParams.get("tab") === "growth"
-    ? "history"
+    ? "timeline"
     : searchParams.get("tab") === "commitments"
       ? "overview"
       : null;
