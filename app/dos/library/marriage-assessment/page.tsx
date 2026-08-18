@@ -4,7 +4,7 @@ import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { MarriageAssessmentClient } from "./MarriageAssessmentClient";
 
 export const metadata: Metadata = {
-  title: "Marriage Assessment | DOS Library",
+  title: "Marriage Assessment",
   robots: {
     follow: false,
     index: false,

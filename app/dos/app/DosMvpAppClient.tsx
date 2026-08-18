@@ -19,6 +19,7 @@ import {
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
+import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
@@ -18696,158 +18697,14 @@ function CircleTarget({
   onSelectCircle: (circle: CircleFocusView) => void;
 }) {
   const [focusedCircle, setFocusedCircle] = useState<CircleFocusView | null>(null);
-  const isMy3Focused = focusedCircle === "three";
-  const isMy12Focused = focusedCircle === "twelve";
-  const isMy70Focused = focusedCircle === "seventy";
-  const isMy120Focused = focusedCircle === "my_120";
 
   return (
-    <div
-      aria-label="Discipleship circle target"
-      className="relative mx-auto mt-1 h-[236px] w-[236px] rounded-full max-[350px]:h-[220px] max-[350px]:w-[220px]"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setFocusedCircle(null);
-        }
-      }}
-      onMouseLeave={() => setFocusedCircle(null)}
-    >
-      <span
-        className={`absolute inset-0 rounded-full border bg-white transition-all duration-200 ${
-          isMy120Focused
-            ? "border-[#2563EB]/55 shadow-[0_0_0_5px_rgba(37,99,235,0.055),0_18px_42px_rgba(37,99,235,0.08)]"
-            : "border-[#DCEBFF] shadow-[0_16px_34px_rgba(37,99,235,0.045)]"
-        }`}
-        aria-hidden="true"
-      />
-      <span
-        className={`absolute left-1/2 top-1/2 h-[184px] w-[184px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#F8FBFF] transition-all duration-200 max-[350px]:h-[172px] max-[350px]:w-[172px] ${
-          isMy70Focused
-            ? "border-[#2563EB]/60 shadow-[0_0_0_5px_rgba(37,99,235,0.06),inset_0_8px_26px_rgba(255,255,255,0.82),0_14px_30px_rgba(37,99,235,0.10)]"
-            : "border-[#CFE0FF]/90 shadow-[inset_0_6px_26px_rgba(255,255,255,0.82)]"
-        }`}
-        aria-hidden="true"
-      />
-      <span
-        className={`absolute left-1/2 top-1/2 h-[126px] w-[126px] -translate-x-1/2 -translate-y-1/2 rounded-full border bg-[#EBF2FF]/78 transition-all duration-200 max-[350px]:h-[118px] max-[350px]:w-[118px] ${
-          isMy12Focused
-            ? "border-[#2563EB]/60 shadow-[0_0_0_4px_rgba(37,99,235,0.075),inset_0_8px_24px_rgba(255,255,255,0.78)]"
-            : "border-[#CFE0FF]/85 shadow-[inset_0_8px_24px_rgba(255,255,255,0.68)]"
-        }`}
-        aria-hidden="true"
-      />
-      <span
-        className={`absolute left-1/2 top-1/2 h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#BFDBFE] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] transition-all duration-200 max-[350px]:h-[62px] max-[350px]:w-[62px] ${
-          isMy3Focused
-            ? "scale-[1.03] shadow-[0_14px_28px_rgba(37,99,235,0.36),inset_0_5px_14px_rgba(255,255,255,0.28)]"
-            : "shadow-[0_12px_24px_rgba(37,99,235,0.30),inset_0_5px_14px_rgba(255,255,255,0.22)]"
-        }`}
-        aria-hidden="true"
-      />
-      <svg
-        aria-hidden="true"
-        className="absolute inset-0 z-10 h-full w-full"
-        viewBox="0 0 236 236"
-      >
-        <circle
-          className="cursor-pointer"
-          cx="118"
-          cy="118"
-          fill="none"
-          onClick={() => onSelectCircle("my_120")}
-          onMouseEnter={() => setFocusedCircle("my_120")}
-          pointerEvents="stroke"
-          r="108"
-          stroke="transparent"
-          strokeWidth="24"
-        />
-        <circle
-          className="cursor-pointer"
-          cx="118"
-          cy="118"
-          fill="none"
-          onClick={() => onSelectCircle("seventy")}
-          onMouseEnter={() => setFocusedCircle("seventy")}
-          pointerEvents="stroke"
-          r="83"
-          stroke="transparent"
-          strokeWidth="30"
-        />
-        <circle
-          className="cursor-pointer"
-          cx="118"
-          cy="118"
-          fill="none"
-          onClick={() => onSelectCircle("twelve")}
-          onMouseEnter={() => setFocusedCircle("twelve")}
-          pointerEvents="stroke"
-          r="55"
-          stroke="transparent"
-          strokeWidth="34"
-        />
-        <circle
-          className="cursor-pointer"
-          cx="118"
-          cy="118"
-          fill="transparent"
-          onClick={() => onSelectCircle("three")}
-          onMouseEnter={() => setFocusedCircle("three")}
-          r="33"
-        />
-      </svg>
-      <button
-        aria-label={`Open My 120, ${my120Count} people`}
-        className="absolute left-1/2 top-[5px] z-20 flex h-5 min-w-12 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#60A5FA] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[4px] max-[350px]:text-[13px]"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelectCircle("my_120");
-        }}
-        onFocus={() => setFocusedCircle("my_120")}
-        onMouseEnter={() => setFocusedCircle("my_120")}
-        type="button"
-      >
-        120
-      </button>
-      <button
-        aria-label={`Open My 70, ${my70Count} people`}
-        className="absolute left-1/2 top-[31px] z-20 flex h-5 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#3B82F6] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[28px] max-[350px]:text-[13px]"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelectCircle("seventy");
-        }}
-        onFocus={() => setFocusedCircle("seventy")}
-        onMouseEnter={() => setFocusedCircle("seventy")}
-        type="button"
-      >
-        70
-      </button>
-      <button
-        aria-label={`Open My 12, ${my12Count} people`}
-        className="absolute left-1/2 top-[61px] z-20 flex h-5 min-w-11 -translate-x-1/2 items-center justify-center rounded-full px-2 text-center text-[14px] font-extrabold leading-none text-[#2563EB] transition-all duration-200 hover:bg-[#EFF6FF] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/25 max-[350px]:top-[54px] max-[350px]:text-[13px]"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelectCircle("twelve");
-        }}
-        onFocus={() => setFocusedCircle("twelve")}
-        onMouseEnter={() => setFocusedCircle("twelve")}
-        type="button"
-      >
-        12
-      </button>
-      <button
-        aria-label={`Open My 3, ${my3Count} people`}
-        className="absolute left-1/2 top-1/2 z-30 flex h-[66px] w-[66px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center transition-colors duration-200 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 max-[350px]:h-[62px] max-[350px]:w-[62px]"
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelectCircle("three");
-        }}
-        onFocus={() => setFocusedCircle("three")}
-        onMouseEnter={() => setFocusedCircle("three")}
-        type="button"
-      >
-        <span className="text-[17px] font-extrabold leading-none text-white max-[350px]:text-[16px]">3</span>
-      </button>
-    </div>
+    <DosCircleTarget
+      counts={{ my3: my3Count, my12: my12Count, my70: my70Count, my120: my120Count }}
+      focusedLayer={focusedCircle}
+      onFocusLayer={setFocusedCircle}
+      onSelectLayer={onSelectCircle}
+    />
   );
 }
 

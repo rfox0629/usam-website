@@ -25,7 +25,7 @@ import { getAdminAuthorization, hasPrayerAdminAccess } from "@/src/lib/admin-aut
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Prayer Team | USA Missionaries",
+  title: "Prayer Requests",
   robots: {
     follow: false,
     index: false,

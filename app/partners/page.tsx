@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Ministry Network | USA Missionaries",
+  title: "Ministry Network",
 };
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Group Home Sign In | DOS",
+  title: { absolute: "Group Home Sign In | DOS" },
 };
 
 type PageProps = {

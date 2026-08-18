@@ -5,7 +5,7 @@ import { DosTableBookingForm } from "./DosTableBookingForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Book a DOS Table",
+  title: "Book a Table",
   robots: {
     follow: false,
     index: false,

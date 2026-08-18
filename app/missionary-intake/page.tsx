@@ -3,7 +3,7 @@ import { PrimaryNav } from "../../components/PrimaryNav";
 import { MissionaryIntakeForm } from "./MissionaryIntakeForm";
 
 export const metadata: Metadata = {
-  title: "Missionary Profile Intake | USA Missionaries",
+  title: "Missionary Profile Intake",
   description: "Missionary profile intake form for USA Missionaries.",
   robots: {
     follow: false,

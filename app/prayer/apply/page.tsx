@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Prayer Team Application | USA Missionaries",
+  title: "Prayer Team Application",
   description: "Apply to join the USA Missionaries Prayer Team.",
 };
 

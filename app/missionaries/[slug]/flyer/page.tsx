@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { domainSites } from "@/src/lib/domain-sites";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PrintFlyerClient } from "@/src/components/missionaries/PrintFlyerClient";
 import { SupportFlyer } from "@/src/components/missionaries/SupportFlyer";
@@ -25,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!missionary) {
     return {
-      title: "Support Flyer | USA Missionaries",
+      title: "Support Flyer",
     };
   }
 
@@ -33,10 +35,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     alternates: {
       canonical: `/missionaries/${missionary.slug}/flyer`,
     },
-    title: `${missionary.name} Support Flyer | USA Missionaries`,
+    title: `${missionary.name} Support Flyer`,
     description: `Support flyer for ${missionary.name}.`,
     openGraph: {
       description: `Support flyer for ${missionary.name}.`,
+      images: missionary.heroImage
+        ? [{ alt: `${missionary.name}, USA Missionaries`, url: missionary.heroImage }]
+        : [buildDomainSiteSocialImage(domainSites.usam)],
+      siteName: domainSites.usam.siteName,
       title: `${missionary.name} Support Flyer | USA Missionaries`,
       type: "article",
       url: `/missionaries/${missionary.slug}/flyer`,

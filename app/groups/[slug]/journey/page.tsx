@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Journey | Group Home",
+  title: { absolute: "Journey | Group Home" },
 };
 
 type PageProps = {

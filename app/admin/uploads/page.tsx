@@ -4,7 +4,7 @@ import type { AdminResourceControlRow } from "../_components/AdminResourceContro
 import { UploadsControl } from "./UploadsControl";
 
 export const metadata: Metadata = {
-  title: "Uploads & Documents | USA Missionaries",
+  title: "Uploads & Documents",
   robots: {
     follow: false,
     index: false,

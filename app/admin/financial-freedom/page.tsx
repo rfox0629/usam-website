@@ -5,7 +5,7 @@ import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/li
 import { updateFinancialFreedomInquiryStatus, updateMajorGiftInquiryStatus } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Financial Freedom Admin | USA Missionaries",
+  title: "Financial Freedom",
   robots: {
     follow: false,
     index: false,

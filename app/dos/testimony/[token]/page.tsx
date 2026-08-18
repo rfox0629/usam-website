@@ -5,7 +5,7 @@ import { DosTestimonyForm } from "./DosTestimonyForm";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Testimony Review | DOS",
+  title: "Testimony Review",
   robots: {
     follow: false,
     index: false,

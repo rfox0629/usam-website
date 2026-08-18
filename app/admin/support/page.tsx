@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Support Inbox | USA Missionaries",
+  title: "Support Inbox",
   robots: {
     follow: false,
     index: false,
