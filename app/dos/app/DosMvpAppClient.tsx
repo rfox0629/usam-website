@@ -34380,7 +34380,8 @@ function PersonDetailOverlay({
   const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTab>(initialDetailTab ?? "overview");
   const [prayedPrayerReminderIds, setPrayedPrayerReminderIds] = useState<Record<string, boolean>>({});
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
-  const [circleSuggestionExpanded, setCircleSuggestionExpanded] = useState(false);
+  const [isCircleReviewOpen, setIsCircleReviewOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
   const defaults = personFormDefaults(person);
@@ -34390,7 +34391,11 @@ function PersonDetailOverlay({
   const engagementOverviewScore = relationshipScoreLabel(relationshipScore);
   const engagementOverviewLabel = overviewEngagementLabel(relationshipScore);
   const personMeetings = meetings.filter((meeting) => meeting.fieldPersonIds.includes(person.id));
-  const personLoggedMeetings = personMeetings.filter((meeting) => meeting.meetingStatus === "logged");
+  // Sort by date rather than trusting input order so Last Conversation is
+  // always the true most recent meeting.
+  const personLoggedMeetings = personMeetings
+    .filter((meeting) => meeting.meetingStatus === "logged")
+    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
   const personScheduledMeetings = personMeetings
     .filter((meeting) => meeting.meetingStatus === "scheduled" && isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
     .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date));
@@ -34617,11 +34622,40 @@ function PersonDetailOverlay({
       title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
+  // User-facing model: what matters now (Journey), the relationship over
+  // time (Timeline), who this person is (Contact). Internal tab values stay
+  // stable so existing deep links keep working.
   const detailTabs: Array<{ label: string; value: PersonDetailTab }> = [
-    { label: "Overview", value: "overview" },
-    { label: "History", value: "history" },
-    { label: "Details", value: "details" },
+    { label: "Journey", value: "overview" },
+    { label: "Timeline", value: "history" },
+    { label: "Contact", value: "details" },
   ];
+  const lastConversationReflection = lastMeeting
+    ? personReflections.find((reflection) => reflection.meetingId === lastMeeting.id) ?? null
+    : null;
+  const upcomingGatherings = personGroups
+    .flatMap((group) => group.gatherings
+      .filter((gathering) => gathering.status === "scheduled" && isUpcomingDate(gathering.startsAt))
+      .map((gathering) => ({ gathering, group })))
+    .sort((first, second) => dateSortValue(first.gathering.startsAt) - dateSortValue(second.gathering.startsAt))
+    .slice(0, 2);
+  const timelineGroups = (() => {
+    const groupsByMonth: Array<{ entries: PersonHistoryEntry[]; label: string }> = [];
+
+    personHistoryEntries.forEach((entry) => {
+      const parsed = parseDisplayDate(entry.date);
+      const label = parsed ? parsed.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Earlier";
+      const lastGroup = groupsByMonth[groupsByMonth.length - 1];
+
+      if (lastGroup && lastGroup.label === label) {
+        lastGroup.entries.push(entry);
+      } else {
+        groupsByMonth.push({ entries: [entry], label });
+      }
+    });
+
+    return groupsByMonth;
+  })();
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
       const scrollContainer = detailScrollRef.current;
@@ -34638,6 +34672,8 @@ function PersonDetailOverlay({
   useEffect(() => {
     setActiveDetailTab(initialDetailTab ?? "overview");
     setSelectedOutcomeEntry(null);
+    setIsCircleReviewOpen(false);
+    setIsAddMenuOpen(false);
     scrollDetailToTop();
   }, [initialDetailTab, person.id]);
 
@@ -34661,6 +34697,19 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[28px]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
+        <p className="mt-2 text-[13.5px] font-semibold text-[#6B7686]">
+          {relationshipTypePill} · {currentCircleLabel}
+          {visibleCircleSuggestion ? (
+            <button
+              className="ml-2 inline-flex items-center gap-1.5 align-middle text-[12px] font-semibold text-[#2450C8]"
+              onClick={() => setIsCircleReviewOpen(true)}
+              type="button"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
+              Review suggestion
+            </button>
+          ) : null}
+        </p>
       </section>
 
       <div className="mt-5 md:mx-auto md:max-w-md">
@@ -34692,257 +34741,273 @@ function PersonDetailOverlay({
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {activeDetailTab === "overview" ? (
           <>
-            <section className="grid gap-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <PDPill tone="blue">{relationshipTypePill}</PDPill>
-                <PDPill tone="neutral">{engagementOverviewLabel} engagement</PDPill>
-                <PDPill tone="gold">{spiritualJourneyPill}</PDPill>
-                <PDPill tone="neutral">{currentCircleLabel}{confirmedCircleMove ? " (prototype only)" : ""}</PDPill>
-                {personFruitEvents.length ? <PDPill tone="gold">{personFruitEvents.length} fruit</PDPill> : null}
-              </div>
-              <p className="text-[13.5px] leading-[1.5] text-[#6B7686]">
-                Last met {lastMeetingDate ? formatRelativeDate(lastMeetingDate) : "not yet"} · Next meeting {nextMeeting ? formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date) : "not scheduled"}
-              </p>
-              {visibleCircleSuggestion ? (
-                <div className="rounded-2xl border border-[#CFE0FF] bg-[#F5F9FF] p-3">
-                  <button
-                    className="flex w-full items-center justify-between gap-2 text-left text-[13px] font-semibold text-[#1D4ED8]"
-                    onClick={() => setCircleSuggestionExpanded((current) => !current)}
-                    type="button"
-                  >
-                    <span>Consider moving closer to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}</span>
-                    <span className="text-[11px] font-bold uppercase tracking-wide">{circleSuggestionExpanded ? "Hide why" : "Why?"}</span>
+            <section aria-label="Last conversation">
+              <PDSectionHeading
+                action={lastMeeting ? (
+                  <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                    View meeting
                   </button>
-                  {circleSuggestionExpanded ? (
-                    <div className="mt-2.5 grid gap-2.5 text-[12.5px] leading-[1.5] text-[#334155]">
-                      <p>
-                        Last 30 days: {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} meaningful interactions ({visibleCircleSuggestion.person30.oneToOneCount} one-to-one) · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} together · last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "no recent one-to-one"}.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
-                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
-                        </div>
-                        <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-[#1D4ED8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
-                          <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
-                        </div>
-                      </div>
-                      <p className="text-[#6B7686]">This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships. DOS never moves anyone automatically — this is a suggestion only.</p>
-                      <div className="flex flex-wrap gap-2">
-                        <PDButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleSuggestionExpanded(false); }} tone="solid">
-                          Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
-                        </PDButton>
-                        <PDButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setCircleSuggestionExpanded(false); }}>
-                          Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
-                        </PDButton>
-                      </div>
+                ) : undefined}
+                title="Last Conversation"
+              />
+              {lastMeeting ? (
+                <div className="mt-2.5">
+                  <p className="text-[12.5px] font-semibold text-[#9AA4B2]">
+                    {formatDate(lastMeeting.date)} · {meetingActivityTitle(lastMeeting)}
+                  </p>
+                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">
+                    {meetingActivityPreview(lastMeeting, personReflections)}
+                  </p>
+                  {(lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep || lastConversationReflection?.prayerNeeds || lastMeeting.growthReflection.followUpNeeded) ? (
+                    <div className="mt-2.5 grid gap-1.5 border-l-2 border-[#EDEFF2] pl-3">
+                      {(lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep) ? (
+                        <p className="text-[13.5px] leading-[1.55] text-[#0F1520]">
+                          <span className="font-semibold">Next step:</span> {lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep}
+                        </p>
+                      ) : null}
+                      {lastConversationReflection?.prayerNeeds ? (
+                        <p className="text-[13.5px] leading-[1.55] text-[#0F1520]">
+                          <span className="font-semibold">Praying:</span> {lastConversationReflection.prayerNeeds}
+                        </p>
+                      ) : null}
+                      {lastMeeting.growthReflection.followUpNeeded ? (
+                        <p className="text-[12.5px] font-semibold text-[#A07A35]">Follow-up still open</p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
-              ) : null}
+              ) : (
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+                  No conversations yet — Log Meeting records the first one.
+                </p>
+              )}
             </section>
 
-            <PDSection title="Last Meeting">
-              {lastMeeting ? (
-                <PDList>
-                  <PDRow
-                    action={lastMeeting.growthReflection.followUpNeeded ? <PDPill tone="gold">Follow-up needed</PDPill> : undefined}
-                    description={(
-                      <>
-                        <span className="block">{meetingActivityPreview(lastMeeting, personReflections)}</span>
-                        {lastMeeting.growthReflection.actionStep ? <span className="mt-1 block text-[#0F1520]">Next step: {lastMeeting.growthReflection.actionStep}</span> : null}
-                      </>
-                    )}
-                    icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                    meta={formatDate(lastMeeting.date)}
-                    onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
-                    title={meetingActivityTitle(lastMeeting)}
-                  />
-                </PDList>
-              ) : (
-                <PDList>
-                  <PDEmptyRow text="No meetings logged yet." />
-                </PDList>
-              )}
-            </PDSection>
-
-            {commitmentsEnabled ? (
-              <PDSection action={<PDButton onClick={onAddCommitment}>Add</PDButton>} title="Accountability">
-                {accountabilityTopics.length ? (
-                  <PDList>
-                    {accountabilityTopics.map((topic) => (
-                      <PDRow
-                        action={<PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>}
-                        description={topic.isOverdue ? <PDPill tone="gold">Overdue</PDPill> : undefined}
-                        icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                        key={topic.id}
-                        meta={topic.meta}
-                        title={topic.title}
-                      />
-                    ))}
-                  </PDList>
-                ) : (
-                  <PDList>
-                    <PDEmptyRow text="No active accountability yet." />
-                  </PDList>
+            <section aria-label="Walking together">
+              <PDSectionHeading
+                action={(
+                  <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => setIsAddMenuOpen(true)} type="button">
+                    + Add
+                  </button>
                 )}
-              </PDSection>
-            ) : null}
+                title="Walking Together"
+              />
+              {(accountabilityTopics.length || activeResourceAssignments.length || activePersonPrayerRequests.length || activePrayerReminders.length || reflectionPrayerRows.some((reflection) => reflection.meetingId !== lastMeeting?.id)) ? (
+                <div className="mt-1 divide-y divide-[#EDEFF2]">
+                  {accountabilityTopics.map((topic) => (
+                    <div className="flex items-start justify-between gap-3 py-3" key={topic.id}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                          Accountability{topic.isOverdue ? <span className="ml-1.5 text-[#A07A35]">Overdue</span> : null}
+                        </p>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{topic.title}</p>
+                        <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{topic.meta}</p>
+                      </div>
+                      <PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>
+                    </div>
+                  ))}
+                  {activeResourceAssignments.map((assignment) => {
+                    const resource = resourceAssignmentResource(assignment);
+                    const isInAppJourney = Boolean(resource && isGuidedResource(resource));
+                    const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
+                    const completion = isInAppJourney && resource
+                      ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
+                      : null;
+                    const hasProgress = Boolean(completion && completion.total > 0);
 
-            <PDSection action={<PDButton onClick={() => onAssignResource(person.id)}>Assign</PDButton>} title="Current Journeys">
-              <PDList>
-                {activeResourceAssignments.map((assignment) => {
-                  const resource = resourceAssignmentResource(assignment);
-                  const isInAppJourney = Boolean(resource && isGuidedResource(resource));
-                  const groupNames = groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments });
-                  const completion = isInAppJourney && resource
-                    ? guidedResourceCompletion({ assignmentId: assignment.id, personId: assignment.personId, progress: guidedResourceProgress, resource })
-                    : null;
-                  const hasProgress = Boolean(completion && completion.total > 0);
-
-                  return (
-                    <PDRow
-                      action={(
-                        <>
-                          {isInAppJourney && resource ? (
-                            <PDButton onClick={() => onOpenGuidedResource(resource, assignment.personId)} tone="solid">Continue</PDButton>
-                          ) : resource ? (
-                            <PDButton href={resource.path}>Read Online</PDButton>
-                          ) : null}
-                          <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
-                        </>
-                      )}
-                      description={(
-                        <>
-                          <span className="block">{groupNames.length ? `via ${groupNames.join(", ")}` : resourceAssignmentTypeLabel(assignment)}</span>
+                    return (
+                      <div className="flex items-start justify-between gap-3 py-3" key={assignment.id}>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                            Journey{groupNames.length ? ` · via ${groupNames.join(", ")}` : ""}
+                          </p>
+                          <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{resourceAssignmentTitle(assignment)}</p>
                           {hasProgress && completion ? (
-                            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
-                              <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
+                            <span className="mt-2 flex items-center gap-2.5">
+                              <span className="block h-1 flex-1 overflow-hidden rounded-full bg-[#E7E9ED]">
+                                <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
+                              </span>
+                              <span className="shrink-0 text-[11.5px] font-bold tabular-nums text-[#6B7686]">{completion.completed} / {completion.total}</span>
                             </span>
-                          ) : null}
-                        </>
-                      )}
-                      icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={assignment.id}
-                      meta={hasProgress && completion ? `${completion.completed}/${completion.total}` : resourceAssignmentDueLabel(assignment)}
-                      title={resourceAssignmentTitle(assignment)}
-                    />
-                  );
-                })}
-                <PDRow
-                  action={<PDButton href={marriageAssessmentHref}>{latestMarriageAssessment ? "Retake" : "Start"}</PDButton>}
-                  description={latestMarriageAssessment ? `Completed ${formatDate(latestMarriageAssessment.completedAt)}` : "Structured assessment"}
-                  icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                  meta={latestMarriageAssessment ? `${latestMarriageAssessment.percentage}%` : "Not started"}
-                  title="Marriage Assessment"
-                />
-              </PDList>
-            </PDSection>
-
-            <PDSection action={<PDButton onClick={onAddPrayerRequest}>Add</PDButton>} title="Prayer">
-              {activePersonPrayerRequests.length || activePrayerReminders.length || reflectionPrayerRows.length ? (
-                <PDList>
+                          ) : (
+                            <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{resourceAssignmentDueLabel(assignment)}</p>
+                          )}
+                        </div>
+                        {isInAppJourney && resource ? (
+                          <PDButton onClick={() => onOpenGuidedResource(resource, assignment.personId)} tone="solid">Continue</PDButton>
+                        ) : resource ? (
+                          <PDButton href={resource.path}>Open</PDButton>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                   {activePersonPrayerRequests.map((request) => (
-                    <PDRow
-                      description={request.request}
-                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={request.id}
-                      meta={request.category ?? "Prayer"}
-                      title={request.title}
-                    />
+                    <div className="py-3" key={request.id}>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                        Prayer{request.category ? ` · ${request.category}` : ""}
+                      </p>
+                      <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{request.title}</p>
+                      <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{request.request}</p>
+                    </div>
                   ))}
                   {activePrayerReminders.map((reminder) => (
-                    <PDRow
-                      action={(
-                        <>
-                          <PDButton onClick={() => setPrayedPrayerReminderIds((current) => ({ ...current, [reminder.id]: true }))}>
-                            {prayedPrayerReminderIds[reminder.id] ? "Prayed" : "Pray"}
-                          </PDButton>
-                          <PDButton onClick={() => onMarkPrayerAnswered(reminder.id)} tone="solid">Mark Answered</PDButton>
-                        </>
-                      )}
-                      description={reminderVisibleNotes(reminder.notes)}
-                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={reminder.id}
-                      meta={prayerFrequencyLabel(reminder.recurrence)}
-                      title={reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}
-                    />
+                    <div className="flex items-start justify-between gap-3 py-3" key={reminder.id}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                          Prayer · {prayerFrequencyLabel(reminder.recurrence)}
+                        </p>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}</p>
+                        {reminderVisibleNotes(reminder.notes) ? (
+                          <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{reminderVisibleNotes(reminder.notes)}</p>
+                        ) : null}
+                      </div>
+                      <span className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <PDButton onClick={() => setPrayedPrayerReminderIds((current) => ({ ...current, [reminder.id]: true }))}>
+                          {prayedPrayerReminderIds[reminder.id] ? "Prayed" : "Pray"}
+                        </PDButton>
+                        <PDButton onClick={() => onMarkPrayerAnswered(reminder.id)} tone="solid">Answered</PDButton>
+                      </span>
+                    </div>
                   ))}
-                  {reflectionPrayerRows.map((reflection) => (
-                    <PDRow
-                      description={reflection.prayerNeeds}
-                      icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={`reflection-prayer-${reflection.id}`}
-                      meta="From meeting"
-                      onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
-                      title="Prayer need from last conversation"
-                    />
-                  ))}
-                </PDList>
-              ) : (
-                <PDList>
-                  <PDEmptyRow text="No active prayer requests." />
-                </PDList>
-              )}
-            </PDSection>
-
-            <PDSection action={<PDButton onClick={onAddReminder}>Add</PDButton>} title="Next Steps">
-              {personFollowUpReminders.length ? (
-                <PDList>
-                  {personFollowUpReminders.map((reminder) => (
-                    <PDRow
-                      description={reminderVisibleNotes(reminder.notes)}
-                      icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                      key={reminder.id}
-                      meta={formatDate(nextReminderDate(reminder))}
-                      onClick={() => onEditReminder(reminder.id)}
-                      title={reminder.title || "Follow up"}
-                    />
-                  ))}
-                </PDList>
-              ) : (
-                <PDList>
-                  <PDEmptyRow text="No follow-ups queued." />
-                </PDList>
-              )}
-            </PDSection>
-
-            {personGroups.length ? (
-              <PDSection title="Groups">
-                <div className="flex flex-wrap gap-2">
-                  {personGroups.map((group) => (
+                  {reflectionPrayerRows.filter((reflection) => reflection.meetingId !== lastMeeting?.id).map((reflection) => (
                     <button
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#E3E6EB] bg-white px-3 py-2 text-[13px] font-semibold text-[#0F1520] transition-colors hover:border-[#0F1520]"
-                      key={group.id}
-                      onClick={() => onOpenGroup(group.id)}
+                      className="block w-full py-3 text-left"
+                      key={`reflection-prayer-${reflection.id}`}
+                      onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
                       type="button"
                     >
-                      <Users className="h-3.5 w-3.5 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
-                      {group.name}
-                      {group.leaderPersonId === person.id ? <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#A07A35]">Leader</span> : null}
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Prayer · From meeting</p>
+                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#0F1520]">{reflection.prayerNeeds}</p>
                     </button>
                   ))}
                 </div>
-              </PDSection>
-            ) : null}
+              ) : (
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+                  Nothing active yet — add accountability, a Journey, or prayer.
+                </p>
+              )}
+              {!activeResourceAssignments.length ? (
+                <button className="mt-2.5 text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                  + Add Journey
+                </button>
+              ) : null}
+            </section>
+
+            <section aria-label="Next">
+              <PDSectionHeading title="Next" />
+              <div className="mt-1 divide-y divide-[#EDEFF2]">
+                <div className="flex items-start justify-between gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Meeting</p>
+                    {nextMeeting ? (
+                      <>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{meetingActivityTitle(nextMeeting)}</p>
+                        <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)} · {formatDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)}</p>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">Nothing scheduled.</p>
+                    )}
+                  </div>
+                  {nextMeeting ? null : <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>}
+                </div>
+                {personFollowUpReminders.map((reminder) => (
+                  <button
+                    className="block w-full py-3 text-left"
+                    key={reminder.id}
+                    onClick={() => onEditReminder(reminder.id)}
+                    type="button"
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Follow-up · {formatDate(nextReminderDate(reminder))}</p>
+                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title || "Follow up"}</p>
+                    {reminderVisibleNotes(reminder.notes) ? (
+                      <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{reminderVisibleNotes(reminder.notes)}</p>
+                    ) : null}
+                  </button>
+                ))}
+                {upcomingGatherings.map(({ gathering, group }) => (
+                  <button
+                    className="block w-full py-3 text-left"
+                    key={gathering.id}
+                    onClick={() => onOpenGroup(group.id)}
+                    type="button"
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Group · {formatRelativeDate(gathering.startsAt)}</p>
+                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">
+                      {group.name}{gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}
+                    </p>
+                  </button>
+                ))}
+                {personGroups.length && !upcomingGatherings.length ? (
+                  <div className="py-3">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Groups</p>
+                    <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                      {personGroups.map((group) => (
+                        <button
+                          className="text-[13.5px] font-semibold text-[#2450C8]"
+                          key={group.id}
+                          onClick={() => onOpenGroup(group.id)}
+                          type="button"
+                        >
+                          {group.name}{group.leaderPersonId === person.id ? " · Leader" : ""}
+                        </button>
+                      ))}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </section>
           </>
         ) : null}
 
         {activeDetailTab === "history" ? (
-          <PDSection title="History">
-            {personHistoryEntries.length ? (
-              <PDList>
-                {personHistoryEntries.map((entry) => (
-                  <HistoryRow entry={entry} key={entry.id} />
+          <section aria-label="Timeline">
+            {timelineGroups.length ? (
+              <div className="grid gap-6">
+                {timelineGroups.map((group) => (
+                  <div key={group.label}>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9AA4B2]">{group.label}</p>
+                    <div className="mt-3 border-l border-[#E3E6EB] pl-5">
+                      {group.entries.map((entry) => {
+                        const inner = (
+                          <>
+                            <span className="absolute -left-[34px] top-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#EDEFF2] bg-white text-[#2450C8]">
+                              {historyEntryIcon(entry.kind)}
+                            </span>
+                            <p className="text-[11px] font-semibold text-[#9AA4B2]">
+                              {historyEntryKindLabel(entry.kind)} · {formatDate(entry.date)}
+                            </p>
+                            <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{entry.title}</p>
+                            {entry.description ? (
+                              <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{entry.description}</p>
+                            ) : null}
+                          </>
+                        );
+
+                        return entry.onClick ? (
+                          <button
+                            className="relative block w-full pb-5 text-left last:pb-0"
+                            key={entry.id}
+                            onClick={entry.onClick}
+                            type="button"
+                          >
+                            {inner}
+                          </button>
+                        ) : (
+                          <div className="relative pb-5 last:pb-0" key={entry.id}>
+                            {inner}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
-              </PDList>
+              </div>
             ) : (
-              <PDList>
-                <PDEmptyRow text="Meetings, check-ins, journeys, prayer, and reviews will appear here as this relationship grows." />
-              </PDList>
+              <p className="text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+                Meetings, check-ins, journeys, prayer, and milestones will appear here as this relationship grows.
+              </p>
             )}
-          </PDSection>
+          </section>
         ) : null}
 
         {activeDetailTab === "details" ? (
@@ -34997,16 +35062,115 @@ function PersonDetailOverlay({
               </PDSection>
             ) : null}
 
-            {overviewNotes ? (
-              <PDSection title="Notes">
-                <p className="whitespace-pre-line rounded-[16px] border border-[#EDEFF2] bg-[#FBFAF8] p-4 text-[14px] leading-[1.6] text-[#3D4654]">{overviewNotes}</p>
-              </PDSection>
-            ) : null}
+            <PDSection title="Relationship">
+              <div className="divide-y divide-[#EDEFF2]">
+                <div className="flex items-baseline justify-between gap-3 py-2.5">
+                  <p className="text-[14px] text-[#0F1520]">{relationshipTypePill}</p>
+                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Relationship</p>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 py-2.5">
+                  <p className="text-[14px] text-[#0F1520]">{currentCircleLabel}</p>
+                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Circle</p>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 py-2.5">
+                  <p className="text-[14px] text-[#0F1520]">{engagementOverviewScore} {engagementOverviewLabel}</p>
+                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Engagement</p>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 py-2.5">
+                  <p className="text-[14px] text-[#0F1520]">{spiritualJourneyPill}</p>
+                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Spiritual journey</p>
+                </div>
+                {personFruitEvents.length ? (
+                  <div className="flex items-baseline justify-between gap-3 py-2.5">
+                    <p className="text-[14px] text-[#0F1520]">{personFruitEvents.length} recorded</p>
+                    <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Fruit</p>
+                  </div>
+                ) : null}
+              </div>
+            </PDSection>
           </>
         ) : null}
 
       </div>
       </div>
+      {isAddMenuOpen ? (
+        <Sheet description="What are you walking through together?" onClose={() => setIsAddMenuOpen(false)} showEyebrow={false} title="Add">
+          <div className="grid gap-2">
+            {commitmentsEnabled ? (
+              <button
+                className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
+                onClick={() => { setIsAddMenuOpen(false); onAddAccountabilitySchedule(); }}
+                type="button"
+              >
+                <p className="text-[14.5px] font-semibold text-[#0F1520]">Accountability</p>
+                <p className="mt-0.5 text-[12.5px] text-[#6B7686]">A topic and check-in rhythm, like Quiet Time With God.</p>
+              </button>
+            ) : null}
+            <button
+              className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
+              onClick={() => { setIsAddMenuOpen(false); onAssignResource(person.id); }}
+              type="button"
+            >
+              <p className="text-[14.5px] font-semibold text-[#0F1520]">Journey</p>
+              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">Assign a book study, reading plan, or assessment from the Library.</p>
+            </button>
+            <button
+              className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
+              onClick={() => { setIsAddMenuOpen(false); onAddPrayerRequest(); }}
+              type="button"
+            >
+              <p className="text-[14.5px] font-semibold text-[#0F1520]">Prayer</p>
+              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">Something you are praying about together.</p>
+            </button>
+            <button
+              className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
+              onClick={() => { setIsAddMenuOpen(false); onAddReminder(); }}
+              type="button"
+            >
+              <p className="text-[14.5px] font-semibold text-[#0F1520]">Next Step</p>
+              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">A follow-up or reminder for this relationship.</p>
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+      {isCircleReviewOpen && visibleCircleSuggestion ? (
+        <Sheet
+          description="Computed only from your logged meetings, check-ins, and gatherings. DOS never moves anyone automatically."
+          onClose={() => setIsCircleReviewOpen(false)}
+          showEyebrow={false}
+          title="Circle Suggestion"
+        >
+          <div className="grid gap-3 text-[13px] leading-[1.55] text-[#334155]">
+            <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">
+              Consider moving {person.name.split(/\s+/)[0]} closer to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.
+            </p>
+            <p>
+              Last 30 days: {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} meaningful interactions ({visibleCircleSuggestion.person30.oneToOneCount} one-to-one) · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} together · last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "no recent one-to-one"}.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#9AA4B2]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+              </div>
+              <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#2450C8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+              </div>
+            </div>
+            <p className="text-[#6B7686]">
+              This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships.
+            </p>
+            <div className="grid gap-2">
+              <AppButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setIsCircleReviewOpen(false); }} tone="black">
+                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+              </AppButton>
+              <AppButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setIsCircleReviewOpen(false); }} tone="white">
+                Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
+              </AppButton>
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
       {selectedOutcomeEntry ? (
         <OutcomeDetailSheet
           entry={selectedOutcomeEntry}
