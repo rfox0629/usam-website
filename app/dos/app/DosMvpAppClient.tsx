@@ -6397,7 +6397,7 @@ function GuidedResourceDetailSheet({
           helper={reflectionHelper}
           isFirst
           label="What stood out?"
-          status={selectedProgress?.completedAt ? <span className="text-[11.5px] font-semibold text-[#9AA4B2]">Saved</span> : null}
+          status={selectedProgress?.completedAt ? <span className="text-[11.5px] font-semibold text-[#6B7686]">Saved</span> : null}
         >
           <VoiceTextarea
             aria-label={reflectionHelper || "What stood out?"}
@@ -27446,11 +27446,13 @@ type MyRecordContextualAction = {
 function MyRecordContextualFloatingActions({
   isOpen,
   items,
+  menuLabel = "My Record actions",
   onClose,
   onToggle,
 }: {
   isOpen: boolean;
   items: MyRecordContextualAction[];
+  menuLabel?: string;
   onClose: () => void;
   onToggle: () => void;
 }) {
@@ -27467,7 +27469,7 @@ function MyRecordContextualFloatingActions({
   const content = (
     <div className="fixed inset-0 z-[90] pointer-events-none">
       {isOpen ? (
-        <button aria-label="Close My Record actions" className="absolute inset-0 pointer-events-auto bg-transparent" onClick={onClose} type="button" />
+        <button aria-label={`Close ${menuLabel}`} className="absolute inset-0 pointer-events-auto bg-transparent" onClick={onClose} type="button" />
       ) : null}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex w-[230px] max-w-[calc(100vw-2rem)] flex-col items-end gap-2 pointer-events-auto md:bottom-7 md:right-7">
         {isOpen ? (
@@ -27501,7 +27503,7 @@ function MyRecordContextualFloatingActions({
         ) : null}
         <button
           aria-expanded={isOpen}
-          aria-label={isOpen ? "Close My Record actions" : "Open My Record actions"}
+          aria-label={isOpen ? `Close ${menuLabel}` : `Open ${menuLabel}`}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_18px_40px_rgba(37,99,235,0.32)] transition-transform active:scale-[0.97] md:h-16 md:w-16"
           onClick={onToggle}
           type="button"
@@ -34061,7 +34063,7 @@ function PDSectionHeading({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9AA4B2]">{title}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6B7686]">{title}</p>
       {action}
     </div>
   );
@@ -34093,7 +34095,7 @@ function PDList({ children }: { children: ReactNode }) {
 }
 
 function PDEmptyRow({ text }: { text: string }) {
-  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-[#9AA4B2]">{text}</p>;
+  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-[#6B7686]">{text}</p>;
 }
 
 function PDPill({
@@ -34176,12 +34178,12 @@ function PDRow({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <p className="min-w-0 flex-1 text-[14.5px] font-semibold leading-5 text-[#0F1520] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{title}</p>
-          {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-[#9AA4B2]">{meta}</span> : null}
+          {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-[#6B7686]">{meta}</span> : null}
         </div>
         {description ? <div className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{description}</div> : null}
         {action ? <div className="mt-2.5 flex flex-wrap gap-2">{action}</div> : null}
       </div>
-      {(onClick || href) && !action ? <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-[#9AA4B2]" aria-hidden="true" strokeWidth={1.8} /> : null}
+      {(onClick || href) && !action ? <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-[#6B7686]" aria-hidden="true" strokeWidth={1.8} /> : null}
     </div>
   );
 
@@ -34305,20 +34307,12 @@ function followUpDuePhrase(value: string | null | undefined) {
   return `by ${upcomingDayLabel(normalized)}`;
 }
 
-type PersonConceptKey = "a" | "b" | "c";
-
-const personConceptNames: Record<PersonConceptKey, string> = {
-  a: "Relationship Brief",
-  b: "Discipleship Path",
-  c: "Conversation Focus",
-};
-
 function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
   return (
     <PDRow
       description={(
         <>
-          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">{historyEntryKindLabel(entry.kind)}</span>
+          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">{historyEntryKindLabel(entry.kind)}</span>
           {entry.description}
         </>
       )}
@@ -34443,9 +34437,11 @@ function PersonDetailOverlay({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
-  // Founder concept review (USA-168): three genuinely different Person-page
-  // compositions over the same underlying data, switchable in the preview.
-  const [activeConcept, setActiveConcept] = useState<PersonConceptKey>("a");
+  // USA-168 Person page (Relationship Brief base). Relationship-level actions
+  // live behind the app's established floating "+"; contact-oriented actions
+  // live behind a restrained header overflow.
+  const [isPersonActionsOpen, setIsPersonActionsOpen] = useState(false);
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [circleInsightStage, setCircleInsightStage] = useState<"insight" | "why" | null>(null);
   const defaults = personFormDefaults(person);
   const address = personAddressLine(defaults);
@@ -34639,7 +34635,9 @@ function PersonDetailOverlay({
       id: `history-meeting-${meeting.id}`,
       kind: "meeting" as const,
       onClick: () => onOpenMeeting(meeting.id, person.id),
-      title: meetingActivityTitle(meeting),
+      // On a person's own timeline the person is already known — prefer the
+      // meeting's human title ("Coffee") over "Ministered to {name}".
+      title: meeting.title?.trim() || meetingActivityTitle(meeting),
     })),
     ...accountabilityCheckIns.map((checkIn) => ({
       date: checkIn.checkInDate,
@@ -34792,6 +34790,8 @@ function PersonDetailOverlay({
     setIsCircleReviewOpen(false);
     setIsAddMenuOpen(false);
     setCircleInsightStage(null);
+    setIsPersonActionsOpen(false);
+    setIsOverflowOpen(false);
     scrollDetailToTop();
   }, [initialDetailTab, person.id]);
 
@@ -34799,58 +34799,51 @@ function PersonDetailOverlay({
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
       <div className="mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
       {conceptMode ? (
-        <>
-          {/* Ruthless mobile header: one compact row, relationship signal, no
-              avatar block or oversized actions before the content. */}
-          <header className="flex items-center gap-2.5">
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E3E6EB] bg-white text-[#0F1520]" onClick={onBack} type="button" aria-label="Back to field">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-            </button>
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-[20px] font-bold leading-tight tracking-tight text-[#0F1520]" style={{ fontFamily: font.oswald }}>
-                {person.name}
-              </h2>
-              {visibleCircleSuggestion ? (
-                <button
-                  className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#6B7686]"
-                  onClick={() => setCircleInsightStage("insight")}
-                  type="button"
-                  aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
-                >
-                  {relationshipSignal}
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
-                </button>
-              ) : (
-                <p className="text-[12.5px] font-semibold text-[#6B7686]">{relationshipSignal}</p>
-              )}
-            </div>
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E3E6EB] bg-white text-[#0F1520]" onClick={onEdit} type="button" aria-label="Edit person">
-              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-            </button>
-          </header>
-          <nav className="mt-3 flex items-center gap-5 border-b border-[#EDEFF2] pb-2 text-[13px] font-semibold" aria-label="Person views">
-            {([
-              { label: "Now", value: "overview" as const },
-              { label: "Timeline", value: "history" as const },
-              { label: "Contact", value: "details" as const },
-            ]).map((view) => (
+        /* Native-app header: back · name + quiet relationship signal ·
+           restrained overflow. Nothing else before the content. */
+        <header className="flex items-center gap-3">
+          <button
+            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+            onClick={() => {
+              if (activeDetailTab === "overview") {
+                onBack();
+              } else {
+                setActiveDetailTab("overview");
+                scrollDetailToTop();
+              }
+            }}
+            type="button"
+            aria-label={activeDetailTab === "overview" ? "Back to field" : `Back to ${firstName}`}
+          >
+            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-[19px] font-bold leading-[1.15] tracking-[-0.01em] text-[#0F1520]">
+              {person.name}
+            </h2>
+            {visibleCircleSuggestion ? (
               <button
-                aria-current={activeDetailTab === view.value ? "page" : undefined}
-                className={activeDetailTab === view.value ? "text-[#0F1520]" : "text-[#9AA4B2] transition-colors hover:text-[#6B7686]"}
-                key={view.value}
-                onClick={() => {
-                  setActiveDetailTab(view.value);
-                  scrollDetailToTop();
-                }}
+                className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold leading-[1.3] text-[#3D4654]"
+                onClick={() => setCircleInsightStage("insight")}
                 type="button"
+                aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
               >
-                {view.label}
+                {relationshipSignal}
+                <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
               </button>
-            ))}
-            <span className="flex-1" aria-hidden="true" />
-            <button className="text-[#2450C8]" onClick={onLogMeeting} type="button">Log meeting</button>
-          </nav>
-        </>
+            ) : (
+              <p className="text-[12.5px] font-semibold leading-[1.3] text-[#3D4654]">{relationshipSignal}</p>
+            )}
+          </div>
+          <button
+            className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+            onClick={() => setIsOverflowOpen(true)}
+            type="button"
+            aria-label={`More options for ${firstName}`}
+          >
+            <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
+          </button>
+        </header>
       ) : (
         <>
       <header className="flex items-center justify-between gap-3">
@@ -34914,334 +34907,159 @@ function PersonDetailOverlay({
       )}
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
-        {conceptMode && activeDetailTab === "overview" && activeConcept === "a" ? (
-          /* CONCEPT A — Relationship Brief: an excellent relational briefing.
-             Narrative-first, one reading column, quiet lead-ins instead of
-             database labels. */
-          <article aria-label="Relationship brief" className="mx-auto mt-2 w-full max-w-[620px]">
-            <section>
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-[15px] font-bold text-[#0F1520]">Last time together</h3>
-                {lastMeeting ? <span className="shrink-0 text-[12px] font-semibold text-[#9AA4B2]">{formatRelativeDate(lastMeeting.date)}</span> : null}
-              </div>
-              {lastMeeting ? (
-                <>
-                  <p className="mt-2 text-[15.5px] leading-[1.62] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
-                  {lastConversationPrayer ? (
-                    <p className="mt-2.5 text-[14.5px] leading-[1.6] text-[#3D4654]">
-                      <span className="font-semibold text-[#0F1520]">Carried into prayer</span> — {lastConversationPrayer}
-                    </p>
-                  ) : null}
-                  {agreedNextStep ? (
-                    <p className="mt-1.5 text-[14.5px] leading-[1.6] text-[#3D4654]">
-                      <span className="font-semibold text-[#0F1520]">You agreed</span> — {agreedNextStep}
-                    </p>
-                  ) : null}
-                  <button className="mt-2.5 text-[13px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
-                    Read the full notes
-                  </button>
-                </>
-              ) : (
-                <p className="mt-2 text-[14px] leading-[1.6] text-[#9AA4B2]">You haven&apos;t logged time together yet.</p>
-              )}
-            </section>
-
-            <section className="mt-7">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-[15px] font-bold text-[#0F1520]">Walking together</h3>
-                <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => setIsAddMenuOpen(true)} type="button">+ Add</button>
-              </div>
-              <div className="mt-1 divide-y divide-[#F3F4F6]">
-                {conceptJourneys.map((journey) => (
-                  <div className="flex items-center gap-3 py-3" key={journey.assignment.id}>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14.5px] leading-[1.5] text-[#0F1520]">
-                        <span className="font-semibold">{journey.title}</span>
-                        <span className="text-[#6B7686]"> · {journey.stageLabel}</span>
+        {conceptMode && activeDetailTab === "overview" ? (
+          /* Relationship Brief — the Person page. Text hierarchy (candidate
+             shared DOS tokens): primary #0F1520, secondary #3D4654, readable
+             metadata #6B7686; #9AA4B2 is reserved for disabled/inactive UI. */
+          <article aria-label="Relationship brief" className="mx-auto mt-4 w-full max-w-[620px] md:mt-5 md:max-w-none">
+            <div className="md:grid md:grid-cols-[minmax(0,1fr)_272px] md:gap-x-14">
+              <div className="min-w-0">
+                <section>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Last time together</h3>
+                    {lastMeeting ? <span className="shrink-0 text-[12.5px] font-semibold text-[#6B7686]">{formatRelativeDate(lastMeeting.date)}</span> : null}
+                  </div>
+                  {lastMeeting ? (
+                    <>
+                      <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
+                      {(lastConversationPrayer || agreedNextStep) ? (
+                        <div className="mt-2.5 grid gap-1">
+                          {lastConversationPrayer ? (
+                            <p className="text-[14px] leading-[1.55] text-[#3D4654]">
+                              <span className="font-semibold text-[#0F1520]">Carried into prayer</span> — {lastConversationPrayer}
+                            </p>
+                          ) : null}
+                          {agreedNextStep ? (
+                            <p className="text-[14px] leading-[1.55] text-[#3D4654]">
+                              <span className="font-semibold text-[#0F1520]">You agreed</span> — {agreedNextStep}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <p className="mt-2 flex gap-4 text-[13px] font-semibold">
+                        <button className="text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                          Read the full notes
+                        </button>
+                        <button
+                          className="text-[#6B7686] transition-colors hover:text-[#0F1520]"
+                          onClick={() => {
+                            setActiveDetailTab("history");
+                            scrollDetailToTop();
+                          }}
+                          type="button"
+                        >
+                          See the whole story
+                        </button>
                       </p>
+                    </>
+                  ) : (
+                    <p className="mt-1.5 text-[14px] leading-[1.6] text-[#6B7686]">You haven&apos;t logged time together yet.</p>
+                  )}
+                </section>
+
+                <section className="mt-7">
+                  <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Walking together</h3>
+                  {conceptJourneys.map((journey) => (
+                    /* The active Journey carries the strongest visual weight,
+                       in the approved book-study language. */
+                    <div className="mt-2.5 rounded-[16px] border border-[#EDEFF2] bg-[#FBFAF8] p-4" key={journey.assignment.id}>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#A07A35]">Continue together</p>
+                      <div className="mt-1.5 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[16.5px] font-bold leading-snug tracking-[-0.01em] text-[#0F1520]">{journey.title}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-[#6B7686]">
+                            {journey.stageLabel}
+                            {journey.currentSessionTitle ? ` · ${journey.currentSessionTitle}` : ""}
+                          </p>
+                        </div>
+                        {journey.isInAppJourney && journey.resource ? (
+                          <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                        ) : journey.resource ? (
+                          <PDButton href={journey.resource.path}>Open</PDButton>
+                        ) : null}
+                      </div>
                       {journey.completion && journey.completion.total > 0 ? (
-                        <span className="mt-1.5 block h-1 max-w-[220px] overflow-hidden rounded-full bg-[#E7E9ED]">
+                        <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
                           <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
                         </span>
                       ) : null}
                     </div>
-                    {journey.isInAppJourney && journey.resource ? (
-                      <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                    ) : journey.resource ? (
-                      <PDButton href={journey.resource.path}>Open</PDButton>
-                    ) : null}
-                  </div>
-                ))}
-                {accountabilityTopics.map((topic) => (
-                  <div className="flex items-center gap-3 py-3" key={topic.id}>
-                    <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-[#0F1520]">
-                      <span className="font-semibold">{topic.title}</span>
-                      <span className="text-[#6B7686]"> · {topic.meta}</span>
-                    </p>
-                    <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
-                  </div>
-                ))}
-                {conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).map((item) => (
-                  <div className="py-3" key={item.id}>
-                    <p className="text-[14.5px] leading-[1.6] text-[#3D4654]">
-                      <span className="font-semibold text-[#0F1520]">Remember in prayer</span> — {item.text}
-                    </p>
-                  </div>
-                ))}
-                {!conceptJourneys.length && !accountabilityTopics.length && !conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).length ? (
-                  <p className="py-3 text-[14px] leading-[1.6] text-[#9AA4B2]">Nothing active together yet.</p>
-                ) : null}
-              </div>
-              {!conceptJourneys.length ? (
-                <button className="mt-1 text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
-                  + Start a Journey together
-                </button>
-              ) : null}
-            </section>
-
-            <section className="mt-7">
-              <h3 className="text-[15px] font-bold text-[#0F1520]">Coming up</h3>
-              <div className="mt-1 divide-y divide-[#F3F4F6]">
-                <div className="flex items-center gap-3 py-3">
-                  {nextMeeting ? (
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14.5px] leading-[1.5] text-[#0F1520]">
-                        <span className="font-semibold">{nextMeeting.title?.trim() || "Time together"}</span>
-                        <span className="text-[#6B7686]"> · {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
-                      </p>
-                      {nextMeeting.notes?.trim() ? (
-                        <p className="mt-1 text-[13.5px] leading-[1.55] text-[#6B7686]">{nextMeeting.notes}</p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="min-w-0 flex-1 text-[14px] leading-[1.6] text-[#9AA4B2]">Nothing on the calendar yet.</p>
-                      <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
-                    </>
-                  )}
-                </div>
-                {conceptFollowUps.map((followUp) => (
-                  <button className="block w-full py-3 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
-                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
-                      <span className="font-semibold">{followUp.title}</span>
-                      {followUp.duePhrase ? <span className="text-[#9AA4B2]"> · {followUp.duePhrase}</span> : null}
-                    </p>
-                  </button>
-                ))}
-                {upcomingGatherings.map(({ gathering, group }) => (
-                  <button className="block w-full py-3 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
-                      <span className="font-semibold">{group.name}</span>
-                      <span className="text-[#6B7686]"> · {upcomingDayLabel(gathering.startsAt, true)}</span>
-                    </p>
-                  </button>
-                ))}
-                {personGroups.length && !upcomingGatherings.length ? (
-                  <p className="flex flex-wrap gap-x-4 gap-y-1 py-3 text-[14px]">
-                    {personGroups.map((group) => (
-                      <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
-                        {group.name}
-                      </button>
-                    ))}
-                  </p>
-                ) : null}
-              </div>
-            </section>
-          </article>
-        ) : null}
-
-        {conceptMode && activeDetailTab === "overview" && activeConcept === "b" ? (
-          /* CONCEPT B — Discipleship Path: what we're working through and how
-             the relationship is progressing. A vertical path (Now → Next →
-             Recently) with the active Journey as the hero, in book-study
-             visual language. */
-          <div aria-label="Discipleship path" className="mx-auto mt-3 w-full max-w-[660px]">
-            <div className="border-l-2 border-[#EDEFF2] pl-5 md:pl-7">
-              <section className="relative pb-9">
-                <span className="absolute -left-[27px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2450C8] md:-left-[35px]" aria-hidden="true" />
-                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Now</h3>
-                {conceptJourneys.length ? conceptJourneys.map((journey) => (
-                  <div className="mt-3 rounded-[18px] border border-[#EDEFF2] bg-[#FBFAF8] p-4" key={journey.assignment.id}>
-                    <p className="text-[11px] font-bold text-[#A07A35]">Continue together</p>
-                    <p className="mt-1 text-[18px] font-bold leading-snug text-[#0F1520]">{journey.title}</p>
-                    <p className="mt-0.5 text-[13.5px] font-semibold text-[#6B7686]">
-                      {journey.stageLabel}
-                      {journey.currentSessionTitle ? ` · ${journey.currentSessionTitle}` : ""}
-                    </p>
-                    {journey.completion && journey.completion.total > 0 ? (
-                      <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
-                        <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
-                      </span>
-                    ) : null}
-                    <div className="mt-3.5">
-                      {journey.isInAppJourney && journey.resource ? (
-                        <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                      ) : journey.resource ? (
-                        <PDButton href={journey.resource.path}>Open</PDButton>
-                      ) : null}
-                    </div>
-                  </div>
-                )) : (
-                  <button className="mt-3 text-[14px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
-                    + Start a Journey together
-                  </button>
-                )}
-                {accountabilityTopics.map((topic) => (
-                  <div className="mt-3.5 flex items-center gap-3" key={topic.id}>
-                    <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-[#0F1520]">
-                      <span className="font-semibold">{topic.title}</span>
-                      <span className="text-[#6B7686]"> · {topic.meta}</span>
-                    </p>
-                    <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
-                  </div>
-                ))}
-                {conceptPrayerItems.map((item) => (
-                  <p className="mt-3 text-[14.5px] leading-[1.6] text-[#3D4654]" key={item.id}>
-                    <span className="font-semibold text-[#0F1520]">Praying</span> — {item.text}
-                  </p>
-                ))}
-              </section>
-
-              <section className="relative pb-9">
-                <span className="absolute -left-[26px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[#9AA4B2] md:-left-[34px]" aria-hidden="true" />
-                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Next</h3>
-                <div className="mt-2 grid gap-2.5">
-                  {agreedNextStep ? (
-                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">{agreedNextStep}</p>
+                  ))}
+                  {!conceptJourneys.length ? (
+                    <button className="mt-2.5 text-[13.5px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                      + Start a Journey together
+                    </button>
                   ) : null}
+                  <div className="mt-1">
+                    {accountabilityTopics.map((topic) => (
+                      <div className="flex items-center gap-3 py-2.5" key={topic.id}>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14.5px] font-semibold leading-[1.4] text-[#0F1520]">{topic.title}</p>
+                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#6B7686]">{topic.meta}</p>
+                        </div>
+                        <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
+                      </div>
+                    ))}
+                    {conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).map((item) => (
+                      <p className="py-2.5 text-[14px] leading-[1.55] text-[#3D4654]" key={item.id}>
+                        <span className="font-semibold text-[#0F1520]">Remember in prayer</span> — {item.text}
+                      </p>
+                    ))}
+                    {!conceptJourneys.length && !accountabilityTopics.length && !conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).length ? (
+                      <p className="py-2 text-[14px] leading-[1.6] text-[#6B7686]">Nothing active together yet — use + to begin.</p>
+                    ) : null}
+                  </div>
+                </section>
+              </div>
+
+              <section className="mt-7 min-w-0 md:mt-0">
+                <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Coming up</h3>
+                <div className="mt-1">
+                  <div className="flex items-center gap-3 py-2.5">
+                    {nextMeeting ? (
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14.5px] font-semibold leading-[1.4] text-[#0F1520]">
+                          {nextMeeting.title?.trim() || "Time together"}
+                          <span className="font-semibold text-[#6B7686]"> · {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
+                        </p>
+                        {nextMeeting.notes?.trim() ? (
+                          <p className="mt-1 text-[13.5px] leading-[1.55] text-[#3D4654]">{nextMeeting.notes}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <>
+                        <p className="min-w-0 flex-1 text-[14px] leading-[1.5] text-[#6B7686]">Nothing on the calendar yet.</p>
+                        <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+                      </>
+                    )}
+                  </div>
                   {conceptFollowUps.map((followUp) => (
-                    <button className="block text-left text-[14.5px] leading-[1.6] text-[#0F1520]" key={followUp.id} onClick={followUp.onOpen} type="button">
-                      {followUp.title}
-                      {followUp.duePhrase ? <span className="text-[#9AA4B2]"> · {followUp.duePhrase}</span> : null}
+                    <button className="block w-full py-2.5 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
+                      <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">{followUp.title}</p>
+                      {followUp.duePhrase ? <p className="mt-0.5 text-[12.5px] font-semibold text-[#6B7686]">{followUp.duePhrase}</p> : null}
                     </button>
                   ))}
-                  {nextMeeting ? (
-                    <p className="text-[14.5px] leading-[1.6] text-[#0F1520]">
-                      Together again <span className="text-[#6B7686]">· {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
-                    </p>
-                  ) : (
-                    <button className="text-left text-[14px] font-semibold text-[#2450C8]" onClick={onScheduleMeeting} type="button">
-                      + Schedule your next time together
+                  {upcomingGatherings.map(({ gathering, group }) => (
+                    <button className="block w-full py-2.5 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+                      <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">
+                        {group.name}
+                        <span className="text-[#6B7686]"> · {upcomingDayLabel(gathering.startsAt, true)}</span>
+                      </p>
                     </button>
-                  )}
+                  ))}
+                  {personGroups.length && !upcomingGatherings.length ? (
+                    <p className="flex flex-wrap gap-x-4 gap-y-1 py-2.5 text-[14px]">
+                      {personGroups.map((group) => (
+                        <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
+                          {group.name}
+                        </button>
+                      ))}
+                    </p>
+                  ) : null}
                 </div>
               </section>
-
-              <section className="relative">
-                <span className="absolute -left-[26px] top-1 h-3 w-3 rounded-full border-2 border-white bg-[#E3E6EB] md:-left-[34px]" aria-hidden="true" />
-                <h3 className="text-[13px] font-bold text-[#9AA4B2]">Recently</h3>
-                {lastMeeting ? (
-                  <>
-                    <p className="mt-2 text-[14.5px] leading-[1.62] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
-                    <p className="mt-1 text-[12.5px] font-semibold text-[#9AA4B2]">{formatRelativeDate(lastMeeting.date)}</p>
-                  </>
-                ) : (
-                  <p className="mt-2 text-[14px] leading-[1.6] text-[#9AA4B2]">No conversations logged yet.</p>
-                )}
-                <button
-                  className="mt-2.5 text-[13px] font-semibold text-[#2450C8]"
-                  onClick={() => {
-                    setActiveDetailTab("history");
-                    scrollDetailToTop();
-                  }}
-                  type="button"
-                >
-                  See the whole story
-                </button>
-              </section>
             </div>
-          </div>
-        ) : null}
-
-        {conceptMode && activeDetailTab === "overview" && activeConcept === "c" ? (
-          /* CONCEPT C — Conversation Focus: the moment before the next
-             meaningful conversation. Prompt-led, human-language headings,
-             no cards. */
-          <div aria-label="Conversation focus" className="mx-auto mt-3 w-full max-w-[620px] md:max-w-none">
-            <p className="text-[12px] font-bold text-[#A07A35]">Before you see {firstName}</p>
-            <div className="mt-4 grid gap-6 md:grid-cols-2 md:gap-x-12 md:gap-y-8">
-              {lastMeeting ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Remember</h3>
-                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">
-                    {meetingActivityPreview(lastMeeting, personReflections)}
-                    <span className="text-[#9AA4B2]"> · {formatRelativeDate(lastMeeting.date)}</span>
-                  </p>
-                </div>
-              ) : null}
-              {(conceptFollowUps.length || nextMeeting?.notes?.trim()) ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Ask about</h3>
-                  <div className="mt-1.5 grid gap-1.5">
-                    {conceptFollowUps.map((followUp) => (
-                      <button className="block text-left text-[15px] leading-[1.6] text-[#3D4654]" key={followUp.id} onClick={followUp.onOpen} type="button">
-                        {followUp.title}
-                      </button>
-                    ))}
-                    {nextMeeting?.notes?.trim() ? (
-                      <p className="text-[15px] leading-[1.6] text-[#3D4654]">{nextMeeting.notes}</p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-              {conceptPrayerItems.length ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Pray for</h3>
-                  <div className="mt-1.5 grid gap-1.5">
-                    {conceptPrayerItems.map((item) => (
-                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={item.id}>{item.text}</p>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {conceptJourneys.length ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Continue</h3>
-                  <div className="mt-1.5 grid gap-1.5">
-                    {conceptJourneys.map((journey) => (
-                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={journey.assignment.id}>
-                        {journey.title} · {journey.stageLabel}
-                        {journey.isInAppJourney && journey.resource ? (
-                          <button className="ml-2 font-semibold text-[#2450C8]" onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} type="button">
-                            Open
-                          </button>
-                        ) : null}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {accountabilityTopics.length ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Accountability</h3>
-                  <div className="mt-1.5 grid gap-1.5">
-                    {accountabilityTopics.map((topic) => (
-                      <p className="text-[15px] leading-[1.6] text-[#3D4654]" key={topic.id}>
-                        {topic.title}
-                        <button className="ml-2 font-semibold text-[#2450C8]" onClick={topic.onCheckIn} type="button">Check in</button>
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {agreedNextStep ? (
-                <div>
-                  <h3 className="text-[13.5px] font-bold text-[#0F1520]">Next step</h3>
-                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">{agreedNextStep}</p>
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-8 border-t border-[#EDEFF2] pt-4 text-[14px] leading-[1.6] text-[#3D4654]">
-              {nextMeeting ? (
-                <>You&apos;re seeing {firstName} <span className="font-semibold text-[#0F1520]">{upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>.</>
-              ) : (
-                <>
-                  No time together on the calendar yet.
-                  <button className="ml-2 font-semibold text-[#2450C8]" onClick={onScheduleMeeting} type="button">Schedule</button>
-                </>
-              )}
-            </p>
-          </div>
+          </article>
         ) : null}
 
         {activeDetailTab === "overview" && !conceptMode ? (
@@ -35257,7 +35075,7 @@ function PersonDetailOverlay({
               />
               {lastMeeting ? (
                 <div className="mt-2.5">
-                  <p className="text-[12.5px] font-semibold text-[#9AA4B2]">
+                  <p className="text-[12.5px] font-semibold text-[#6B7686]">
                     {formatDate(lastMeeting.date)} · {meetingActivityTitle(lastMeeting)}
                   </p>
                   <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">
@@ -35282,7 +35100,7 @@ function PersonDetailOverlay({
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#6B7686]">
                   No conversations yet — Log Meeting records the first one.
                 </p>
               )}
@@ -35302,7 +35120,7 @@ function PersonDetailOverlay({
                   {accountabilityTopics.map((topic) => (
                     <div className="flex items-start justify-between gap-3 py-3" key={topic.id}>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
                           Accountability{topic.isOverdue ? <span className="ml-1.5 text-[#A07A35]">Overdue</span> : null}
                         </p>
                         <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{topic.title}</p>
@@ -35323,7 +35141,7 @@ function PersonDetailOverlay({
                     return (
                       <div className="flex items-start justify-between gap-3 py-3" key={assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
                             Journey{groupNames.length ? ` · via ${groupNames.join(", ")}` : ""}
                           </p>
                           <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{resourceAssignmentTitle(assignment)}</p>
@@ -35348,7 +35166,7 @@ function PersonDetailOverlay({
                   })}
                   {activePersonPrayerRequests.map((request) => (
                     <div className="py-3" key={request.id}>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
                         Prayer{request.category ? ` · ${request.category}` : ""}
                       </p>
                       <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{request.title}</p>
@@ -35358,7 +35176,7 @@ function PersonDetailOverlay({
                   {activePrayerReminders.map((reminder) => (
                     <div className="flex items-start justify-between gap-3 py-3" key={reminder.id}>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
                           Prayer · {prayerFrequencyLabel(reminder.recurrence)}
                         </p>
                         <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}</p>
@@ -35381,13 +35199,13 @@ function PersonDetailOverlay({
                       onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
                       type="button"
                     >
-                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Prayer · From meeting</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Prayer · From meeting</p>
                       <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#0F1520]">{reflection.prayerNeeds}</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#6B7686]">
                   Nothing active yet — add accountability, a Journey, or prayer.
                 </p>
               )}
@@ -35403,14 +35221,14 @@ function PersonDetailOverlay({
               <div className="mt-1 divide-y divide-[#EDEFF2]">
                 <div className="flex items-start justify-between gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Meeting</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Meeting</p>
                     {nextMeeting ? (
                       <>
                         <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{meetingActivityTitle(nextMeeting)}</p>
                         <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)} · {formatDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)}</p>
                       </>
                     ) : (
-                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#9AA4B2]">Nothing scheduled.</p>
+                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#6B7686]">Nothing scheduled.</p>
                     )}
                   </div>
                   {nextMeeting ? null : <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>}
@@ -35422,7 +35240,7 @@ function PersonDetailOverlay({
                     onClick={() => onEditReminder(reminder.id)}
                     type="button"
                   >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Follow-up · {formatDate(nextReminderDate(reminder))}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Follow-up · {formatDate(nextReminderDate(reminder))}</p>
                     <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title || "Follow up"}</p>
                     {reminderVisibleNotes(reminder.notes) ? (
                       <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{reminderVisibleNotes(reminder.notes)}</p>
@@ -35436,7 +35254,7 @@ function PersonDetailOverlay({
                     onClick={() => onOpenGroup(group.id)}
                     type="button"
                   >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Group · {formatRelativeDate(gathering.startsAt)}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Group · {formatRelativeDate(gathering.startsAt)}</p>
                     <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">
                       {group.name}{gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}
                     </p>
@@ -35444,7 +35262,7 @@ function PersonDetailOverlay({
                 ))}
                 {personGroups.length && !upcomingGatherings.length ? (
                   <div className="py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#9AA4B2]">Groups</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Groups</p>
                     <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                       {personGroups.map((group) => (
                         <button
@@ -35470,7 +35288,7 @@ function PersonDetailOverlay({
               <div className="grid gap-6">
                 {timelineGroups.map((group) => (
                   <div key={group.label}>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9AA4B2]">{group.label}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6B7686]">{group.label}</p>
                     <div className="mt-3 border-l border-[#E3E6EB] pl-5">
                       {group.entries.map((entry) => {
                         const inner = (
@@ -35478,7 +35296,7 @@ function PersonDetailOverlay({
                             <span className="absolute -left-[34px] top-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#EDEFF2] bg-white text-[#2450C8]">
                               {historyEntryIcon(entry.kind)}
                             </span>
-                            <p className="text-[11px] font-semibold text-[#9AA4B2]">
+                            <p className="text-[12px] font-semibold text-[#6B7686]">
                               {historyEntryKindLabel(entry.kind)} · {formatDate(entry.date)}
                             </p>
                             <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{entry.title}</p>
@@ -35508,7 +35326,7 @@ function PersonDetailOverlay({
                 ))}
               </div>
             ) : (
-              <p className="text-[13.5px] leading-[1.55] text-[#9AA4B2]">
+              <p className="text-[13.5px] leading-[1.55] text-[#6B7686]">
                 Meetings, check-ins, journeys, prayer, and milestones will appear here as this relationship grows.
               </p>
             )}
@@ -35571,24 +35389,24 @@ function PersonDetailOverlay({
               <div className="divide-y divide-[#EDEFF2]">
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
                   <p className="text-[14px] text-[#0F1520]">{relationshipTypePill}</p>
-                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Relationship</p>
+                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Relationship</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
                   <p className="text-[14px] text-[#0F1520]">{currentCircleLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Circle</p>
+                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Circle</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
                   <p className="text-[14px] text-[#0F1520]">{engagementOverviewScore} {engagementOverviewLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Engagement</p>
+                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Engagement</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
                   <p className="text-[14px] text-[#0F1520]">{spiritualJourneyPill}</p>
-                  <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Spiritual journey</p>
+                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Spiritual journey</p>
                 </div>
                 {personFruitEvents.length ? (
                   <div className="flex items-baseline justify-between gap-3 py-2.5">
                     <p className="text-[14px] text-[#0F1520]">{personFruitEvents.length} recorded</p>
-                    <p className="text-[11.5px] font-semibold text-[#9AA4B2]">Fruit</p>
+                    <p className="text-[11.5px] font-semibold text-[#6B7686]">Fruit</p>
                   </div>
                 ) : null}
               </div>
@@ -35599,28 +35417,81 @@ function PersonDetailOverlay({
       </div>
       </div>
       {conceptMode ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[88px] z-[900] flex justify-center md:bottom-6">
-          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-[#E3E6EB] bg-white/95 py-1.5 pl-1.5 pr-3 shadow-[0_12px_32px_rgba(15,23,42,0.16)] backdrop-blur">
-            {(["a", "b", "c"] as const).map((conceptKey) => (
-              <button
-                aria-pressed={activeConcept === conceptKey}
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold uppercase transition-colors ${
-                  activeConcept === conceptKey ? "bg-[#0F1520] text-white" : "text-[#6B7686] hover:bg-[#F3F4F6]"
-                }`}
-                key={conceptKey}
-                onClick={() => {
-                  setActiveConcept(conceptKey);
-                  setActiveDetailTab("overview");
-                  scrollDetailToTop();
-                }}
-                type="button"
-              >
-                {conceptKey}
-              </button>
-            ))}
-            <span className="text-[11px] font-semibold text-[#6B7686]">{personConceptNames[activeConcept]}</span>
+        /* Relationship-level actions use the app's established floating "+"
+           pattern; contextual actions stay beside their context. */
+        <MyRecordContextualFloatingActions
+          isOpen={isPersonActionsOpen}
+          items={[
+            { icon: "log", label: "Log meeting", onClick: onLogMeeting },
+            { icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
+            { icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
+            { icon: "library", label: "Assign Journey", onClick: () => onAssignResource(person.id) },
+            { icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
+            { icon: "bell", label: "Add follow-up", onClick: onAddReminder },
+          ]}
+          menuLabel={`actions for ${firstName}`}
+          onClose={() => setIsPersonActionsOpen(false)}
+          onToggle={() => setIsPersonActionsOpen((current) => !current)}
+        />
+      ) : null}
+      {isOverflowOpen ? (
+        <Sheet onClose={() => setIsOverflowOpen(false)} showEyebrow={false} title={person.name}>
+          <div className="grid gap-1.5">
+            {person.phone ? (
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("tel", person.phone)}>
+                <Phone className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+                Call {formatPhoneNumber(person.phone) || person.phone}
+              </a>
+            ) : null}
+            {person.phone ? (
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("sms", person.phone)}>
+                <MessageCircle className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+                Text
+              </a>
+            ) : null}
+            {person.email ? (
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={`mailto:${person.email}`}>
+                <Mail className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+                Email
+              </a>
+            ) : null}
+            <button
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              onClick={() => {
+                setIsOverflowOpen(false);
+                setActiveDetailTab("details");
+                scrollDetailToTop();
+              }}
+              type="button"
+            >
+              <User className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              Contact details
+            </button>
+            <button
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              onClick={() => {
+                setIsOverflowOpen(false);
+                setActiveDetailTab("history");
+                scrollDetailToTop();
+              }}
+              type="button"
+            >
+              <Clock className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              Timeline
+            </button>
+            <button
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              onClick={() => {
+                setIsOverflowOpen(false);
+                onEdit();
+              }}
+              type="button"
+            >
+              <Pencil className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              Edit contact
+            </button>
           </div>
-        </div>
+        </Sheet>
       ) : null}
       {circleInsightStage && visibleCircleSuggestion ? (
         <Sheet onClose={() => setCircleInsightStage(null)} showEyebrow={false} title="DOS noticed something">
@@ -35659,7 +35530,7 @@ function PersonDetailOverlay({
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
-                    <p className="text-[11px] font-bold text-[#9AA4B2]">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                    <p className="text-[11px] font-bold text-[#6B7686]">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
                     <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
                   </div>
                   <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
@@ -35735,7 +35606,7 @@ function PersonDetailOverlay({
             </p>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#9AA4B2]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7686]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
                 <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
               </div>
               <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
