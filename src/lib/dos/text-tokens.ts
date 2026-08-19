@@ -41,8 +41,8 @@ export const dosSurface = {
   hairline: "#E7E9ED",
   /** Chrome/content boundary and section rules. */
   rule: "#EDEFF2",
-  /** Tinted working-region band — figure/ground without a card. */
-  band: "#FBFAF8",
+  /** Cool tinted working-region band — figure/ground without a card. */
+  band: "#F6F9FE",
   /** DOS blue — actions, progress, and the single section eyebrow. */
   blue: "#2450C8",
 } as const;

@@ -6338,11 +6338,11 @@ function GuidedResourceDetailSheet({
   const notices = (
     <>
       {readOnly ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-dos-band px-3 py-2 text-[12.5px] font-semibold leading-5 text-dos-eyebrow sm:mx-6">
+        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#F6F9FE] px-3 py-2 text-[12.5px] font-semibold leading-5 text-dos-eyebrow sm:mx-6">
           Preview mode. Changes are not saved.
         </p>
       ) : !personId ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#F0E2C4] bg-[#FCFAF6] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#A07A35] sm:mx-6">
+        <p className="mx-5 mt-4 rounded-[12px] border border-[#CFDBF7] bg-[#F6F9FE] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#1B3EA0] sm:mx-6">
           Connect a person record to save progress.
         </p>
       ) : null}
@@ -6575,12 +6575,15 @@ function GuidedResourceDetailSheet({
     return content;
   }
 
+  // Canonical DOS rule: collection/browse surfaces may use cards; detail and
+  // work surfaces become the page. A long-form resource is a work surface, so
+  // it fills the page rather than floating inside a rounded modal card. The
+  // internal treatments (progress band, week selector, question band, answer
+  // fields) are unchanged.
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={resource.title}>
-      <div className="-mx-4 max-h-[72dvh] overflow-y-auto [scrollbar-width:none]">
-        {content}
-      </div>
-    </Sheet>
+    <div className="fixed inset-0 z-[120] overflow-y-auto bg-white [scrollbar-width:none] md:left-[232px] xl:left-[260px]">
+      {content}
+    </div>
   );
 }
 
@@ -14817,6 +14820,47 @@ function TaskCard({
       </div>
       {action}
     </article>
+  );
+}
+
+/**
+ * Canonical DOS workflow page.
+ *
+ * Add Person, Schedule Meeting and Log Meeting are full-page workflows, not
+ * modal cards: white primary surface, one strong title, obvious back, a
+ * comfortable capped form width on desktop, and a sticky primary action that
+ * clears the mobile safe area. Collection/browse surfaces may still use
+ * cards — detail and work surfaces become the page.
+ */
+function DosWorkflowPage({
+  children,
+  onClose,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] overflow-y-auto bg-white [scrollbar-width:none] md:left-[232px] xl:left-[260px]">
+      <div className="mx-auto w-full max-w-[620px] px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 md:px-8 md:pb-16 md:pt-10">
+        <header>
+          <button
+            aria-label="Back"
+            className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            onClick={onClose}
+            type="button"
+          >
+            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+          </button>
+          <h2 className="mt-2 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{title}</h2>
+          {subtitle ? <p className="mt-1.5 text-[14.5px] leading-[1.5] text-dos-body">{subtitle}</p> : null}
+        </header>
+        <div className="mt-6">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -34197,7 +34241,7 @@ function PDRow({
 
   if (href) {
     return (
-      <a className="block w-full min-w-0 text-left transition-colors hover:bg-dos-band" href={href}>
+      <a className="block w-full min-w-0 text-left transition-colors hover:bg-[#F6F9FE]" href={href}>
         {inner}
       </a>
     );
@@ -34205,7 +34249,7 @@ function PDRow({
 
   if (onClick) {
     return (
-      <button className="block w-full min-w-0 text-left transition-colors hover:bg-dos-band" onClick={onClick} type="button">
+      <button className="block w-full min-w-0 text-left transition-colors hover:bg-[#F6F9FE]" onClick={onClick} type="button">
         {inner}
       </button>
     );
@@ -34935,7 +34979,7 @@ function PersonDetailOverlay({
                 <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
               </button>
             </div>
-            <div className="mt-1 flex items-center gap-3.5 pb-5">
+            <div className="mt-1 flex items-center gap-3.5 pb-4">
               {person.photoUrl ? (
                 <img
                   alt=""
@@ -34969,8 +35013,33 @@ function PersonDetailOverlay({
                 )}
               </div>
             </div>
+            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center gap-6 border-b border-dos-rule px-4 md:mx-0 md:px-0">
+              {([
+                { label: "Overview", value: "overview" as const },
+                { label: "Timeline", value: "history" as const },
+                { label: "Details", value: "details" as const },
+              ]).map((view) => {
+                const isActive = activeDetailTab === view.value;
+
+                return (
+                  <button
+                    aria-current={isActive ? "page" : undefined}
+                    className={`-mb-px border-b-2 pb-2.5 text-[14px] font-semibold transition-colors ${
+                      isActive ? "border-dos-blue text-dos-blue" : "border-transparent text-dos-secondary hover:text-dos-primary"
+                    }`}
+                    key={view.value}
+                    onClick={() => {
+                      setActiveDetailTab(view.value);
+                      scrollDetailToTop();
+                    }}
+                    type="button"
+                  >
+                    {view.label}
+                  </button>
+                );
+              })}
+            </nav>
           </header>
-          <div className="-mx-4 border-b border-dos-rule md:mx-0" aria-hidden="true" />
         </>
       ) : (
         <>
@@ -35077,16 +35146,16 @@ function PersonDetailOverlay({
 
                 {/* ACTIVE WORK — the one tinted band. It earns a surface
                     because it holds the interactive rows. */}
-                <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:mx-0 md:rounded-[14px] md:border md:px-5">
+                <section className="-mx-4 mt-6 border-y border-dos-rule bg-[#F6F9FE] px-4 py-4 md:mx-0 md:rounded-[14px] md:border md:px-5">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Walking together</h3>
-                  <div className="mt-1 divide-y divide-[#EAE5DC]">
+                  <div className="mt-1 divide-y divide-[#E3EAF6]">
                     {conceptJourneys.map((journey) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
                         <div className="min-w-0 flex-1">
                           <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
                           <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
                           {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#E1DCD2]">
+                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
                               <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
                             </span>
                           ) : null}
@@ -35122,7 +35191,7 @@ function PersonDetailOverlay({
 
                 {/* PRAYER */}
                 <section className="mt-6 flex gap-3">
-                  <Heart className="mt-[3px] h-[17px] w-[17px] shrink-0 text-[#A07A35]" aria-hidden="true" strokeWidth={1.9} />
+                  <Heart className="mt-[3px] h-[17px] w-[17px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
                   <div className="min-w-0 flex-1">
                     {primaryPrayer ? (
                       <>
@@ -35210,7 +35279,7 @@ function PersonDetailOverlay({
                         </p>
                       ) : null}
                       {lastMeeting.growthReflection.followUpNeeded ? (
-                        <p className="text-[12.5px] font-semibold text-[#A07A35]">Follow-up still open</p>
+                        <p className="text-[12.5px] font-semibold text-dos-blue">Follow-up still open</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -35237,7 +35306,7 @@ function PersonDetailOverlay({
                     <div className="flex items-start justify-between gap-3 py-3" key={topic.id}>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">
-                          Accountability{topic.isOverdue ? <span className="ml-1.5 text-[#A07A35]">Overdue</span> : null}
+                          Accountability{topic.isOverdue ? <span className="ml-1.5 text-dos-blue">Overdue</span> : null}
                         </p>
                         <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{topic.title}</p>
                         <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">{topic.meta}</p>
@@ -35577,94 +35646,13 @@ function PersonDetailOverlay({
               className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
               onClick={() => {
                 setIsOverflowOpen(false);
-                setActiveDetailTab("details");
-                scrollDetailToTop();
-              }}
-              type="button"
-            >
-              <User className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
-              Contact details
-            </button>
-            <button
-              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-              onClick={() => {
-                setIsOverflowOpen(false);
-                setActiveDetailTab("history");
-                scrollDetailToTop();
-              }}
-              type="button"
-            >
-              <Clock className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
-              Timeline
-            </button>
-            <button
-              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-              onClick={() => {
-                setIsOverflowOpen(false);
                 onEdit();
               }}
               type="button"
             >
               <Pencil className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
-              Edit contact
+              Edit Person
             </button>
-          </div>
-        </Sheet>
-      ) : null}
-      {circleInsightStage && visibleCircleSuggestion ? (
-        <Sheet onClose={() => setCircleInsightStage(null)} showEyebrow={false} title="DOS noticed something">
-          <div className="grid gap-3.5 text-[14px] leading-[1.6] text-dos-body">
-            <p className="text-[16px] font-semibold leading-[1.5] text-dos-primary">
-              You&apos;ve been spending significantly more time with {firstName} recently.
-            </p>
-            <p>
-              {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions)} meaningful conversations · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} · last 30 days
-            </p>
-            <p>Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
-            <div className="grid gap-2">
-              <AppButton
-                onClick={() => {
-                  setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle);
-                  setCircleInsightStage(null);
-                }}
-                tone="black"
-              >
-                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
-              </AppButton>
-              <AppButton
-                onClick={() => {
-                  setDismissedCircleSuggestion(suggestionDismissKey);
-                  setCircleInsightStage(null);
-                }}
-                tone="white"
-              >
-                Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
-              </AppButton>
-            </div>
-            {circleInsightStage === "why" ? (
-              <div className="rounded-2xl bg-dos-band p-3.5 text-[13px] leading-[1.6] text-dos-body">
-                <p>
-                  DOS compares your logged one-to-one time over a rolling 30-day window against the people currently in each of your circles. Nothing is inferred — only what you logged counts, and DOS never moves anyone without you.
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
-                    <p className="text-[11px] font-bold text-dos-eyebrow">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
-                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
-                    <p className="text-[11px] font-bold text-dos-blue">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
-                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
-                  </div>
-                </div>
-                <p className="mt-3">
-                  {firstName}&apos;s recent pattern ({Math.round(visibleCircleSuggestion.person30.meaningfulInteractions * 10) / 10} conversations, {visibleCircleSuggestion.person30.oneToOneCount} one-to-one, last met {Number.isFinite(visibleCircleSuggestion.person30.daysSinceLastMeaningful) ? `${visibleCircleSuggestion.person30.daysSinceLastMeaningful}d ago` : "—"}) sits closer to your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} than your {circleDisplayName(visibleCircleSuggestion.currentCircle)}.
-                </p>
-              </div>
-            ) : (
-              <button className="text-left text-[13px] font-semibold text-dos-blue" onClick={() => setCircleInsightStage("why")} type="button">
-                How DOS worked this out
-              </button>
-            )}
           </div>
         </Sheet>
       ) : null}
@@ -36119,6 +36107,7 @@ function MeetingDetailOverlay({
   isSubmitting?: boolean;
   testimonyShareMessage?: string;
 }) {
+  const [isMeetingActionsOpen, setIsMeetingActionsOpen] = useState(false);
   const isTableMeeting = meeting.source === "table";
   const isScheduledMeeting = meeting.meetingStatus === "scheduled";
   const isLoggedTableMeeting = isTableMeeting && !isScheduledMeeting;
@@ -36242,141 +36231,246 @@ function MeetingDetailOverlay({
     );
   }
 
+  const meetingNotes = normalizeText(meeting.notes) || normalizeText(latestReflection?.whatHappened);
+  const meetingAgreed = normalizeText(meeting.growthReflection.actionStep) || normalizeText(latestReflection?.nextStep);
+  const meetingPrayer = normalizeText(latestReflection?.prayerNeeds);
+  const meetingPeopleLine = meetingPeopleTitle(meeting, people) || title;
+  // Lead with the conversation topic when the meeting has one; the people and
+  // date carry underneath rather than repeating the same phrase twice.
+  const meetingTopic = normalizeText(meeting.title);
+  const meetingHeadline = meetingTopic || meetingPeopleLine;
+  const meetingSubline = [meetingTopic ? meetingPeopleLine : "", formatDate(meeting.date)]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:bg-[#F8FBFF]">
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="flex items-center justify-between gap-3">
-          <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
+      <div className="mx-auto w-full max-w-[880px]">
+        {/* Chrome: back to the person, deeper actions behind the overflow. */}
+        <header className="-mx-1 flex items-center justify-between">
+          <button
+            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            onClick={onBack}
+            type="button"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
           </button>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-            {isScheduledMeeting ? "Scheduled" : "Table"}
-          </p>
-          {isTableMeeting ? (
-            <button className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
-              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Edit
-            </button>
-          ) : <span className="h-10 w-10" aria-hidden="true" />}
+          <button
+            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            onClick={() => setIsMeetingActionsOpen(true)}
+            type="button"
+            aria-label="Meeting options"
+          >
+            <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
+          </button>
         </header>
 
-        <section className="mt-5 rounded-[26px] border border-[#DCEBFF] bg-white p-4 shadow-[0_16px_38px_rgba(37,99,235,0.055)] md:p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              {avatarNames.length ? (
-                <div className="flex shrink-0 -space-x-2">
-                  {avatarNames.map((name, index) => (
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-white text-sm font-bold ${avatarTone(index)}`}
-                      key={`${meeting.id}-detail-${name}`}
-                    >
-                      {initials(name)}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
-                  <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.6} />
-                </div>
-              )}
-              <div className="min-w-0">
-                <h2 className="truncate text-[28px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[34px]" style={{ fontFamily: font.oswald }}>
-                  {title}
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-[#64748B]">{meetingMetadataLine(meeting)}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 md:justify-end">
-              {conversationBadgeLabel ? (
-                <span className="inline-flex items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8]">
-                  {conversationBadgeLabel}
-                </span>
-              ) : null}
-              {observedFruit.length ? (
-                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-                  {observedFruit.length} fruit
-                </span>
-              ) : null}
-              {meeting.googleSyncEnabled ? (
-                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-                  {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-                </span>
-              ) : null}
-              {temperature ? (
-                <span className="inline-flex items-center rounded-full bg-[#F1F5F9] px-3 py-1.5 text-xs font-semibold text-[#64748B]">
-                  {temperature}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </section>
+        <div className="mt-1 border-b border-dos-rule pb-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-blue">
+            {isScheduledMeeting ? "Scheduled" : "Meeting"}
+          </p>
+          <h2 className="mt-1.5 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{meetingHeadline}</h2>
+          <p className="mt-1.5 text-[13px] font-semibold text-dos-secondary">{meetingSubline}</p>
+          {(conversationBadgeLabel || temperature || observedFruit.length) ? (
+            <p className="mt-2 flex flex-wrap gap-x-2.5 gap-y-1 text-[12.5px] font-semibold text-dos-secondary">
+              {conversationBadgeLabel ? <span>{conversationBadgeLabel}</span> : null}
+              {temperature ? <span>· {temperature}</span> : null}
+              {observedFruit.length ? <span>· {observedFruit.length} fruit</span> : null}
+            </p>
+          ) : null}
+        </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
-          <div className="grid min-w-0 gap-3">
-            <TableDetailSummaryCard meeting={meeting} />
-            <MeetingPeopleDetailCard meeting={meeting} people={people} />
-            <NotesReflectionDetailCard meeting={meeting} reflection={latestReflection} />
-          </div>
+        <div className="lg:flex lg:items-start lg:gap-x-14">
+          <div className="min-w-0 lg:flex-1">
+            {isScheduledMeeting ? (
+              <section className="border-b border-dos-rule py-5">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Plan</h3>
+                {meetingNotes ? (
+                  <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-dos-body">{meetingNotes}</p>
+                ) : (
+                  <p className="mt-2 text-[15px] leading-[1.5] text-dos-body">No plan captured yet.</p>
+                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <PDButton onClick={onLogScheduled} tone="solid">Log this meeting</PDButton>
+                  <PDButton onClick={onEditNotes}>Edit plan</PDButton>
+                </div>
+              </section>
+            ) : (
+              <>
+                <section className="border-b border-dos-rule py-5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">What happened</h3>
+                  {meetingNotes ? (
+                    <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-dos-body">{meetingNotes}</p>
+                  ) : (
+                    <p className="mt-2 text-[15px] leading-[1.5] text-dos-body">No notes captured.</p>
+                  )}
+                  <button className="mt-3 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
+                    {meetingNotes ? "Edit notes" : "Add notes"}
+                  </button>
+                </section>
 
-          <div className="grid min-w-0 content-start gap-3">
-            {isLoggedTableMeeting ? (
-              <FollowUpDetailCard
-                canOpenReviewLink={Boolean(reviewRequestUrl)}
-                canSendTestimony={canSendTestimony}
-                hasReviewRequestLink={hasReviewRequestLink}
-                hasTestimonyRequestLink={hasTestimonyRequestLink}
-                isSendingReview={isSendingReview}
-                isSendingTestimony={isSendingTestimony}
-                meeting={meeting}
-                meetingTestimonies={meetingTestimonies}
-                onCopyReviewLink={onCopyReviewLink}
-                onOpenReviewLink={onOpenReviewLink}
-                onSendReview={onSendReview}
-                onSendTestimony={onSendTestimony}
-                reviewDisplayHelper={reviewDisplayHelper}
-                reviewDisplayTitle={reviewDisplayTitle}
-                storyDisplayHelper={storyDisplayHelper}
-                storyDisplayTitle={storyDisplayTitle}
-                storyIsCompleted={storyIsCompleted}
-                tableFollowUpNeeded={latestReflection?.followUpNeeded}
-                tableFollowUpReminder={tableFollowUpReminder}
-              />
-            ) : null}
-            {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
-              <div className="grid gap-2 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
-                {reviewShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewShareMessage}</p> : null}
-                {testimonyShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{testimonyShareMessage}</p> : null}
-                {reviewOptionsShareMessage ? <p className="rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold text-[#1D4ED8]">{reviewOptionsShareMessage}</p> : null}
-              </div>
-            ) : null}
-            {isTableMeeting ? (
-              <TableActionsDetailCard
-                isScheduled={isScheduledMeeting}
-                isSubmitting={isSubmitting}
-                onDelete={onDelete}
-                onEdit={onEdit}
-                onEditNotes={onEditNotes}
-                onLogScheduled={onLogScheduled}
-              />
-            ) : null}
+                {(meetingAgreed || meetingPrayer) ? (
+                  <section className="border-b border-dos-rule py-5">
+                    {meetingAgreed ? (
+                      <p className="flex items-start gap-2.5 text-[15.5px] font-semibold leading-[1.4] text-dos-primary">
+                        <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
+                        <span>
+                          <span className="text-dos-secondary">Agreed — </span>
+                          {meetingAgreed}
+                        </span>
+                      </p>
+                    ) : null}
+                    {meetingPrayer ? (
+                      <p className={`flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-body ${meetingAgreed ? "mt-2.5" : ""}`}>
+                        <Heart className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+                        <span>
+                          <span className="font-semibold text-dos-primary">Praying — </span>
+                          {meetingPrayer}
+                        </span>
+                      </p>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {observedFruit.length ? (
+                  <section className="border-b border-dos-rule py-5">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Fruit observed</h3>
+                    <ul className="mt-2 grid gap-1.5">
+                      {observedFruit.map((fruitLabel) => (
+                        <li className="flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-primary" key={fruitLabel}>
+                          <Sparkles className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+                          {fruitLabel}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </>
+            )}
+
             {meeting.recommendedResources.length ? (
-              <DetailCard title="Recommended Resources">
-                {meeting.recommendedResources.map((resource) => (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={resource.id}>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[#0F172A]">{resource.title}</p>
-                      {resource.reason ? <p className="mt-1 text-xs text-[#64748B]">{resource.reason}</p> : null}
-                    </div>
-                    <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                      Queued
-                    </span>
-                  </div>
-                ))}
-              </DetailCard>
+              <section className="border-b border-dos-rule py-5">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Recommended</h3>
+                <ul className="mt-2 grid gap-2">
+                  {meeting.recommendedResources.map((resource) => (
+                    <li key={resource.id}>
+                      <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">{resource.title}</p>
+                      {resource.reason ? <p className="mt-0.5 text-[13.5px] leading-[1.5] text-dos-body">{resource.reason}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
           </div>
+
+          {/* Who + follow-up: a rail on desktop, inline on mobile. */}
+          <aside className="min-w-0 lg:w-[292px] lg:shrink-0 lg:border-l lg:border-dos-rule lg:pl-10">
+            <section className="border-b border-dos-rule py-5 lg:border-b-0 lg:pt-5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Who</h3>
+              <p className="mt-2 text-[15px] font-semibold leading-[1.45] text-dos-primary">{meetingPeopleLine}</p>
+              {meeting.ministryTeam.length ? (
+                <p className="mt-1 text-[13px] font-semibold text-dos-secondary">
+                  With {meeting.ministryTeam.map((member) => member.displayName).join(", ")}
+                </p>
+              ) : null}
+              {meeting.supportingAttendees.length ? (
+                <p className="mt-1 text-[13px] font-semibold text-dos-secondary">
+                  Also present: {meeting.supportingAttendees.map((member) => member.displayName).join(", ")}
+                </p>
+              ) : null}
+            </section>
+
+            {isLoggedTableMeeting ? (
+              <section className="border-b border-dos-rule py-5 lg:border-b-0">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Follow-up</h3>
+                {tableFollowUpReminder ? (
+                  <p className="mt-2 text-[15px] font-semibold leading-[1.4] text-dos-primary">
+                    {tableFollowUpReminder.title || "Follow up"}
+                    <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">
+                      {followUpDuePhrase(nextReminderDate(tableFollowUpReminder))}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No follow-up set.</p>
+                )}
+                <div className="mt-3 grid gap-2 text-[13.5px] font-semibold">
+                  <p className="text-dos-secondary">
+                    Quick Review <span className="font-semibold text-dos-primary">· {reviewDisplayTitle}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {reviewIsCompleted ? null : (
+                      <PDButton onClick={reviewRequestReady ? onCopyReviewLink : onPrepareQuickReview}>
+                        {reviewRequestReady ? "Copy link" : "Send Quick Review"}
+                      </PDButton>
+                    )}
+                    {canSendTestimony ? (
+                      <PDButton onClick={onPrepareTestimonyRequest}>Testimony request</PDButton>
+                    ) : null}
+                  </div>
+                  {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
+                    <p className="text-[13px] font-semibold text-dos-blue">
+                      {reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage}
+                    </p>
+                  ) : null}
+                </div>
+                <button className="mt-3 text-[13px] font-semibold text-dos-blue" onClick={onScheduleNextMeeting} type="button">
+                  Schedule next meeting →
+                </button>
+              </section>
+            ) : null}
+          </aside>
         </div>
       </div>
+
+      {isMeetingActionsOpen ? (
+        <Sheet onClose={() => setIsMeetingActionsOpen(false)} showEyebrow={false} title="Meeting options">
+          <div className="grid gap-1.5">
+            {isTableMeeting ? (
+              <button
+                className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                onClick={() => { setIsMeetingActionsOpen(false); onEdit(); }}
+                type="button"
+              >
+                <Pencil className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+                Edit meeting
+              </button>
+            ) : null}
+            <button
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+              onClick={() => { setIsMeetingActionsOpen(false); onEditNotes(); }}
+              type="button"
+            >
+              <StickyNote className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+              Edit notes
+            </button>
+            {isLoggedTableMeeting ? (
+              <button
+                className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                onClick={() => { setIsMeetingActionsOpen(false); onPrepareReviewOptions(); }}
+                type="button"
+              >
+                <Send className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+                Send review options
+              </button>
+            ) : null}
+            {isTableMeeting ? (
+              <>
+                <span className="my-1 block border-t border-dos-rule" aria-hidden="true" />
+                <button
+                  className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2] disabled:opacity-60"
+                  disabled={isSubmitting}
+                  onClick={() => { setIsMeetingActionsOpen(false); onDelete(); }}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                  Delete meeting
+                </button>
+              </>
+            ) : null}
+          </div>
+        </Sheet>
+      ) : null}
     </div>
   );
 }
@@ -36510,6 +36604,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedTableRole, setSelectedTableRole] = useState<DosAppTableRole>("ministering");
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingReviewRecipientId, setSelectedMeetingReviewRecipientId] = useState<string | null>(null);
+  // Meeting Detail entered from a Person returns to that Person (USA-168 #10).
+  const [meetingOriginPersonId, setMeetingOriginPersonId] = useState<string | null>(null);
   const [loggingScheduledMeetingId, setLoggingScheduledMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
   const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
@@ -36653,6 +36749,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
   const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
+  // Workflow subtitles name the person when the flow was launched from their
+  // record, so the user is never asked to re-select someone they came from.
+  const workflowPersonNames = selectedMeetingPersonIds
+    .map((personId) => people.find((person) => person.id === personId)?.name)
+    .filter((name): name is string => Boolean(name));
+  const workflowPersonLabel = workflowPersonNames.length === 1
+    ? workflowPersonNames[0]
+    : workflowPersonNames.length > 1
+      ? `${workflowPersonNames.length} people`
+      : null;
+  const scheduleWorkflowSubtitle = workflowPersonLabel
+    ? `Set a time with ${workflowPersonLabel}.`
+    : "Set a time with someone you are walking with.";
+  const logWorkflowSubtitle = workflowPersonLabel
+    ? `Capture what mattered with ${workflowPersonLabel}.`
+    : "Capture what mattered while it is fresh.";
   const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
   const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);
   const draftRecommendedResources = useMemo(() => (
@@ -39022,7 +39134,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ));
   }
 
-  function openMeetingDetail(meetingId: string, recipientPersonId?: string | null) {
+  function openMeetingDetail(meetingId: string, recipientPersonId?: string | null, originPersonId?: string | null) {
+    setMeetingOriginPersonId(originPersonId ?? null);
     setActiveTab("meetings");
     setMoreAppView(null);
     setErrorMessage("");
@@ -42771,7 +42884,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setSelectedPersonId(null);
               openGroupDetail(groupId);
             }}
-            onOpenMeeting={openMeetingDetail}
+            onOpenMeeting={(meetingId, recipientPersonId) => openMeetingDetail(meetingId, recipientPersonId, selectedPerson.id)}
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
@@ -42805,6 +42918,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setPostMeetingFollowUpId(null);
               setSelectedMeetingReviewRecipientId(null);
               setSelectedMeetingId(null);
+
+              // Returning to the person the meeting was opened from, so the
+              // relationship context is never lost mid-workflow.
+              if (meetingOriginPersonId) {
+                const originId = meetingOriginPersonId;
+
+                setMeetingOriginPersonId(null);
+                setActiveTab("people");
+                setSelectedPersonId(originId);
+                scrollAppToTop();
+              }
             }}
             onCopyReviewLink={() => {
               if (selectedMeetingReviewUrl) {
@@ -43471,7 +43595,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "person" ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title="Add Person">
+        <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
             buttonText="Add Person"
             errorMessage={errorMessage}
@@ -43488,7 +43612,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             scoreValue={selectedRelationshipScore}
             submittingText="Saving..."
           />
-        </Sheet>
+        </DosWorkflowPage>
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
@@ -43513,7 +43637,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "meeting" ? (
-        <Sheet onClose={closeForm} title="Log Meeting">
+        <DosWorkflowPage onClose={closeForm} subtitle={logWorkflowSubtitle} title="Log Meeting">
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
@@ -43563,11 +43687,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             supportingAttendeeQuery={supportingAttendeeQuery}
             supportingAttendeeSubRoles={supportingAttendeeSubRoles}
           />
-        </Sheet>
+        </DosWorkflowPage>
       ) : null}
 
       {formMode === "scheduleMeeting" ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title="Schedule Meeting">
+        <DosWorkflowPage onClose={closeForm} subtitle={scheduleWorkflowSubtitle} title="Schedule Meeting">
           <ScheduleMeetingForm
             allPeople={people}
             calendarConnection={calendarConnection}
@@ -43591,7 +43715,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             workspaceId={data.workspace.id}
             workspaceSlug={data.workspace.slug}
           />
-        </Sheet>
+        </DosWorkflowPage>
       ) : null}
 
       {formMode === "reminder" ? (
