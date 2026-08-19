@@ -6315,7 +6315,7 @@ function GuidedResourceDetailSheet({
     "min-h-24 w-full resize-none rounded-[14px] border border-[#D6E4F7] bg-white px-4 py-3 text-sm leading-6 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#234C7D] focus:ring-2 focus:ring-[#234C7D]/15 disabled:bg-[#F1F5F9] disabled:text-[#94A3B8]";
 
   const journeyTextareaCanonical =
-    "min-h-[86px] w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.55] text-[#3D4654] outline-none placeholder:text-[#B4BBC5] focus:ring-0 disabled:text-[#9AA4B2]";
+    "min-h-[86px] w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-[1.55] text-dos-body outline-none placeholder:text-[#B4BBC5] focus:ring-0 disabled:text-[#9AA4B2]";
   const unitNoun = isReadingPlan ? "Day" : "Week";
   const positionLabel = selectedSession ? `${unitNoun} ${selectedSession.order} of ${sessions.length}` : "";
   const hasStarted = completion.completed > 0;
@@ -6338,7 +6338,7 @@ function GuidedResourceDetailSheet({
   const notices = (
     <>
       {readOnly ? (
-        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-[#FBFAF8] px-3 py-2 text-[12.5px] font-semibold leading-5 text-[#6B7686] sm:mx-6">
+        <p className="mx-5 mt-4 rounded-[12px] border border-[#E3E6EB] bg-dos-band px-3 py-2 text-[12.5px] font-semibold leading-5 text-dos-eyebrow sm:mx-6">
           Preview mode. Changes are not saved.
         </p>
       ) : !personId ? (
@@ -6397,7 +6397,7 @@ function GuidedResourceDetailSheet({
           helper={reflectionHelper}
           isFirst
           label="What stood out?"
-          status={selectedProgress?.completedAt ? <span className="text-[11.5px] font-semibold text-[#6B7686]">Saved</span> : null}
+          status={selectedProgress?.completedAt ? <span className="text-[11.5px] font-semibold text-dos-eyebrow">Saved</span> : null}
         >
           <VoiceTextarea
             aria-label={reflectionHelper || "What stood out?"}
@@ -6444,10 +6444,10 @@ function GuidedResourceDetailSheet({
       {isJourneyComplete ? (
         <section className="mx-5 mt-7 rounded-[14px] border border-[#DCEEE3] bg-[#F4FBF7] p-4 sm:mx-6">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#1F7A4D]">Commissioning</p>
-          <h4 className="mt-1 text-[17px] font-bold leading-6 text-[#0F1520]">Continue in obedience and make disciples.</h4>
+          <h4 className="mt-1 text-[17px] font-bold leading-6 text-dos-primary">Continue in obedience and make disciples.</h4>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              className="inline-flex min-h-[44px] items-center justify-center rounded-[11px] border border-[#DCEEE3] bg-white px-4 text-[13.5px] font-semibold text-[#0F1520]"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-[11px] border border-[#DCEEE3] bg-white px-4 text-[13.5px] font-semibold text-dos-primary"
               onClick={onReviewNotes}
               type="button"
             >
@@ -34063,7 +34063,7 @@ function PDSectionHeading({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6B7686]">{title}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{title}</p>
       {action}
     </div>
   );
@@ -34088,14 +34088,14 @@ function PDSection({
 
 function PDList({ children }: { children: ReactNode }) {
   return (
-    <div className="divide-y divide-[#EDEFF2] overflow-hidden rounded-[16px] border border-[#EDEFF2] bg-white">
+    <div className="divide-y divide-[#EDEFF2] overflow-hidden rounded-[16px] border border-dos-rule bg-white">
       {children}
     </div>
   );
 }
 
 function PDEmptyRow({ text }: { text: string }) {
-  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-[#6B7686]">{text}</p>;
+  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-dos-eyebrow">{text}</p>;
 }
 
 function PDPill({
@@ -34109,7 +34109,7 @@ function PDPill({
     blue: "bg-[#EEF2FD] text-[#1B3EA0]",
     gold: "bg-[#F6F0E4] text-[#A07A35]",
     green: "bg-[#EDF7F1] text-[#1F7A4D]",
-    neutral: "bg-[#F3F4F6] text-[#6B7686]",
+    neutral: "bg-[#F3F4F6] text-dos-eyebrow",
   }[tone];
 
   return (
@@ -34132,8 +34132,8 @@ function PDButton({
 }) {
   const className = `inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
     tone === "solid"
-      ? "bg-[#2450C8] text-white hover:bg-[#1B3EA0]"
-      : "border border-[#E3E6EB] bg-white text-[#0F1520] hover:border-[#0F1520]"
+      ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
+      : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
   }`;
 
   if (href) {
@@ -34171,25 +34171,25 @@ function PDRow({
   const inner = (
     <div className="flex min-w-0 items-start gap-3 px-4 py-3.5">
       {icon ? (
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEF2FD] text-[#2450C8]">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEF2FD] text-dos-blue">
           {icon}
         </span>
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className="min-w-0 flex-1 text-[14.5px] font-semibold leading-5 text-[#0F1520] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{title}</p>
-          {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-[#6B7686]">{meta}</span> : null}
+          <p className="min-w-0 flex-1 text-[14.5px] font-semibold leading-5 text-dos-primary [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{title}</p>
+          {meta ? <span className="shrink-0 text-[11.5px] font-semibold text-dos-eyebrow">{meta}</span> : null}
         </div>
-        {description ? <div className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{description}</div> : null}
+        {description ? <div className="mt-1 line-clamp-2 text-[13px] leading-[1.5] text-dos-eyebrow">{description}</div> : null}
         {action ? <div className="mt-2.5 flex flex-wrap gap-2">{action}</div> : null}
       </div>
-      {(onClick || href) && !action ? <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-[#6B7686]" aria-hidden="true" strokeWidth={1.8} /> : null}
+      {(onClick || href) && !action ? <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-dos-eyebrow" aria-hidden="true" strokeWidth={1.8} /> : null}
     </div>
   );
 
   if (href) {
     return (
-      <a className="block w-full min-w-0 text-left transition-colors hover:bg-[#FBFAF8]" href={href}>
+      <a className="block w-full min-w-0 text-left transition-colors hover:bg-dos-band" href={href}>
         {inner}
       </a>
     );
@@ -34197,7 +34197,7 @@ function PDRow({
 
   if (onClick) {
     return (
-      <button className="block w-full min-w-0 text-left transition-colors hover:bg-[#FBFAF8]" onClick={onClick} type="button">
+      <button className="block w-full min-w-0 text-left transition-colors hover:bg-dos-band" onClick={onClick} type="button">
         {inner}
       </button>
     );
@@ -34334,7 +34334,7 @@ function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
     <PDRow
       description={(
         <>
-          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">{historyEntryKindLabel(entry.kind)}</span>
+          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">{historyEntryKindLabel(entry.kind)}</span>
           {entry.description}
         </>
       )}
@@ -34829,39 +34829,49 @@ function PersonDetailOverlay({
     scrollDetailToTop();
   }, [initialDetailTab, person.id]);
 
-  // Shared COMING UP rows — rendered in the mobile flow and the desktop rail.
-  const personComingUpRows = (
-    <div className="mt-0.5">
+  // COMING UP rows. For a future event the *time* is the answer, so it leads;
+  // the meeting type is demoted to a chip. `subdued` renders the desktop rail
+  // variant, which is deliberately subordinate to the main column.
+  const renderComingUp = (subdued: boolean) => (
+    <div className={subdued ? "mt-2.5" : "mt-3"}>
       {nextMeeting ? (
-        <div className="py-2.5">
-          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{nextMeeting.title?.trim() || "Time together"}</p>
-          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</p>
+        <div className="pb-3.5">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <p className={`font-bold leading-[1.25] text-dos-primary ${subdued ? "text-[15px]" : "text-[17.5px]"}`}>
+              {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
+            </p>
+            {nextMeeting.title?.trim() ? (
+              <span className="rounded-[5px] bg-[#F1F3F6] px-1.5 py-0.5 text-[11.5px] font-bold text-dos-secondary">
+                {nextMeeting.title.trim()}
+              </span>
+            ) : null}
+          </div>
           {nextMeeting.notes?.trim() ? (
-            <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#3D4654]">{nextMeeting.notes}</p>
+            <p className={`mt-1.5 leading-[1.55] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>{nextMeeting.notes}</p>
           ) : null}
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-3 py-2.5">
-          <p className="text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing scheduled yet.</p>
+        <div className="flex items-center justify-between gap-3 pb-3.5">
+          <p className={`leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>Nothing scheduled yet.</p>
           <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
         </div>
       )}
       {conceptFollowUps.map((followUp) => (
-        <button className="block w-full py-2.5 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
-          <p className="text-[14px] font-semibold leading-[1.4] text-[#0F1520]">{followUp.title}</p>
-          {followUp.duePhrase ? <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{followUp.duePhrase}</p> : null}
+        <button className="block w-full border-t border-[#F1F3F6] py-3 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
+          <p className={`font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15px]"}`}>{followUp.title}</p>
+          {followUp.duePhrase ? <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{followUp.duePhrase}</p> : null}
         </button>
       ))}
       {upcomingGatherings.map(({ gathering, group }) => (
-        <button className="block w-full py-2.5 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-          <p className="text-[14px] font-semibold leading-[1.4] text-[#0F1520]">{group.name}</p>
-          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{upcomingDayLabel(gathering.startsAt, true)}</p>
+        <button className="block w-full border-t border-[#F1F3F6] py-3 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+          <p className={`font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15px]"}`}>{group.name}</p>
+          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</p>
         </button>
       ))}
       {personGroups.length && !upcomingGatherings.length ? (
-        <p className="flex flex-wrap gap-x-4 gap-y-1 py-2.5 text-[13.5px]">
+        <p className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[#F1F3F6] py-3 text-[14px]">
           {personGroups.map((group) => (
-            <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
+            <button className="font-semibold text-dos-blue" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
               {group.name}
             </button>
           ))}
@@ -34871,57 +34881,77 @@ function PersonDetailOverlay({
   );
 
   return (
-    <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
-      <div className="mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
+    <div
+      ref={detailScrollRef}
+      className={`absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:px-6 md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "md:bg-white md:px-10 lg:px-14" : "md:bg-[#F8FBFF]"}`}
+    >
+      <div className={conceptMode
+        ? "mx-auto w-full max-w-[1080px]"
+        : "mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]"}>
       {conceptMode ? (
-        /* Native-app header: back · name + quiet relationship signal ·
-           restrained overflow. Nothing else before the content. */
-        <header className="flex items-center gap-3">
-          <button
-            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
-            onClick={() => {
-              if (activeDetailTab === "overview") {
-                onBack();
-              } else {
-                setActiveDetailTab("overview");
-                scrollDetailToTop();
-              }
-            }}
-            type="button"
-            aria-label={activeDetailTab === "overview" ? "Back to field" : `Back to ${firstName}`}
-          >
-            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
-          </button>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(index)}`} aria-hidden="true">
-            {initials(person.name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[19px] font-bold leading-[1.15] tracking-[-0.01em] text-[#0F1520]">
-              {person.name}
-            </h2>
-            {visibleCircleSuggestion ? (
+        /* App chrome: a pure control row, then the person. The full-bleed
+           hairline is the chrome/content boundary. */
+        <>
+          <header>
+            <div className="-mx-4 flex items-center justify-between px-2 md:mx-0 md:px-0">
               <button
-                className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold leading-[1.3] text-[#3D4654]"
-                onClick={() => setCircleInsightStage("insight")}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                onClick={() => {
+                  if (activeDetailTab === "overview") {
+                    onBack();
+                  } else {
+                    setActiveDetailTab("overview");
+                    scrollDetailToTop();
+                  }
+                }}
                 type="button"
-                aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
+                aria-label={activeDetailTab === "overview" ? "Back to field" : `Back to ${firstName}`}
               >
-                {relationshipSignal}
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
+                <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
-            ) : (
-              <p className="text-[12.5px] font-semibold leading-[1.3] text-[#3D4654]">{relationshipSignal}</p>
-            )}
-          </div>
-          <button
-            className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
-            onClick={() => setIsOverflowOpen(true)}
-            type="button"
-            aria-label={`More options for ${firstName}`}
-          >
-            <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
-          </button>
-        </header>
+              <button
+                className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                onClick={() => setIsOverflowOpen(true)}
+                type="button"
+                aria-label={`More options for ${firstName}`}
+              >
+                <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="mt-1 flex items-center gap-3.5 pb-5">
+              {person.photoUrl ? (
+                <img
+                  alt=""
+                  className="h-[52px] w-[52px] shrink-0 rounded-full object-cover ring-1 ring-[rgba(15,21,32,0.08)]"
+                  src={person.photoUrl}
+                />
+              ) : (
+                <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[#DCE6FA] text-[17px] font-bold tracking-[-0.01em] text-[#1B3EA0] ring-1 ring-[rgba(15,21,32,0.06)]" aria-hidden="true">
+                  {initials(person.name)}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">
+                  {person.name}
+                </h2>
+                {visibleCircleSuggestion ? (
+                  <button
+                    className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold leading-[1.3] text-dos-secondary"
+                    onClick={() => setCircleInsightStage("insight")}
+                    type="button"
+                    aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
+                  >
+                    {relationshipSignal}
+                    <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipSignal}</p>
+                )}
+              </div>
+            </div>
+          </header>
+          <div className="-mx-4 border-b border-dos-rule md:mx-0" aria-hidden="true" />
+        </>
       ) : (
         <>
       <header className="flex items-center justify-between gap-3">
@@ -34941,15 +34971,15 @@ function PersonDetailOverlay({
         <h2 className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0F172A] md:text-[28px]" style={{ fontFamily: font.oswald }}>
           {person.name}
         </h2>
-        <p className="mt-2 text-[13.5px] font-semibold text-[#6B7686]">
+        <p className="mt-2 text-[13.5px] font-semibold text-dos-eyebrow">
           {relationshipTypePill} · {currentCircleLabel}
           {visibleCircleSuggestion ? (
             <button
-              className="ml-2 inline-flex items-center gap-1.5 align-middle text-[12px] font-semibold text-[#2450C8]"
+              className="ml-2 inline-flex items-center gap-1.5 align-middle text-[12px] font-semibold text-dos-blue"
               onClick={() => setIsCircleReviewOpen(true)}
               type="button"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#2450C8]" aria-hidden="true" />
+              <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
               Review suggestion
             </button>
           ) : null}
@@ -34986,50 +35016,55 @@ function PersonDetailOverlay({
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {conceptMode && activeDetailTab === "overview" ? (
-          /* Person Overview — founder wireframe. Text hierarchy: #0F1520
-             primary · #3D4654 secondary · light gray reserved for disabled. */
-          <article aria-label="Relationship brief" className="mx-auto w-full max-w-[620px] md:max-w-none">
-            <div className="md:grid md:grid-cols-[minmax(0,580px)_264px] md:justify-between md:gap-x-16">
-              <div className="min-w-0 divide-y divide-[#E7E9ED]">
-                <section className="py-5">
+          /* Person Overview. Scanning hierarchy: person → memory → active
+             work → prayer → next interaction. Text ladder from
+             src/lib/dos/text-tokens.ts: #0F1520 primary · #3D4654 body ·
+             #5A6473 metadata · #6B7686 eyebrows · light gray disabled only. */
+          <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
+            <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
+              <div className="min-w-0 lg:flex-1">
+                {/* MEMORY — the one blue eyebrow marks where the page starts. */}
+                <section className="pt-5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Last time</h3>
-                    {lastMeeting ? <span className="text-[12.5px] font-semibold text-[#3D4654]">{formatRelativeDate(lastMeeting.date)}</span> : null}
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-blue">Last time</h3>
+                    {lastMeeting ? <span className="text-[13px] font-semibold text-dos-secondary">{formatRelativeDate(lastMeeting.date)}</span> : null}
                   </div>
                   {lastMeeting ? (
                     <>
                       {lastTimeTopic ? (
-                        <p className="mt-2 text-[16px] font-bold leading-snug tracking-[-0.01em] text-[#0F1520]">{lastTimeTopic}</p>
+                        <p className="mt-2.5 text-[17.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{lastTimeTopic}</p>
                       ) : null}
                       {lastTimeExcerpt ? (
-                        <p className={`${lastTimeTopic ? "mt-1" : "mt-2"} text-[14.5px] leading-[1.5] text-[#3D4654]`}>{lastTimeExcerpt}</p>
+                        <p className={`${lastTimeTopic ? "mt-1.5" : "mt-2.5"} text-[15px] leading-[1.55] text-dos-body`}>{lastTimeExcerpt}</p>
                       ) : null}
                       {agreedNextStep ? (
-                        <div className="mt-3.5">
-                          <h4 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Agreed</h4>
-                          <p className="mt-1 text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">{agreedNextStep}</p>
+                        <div className="mt-4 border-l-2 border-dos-hairline pl-3.5">
+                          <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Agreed</h4>
+                          <p className="mt-1 text-[15.5px] font-semibold leading-[1.4] text-dos-primary">{agreedNextStep}</p>
                         </div>
                       ) : null}
-                      <button className="mt-3 text-[13px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                      <button className="mt-4 text-[13.5px] font-semibold text-dos-blue" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
                         View meeting →
                       </button>
                     </>
                   ) : (
-                    <p className="mt-2 text-[14px] leading-[1.5] text-[#3D4654]">Nothing logged yet — use + to record your first time together.</p>
+                    <p className="mt-2.5 text-[15px] leading-[1.55] text-dos-body">Nothing logged yet — use + to record your first time together.</p>
                   )}
                 </section>
 
-                <section className="py-5">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Walking together</h3>
-                  <div className="mt-0.5">
+                {/* ACTIVE WORK — the one tinted band. It earns a surface
+                    because it holds the interactive rows. */}
+                <section className="-mx-4 mt-7 border-y border-dos-rule bg-dos-band px-4 py-5 md:mx-0 md:rounded-[14px] md:border md:px-5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Walking together</h3>
+                  <div className="mt-1.5 divide-y divide-[#EDE9E1]">
                     {conceptJourneys.map((journey) => (
-                      <div className="flex items-center justify-between gap-4 py-3" key={journey.assignment.id}>
+                      <div className="flex min-h-[60px] items-center gap-4 py-3.5 first:pt-1" key={journey.assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{journey.title}</p>
-                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{journey.stageLabel}</p>
+                          <p className="text-[17px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
                           {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-[3px] max-w-[200px] overflow-hidden rounded-full bg-[#E7E9ED]">
-                              <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
+                            <span className="mt-2.5 block h-[3px] overflow-hidden rounded-full bg-[#E3DFD6]">
+                              <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(2, journey.percent)}%` }} />
                             </span>
                           ) : null}
                         </div>
@@ -35041,37 +35076,38 @@ function PersonDetailOverlay({
                       </div>
                     ))}
                     {accountabilityTopics.map((topic) => (
-                      <div className="flex items-center justify-between gap-4 py-3" key={topic.id}>
+                      <div className="flex min-h-[60px] items-center gap-4 py-3.5 first:pt-1" key={topic.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{topic.title}</p>
-                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{shortTopicMeta(topic.meta)}</p>
+                          <p className="text-[17px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
                         </div>
                         <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
                     ))}
                     {!conceptJourneys.length ? (
-                      <p className="py-2">
-                        <button className="text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                      <div className="py-2.5 first:pt-1">
+                        <button className="text-[14px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
                           + Start a Journey together
                         </button>
-                      </p>
+                      </div>
                     ) : null}
                     {!conceptJourneys.length && !accountabilityTopics.length ? (
-                      <p className="py-1 text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing active together yet.</p>
+                      <p className="py-1 text-[14px] leading-[1.5] text-dos-body">Nothing active together yet.</p>
                     ) : null}
                   </div>
                 </section>
 
-                <section className="py-5">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Pray for</h3>
+                {/* PRAYER */}
+                <section className="mt-7">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Pray for</h3>
                   {primaryPrayer ? (
                     <>
-                      <p className="mt-2 text-[15px] font-semibold leading-[1.45] text-[#0F1520]">{primaryPrayerText}</p>
+                      <p className="mt-2.5 text-[16px] font-semibold leading-[1.45] text-dos-primary">{primaryPrayerText}</p>
                       {additionalPrayerCount ? (
-                        <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">and {additionalPrayerCount} more</p>
+                        <p className="mt-1 text-[13px] font-semibold text-dos-secondary">and {additionalPrayerCount} more</p>
                       ) : null}
                       <button
-                        className="mt-2.5 text-[13px] font-semibold text-[#2450C8]"
+                        className="mt-3 text-[13.5px] font-semibold text-dos-blue"
                         onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}
                         type="button"
                       >
@@ -35079,29 +35115,32 @@ function PersonDetailOverlay({
                       </button>
                     </>
                   ) : (
-                    <p className="mt-2 text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing active — capture a prayer need with +.</p>
+                    <p className="mt-2.5 text-[15px] leading-[1.5] text-dos-body">Nothing active — capture a prayer need with +.</p>
                   )}
                 </section>
 
-                <section className="py-5 md:hidden">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Coming up</h3>
-                  {personComingUpRows}
+                {/* NEXT — mobile placement. Blue accent rule marks the future. */}
+                <section className="mt-7 border-l-2 border-[#CFDBF7] pl-3.5 lg:hidden">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Coming up</h3>
+                  {renderComingUp(false)}
                 </section>
               </div>
 
-              <aside className="hidden min-w-0 md:block md:py-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Coming up</h3>
-                {personComingUpRows}
+              {/* Desktop rail — subordinate by type size and air, separated by
+                  a rule rather than a panel. */}
+              <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Coming up</h3>
+                {renderComingUp(true)}
                 {(person.phone || person.email) ? (
-                  <div className="mt-6 border-t border-[#E7E9ED] pt-4">
-                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Contact</h3>
+                  <div className="mt-7 border-t border-dos-rule pt-5">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Contact</h3>
                     {person.phone ? (
-                      <a className="mt-1.5 block text-[13.5px] font-semibold text-[#2450C8]" href={phoneActionHref("tel", person.phone)}>
+                      <a className="mt-2 block text-[14px] font-semibold text-dos-blue" href={phoneActionHref("tel", person.phone)}>
                         {formatPhoneNumber(person.phone) || person.phone}
                       </a>
                     ) : null}
                     {person.email ? (
-                      <a className="mt-1 block break-words text-[13.5px] font-semibold text-[#2450C8]" href={`mailto:${person.email}`}>
+                      <a className="mt-1.5 block break-words text-[14px] font-semibold text-dos-blue" href={`mailto:${person.email}`}>
                         {person.email}
                       </a>
                     ) : null}
@@ -35117,7 +35156,7 @@ function PersonDetailOverlay({
             <section aria-label="Last conversation">
               <PDSectionHeading
                 action={lastMeeting ? (
-                  <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                  <button className="text-[12.5px] font-semibold text-dos-blue" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
                     View meeting
                   </button>
                 ) : undefined}
@@ -35125,21 +35164,21 @@ function PersonDetailOverlay({
               />
               {lastMeeting ? (
                 <div className="mt-2.5">
-                  <p className="text-[12.5px] font-semibold text-[#6B7686]">
+                  <p className="text-[12.5px] font-semibold text-dos-eyebrow">
                     {formatDate(lastMeeting.date)} · {meetingActivityTitle(lastMeeting)}
                   </p>
-                  <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">
+                  <p className="mt-1.5 text-[15px] leading-[1.6] text-dos-body">
                     {meetingActivityPreview(lastMeeting, personReflections)}
                   </p>
                   {(lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep || lastConversationReflection?.prayerNeeds || lastMeeting.growthReflection.followUpNeeded) ? (
-                    <div className="mt-2.5 grid gap-1.5 border-l-2 border-[#EDEFF2] pl-3">
+                    <div className="mt-2.5 grid gap-1.5 border-l-2 border-dos-rule pl-3">
                       {(lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep) ? (
-                        <p className="text-[13.5px] leading-[1.55] text-[#0F1520]">
+                        <p className="text-[13.5px] leading-[1.55] text-dos-primary">
                           <span className="font-semibold">Next step:</span> {lastMeeting.growthReflection.actionStep || lastConversationReflection?.nextStep}
                         </p>
                       ) : null}
                       {lastConversationReflection?.prayerNeeds ? (
-                        <p className="text-[13.5px] leading-[1.55] text-[#0F1520]">
+                        <p className="text-[13.5px] leading-[1.55] text-dos-primary">
                           <span className="font-semibold">Praying:</span> {lastConversationReflection.prayerNeeds}
                         </p>
                       ) : null}
@@ -35150,7 +35189,7 @@ function PersonDetailOverlay({
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#6B7686]">
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">
                   No conversations yet — Log Meeting records the first one.
                 </p>
               )}
@@ -35159,7 +35198,7 @@ function PersonDetailOverlay({
             <section aria-label="Walking together">
               <PDSectionHeading
                 action={(
-                  <button className="text-[12.5px] font-semibold text-[#2450C8]" onClick={() => setIsAddMenuOpen(true)} type="button">
+                  <button className="text-[12.5px] font-semibold text-dos-blue" onClick={() => setIsAddMenuOpen(true)} type="button">
                     + Add
                   </button>
                 )}
@@ -35170,11 +35209,11 @@ function PersonDetailOverlay({
                   {accountabilityTopics.map((topic) => (
                     <div className="flex items-start justify-between gap-3 py-3" key={topic.id}>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">
                           Accountability{topic.isOverdue ? <span className="ml-1.5 text-[#A07A35]">Overdue</span> : null}
                         </p>
-                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{topic.title}</p>
-                        <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{topic.meta}</p>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{topic.title}</p>
+                        <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">{topic.meta}</p>
                       </div>
                       <PDButton onClick={topic.onCheckIn} tone="solid">Check In</PDButton>
                     </div>
@@ -35191,19 +35230,19 @@ function PersonDetailOverlay({
                     return (
                       <div className="flex items-start justify-between gap-3 py-3" key={assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">
                             Journey{groupNames.length ? ` · via ${groupNames.join(", ")}` : ""}
                           </p>
-                          <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{resourceAssignmentTitle(assignment)}</p>
+                          <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{resourceAssignmentTitle(assignment)}</p>
                           {hasProgress && completion ? (
                             <span className="mt-2 flex items-center gap-2.5">
                               <span className="block h-1 flex-1 overflow-hidden rounded-full bg-[#E7E9ED]">
-                                <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, completion.percent)}%` }} />
+                                <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(2, completion.percent)}%` }} />
                               </span>
-                              <span className="shrink-0 text-[11.5px] font-bold tabular-nums text-[#6B7686]">{completion.completed} / {completion.total}</span>
+                              <span className="shrink-0 text-[11.5px] font-bold tabular-nums text-dos-eyebrow">{completion.completed} / {completion.total}</span>
                             </span>
                           ) : (
-                            <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{resourceAssignmentDueLabel(assignment)}</p>
+                            <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">{resourceAssignmentDueLabel(assignment)}</p>
                           )}
                         </div>
                         {isInAppJourney && resource ? (
@@ -35216,22 +35255,22 @@ function PersonDetailOverlay({
                   })}
                   {activePersonPrayerRequests.map((request) => (
                     <div className="py-3" key={request.id}>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">
                         Prayer{request.category ? ` · ${request.category}` : ""}
                       </p>
-                      <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{request.title}</p>
-                      <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{request.request}</p>
+                      <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{request.title}</p>
+                      <p className="mt-0.5 text-[13px] leading-[1.5] text-dos-eyebrow">{request.request}</p>
                     </div>
                   ))}
                   {activePrayerReminders.map((reminder) => (
                     <div className="flex items-start justify-between gap-3 py-3" key={reminder.id}>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">
                           Prayer · {prayerFrequencyLabel(reminder.recurrence)}
                         </p>
-                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}</p>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}</p>
                         {reminderVisibleNotes(reminder.notes) ? (
-                          <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{reminderVisibleNotes(reminder.notes)}</p>
+                          <p className="mt-0.5 text-[13px] leading-[1.5] text-dos-eyebrow">{reminderVisibleNotes(reminder.notes)}</p>
                         ) : null}
                       </div>
                       <span className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -35249,18 +35288,18 @@ function PersonDetailOverlay({
                       onClick={() => onOpenMeeting(reflection.meetingId, person.id)}
                       type="button"
                     >
-                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Prayer · From meeting</p>
-                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#0F1520]">{reflection.prayerNeeds}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Prayer · From meeting</p>
+                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-dos-primary">{reflection.prayerNeeds}</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-[#6B7686]">
+                <p className="mt-2.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">
                   Nothing active yet — add accountability, a Journey, or prayer.
                 </p>
               )}
               {!activeResourceAssignments.length ? (
-                <button className="mt-2.5 text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                <button className="mt-2.5 text-[13px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
                   + Add Journey
                 </button>
               ) : null}
@@ -35271,14 +35310,14 @@ function PersonDetailOverlay({
               <div className="mt-1 divide-y divide-[#EDEFF2]">
                 <div className="flex items-start justify-between gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Meeting</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Meeting</p>
                     {nextMeeting ? (
                       <>
-                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{meetingActivityTitle(nextMeeting)}</p>
-                        <p className="mt-0.5 text-[12.5px] text-[#6B7686]">{formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)} · {formatDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)}</p>
+                        <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{meetingActivityTitle(nextMeeting)}</p>
+                        <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">{formatRelativeDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)} · {formatDate(nextMeeting.scheduledStartAt ?? nextMeeting.date)}</p>
                       </>
                     ) : (
-                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-[#6B7686]">Nothing scheduled.</p>
+                      <p className="mt-0.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">Nothing scheduled.</p>
                     )}
                   </div>
                   {nextMeeting ? null : <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>}
@@ -35290,10 +35329,10 @@ function PersonDetailOverlay({
                     onClick={() => onEditReminder(reminder.id)}
                     type="button"
                   >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Follow-up · {formatDate(nextReminderDate(reminder))}</p>
-                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{reminder.title || "Follow up"}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Follow-up · {formatDate(nextReminderDate(reminder))}</p>
+                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{reminder.title || "Follow up"}</p>
                     {reminderVisibleNotes(reminder.notes) ? (
-                      <p className="mt-0.5 text-[13px] leading-[1.5] text-[#6B7686]">{reminderVisibleNotes(reminder.notes)}</p>
+                      <p className="mt-0.5 text-[13px] leading-[1.5] text-dos-eyebrow">{reminderVisibleNotes(reminder.notes)}</p>
                     ) : null}
                   </button>
                 ))}
@@ -35304,19 +35343,19 @@ function PersonDetailOverlay({
                     onClick={() => onOpenGroup(group.id)}
                     type="button"
                   >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Group · {formatRelativeDate(gathering.startsAt)}</p>
-                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Group · {formatRelativeDate(gathering.startsAt)}</p>
+                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">
                       {group.name}{gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}
                     </p>
                   </button>
                 ))}
                 {personGroups.length && !upcomingGatherings.length ? (
                   <div className="py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-[#6B7686]">Groups</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Groups</p>
                     <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                       {personGroups.map((group) => (
                         <button
-                          className="text-[13.5px] font-semibold text-[#2450C8]"
+                          className="text-[13.5px] font-semibold text-dos-blue"
                           key={group.id}
                           onClick={() => onOpenGroup(group.id)}
                           type="button"
@@ -35338,20 +35377,20 @@ function PersonDetailOverlay({
               <div className="grid gap-6">
                 {timelineGroups.map((group) => (
                   <div key={group.label}>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#6B7686]">{group.label}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{group.label}</p>
                     <div className="mt-3 border-l border-[#E3E6EB] pl-5">
                       {group.entries.map((entry) => {
                         const inner = (
                           <>
-                            <span className="absolute -left-[34px] top-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-[#EDEFF2] bg-white text-[#2450C8]">
+                            <span className="absolute -left-[34px] top-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-dos-rule bg-white text-dos-blue">
                               {historyEntryIcon(entry.kind)}
                             </span>
-                            <p className="text-[12px] font-semibold text-[#6B7686]">
+                            <p className="text-[12px] font-semibold text-dos-eyebrow">
                               {historyEntryKindLabel(entry.kind)} · {formatDate(entry.date)}
                             </p>
-                            <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-[#0F1520]">{entry.title}</p>
+                            <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{entry.title}</p>
                             {entry.description ? (
-                              <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-[#6B7686]">{entry.description}</p>
+                              <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-dos-eyebrow">{entry.description}</p>
                             ) : null}
                           </>
                         );
@@ -35376,7 +35415,7 @@ function PersonDetailOverlay({
                 ))}
               </div>
             ) : (
-              <p className="text-[13.5px] leading-[1.55] text-[#6B7686]">
+              <p className="text-[13.5px] leading-[1.55] text-dos-eyebrow">
                 Meetings, check-ins, journeys, prayer, and milestones will appear here as this relationship grows.
               </p>
             )}
@@ -35438,25 +35477,25 @@ function PersonDetailOverlay({
             <PDSection title="Relationship">
               <div className="divide-y divide-[#EDEFF2]">
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-[#0F1520]">{relationshipTypePill}</p>
-                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Relationship</p>
+                  <p className="text-[14px] text-dos-primary">{relationshipTypePill}</p>
+                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Relationship</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-[#0F1520]">{currentCircleLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Circle</p>
+                  <p className="text-[14px] text-dos-primary">{currentCircleLabel}</p>
+                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Circle</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-[#0F1520]">{engagementOverviewScore} {engagementOverviewLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Engagement</p>
+                  <p className="text-[14px] text-dos-primary">{engagementOverviewScore} {engagementOverviewLabel}</p>
+                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Engagement</p>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-[#0F1520]">{spiritualJourneyPill}</p>
-                  <p className="text-[11.5px] font-semibold text-[#6B7686]">Spiritual journey</p>
+                  <p className="text-[14px] text-dos-primary">{spiritualJourneyPill}</p>
+                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Spiritual journey</p>
                 </div>
                 {personFruitEvents.length ? (
                   <div className="flex items-baseline justify-between gap-3 py-2.5">
-                    <p className="text-[14px] text-[#0F1520]">{personFruitEvents.length} recorded</p>
-                    <p className="text-[11.5px] font-semibold text-[#6B7686]">Fruit</p>
+                    <p className="text-[14px] text-dos-primary">{personFruitEvents.length} recorded</p>
+                    <p className="text-[11.5px] font-semibold text-dos-eyebrow">Fruit</p>
                   </div>
                 ) : null}
               </div>
@@ -35488,25 +35527,25 @@ function PersonDetailOverlay({
         <Sheet onClose={() => setIsOverflowOpen(false)} showEyebrow={false} title={person.name}>
           <div className="grid gap-1.5">
             {person.phone ? (
-              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("tel", person.phone)}>
-                <Phone className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("tel", person.phone)}>
+                <Phone className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
                 Call {formatPhoneNumber(person.phone) || person.phone}
               </a>
             ) : null}
             {person.phone ? (
-              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("sms", person.phone)}>
-                <MessageCircle className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]" href={phoneActionHref("sms", person.phone)}>
+                <MessageCircle className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
                 Text
               </a>
             ) : null}
             {person.email ? (
-              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]" href={`mailto:${person.email}`}>
-                <Mail className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <a className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]" href={`mailto:${person.email}`}>
+                <Mail className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
                 Email
               </a>
             ) : null}
             <button
-              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
               onClick={() => {
                 setIsOverflowOpen(false);
                 setActiveDetailTab("details");
@@ -35514,11 +35553,11 @@ function PersonDetailOverlay({
               }}
               type="button"
             >
-              <User className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <User className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
               Contact details
             </button>
             <button
-              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
               onClick={() => {
                 setIsOverflowOpen(false);
                 setActiveDetailTab("history");
@@ -35526,18 +35565,18 @@ function PersonDetailOverlay({
               }}
               type="button"
             >
-              <Clock className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <Clock className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
               Timeline
             </button>
             <button
-              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-[#0F1520] transition-colors hover:bg-[#F3F4F6]"
+              className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
               onClick={() => {
                 setIsOverflowOpen(false);
                 onEdit();
               }}
               type="button"
             >
-              <Pencil className="h-4 w-4 text-[#2450C8]" aria-hidden="true" strokeWidth={1.9} />
+              <Pencil className="h-4 w-4 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
               Edit contact
             </button>
           </div>
@@ -35545,8 +35584,8 @@ function PersonDetailOverlay({
       ) : null}
       {circleInsightStage && visibleCircleSuggestion ? (
         <Sheet onClose={() => setCircleInsightStage(null)} showEyebrow={false} title="DOS noticed something">
-          <div className="grid gap-3.5 text-[14px] leading-[1.6] text-[#3D4654]">
-            <p className="text-[16px] font-semibold leading-[1.5] text-[#0F1520]">
+          <div className="grid gap-3.5 text-[14px] leading-[1.6] text-dos-body">
+            <p className="text-[16px] font-semibold leading-[1.5] text-dos-primary">
               You&apos;ve been spending significantly more time with {firstName} recently.
             </p>
             <p>
@@ -35574,17 +35613,17 @@ function PersonDetailOverlay({
               </AppButton>
             </div>
             {circleInsightStage === "why" ? (
-              <div className="rounded-2xl bg-[#FBFAF8] p-3.5 text-[13px] leading-[1.6] text-[#3D4654]">
+              <div className="rounded-2xl bg-dos-band p-3.5 text-[13px] leading-[1.6] text-dos-body">
                 <p>
                   DOS compares your logged one-to-one time over a rolling 30-day window against the people currently in each of your circles. Nothing is inferred — only what you logged counts, and DOS never moves anyone without you.
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
-                    <p className="text-[11px] font-bold text-[#6B7686]">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                    <p className="text-[11px] font-bold text-dos-eyebrow">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
                     <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
                   </div>
                   <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
-                    <p className="text-[11px] font-bold text-[#2450C8]">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                    <p className="text-[11px] font-bold text-dos-blue">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
                     <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
                   </div>
                 </div>
@@ -35593,7 +35632,7 @@ function PersonDetailOverlay({
                 </p>
               </div>
             ) : (
-              <button className="text-left text-[13px] font-semibold text-[#2450C8]" onClick={() => setCircleInsightStage("why")} type="button">
+              <button className="text-left text-[13px] font-semibold text-dos-blue" onClick={() => setCircleInsightStage("why")} type="button">
                 How DOS worked this out
               </button>
             )}
@@ -35609,8 +35648,8 @@ function PersonDetailOverlay({
                 onClick={() => { setIsAddMenuOpen(false); onAddAccountabilitySchedule(); }}
                 type="button"
               >
-                <p className="text-[14.5px] font-semibold text-[#0F1520]">Accountability</p>
-                <p className="mt-0.5 text-[12.5px] text-[#6B7686]">A topic and check-in rhythm, like Quiet Time With God.</p>
+                <p className="text-[14.5px] font-semibold text-dos-primary">Accountability</p>
+                <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">A topic and check-in rhythm, like Quiet Time With God.</p>
               </button>
             ) : null}
             <button
@@ -35618,24 +35657,24 @@ function PersonDetailOverlay({
               onClick={() => { setIsAddMenuOpen(false); onAssignResource(person.id); }}
               type="button"
             >
-              <p className="text-[14.5px] font-semibold text-[#0F1520]">Journey</p>
-              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">Assign a book study, reading plan, or assessment from the Library.</p>
+              <p className="text-[14.5px] font-semibold text-dos-primary">Journey</p>
+              <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">Assign a book study, reading plan, or assessment from the Library.</p>
             </button>
             <button
               className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
               onClick={() => { setIsAddMenuOpen(false); onAddPrayerRequest(); }}
               type="button"
             >
-              <p className="text-[14.5px] font-semibold text-[#0F1520]">Prayer</p>
-              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">Something you are praying about together.</p>
+              <p className="text-[14.5px] font-semibold text-dos-primary">Prayer</p>
+              <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">Something you are praying about together.</p>
             </button>
             <button
               className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
               onClick={() => { setIsAddMenuOpen(false); onAddReminder(); }}
               type="button"
             >
-              <p className="text-[14.5px] font-semibold text-[#0F1520]">Next Step</p>
-              <p className="mt-0.5 text-[12.5px] text-[#6B7686]">A follow-up or reminder for this relationship.</p>
+              <p className="text-[14.5px] font-semibold text-dos-primary">Next Step</p>
+              <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">A follow-up or reminder for this relationship.</p>
             </button>
           </div>
         </Sheet>
@@ -35648,7 +35687,7 @@ function PersonDetailOverlay({
           title="Circle Suggestion"
         >
           <div className="grid gap-3 text-[13px] leading-[1.55] text-[#334155]">
-            <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">
+            <p className="text-[14.5px] font-semibold leading-[1.45] text-dos-primary">
               Consider moving {person.name.split(/\s+/)[0]} closer to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.
             </p>
             <p>
@@ -35656,15 +35695,15 @@ function PersonDetailOverlay({
             </p>
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7686]">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-dos-eyebrow">Current: {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
                 <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
               </div>
               <div className="rounded-xl border border-[#CFE0FF] bg-white p-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-[#2450C8]">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-dos-blue">{circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
                 <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} interactions · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
               </div>
             </div>
-            <p className="text-[#6B7686]">
+            <p className="text-dos-eyebrow">
               This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships.
             </p>
             <div className="grid gap-2">

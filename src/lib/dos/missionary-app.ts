@@ -156,6 +156,13 @@ export type DosAppHouseholdMember = {
 export type DosAppPerson = {
   childrenNames?: string | null;
   church: string | null;
+  /**
+   * Optional profile photo. `missionary_field_people` has no photo column
+   * yet, so this is unset in production today; Person surfaces render a
+   * designed initials fallback when it is absent and the real photo when a
+   * source begins supplying one.
+   */
+  photoUrl?: string | null;
   createdAt: string | null;
   discipleshipRelationship: DosAppDiscipleshipRelationship | null;
   discipleshipStage: DiscipleshipStageValue;

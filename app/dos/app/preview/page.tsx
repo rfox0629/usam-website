@@ -506,7 +506,7 @@ function buildDosPreviewDemoData(): DosAppData {
         whatGodTaught: null,
       },
       id: "demo-meeting-naomi-recent-1",
-      notes: "Naomi shared that her family finally asked why she seems different lately.",
+      notes: "Naomi shared that her family asked why she's different lately.",
       participantNames: ["Naomi Lee"],
       recommendedResources: [],
       review: buildDemoReview(),
@@ -1059,7 +1059,7 @@ function buildDosPreviewDemoData(): DosAppData {
       recurrence: "none",
       reminderDate: daysAgoIso(-2, 12),
       reminderType: "follow_up",
-      title: "Ask Naomi how her family is doing",
+      title: "Ask how her family is doing",
       updatedAt: demoTimestamp,
     },
   ];
