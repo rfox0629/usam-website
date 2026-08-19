@@ -160,7 +160,7 @@ assertIncludes(appClient, "completedSessionIds", "Demo-safe participant invitati
 assertIncludes(appClient, "Preview {participantFirstName(target.personName)}'s Experience", "Leader UI must expose a read-only participant preview action.");
 // USA-170: the preview moved out of the leader client into a thin frame around
 // the shared member Group Home. The read-only promise moved with it.
-assertIncludes(previewPanel, "Read-only — no progress, private responses, token, or onboarding state changes.", "Leader preview must not impersonate, write progress, expose private responses, rotate tokens, or alter onboarding state.");
+assertIncludes(previewPanel, "nothing you do here is saved", "Leader preview must not impersonate, write progress, expose private responses, rotate tokens, or alter onboarding state.");
 assertIncludes(previewPanel, "GroupHomeMemberView", "Leader preview must render the same shared member Group Home as the participant's real secure link.");
 assertIncludes(appClient, "Copy blocked. Select this secure link", "Leader copy actions must provide selectable secure-link fallback when iPhone Safari blocks clipboard.");
 assertIncludes(preview, "Tanner Kent", "DOS preview must include Tanner Kent for USA-170 acceptance.");
@@ -186,7 +186,9 @@ assertIncludes(sharedJourneyUi, "What stood out to you as you considered this qu
 assertIncludes(sharedJourneyUi, "Looking across both chapters and questions, what stood out most?", "Member Journey two-chapter reflection helper must connect to both questions.");
 assertIncludes(groupJourneyView, "What will you do with it?", "Member Journey view must preserve the canonical second weekly reflection prompt.");
 assertIncludes(sharedJourneyUi, "What is one response or next step you want to take this week?", "Member Journey two-chapter action helper must stay weekly.");
-assertIncludes(groupJourneyView, "PRAYER", "Member Journey view must preserve the canonical prayer reflection prompt.");
+// USA-170 founder follow-up: the prompt now renders through the shared
+// GuidedJourneyResponseField in title case with its visible helper.
+assertIncludes(groupJourneyView, '"Prayer"', "Member Journey view must preserve the canonical prayer reflection prompt.");
 assertIncludes(sharedJourneyUi, "Your Journey", "Member Journey progress area must use the Journey hierarchy label.");
 assert(
   !sharedJourneyUi.includes("references={chapter.keyScriptures"),

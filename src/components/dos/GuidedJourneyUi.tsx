@@ -7,56 +7,44 @@ import type { DosGuidedResourceSession, DosGuidedResourceSessionChapter } from "
 /**
  * Canonical DOS Guided Journey presentation.
  *
- * Visual + interaction source of truth: journey-canonical-mockup_1.html (founder approved).
- * Tokens below are lifted directly from that file:
- *   ink #0F1520 · ink-2 #3D4654 · ink-3 #6B7686 · ink-4 #9AA4B2
- *   hair #EDEFF2 · hair-2 #E3E6EB · band #F8FBFF · question #EBF2FF
- *   blue #2450C8 · blue-2 #1B3EA0 · blue-soft #EEF2FD
- *   green #1F7A4D · green-soft #EDF7F1
+ * Layout and interaction follow journey-canonical-mockup_1.html; colors follow
+ * the established DOS token family (USA-170 founder correction: the mockup's
+ * navy/ink palette drifted from the participant's DOS-blue treatment, and the
+ * participant treatment is canonical):
+ *   ink #0F172A · secondary #475569 · muted #64748B · faint #94A3B8
+ *   hair #EAF2FF · hair-2 #DCEBFF · band #F8FBFF · question #EBF2FF
+ *   DOS blue #2563EB → #1D4ED8 · green #1F7A4D · green-soft #EDF7F1
  *
  * These components are presentational only. All persistence, autosave, voice input,
  * assignment and progress logic stays with the calling surface.
  */
 
 export type GuidedJourneyUnitLabel = "Day" | "Week";
-export type GuidedJourneyTheme = "light" | "dark";
+/**
+ * USA-170 founder rule: one DOS experience, permission-scoped. The Journey has
+ * exactly one visual system — DOS light with DOS blue — shared by participant
+ * and leader surfaces. The old gold-on-dark theme is deleted, not themed away.
+ */
+export type GuidedJourneyTheme = "light";
 
 const theme = {
   light: {
-    eyebrow: "text-[#2450C8]",
-    kicker: "text-[#9AA4B2]",
-    title: "text-[#0F1520]",
-    body: "text-[#3D4654]",
-    muted: "text-[#6B7686]",
+    eyebrow: "text-[#1D4ED8]",
+    kicker: "text-[#94A3B8]",
+    title: "text-[#0F172A]",
+    body: "text-[#475569]",
+    muted: "text-[#64748B]",
     faint: "text-[#64748B]",
-    hair: "border-[#EDEFF2]",
-    hair2: "border-[#E3E6EB]",
+    hair: "border-[#EAF2FF]",
+    hair2: "border-[#DCEBFF]",
     band: "bg-[#F8FBFF] border-y border-[#EAF2FF]",
     warm: "bg-[#EBF2FF] border-y border-[#DCEBFF]",
-    track: "bg-[#E7E9ED]",
-    fill: "bg-[#2450C8]",
-    selectorLabel: "text-[#2450C8]",
-    selectorIdle: "border-[#E3E6EB]",
+    track: "bg-[#E2E8F0]",
+    fill: "bg-[#1D4ED8]",
+    selectorLabel: "text-[#1D4ED8]",
+    selectorIdle: "border-[#DCEBFF]",
     surface: "bg-white",
-    field: "border-[#E3E6EB]",
-  },
-  dark: {
-    eyebrow: "text-[#E8C884]",
-    kicker: "text-[#8EA4C0]",
-    title: "text-white",
-    body: "text-[#D7E0EA]",
-    muted: "text-[#8EA4C0]",
-    faint: "text-[#8EA4C0]",
-    hair: "border-white/10",
-    hair2: "border-white/10",
-    band: "bg-white/[0.04] border-y border-white/10",
-    warm: "bg-white/[0.05]",
-    track: "bg-white/10",
-    fill: "bg-[#E8C884]",
-    selectorLabel: "text-[#E8C884]",
-    selectorIdle: "border-white/10",
-    surface: "bg-transparent",
-    field: "border-white/10",
+    field: "border-[#DCEBFF]",
   },
 } satisfies Record<GuidedJourneyTheme, Record<string, string>>;
 
@@ -231,7 +219,7 @@ export function GuidedJourneyResourceHeader({
           <h1 className={`text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${t.title}`}>{title}</h1>
           {author ? <p className={`mt-[5px] text-[14.5px] ${t.muted}`}>{author}</p> : null}
           {isFeatured ? (
-            <span className="mt-3 inline-block rounded-full bg-[#EEF2FD] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.11em] text-[#2450C8]">
+            <span className="mt-3 inline-block rounded-full bg-[#EBF2FF] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.11em] text-[#1D4ED8]">
               Featured
             </span>
           ) : null}
@@ -246,19 +234,19 @@ export function GuidedJourneyResourceHeader({
         <div className="mt-5 flex flex-wrap gap-[10px]">
           {purchaseHref ? (
             <a
-              className={`inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#E3E6EB] bg-white px-3 text-[14.5px] font-semibold ${t.title}`}
+              className={`inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#DCEBFF] bg-white px-3 text-[14.5px] font-semibold ${t.title}`}
               href={purchaseHref}
               rel="noopener noreferrer"
               target="_blank"
             >
               Purchase Book
-              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#9AA4B2]" aria-hidden="true" strokeWidth={1.8} />
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
             </a>
           ) : null}
           {primaryAction}
           {onAssign ? (
             <button
-              className="inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] bg-[#2450C8] px-3 text-[14.5px] font-semibold text-white"
+              className="inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-[14.5px] font-semibold text-white"
               onClick={onAssign}
               type="button"
             >
@@ -296,10 +284,9 @@ export function GuidedJourneyCompactNav({
   totalCount: number;
 }) {
   const t = theme[themeName];
-  const surface = themeName === "dark" ? "bg-transparent" : "bg-white";
 
   return (
-    <div className={`flex items-center gap-3 border-b ${t.hair} ${surface} px-5 py-3 sm:px-6`}>
+    <div className={`flex items-center gap-3 border-b ${t.hair} bg-white px-5 py-3 sm:px-6`}>
       <div className="flex min-w-0 flex-1 items-center gap-[10px]">
         {coverSrc ? (
           <img
@@ -319,7 +306,7 @@ export function GuidedJourneyCompactNav({
       {onClose ? (
         <button
           aria-label="Close"
-          className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[#F3F4F6] text-[#6B7686]"
+          className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[#F1F5F9] text-[#64748B]"
           onClick={onClose}
           type="button"
         >
@@ -414,7 +401,7 @@ export function GuidedJourneySessionSelector({
         return (
           <button
             className={`flex w-full items-start gap-[13px] border-t ${t.hair} px-[15px] py-[13px] text-left first:border-t-0 ${
-              isSelected ? "bg-[#EEF2FD]" : "bg-white"
+              isSelected ? "bg-[#EBF2FF]" : "bg-white"
             }`}
             key={session.id}
             onClick={() => onSelect(session.id)}
@@ -423,10 +410,10 @@ export function GuidedJourneySessionSelector({
             <span
               className={`mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-[10.5px] font-bold ${
                 isSelected
-                  ? "bg-[#2450C8] text-white"
+                  ? "bg-[#1D4ED8] text-white"
                   : isCompleted
                     ? "bg-[#EDF7F1] text-[#1F7A4D]"
-                    : "bg-[#F1F3F6] text-[#9AA4B2]"
+                    : "bg-[#F1F5F9] text-[#94A3B8]"
               }`}
             >
               {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} /> : session.order}
@@ -435,7 +422,7 @@ export function GuidedJourneySessionSelector({
             <span className="min-w-0 flex-1">
               <span
                 className={`block text-[10.5px] font-bold uppercase tracking-[0.11em] ${
-                  isSelected ? "text-[#1B3EA0]" : "text-[#9AA4B2]"
+                  isSelected ? "text-[#1D4ED8]" : "text-[#94A3B8]"
                 }`}
               >
                 {unitLabel} {session.order}
@@ -451,10 +438,10 @@ export function GuidedJourneySessionSelector({
             <span
               className={`mt-0.5 shrink-0 rounded-full px-[8px] py-1 text-[9.5px] font-bold uppercase tracking-[0.1em] ${
                 isSelected
-                  ? "bg-[#2450C8] text-white"
+                  ? "bg-[#1D4ED8] text-white"
                   : isCompleted
                     ? "bg-[#EDF7F1] text-[#1F7A4D]"
-                    : "bg-[#F3F4F6] text-[#9AA4B2]"
+                    : "bg-[#F1F5F9] text-[#94A3B8]"
               }`}
             >
               {stateLabel}
@@ -491,10 +478,10 @@ export function GuidedJourneySessionSelector({
             {guidedJourneySessionSelectorTitle(selectedSession, unitLabel)}
           </span>
         </span>
-        <span className="grid h-[25px] w-[25px] shrink-0 place-items-center rounded-full bg-[#F3F4F6]">
+        <span className="grid h-[25px] w-[25px] shrink-0 place-items-center rounded-full bg-[#F1F5F9]">
           <ChevronDown
             aria-hidden="true"
-            className={`h-3.5 w-3.5 text-[#6B7686] transition-transform ${isOpen ? "rotate-180" : ""}`}
+            className={`h-3.5 w-3.5 text-[#64748B] transition-transform ${isOpen ? "rotate-180" : ""}`}
             strokeWidth={2}
           />
         </span>
@@ -543,7 +530,7 @@ export function GuidedJourneyChapterContent({
     <div>
       {isMultiChapter ? (
         <div className="px-5 pt-[18px] sm:px-6">
-          <span className={`inline-flex rounded-full bg-[#F3F4F6] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.1em] ${t.muted}`}>
+          <span className={`inline-flex rounded-full bg-[#F1F5F9] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.1em] ${t.muted}`}>
             {chapters.length} chapters this {unitLabel.toLowerCase()}
           </span>
         </div>
@@ -642,7 +629,7 @@ export function GuidedJourneyScripture({
         const row = (
           <>
             <span className={`text-[16px] font-semibold tracking-[-0.012em] ${t.title}`}>{reference}</span>
-            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9AA4B2]" strokeWidth={1.9} />
+            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#94A3B8]" strokeWidth={1.9} />
           </>
         );
 
@@ -663,7 +650,7 @@ export function GuidedJourneyScripture({
 
         return (
           <button
-            className={`-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-[10px] border-b px-2 py-[14px] text-left transition-colors last:border-b-0 hover:bg-[#FBFAF8] active:bg-[#F3F4F6] ${t.hair}`}
+            className={`-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-[10px] border-b px-2 py-[14px] text-left transition-colors last:border-b-0 hover:bg-[#FBFAF8] active:bg-[#F1F5F9] ${t.hair}`}
             key={reference}
             onClick={(event) => onOpenScripture?.(reference, event)}
             type="button"
@@ -741,7 +728,7 @@ export function GuidedJourneyDock({
   return (
     <div className="mt-[34px] flex flex-col gap-3 px-5 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
       <button
-        className="inline-flex min-h-[50px] w-full items-center justify-center rounded-[14px] bg-[#2450C8] px-[34px] text-[15.5px] font-bold text-white disabled:bg-[#9AA4B2] sm:w-auto"
+        className="inline-flex min-h-[50px] w-full items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-[34px] text-[15.5px] font-bold text-white disabled:bg-[#94A3B8] disabled:bg-none sm:w-auto"
         disabled={primaryDisabled}
         onClick={onPrimary}
         type="button"
@@ -774,7 +761,7 @@ export function GuidedJourneyLayout({
 }) {
   return (
     <div className="grid min-h-full bg-white min-[900px]:grid-cols-[352px_minmax(0,1fr)]">
-      <div className="border-[#EDEFF2] bg-white min-[900px]:border-r min-[900px]:bg-[#FDFDFD] min-[900px]:pb-8">{rail}</div>
+      <div className="border-[#EAF2FF] bg-white min-[900px]:border-r min-[900px]:bg-[#FDFDFD] min-[900px]:pb-8">{rail}</div>
       <div className="flex justify-center min-[900px]:pb-10">
         <div className="w-full min-[900px]:max-w-[700px]">{reading}</div>
       </div>

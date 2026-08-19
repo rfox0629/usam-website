@@ -78,8 +78,15 @@ assertNotIncludes(previewPanel, "text-white/", "Preview must not reintroduce dar
  * Read-only preview. No participant state may move.
  * ---------------------------------------------------------------- */
 
-assertIncludes(previewPanel, "readOnly", "Preview must render the shared view in read-only mode.");
-assertIncludes(previewPanel, "Read-only", "Preview must tell the leader the surface is read-only.");
+assertIncludes(previewPanel, "readOnly", "Preview must render the shared member Home in read-only mode.");
+// USA-170 founder follow-up: the preview is a click-through QA flow now —
+// Group Home -> Journey -> save -> return -> reopen — but still zero-write.
+assertIncludes(previewPanel, "GroupJourneyView", "Preview must click through to the same shared Journey component the member uses.");
+assertIncludes(previewPanel, "onOpenJourney", "Preview Journey rows must open the shared Journey inside the overlay, not navigate the leader away.");
+assertIncludes(previewPanel, "nothing you do here is saved", "The preview bar must state that nothing is saved.");
+assertIncludes(previewPanel, "Preview as Member", "The overlay must carry the unmistakable Preview as Member indicator.");
+assertIncludes(previewPanel, "Exit Preview", "The overlay must offer an explicit exit.");
+assertIncludes(previewPanel, "createPortal", "The overlay must cover the whole app so no leader tools exist inside the preview.");
 assertIncludes(memberHomeView, "readOnly ? (", "Shared member Home must branch its interactive edges on read-only.");
 assertIncludes(memberHomeView, "signOutGroupMember", "Real member Home must keep the working sign-out action.");
 assertIncludes(memberHomeView, "if (readOnly) {", "Read-only Journey rows must not navigate into the participant's Journey.");
@@ -199,3 +206,42 @@ assertNotIncludes(appClient, "xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]",
   assert(joinCard.length > 0, "Join-request card markers must exist.");
   assertNotIncludes(joinCard, "CompactOptionSelect", "The join-request match picker must be inline and contained, not a floating dropdown.");
 }
+
+
+/* ---------------------------------------------------------------- *
+ * One Journey, permission-scoped (USA-170 founder follow-up).
+ * ---------------------------------------------------------------- */
+
+const groupJourneyView = read("app/groups/GroupJourneyView.tsx");
+const guidedJourneyUi = read("src/components/dos/GuidedJourneyUi.tsx");
+
+// The participant Journey composes the same shared response fields as the
+// full DOS Journey, with the canonical helper copy visible — not hidden in an
+// aria-label.
+assertIncludes(groupJourneyView, "GuidedJourneyResponseField", "Member Journey must use the shared response field component.");
+assertIncludes(groupJourneyView, "GuidedJourneyResponses", "Member Journey must use the shared responses section.");
+assertIncludes(groupJourneyView, "guidedJourneyReflectionHelper", "Member Journey must read the canonical reflection helper.");
+assertIncludes(groupJourneyView, "guidedJourneyActionHelper", "Member Journey must read the canonical action helper.");
+assertIncludes(groupJourneyView, "guidedJourneyPrayerHelper", "Member Journey must read the canonical prayer helper.");
+assertNotIncludes(groupJourneyView, ">WHAT STOOD OUT?<", "The bare uppercase prompt without visible helper must not return.");
+assertIncludes(guidedJourneyUi, "helper", "Shared response fields must carry visible helper copy.");
+
+// Preview save never reaches the server action.
+assertIncludes(groupJourneyView, "action={preview ? undefined : saveGroupMemberJourneyProgress}", "Preview mode must disconnect the server action.");
+assertIncludes(groupJourneyView, "handlePreviewSubmit", "Preview saves must land in overlay memory.");
+assertIncludes(groupJourneyView, "event.preventDefault()", "Preview submit must not fall through to a network request.");
+
+// One visual system: the gold-on-dark Journey theme is deleted, and the
+// shared Journey UI uses the DOS token family, not the mockup's navy/ink.
+assertIncludes(guidedJourneyUi, 'export type GuidedJourneyTheme = "light";', "The Journey has exactly one theme.");
+for (const driftHex of ["#E8C884", "#8EA4C0", "#2450C8", "#1B3EA0", "#0F1520", "#3D4654", "#6B7686", "#9AA4B2"]) {
+  assertNotIncludes(guidedJourneyUi, driftHex, `Shared Journey UI must use DOS tokens, not the drifted palette (${driftHex}).`);
+}
+assertIncludes(guidedJourneyUi, "#2563EB", "Shared Journey UI primary actions must use DOS blue.");
+
+// Same text/voice response control on both surfaces — one shared component.
+const voiceTextarea = read("src/components/dos/VoiceTextarea.tsx");
+assertIncludes(voiceTextarea, "export function VoiceTextarea", "The voice/text control must live in a shared module.");
+assertIncludes(groupJourneyView, "VoiceTextarea", "Member Journey must use the shared voice/text control.");
+assertIncludes(appClient, 'from "@/src/components/dos/VoiceTextarea"', "The full DOS Journey must use the same shared voice/text control.");
+assertNotIncludes(appClient, "function VoiceTextarea", "The leader client must not keep a private copy of the voice control.");

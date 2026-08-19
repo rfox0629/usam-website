@@ -43,8 +43,21 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Chromium
+      # `--with-deps` runs apt-get, and the runner's Azure apt mirror has twice
+      # stalled silently for ~18 minutes until the job timeout killed the run
+      # (PR #57 and PR #62, before any test executed). Cap the apt path and
+      # fall back to installing just the browser binaries — the GitHub runner
+      # image already carries Chromium's system libraries, and the Playwright
+      # CDN download has never been the part that stalled.
+      - name: Install Chromium (with system deps)
+        id: chromium-with-deps
+        continue-on-error: true
+        timeout-minutes: 6
         run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium (fallback without apt)
+        if: steps.chromium-with-deps.outcome != 'success'
+        run: npx playwright install chromium
 
       - name: Smoke test
         run: npm run smoke
