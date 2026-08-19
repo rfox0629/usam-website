@@ -210,6 +210,22 @@ async function runViewport(browser, label, viewport) {
   await page.screenshot({ fullPage: true, path: `${shotsDir}/${label}-5-journey.png` });
   const journeyBody = await page.locator("body").innerText();
   check(journeyBody.trim().length > 100, `[${label}] Journey renders for the scoped member.`);
+  // USA-170 founder follow-up: the canonical clarifying helper must be VISIBLE
+  // under each prompt, exactly as in the full DOS Journey — not an aria-label.
+  check(journeyBody.includes("What stood out?"), `[${label}] Journey shows the canonical reflection prompt.`);
+  check(
+    journeyBody.includes("What stood out to you as you considered this question")
+      || journeyBody.includes("Looking across both chapters and questions, what stood out most?"),
+    `[${label}] Journey shows the visible reflection helper under the prompt.`,
+  );
+  check(
+    journeyBody.includes("What is one response or next step you want to take"),
+    `[${label}] Journey shows the visible action helper under the prompt.`,
+  );
+  check(
+    journeyBody.includes("What do you want to pray or ask God about?"),
+    `[${label}] Journey shows the visible prayer helper under the prompt.`,
+  );
   const journeyOverflow = await overflow(page);
   check(
     journeyOverflow.bodyScrollWidth <= journeyOverflow.docWidth,

@@ -25,6 +25,13 @@ type GroupHomeMemberViewProps = {
   /** Restrained organization co-branding. Independent Groups pass nothing. */
   organizationName?: string | null;
   /**
+   * USA-170 Preview as Member: when set (with readOnly), a Journey row becomes
+   * a button that opens the same shared Journey view inside the preview
+   * overlay instead of navigating the leader away. Without it, read-only rows
+   * stay inert.
+   */
+  onOpenJourney?: (resourceSlug: string) => void;
+  /**
    * Leader preview mode. Structure and styling are identical to the
    * participant's real secure link — only the interactive edges go inert, so a
    * leader can never sign a participant out, navigate into their Journey, or
@@ -77,6 +84,7 @@ export function groupHomeStateMessage(value: string | null) {
 export function GroupHomeMemberView({
   data,
   message = null,
+  onOpenJourney,
   organizationName = null,
   readOnly = false,
 }: GroupHomeMemberViewProps) {
@@ -166,6 +174,7 @@ export function GroupHomeMemberView({
                   assignment={assignment}
                   groupPath={groupPath}
                   key={assignment.id}
+                  onOpenJourney={onOpenJourney}
                   progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
                   readOnly={readOnly}
                 />
@@ -192,6 +201,7 @@ export function GroupHomeMemberView({
                     assignment={assignment}
                     groupPath={groupPath}
                     key={assignment.id}
+                    onOpenJourney={onOpenJourney}
                     progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
                     readOnly={readOnly}
                   />
@@ -222,11 +232,13 @@ export function GroupHomeMemberView({
 function MemberJourneySummaryRow({
   assignment,
   groupPath,
+  onOpenJourney,
   progress,
   readOnly = false,
 }: {
   assignment: GroupMemberPortalData["journeyAssignments"][number];
   groupPath: string;
+  onOpenJourney?: (resourceSlug: string) => void;
   progress: GroupMemberPortalData["journeyProgress"];
   readOnly?: boolean;
 }) {
@@ -273,6 +285,16 @@ function MemberJourneySummaryRow({
   );
 
   if (readOnly) {
+    // Preview as Member: same row, same Continue — the click opens the shared
+    // Journey view inside the overlay rather than navigating the leader away.
+    if (onOpenJourney) {
+      return (
+        <button className={`${rowClassName} w-full text-left`} onClick={() => onOpenJourney(assignment.resourceSlug)} type="button">
+          {rowBody}
+        </button>
+      );
+    }
+
     return <div aria-disabled="true" className={rowClassName}>{rowBody}</div>;
   }
 

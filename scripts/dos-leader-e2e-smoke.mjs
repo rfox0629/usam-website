@@ -184,6 +184,146 @@ async function runLeaderViewport(browser, label, viewport) {
   await context.close();
 }
 
+/**
+ * USA-170 founder follow-up: Preview as Member is a click-through QA flow on
+ * the real shared components — Group Home -> Journey -> response -> save ->
+ * return -> reopen — with an unmistakable indicator, zero writes, and no
+ * leader surfaces reachable inside the overlay.
+ */
+async function runPreviewAsMember(browser, label, viewport) {
+  const context = await browser.newContext({ deviceScaleFactor: 2, viewport });
+  const page = await context.newPage();
+  const pageErrors = [];
+  const writeRequests = [];
+
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+  page.on("request", (request) => {
+    if (["DELETE", "PATCH", "POST", "PUT"].includes(request.method())) {
+      writeRequests.push(`${request.method()} ${request.url()}`);
+    }
+  });
+
+  await page.goto(`${baseUrl}/dos/app/preview?demo=dos2026`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+
+  if (viewport.width < 640) {
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.waitForTimeout(600);
+  }
+
+  await page.getByRole("button", { name: /Groups/ }).first().click();
+  await page.waitForTimeout(1200);
+  await page.getByText("Wednesday Men's Group").first().click();
+  await page.waitForTimeout(1200);
+
+  const journeysTab = page.getByRole("button", { name: "Journeys", exact: true }).first();
+
+  await journeysTab.click();
+  await page.waitForTimeout(1000);
+
+  const writesBeforePreview = writeRequests.length;
+  const previewButton = page.getByRole("button", { name: /Preview Tanner's Experience/ }).first();
+
+  check(await previewButton.count() === 1, `[${label}] Journeys tab offers Preview Tanner's Experience.`);
+  await previewButton.click();
+  await page.waitForTimeout(900);
+
+  /* --- Overlay: indicator + permission realism. -------------------- */
+  const overlayBar = page.getByText("Preview as Member", { exact: false }).first();
+
+  check(await overlayBar.count() >= 1, `[${label}] The Preview as Member indicator is visible.`);
+  check(await page.getByText("nothing you do here is saved").count() >= 1, `[${label}] The indicator states nothing is saved.`);
+  check(await page.getByRole("button", { name: "Exit Preview" }).count() === 1, `[${label}] Exit Preview is available.`);
+
+  // The overlay must own the viewport: whatever sits at the leader-nav
+  // position must be inside the preview dialog, not the DOS app behind it.
+  const navCovered = await page.evaluate(() => {
+    const dialog = document.querySelector("[role='dialog']");
+    if (!dialog) return false;
+    const probes = [
+      [24, window.innerHeight - 24],
+      [window.innerWidth / 2, window.innerHeight - 24],
+      [24, window.innerHeight / 2],
+    ];
+    return probes.every(([x, y]) => {
+      const el = document.elementFromPoint(x, y);
+      return el !== null && dialog.contains(el);
+    });
+  });
+
+  check(navCovered, `[${label}] No leader navigation is reachable inside the preview overlay.`);
+  await page.screenshot({ path: `${shotsDir}/${label}-preview-home.png` });
+
+  const homeBody = await page.locator("[role='dialog']").innerText();
+
+  check(homeBody.includes("Signed in as Tanner Kent"), `[${label}] Preview Group Home carries Tanner's identity line.`);
+
+  /* --- Click through: Group Home -> Journey. ------------------------ */
+  await page.locator("[role='dialog']").getByText("Continue", { exact: true }).first().click();
+  await page.waitForTimeout(900);
+
+  const journeyBody = await page.locator("[role='dialog']").innerText();
+
+  check(journeyBody.includes("What stood out?"), `[${label}] Preview Journey shows the canonical prompt.`);
+  // The canonical helper varies by week shape (single chapter, multi-chapter,
+  // reading plan) — accept any canonical variant, reject absence.
+  check(
+    journeyBody.includes("What stood out to you as you considered this question")
+      || journeyBody.includes("Looking across both chapters and questions, what stood out most?"),
+    `[${label}] Preview Journey shows the visible canonical helper.`,
+  );
+  check(journeyBody.includes("Preview as Member"), `[${label}] The preview indicator stays visible inside the Journey.`);
+  await page.screenshot({ path: `${shotsDir}/${label}-preview-journey.png` });
+
+  /* --- Respond, save, return, reopen — all in overlay memory. ------- */
+  const reflection = page.locator("[role='dialog'] textarea[name='reflection']").first();
+
+  await reflection.fill("Preview QA reflection — must never persist.");
+  await page.locator("[role='dialog']").getByRole("button", { name: "Save", exact: true }).first().click();
+  await page.waitForTimeout(600);
+
+  const savedBody = await page.locator("[role='dialog']").innerText();
+
+  check(
+    savedBody.includes("Saved. You can come back and finish this any time."),
+    `[${label}] Preview save shows the same saved state as the real Journey.`,
+  );
+
+  // Return to Group Home via the group identity link, then reopen.
+  await page.locator("[role='dialog']").getByRole("button", { name: "Wednesday Men's Group" }).first().click();
+  await page.waitForTimeout(700);
+  check(
+    (await page.locator("[role='dialog']").innerText()).includes("Signed in as Tanner Kent"),
+    `[${label}] Returning lands back on the preview Group Home.`,
+  );
+
+  await page.locator("[role='dialog']").getByText("Continue", { exact: true }).first().click();
+  await page.waitForTimeout(700);
+
+  const draftValue = await page.locator("[role='dialog'] textarea[name='reflection']").first().inputValue();
+
+  check(
+    draftValue === "Preview QA reflection — must never persist.",
+    `[${label}] Reopening the Journey retains the preview draft (save -> return -> reopen works).`,
+  );
+
+  /* --- Zero writes. -------------------------------------------------- */
+  check(
+    writeRequests.length === writesBeforePreview,
+    `[${label}] The entire preview flow sent zero write requests (${writeRequests.slice(writesBeforePreview).join("; ") || "none"}).`,
+  );
+
+  await page.getByRole("button", { name: "Exit Preview" }).click();
+  await page.waitForTimeout(500);
+  check(
+    await page.locator("[role='dialog']").count() === 0,
+    `[${label}] Exit Preview closes the overlay and returns to the leader app.`,
+  );
+
+  check(pageErrors.length === 0, `[${label}] No uncaught page errors in the preview flow (${pageErrors[0] ?? "none"}).`);
+  await context.close();
+}
+
 async function runParticipantSaveResume(browser) {
   const label = "mobile-390x844";
   const context = await browser.newContext({ deviceScaleFactor: 2, viewport: { height: 844, width: 390 } });
@@ -256,6 +396,8 @@ async function main() {
 
   await runLeaderViewport(browser, "mobile-390x844", { height: 844, width: 390 });
   await runLeaderViewport(browser, "desktop-1440x900", { height: 900, width: 1440 });
+  await runPreviewAsMember(browser, "preview-mobile-390x844", { height: 844, width: 390 });
+  await runPreviewAsMember(browser, "preview-desktop-1440x900", { height: 900, width: 1440 });
   await runParticipantSaveResume(browser);
   await browser.close();
 }
