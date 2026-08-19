@@ -403,74 +403,17 @@ function Header() {
   );
 }
 
-// One major metro per state, hand-calibrated against the exact pixel geometry of
-// /usa-outline-clean.png (735x441 source, placed at x=20 y=10 w=920 h=512 with
-// preserveAspectRatio="xMidYMid meet" inside this component's 960x560 viewBox, which
-// scales the source by 512/441 and centers it horizontally). Verified visually against
-// the source image so every marker lands on land inside the correct state, including
-// the Alaska and Hawaii insets; none fall in open ocean or between states. Minnesota is
-// intentionally excluded here since it already has its own origin marker below.
-const futureNodes: Array<[number, number]> = [
-  [180.9, 73.9], // Washington
-  [186.7, 120.3], // Oregon
-  [256.4, 300.2], // California
-  [320.2, 248.0], // Nevada
-  [291.2, 184.2], // Idaho
-  [424.7, 91.3], // Montana
-  [407.3, 190.0], // Wyoming
-  [314.4, 213.2], // Utah
-  [326.0, 311.9], // Arizona
-  [389.9, 224.8], // Colorado
-  [389.9, 306.1], // New Mexico
-  [564.0, 68.1], // North Dakota
-  [569.8, 143.5], // South Dakota
-  [604.7, 201.6], // Nebraska
-  [587.3, 259.6], // Kansas
-  [575.7, 306.1], // Oklahoma
-  [506.0, 393.1], // Texas
-  [587.3, 190.0], // Iowa
-  [633.7, 242.2], // Missouri
-  [604.7, 306.1], // Arkansas
-  [587.3, 379.2], // Louisiana
-  [668.5, 143.5], // Wisconsin
-  [645.3, 172.5], // Illinois
-  [738.2, 184.2], // Michigan
-  [651.1, 219.0], // Indiana
-  [720.8, 213.2], // Ohio
-  [668.5, 259.6], // Kentucky
-  [680.1, 282.8], // Tennessee
-  [616.3, 346.7], // Mississippi
-  [651.1, 335.1], // Alabama
-  [726.6, 311.9], // Georgia
-  [755.6, 410.5], // Florida
-  [790.4, 282.8], // South Carolina
-  [784.6, 253.8], // North Carolina
-  [831.1, 213.2], // Virginia
-  [767.2, 224.8], // West Virginia
-  [845.0, 181.8], // Pennsylvania
-  [848.5, 155.1], // New York
-  [852.0, 170.2], // New Jersey
-  [813.7, 195.8], // Maryland
-  [833.4, 193.4], // Delaware
-  [833.4, 131.9], // Connecticut
-  [856.6, 135.4], // Rhode Island
-  [860.1, 123.8], // Massachusetts
-  [807.9, 97.1], // Vermont
-  [825.3, 114.5], // New Hampshire
-  [854.3, 73.9], // Maine
-  [197.2, 393.1], // Alaska
-  [334.2, 432.6], // Hawaii
-];
-
 function NationTableMap({ variant = "vision" }: { variant?: "hero" | "vision" }) {
   const accent = ktg.accent;
-  const showFuture = variant === "vision";
+  // The vision variant only widens the ambient glow; both variants show the same
+  // single marker.
+  const isVision = variant === "vision";
   // Minnesota, calibrated to where /usa-outline-clean.png actually lands inside this
-  // 960x560 viewBox at the placement below (x=20 y=10 w=920 h=512). This is the one
-  // real, active origin point. Everything else is explicitly a future goal, not a
-  // current location, and is only drawn in the "vision" variant.
+  // 960x560 viewBox at the placement below (x=20 y=10 w=920 h=512). This is the only
+  // marker on the map: the birthplace and current origin of the tables. No future or
+  // aspirational points are drawn, so nothing on the map can be read as a place we are
+  // already working.
   const origin: [number, number] = [547, 120];
-  const spokes = futureNodes;
 
   return (
     <svg viewBox="0 0 960 560" className="h-auto w-full overflow-visible" aria-hidden="true">
@@ -489,7 +432,7 @@ function NationTableMap({ variant = "vision" }: { variant?: "hero" | "vision" })
         </filter>
       </defs>
 
-      <ellipse cx={origin[0]} cy={origin[1]} rx={showFuture ? 260 : 150} ry={showFuture ? 170 : 100} fill="url(#ktgGlow)">
+      <ellipse cx={origin[0]} cy={origin[1]} rx={isVision ? 260 : 150} ry={isVision ? 170 : 100} fill="url(#ktgGlow)">
         <animate attributeName="opacity" values="0.6;1;0.6" dur="6s" repeatCount="indefinite" />
       </ellipse>
 
@@ -504,30 +447,7 @@ function NationTableMap({ variant = "vision" }: { variant?: "hero" | "vision" })
         filter="url(#ktgTint)"
       />
 
-      {showFuture ? spokes.map(([x, y], i) => (
-        <line
-          key={`spoke-${i}`}
-          x1={origin[0]}
-          y1={origin[1]}
-          x2={x}
-          y2={y}
-          stroke={accent}
-          strokeWidth={0.5}
-          strokeOpacity={0.16}
-          strokeDasharray="3,7"
-        >
-          <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="3.2s" repeatCount="indefinite" />
-        </line>
-      )) : null}
-
-      {showFuture ? futureNodes.map(([x, y], i) => (
-        <g key={`node-${i}`}>
-          <circle cx={x} cy={y} r={2.2} fill={accent} opacity={0.55} />
-          <circle cx={x} cy={y} r={6} fill="none" stroke={accent} strokeWidth={0.5} opacity={0.3} />
-        </g>
-      )) : null}
-
-      {/* Minnesota: the one real, active origin point, not a future node */}
+      {/* Minnesota: the one real, active origin point */}
       <circle cx={origin[0]} cy={origin[1]} r={18} fill="none" stroke={accent} strokeWidth={1} opacity={0.45}>
         <animate attributeName="r" values="14;22;14" dur="3s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.55;0.05;0.55" dur="3s" repeatCount="indefinite" />
@@ -601,31 +521,31 @@ const modelSteps = [
     n: "01",
     icon: Users,
     title: "GATHER",
-    body: "Around a real table, in a real home. No stage, no platform, just chairs pulled close.",
+    body: "Come together around a table, in a home, or wherever people can slow down, connect, and follow Jesus together.",
   },
   {
     n: "02",
     icon: BookOpen,
     title: "LEARN & OBEY",
-    body: "Study one command of Jesus, then practice it before the group meets again.",
+    body: "Open Scripture, learn the commands of Jesus, and talk about what obedience looks like in everyday life.",
   },
   {
     n: "03",
     icon: HandHeart,
     title: "PRAY & CONFESS",
-    body: "Bring your wins and your failures into the light with people who actually know you.",
+    body: "Pray for one another, confess where you have fallen short, and bring struggles and victories into the light.",
   },
   {
     n: "04",
     icon: HeartHandshake,
     title: "ENCOURAGE",
-    body: "Care doesn't end when the table does. Follow up, show up, and carry each other's week.",
+    body: "Encourage one another to keep following Jesus. Check in, pray, show up, and help each other take the next step.",
   },
   {
     n: "05",
     icon: GitBranch,
     title: "MULTIPLY",
-    body: "Train someone at your table to gather one of their own. Repeat, city by city.",
+    body: "Help others become disciples who make disciples, then equip them to gather and disciple others.",
   },
 ] as const;
 
@@ -633,22 +553,22 @@ const problemPoints = [
   {
     icon: HelpCircle,
     title: "A Trusted Place to Ask",
-    body: "Many believers have never had a safe place to ask honest questions about following Jesus.",
+    body: "A simple setting to ask honest questions, open Scripture, pray together, and grow in following Jesus.",
   },
   {
     icon: Repeat,
     title: "Practice, Not Just Theory",
-    body: "Hearing a sermon is not the same as learning to put Jesus's teaching into practice with someone else.",
+    body: "Jesus taught in the temple and around the table. Discipleship brings His teaching into everyday life, where we can learn to put His words into practice together.",
   },
   {
     icon: BookOpen,
     title: "Scripture, Prayer, Obedience",
-    body: "Real discipleship grows through Scripture, prayer, obedience, relationships, and faithful follow-through.",
+    body: "Discipleship grows through Scripture, prayer, obedience, relationships, and faithful follow-through.",
   },
   {
     icon: Users,
     title: "Discerned, Not Prescribed",
-    body: "Every table discerns what each person actually needs, not a public checklist.",
+    body: "Every gathering is different. With the help of the Holy Spirit, we listen, ask questions, and respond to what each person needs.",
   },
 ] as const;
 
@@ -789,11 +709,12 @@ export function KitchenTableGospelPage() {
       <section id="commission" className="border-y px-6 py-24 md:px-10 md:py-32" style={{ borderColor: ktg.panelBorder, background: ktg.bgAlt }}>
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <SectionHeading eyebrow="Matthew 28:19–20" headline="Teach Them to Obey: Not Just Go, Not Just Baptize.">
-              <p>
-                The Great Commission does not end at the water. It continues as disciples learn to follow Jesus and
-                teach others to obey everything he commanded, and that takes a place to practice, not just a place to
-                listen.
+            <SectionHeading eyebrow="Matthew 28:19–20" headline="Jesus Commanded Us to Make Disciples.">
+              <p>Go. Make disciples. Baptize them. Teach them to obey everything He commanded.</p>
+              <p className="mt-4">
+                Yet knowing the commands of Jesus and learning to live them out are not the same thing. Discipleship
+                helps us put His words into practice, walk them out with others, and learn how to help someone else do
+                the same.
               </p>
             </SectionHeading>
           </Reveal>
@@ -820,8 +741,7 @@ export function KitchenTableGospelPage() {
 
           <Reveal delay={280}>
             <p className="mx-auto mt-12 max-w-2xl text-center text-lg font-medium leading-relaxed text-stone-300">
-              How can we teach the commands of Jesus if we have never learned them, never practiced them, and have no
-              place to work them out with other people?
+              How do we move from knowing what Jesus commanded to living it out and helping others do the same?
             </p>
           </Reveal>
         </div>
@@ -833,8 +753,9 @@ export function KitchenTableGospelPage() {
           <Reveal>
             <SectionHeading eyebrow="The Problem" headline="You Can't Teach What You've Never Practiced.">
               <p>
-                Most believers have heard hundreds of sermons about following Jesus, but few have ever had someone
-                walk with them while they actually tried to obey one. Kitchen Table Gospel exists to close that gap.
+                Many believers have heard the teachings of Jesus for years, yet few have experienced someone
+                intentionally discipling them and showing them how to disciple someone else. Kitchen Table Gospel
+                exists to help close that gap.
               </p>
             </SectionHeading>
           </Reveal>
@@ -852,7 +773,7 @@ export function KitchenTableGospelPage() {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow="The Model" headline="Gather. Learn. Confess. Encourage. Multiply.">
-              <p>Simple enough for a kitchen table. Reproducible enough for a nation.</p>
+              <p>Simple enough for any believer. Reproducible enough to multiply across a nation.</p>
             </SectionHeading>
           </Reveal>
 
@@ -892,15 +813,11 @@ export function KitchenTableGospelPage() {
           <Reveal delay={150}>
             <div className="mt-14 mx-auto max-w-3xl">
               <NationTableMap variant="vision" />
-              <p className="mt-6 text-center text-xs leading-relaxed text-stone-500" style={{ fontFamily: font.rajdhani }}>
-                Minnesota is where this began, and where tables are active today. Every other point marks where we
-                are asking God to send trained believers next, not a place we are already working.
-              </p>
             </div>
           </Reveal>
 
           <Reveal delay={250}>
-            <div className="mt-14 grid gap-5 sm:grid-cols-3">
+            <div className="mt-10 grid gap-5 sm:grid-cols-3 md:mt-12">
               <VisionStat icon={MapPin} value="50" label="States in the Vision" />
               <VisionStat icon={Building2} value="3+" label="Major Cities per State" />
               <VisionStat icon={Users} value="Thousands" label="Believers Equipped to Make Disciples" />
