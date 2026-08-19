@@ -10,7 +10,8 @@ import {
 import { isFactVerified, loadComplianceFacts, type ComplianceFact } from "@/src/lib/finance/facts";
 import { taxPeriodTypes, type TaxPeriodType } from "@/src/lib/finance/tax-period";
 
-export const FINANCE_DOCUMENTS_BUCKET = "finance-documents";
+// Finance no longer owns storage; the canonical library does.
+export { OPERATIONS_DOCUMENTS_BUCKET as FINANCE_DOCUMENTS_BUCKET } from "@/src/lib/documents/library";
 export const USA_MISSIONARIES_SLUG = "usa-missionaries";
 
 export const financeDocumentTypes = [
@@ -45,20 +46,6 @@ export const financeDocumentTypeLabels: Record<FinanceDocumentType, string> = {
   prior_990: "Prior Form 990",
   receipt: "Receipt",
   state_annual_report: "State annual report",
-};
-
-export type FinanceDocument = {
-  documentType: string;
-  documentTypeLabel: string;
-  fileName: string;
-  fileSize: number | null;
-  id: string;
-  status: string;
-  title: string;
-  uploadedAt: string;
-  uploadedBy: string | null;
-  /** Where this document is currently used, for the evidence trail. */
-  usedFor: string[];
 };
 
 export type FinanceTaxPeriod = {
@@ -112,85 +99,6 @@ export async function loadFinanceOrganization(): Promise<FinanceOrganization | n
     .maybeSingle();
 
   return data ? (data as FinanceOrganization) : null;
-}
-
-export async function loadFinanceDocuments(organizationId: string, limit = 100) {
-  const supabase = createSupabaseAdminClient();
-  const [documentsResult, factsResult, obligationsResult, periodsResult] = await Promise.all([
-    supabase
-      .from("finance_documents")
-      .select("id, document_type, title, file_name, file_size, status, uploaded_by, uploaded_at")
-      .eq("organization_id", organizationId)
-      .is("superseded_at", null)
-      .order("uploaded_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("compliance_facts")
-      .select("source_document_id, fact_key")
-      .eq("organization_id", organizationId)
-      .is("superseded_at", null)
-      .not("source_document_id", "is", null),
-    supabase
-      .from("compliance_obligations")
-      .select("assigned_date_source_document_id, rule_key")
-      .eq("organization_id", organizationId)
-      .not("assigned_date_source_document_id", "is", null),
-    supabase
-      .from("tax_periods")
-      .select("source_document_id, label")
-      .eq("organization_id", organizationId)
-      .not("source_document_id", "is", null),
-  ]);
-
-  if (documentsResult.error) {
-    return { documents: [] as FinanceDocument[], error: documentsResult.error.message };
-  }
-
-  // Reverse index: everything that cites a document declares what it is used for.
-  const usage = new Map<string, string[]>();
-  const addUsage = (id: string | null, label: string) => {
-    if (!id) {
-      return;
-    }
-
-    usage.set(id, [...(usage.get(id) ?? []), label]);
-  };
-
-  for (const row of (factsResult.data ?? []) as { fact_key: string; source_document_id: string }[]) {
-    addUsage(row.source_document_id, row.fact_key.replace(/_/g, " "));
-  }
-
-  for (const row of (obligationsResult.data ?? []) as { assigned_date_source_document_id: string; rule_key: string }[]) {
-    addUsage(row.assigned_date_source_document_id, `${row.rule_key.replace(/_/g, " ")} due date`);
-  }
-
-  for (const row of (periodsResult.data ?? []) as { label: string; source_document_id: string }[]) {
-    addUsage(row.source_document_id, `Tax period ${row.label}`);
-  }
-
-  const documents = ((documentsResult.data ?? []) as {
-    document_type: string;
-    file_name: string;
-    file_size: number | null;
-    id: string;
-    status: string;
-    title: string;
-    uploaded_at: string;
-    uploaded_by: string | null;
-  }[]).map((row) => ({
-    documentType: row.document_type,
-    documentTypeLabel: documentTypeLabel(row.document_type),
-    fileName: row.file_name,
-    fileSize: row.file_size,
-    id: row.id,
-    status: row.status,
-    title: row.title,
-    uploadedAt: row.uploaded_at,
-    uploadedBy: row.uploaded_by,
-    usedFor: usage.get(row.id) ?? [],
-  }));
-
-  return { documents };
 }
 
 export async function loadTaxPeriods(organizationId: string) {
@@ -423,7 +331,7 @@ export async function loadFinanceOverview({ today }: { today: string }): Promise
     loadTaxPeriods(organization.id),
     loadBankingSummary(organization.id),
     supabase
-      .from("finance_documents")
+      .from("operations_documents")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", organization.id)
       .is("superseded_at", null),

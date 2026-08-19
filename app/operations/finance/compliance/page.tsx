@@ -7,11 +7,11 @@ import {
 } from "@/src/lib/finance/facts";
 import {
   loadComplianceCalendar,
-  loadFinanceDocuments,
   loadFinanceOrganization,
   loadTaxPeriods,
   type FinanceFiling,
 } from "@/src/lib/finance/workspace";
+import { loadOperationsDocuments } from "@/src/lib/documents/library";
 import { OperationsAccessDenied, OperationsShell } from "../../_components/OperationsShell";
 import {
   formatOperationsDate,
@@ -191,7 +191,9 @@ export default async function OperationsFinanceCompliancePage({
   const [{ facts }, periods, { documents }] = await Promise.all([
     loadComplianceFacts(organization.id),
     loadTaxPeriods(organization.id),
-    loadFinanceDocuments(organization.id),
+    // Sensitivity-aware: a document the reader may not open must not be
+    // offerable as a source here either.
+    loadOperationsDocuments({ authorization, organizationId: organization.id }),
   ]);
   const filings = await loadComplianceCalendar({ facts, organizationId: organization.id, periods, today });
   const documentOptions = documents.map((document) => ({ id: document.id, title: document.title }));

@@ -21,7 +21,9 @@ export default async function PartnersDocumentsPage() {
     return null;
   }
 
-  const documents = await listPartnersDocuments();
+  // Admin manages the whole legacy library, including documents held back
+  // from the shared-passphrase partner surface.
+  const documents = await listPartnersDocuments({ includeHidden: true });
 
   return (
     <AdminShell

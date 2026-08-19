@@ -55,6 +55,7 @@
     "test:pco-giving-sync": "node scripts/pco-giving-sync-regression.mjs",
     "test:finance-deadlines": "node scripts/finance-deadlines-regression.mjs",
     "test:pco-donor-identity": "node scripts/pco-donor-identity-regression.mjs",
+    "test:operations-documents": "node scripts/operations-documents-regression.mjs",
     "start": "next start"
   },
   "dependencies": {

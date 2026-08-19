@@ -68,7 +68,7 @@ export const taxPeriodCriticalFacts: ComplianceFactKey[] = [
 ];
 
 type FactRow = {
-  finance_documents: { title: string } | null;
+  operations_documents: { title: string } | null;
   fact_key: string;
   id: string;
   notes: string | null;
@@ -106,7 +106,7 @@ function factFromRow(row: FactRow): ComplianceFact {
     id: row.id,
     notes: row.notes,
     sourceDocumentId: row.source_document_id,
-    sourceDocumentTitle: row.finance_documents?.title ?? null,
+    sourceDocumentTitle: row.operations_documents?.title ?? null,
     sourceReference: row.source_reference,
     value: factValue(row),
     verificationState: (
@@ -124,7 +124,7 @@ export async function loadComplianceFacts(organizationId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("compliance_facts")
-    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, finance_documents:source_document_id(title)")
+    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, operations_documents:source_document_id(title)")
     .eq("organization_id", organizationId)
     .is("superseded_at", null);
 
@@ -218,7 +218,7 @@ export async function loadFactHistory(organizationId: string, factKey: string) {
   const supabase = createSupabaseAdminClient();
   const { data } = await supabase
     .from("compliance_facts")
-    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, finance_documents:source_document_id(title)")
+    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, operations_documents:source_document_id(title)")
     .eq("organization_id", organizationId)
     .eq("fact_key", factKey)
     .order("created_at", { ascending: false });
