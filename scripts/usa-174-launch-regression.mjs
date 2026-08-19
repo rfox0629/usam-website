@@ -13,7 +13,9 @@ const applicationWriter = read("src", "lib", "dos", "usam-application.ts");
 const onboarding = read("src", "lib", "operations", "onboarding.ts");
 const submissions = read("src", "lib", "operations", "submissions.ts");
 const financeLoader = read("src", "lib", "operations", "finance.ts");
-const financePage = read("app", "operations", "finance", "page.tsx");
+// Finance V2 (USA-181) moved Giving to its own subview. The guard follows it:
+// this file is still the page that renders Planning Center giving records.
+const financePage = read("app", "operations", "finance", "giving", "page.tsx");
 
 const results = [];
 
@@ -82,7 +84,9 @@ check("Operations finance is native read-only over Planning Center Giving record
   // edited here rather than that the page has no form at all.
   assert.doesNotMatch(financePage, /<input|<textarea|<select/);
   const actions = [...financePage.matchAll(/<form\s+action=\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]);
-  assert.deepEqual(actions, ["runPlanningCenterSyncAction"], "sync is the only Finance action");
+  assert.deepEqual(actions, ["runPlanningCenterSyncAction"], "sync is the only Giving action");
+  // Giving must remain a single subview of Finance, not a second ledger.
+  assert.match(financePage, /FinanceSubnav/);
 });
 
 check("Planning Center sync is server-only, idempotent, and never guesses attribution", () => {

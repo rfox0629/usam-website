@@ -9,16 +9,16 @@ export async function runPlanningCenterSyncAction() {
   const authorization = await getOperationsAuthorization();
 
   if (authorization.status !== "authorized" || !canManageOperationsModule(authorization, "finance")) {
-    redirect("/operations/finance?error=Not+authorized+to+run+the+Planning+Center+sync.");
+    redirect("/operations/finance/giving?error=Not+authorized+to+run+the+Planning+Center+sync.");
   }
 
   const result = await runPlanningCenterGivingSync({ syncType: "manual" });
 
-  revalidatePath("/operations/finance");
+  revalidatePath("/operations/finance/giving");
 
   if (result.status === "failed") {
-    redirect(`/operations/finance?error=${encodeURIComponent(result.errors[0] ?? "Planning Center sync failed.")}`);
+    redirect(`/operations/finance/giving?error=${encodeURIComponent(result.errors[0] ?? "Planning Center sync failed.")}`);
   }
 
-  redirect(`/operations/finance?synced=${result.inserted}-${result.updated}-${result.seen}`);
+  redirect(`/operations/finance/giving?synced=${result.inserted}-${result.updated}-${result.seen}`);
 }
