@@ -20678,6 +20678,7 @@ function TableRolePicker({
 
 function MeetingLeaderReflectionSection({
   allPeople,
+  nextStepDefault,
   followUpDateDefault,
   followUpNeededDefault = false,
   followUpNoteDefault,
@@ -20694,6 +20695,7 @@ function MeetingLeaderReflectionSection({
   followUpNeededDefault?: boolean;
   followUpNoteDefault?: string | null;
   notesDefault?: string | null;
+  nextStepDefault?: string | null;
   onOpenCommitment?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
   prayerNeedsDefault?: string | null;
@@ -20723,8 +20725,19 @@ function MeetingLeaderReflectionSection({
 
   return (
     <>
-      <DosFormSection description="Capture the conversation, important takeaways, and next actions." icon="log" title="Meeting Notes">
+      <DosFormSection description="What happened, and what you agreed to." icon="log" title="Meeting Notes">
         <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} />
+        <DosFormField
+          helper="Shows on their profile as the step you agreed to together."
+          label="What did you agree to?"
+        >
+          <input
+            className={FieldInputClass()}
+            defaultValue={nextStepDefault ?? ""}
+            name="next_step"
+            placeholder="Read John 4-6 before Thursday"
+          />
+        </DosFormField>
       </DosFormSection>
 
       {quickActions.length ? (
@@ -20927,6 +20940,7 @@ function MeetingRoleReflectionSections({
       {tableRoleIncludesMinistering(tableRole) ? (
         <MeetingLeaderReflectionSection
           allPeople={allPeople}
+          nextStepDefault={leaderReflectionDefault?.nextStep}
           followUpDateDefault={followUpDateDefault}
           followUpNeededDefault={leaderReflectionDefault?.followUpNeeded}
           followUpNoteDefault={followUpNoteDefault}
@@ -21354,17 +21368,17 @@ function MeetingFormContent({
           <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
         )}
       </DosFormSection>
-      <DosFormSection icon="meetings" title="Discipleship Role">
-        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
-      </DosFormSection>
-      <DosFormSection icon="people" title="Participants">
+      <DosFormSection icon="people" title="Who was there?">
         {peopleSelector}
       </DosFormSection>
       <DisclosureSection
         defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}
-        description="Ministry team members and supporting attendees."
-        title="Edit People"
+        description="Your role, ministry team, and others who were present."
+        title="More people & role"
       >
+        <DosFormField helper="Changes which reflection fields you are asked for." label="Your role">
+          <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
+        </DosFormField>
         <DosFormField label="Ministry Team">
           <MinistryTeamSelector
             allPeople={allPeople}
@@ -34971,12 +34985,12 @@ function PersonDetailOverlay({
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
               <button
-                className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-                onClick={() => setIsOverflowOpen(true)}
+                className="-mr-1 flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
+                onClick={onEdit}
                 type="button"
-                aria-label={`More options for ${firstName}`}
               >
-                <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
+                <Pencil className="h-[15px] w-[15px]" aria-hidden="true" strokeWidth={1.9} />
+                Edit
               </button>
             </div>
             <div className="mt-1 flex items-center gap-3.5 pb-4">
@@ -35105,14 +35119,12 @@ function PersonDetailOverlay({
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {conceptMode && activeDetailTab === "overview" ? (
-          /* Person Overview. Scanning hierarchy: person → memory → active
-             work → prayer → next interaction. Text ladder from
-             src/lib/dos/text-tokens.ts: #0F1520 primary · #3D4654 body ·
-             #5A6473 metadata · #6B7686 eyebrows · light gray disabled only. */
+          /* Overview scans as LAST TIME → RIGHT NOW → NEXT. Three mental
+             buckets, not nine stacked sections. */
           <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
             <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
               <div className="min-w-0 lg:flex-1">
-                {/* MEMORY — the one blue eyebrow marks where the page starts. */}
+                {/* LAST TIME — what happened, what mattered, what we agreed to. */}
                 <section className="pt-5">
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-blue">Last time</h3>
@@ -35144,10 +35156,10 @@ function PersonDetailOverlay({
                   )}
                 </section>
 
-                {/* ACTIVE WORK — the one tinted band. It earns a surface
-                    because it holds the interactive rows. */}
-                <section className="-mx-4 mt-6 border-y border-dos-rule bg-[#F6F9FE] px-4 py-4 md:mx-0 md:rounded-[14px] md:border md:px-5">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Walking together</h3>
+                {/* RIGHT NOW — everything actively being walked through, as
+                    scannable rows on one supporting surface. */}
+                <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:mx-0 md:rounded-[14px] md:border md:px-5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Right now</h3>
                   <div className="mt-1 divide-y divide-[#E3EAF6]">
                     {conceptJourneys.map((journey) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
@@ -35176,72 +35188,39 @@ function PersonDetailOverlay({
                         <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
                     ))}
-                    {!conceptJourneys.length ? (
-                      <div className="py-2.5 first:pt-1">
-                        <button className="text-[14px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
-                          + Start a Journey together
-                        </button>
+                    {primaryPrayer ? (
+                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">Prayer</p>
+                          <p className="mt-0.5 text-[13px] font-semibold leading-[1.45] text-dos-secondary">
+                            {primaryPrayerText}
+                            {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
+                          </p>
+                        </div>
+                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
                       </div>
                     ) : null}
-                    {!conceptJourneys.length && !accountabilityTopics.length ? (
-                      <p className="py-1 text-[14px] leading-[1.5] text-dos-body">Nothing active together yet.</p>
+                    {!conceptJourneys.length && !accountabilityTopics.length && !primaryPrayer ? (
+                      <p className="py-1 text-[14px] leading-[1.5] text-dos-body">Nothing active together yet — use + to begin.</p>
                     ) : null}
                   </div>
+                  {!conceptJourneys.length ? (
+                    <button className="mt-3 text-[13.5px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
+                      + Start a Journey together
+                    </button>
+                  ) : null}
                 </section>
 
-                {/* PRAYER */}
-                <section className="mt-6 flex gap-3">
-                  <Heart className="mt-[3px] h-[17px] w-[17px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
-                  <div className="min-w-0 flex-1">
-                    {primaryPrayer ? (
-                      <>
-                        <p className="text-[16px] font-semibold leading-[1.45] text-dos-primary">{primaryPrayerText}</p>
-                        <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 text-[13px] font-semibold">
-                          <button
-                            className="text-dos-blue"
-                            onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}
-                            type="button"
-                          >
-                            Open prayer →
-                          </button>
-                          {additionalPrayerCount ? (
-                            <span className="text-dos-secondary">and {additionalPrayerCount} more</span>
-                          ) : null}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-[15px] leading-[1.5] text-dos-body">Nothing to pray about yet — capture one with +.</p>
-                    )}
-                  </div>
-                </section>
-
-                {/* NEXT — mobile placement. Blue accent rule marks the future. */}
-                <section className="mt-7 border-l-2 border-[#CFDBF7] pl-3.5 lg:hidden">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Coming up</h3>
+                {/* NEXT — one coherent answer to "what happens next?" */}
+                <section className="mt-6 lg:hidden">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Next</h3>
                   {renderComingUp(false)}
                 </section>
               </div>
 
-              {/* Desktop rail — subordinate by type size and air, separated by
-                  a rule rather than a panel. */}
               <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Coming up</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Next</h3>
                 {renderComingUp(true)}
-                {(person.phone || person.email) ? (
-                  <div className="mt-7 border-t border-dos-rule pt-5">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Contact</h3>
-                    {person.phone ? (
-                      <a className="mt-2 block text-[14px] font-semibold text-dos-blue" href={phoneActionHref("tel", person.phone)}>
-                        {formatPhoneNumber(person.phone) || person.phone}
-                      </a>
-                    ) : null}
-                    {person.email ? (
-                      <a className="mt-1.5 block break-words text-[14px] font-semibold text-dos-blue" href={`mailto:${person.email}`}>
-                        {person.email}
-                      </a>
-                    ) : null}
-                  </div>
-                ) : null}
               </aside>
             </div>
           </article>
@@ -35520,82 +35499,145 @@ function PersonDetailOverlay({
 
         {activeDetailTab === "details" ? (
           <>
-            <PDSection title="Contact">
-              <PDList>
+            {/* Contact first: the reason people open Details on a phone. */}
+            <section className="pt-5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Contact</h3>
+              <div className="mt-1 divide-y divide-dos-rule">
                 {person.phone ? (
-                  <PDRow
-                    action={(
-                      <>
-                        <PDButton href={phoneActionHref("tel", person.phone)}>Call</PDButton>
-                        <PDButton href={phoneActionHref("sms", person.phone)}>Text</PDButton>
-                      </>
-                    )}
-                    icon={<Phone className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                    meta="Phone"
-                    title={formatPhoneNumber(person.phone) || person.phone}
-                  />
-                ) : null}
-                {person.email ? (
-                  <PDRow
-                    action={<PDButton href={`mailto:${person.email}`}>Email</PDButton>}
-                    icon={<Mail className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                    meta="Email"
-                    title={person.email}
-                  />
-                ) : null}
-                {address ? (
-                  <PDRow
-                    href={mapHref}
-                    icon={<MapPin className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-                    meta="Address"
-                    title={address}
-                  />
-                ) : null}
-                {person.church ? <PDRow icon={<Church className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Church" title={person.church} /> : null}
-                {defaults.occupation ? <PDRow icon={<Briefcase className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Occupation" title={defaults.occupation} /> : null}
-                {defaults.birthday ? <PDRow icon={<Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Birthday" title={formatDate(defaults.birthday)} /> : null}
-                {!person.phone && !person.email && !address && !person.church && !defaults.occupation && !defaults.birthday ? <PDEmptyRow text="No contact details yet." /> : null}
-              </PDList>
-            </PDSection>
-
-            {hasHouseholdContext ? (
-              <PDSection title="Household">
-                <PDList>
-                  {person.spouseName ? <PDRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Spouse" title={person.spouseName} /> : null}
-                  {anniversaryReminder ? <PDRow icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Anniversary" title={formatDate(nextReminderDate(anniversaryReminder))} /> : null}
-                  {person.childrenNames ? <PDRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Children" title={person.childrenNames} /> : null}
-                  {person.householdNotes ? <PDRow icon={<StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} meta="Household Notes" title={person.householdNotes} /> : null}
-                </PDList>
-                <PDButton onClick={onAddReminder}>Add Household Reminder</PDButton>
-              </PDSection>
-            ) : null}
-
-            <PDSection title="Relationship">
-              <div className="divide-y divide-[#EDEFF2]">
-                <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-dos-primary">{relationshipTypePill}</p>
-                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Relationship</p>
-                </div>
-                <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-dos-primary">{currentCircleLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Circle</p>
-                </div>
-                <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-dos-primary">{engagementOverviewScore} {engagementOverviewLabel}</p>
-                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Engagement</p>
-                </div>
-                <div className="flex items-baseline justify-between gap-3 py-2.5">
-                  <p className="text-[14px] text-dos-primary">{spiritualJourneyPill}</p>
-                  <p className="text-[11.5px] font-semibold text-dos-eyebrow">Spiritual journey</p>
-                </div>
-                {personFruitEvents.length ? (
-                  <div className="flex items-baseline justify-between gap-3 py-2.5">
-                    <p className="text-[14px] text-dos-primary">{personFruitEvents.length} recorded</p>
-                    <p className="text-[11.5px] font-semibold text-dos-eyebrow">Fruit</p>
+                  <div className="flex items-center gap-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <a className="block text-[16px] font-semibold leading-[1.3] text-dos-primary" href={phoneActionHref("tel", person.phone)}>
+                        {formatPhoneNumber(person.phone) || person.phone}
+                      </a>
+                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Mobile</p>
+                    </div>
+                    <span className="flex shrink-0 gap-2">
+                      <PDButton href={phoneActionHref("tel", person.phone)}>Call</PDButton>
+                      <PDButton href={phoneActionHref("sms", person.phone)}>Text</PDButton>
+                    </span>
                   </div>
                 ) : null}
+                {person.email ? (
+                  <div className="flex items-center gap-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <a className="block break-words text-[16px] font-semibold leading-[1.3] text-dos-primary" href={`mailto:${person.email}`}>
+                        {person.email}
+                      </a>
+                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Email</p>
+                    </div>
+                    <PDButton href={`mailto:${person.email}`}>Email</PDButton>
+                  </div>
+                ) : null}
+                {address ? (
+                  <a className="block py-3" href={mapHref}>
+                    <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">{address}</p>
+                    <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Address</p>
+                  </a>
+                ) : null}
+                {!person.phone && !person.email && !address ? (
+                  <p className="py-3 text-[14px] leading-[1.5] text-dos-body">No contact details yet.</p>
+                ) : null}
               </div>
-            </PDSection>
+            </section>
+
+            {/* Relationship context in human language. These are four distinct
+               concepts, so they are described rather than tabulated, and the
+               engagement scale number is not exposed. */}
+            <section className="mt-6 border-t border-dos-rule pt-5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Where things stand</h3>
+              <p className="mt-2.5 text-[16px] leading-[1.55] text-dos-body">
+                You are <span className="font-semibold text-dos-primary">{relationshipTypePill.toLowerCase()}</span> {firstName}, in your{" "}
+                <span className="font-semibold text-dos-primary">{currentCircleLabel}</span>.
+              </p>
+              <div className="mt-3.5 grid gap-2.5">
+                <p className="text-[14.5px] leading-[1.5] text-dos-body">
+                  <span className="font-semibold text-dos-primary">Engagement</span> · {engagementOverviewLabel}
+                  <span className="mt-0.5 block text-[13px] text-dos-secondary">How engaged this relationship is right now. You set this.</span>
+                </p>
+                <p className="text-[14.5px] leading-[1.5] text-dos-body">
+                  <span className="font-semibold text-dos-primary">Spiritual journey</span> · {spiritualJourneyPill}
+                  <span className="mt-0.5 block text-[13px] text-dos-secondary">Derived from logged meetings, reviews and fruit.</span>
+                </p>
+                {personFruitEvents.length ? (
+                  <p className="text-[14.5px] leading-[1.5] text-dos-body">
+                    <span className="font-semibold text-dos-primary">Fruit</span> · {personFruitEvents.length} recorded
+                    <span className="mt-0.5 block text-[13px] text-dos-secondary">Observable outcomes captured over time.</span>
+                  </p>
+                ) : null}
+              </div>
+              {visibleCircleSuggestion ? (
+                <button className="mt-3.5 text-[13.5px] font-semibold text-dos-blue" onClick={() => setCircleInsightStage("insight")} type="button">
+                  DOS noticed something about this circle →
+                </button>
+              ) : null}
+            </section>
+
+            {hasHouseholdContext ? (
+              <section className="mt-6 border-t border-dos-rule pt-5">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">Household</h3>
+                <div className="mt-1 divide-y divide-dos-rule">
+                  {person.spouseName ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {person.spouseName}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Spouse</span>
+                    </p>
+                  ) : null}
+                  {person.childrenNames ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {person.childrenNames}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Children</span>
+                    </p>
+                  ) : null}
+                  {anniversaryReminder ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {formatDate(nextReminderDate(anniversaryReminder))}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Anniversary</span>
+                    </p>
+                  ) : null}
+                  {person.householdNotes ? (
+                    <p className="py-2.5 text-[14.5px] leading-[1.5] text-dos-body">{person.householdNotes}</p>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            {(person.church || defaults.occupation || defaults.birthday || personGroups.length) ? (
+              <section className="mt-6 border-t border-dos-rule pt-5">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">More</h3>
+                <div className="mt-1 divide-y divide-dos-rule">
+                  {person.church ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {person.church}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Church</span>
+                    </p>
+                  ) : null}
+                  {defaults.occupation ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {defaults.occupation}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Occupation</span>
+                    </p>
+                  ) : null}
+                  {defaults.birthday ? (
+                    <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
+                      {formatDate(defaults.birthday)}
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Birthday</span>
+                    </p>
+                  ) : null}
+                  {personGroups.length ? (
+                    <div className="py-2.5">
+                      <p className="flex flex-wrap gap-x-4 gap-y-1 text-[15px]">
+                        {personGroups.map((group) => (
+                          <button className="font-semibold text-dos-blue" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
+                            {group.name}
+                          </button>
+                        ))}
+                      </p>
+                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Groups</span>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
           </>
         ) : null}
 
@@ -40457,6 +40499,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const followUpNeeded = formData.get("follow_up_needed") === "on";
     const followUpDate = String(formData.get("follow_up_date") ?? "");
     const followUpNote = String(formData.get("follow_up_note") ?? "");
+    const agreedNextStepInput = String(formData.get("next_step") ?? "").trim();
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
     const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
@@ -40487,7 +40530,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           const reflectionResult = await submitJson("/api/dos/app/reflections", {
             followUpNeeded,
             meetingId: result.id,
-            nextStep: "",
+            nextStep: agreedNextStepInput,
             observedFruit,
             prayerNeeds,
             privateNotes: "",
