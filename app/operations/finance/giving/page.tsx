@@ -2,7 +2,7 @@ import { FinanceSubnav } from "../_components/FinanceSubnav";
 import { canAccessOperationsModule, canManageOperationsModule, getOperationsAuthorization } from "@/src/lib/operations/auth";
 import { loadOperationsFinanceOverview, type OperationsFinanceGivingRecord, type OperationsFinanceMatch, type OperationsFinanceSyncRun } from "@/src/lib/operations/finance";
 import { getPlanningCenterGivingConfigStatus } from "@/src/lib/planning-center/giving-sync";
-import { runPlanningCenterSyncAction } from "../actions";
+import { runPlanningCenterPeopleSyncAction, runPlanningCenterSyncAction } from "../actions";
 import { OperationsAccessDenied, OperationsShell } from "../../_components/OperationsShell";
 import {
   formatOperationsDate,
@@ -97,7 +97,7 @@ function MatchRow({ match }: { match: OperationsFinanceMatch }) {
 export default async function OperationsFinanceGivingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; synced?: string }>;
+  searchParams: Promise<{ donors?: string; error?: string; synced?: string }>;
 }) {
   const [query, authorization] = await Promise.all([searchParams, getOperationsAuthorization()]);
 
@@ -117,6 +117,17 @@ export default async function OperationsFinanceGivingPage({
     <OperationsShell
       active="finance"
       action={canManage ? (
+        <div className="flex flex-wrap items-center gap-2">
+        <form action={runPlanningCenterPeopleSyncAction}>
+          <button
+            className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-[11px] uppercase tracking-[0.12em] text-slate-800 transition hover:border-[#D8A932] disabled:opacity-50"
+            disabled={!pcoConfig.configured}
+            style={{ fontFamily: operationsFont.rajdhani, fontWeight: 700 }}
+            type="submit"
+          >
+            Sync Donors
+          </button>
+        </form>
         <form action={runPlanningCenterSyncAction}>
           <button
             className="inline-flex min-h-9 items-center justify-center rounded-md border border-[#D8A932] bg-[#D8A932] px-3 text-[11px] uppercase tracking-[0.12em] text-[#101826] transition hover:bg-[#E7BF57] disabled:opacity-50"
@@ -127,6 +138,7 @@ export default async function OperationsFinanceGivingPage({
             Run Sync
           </button>
         </form>
+        </div>
       ) : null}
       authorization={authorization}
       title="Finance"
@@ -139,6 +151,12 @@ export default async function OperationsFinanceGivingPage({
           <OperationsMetric label="Missionary" value={overview.missionaryTotalLabel} />
           <OperationsMetric label="Unmapped" value={overview.unmappedCount} detail={overview.refundedCount > 0 ? `${overview.refundedCount} refunded` : undefined} />
         </div>
+
+        {query.donors ? (
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            Donor identity refreshed from Planning Center.
+          </section>
+        ) : null}
 
         {query.synced ? (
           <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">

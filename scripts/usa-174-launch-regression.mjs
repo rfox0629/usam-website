@@ -83,8 +83,17 @@ check("Operations finance is native read-only over Planning Center Giving record
   // the one permitted action, so the guard is that no giving record can be
   // edited here rather than that the page has no form at all.
   assert.doesNotMatch(financePage, /<input|<textarea|<select/);
+  // Giving may only trigger Planning Center syncs; it may never edit a gift.
+  // USA-180 added a separate donor-identity sync alongside the donation sync.
   const actions = [...financePage.matchAll(/<form\s+action=\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]);
-  assert.deepEqual(actions, ["runPlanningCenterSyncAction"], "sync is the only Giving action");
+  assert.deepEqual(
+    actions.slice().sort(),
+    ["runPlanningCenterPeopleSyncAction", "runPlanningCenterSyncAction"],
+    "only Planning Center sync actions may appear on Giving",
+  );
+  for (const action of actions) {
+    assert.match(action, /^runPlanningCenter\w*SyncAction$/, `${action} is not a sync action`);
+  }
   // Giving must remain a single subview of Finance, not a second ledger.
   assert.match(financePage, /FinanceSubnav/);
 });
