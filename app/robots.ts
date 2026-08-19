@@ -19,6 +19,8 @@ const privateRouteDisallowList = [
   "/missionary-intake",
   "/ncc",
   "/ncc/",
+  "/operations",
+  "/operations/",
   "/partners",
   "/partners/",
   "/prayer/apply",

@@ -105,6 +105,7 @@ type ApplicationDraft = {
   country: string;
   currentlyRaisingSupport: string;
   donationLinkPreference: DonationLinkChoice;
+  excessSupportAgreement: boolean;
   familyMembers: FamilyMemberDraft[];
   familyPhotoName: string;
   familyPhotoPreviewUrl: string;
@@ -277,6 +278,7 @@ const initialDraft: ApplicationDraft = {
   country: "",
   currentlyRaisingSupport: "",
   donationLinkPreference: "missionary_support",
+  excessSupportAgreement: false,
   familyMembers: [
     {
       age: "",
@@ -516,6 +518,7 @@ function mergeDraft(value: Partial<ApplicationDraft> | null): ApplicationDraft {
     ...persistedValue,
     confirmPassword: "",
     donationLinkPreference: donationLinkForSupportNeed(supportNeed, value.donationLinkPreference),
+    excessSupportAgreement: persistedValue.excessSupportAgreement === true,
     familyMembers: Array.isArray(value.familyMembers) ? value.familyMembers : initialDraft.familyMembers,
     familyPhotoPreviewUrl: typeof value.familyPhotoPreviewUrl === "string" ? value.familyPhotoPreviewUrl : "",
     familyPhotoUpload: normalizeUploadedPhoto(value.familyPhotoUpload, "family"),
@@ -629,12 +632,14 @@ function supportBudgetTotal(budget: SupportBudgetDraft, fields: ReadonlyArray<{ 
 function supportSummary(draft: ApplicationDraft) {
   const personalTotal = supportBudgetTotal(draft.supportBudget, householdBudgetFields);
   const ministryTotal = supportBudgetTotal(draft.supportBudget, ministryBudgetFields);
+  const budgetTotal = personalTotal + ministryTotal;
+  const proposedMonthlyNeed = moneyNumber(draft.supportMonthlyNeed) || budgetTotal;
   const currentCommittedSupport = moneyNumber(draft.supportCommittedAmount);
   const otherMonthlyIncome = moneyNumber(draft.supportOtherMonthlyIncome);
   const currentSupportAndIncome = currentCommittedSupport + otherMonthlyIncome;
-  const estimatedGap = Math.max(0, personalTotal + ministryTotal - currentCommittedSupport - otherMonthlyIncome);
-  const roundedGoal = estimatedGap > 0 ? Math.ceil(estimatedGap / 500) * 500 : 0;
-  const selectedGoal = moneyNumber(draft.supportGoal);
+  const estimatedGap = Math.max(0, proposedMonthlyNeed - currentCommittedSupport - otherMonthlyIncome);
+  const roundedGoal = proposedMonthlyNeed > 0 ? Math.ceil(proposedMonthlyNeed / 500) * 500 : 0;
+  const selectedGoal = proposedMonthlyNeed;
   const suggestedGoal = selectedGoal || roundedGoal;
 
   return {
@@ -644,6 +649,7 @@ function supportSummary(draft: ApplicationDraft) {
     ministryTotal,
     otherMonthlyIncome,
     personalTotal,
+    proposedMonthlyNeed,
     roundedGoal,
     selectedGoal,
     suggestedGoal,
@@ -816,7 +822,7 @@ function createMissionaryStoryDraft(draft: ApplicationDraft) {
 function supportNeedLabel(value: SupportNeed) {
   return {
     no: "No, I do not need personal support",
-    yes: "Yes, help me estimate support",
+    yes: "Yes, I need monthly support",
   }[value];
 }
 
@@ -830,8 +836,8 @@ function donationLinkLabel(value: DonationLinkChoice) {
 
 const supportNeedOptions: ReadonlyArray<{ description: string; title: string; value: SupportNeed }> = [
   {
-    description: "I want to estimate a monthly goal for household needs and ministry expenses.",
-    title: "Yes, help me estimate support",
+    description: "I want to propose a monthly need for Operations review.",
+    title: "Yes, I need monthly support",
     value: "yes",
   },
   {
@@ -844,7 +850,7 @@ const supportNeedOptions: ReadonlyArray<{ description: string; title: string; va
 function donationLinkOptionsForNoSupport() {
   return [
     {
-      description: "Help direct supporters toward the broader mission and underfunded missionaries.",
+      description: "Help direct supporters toward the broader USA Missionaries work.",
       title: "Support USA Missionaries",
       value: "general_usam" as const,
     },
@@ -1018,8 +1024,12 @@ function validateStep(stepId: StepId, draft: ApplicationDraft) {
   if (stepId === "support") {
     const summary = supportSummary(draft);
 
-    if (draft.supportNeed === "yes" && summary.selectedGoal <= 0 && summary.roundedGoal <= 0) {
-      return "Add budget amounts or choose a monthly support goal.";
+    if (draft.supportNeed === "yes" && summary.proposedMonthlyNeed <= 0) {
+      return "Add your proposed monthly support need.";
+    }
+
+    if (draft.supportNeed === "yes" && !draft.excessSupportAgreement) {
+      return "Confirm the excess-support agreement before continuing.";
     }
   }
 
@@ -1653,6 +1663,7 @@ export function UsamJoinClient() {
       }
       : {
         donationLinkPreference: donationLinkForSupportNeed("no", draft.donationLinkPreference),
+        excessSupportAgreement: false,
         supportGoal: "",
         supportGoalOption: "custom",
         supportMonthlyNeed: "",
@@ -1708,9 +1719,9 @@ export function UsamJoinClient() {
         ? "organization_interest_submitted"
         : "dos_ready";
     const submittedSupportSummary = supportSummary(draft);
-    const submittedSupportGoal = submittedSupportSummary.selectedGoal > 0
-      ? draft.supportGoal.trim()
-      : String(submittedSupportSummary.roundedGoal);
+    const submittedMonthlyNeed = submittedSupportSummary.proposedMonthlyNeed > 0
+      ? String(submittedSupportSummary.proposedMonthlyNeed)
+      : "";
     const applicationDraft: ApplicationDraft = {
       ...draft,
       donationLinkPreference: donationLinkForSupportNeed(draft.supportNeed, draft.donationLinkPreference),
@@ -1718,8 +1729,9 @@ export function UsamJoinClient() {
         ...request,
         visibility: "prayer_team" as const,
       })),
-      supportGoal: draft.supportNeed === "yes" ? submittedSupportGoal : "",
-      supportMonthlyNeed: draft.supportNeed === "yes" ? String(submittedSupportSummary.personalTotal + submittedSupportSummary.ministryTotal) : "",
+      excessSupportAgreement: draft.supportNeed === "yes" ? draft.excessSupportAgreement : false,
+      supportGoal: draft.supportNeed === "yes" ? submittedMonthlyNeed : "",
+      supportMonthlyNeed: draft.supportNeed === "yes" ? submittedMonthlyNeed : "",
       workspaceName: generatedWorkspaceName(draft),
     };
     const persistedApplicationDraft = draftForPersistence(applicationDraft);
@@ -2523,7 +2535,7 @@ export function UsamJoinClient() {
       const selectedDonationLink = donationLinkForSupportNeed(draft.supportNeed, draft.donationLinkPreference);
 
       return (
-        <SectionCard title="Will you need to raise monthly support?">
+        <SectionCard title="Monthly support">
           <div className="space-y-4">
             <div className="grid gap-2.5 sm:grid-cols-2">
               {supportNeedOptions.map((option) => (
@@ -2538,134 +2550,55 @@ export function UsamJoinClient() {
             </div>
             {draft.supportNeed === "yes" ? (
               <div className="space-y-4 border-t border-[#EAF2FF] pt-4">
-                <div>
-                  <p className="text-sm font-black text-[#0F172A]">Budget Helper</p>
-                  <p className="mt-1 text-sm leading-6 text-[#64748B]">Add simple monthly estimates. Round numbers are fine.</p>
+                <label className="block">
+                  {supportFieldLabel("Proposed monthly need")}
+                  <input
+                    className={supportInputClassName}
+                    inputMode="decimal"
+                    onChange={(event) => {
+                      const proposedMonthlyNeed = cleanMoney(event.target.value);
+                      updateDraft({
+                        supportGoal: proposedMonthlyNeed,
+                        supportGoalOption: "custom",
+                        supportMonthlyNeed: proposedMonthlyNeed,
+                      });
+                    }}
+                    placeholder="$5,000"
+                    value={draft.supportMonthlyNeed}
+                  />
+                </label>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block">
+                    {supportFieldLabel("Current monthly committed support")}
+                    <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportCommittedAmount: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportCommittedAmount} />
+                  </label>
+                  <label className="block">
+                    {supportFieldLabel("Other monthly income")}
+                    <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportOtherMonthlyIncome: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportOtherMonthlyIncome} />
+                  </label>
                 </div>
 
-                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 1</p>
-                    <p className="text-sm font-black text-[#0F172A]">Household needs</p>
+                <div className="border-l-4 border-[#BFDBFE] bg-[#F8FBFF] px-3 py-3 text-sm leading-6 text-[#475569]">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <span><strong className="text-[#0F172A]">{formatMoney(budgetSummary.proposedMonthlyNeed)}</strong> proposed</span>
+                    <span><strong className="text-[#0F172A]">{formatMoney(budgetSummary.currentSupportAndIncome)}</strong> current</span>
+                    <span><strong className="text-[#0F172A]">{formatMoney(budgetSummary.estimatedGap)}</strong> remaining</span>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {householdBudgetFields.map((field) => (
-                      <label className="block" key={field.key}>
-                        {supportFieldLabel(field.label)}
-                        <input
-                          className={supportInputClassName}
-                          inputMode="decimal"
-                          onChange={(event) => updateSupportBudget(field.key, event.target.value)}
-                          placeholder="$0"
-                          value={draft.supportBudget[field.key]}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 2</p>
-                    <p className="text-sm font-black text-[#0F172A]">Ministry needs</p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {ministryBudgetFields.map((field) => (
-                      <label className="block" key={field.key}>
-                        {supportFieldLabel(field.label)}
-                        <input
-                          className={supportInputClassName}
-                          inputMode="decimal"
-                          onChange={(event) => updateSupportBudget(field.key, event.target.value)}
-                          placeholder="$0"
-                          value={draft.supportBudget[field.key]}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="space-y-2.5 rounded-[18px] border border-[#EAF2FF] bg-[#FBFDFF] p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#2563EB]">Step 3</p>
-                    <p className="text-sm font-black text-[#0F172A]">Current support</p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="block">
-                      {supportFieldLabel("Current monthly committed support")}
-                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportCommittedAmount: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportCommittedAmount} />
-                    </label>
-                    <label className="block">
-                      {supportFieldLabel("Other monthly income")}
-                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportOtherMonthlyIncome: cleanMoney(event.target.value) })} placeholder="$0" value={draft.supportOtherMonthlyIncome} />
-                    </label>
-                  </div>
-                </section>
-
-                <section className="rounded-[22px] border border-[#BFDBFE] bg-white p-4 shadow-[0_16px_34px_rgba(37,99,235,0.08)]">
-                  <p className="text-sm font-black text-[#0F172A]">Estimated Monthly Support Goal</p>
-                  <p className="mt-2 text-[34px] font-black tracking-[-0.045em] text-[#0F172A]">
-                    {formatMoney(budgetSummary.suggestedGoal)}
-                    <span className="text-base tracking-normal text-[#64748B]">/mo</span>
+                  <p className="mt-2">
+                    USA Missionaries will review and approve the monthly goal before any public support profile is activated.
                   </p>
-                  <div className="mt-3 space-y-2 text-sm text-[#475569]">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Household needs</span>
-                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.personalTotal)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Ministry needs</span>
-                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.ministryTotal)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Current support/income</span>
-                      <span className="font-bold text-[#0F172A]">-{formatMoney(budgetSummary.currentSupportAndIncome)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-[#EAF2FF] pt-2">
-                      <span>Estimated gap</span>
-                      <span className="font-bold text-[#0F172A]">{formatMoney(budgetSummary.estimatedGap)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Suggested rounded goal</span>
-                      <span className="font-black text-[#2563EB]">{formatMoney(budgetSummary.roundedGoal)}</span>
-                    </div>
-                  </div>
-                </section>
+                </div>
 
-                <section className="space-y-2.5">
-                  <p className="text-sm font-black text-[#0F172A]">Choose a support goal to submit.</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    {[
-                      ["1000", "$1,000"],
-                      ["2500", "$2,500"],
-                      ["3500", "$3,500"],
-                      ["5000", "$5,000"],
-                      ["custom", "Custom"],
-                    ].map(([value, label]) => (
-                      <button
-                        className={`rounded-[14px] border px-3 py-2.5 text-xs font-black ${draft.supportGoalOption === value ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)]" : "border-[#DCEBFF] bg-white text-[#0F172A]"}`}
-                        key={value}
-                        onClick={() => updateDraft({
-                          supportGoal: value === "custom" ? draft.supportGoal : value,
-                          supportGoalOption: value as SupportGoalOption,
-                        })}
-                        type="button"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {draft.supportGoalOption === "custom" ? (
-                    <label className="block">
-                      {supportFieldLabel("Custom monthly support goal")}
-                      <input className={supportInputClassName} inputMode="decimal" onChange={(event) => updateDraft({ supportGoal: cleanMoney(event.target.value) })} placeholder="Custom monthly amount" value={draft.supportGoal} />
-                    </label>
-                  ) : null}
-                </section>
-
-                <p className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-xs leading-5 text-[#64748B]">
-                  10% of donations are allocated to USA Missionaries operational overhead / general fund.
-                </p>
+                <label className="flex items-start gap-3 rounded-[18px] border border-[#DCEBFF] bg-white p-3 text-sm leading-6 text-[#475569]">
+                  <input
+                    checked={draft.excessSupportAgreement}
+                    className="mt-1 h-4 w-4 accent-[#2563EB]"
+                    onChange={(event) => updateDraft({ excessSupportAgreement: event.target.checked })}
+                    type="checkbox"
+                  />
+                  <span>I understand USA Missionaries leadership will approve the public monthly goal, and support received above that approved goal is not automatically assigned to my household and may be stewarded by USA Missionaries for ministry needs and approved support priorities.</span>
+                </label>
               </div>
             ) : (
               <div className="grid gap-3 border-t border-[#EAF2FF] pt-4">
@@ -2806,14 +2739,13 @@ export function UsamJoinClient() {
           </ReviewSection>
           <ReviewSection onEdit={() => goToStep("support")} title="Support">
             Need support: {supportNeedLabel(draft.supportNeed)}
-            {draft.supportNeed === "yes" ? ` · Goal: ${formatMoney(reviewSupportSummary.suggestedGoal)}/mo` : ""}
+            {draft.supportNeed === "yes" ? ` · Proposed need: ${formatMoney(reviewSupportSummary.proposedMonthlyNeed)}/mo` : ""}
             <br />
             {draft.supportNeed === "yes" ? (
               <>
-                Personal: {formatMoney(reviewSupportSummary.personalTotal)}/mo · Ministry: {formatMoney(reviewSupportSummary.ministryTotal)}/mo
-                <br />
                 Current committed support: {formatMoney(reviewSupportSummary.currentCommittedSupport)}/mo · Estimated gap: {formatMoney(reviewSupportSummary.estimatedGap)}/mo
                 <br />
+                Excess-support agreement: {draft.excessSupportAgreement ? "Accepted" : "Not accepted"}
               </>
             ) : (
               <>Giving preference: {donationLinkLabel(draft.donationLinkPreference)}</>
