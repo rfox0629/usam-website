@@ -26,6 +26,13 @@ import { recordAssignedDueDateAction, recordComplianceFactAction } from "./actio
 
 export const dynamic = "force-dynamic";
 
+// A recurring fiscal year ends on the last day of its month, so only the month
+// is captured. December is excluded because that is a calendar year.
+const fiscalMonths = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November",
+].map((label, index) => ({ label: `${label} (ends ${label} ${[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30][index]})`, value: String(index + 1) }));
+
 function stateTone(state: string): OperationsTone {
   if (state === "verified" || state === "cpa_confirmed") {
     return "green";
@@ -215,7 +222,7 @@ export default async function OperationsFinanceCompliancePage({
 
         <OperationsPanel title="Organization Facts">
           <p className="mb-4 text-sm text-slate-500">
-            A fact becomes canonical only when a person confirms it against a source document. Corrections are recorded as history; nothing is overwritten.
+            A fact becomes canonical only when a person confirms it against a source document. Corrections are recorded as history; nothing is overwritten. Formation date is kept separate from the tax year and never sets it.
           </p>
           <div className="grid gap-3">
             {complianceFactKeys.map((factKey) => {
@@ -247,12 +254,34 @@ export default async function OperationsFinanceCompliancePage({
                       <input name="factKey" type="hidden" value={factKey} />
                       <label className="block">
                         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Value</span>
-                        <input
-                          className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
-                          defaultValue={fact?.value ?? ""}
-                          name="value"
-                          required
-                        />
+                        {factKey === "tax_year_type" ? (
+                          <select
+                            className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                            defaultValue={fact?.value ?? "calendar"}
+                            name="value"
+                          >
+                            <option value="calendar">Calendar year (Jan 1 – Dec 31)</option>
+                            <option value="fiscal">Fiscal year (ends the last day of a non-December month)</option>
+                          </select>
+                        ) : factKey === "fiscal_year_end_month" ? (
+                          <select
+                            className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                            defaultValue={fact?.value ?? ""}
+                            name="value"
+                          >
+                            <option value="">Select a month</option>
+                            {fiscalMonths.map((month) => (
+                              <option key={month.value} value={month.value}>{month.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="mt-2 min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-[#D8A932]"
+                            defaultValue={fact?.value ?? ""}
+                            name="value"
+                            required
+                          />
+                        )}
                       </label>
                       <label className="block">
                         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Source document</span>

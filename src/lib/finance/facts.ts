@@ -16,8 +16,7 @@ export const complianceFactKeys = [
   "exemption_effective_date",
   "accounting_method",
   "tax_year_type",
-  "tax_year_end_month",
-  "tax_year_end_day",
+  "fiscal_year_end_month",
   "first_period_start",
   "first_period_end",
 ] as const;
@@ -54,12 +53,15 @@ export const complianceFactLabels: Record<ComplianceFactKey, string> = {
   formation_date: "Formation date",
   formation_state: "Formation state",
   legal_name: "Legal entity name",
-  tax_year_end_day: "Tax year end day",
-  tax_year_end_month: "Tax year end month",
-  tax_year_type: "Tax year type",
+  fiscal_year_end_month: "Fiscal year end month",
+  tax_year_type: "Tax year type (calendar or fiscal)",
 };
 
-/** Facts that must be verified before the product will state a 990 due date. */
+/**
+ * Facts that must be verified before the product will state a 990 due date.
+ * formation_date is deliberately absent: an incorporation date is not a tax
+ * year end and never contributes to one.
+ */
 export const taxPeriodCriticalFacts: ComplianceFactKey[] = [
   "tax_year_type",
   "first_period_end",

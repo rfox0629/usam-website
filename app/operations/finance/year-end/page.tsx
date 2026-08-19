@@ -2,6 +2,7 @@ import { canAccessOperationsModule, getOperationsAuthorization } from "@/src/lib
 import { loadComplianceFacts } from "@/src/lib/finance/facts";
 import { loadForm990Readiness } from "@/src/lib/finance/form990";
 import { loadFinanceOrganization, loadTaxPeriods } from "@/src/lib/finance/workspace";
+import { taxPeriodTypeLabels } from "@/src/lib/finance/tax-period";
 import { OperationsAccessDenied, OperationsShell } from "../../_components/OperationsShell";
 import {
   formatOperationsDate,
@@ -91,8 +92,11 @@ export default async function OperationsFinanceYearEndPage() {
                 </div>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Status</p>
-                <p className="mt-1 text-sm text-slate-900">{label(activePeriod.status)}</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Type</p>
+                <p className="mt-1 text-sm text-slate-900">
+                  {taxPeriodTypeLabels[activePeriod.periodType]}
+                  {activePeriod.shortPeriodReason ? ` · ${activePeriod.shortPeriodReason}` : ""}
+                </p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Parts ready</p>

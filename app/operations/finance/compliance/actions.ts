@@ -6,6 +6,7 @@ import { canManageOperationsModule, getOperationsAuthorization } from "@/src/lib
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { recordComplianceFact, type ComplianceVerificationState } from "@/src/lib/finance/facts";
 import { loadFinanceOrganization } from "@/src/lib/finance/workspace";
+import { validateTaxYearDefinition } from "@/src/lib/finance/tax-period";
 
 function fail(message: string): never {
   redirect(`/operations/finance/compliance?error=${encodeURIComponent(message)}`);
@@ -53,6 +54,28 @@ export async function recordComplianceFactAction(formData: FormData) {
 
   const verificationState = stateValue(text(formData, "verificationState"));
   const sourceDocumentId = text(formData, "sourceDocumentId");
+
+  // Recurring tax-year facts are validated against the IRS accounting-period
+  // rules before they can be recorded, so an incorporation anniversary cannot
+  // be promoted into a recurring fiscal year end.
+  if (factKey === "tax_year_type") {
+    const validation = validateTaxYearDefinition({ taxYearType: value });
+
+    if (!validation.ok) {
+      fail(validation.errors[0]);
+    }
+  }
+
+  if (factKey === "fiscal_year_end_month") {
+    const validation = validateTaxYearDefinition({
+      fiscalYearEndMonth: value,
+      taxYearType: "fiscal",
+    });
+
+    if (!validation.ok) {
+      fail(validation.errors[0]);
+    }
+  }
 
   // A verified compliance fact must cite the document that backs it.
   if ((verificationState === "verified" || verificationState === "cpa_confirmed") && !sourceDocumentId) {

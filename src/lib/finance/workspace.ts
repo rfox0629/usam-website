@@ -8,6 +8,7 @@ import {
   type FilingStatus,
 } from "@/src/lib/finance/deadlines";
 import { isFactVerified, loadComplianceFacts, type ComplianceFact } from "@/src/lib/finance/facts";
+import { taxPeriodTypes, type TaxPeriodType } from "@/src/lib/finance/tax-period";
 
 export const FINANCE_DOCUMENTS_BUCKET = "finance-documents";
 export const USA_MISSIONARIES_SLUG = "usa-missionaries";
@@ -66,7 +67,8 @@ export type FinanceTaxPeriod = {
   label: string;
   periodEnd: string | null;
   periodStart: string | null;
-  periodType: string;
+  periodType: TaxPeriodType;
+  shortPeriodReason: string | null;
   sourceDocumentId: string | null;
   status: string;
 };
@@ -195,7 +197,7 @@ export async function loadTaxPeriods(organizationId: string) {
   const supabase = createSupabaseAdminClient();
   const { data } = await supabase
     .from("tax_periods")
-    .select("id, label, period_start, period_end, period_type, is_verified, source_document_id, status")
+    .select("id, label, period_start, period_end, period_type, short_period_reason, is_verified, source_document_id, status")
     .eq("organization_id", organizationId)
     .order("period_end", { ascending: false, nullsFirst: false });
 
@@ -206,6 +208,7 @@ export async function loadTaxPeriods(organizationId: string) {
     period_end: string | null;
     period_start: string | null;
     period_type: string;
+    short_period_reason: string | null;
     source_document_id: string | null;
     status: string;
   }[]).map((row) => ({
@@ -214,7 +217,10 @@ export async function loadTaxPeriods(organizationId: string) {
     label: row.label,
     periodEnd: row.period_end,
     periodStart: row.period_start,
-    periodType: row.period_type,
+    periodType: taxPeriodTypes.includes(row.period_type as TaxPeriodType)
+      ? (row.period_type as TaxPeriodType)
+      : "calendar",
+    shortPeriodReason: row.short_period_reason,
     sourceDocumentId: row.source_document_id,
     status: row.status,
   })) satisfies FinanceTaxPeriod[];
