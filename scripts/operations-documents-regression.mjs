@@ -11,6 +11,9 @@ const read = (...parts) => readFileSync(path.join(root, ...parts), "utf8");
 const { classifyLegacyRow, mapLegacyDocument } = await import(
   pathToFileURL(path.join(root, "src/lib/documents/legacy-mapping.ts")).href
 );
+const { canReadSensitivity } = await import(
+  pathToFileURL(path.join(root, "src/lib/documents/access.ts")).href
+);
 
 const results = [];
 const check = (name, fn) => {
@@ -143,12 +146,16 @@ check("sensitivity is enforced before a signed URL is minted", () => {
 });
 
 check("sensitivity narrows access beyond merely entering Operations", () => {
-  const library = read("src", "lib", "documents", "library.ts");
-  assert.match(library, /canAccessOperationsModule\(authorization, "finance"\)/);
-  assert.match(library, /canAccessOperationsModule\(authorization, "missionaries"\)/);
-  assert.match(library, /authorization\.role === "platform_owner"/);
+  // The rules live in access.ts; the matrix itself is exercised behaviourally
+  // in the authorization-matrix check below.
+  const access = read("src", "lib", "documents", "access.ts");
+  assert.match(access, /hasModule\(authorization, "finance"\)/);
+  assert.match(access, /hasModule\(authorization, "missionaries"\)/);
+  assert.match(access, /authorization\.role === "platform_owner"/);
   // Documents the reader may not see are counted, never listed.
+  const library = read("src", "lib", "documents", "library.ts");
   assert.match(library, /hiddenCount/);
+  assert.match(library, /canReadSensitivity\(authorization, row\.sensitivity\)/);
 });
 
 check("no permanent public URL is ever produced", () => {
@@ -173,6 +180,67 @@ check("only one canonical documents table and bucket remain", () => {
     .join("\n");
   assert.doesNotMatch(sources, /"finance_documents"/);
   assert.match(read("src", "lib", "documents", "library.ts"), /OPERATIONS_DOCUMENTS_BUCKET = "operations-documents"/);
+});
+
+check("the authorization matrix narrows access per sensitivity", () => {
+  const grants = (modules) => modules.map((module) => ({ canManage: true, module, workflows: [] }));
+  const user = (modules, role = "operations_staff") => ({ grants: grants(modules), role, status: "authorized" });
+
+  // Documents access alone is not enough for restricted material.
+  const docsOnly = user(["documents"]);
+  assert.equal(canReadSensitivity(docsOnly, "normal"), true);
+  assert.equal(canReadSensitivity(docsOnly, "finance_restricted"), false);
+  assert.equal(canReadSensitivity(docsOnly, "personnel_restricted"), false);
+  assert.equal(canReadSensitivity(docsOnly, "system_restricted"), false);
+
+  // The matching module grant unlocks exactly its own class.
+  assert.equal(canReadSensitivity(user(["documents", "finance"]), "finance_restricted"), true);
+  assert.equal(canReadSensitivity(user(["documents", "finance"]), "personnel_restricted"), false);
+  assert.equal(canReadSensitivity(user(["documents", "missionaries"]), "personnel_restricted"), true);
+
+  // system_restricted is platform owner only, even with every module.
+  const everything = user(["documents", "finance", "missionaries", "submissions"]);
+  assert.equal(canReadSensitivity(everything, "system_restricted"), false);
+  assert.equal(
+    canReadSensitivity({ ...everything, role: "platform_owner" }, "system_restricted"),
+    true,
+  );
+
+  // No documents module means no document at all.
+  assert.equal(canReadSensitivity(user(["finance"]), "normal"), false);
+  assert.equal(canReadSensitivity({ status: "unauthenticated" }, "normal"), false);
+});
+
+check("the compensation document's class is unreadable without the personnel grant", () => {
+  const financeUser = {
+    grants: [{ canManage: true, module: "documents", workflows: [] }, { canManage: true, module: "finance", workflows: [] }],
+    role: "operations_staff",
+    status: "authorized",
+  };
+  const mapping = mapLegacyDocument({
+    docName: "USAM President - Approved Compensation & Housing Allowance",
+    groupName: "Finance",
+  });
+  assert.equal(mapping.sensitivity, "personnel_restricted");
+  assert.equal(canReadSensitivity(financeUser, mapping.sensitivity), false);
+});
+
+check("legacy partner surface is filtered and the download route honours it", () => {
+  const lib = read("src", "lib", "partners-documents.ts");
+  assert.match(lib, /query\.eq\("partner_visible", true\)/);
+  const route = read("app", "api", "partners", "documents", "[id]", "route.ts");
+  // A hidden document is a 404 by direct id, not just absent from the list.
+  assert.match(route, /!document \|\| !document\.partnerVisible/);
+  const admin = read("app", "admin", "partners-documents", "page.tsx");
+  assert.match(admin, /includeHidden: true/);
+});
+
+check("Compliance offers only documents the reader may open", () => {
+  const compliance = read("app", "operations", "finance", "compliance", "page.tsx");
+  assert.match(compliance, /loadOperationsDocuments/);
+  assert.doesNotMatch(compliance, /loadFinanceDocuments/);
+  // The old finance-only loader is gone, not merely unused.
+  assert.doesNotMatch(read("src", "lib", "finance", "workspace.ts"), /loadFinanceDocuments/);
 });
 
 const failed = results.filter((entry) => !entry.ok);

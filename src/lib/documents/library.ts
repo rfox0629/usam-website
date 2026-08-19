@@ -1,10 +1,8 @@
 import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
-import {
-  canAccessOperationsModule,
-  type OperationsAuthorization,
-} from "@/src/lib/operations/auth";
+import { type OperationsAuthorization } from "@/src/lib/operations/auth";
+import { canReadSensitivity } from "./access";
 
 export const OPERATIONS_DOCUMENTS_BUCKET = "operations-documents";
 
@@ -64,40 +62,7 @@ export const documentSensitivityLabels: Record<DocumentSensitivity, string> = {
   system_restricted: "System restricted",
 };
 
-/**
- * Sensitivity is checked in addition to the documents module grant, never
- * instead of it. Entering Operations is not enough to read every document.
- */
-export function canReadSensitivity(
-  authorization: OperationsAuthorization,
-  sensitivity: string,
-) {
-  if (authorization.status !== "authorized") {
-    return false;
-  }
-
-  if (!canAccessOperationsModule(authorization, "documents")) {
-    return false;
-  }
-
-  if (sensitivity === "finance_restricted") {
-    return canAccessOperationsModule(authorization, "finance");
-  }
-
-  if (sensitivity === "personnel_restricted") {
-    return canAccessOperationsModule(authorization, "missionaries");
-  }
-
-  if (sensitivity === "case_restricted") {
-    return canAccessOperationsModule(authorization, "submissions");
-  }
-
-  if (sensitivity === "system_restricted") {
-    return authorization.role === "platform_owner";
-  }
-
-  return true;
-}
+export { canReadSensitivity } from "./access";
 
 export type OperationsDocument = {
   category: DocumentCategory;
