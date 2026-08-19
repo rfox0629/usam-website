@@ -5,6 +5,7 @@ import {
   type OperationsAuthorization,
 } from "@/src/lib/operations/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { donorLabel, loadDonorIdentities } from "@/src/lib/planning-center/people-sync";
 
 type PcoGivingRecordRow = {
   attributed_missionary_profile_id: string | null;
@@ -18,6 +19,7 @@ type PcoGivingRecordRow = {
   donor_last_name: string | null;
   donor_display_name: string | null;
   fund_name: string | null;
+  pco_person_id: string | null;
   gift_status: string | null;
   gift_type: string | null;
   gross_amount: number | string | null;
@@ -157,11 +159,14 @@ function titleFromValue(value: string | null | undefined) {
     .join(" ");
 }
 
-function donorName(row: PcoGivingRecordRow) {
-  return row.donor_display_name
-    || [row.donor_first_name, row.donor_last_name].filter(Boolean).join(" ").trim()
-    || row.donor_email
-    || "Unknown donor";
+function donorName(row: PcoGivingRecordRow, identity?: { displayName: string | null }) {
+  return donorLabel({
+    cachedDisplayName: identity?.displayName,
+    personId: row.pco_person_id,
+    recordFallback: row.donor_display_name
+      || [row.donor_first_name, row.donor_last_name].filter(Boolean).join(" ").trim()
+      || null,
+  });
 }
 
 const attributionLabels: Record<OperationsFinanceAttribution, string> = {
@@ -177,7 +182,10 @@ function attributionOf(row: PcoGivingRecordRow): OperationsFinanceAttribution {
   return kind === "general" || kind === "missionary" || kind === "ignored" ? kind : "unmapped";
 }
 
-function givingRecordFromRow(row: PcoGivingRecordRow): OperationsFinanceGivingRecord {
+function givingRecordFromRow(
+  row: PcoGivingRecordRow,
+  identity?: { displayName: string | null; email: string | null },
+): OperationsFinanceGivingRecord {
   const attribution = attributionOf(row);
 
   return {
@@ -186,8 +194,8 @@ function givingRecordFromRow(row: PcoGivingRecordRow): OperationsFinanceGivingRe
     attributionLabel: attributionLabels[attribution],
     date: row.donation_date ?? row.received_at,
     designation: row.designation_name ?? row.fund_name ?? row.campaign_name,
-    donor: donorName(row),
-    email: row.donor_email,
+    donor: donorName(row, identity),
+    email: identity?.email ?? row.donor_email,
     giftType: row.is_recurring ? "Recurring" : titleFromValue(row.gift_type),
     id: row.id,
     planningCenterId: row.pco_donation_id,
@@ -392,7 +400,7 @@ export async function loadOperationsFinanceOverview({
   ] = await Promise.all([
     supabase
       .from("pco_giving_records")
-      .select("id, pco_donation_id, pco_recurring_source_id, pco_fund_id, donor_first_name, donor_last_name, donor_display_name, donor_email, gross_amount, gift_type, is_recurring, designation_name, fund_name, campaign_name, donation_date, received_at, status, gift_status, refunded, attribution_kind, attribution_source, attributed_missionary_profile_id")
+      .select("id, pco_donation_id, pco_recurring_source_id, pco_fund_id, pco_person_id, donor_first_name, donor_last_name, donor_display_name, donor_email, gross_amount, gift_type, is_recurring, designation_name, fund_name, campaign_name, donation_date, received_at, status, gift_status, refunded, attribution_kind, attribution_source, attributed_missionary_profile_id")
       .order("donation_date", { ascending: false, nullsFirst: false })
       .limit(100),
     supabase
@@ -423,7 +431,14 @@ export async function loadOperationsFinanceOverview({
     };
   }
 
-  const records = ((givingRecordsResult.data ?? []) as PcoGivingRecordRow[]).map(givingRecordFromRow);
+  const recordRows = (givingRecordsResult.data ?? []) as PcoGivingRecordRow[];
+  // Donor identity is resolved strictly by stable Planning Center person id.
+  // The giving records themselves are never rewritten by this lookup.
+  const identities = await loadDonorIdentities(recordRows.map((row) => row.pco_person_id));
+  const records = recordRows.map((row) => givingRecordFromRow(
+    row,
+    row.pco_person_id ? identities.get(row.pco_person_id) : undefined,
+  ));
   const syncRuns = syncRunsResult.error && !isMissingTableError(syncRunsResult.error, "pco_giving_sync_runs")
     ? []
     : ((syncRunsResult.data ?? []) as PcoGivingSyncRunRow[]).map(syncRunFromRow);
