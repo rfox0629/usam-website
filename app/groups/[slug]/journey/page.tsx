@@ -108,7 +108,6 @@ export default async function GroupJourneyPage({ params, searchParams }: PagePro
       groupName={portal.group.name}
       groupPath={groupPath}
       groupSlug={slug}
-      otherResourceSlugs={Array.from(new Set(otherAssignments.map((item) => item.resourceSlug)))}
       progress={portal.journeyProgress.filter((item) => item.resourceSlug === resourceSlug)}
       resource={resource}
       state={state}

@@ -231,6 +231,18 @@ async function runViewport(browser, label, viewport) {
     journeyOverflow.bodyScrollWidth <= journeyOverflow.docWidth,
     `[${label}] Journey has no horizontal page scroll.`,
   );
+  // Final design: white canvas, no quote/cross-assignment chips, and a clear
+  // Back to Group that lands on the member's Group Home with the session
+  // intact.
+  check(!journeyBody.includes("Also assigned"), `[${label}] Journey does not show Also assigned chips.`);
+  const canvas = await page.evaluate(() => getComputedStyle(document.querySelector("main") ?? document.body).backgroundColor);
+  check(canvas === "rgb(255, 255, 255)", `[${label}] Journey canvas is white (${canvas}).`);
+  const backToGroup = page.getByRole("link", { name: "Back to Group" }).first();
+  check(await backToGroup.count() === 1, `[${label}] Journey offers Back to Group.`);
+  await backToGroup.click();
+  await page.waitForTimeout(900);
+  const backBody = await page.locator("body").innerText();
+  check(backBody.includes("Signed in as Tanner Kent"), `[${label}] Back to Group lands on the signed-in Group Home.`);
 
   /* --- 6. Recovery screen language and layout. --------------------- */
   const recovery = await browser.newContext({ deviceScaleFactor: 2, viewport });
