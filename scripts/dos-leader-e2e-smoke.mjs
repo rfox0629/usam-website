@@ -289,8 +289,8 @@ async function runPreviewAsMember(browser, label, viewport) {
     `[${label}] Preview save shows the same saved state as the real Journey.`,
   );
 
-  // Return to Group Home via the group identity link, then reopen.
-  await page.locator("[role='dialog']").getByRole("button", { name: "Wednesday Men's Group" }).first().click();
+  // Return to Group Home via Back to Group, then reopen.
+  await page.locator("[role='dialog']").getByRole("button", { name: "Back to Group" }).first().click();
   await page.waitForTimeout(700);
   check(
     (await page.locator("[role='dialog']").innerText()).includes("Signed in as Tanner Kent"),

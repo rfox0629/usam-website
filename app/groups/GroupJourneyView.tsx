@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { DosResource } from "@/src/lib/dos/resource-catalog";
@@ -64,7 +65,6 @@ type GroupJourneyViewProps = {
   groupName: string;
   groupPath: string;
   groupSlug: string;
-  otherResourceSlugs: string[];
   preview?: GroupJourneyPreviewMode;
   progress: JourneyProgress[];
   resource: DosResource;
@@ -97,7 +97,6 @@ export function GroupJourneyView({
   groupName,
   groupPath,
   groupSlug,
-  otherResourceSlugs,
   preview,
   progress,
   resource,
@@ -162,9 +161,35 @@ export function GroupJourneyView({
     window.scrollTo({ behavior: "smooth", top: 0 });
   }
 
+  // The participant's real route owns the page; the preview overlay nests this
+  // view inside the leader document, where a second <main> would be invalid.
+  const Shell = preview ? "div" : "main";
+
   return (
-    <main className="min-h-screen bg-[#F8FBFF] text-[#0F172A]">
+    <Shell className="min-h-screen bg-white text-[#0F172A]">
       <div className="mx-auto grid w-full max-w-3xl gap-3 px-4 py-4 pb-28 sm:px-6 sm:py-6">
+        {/* The one navigation control on this screen: back to the member's
+            Group Home. Plain navigation in the real route (state is already
+            saved server-side); a callback inside the preview overlay. */}
+        {preview ? (
+          <button
+            className="inline-flex items-center gap-1.5 justify-self-start text-sm font-bold text-[#1D4ED8] underline-offset-4 hover:underline"
+            onClick={preview.onNavigateToGroup}
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={2.2} />
+            Back to Group
+          </button>
+        ) : (
+          <Link
+            className="inline-flex items-center gap-1.5 justify-self-start text-sm font-bold text-[#1D4ED8] underline-offset-4 hover:underline"
+            href={groupPath}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={2.2} />
+            Back to Group
+          </Link>
+        )}
+
         <div className="flex items-start gap-4">
           {resource.coverImage ? (
             <img
@@ -174,19 +199,7 @@ export function GroupJourneyView({
             />
           ) : null}
           <div className="min-w-0">
-            {preview ? (
-              <button
-                className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8] underline-offset-4 hover:underline"
-                onClick={preview.onNavigateToGroup}
-                type="button"
-              >
-                {groupName}
-              </button>
-            ) : (
-              <Link className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" href={groupPath}>
-                {groupName}
-              </Link>
-            )}
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">{groupName}</p>
             <h1 className="mt-2 text-2xl font-black leading-tight text-[#0F172A] sm:text-3xl">{resource.title}</h1>
             {resource.author ? <p className="mt-1 text-sm font-bold text-[#64748B]">— {resource.author}</p> : null}
           </div>
@@ -196,38 +209,13 @@ export function GroupJourneyView({
           <p className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2 text-sm font-bold text-[#15803D]">{message}</p>
         ) : null}
 
-        <section className="grid gap-3">
-          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} themeName="light" unitLabel={unitLabel} />
-          {assignment?.personalMessage ? (
-            <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm leading-6 text-[#475569]">
-              &ldquo;{assignment.personalMessage}&rdquo;
-            </p>
-          ) : null}
-        </section>
-
-        {otherResourceSlugs.length ? (
-          <div className="flex flex-wrap gap-2">
-            {otherResourceSlugs.map((slug) => preview ? (
-              <span
-                className="inline-flex min-h-9 items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569]"
-                key={slug}
-              >
-                Also assigned: {slug.replace(/-/g, " ")}
-              </span>
-            ) : (
-              <Link
-                className="inline-flex min-h-9 items-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#475569]"
-                href={`${groupPath}/journey?resource=${encodeURIComponent(slug)}`}
-                key={slug}
-              >
-                Also assigned: {slug.replace(/-/g, " ")}
-              </Link>
-            ))}
-          </div>
-        ) : null}
+        <div className="-mx-4 sm:-mx-6">
+          <GuidedJourneyProgress completedCount={completedCount} totalCount={sessions.length} unitLabel={unitLabel} />
+        </div>
 
         {selectedSession ? (
-          <GuidedJourneySessionSelector
+          <div className="-mx-2 sm:-mx-3">
+            <GuidedJourneySessionSelector
             completedSessionIds={completedSessionIds}
             currentSessionId={currentSessionId}
             isOpen={isSessionSelectorOpen}
@@ -238,29 +226,29 @@ export function GroupJourneyView({
             onToggle={() => setIsSessionSelectorOpen((open) => !open)}
             selectedSession={selectedSession}
             sessions={sessions}
-            themeName="light"
             unitLabel={unitLabel}
           />
+          </div>
         ) : null}
 
         {selectedSession ? (
-          <section className="grid gap-3 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]">{unitLabel} {selectedSession.order} of {sessions.length}</p>
-              </div>
-              {isComplete ? (
-                <span className="inline-flex items-center rounded-full border border-[#DCEEE3] bg-[#EDF7F1] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1F7A4D]">
-                  Complete
-                </span>
-              ) : null}
-            </div>
+          <section className="grid">
+            {isComplete ? (
+              <span className="mb-1 inline-flex items-center justify-self-start rounded-full border border-[#DCEEE3] bg-[#EDF7F1] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1F7A4D]">
+                Complete
+              </span>
+            ) : null}
 
-            <GuidedJourneyChapterContent session={selectedSession} themeName="light" unitLabel={unitLabel} />
+            {/* The chapter reading sits on the light DOS-blue band the founder
+                approved; the question inside it carries the deeper tint. White
+                stays the canvas — no card around any of this. */}
+            <div className="-mx-4 border-y border-[#EAF2FF] bg-[#F8FBFF] pb-7 sm:-mx-6">
+              <GuidedJourneyChapterContent session={selectedSession} unitLabel={unitLabel} />
+            </div>
 
             <form
               action={preview ? undefined : saveGroupMemberJourneyProgress}
-              className="-mx-4 grid gap-1 border-t border-[#EAF2FF] pt-1"
+              className="-mx-4 grid gap-1 sm:-mx-6"
               key={`${selectedSession.id}:${preview ? "preview" : "live"}`}
               onSubmit={preview ? handlePreviewSubmit : undefined}
             >
@@ -331,6 +319,6 @@ export function GroupJourneyView({
           </section>
         ) : null}
       </div>
-    </main>
+    </Shell>
   );
 }

@@ -245,3 +245,27 @@ assertIncludes(voiceTextarea, "export function VoiceTextarea", "The voice/text c
 assertIncludes(groupJourneyView, "VoiceTextarea", "Member Journey must use the shared voice/text control.");
 assertIncludes(appClient, 'from "@/src/components/dos/VoiceTextarea"', "The full DOS Journey must use the same shared voice/text control.");
 assertNotIncludes(appClient, "function VoiceTextarea", "The leader client must not keep a private copy of the voice control.");
+
+/* ---------------------------------------------------------------- *
+ * Final founder-approved participant Journey design (USA-170).
+ * ---------------------------------------------------------------- */
+
+// White is the canvas; the chapter reading sits on the light DOS-blue band.
+assertIncludes(groupJourneyView, 'min-h-screen bg-white', "The Journey canvas must be white.");
+assertIncludes(groupJourneyView, 'bg-[#F8FBFF] pb-7', "The chapter content must sit on the light DOS-blue band.");
+assertNotIncludes(groupJourneyView, "rounded-[24px] border border-[#EAF2FF] bg-white p-4", "The Journey must not wrap its content in a big card.");
+
+// The descriptive quote and cross-assignment chips are removed.
+assertNotIncludes(groupJourneyView, "assignment.personalMessage", "The descriptive assignment quote must stay removed.");
+assertNotIncludes(groupJourneyView, "Also assigned", "The Also assigned chips must stay removed.");
+
+// One navigation control: Back to Group, working in both real and preview modes.
+assertIncludes(groupJourneyView, "Back to Group", "The Journey must offer a clear Back to Group control.");
+assertIncludes(groupJourneyView, "onClick={preview.onNavigateToGroup}", "Back to Group must stay inside the preview overlay in preview mode.");
+assertIncludes(groupJourneyView, "href={groupPath}", "Back to Group must navigate to the member Group Home on the real route.");
+
+// No participant app chrome: no bottom navigation, People, or Me surfaces.
+for (const chrome of ["People</", ">Me<", "bottom-nav", "BottomNav"]) {
+  assertNotIncludes(groupJourneyView, chrome, `The participant Journey must not grow app chrome: ${chrome}.`);
+}
+

@@ -84,11 +84,6 @@ export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePre
   const journeyProgress = screen.view === "journey"
     ? data.journeyProgress.filter((item) => item.resourceSlug === screen.resourceSlug)
     : [];
-  const otherResourceSlugs = screen.view === "journey"
-    ? data.journeyAssignments
-      .map((assignment) => assignment.resourceSlug)
-      .filter((slug) => slug !== screen.resourceSlug)
-    : [];
 
   if (!mounted) {
     return null;
@@ -124,7 +119,6 @@ export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePre
             groupPath={groupPath}
             groupSlug={data.group.slug}
             key={screen.resourceSlug}
-            otherResourceSlugs={otherResourceSlugs}
             preview={{
               drafts: drafts[screen.resourceSlug] ?? {},
               onDraftChange: (sessionId, draft) => setDrafts((current) => ({
