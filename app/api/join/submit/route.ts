@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { slugify } from "@/src/lib/admin/organization-shared";
 import { submitUsamApplicationForSetup, type UsamApplicationSubmitPayload } from "@/src/lib/dos/usam-application";
 import { sendAdminNewApplicationNotificationEmail, sendApplicantApplicationSubmittedEmail } from "@/src/lib/email/resend";
+import { cleanupJoinCreatedResources } from "@/src/lib/join/rollback-cleanup";
+import {
+  createEmptyJoinRollbackResources,
+  selectResumableIncompleteJoinProfile,
+  type JoinExistingCollectiveCandidate,
+  type JoinExistingProfileCandidate,
+  type JoinResumableProfile,
+} from "@/src/lib/join/rollback-policy";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
@@ -56,15 +64,6 @@ type JoinSubmitPayload = {
   zip?: unknown;
 };
 
-type CreatedResourceIds = {
-  authUserId?: string;
-  collectiveId?: string;
-  householdId?: string;
-  organizationId?: string;
-  organizationWasCreated?: boolean;
-  profileId?: string;
-};
-
 type PhotoUploadMetadata = {
   bucket: string;
   contentType: string;
@@ -73,6 +72,19 @@ type PhotoUploadMetadata = {
   path: string;
   size: number;
   uploadedAt?: string;
+};
+
+type ExistingJoinProfileRow = {
+  id: string;
+  owner_organization_id: string | null;
+  primary_collective_id: string | null;
+  user_id: string | null;
+};
+
+type ExistingJoinCollectiveRow = {
+  id: string;
+  owner_organization_id: string | null;
+  type: string | null;
 };
 
 const applicationPhotoBucket = "usam-application-photos";
@@ -272,7 +284,7 @@ async function uniqueSlug(
   return `${base}-${Date.now()}`;
 }
 
-async function findOrCreateUsamOrganization(supabase: ReturnType<typeof createSupabaseAdminClient>) {
+async function loadUsamOrganization(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const existingResult = await supabase
     .from("organizations")
     .select("id, name, slug")
@@ -285,7 +297,17 @@ async function findOrCreateUsamOrganization(supabase: ReturnType<typeof createSu
   }
 
   if (existingResult.data?.id) {
-    return { organization: existingResult.data, wasCreated: false };
+    return existingResult.data;
+  }
+
+  return null;
+}
+
+async function findOrCreateUsamOrganization(supabase: ReturnType<typeof createSupabaseAdminClient>) {
+  const existingOrganization = await loadUsamOrganization(supabase);
+
+  if (existingOrganization) {
+    return { organization: existingOrganization, wasCreated: false };
   }
 
   const slug = await uniqueSlug(supabase, "organizations", "USA Missionaries");
@@ -322,12 +344,14 @@ function isMissingColumnError(error: { message?: string } | null | undefined) {
 }
 
 async function insertTeamMember(supabase: ReturnType<typeof createSupabaseAdminClient>, record: JsonRecord) {
-  let result: { error: { message: string } | null } | null = null;
+  let result: { data: { id?: string } | null; error: { message: string } | null } | null = null;
 
   for (const candidate of teamMemberRecordCandidates(record)) {
     result = await supabase
       .from("missionary_team_members")
-      .insert(candidate);
+      .insert(candidate)
+      .select("id")
+      .single();
 
     if (!result.error || !isMissingColumnError(result.error)) {
       break;
@@ -337,6 +361,12 @@ async function insertTeamMember(supabase: ReturnType<typeof createSupabaseAdminC
   if (result?.error) {
     throw new Error(result.error.message);
   }
+
+  if (!result?.data?.id) {
+    throw new Error("Unable to confirm created team member for rollback.");
+  }
+
+  return result.data.id;
 }
 
 async function findExistingTeamMemberForEmail(supabase: ReturnType<typeof createSupabaseAdminClient>, email: string) {
@@ -376,31 +406,112 @@ async function findExistingTeamMemberForEmail(supabase: ReturnType<typeof create
   return userResult.data?.[0] ?? null;
 }
 
-async function cleanupCreatedResources(supabase: ReturnType<typeof createSupabaseAdminClient>, ids: CreatedResourceIds) {
-  if (ids.householdId) {
-    await supabase.from("missionary_team_members").delete().eq("household_id", ids.householdId);
-    await supabase.from("missionary_households").delete().eq("id", ids.householdId);
+function toJoinProfileCandidate(profile: ExistingJoinProfileRow): JoinExistingProfileCandidate {
+  return {
+    id: profile.id,
+    ownerOrganizationId: profile.owner_organization_id,
+    primaryCollectiveId: profile.primary_collective_id,
+    userId: profile.user_id,
+  };
+}
+
+function toJoinCollectiveCandidate(collective: ExistingJoinCollectiveRow | null): JoinExistingCollectiveCandidate | null {
+  if (!collective) {
+    return null;
   }
 
-  if (ids.collectiveId && ids.profileId) {
-    await supabase.from("collective_memberships").delete().eq("collective_id", ids.collectiveId).eq("profile_id", ids.profileId);
+  return {
+    id: collective.id,
+    ownerOrganizationId: collective.owner_organization_id,
+    type: collective.type,
+  };
+}
+
+async function loadCollectiveForJoinResume(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  collectiveId: string,
+) {
+  const { data, error } = await supabase
+    .from("collectives")
+    .select("id, owner_organization_id, type")
+    .eq("id", collectiveId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  if (ids.organizationId && ids.profileId) {
-    await supabase.from("organization_memberships").delete().eq("organization_id", ids.organizationId).eq("profile_id", ids.profileId);
+  return data as ExistingJoinCollectiveRow | null;
+}
+
+async function findResumableJoinProfile({
+  existingApplication,
+  existingTeamMember,
+  profiles,
+  supabase,
+}: {
+  existingApplication: unknown;
+  existingTeamMember: unknown;
+  profiles: ExistingJoinProfileRow[];
+  supabase: ReturnType<typeof createSupabaseAdminClient>;
+}): Promise<JoinResumableProfile | null> {
+  if (profiles.length !== 1 || existingApplication || existingTeamMember) {
+    return null;
   }
 
-  if (ids.profileId) {
-    await supabase.from("profiles").delete().eq("id", ids.profileId);
+  const profile = profiles[0];
+
+  if (!profile.primary_collective_id) {
+    return null;
   }
 
-  if (ids.collectiveId) {
-    await supabase.from("collectives").delete().eq("id", ids.collectiveId);
+  const [organization, collective] = await Promise.all([
+    loadUsamOrganization(supabase),
+    loadCollectiveForJoinResume(supabase, profile.primary_collective_id),
+  ]);
+
+  return selectResumableIncompleteJoinProfile({
+    collective: toJoinCollectiveCandidate(collective),
+    existingApplication,
+    hasExistingTeamMember: Boolean(existingTeamMember),
+    profiles: [toJoinProfileCandidate(profile)],
+    usamOrganizationId: organization?.id ?? null,
+  });
+}
+
+async function ensureCollectiveMembership(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  collectiveId: string,
+  profileId: string,
+) {
+  const existingMembershipResult = await supabase
+    .from("collective_memberships")
+    .select("collective_id")
+    .match({ collective_id: collectiveId, profile_id: profileId })
+    .limit(1);
+
+  if (existingMembershipResult.error) {
+    throw new Error(existingMembershipResult.error.message);
   }
 
-  if (ids.organizationId && ids.organizationWasCreated) {
-    await supabase.from("organizations").delete().eq("id", ids.organizationId);
+  if (existingMembershipResult.data?.length) {
+    return false;
   }
+
+  const collectiveMembershipResult = await supabase
+    .from("collective_memberships")
+    .insert({
+      collective_id: collectiveId,
+      profile_id: profileId,
+      role: "owner",
+      status: "pending",
+    });
+
+  if (collectiveMembershipResult.error) {
+    throw new Error(collectiveMembershipResult.error.message);
+  }
+
+  return true;
 }
 
 function validatePayload(payload: JoinSubmitPayload) {
@@ -636,14 +747,18 @@ export async function POST(request: Request) {
     requestedWorkspaceName: asString(payload.workspaceName),
     spouseName,
   });
-  const createdIds: CreatedResourceIds = {};
+  const createdResources = createEmptyJoinRollbackResources();
 
   try {
     const [existingProfileResult, existingApplicationResult, existingTeamMember] = await Promise.all([
-      supabase.from("profiles").select("id").ilike("email", email).limit(1),
+      supabase
+        .from("profiles")
+        .select("id, owner_organization_id, primary_collective_id, user_id")
+        .ilike("email", email)
+        .limit(2),
       supabase
         .from("usam_missionary_applications")
-        .select("id, status")
+        .select("id, profile_id, status, workspace_id")
         .ilike("applicant_email", email)
         .not("status", "in", "(rejected,declined,archived)")
         .limit(1),
@@ -658,7 +773,16 @@ export async function POST(request: Request) {
       throw new Error(existingApplicationResult.error.message);
     }
 
-    if (existingProfileResult.data?.length || existingApplicationResult.data?.length || existingTeamMember) {
+    const existingProfiles = (existingProfileResult.data ?? []) as ExistingJoinProfileRow[];
+    const existingApplication = existingApplicationResult.data?.[0] ?? null;
+    const resumableProfile = await findResumableJoinProfile({
+      existingApplication,
+      existingTeamMember,
+      profiles: existingProfiles,
+      supabase,
+    });
+
+    if ((existingProfiles.length && !resumableProfile) || existingApplication || existingTeamMember) {
       return NextResponse.json({
         error: "An account, household invitation, or application already exists for this email. Use a different email or contact USA Missionaries for help.",
       }, { status: 409 });
@@ -683,61 +807,86 @@ export async function POST(request: Request) {
       }, { status: authMessage.toLowerCase().includes("already") ? 409 : 400 });
     }
 
-    createdIds.authUserId = authData.user.id;
+    createdResources.authUserIds.push(authData.user.id);
 
     const { organization, wasCreated } = await findOrCreateUsamOrganization(supabase);
-    createdIds.organizationId = organization.id;
-    createdIds.organizationWasCreated = wasCreated;
 
-    const collectiveSlug = await uniqueSlug(supabase, "collectives", workspaceName);
-    const { data: collective, error: collectiveError } = await supabase
-      .from("collectives")
-      .insert({
-        name: workspaceName,
-        owner_organization_id: organization.id,
-        slug: collectiveSlug,
-        type: "family",
-      })
-      .select("id")
-      .single();
-
-    if (collectiveError || !collective?.id) {
-      throw new Error(collectiveError?.message ?? "Unable to create workspace collection.");
+    if (wasCreated) {
+      createdResources.organizationIds.push(organization.id);
     }
 
-    createdIds.collectiveId = collective.id;
+    let collectiveId = resumableProfile?.collectiveId ?? "";
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .insert({
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        owner_organization_id: organization.id,
-        phone: nullableString(phone),
-        primary_collective_id: collective.id,
-        user_id: authData.user.id,
-      })
-      .select("id")
-      .single();
+    if (!collectiveId) {
+      const collectiveSlug = await uniqueSlug(supabase, "collectives", workspaceName);
+      const { data: collective, error: collectiveError } = await supabase
+        .from("collectives")
+        .insert({
+          name: workspaceName,
+          owner_organization_id: organization.id,
+          slug: collectiveSlug,
+          type: "family",
+        })
+        .select("id")
+        .single();
 
-    if (profileError || !profile?.id) {
-      throw new Error(profileError?.message ?? "Unable to create applicant profile.");
+      if (collectiveError || !collective?.id) {
+        throw new Error(collectiveError?.message ?? "Unable to create workspace collection.");
+      }
+
+      collectiveId = collective.id;
+      createdResources.collectiveIds.push(collectiveId);
     }
 
-    createdIds.profileId = profile.id;
+    let profileId = resumableProfile?.profileId ?? "";
 
-    const collectiveMembershipResult = await supabase
-      .from("collective_memberships")
-      .insert({
-        collective_id: collective.id,
-        profile_id: profile.id,
-        role: "owner",
-        status: "pending",
-      });
+    if (profileId) {
+      // USA-111: this resumes only the profile-only residue left by this route's
+      // own failed attempt. Legitimate existing profiles still return the 409 above.
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+          phone: nullableString(phone),
+          user_id: authData.user.id,
+        })
+        .eq("id", profileId)
+        .is("user_id", null)
+        .select("id")
+        .single();
 
-    if (collectiveMembershipResult.error) {
-      throw new Error(collectiveMembershipResult.error.message);
+      if (profileError || !profile?.id) {
+        throw new Error(profileError?.message ?? "Unable to resume applicant profile.");
+      }
+
+      profileId = profile.id;
+    } else {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          owner_organization_id: organization.id,
+          phone: nullableString(phone),
+          primary_collective_id: collectiveId,
+          user_id: authData.user.id,
+        })
+        .select("id")
+        .single();
+
+      if (profileError || !profile?.id) {
+        throw new Error(profileError?.message ?? "Unable to create applicant profile.");
+      }
+
+      profileId = profile.id;
+    }
+
+    createdResources.retainedProfileIds.push(profileId);
+
+    if (await ensureCollectiveMembership(supabase, collectiveId, profileId)) {
+      createdResources.collectiveMemberships.push({ collectiveId, profileId });
     }
 
     const workspaceSlug = await uniqueSlug(supabase, "missionary_households", workspaceName);
@@ -779,9 +928,9 @@ export async function POST(request: Request) {
       throw new Error(fallbackHouseholdResult.error?.message ?? "Unable to create DOS workspace.");
     }
 
-    createdIds.householdId = fallbackHouseholdResult.data.id;
+    createdResources.householdIds.push(fallbackHouseholdResult.data.id);
 
-    await insertTeamMember(supabase, {
+    createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
       account_linked_at: new Date().toISOString(),
       display_name: applicantName,
       dos_user_id: authData.user.id,
@@ -794,10 +943,10 @@ export async function POST(request: Request) {
       role_title: "USA Missionaries Applicant",
       source: "dos",
       status: "active",
-    });
+    }));
 
     if (spouseName) {
-      await insertTeamMember(supabase, {
+      createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
         display_name: spouseName,
         dos_user_id: null,
         household_id: fallbackHouseholdResult.data.id,
@@ -809,7 +958,7 @@ export async function POST(request: Request) {
         role_title: "Household Member",
         source: "dos",
         status: "pending",
-      });
+      }));
     }
 
     for (const familyMember of asArray(payload.familyMembers)) {
@@ -819,7 +968,7 @@ export async function POST(request: Request) {
         continue;
       }
 
-      await insertTeamMember(supabase, {
+      createdResources.teamMemberIds.push(await insertTeamMember(supabase, {
         display_name: familyMemberName,
         dos_user_id: null,
         household_id: fallbackHouseholdResult.data.id,
@@ -828,7 +977,7 @@ export async function POST(request: Request) {
         role_title: asString(familyMember.dependentStatus) === "independent" ? "Household Member" : "Dependent",
         source: "dos",
         status: "pending",
-      });
+      }));
     }
 
     const references = asArray(payload.references);
@@ -851,7 +1000,7 @@ export async function POST(request: Request) {
     const applicationResult = await submitUsamApplicationForSetup({
       applicantUserId: authData.user.id,
       payload: applicationPayload,
-      profileId: profile.id,
+      profileId,
       supabase,
     });
     const submittedAt = new Date().toISOString();
@@ -883,7 +1032,7 @@ export async function POST(request: Request) {
       workspaceSlug: fallbackHouseholdResult.data.slug,
     }, { status: 201 });
   } catch {
-    await cleanupCreatedResources(supabase, createdIds);
+    await cleanupJoinCreatedResources(supabase, createdResources);
 
     return NextResponse.json({
       error: "Unable to submit the application right now. Please try again or contact USA Missionaries.",

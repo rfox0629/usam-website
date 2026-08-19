@@ -15,10 +15,11 @@
  * disposable database and is specified — but deliberately not executed — in the
  * USA-110 packet under "Runtime parity matrix (deferred)".
  *
- * IMPORTANT: several assertions below pin CURRENT behaviour that is KNOWN TO BE
- * DEFECTIVE (marked ⚠ DEFECT). They are pinned on purpose. Stage 2 must preserve
- * them so the refactor is provably behaviour-neutral; Stage 3 fixes them
- * deliberately and updates this file in the same change. Do not "fix" them here.
+ * IMPORTANT: several assertions below pin CURRENT behaviour that is known to be
+ * temporary or defective where marked. USA-111 intentionally fixes the orphan
+ * auth-account rollback defect and updates these assertions in the same change.
+ * Duplicate-email 409 handling remains intentional until identity resolution
+ * exists in a later Workspace V2 stage.
  *
  * Run: node scripts/join-provisioner-contract-regression.mjs
  */
@@ -29,6 +30,8 @@ import assert from "node:assert/strict";
 
 const ROUTE = path.join(process.cwd(), "app", "api", "join", "submit", "route.ts");
 const src = readFileSync(ROUTE, "utf8");
+const ROLLBACK_CLEANUP = path.join(process.cwd(), "src", "lib", "join", "rollback-cleanup.ts");
+const rollbackCleanupSrc = readFileSync(ROLLBACK_CLEANUP, "utf8");
 
 const results = [];
 function check(name, fn) {
@@ -71,6 +74,11 @@ function insertSequence(slice) {
   return [...slice.matchAll(/\.from\("([a-z_]+)"\)\s*\.insert\(/g)].map((m) => m[1]);
 }
 
+function provisioningWriteSequence(slice) {
+  return [...slice.matchAll(/\.from\("([a-z_]+)"\)\s*\.insert\(|ensureCollectiveMembership\(/g)]
+    .map((match) => match[1] ?? "collective_memberships");
+}
+
 // ---------------------------------------------------------------------------
 // 1. Provisioning sequence — the core parity contract
 // ---------------------------------------------------------------------------
@@ -85,7 +93,7 @@ check("provisioning: account is created via auth.admin.createUser", () => {
 
 check("provisioning: writes occur in the exact expected order", () => {
   const observed = [];
-  for (const t of insertSequence(postBody)) {
+  for (const t of provisioningWriteSequence(postBody)) {
     if (!observed.includes(t)) observed.push(t);
   }
   assert.deepEqual(
@@ -118,8 +126,8 @@ check("provisioning: collective is created with type 'family'", () => {
 });
 
 check("provisioning: collective membership is created as pending owner", () => {
-  assert.match(postBody, /role:\s*"owner"/);
-  assert.match(postBody, /status:\s*"pending"/);
+  assert.match(src, /role:\s*"owner"/);
+  assert.match(src, /status:\s*"pending"/);
 });
 
 // ---------------------------------------------------------------------------
@@ -127,34 +135,60 @@ check("provisioning: collective membership is created as pending owner", () => {
 // ---------------------------------------------------------------------------
 
 check("org resolution: resolves by branding_mode='usam' or slug (⚠ single-tenant)", () => {
-  const body = functionBody(src, "findOrCreateUsamOrganization");
+  const body = functionBody(src, "loadUsamOrganization");
   assert.match(body, /branding_mode\.eq\.usam/, "branding_mode='usam' lookup is load-bearing");
   assert.match(body, /slug\.eq\.usa-missionaries/);
 });
 
 // ---------------------------------------------------------------------------
-// 3. Compensating rollback — including two pinned defects
+// 3. Compensating rollback — creation-scoped after USA-111
 // ---------------------------------------------------------------------------
 
-const cleanup = functionBody(src, "cleanupCreatedResources");
+const cleanup = functionBody(rollbackCleanupSrc, "cleanupJoinCreatedResources");
+const rollbackStep = functionBody(rollbackCleanupSrc, "deleteRollbackStep");
 
-check("rollback: deletes household and its team members", () => {
-  assert.match(cleanup, /\.from\("missionary_team_members"\)\.delete\(\)/);
-  assert.match(cleanup, /\.from\("missionary_households"\)\.delete\(\)/);
+check("rollback: uses the join created-resource delete plan", () => {
+  assert.match(src, /createEmptyJoinRollbackResources\(\)/);
+  assert.match(cleanup, /buildJoinRollbackDeletePlan\(resources\)/);
 });
 
-check("rollback: deletes collective membership, profile, and collective", () => {
-  assert.match(cleanup, /\.from\("collective_memberships"\)\.delete\(\)/);
-  assert.match(cleanup, /\.from\("profiles"\)\.delete\(\)/);
-  assert.match(cleanup, /\.from\("collectives"\)\.delete\(\)/);
+check("rollback: deletes created auth user from the current request", () => {
+  assert.match(rollbackStep, /supabase\.auth\.admin\.deleteUser\(authUserId\)/);
+  assert.match(src, /createdResources\.authUserIds\.push\(authData\.user\.id\)/);
+});
+
+check("rollback: deletes created team members only by exact row id", () => {
+  assert.match(src, /createdResources\.teamMemberIds\.push\(await insertTeamMember/);
+  assert.match(src, /\.from\("missionary_team_members"\)[\s\S]{0,120}\.insert\(candidate\)[\s\S]{0,120}\.select\("id"\)/);
+  assert.doesNotMatch(cleanup, /\.from\("missionary_team_members"\)\.delete\(\)\.eq\("household_id"/);
+});
+
+check("rollback: deletes collective membership and never deletes profiles", () => {
+  assert.match(src, /createdResources\.collectiveMemberships\.push\(\{ collectiveId, profileId \}\)/);
+  assert.match(rollbackStep, /\.from\(step\.table\)[\s\S]{0,120}\.delete\(\)[\s\S]{0,160}\.match\(\{ collective_id/);
+  assert.match(src, /createdResources\.retainedProfileIds\.push\(profileId\)/);
+  assert.doesNotMatch(rollbackStep, /\.from\("profiles"\)\.delete\(\)/);
 });
 
 check("rollback: deletes the organization ONLY when this request created it", () => {
-  assert.match(cleanup, /organizationWasCreated/);
+  assert.match(src, /if \(wasCreated\) \{\s*createdResources\.organizationIds\.push\(organization\.id\);/);
+  assert.doesNotMatch(src, /organizationWasCreated/);
 });
 
-check("rollback: attempts to delete organization_memberships", () => {
-  assert.match(cleanup, /\.from\("organization_memberships"\)\.delete\(\)/);
+check("rollback: ambiguous references fail closed before parent deletes", () => {
+  assert.match(rollbackCleanupSrc, /householdHasRemainingReferences/);
+  assert.match(rollbackCleanupSrc, /collectiveHasRemainingReferences/);
+  assert.match(rollbackCleanupSrc, /organizationHasRemainingReferences/);
+});
+
+check("rollback: cleanup failure is recorded and does not bypass the generic failure response", () => {
+  assert.match(rollbackCleanupSrc, /failedSteps \+= 1/);
+  assert.match(rollbackCleanupSrc, /continuing with remaining cleanup/);
+  assert.match(postBody, /cleanupJoinCreatedResources\(supabase, createdResources\)/);
+  assert.match(
+    postBody,
+    /Unable to submit the application right now\. Please try again or contact USA Missionaries/,
+  );
 });
 
 check("⚠ DEFECT PINNED — happy path never INSERTS organization_memberships", () => {
@@ -164,33 +198,33 @@ check("⚠ DEFECT PINNED — happy path never INSERTS organization_memberships",
   assert.equal(inserts.length, 0, "organization_memberships is now inserted — update this contract (Stage 4)");
 });
 
-check("⚠ DEFECT PINNED — rollback does NOT delete the auth user (orphaned account)", () => {
-  // createdIds.authUserId is assigned but never read. On failure the auth.users
-  // row survives, so the applicant's retry hits the duplicate-email 409.
-  // This is why the rollback defect and the 409 defect compound each other.
-  assert.doesNotMatch(cleanup, /deleteUser/, "rollback now deletes the auth user — update this contract (Stage 3)");
-  assert.doesNotMatch(src, /auth\.admin\.deleteUser/, "a deleteUser call appeared — update this contract (Stage 3)");
-  assert.match(src, /authUserId\?:\s*string/, "authUserId is still tracked on CreatedResourceIds");
+check("USA-111 FIXED — rollback deletes only the auth user created by this request", () => {
+  // Pre-existing auth accounts are never looked up for deletion. Only the ID
+  // returned by this request's createUser call enters the rollback ledger.
+  assert.match(rollbackStep, /deleteUser\(authUserId\)/);
+  assert.match(src, /createdResources\.authUserIds\.push\(authData\.user\.id\)/);
+  assert.doesNotMatch(src, /listUsers|getUserByEmail|getUser\(email/);
 });
 
 // ---------------------------------------------------------------------------
 // 4. Duplicate handling — the behaviour Stage 3 will replace
 // ---------------------------------------------------------------------------
 
-check("⚠ DEFECT PINNED — pre-check duplicate returns 409 and blocks identity reuse", () => {
+check("duplicate pre-check: existing profile/application/team member still returns intentional 409", () => {
   // Path A: our own pre-check across profiles / applications / team members.
   assert.match(postBody, /status:\s*409/, "409 duplicate response missing");
   assert.match(
     postBody,
     /An account, household invitation, or application already exists for this email/,
-    "pre-check duplicate copy changed — Stage 3 replaces this with identity resolution",
+    "pre-check duplicate copy changed — identity resolution must be a later, intentional change",
   );
 });
 
-check("⚠ DEFECT PINNED — Supabase 'already registered' is a SECOND 409 path", () => {
+check("duplicate auth account: Supabase 'already registered' remains a SECOND intentional 409 path", () => {
   // Path B: even if the pre-check is removed, Supabase's own duplicate-account
-  // error is mapped to 409 by friendlyAuthError. Stage 3 must handle BOTH paths
-  // or identity reuse will still be blocked by the second one.
+  // error is mapped to 409 by friendlyAuthError. USA-111 removes the false
+  // duplicate trap caused by current-request rollback orphans; it does not
+  // implement identity resolution for legitimate existing accounts.
   assert.match(src, /An account already exists for this email/, "friendlyAuthError duplicate copy changed");
   assert.match(
     postBody,
@@ -227,25 +261,32 @@ check("guard: password strength is enforced before any write", () => {
 });
 
 check("failure path invokes the compensating rollback", () => {
-  assert.match(postBody, /cleanupCreatedResources\(supabase, createdIds\)/);
+  assert.match(postBody, /cleanupJoinCreatedResources\(supabase, createdResources\)/);
 });
 
 // ---------------------------------------------------------------------------
 // 6. Extraction-boundary guards — these protect the Stage 2 refactor
 // ---------------------------------------------------------------------------
 
-check("extraction boundary: rollback tracks exactly the six known resource ids", () => {
-  const type = src.slice(src.indexOf("type CreatedResourceIds"), src.indexOf("type CreatedResourceIds") + 400);
+check("extraction boundary: rollback tracks created resources through the join ledger", () => {
+  const policy = readFileSync(path.join(process.cwd(), "src", "lib", "join", "rollback-policy.ts"), "utf8");
+
   for (const field of [
-    "authUserId",
-    "collectiveId",
-    "householdId",
-    "organizationId",
-    "organizationWasCreated",
-    "profileId",
+    "authUserIds",
+    "collectiveIds",
+    "collectiveMemberships",
+    "householdIds",
+    "organizationIds",
+    "retainedProfileIds",
+    "teamMemberIds",
   ]) {
-    assert.match(type, new RegExp(field), `CreatedResourceIds lost ${field}`);
+    assert.match(policy, new RegExp(field), `JoinRollbackResources lost ${field}`);
   }
+});
+
+check("extraction boundary: cleanup executor remains separate from HTTP route", () => {
+  assert.match(src, /cleanupJoinCreatedResources/);
+  assert.match(rollbackCleanupSrc, /buildJoinRollbackDeletePlan\(resources\)/);
 });
 
 check("extraction boundary: provisioner still uses the admin client", () => {
