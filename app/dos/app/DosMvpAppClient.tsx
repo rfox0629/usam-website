@@ -34307,6 +34307,28 @@ function followUpDuePhrase(value: string | null | undefined) {
   return `by ${upcomingDayLabel(normalized)}`;
 }
 
+// Aggressive relational copy reduction (USA-168): the page already says who
+// we are looking at, so strip reporting frames like "Naomi shared that…" /
+// "Naomi asked for…" and cap the excerpt at two sentences. Deterministic
+// string rules only — no summarization.
+function relationalCopy(text: string, firstName: string) {
+  const safeName = firstName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const framePattern = new RegExp(`^(?:${safeName}\\s+)?(?:shared that|shared about|shared|said that|said|mentioned that|mentioned|asked for|asked about|asked)\\s+`, "i");
+  const reduced = text.trim().replace(framePattern, "");
+
+  return reduced ? reduced.charAt(0).toUpperCase() + reduced.slice(1) : text.trim();
+}
+
+function relationalExcerpt(text: string | null | undefined, firstName: string, maxSentences = 2) {
+  const sentences = (text?.trim() ?? "").match(/[^.!?]+[.!?]?/g) ?? [];
+
+  return sentences
+    .slice(0, maxSentences)
+    .map((sentence) => relationalCopy(sentence, firstName))
+    .join(" ")
+    .trim();
+}
+
 function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
   return (
     <PDRow
@@ -34771,6 +34793,18 @@ function PersonDetailOverlay({
     onOpen: () => onEditReminder(reminder.id),
     title: reminder.title || "Follow up",
   }));
+  // Wireframe derivations (USA-168 final composition): a short topic line when
+  // the meeting has a real title, a two-sentence reduced excerpt, and a
+  // one-line prayer summary for the PRAY FOR section.
+  const genericMeetingTitles = new Set(["coffee", "phone", "zoom", "text", "prayer", "meeting", "group", "discipleship", "other", "kitchen table", "prayer check-in", "check-in"]);
+  const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
+    ? lastMeeting.title.trim()
+    : null;
+  const lastTimeExcerpt = lastMeeting ? relationalExcerpt(meetingActivityPreview(lastMeeting, personReflections), firstName) : "";
+  const primaryPrayer = conceptPrayerItems[0] ?? null;
+  const primaryPrayerText = primaryPrayer ? relationalCopy(primaryPrayer.text, firstName) : "";
+  const additionalPrayerCount = Math.max(0, conceptPrayerItems.length - 1);
+  const shortTopicMeta = (value: string) => value.replace("Next ", "").replace(/, \d{4}/, "");
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
       const scrollContainer = detailScrollRef.current;
@@ -34795,6 +34829,47 @@ function PersonDetailOverlay({
     scrollDetailToTop();
   }, [initialDetailTab, person.id]);
 
+  // Shared COMING UP rows — rendered in the mobile flow and the desktop rail.
+  const personComingUpRows = (
+    <div className="mt-0.5">
+      {nextMeeting ? (
+        <div className="py-2.5">
+          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{nextMeeting.title?.trim() || "Time together"}</p>
+          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</p>
+          {nextMeeting.notes?.trim() ? (
+            <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#3D4654]">{nextMeeting.notes}</p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <p className="text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing scheduled yet.</p>
+          <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+        </div>
+      )}
+      {conceptFollowUps.map((followUp) => (
+        <button className="block w-full py-2.5 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
+          <p className="text-[14px] font-semibold leading-[1.4] text-[#0F1520]">{followUp.title}</p>
+          {followUp.duePhrase ? <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{followUp.duePhrase}</p> : null}
+        </button>
+      ))}
+      {upcomingGatherings.map(({ gathering, group }) => (
+        <button className="block w-full py-2.5 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+          <p className="text-[14px] font-semibold leading-[1.4] text-[#0F1520]">{group.name}</p>
+          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{upcomingDayLabel(gathering.startsAt, true)}</p>
+        </button>
+      ))}
+      {personGroups.length && !upcomingGatherings.length ? (
+        <p className="flex flex-wrap gap-x-4 gap-y-1 py-2.5 text-[13.5px]">
+          {personGroups.map((group) => (
+            <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
+              {group.name}
+            </button>
+          ))}
+        </p>
+      ) : null}
+    </div>
+  );
+
   return (
     <div ref={detailScrollRef} className="absolute inset-0 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none] md:left-[232px] md:bg-[#F8FBFF] md:px-6 md:pb-10 md:pt-6 xl:left-[260px]">
       <div className="mx-auto w-full max-w-[960px] md:rounded-[32px] md:border md:border-[#EAF2FF] md:bg-white md:p-5 md:shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
@@ -34817,6 +34892,9 @@ function PersonDetailOverlay({
           >
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
           </button>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${avatarTone(index)}`} aria-hidden="true">
+            {initials(person.name)}
+          </div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[19px] font-bold leading-[1.15] tracking-[-0.01em] text-[#0F1520]">
               {person.name}
@@ -34908,69 +34986,52 @@ function PersonDetailOverlay({
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {conceptMode && activeDetailTab === "overview" ? (
-          /* Relationship Brief — the Person page. Text hierarchy (candidate
-             shared DOS tokens): primary #0F1520, secondary #3D4654, readable
-             metadata #6B7686; #9AA4B2 is reserved for disabled/inactive UI. */
-          <article aria-label="Relationship brief" className="mx-auto mt-4 w-full max-w-[620px] md:mt-5 md:max-w-none">
-            <div className="md:grid md:grid-cols-[minmax(0,1fr)_272px] md:gap-x-14">
-              <div className="min-w-0">
-                <section>
+          /* Person Overview — founder wireframe. Text hierarchy: #0F1520
+             primary · #3D4654 secondary · light gray reserved for disabled. */
+          <article aria-label="Relationship brief" className="mx-auto w-full max-w-[620px] md:max-w-none">
+            <div className="md:grid md:grid-cols-[minmax(0,580px)_264px] md:justify-between md:gap-x-16">
+              <div className="min-w-0 divide-y divide-[#E7E9ED]">
+                <section className="py-5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Last time together</h3>
-                    {lastMeeting ? <span className="shrink-0 text-[12.5px] font-semibold text-[#6B7686]">{formatRelativeDate(lastMeeting.date)}</span> : null}
+                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Last time</h3>
+                    {lastMeeting ? <span className="text-[12.5px] font-semibold text-[#3D4654]">{formatRelativeDate(lastMeeting.date)}</span> : null}
                   </div>
                   {lastMeeting ? (
                     <>
-                      <p className="mt-1.5 text-[15px] leading-[1.6] text-[#3D4654]">{meetingActivityPreview(lastMeeting, personReflections)}</p>
-                      {(lastConversationPrayer || agreedNextStep) ? (
-                        <div className="mt-2.5 grid gap-1">
-                          {lastConversationPrayer ? (
-                            <p className="text-[14px] leading-[1.55] text-[#3D4654]">
-                              <span className="font-semibold text-[#0F1520]">Carried into prayer</span> — {lastConversationPrayer}
-                            </p>
-                          ) : null}
-                          {agreedNextStep ? (
-                            <p className="text-[14px] leading-[1.55] text-[#3D4654]">
-                              <span className="font-semibold text-[#0F1520]">You agreed</span> — {agreedNextStep}
-                            </p>
-                          ) : null}
+                      {lastTimeTopic ? (
+                        <p className="mt-2 text-[16px] font-bold leading-snug tracking-[-0.01em] text-[#0F1520]">{lastTimeTopic}</p>
+                      ) : null}
+                      {lastTimeExcerpt ? (
+                        <p className={`${lastTimeTopic ? "mt-1" : "mt-2"} text-[14.5px] leading-[1.5] text-[#3D4654]`}>{lastTimeExcerpt}</p>
+                      ) : null}
+                      {agreedNextStep ? (
+                        <div className="mt-3.5">
+                          <h4 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Agreed</h4>
+                          <p className="mt-1 text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">{agreedNextStep}</p>
                         </div>
                       ) : null}
-                      <p className="mt-2 flex gap-4 text-[13px] font-semibold">
-                        <button className="text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
-                          Read the full notes
-                        </button>
-                        <button
-                          className="text-[#6B7686] transition-colors hover:text-[#0F1520]"
-                          onClick={() => {
-                            setActiveDetailTab("history");
-                            scrollDetailToTop();
-                          }}
-                          type="button"
-                        >
-                          See the whole story
-                        </button>
-                      </p>
+                      <button className="mt-3 text-[13px] font-semibold text-[#2450C8]" onClick={() => onOpenMeeting(lastMeeting.id, person.id)} type="button">
+                        View meeting →
+                      </button>
                     </>
                   ) : (
-                    <p className="mt-1.5 text-[14px] leading-[1.6] text-[#6B7686]">You haven&apos;t logged time together yet.</p>
+                    <p className="mt-2 text-[14px] leading-[1.5] text-[#3D4654]">Nothing logged yet — use + to record your first time together.</p>
                   )}
                 </section>
 
-                <section className="mt-7">
-                  <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Walking together</h3>
-                  {conceptJourneys.map((journey) => (
-                    /* The active Journey carries the strongest visual weight,
-                       in the approved book-study language. */
-                    <div className="mt-2.5 rounded-[16px] border border-[#EDEFF2] bg-[#FBFAF8] p-4" key={journey.assignment.id}>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#A07A35]">Continue together</p>
-                      <div className="mt-1.5 flex items-start justify-between gap-3">
+                <section className="py-5">
+                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Walking together</h3>
+                  <div className="mt-0.5">
+                    {conceptJourneys.map((journey) => (
+                      <div className="flex items-center justify-between gap-4 py-3" key={journey.assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-snug tracking-[-0.01em] text-[#0F1520]">{journey.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-[#6B7686]">
-                            {journey.stageLabel}
-                            {journey.currentSessionTitle ? ` · ${journey.currentSessionTitle}` : ""}
-                          </p>
+                          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{journey.title}</p>
+                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{journey.stageLabel}</p>
+                          {journey.completion && journey.completion.total > 0 ? (
+                            <span className="mt-2 block h-[3px] max-w-[200px] overflow-hidden rounded-full bg-[#E7E9ED]">
+                              <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
+                            </span>
+                          ) : null}
                         </div>
                         {journey.isInAppJourney && journey.resource ? (
                           <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
@@ -34978,86 +35039,75 @@ function PersonDetailOverlay({
                           <PDButton href={journey.resource.path}>Open</PDButton>
                         ) : null}
                       </div>
-                      {journey.completion && journey.completion.total > 0 ? (
-                        <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#E7E9ED]">
-                          <span className="block h-full rounded-full bg-[#2450C8]" style={{ width: `${Math.max(2, journey.percent)}%` }} />
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
-                  {!conceptJourneys.length ? (
-                    <button className="mt-2.5 text-[13.5px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
-                      + Start a Journey together
-                    </button>
-                  ) : null}
-                  <div className="mt-1">
+                    ))}
                     {accountabilityTopics.map((topic) => (
-                      <div className="flex items-center gap-3 py-2.5" key={topic.id}>
+                      <div className="flex items-center justify-between gap-4 py-3" key={topic.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[14.5px] font-semibold leading-[1.4] text-[#0F1520]">{topic.title}</p>
-                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#6B7686]">{topic.meta}</p>
+                          <p className="text-[15px] font-bold leading-[1.35] text-[#0F1520]">{topic.title}</p>
+                          <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">{shortTopicMeta(topic.meta)}</p>
                         </div>
                         <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
                     ))}
-                    {conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).map((item) => (
-                      <p className="py-2.5 text-[14px] leading-[1.55] text-[#3D4654]" key={item.id}>
-                        <span className="font-semibold text-[#0F1520]">Remember in prayer</span> — {item.text}
+                    {!conceptJourneys.length ? (
+                      <p className="py-2">
+                        <button className="text-[13px] font-semibold text-[#2450C8]" onClick={() => onAssignResource(person.id)} type="button">
+                          + Start a Journey together
+                        </button>
                       </p>
-                    ))}
-                    {!conceptJourneys.length && !accountabilityTopics.length && !conceptPrayerItems.filter((item) => item.text !== lastConversationPrayer).length ? (
-                      <p className="py-2 text-[14px] leading-[1.6] text-[#6B7686]">Nothing active together yet — use + to begin.</p>
+                    ) : null}
+                    {!conceptJourneys.length && !accountabilityTopics.length ? (
+                      <p className="py-1 text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing active together yet.</p>
                     ) : null}
                   </div>
                 </section>
+
+                <section className="py-5">
+                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Pray for</h3>
+                  {primaryPrayer ? (
+                    <>
+                      <p className="mt-2 text-[15px] font-semibold leading-[1.45] text-[#0F1520]">{primaryPrayerText}</p>
+                      {additionalPrayerCount ? (
+                        <p className="mt-0.5 text-[12.5px] font-semibold text-[#3D4654]">and {additionalPrayerCount} more</p>
+                      ) : null}
+                      <button
+                        className="mt-2.5 text-[13px] font-semibold text-[#2450C8]"
+                        onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}
+                        type="button"
+                      >
+                        Open prayer →
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-[13.5px] leading-[1.5] text-[#3D4654]">Nothing active — capture a prayer need with +.</p>
+                  )}
+                </section>
+
+                <section className="py-5 md:hidden">
+                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Coming up</h3>
+                  {personComingUpRows}
+                </section>
               </div>
 
-              <section className="mt-7 min-w-0 md:mt-0">
-                <h3 className="text-[16px] font-bold tracking-[-0.01em] text-[#0F1520]">Coming up</h3>
-                <div className="mt-1">
-                  <div className="flex items-center gap-3 py-2.5">
-                    {nextMeeting ? (
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[14.5px] font-semibold leading-[1.4] text-[#0F1520]">
-                          {nextMeeting.title?.trim() || "Time together"}
-                          <span className="font-semibold text-[#6B7686]"> · {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}</span>
-                        </p>
-                        {nextMeeting.notes?.trim() ? (
-                          <p className="mt-1 text-[13.5px] leading-[1.55] text-[#3D4654]">{nextMeeting.notes}</p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <>
-                        <p className="min-w-0 flex-1 text-[14px] leading-[1.5] text-[#6B7686]">Nothing on the calendar yet.</p>
-                        <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
-                      </>
-                    )}
+              <aside className="hidden min-w-0 md:block md:py-5">
+                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Coming up</h3>
+                {personComingUpRows}
+                {(person.phone || person.email) ? (
+                  <div className="mt-6 border-t border-[#E7E9ED] pt-4">
+                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-[#6B7686]">Contact</h3>
+                    {person.phone ? (
+                      <a className="mt-1.5 block text-[13.5px] font-semibold text-[#2450C8]" href={phoneActionHref("tel", person.phone)}>
+                        {formatPhoneNumber(person.phone) || person.phone}
+                      </a>
+                    ) : null}
+                    {person.email ? (
+                      <a className="mt-1 block break-words text-[13.5px] font-semibold text-[#2450C8]" href={`mailto:${person.email}`}>
+                        {person.email}
+                      </a>
+                    ) : null}
                   </div>
-                  {conceptFollowUps.map((followUp) => (
-                    <button className="block w-full py-2.5 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
-                      <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">{followUp.title}</p>
-                      {followUp.duePhrase ? <p className="mt-0.5 text-[12.5px] font-semibold text-[#6B7686]">{followUp.duePhrase}</p> : null}
-                    </button>
-                  ))}
-                  {upcomingGatherings.map(({ gathering, group }) => (
-                    <button className="block w-full py-2.5 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-                      <p className="text-[14.5px] font-semibold leading-[1.45] text-[#0F1520]">
-                        {group.name}
-                        <span className="text-[#6B7686]"> · {upcomingDayLabel(gathering.startsAt, true)}</span>
-                      </p>
-                    </button>
-                  ))}
-                  {personGroups.length && !upcomingGatherings.length ? (
-                    <p className="flex flex-wrap gap-x-4 gap-y-1 py-2.5 text-[14px]">
-                      {personGroups.map((group) => (
-                        <button className="font-semibold text-[#2450C8]" key={group.id} onClick={() => onOpenGroup(group.id)} type="button">
-                          {group.name}
-                        </button>
-                      ))}
-                    </p>
-                  ) : null}
-                </div>
-              </section>
+                ) : null}
+              </aside>
             </div>
           </article>
         ) : null}
