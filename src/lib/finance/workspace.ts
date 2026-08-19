@@ -10,7 +10,8 @@ import {
 import { isFactVerified, loadComplianceFacts, type ComplianceFact } from "@/src/lib/finance/facts";
 import { taxPeriodTypes, type TaxPeriodType } from "@/src/lib/finance/tax-period";
 
-export const FINANCE_DOCUMENTS_BUCKET = "finance-documents";
+// Finance no longer owns storage; the canonical library does.
+export { OPERATIONS_DOCUMENTS_BUCKET as FINANCE_DOCUMENTS_BUCKET } from "@/src/lib/documents/library";
 export const USA_MISSIONARIES_SLUG = "usa-missionaries";
 
 export const financeDocumentTypes = [
@@ -118,7 +119,7 @@ export async function loadFinanceDocuments(organizationId: string, limit = 100) 
   const supabase = createSupabaseAdminClient();
   const [documentsResult, factsResult, obligationsResult, periodsResult] = await Promise.all([
     supabase
-      .from("finance_documents")
+      .from("operations_documents")
       .select("id, document_type, title, file_name, file_size, status, uploaded_by, uploaded_at")
       .eq("organization_id", organizationId)
       .is("superseded_at", null)
@@ -423,7 +424,7 @@ export async function loadFinanceOverview({ today }: { today: string }): Promise
     loadTaxPeriods(organization.id),
     loadBankingSummary(organization.id),
     supabase
-      .from("finance_documents")
+      .from("operations_documents")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", organization.id)
       .is("superseded_at", null),
