@@ -52,6 +52,6 @@ export const morRoutes = {
 /** John Piper, "Don't Waste Your Life." Embedded via the no-cookie host. */
 export const dontWasteYourLife = {
   embedUrl: "https://www.youtube-nocookie.com/embed/mfpmbmsvu3A",
-  title: "John Piper — Don't Waste Your Life",
+  title: "John Piper, Don't Waste Your Life",
   watchUrl: "https://www.youtube.com/watch?v=mfpmbmsvu3A",
 } as const;

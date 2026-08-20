@@ -64,10 +64,10 @@ export default function RestorationPage() {
               style={{ borderColor: morColor.gold }}
             >
               <p className="text-[15px] leading-8" style={{ color: morColor.muted }}>
-                Take as long as you need. Your answers save on this device as you go, so you can stop
-                and come back. Nothing is sent until you choose to send it. If you would rather talk
-                something through in person than write it here, leave it blank &mdash; that is
-                completely okay.
+                Take as long as you need. Your answers save on this device as you go, so you can
+                stop and come back, and nothing is sent until you choose to send it. If a question is
+                hard to put into words, jot a short note and we can talk it through together when we
+                meet.
               </p>
             </div>
 

@@ -31,13 +31,13 @@ export type CaseStudy = {
   closing: string;
   name: string;
   photos: readonly CaseStudyPhoto[];
-  /** The essentials, one short line each. */
-  points: readonly string[];
   scripture?: {
     reference: string;
     text: string;
   };
-  /** One-sentence orientation before the points. */
+  /** The essentials as short narrative paragraphs, not a checklist. */
+  story: readonly string[];
+  /** Pull-lead that opens the study. */
   summary: string;
   video?: CaseStudyVideo;
   /** Where they serve, shown as a small dateline. */
@@ -60,20 +60,15 @@ const martyAndLauriFox: CaseStudy = {
       src: "/images/mission-of-reconciliation/marty-lauri-today.webp",
     },
   ],
-  points: [
-    "Gave their lives to the Lord in their late twenties.",
-    "Were deeply discipled by faithful men and women of God.",
-    "Learned to be doers of the Word, not merely hearers.",
-    "Raised a family centered on fearing God and obeying His commands.",
-    "Have spent nearly 30 years coming alongside marriages and families around kitchen tables.",
-    "Keep pouring into others rather than treating retirement as the finish line.",
-  ],
   scripture: {
     reference: "James 1:22",
     text: "Do not merely listen to the word, and so deceive yourselves. Do what it says.",
   },
-  summary:
-    "Two ordinary people who made themselves available, and have spent decades doing for others what faithful men and women once did for them.",
+  story: [
+    "Marty and Lauri gave their lives to the Lord in their late twenties and were deeply discipled by faithful men and women of God. Those people showed them that following Jesus means being doers of the Word, not merely hearers of it. They built a family centered on fearing God and obeying His commands.",
+    "For nearly thirty years they have come alongside marriages and families around kitchen tables, doing for others what was once done for them. Now, in the season when many people start counting down to retirement, they are still pouring into the people God puts in front of them.",
+  ],
+  summary: "Two ordinary people who simply made themselves available.",
   video: {
     embedUrl: dontWasteYourLife.embedUrl,
     note: "The question shaping this season of their lives.",

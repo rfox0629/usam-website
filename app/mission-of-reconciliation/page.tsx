@@ -93,7 +93,7 @@ function HeroSection() {
         <div className="mt-8 md:mt-10">
           <Lede>
             A national ministry helping people across America experience reconciliation,
-            restoration, and freedom in Jesus Christ &mdash; and calling followers of Jesus to come
+            restoration, and freedom in Jesus Christ, and calling followers of Jesus to come
             alongside others right where they already live.
           </Lede>
         </div>
@@ -242,45 +242,62 @@ function NationalInvitationSection() {
         <Display size="xl">What if thousands of us lived this way?</Display>
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-2 lg:gap-16">
-        <div className="space-y-6">
-          <Lede>
-            Across America are followers of Jesus with years of wisdom, lessons learned, healed
-            marriages, and stories of God&rsquo;s faithfulness. Around them are people who need
-            someone willing to come alongside them.
-          </Lede>
-          <div className="space-y-1">
-            <p className="text-base leading-8" style={{ color: morColor.body }}>
-              You do not need a platform.
+      <p
+        className="mt-8 max-w-2xl text-base leading-8 md:text-[1.0625rem] md:leading-9"
+        style={{ color: morColor.muted }}
+      >
+        Across America are followers of Jesus with years of wisdom, lessons learned, healed
+        marriages, and stories of God&rsquo;s faithfulness. Around them are people who need someone
+        willing to come alongside them.
+      </p>
+
+      {/* The turn: three things you don't need, set against the one thing you do. */}
+      <div
+        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
+        style={{ borderColor: morColor.rule }}
+      >
+        <div className="space-y-2">
+          {["You do not need a platform.", "You do not need a stage.", "You do not need a professional title."].map((line) => (
+            <p
+              className="text-[1.3rem] leading-[1.35] md:text-[1.45rem]"
+              key={line}
+              style={{ color: morColor.muted, fontFamily: morFont.oswald, fontWeight: 400 }}
+            >
+              {line}
             </p>
-            <p className="text-base leading-8" style={{ color: morColor.body }}>
-              You do not need a stage.
-            </p>
-            <p className="text-base leading-8" style={{ color: morColor.body }}>
-              You do not need a professional title.
-            </p>
-            <p className="text-base leading-8" style={{ color: morColor.ink }}>
-              You need to be willing to love people, obey Jesus, and make yourself available.
-            </p>
-          </div>
+          ))}
         </div>
+
+        <p
+          className="text-[1.75rem] leading-[1.25] md:text-[2.15rem]"
+          style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
+        >
+          You need to be willing to love people, obey Jesus, and{" "}
+          <span style={{ color: morColor.goldInk }}>make yourself available.</span>
+        </p>
+      </div>
+
+      <div
+        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-2 lg:items-center lg:gap-16"
+        style={{ borderColor: morColor.rule }}
+      >
+        <p
+          className="text-[2.25rem] leading-[1.05] md:text-[3rem]"
+          style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
+        >
+          The need is great.
+          <br />
+          <span style={{ color: morColor.goldInk }}>The time is now.</span>
+        </p>
 
         <div>
           <p
-            className="text-[2rem] leading-[1.1] md:text-[2.75rem]"
-            style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
-          >
-            The need is great.
-            <br />
-            <span style={{ color: morColor.goldInk }}>The time is now.</span>
-          </p>
-          <p
-            className="mt-6 max-w-xl text-lg leading-9 md:text-xl"
-            style={{ color: morColor.goldInk, fontFamily: morFont.oswald, fontWeight: 400 }}
+            className="max-w-md text-lg leading-8 md:text-xl md:leading-9"
+            style={{ color: morColor.body }}
           >
             Your kitchen table may be where someone&rsquo;s restoration begins.
           </p>
-          <div className="mt-8">
+          <div className="mt-7">
             <JoinMissionInterestModal
               defaultInterest="Come alongside people through Mission of Reconciliation"
               triggerClassName={morTriggerClassName}
