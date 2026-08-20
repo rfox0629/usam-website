@@ -18,14 +18,16 @@ export type CaseStudyPhoto = {
 
 export type CaseStudyVideo = {
   embedUrl: string;
-  /** Short line explaining why this video belongs to this story. */
-  note: string;
+  /** Link text shown in the study; the video opens over the page. */
+  linkLabel: string;
   title: string;
   watchUrl: string;
 };
 
 export type CaseStudy = {
-  /** Anchor id and React key. */
+  /** Card blurb on the stories index. One sentence. */
+  cardSummary: string;
+  /** Anchor id, React key, and the URL segment for this story's page. */
   id: string;
   /** Closing line that lands the story. */
   closing: string;
@@ -44,7 +46,18 @@ export type CaseStudy = {
   where: string;
 };
 
+/** Public URL for a story's own page. */
+export function caseStudyHref(study: CaseStudy) {
+  return `/mission-of-reconciliation/stories/${study.id}`;
+}
+
+export function getCaseStudy(slug: string) {
+  return caseStudies.find((study) => study.id === slug);
+}
+
 const martyAndLauriFox: CaseStudy = {
+  cardSummary:
+    "Nearly thirty years of opening their home and coming alongside marriages and families.",
   closing: "For Marty and Lauri, this is not retirement. It is a life sold out to Christ.",
   id: "marty-and-lauri-fox",
   name: "Marty & Lauri Fox",
@@ -71,7 +84,7 @@ const martyAndLauriFox: CaseStudy = {
   summary: "Two ordinary people who simply made themselves available.",
   video: {
     embedUrl: dontWasteYourLife.embedUrl,
-    note: "The question shaping this season of their lives.",
+    linkLabel: "Watch John Piper on not wasting your life",
     title: dontWasteYourLife.title,
     watchUrl: dontWasteYourLife.watchUrl,
   },

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { getMissionaryDirectory } from "@/src/lib/missionaries/queries";
 import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
+import { caseStudies, caseStudyHref } from "@/src/lib/mission-of-reconciliation/case-studies";
 
 const staticRoutes = [
   { path: "/", priority: 1 },
@@ -40,6 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified,
       priority: route.priority,
       url: `${siteUrl}${route.path}`,
+    })),
+    ...caseStudies.map((study) => ({
+      changeFrequency: "monthly" as const,
+      lastModified,
+      priority: 0.6,
+      url: `${siteUrl}${caseStudyHref(study)}`,
     })),
     ...missionaries.map((missionary) => ({
       changeFrequency: "weekly" as const,

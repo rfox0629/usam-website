@@ -14,7 +14,7 @@ import {
   Section,
 } from "./_components/MissionPrimitives";
 import { PrimaryCta, SecondaryCta, morTriggerOnDarkClassName } from "./_components/MissionCta";
-import { CaseStudyBlock } from "./_components/CaseStudy";
+import { StoryCard } from "./_components/StoryCard";
 
 export const metadata: Metadata = {
   alternates: { canonical: morRoutes.home },
@@ -180,15 +180,18 @@ function RestorationJourneySection() {
 function PartnershipSection() {
   return (
     <Section compact id="partnership" tone="deep">
-      <Eyebrow onDark>Mission of Reconciliation + USA Missionaries</Eyebrow>
-      <p
-        className="mt-4 max-w-3xl text-[1.0625rem] leading-8 md:text-xl md:leading-9"
-        style={{ color: "rgba(255,255,255,0.82)" }}
-      >
-        Mission of Reconciliation works in partnership with USA Missionaries because restoration and
-        discipleship belong together. We want to see people reconciled to God, restored through
-        Jesus, walking in obedience, and helping others follow Him.
-      </p>
+      {/* Centred: this band is a single statement, not a column of reading. */}
+      <div className="text-center">
+        <Eyebrow onDark>Mission of Reconciliation + USA Missionaries</Eyebrow>
+        <p
+          className="mx-auto mt-4 max-w-3xl text-[1.0625rem] leading-8 md:text-xl md:leading-9"
+          style={{ color: "rgba(255,255,255,0.82)" }}
+        >
+          Mission of Reconciliation works in partnership with USA Missionaries because restoration
+          and discipleship belong together. We want to see people reconciled to God, restored
+          through Jesus, walking in obedience, and helping others follow Him.
+        </p>
+      </div>
     </Section>
   );
 }
@@ -203,14 +206,15 @@ function StoriesSection() {
 
       <div className="mt-8">
         <Lede>
-          What this looks like in real life: ordinary followers of Jesus walking with the people
-          God has placed around them.
+          What this looks like in real life: ordinary followers of Jesus walking with the people God
+          has placed around them.
         </Lede>
       </div>
 
-      <div className="mt-14 space-y-16 md:space-y-20">
+      {/* A directory, not a single feature. Adding a study to `caseStudies` adds a card. */}
+      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
         {caseStudies.map((study, index) => (
-          <CaseStudyBlock index={index + 1} key={study.id} study={study} />
+          <StoryCard index={index + 1} key={study.id} study={study} />
         ))}
       </div>
     </Section>
