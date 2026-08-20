@@ -11,10 +11,13 @@ import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 
 export function Section({
   children,
+  compact = false,
   id,
   tone = "page",
 }: {
   children: ReactNode;
+  /** Shorter vertical rhythm for sections that carry only a line or two. */
+  compact?: boolean;
   id?: string;
   tone?: "band" | "deep" | "page";
 }) {
@@ -26,7 +29,7 @@ export function Section({
 
   return (
     <section
-      className="scroll-mt-20 px-5 py-16 md:px-8 md:py-24 lg:py-32"
+      className={`scroll-mt-20 px-5 md:px-8 ${compact ? "py-12 md:py-16" : "py-16 md:py-24 lg:py-32"}`}
       id={id}
       style={{ backgroundColor: background }}
     >

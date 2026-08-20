@@ -11,6 +11,9 @@ const baseClassName = "inline-flex min-h-[3.25rem] items-center justify-center p
  */
 export const morTriggerClassName = `${baseClassName} cursor-pointer border border-[#E4DDCE] text-[#15120C] hover:border-[#C2A14E]`;
 
+/** Same trigger, on the deep band. */
+export const morTriggerOnDarkClassName = `${baseClassName} cursor-pointer border border-white/35 text-white hover:border-[#C2A14E]`;
+
 export function primaryCtaStyle() {
   return {
     backgroundColor: morColor.gold,
