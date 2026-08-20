@@ -220,9 +220,8 @@ function StoriesSection() {
 
       <div className="mt-8">
         <Lede>
-          Mission of Reconciliation is not built around professional titles. It is ordinary
-          followers of Jesus making themselves available to love people, disciple others, and walk
-          with them through life.
+          What this looks like in real life: ordinary followers of Jesus walking with the people
+          God has placed around them.
         </Lede>
       </div>
 
