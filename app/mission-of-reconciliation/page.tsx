@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
@@ -14,12 +13,7 @@ import {
   ScriptureQuote,
   Section,
 } from "./_components/MissionPrimitives";
-import {
-  PrimaryCta,
-  SecondaryCta,
-  morTriggerClassName,
-  morTriggerOnDarkClassName,
-} from "./_components/MissionCta";
+import { PrimaryCta, SecondaryCta, morTriggerOnDarkClassName } from "./_components/MissionCta";
 import { CaseStudyBlock } from "./_components/CaseStudy";
 
 export const metadata: Metadata = {
@@ -186,26 +180,15 @@ function RestorationJourneySection() {
 function PartnershipSection() {
   return (
     <Section compact id="partnership" tone="deep">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center lg:gap-14">
-        <Image
-          alt="USA Missionaries"
-          className="h-auto w-[84px] object-contain"
-          height={52}
-          src="/brand/logo/usam-website-logo.png"
-          width={84}
-        />
-        <div>
-          <Eyebrow onDark>Mission of Reconciliation + USA Missionaries</Eyebrow>
-          <p
-            className="mt-4 max-w-3xl text-[1.0625rem] leading-8 md:text-xl md:leading-9"
-            style={{ color: "rgba(255,255,255,0.82)" }}
-          >
-            Mission of Reconciliation works in partnership with USA Missionaries because restoration
-            and discipleship belong together. We want to see people reconciled to God, restored
-            through Jesus, walking in obedience, and helping others follow Him.
-          </p>
-        </div>
-      </div>
+      <Eyebrow onDark>Mission of Reconciliation + USA Missionaries</Eyebrow>
+      <p
+        className="mt-4 max-w-3xl text-[1.0625rem] leading-8 md:text-xl md:leading-9"
+        style={{ color: "rgba(255,255,255,0.82)" }}
+      >
+        Mission of Reconciliation works in partnership with USA Missionaries because restoration and
+        discipleship belong together. We want to see people reconciled to God, restored through
+        Jesus, walking in obedience, and helping others follow Him.
+      </p>
     </Section>
   );
 }
@@ -277,37 +260,6 @@ function NationalInvitationSection() {
         </p>
       </div>
 
-      <div
-        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-2 lg:items-center lg:gap-16"
-        style={{ borderColor: morColor.rule }}
-      >
-        <p
-          className="text-[2.25rem] leading-[1.05] md:text-[3rem]"
-          style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
-        >
-          The need is great.
-          <br />
-          <span style={{ color: morColor.goldInk }}>The time is now.</span>
-        </p>
-
-        <div>
-          <p
-            className="max-w-md text-lg leading-8 md:text-xl md:leading-9"
-            style={{ color: morColor.body }}
-          >
-            Your kitchen table may be where someone&rsquo;s restoration begins.
-          </p>
-          <div className="mt-7">
-            <JoinMissionInterestModal
-              defaultInterest="Come alongside people through Mission of Reconciliation"
-              triggerClassName={morTriggerClassName}
-              triggerFontWeight={700}
-            >
-              Join the Mission
-            </JoinMissionInterestModal>
-          </div>
-        </div>
-      </div>
     </Section>
   );
 }
@@ -353,23 +305,6 @@ function FinalCtaSection() {
         </div>
       </div>
 
-      <div
-        className="mt-14 border-t pt-8"
-        style={{ borderColor: "rgba(255,255,255,0.14)" }}
-      >
-        <p
-          className="text-lg uppercase tracking-[0.1em] md:text-xl"
-          style={{ color: "#FFFFFF", fontFamily: morFont.oswald, fontWeight: 500 }}
-        >
-          {morBrand.name}
-        </p>
-        <p
-          className="mt-2 text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: morColor.gold, fontFamily: morFont.rajdhani, fontWeight: 600 }}
-        >
-          {morBrand.partnership}
-        </p>
-      </div>
     </Section>
   );
 }

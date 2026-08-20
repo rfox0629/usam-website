@@ -8,10 +8,9 @@ const baseClassName = "inline-flex min-h-[3.25rem] items-center justify-center p
  * JoinMissionInterestModal only forwards a className to its trigger button (it
  * sets font family and weight inline itself), so the outline treatment has to be
  * expressed entirely in Tailwind classes rather than the shared style objects.
+ * The only Join trigger left sits on the deep band; add a light variant back if
+ * one ever lands on a cream section.
  */
-export const morTriggerClassName = `${baseClassName} cursor-pointer border border-[#E4DDCE] text-[#15120C] hover:border-[#C2A14E]`;
-
-/** Same trigger, on the deep band. */
 export const morTriggerOnDarkClassName = `${baseClassName} cursor-pointer border border-white/35 text-white hover:border-[#C2A14E]`;
 
 export function primaryCtaStyle() {
