@@ -34198,7 +34198,7 @@ function PDButton({
 }) {
   // One action grid for every contextual control (Continue / Check In / Open /
   // View Meeting) so the right edge of a row list reads as intentional.
-  const className = `inline-flex min-h-[34px] w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
+  const className = `inline-flex min-h-[34px] min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
     tone === "solid"
       ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
       : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
@@ -34907,11 +34907,12 @@ function PersonDetailOverlay({
   // the meeting type is demoted to a chip. `subdued` renders the desktop rail
   // variant, which is deliberately subordinate to the main column.
   const renderComingUp = (subdued: boolean) => (
-    <div className={subdued ? "mt-2.5" : "mt-3"}>
+    <div className={`mt-2 divide-y divide-[#F0F2F5] ${subdued ? "" : ""}`}>
       {nextMeeting ? (
-        <div className="pb-3">
-          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <p className={`font-bold leading-[1.2] tracking-[-0.01em] text-dos-primary ${subdued ? "text-[16px]" : "text-[19px]"}`}>
+        <div className="py-3 first:pt-1">
+          <p className="text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Meeting</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <p className={`font-bold leading-[1.2] tracking-[-0.01em] text-dos-primary ${subdued ? "text-[16px]" : "text-[18px]"}`}>
               {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
             </p>
             {nextMeeting.title?.trim() ? (
@@ -34921,36 +34922,32 @@ function PersonDetailOverlay({
             ) : null}
           </div>
           {nextMeeting.notes?.trim() ? (
-            <p className={`mt-1.5 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[14.5px]"}`}>
-              <span className="font-semibold text-dos-secondary">Your note · </span>
-              {nextMeeting.notes}
-            </p>
+            <p className={`mt-1.5 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[14.5px]"}`}>{nextMeeting.notes}</p>
           ) : null}
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-3 pb-3">
-          <p className={`leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>Nothing scheduled yet.</p>
+        <div className="flex items-center justify-between gap-3 py-3 first:pt-1">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Meeting</p>
+            <p className={`mt-1 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>Nothing scheduled yet.</p>
+          </div>
           <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
         </div>
       )}
       {conceptFollowUps.map((followUp) => (
-        <button className="flex w-full items-start gap-2.5 border-t border-[#F0F2F5] py-3 text-left" key={followUp.id} onClick={followUp.onOpen} type="button">
-          <Bell className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={1.9} />
-          <span className="min-w-0 flex-1">
-            <span className={`block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15px]"}`}>{followUp.title}</span>
-            {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{followUp.duePhrase}</span> : null}
-          </span>
+        <button className="block w-full py-3 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
+          <span className="block text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Follow-up</span>
+          <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>{followUp.title}</span>
+          {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{followUp.duePhrase}</span> : null}
         </button>
       ))}
       {upcomingGatherings.map(({ gathering, group }) => (
-        <button className="flex w-full items-start gap-2.5 border-t border-[#F0F2F5] py-3 text-left" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-          <Users className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={1.9} />
-          <span className="min-w-0 flex-1">
-            <span className={`block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15px]"}`}>
-              {gathering.title?.trim() || group.name}
-            </span>
-            <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
+        <button className="block w-full py-3 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+          <span className="block text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Group gathering</span>
+          <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>
+            {gathering.title?.trim() || group.name}
           </span>
+          <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
         </button>
       ))}
     </div>
@@ -35571,10 +35568,10 @@ function PersonDetailOverlay({
               <details className="mt-3.5 group">
                 <summary className="cursor-pointer list-none text-[13px] font-semibold text-dos-blue">What these mean</summary>
                 <div className="mt-2 grid gap-1.5 text-[13.5px] leading-[1.5] text-dos-body">
-                  <p><span className="font-semibold text-dos-primary">Relationship</span> — the kind of ministry relationship you have. You set this.</p>
-                  <p><span className="font-semibold text-dos-primary">Circle</span> — relational proximity and stewardship (My 3 / 12 / 70 / 120). Always confirmed by you.</p>
-                  <p><span className="font-semibold text-dos-primary">Engagement</span> — how responsive this relationship is right now. You set this.</p>
-                  <p><span className="font-semibold text-dos-primary">Spiritual journey</span> — derived from logged meetings, reviews and fruit.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Relationship</span> — the kind of ministry relationship you have. You set this.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Circle</span> — relational proximity and stewardship (My 3 / 12 / 70 / 120). Always confirmed by you.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Engagement</span> — how responsive this relationship is right now. You set this.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Spiritual journey</span> — derived from logged meetings, reviews and fruit.</p>
                 </div>
               </details>
               {visibleCircleSuggestion ? (
@@ -35622,25 +35619,6 @@ function PersonDetailOverlay({
                   {person.householdNotes ? (
                     <p className="py-2.5 text-[14.5px] leading-[1.5] text-dos-body">{person.householdNotes}</p>
                   ) : null}
-                </div>
-              </section>
-            ) : null}
-
-            {personGroups.length ? (
-              <section className="mt-6 border-t border-dos-rule pt-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Groups</h3>
-                <div className="mt-1 divide-y divide-dos-rule">
-                  {personGroups.map((group) => (
-                    <div className="flex items-center gap-4 py-2.5" key={group.id}>
-                      <p className="min-w-0 flex-1 text-[15px] font-semibold leading-[1.4] text-dos-primary">
-                        {group.name}
-                        {group.leaderPersonId === person.id ? (
-                          <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Leader</span>
-                        ) : null}
-                      </p>
-                      <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                    </div>
-                  ))}
                 </div>
               </section>
             ) : null}
@@ -35778,10 +35756,10 @@ function PersonDetailOverlay({
             <p className="text-[16px] font-semibold leading-[1.5] text-dos-primary">
               You&apos;ve been spending significantly more time with {firstName} recently.
             </p>
-            <p>
+            <p className="text-dos-body">
               {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions)} meaningful conversations · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} · last 30 days
             </p>
-            <p>Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
+            <p className="text-dos-body">Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
             <div className="grid gap-2">
               <AppButton
                 onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleInsightStage(null); }}
@@ -35798,17 +35776,17 @@ function PersonDetailOverlay({
             </div>
             {circleInsightStage === "why" ? (
               <div className="rounded-2xl bg-dos-band p-3.5 text-[13px] leading-[1.6] text-dos-body">
-                <p>
+                <p className="text-dos-body">
                   DOS compares your logged one-to-one time over a rolling 30-day window against the people currently in each of your circles. Nothing is inferred — only what you logged counts, and DOS never moves anyone without you.
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
                     <p className="text-[11px] font-bold text-dos-secondary">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
-                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+                    <p className="mt-1 text-dos-body">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
                   </div>
                   <div className="rounded-xl border border-[#CFDBF7] bg-white p-2.5">
                     <p className="text-[11px] font-bold text-dos-blue">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
-                    <p className="mt-1">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+                    <p className="mt-1 text-dos-body">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
                   </div>
                 </div>
               </div>
@@ -36524,13 +36502,13 @@ function MeetingDetailOverlay({
                 {(meetingAgreed || meetingPrayer) ? (
                   <section className="border-b border-dos-rule py-5">
                     {meetingAgreed ? (
-                      <p className="flex items-start gap-2.5 text-[15.5px] font-semibold leading-[1.4] text-dos-primary">
-                        <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
-                        <span>
-                          <span className="text-dos-secondary">Agreed — </span>
+                      <>
+                        <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Agreed</h3>
+                        <p className="mt-2 flex items-start gap-2.5 text-[15.5px] font-semibold leading-[1.4] text-dos-primary">
+                          <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
                           {meetingAgreed}
-                        </span>
-                      </p>
+                        </p>
+                      </>
                     ) : null}
                     {meetingPrayer ? (
                       <p className={`flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-body ${meetingAgreed ? "mt-2.5" : ""}`}>
@@ -36605,18 +36583,18 @@ function MeetingDetailOverlay({
                 ) : (
                   <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No follow-up set.</p>
                 )}
-                <div className="mt-3 grid gap-2 text-[13.5px] font-semibold">
+                <div className="mt-4 grid gap-2 text-[13.5px] font-semibold">
                   <p className="text-dos-secondary">
                     Quick Review <span className="font-semibold text-dos-primary">· {reviewDisplayTitle}</span>
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-2 sm:flex sm:flex-wrap">
                     {reviewIsCompleted ? null : (
                       <PDButton onClick={reviewRequestReady ? onCopyReviewLink : onPrepareQuickReview}>
-                        {reviewRequestReady ? "Copy link" : "Send Quick Review"}
+                        {reviewRequestReady ? "Copy link" : "Request Review"}
                       </PDButton>
                     )}
                     {canSendTestimony ? (
-                      <PDButton onClick={onPrepareTestimonyRequest}>Testimony request</PDButton>
+                      <PDButton onClick={onPrepareTestimonyRequest}>Request Testimony</PDButton>
                     ) : null}
                   </div>
                   {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
