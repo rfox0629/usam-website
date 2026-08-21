@@ -30,23 +30,52 @@ assert(
   "Selecting an existing participant must clear the participants search query after adding the chip.",
 );
 
+// USA-168 simplified the primary path to date -> who -> more people & role.
+// "Discipleship Role" / "Participants" / "Edit People" are the pre-USA-168
+// section names; the guarantee being guarded is unchanged: participants come
+// first, and role/ministry team/supporting attendees stay behind one collapsed
+// disclosure rather than expanding the form by default.
 assert(
-  meetingFormBlock.indexOf('title="Discipleship Role"') < meetingFormBlock.indexOf('title="Participants"')
-    && meetingFormBlock.indexOf('title="Participants"') < meetingFormBlock.indexOf('title="Edit People"'),
-  "Log Table must show Discipleship Role then Participants before the collapsed Edit People disclosure.",
+  meetingFormBlock.indexOf('title="Who was there?"') !== -1
+    && meetingFormBlock.indexOf('title="Who was there?"') < meetingFormBlock.indexOf('title="More people & role"'),
+  "Log Meeting must show participants before the collapsed More people & role disclosure.",
 );
 
-const editPeopleStart = meetingFormBlock.indexOf('title="Edit People"');
-const editPeopleBlock = meetingFormBlock.slice(editPeopleStart, meetingFormBlock.indexOf('title="Duration"', editPeopleStart) === -1 ? undefined : meetingFormBlock.indexOf('title="Duration"', editPeopleStart));
+const morePeopleStart = meetingFormBlock.indexOf('title="More people & role"');
+const morePeopleBlock = meetingFormBlock.slice(0, morePeopleStart);
 
 assert(
-  editPeopleBlock.includes("<MinistryTeamSelector") && editPeopleBlock.includes("<SupportingAttendeeSelector"),
-  "Ministry Team and Supporting Attendees must be hidden behind the Edit People disclosure, not always expanded.",
+  morePeopleBlock.includes("<DisclosureSection"),
+  "More people & role must be rendered as a collapsed disclosure.",
 );
 
 assert(
-  meetingFormBlock.includes("defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}"),
-  "Edit People must auto-open when a ministry team member or supporting attendee is already selected, so existing data is never hidden.",
+  meetingFormBlock.includes("<TableRolePicker")
+    && meetingFormBlock.includes("<MinistryTeamSelector")
+    && meetingFormBlock.includes("<SupportingAttendeeSelector"),
+  "Role, Ministry Team and Supporting Attendees must remain available inside the disclosure.",
+);
+
+// The workspace ministry team is prefilled on every log, so the disclosure must
+// not open merely because it is populated, or it is never actually collapsed.
+assert(
+  !meetingFormBlock.includes("defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}"),
+  "More people & role must not open just because the default ministry team is present.",
+);
+
+// The original guarantee was "existing data is never hidden", previously met by
+// auto-opening. Ad-hoc content still auto-opens; the prefilled default team is
+// instead reported in the collapsed summary, which keeps the guarantee without
+// leaving the section permanently expanded.
+assert(
+  meetingFormBlock.includes("defaultOpen={selectedMinistryTeamPersonIds.length + selectedSupportingAttendeeIds.length > 0 || selectedTableRole !== \"ministering\"}"),
+  "More people & role must auto-open for an ad-hoc ministry team person, a supporting attendee, or a non-default role.",
+);
+
+assert(
+  meetingFormBlock.includes("summary={morePeopleSummary}")
+    && meetingFormBlock.includes("const morePeopleSummary = (() => {"),
+  "The collapsed More people & role header must report the role and ministry team it contains.",
 );
 
 assert(

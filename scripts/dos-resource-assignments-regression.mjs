@@ -132,7 +132,11 @@ assertIncludes(client, "computeGroupFocusAssignment", "group journey view derive
 assertIncludes(client, "groupNamesForAssignmentContext", "person profile exposes assignment context");
 assertIncludes(client, "ResourceAssignmentCard", "client has reusable assignment card");
 assertIncludes(client, "Assigned Resources", "person Growth/My Record show assigned resources");
-assertIncludes(client, "Completed Journeys (", "person Growth shows a collapsible completed-journeys history");
+// The Person Growth tab was removed by the USA-168 consolidation. Completed
+// journeys are not lost: they are chronological relationship events now, and
+// appear in the Person Timeline.
+assertIncludes(client, "completedResourceAssignments", "completed journeys remain derived for the Person");
+assertIncludes(client, "`Completed ${resourceAssignmentTitle(assignment)}`", "completed journeys appear in the Person timeline");
 assertIncludes(client, "ResourceAssignmentsDashboardCard", "dashboard has resource follow-up presentation");
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
 assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");

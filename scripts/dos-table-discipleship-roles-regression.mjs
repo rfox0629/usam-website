@@ -61,7 +61,10 @@ assert(
 );
 
 for (const copy of [
-  "What best describes your role at this table?",
+  // Renamed in USA-168: the enclosing field already prints a visible label, so
+  // this string is now the control's accessible name only, and "table" is the
+  // pre-rename noun for a meeting.
+  "Your role in this meeting",
   "Ministering",
   "Being Mentored",
   "Mutual Discipleship",

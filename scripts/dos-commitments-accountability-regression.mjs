@@ -85,14 +85,26 @@ assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick ac
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard accountability card");
 assertIncludes(client, '<AccountabilityDashboardCard', "dashboard renders accountability card");
 assertIncludes(client, "PersonAccountabilitySummaryCard", "person overview accountability summary");
-assertIncludes(client, 'activeDetailTab === "commitments"', "person commitments tab");
+// USA-168 consolidated the Person's six tabs into Overview / Timeline /
+// Details, so there is no standalone Commitments tab any more. The capability
+// must survive the consolidation: active accountability appears in Overview's
+// RIGHT NOW with a Check in action, and the deeper management sheets below are
+// still reachable.
+assertIncludes(client, "accountabilityTopics.map", "person overview lists active accountability");
+assertIncludes(client, "onClick={topic.onCheckIn}", "person overview offers an accountability check-in");
+assertIncludes(client, 'kind: "check_in"', "accountability check-ins appear in the Person timeline");
 assertIncludes(client, "CommitmentsPanel", "person commitments panel");
 assertIncludes(client, "CommitmentFormSheet", "commitment creation sheet");
 assertIncludes(client, "CommitmentUpdateSheet", "progress update sheet");
 assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
 assertIncludes(client, 'type="submit"', "commitment sheets use native form submission");
 assertIncludes(client, "new FormData(event.currentTarget)", "commitment handlers read one submitted form");
-assertIncludes(client, "grid-cols-3 sm:grid-cols-6", "mobile-safe profile tab grid");
+// The six-across tab grid this guarded no longer exists: USA-168 reduced the
+// Person to three destinations, which fit on a phone without a wrapping grid.
+assertIncludes(client, 'grid grid-cols-3', "profile tab strip stays a mobile-safe three-across grid");
+assertIncludes(client, 'label: "Overview", value: "overview"', "Person keeps three destinations");
+assertIncludes(client, 'label: "Timeline", value: "history"', "Person keeps three destinations");
+assertIncludes(client, 'label: "Details", value: "details"', "Person keeps three destinations");
 assertIncludes(client, "setCommitmentStatus(commitment, \"completed\")", "complete quick action");
 assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused\"", "pause/reactivate quick action");
 assertIncludes(client, "function accountabilityCheckInDurationMinutes", "client normalizes check-in duration for aggregation");
@@ -100,7 +112,10 @@ assertIncludes(client, "data.accountabilityCheckIns.forEach((checkIn) => {", "cl
 assertIncludes(client, "addPersonInteractionStats(stats, checkIn.personId, accountabilityCheckInDurationMinutes(checkIn))", "person meeting stats include check-in duration");
 assertIncludes(client, "loggedMeetings.length + accountabilityCheckIns.length", "dashboard meeting count includes accountability check-ins");
 assertIncludes(client, "accountabilityCheckIns.map((checkIn) => checkIn.personId)", "dashboard people-met count includes check-in people");
-assertIncludes(client, 'source: "Check-In" as const', "person growth history includes check-in milestones");
+// The Growth milestone list was folded into the unified Person Timeline, where
+// check-ins are ordinary chronological events carrying their own date and note.
+assertIncludes(client, "id: `history-check-in-${checkIn.id}`", "check-ins are Person timeline entries");
+assertIncludes(client, "date: checkIn.checkInDate", "check-in timeline entries carry their date");
 
 assertIncludes(loader, "featureFlags: DosAppFeatureFlags", "loader exposes feature flags");
 assertIncludes(loader, "commitmentsAccountability", "loader maps commitments feature flag");

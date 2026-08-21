@@ -41,8 +41,13 @@ export const dosSurface = {
   hairline: "#E7E9ED",
   /** Chrome/content boundary and section rules. */
   rule: "#EDEFF2",
-  /** Cool tinted working-region band — figure/ground without a card. */
-  band: "#F6F9FE",
+  /**
+   * Working-region band — figure/ground without a card. Lifted from the
+   * approved Discipleship book-study page, which uses a warm near-white
+   * rather than a blue tint: a blue band reads as a dashboard panel, which
+   * is the exact impression USA-168 is removing.
+   */
+  band: "#FBFAF8",
   /** DOS blue — actions, progress, and the single section eyebrow. */
   blue: "#2450C8",
 } as const;

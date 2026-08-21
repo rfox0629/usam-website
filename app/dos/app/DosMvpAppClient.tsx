@@ -4908,14 +4908,18 @@ function DisclosureSection({
   children,
   defaultOpen = false,
   description,
+  summary,
   title,
 }: {
   children: ReactNode;
   defaultOpen?: boolean;
   description?: string;
+  /** Shown instead of `description` while collapsed, to report current contents. */
+  summary?: string;
   title: string;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const subtitle = !isOpen && summary ? summary : description;
 
   return (
     <section className="rounded-[20px] border border-[#E2E8F0] bg-white">
@@ -4927,7 +4931,7 @@ function DisclosureSection({
       >
         <span className="min-w-0">
           <span className="block text-sm font-bold text-[#0F172A]">{title}</span>
-          {description ? <span className="mt-0.5 block text-xs font-medium leading-5 text-[#64748B]">{description}</span> : null}
+          {subtitle ? <span className="mt-0.5 block text-xs font-medium leading-5 text-[#64748B]">{subtitle}</span> : null}
         </span>
         <ChevronRight
           aria-hidden="true"
@@ -4938,6 +4942,21 @@ function DisclosureSection({
       {isOpen ? <div className="grid gap-4 rounded-b-[20px] border-t border-[#EAF2FF] px-4 pb-4 pt-4">{children}</div> : null}
     </section>
   );
+}
+
+// The founder preview is deliberately read-only, so its notice must not read as
+// a broken form. Anything else stays an error.
+function FormMessage({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  const isReadOnlyNotice = message.startsWith("Preview mode is read-only");
+  const className = isReadOnlyNotice
+    ? "rounded-2xl border border-dos-rule bg-dos-band p-3 text-sm text-dos-body"
+    : "rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700";
+
+  return <p className={className}>{message}</p>;
 }
 
 function StickyFormFooter({ children }: { children: ReactNode }) {
@@ -18179,6 +18198,14 @@ function computeCircleSuggestion({
   return null;
 }
 
+// The circle explanation is the surface where the deterministic maths has to
+// look trustworthy, so its counts read as sentences rather than raw numbers.
+function formatConversationCount(value: number, noun = "conversation") {
+  const rounded = Math.round(value * 10) / 10;
+
+  return `${rounded} ${rounded === 1 ? noun : `${noun}s`}`;
+}
+
 function formatInvestedTime(minutes: number) {
   const roundedMinutes = Math.round(minutes);
   const hours = Math.floor(roundedMinutes / 60);
@@ -20026,7 +20053,8 @@ function MeetingContextPicker({
 }) {
   return (
     <CompactOptionSelect
-      label="Table Context"
+      hideLabel
+      label="Meeting context"
       onChange={(nextValue) => onChange(nextValue as DosAppMeetingType)}
       options={meetingTypeOptions.map((option) => ({ label: option.label, value: option.value }))}
       value={value}
@@ -20500,7 +20528,7 @@ function MinistryTeamSelector({
           {selectedMembers.map((member, index) => (
             <button
               aria-label={`Remove ${member.displayName} from ministry team`}
-              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#F2C94C] bg-[#FFFBEB] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#D6A300]"
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#E3E6EB] bg-white pl-1 pr-2 text-[11px] font-semibold text-dos-primary transition-colors hover:border-[#0F1520]"
               key={`member-${member.id}`}
               onClick={() => onToggleMember(member.id)}
               type="button"
@@ -20509,13 +20537,13 @@ function MinistryTeamSelector({
                 {initials(member.displayName)}
               </span>
               <span className="max-w-[9rem] truncate">{member.displayName}</span>
-              <span className="ml-0.5 text-[13px] leading-none text-[#A16207]" aria-hidden="true">&times;</span>
+              <span className="ml-0.5 text-[13px] leading-none text-dos-secondary" aria-hidden="true">&times;</span>
             </button>
           ))}
           {selectedPeople.map((person, index) => (
             <button
               aria-label={`Remove ${person.name} from ministry team`}
-              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#F2C94C] bg-[#FFFBEB] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#D6A300]"
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#E3E6EB] bg-white pl-1 pr-2 text-[11px] font-semibold text-dos-primary transition-colors hover:border-[#0F1520]"
               key={`person-${person.id}`}
               onClick={() => onTogglePerson(person.id)}
               type="button"
@@ -20524,7 +20552,7 @@ function MinistryTeamSelector({
                 {initials(person.name)}
               </span>
               <span className="max-w-[9rem] truncate">{person.name}</span>
-              <span className="ml-0.5 text-[13px] leading-none text-[#A16207]" aria-hidden="true">&times;</span>
+              <span className="ml-0.5 text-[13px] leading-none text-dos-secondary" aria-hidden="true">&times;</span>
             </button>
           ))}
         </div>
@@ -20666,8 +20694,11 @@ function TableRolePicker({
   return (
     <>
       <input name="table_role" type="hidden" value={value} />
+      {/* The visible label comes from the enclosing field; keep an accessible
+          name on the control itself without printing a second heading. */}
       <CompactOptionSelect
-        label="What best describes your role at this table?"
+        hideLabel
+        label="Your role in this meeting"
         onChange={(nextValue) => onChange(normalizeTableRole(nextValue))}
         options={tableRoleOptions}
         value={value}
@@ -21347,6 +21378,30 @@ function MeetingFormContent({
       value={selectedConversationFlow}
     />
   ) : null;
+  // Collapsed summary for "More people & role", so the section can stay shut
+  // without concealing the prefilled ministry team.
+  const morePeopleSummary = (() => {
+    const roleLabel = tableRoleOptions.find((option) => option.value === selectedTableRole)?.label ?? "Ministering";
+    const teamNames = [
+      ...selectedMinistryTeamMemberIds
+        .map((memberId) => householdMembers.find((member) => member.id === memberId)?.displayName)
+        .filter((name): name is string => Boolean(name)),
+      ...selectedMinistryTeamPersonIds
+        .map((personId) => allPeople.find((person) => person.id === personId)?.name)
+        .filter((name): name is string => Boolean(name)),
+    ];
+    const parts = [roleLabel];
+
+    if (teamNames.length) {
+      parts.push(`with ${teamNames.join(", ")}`);
+    }
+
+    if (selectedSupportingAttendeeIds.length) {
+      parts.push(`+${selectedSupportingAttendeeIds.length} supporting`);
+    }
+
+    return parts.join(" · ");
+  })();
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
   const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
   const scheduledDurationDefault = durationMinutesFromDateRange(scheduledStartAtDefault, scheduledEndAtDefault);
@@ -21372,8 +21427,13 @@ function MeetingFormContent({
         {peopleSelector}
       </DosFormSection>
       <DisclosureSection
-        defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}
+        /* The workspace ministry team is prefilled on every log, so opening
+           merely because it is present kept this section permanently expanded
+           and undid the simplification. Open only when something non-default
+           is inside; otherwise report the contents in the collapsed summary. */
+        defaultOpen={selectedMinistryTeamPersonIds.length + selectedSupportingAttendeeIds.length > 0 || selectedTableRole !== "ministering"}
         description="Your role, ministry team, and others who were present."
+        summary={morePeopleSummary}
         title="More people & role"
       >
         <DosFormField helper="Changes which reflection fields you are asked for." label="Your role">
@@ -21446,7 +21506,7 @@ function MeetingFormContent({
         </DosFormSection>
       )}
       {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
-      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <FormMessage message={errorMessage} />
       <StickyFormFooter>
         <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
       </StickyFormFooter>
@@ -21668,7 +21728,7 @@ function ScheduleMeetingForm({
         </DosFormField>
       </DisclosureSection>
 
-      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      <FormMessage message={errorMessage} />
       <StickyFormFooter>
         <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Meeting"}</AppButton>
         <button
@@ -32637,7 +32697,7 @@ function MeetingPeopleDetailCard({ meeting, people }: { meeting: DosAppMeeting; 
   }
 
   return (
-    <DetailCard title="People at this Table">
+    <DetailCard title="Who was there">
       <div className="grid gap-2">
         {rows.map((row) => (
           <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5" key={row.id}>
@@ -34194,15 +34254,19 @@ function PDButton({
   children: ReactNode;
   href?: string;
   onClick?: () => void;
-  tone?: "outline" | "solid";
+  tone?: "outline" | "quiet" | "solid";
 }) {
-  // One action grid for every contextual control (Continue / Check In / Open /
-  // View Meeting) so the right edge of a row list reads as intentional.
-  const className = `inline-flex min-h-[34px] min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
-    tone === "solid"
-      ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
-      : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
-  }`;
+  // Three weights, matched to what the control actually does. `solid` is the
+  // one thing to do next; `outline` is a real action taken here; `quiet` is
+  // navigation, which the book-study benchmark renders as a link rather than
+  // a fourth pill stacked down the right edge.
+  const className = tone === "quiet"
+    ? "inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1 whitespace-nowrap text-[13.5px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
+    : `inline-flex min-h-[34px] min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
+      tone === "solid"
+        ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
+        : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
+    }`;
 
   if (href) {
     return (
@@ -34874,6 +34938,13 @@ function PersonDetailOverlay({
     ? lastMeeting.title.trim()
     : null;
   const lastTimeExcerpt = lastMeeting ? relationalExcerpt(meetingActivityPreview(lastMeeting, personReflections), firstName) : "";
+  // The note the user actually typed when logging the meeting — not a generated
+  // excerpt. "What did we talk about last time?" is the whole reason this
+  // section leads the page, so the saved sentence is shown verbatim and the
+  // meeting record still holds everything else.
+  const lastTimeNote = lastMeeting?.notes?.trim()
+    || lastConversationReflection?.whatHappened?.trim()
+    || null;
   const primaryPrayer = conceptPrayerItems[0] ?? null;
   const primaryPrayerText = primaryPrayer ? relationalCopy(primaryPrayer.text, firstName) : "";
   const additionalPrayerCount = Math.max(0, conceptPrayerItems.length - 1);
@@ -34910,7 +34981,7 @@ function PersonDetailOverlay({
     <div className={`mt-2 divide-y divide-[#F0F2F5] ${subdued ? "" : ""}`}>
       {nextMeeting ? (
         <div className="py-3 first:pt-1">
-          <p className="text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Meeting</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Meeting</p>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
             <p className={`font-bold leading-[1.2] tracking-[-0.01em] text-dos-primary ${subdued ? "text-[16px]" : "text-[18px]"}`}>
               {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
@@ -34928,7 +34999,7 @@ function PersonDetailOverlay({
       ) : (
         <div className="flex items-center justify-between gap-3 py-3 first:pt-1">
           <div className="min-w-0 flex-1">
-            <p className="text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Meeting</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Meeting</p>
             <p className={`mt-1 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>Nothing scheduled yet.</p>
           </div>
           <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
@@ -34936,27 +35007,86 @@ function PersonDetailOverlay({
       )}
       {conceptFollowUps.map((followUp) => (
         <button className="block w-full py-3 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
-          <span className="block text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Follow-up</span>
+          <span className="block text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Follow-up</span>
           <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>{followUp.title}</span>
-          {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{followUp.duePhrase}</span> : null}
+          {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] text-dos-secondary">{followUp.duePhrase}</span> : null}
         </button>
       ))}
       {upcomingGatherings.map(({ gathering, group }) => (
         <button className="block w-full py-3 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-          <span className="block text-[11.5px] font-bold uppercase tracking-[0.11em] text-dos-secondary">Group gathering</span>
+          <span className="block text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Group gathering</span>
           <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>
             {gathering.title?.trim() || group.name}
           </span>
-          <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
+          <span className="mt-0.5 block text-[13px] text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
         </button>
       ))}
     </div>
   );
 
+  // FRUIT — the observed outcomes and what the person reported back, summarised
+  // on Overview and opened in full through the Fruit & reviews destination.
+  // Deliberately not a fourth tab: the founder direction is three destinations.
+  const renderFruit = () => {
+    const recentOutcomes = personOutcomeEntries.slice(0, 2);
+    const reviewCount = personReviewItems.length;
+    const totalRecords = personOutcomeEntries.length + reviewCount + personAssessmentResults.length;
+
+    return (
+      <>
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
+          {totalRecords ? (
+            <button className="text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
+              View all
+            </button>
+          ) : null}
+        </div>
+        {recentOutcomes.length ? (
+          <div className="mt-2 divide-y divide-dos-rule">
+            {recentOutcomes.map((entry) => (
+              <button className="block w-full py-3 text-left first:pt-1" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
+                <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
+                  {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
+                </span>
+                <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatDate(entry.date)}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-[15px] leading-[1.6] text-dos-body">
+            Nothing recorded yet. Fruit is captured when you log a meeting.
+          </p>
+        )}
+        {reviewCount ? (
+          <button
+            className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
+            onClick={() => setIsFruitReviewsOpen(true)}
+            type="button"
+          >
+            {reviewCount} {reviewCount === 1 ? "review" : "reviews"} from {firstName} {"\u2192"}
+          </button>
+        ) : (
+          <button
+            className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
+            onClick={() => setIsFruitReviewsOpen(true)}
+            type="button"
+          >
+            Ask {firstName} for a review {"\u2192"}
+          </button>
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       ref={detailScrollRef}
-      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:px-6 md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+11rem)] md:bg-white md:px-10 lg:px-14" : "pb-28 md:bg-[#F8FBFF]"}`}
+      /* Horizontal padding is emitted once per mode. Previously both `md:px-6`
+         and `md:px-10` were present, so the winning value was whichever
+         Tailwind ordered last, and the full-bleed RIGHT NOW band (which offsets
+         by the padding) overshot by 16px at exactly 768px. */
+      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+11rem)] md:bg-white md:px-10 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -35125,17 +35255,20 @@ function PersonDetailOverlay({
                 {/* LAST TIME — what happened, what mattered, what we agreed to. */}
                 <section className="pt-5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-blue">Last time</h3>
-                    {lastMeeting ? <span className="text-[13px] font-semibold text-dos-secondary">{formatRelativeDate(lastMeeting.date)}</span> : null}
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Last time</h3>
+                    {lastMeeting ? <span className="text-[12.5px] font-semibold text-dos-secondary">{formatRelativeDate(lastMeeting.date)}</span> : null}
                   </div>
                   {lastMeeting ? (
                     <>
-                      <div className="mt-2.5 flex items-center gap-4">
-                        <p className="min-w-0 flex-1 text-[17.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">
+                      <div className="mt-2.5 flex items-baseline gap-4">
+                        <p className="min-w-0 flex-1 text-[19px] font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary">
                           {lastTimeTopic || meetingActivityTitle(lastMeeting)}
                         </p>
-                        <PDButton onClick={() => onOpenMeeting(lastMeeting.id, person.id)}>View</PDButton>
+                        <PDButton onClick={() => onOpenMeeting(lastMeeting.id, person.id)} tone="quiet">View</PDButton>
                       </div>
+                      {lastTimeNote ? (
+                        <p className="mt-2 text-[15.5px] leading-[1.62] text-dos-body">{lastTimeNote}</p>
+                      ) : null}
                       {agreedNextStep ? (
                         <p className="mt-2.5 flex items-start gap-2.5 text-[15px] leading-[1.45] text-dos-primary">
                           <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
@@ -35144,22 +35277,22 @@ function PersonDetailOverlay({
                       ) : null}
                     </>
                   ) : (
-                    <p className="mt-2.5 text-[15px] leading-[1.55] text-dos-body">Nothing logged yet — use + to record your first time together.</p>
+                    <p className="mt-2.5 text-[15.5px] leading-[1.62] text-dos-body">Nothing logged yet — use + to record your first time together.</p>
                   )}
                 </section>
 
                 {/* RIGHT NOW — everything actively being walked through, as
                     scannable rows on one supporting surface. */}
-                <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:mx-0 md:rounded-[14px] md:border md:px-5">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Right now</h3>
-                  <div className="mt-1 divide-y divide-[#E3EAF6]">
+                <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:-mx-10 md:px-10 lg:-mx-14 lg:px-14">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Right now</h3>
+                  <div className="mt-1 divide-y divide-dos-rule">
                     {conceptJourneys.map((journey) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
+                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{journey.title}</p>
+                          <p className="mt-0.5 text-[13px] text-dos-secondary">{journey.stageLabel}</p>
                           {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
+                            <span className="mt-2 block h-1 max-w-[168px] overflow-hidden rounded-full bg-[#E7E9ED]">
                               <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
                             </span>
                           ) : null}
@@ -35167,15 +35300,15 @@ function PersonDetailOverlay({
                         {journey.isInAppJourney && journey.resource ? (
                           <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
                         ) : journey.resource ? (
-                          <PDButton href={journey.resource.path}>Open</PDButton>
+                          <PDButton href={journey.resource.path} tone="quiet">Open</PDButton>
                         ) : null}
                       </div>
                     ))}
                     {accountabilityTopics.map((topic) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
+                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{topic.title}</p>
+                          <p className="mt-0.5 text-[13px] text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
                         </div>
                         <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
@@ -35183,28 +35316,28 @@ function PersonDetailOverlay({
                     {primaryPrayer ? (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">Prayer</p>
-                          <p className="mt-0.5 text-[13px] font-semibold leading-[1.45] text-dos-secondary">
-                            {primaryPrayerText}
-                            {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
-                          </p>
+                          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-dos-secondary">Prayer</p>
+                          <p className="mt-1 text-[15.5px] leading-[1.55] text-dos-primary">{primaryPrayerText}</p>
+                          {additionalPrayerCount ? (
+                            <p className="mt-0.5 text-[13px] text-dos-secondary">and {additionalPrayerCount} more</p>
+                          ) : null}
                         </div>
-                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
+                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources} tone="quiet">Open</PDButton>
                       </div>
                     ) : null}
                     {personGroups.map((group) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
+                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{group.name}</p>
+                          <p className="mt-0.5 text-[13px] text-dos-secondary">
                             Group{group.leaderPersonId === person.id ? " · Leader" : ""}
                           </p>
                         </div>
-                        <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
+                        <PDButton onClick={() => onOpenGroup(group.id)} tone="quiet">View</PDButton>
                       </div>
                     ))}
                     {!conceptJourneys.length && !accountabilityTopics.length && !primaryPrayer && !personGroups.length ? (
-                      <p className="py-1 text-[14px] leading-[1.5] text-dos-body">Nothing active together yet — use + to begin.</p>
+                      <p className="py-1 text-[15px] leading-[1.6] text-dos-body">Nothing active together yet — use + to begin.</p>
                     ) : null}
                   </div>
                   {!conceptJourneys.length ? (
@@ -35216,14 +35349,26 @@ function PersonDetailOverlay({
 
                 {/* NEXT — one coherent answer to "what happens next?" */}
                 <section className="mt-6 lg:hidden">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Next</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next</h3>
                   {renderComingUp(false)}
+                </section>
+
+                {/* FRUIT — what has come of this relationship. This is the
+                    signal that separates DOS from a CRM, so it reads as story
+                    on the Person page rather than living only behind Details.
+                    Every row is a canonical record; the deeper destination
+                    holds reviews, assessments and the request actions. */}
+                <section className="mt-6 lg:hidden">
+                  {renderFruit()}
                 </section>
               </div>
 
               <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Next</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next</h3>
                 {renderComingUp(true)}
+                <div className="mt-7 border-t border-dos-rule pt-5">
+                  {renderFruit()}
+                </div>
               </aside>
             </div>
           </article>
@@ -35504,7 +35649,7 @@ function PersonDetailOverlay({
           <>
             {/* Contact first: the reason people open Details on a phone. */}
             <section className="pt-5">
-              <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Contact</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Contact</h3>
               <div className="mt-1 divide-y divide-dos-rule">
                 {person.phone ? (
                   <div className="flex items-center gap-4 py-3">
@@ -35546,7 +35691,7 @@ function PersonDetailOverlay({
             {/* Four distinct dimensions, explained by structure rather than
                prose. The engagement scale number is never exposed. */}
             <section className="mt-6 border-t border-dos-rule pt-5">
-              <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Relationship</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Relationship</h3>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4">
                 <div>
                   <dt className="text-[12.5px] font-semibold text-dos-secondary">Relationship</dt>
@@ -35583,11 +35728,13 @@ function PersonDetailOverlay({
 
             {/* Fruit & Reviews: a real destination, not a fourth tab. */}
             <section className="mt-6 border-t border-dos-rule pt-5">
-              <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Fruit &amp; reviews</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit &amp; reviews</h3>
               <div className="mt-2 flex items-center gap-4">
                 <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-dos-body">
-                  {personFruitEvents.length || personReviewItems.length
-                    ? `${personFruitEvents.length} fruit · ${personReviewItems.length} review${personReviewItems.length === 1 ? "" : "s"} recorded`
+                  {/* Count what the destination actually lists, so the summary
+                      and the sheet can never disagree. */}
+                  {personOutcomeEntries.length || personReviewItems.length
+                    ? `${personOutcomeEntries.length} fruit · ${personReviewItems.length} review${personReviewItems.length === 1 ? "" : "s"} recorded`
                     : "Nothing recorded yet."}
                 </p>
                 <PDButton onClick={() => setIsFruitReviewsOpen(true)}>Open</PDButton>
@@ -35596,24 +35743,24 @@ function PersonDetailOverlay({
 
             {hasHouseholdContext ? (
               <section className="mt-6 border-t border-dos-rule pt-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Household</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Household</h3>
                 <div className="mt-1 divide-y divide-dos-rule">
                   {person.spouseName ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {person.spouseName}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Spouse</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Spouse</span>
                     </p>
                   ) : null}
                   {person.childrenNames ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {person.childrenNames}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Children</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Children</span>
                     </p>
                   ) : null}
                   {anniversaryReminder ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {formatDate(nextReminderDate(anniversaryReminder))}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Anniversary</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Anniversary</span>
                     </p>
                   ) : null}
                   {person.householdNotes ? (
@@ -35625,24 +35772,24 @@ function PersonDetailOverlay({
 
             {(person.church || defaults.occupation || defaults.birthday) ? (
               <section className="mt-6 border-t border-dos-rule pt-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Personal details</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Personal details</h3>
                 <div className="mt-1 divide-y divide-dos-rule">
                   {person.church ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {person.church}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Church</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Church</span>
                     </p>
                   ) : null}
                   {defaults.occupation ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {defaults.occupation}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Occupation</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Occupation</span>
                     </p>
                   ) : null}
                   {defaults.birthday ? (
                     <p className="py-2.5 text-[15px] leading-[1.4] text-dos-primary">
                       {formatDate(defaults.birthday)}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Birthday</span>
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">Birthday</span>
                     </p>
                   ) : null}
                 </div>
@@ -35757,7 +35904,7 @@ function PersonDetailOverlay({
               You&apos;ve been spending significantly more time with {firstName} recently.
             </p>
             <p className="text-dos-body">
-              {Math.round(visibleCircleSuggestion.person30.meaningfulInteractions)} meaningful conversations · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} · last 30 days
+              {formatConversationCount(Math.round(visibleCircleSuggestion.person30.meaningfulInteractions), "meaningful conversation")} · {formatInvestedTime(visibleCircleSuggestion.person30.minutesInvested)} · last 30 days
             </p>
             <p className="text-dos-body">Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
             <div className="grid gap-2">
@@ -35782,11 +35929,11 @@ function PersonDetailOverlay({
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
                     <p className="text-[11px] font-bold text-dos-secondary">Your {circleDisplayName(visibleCircleSuggestion.currentCircle)} median</p>
-                    <p className="mt-1 text-dos-body">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
+                    <p className="mt-1 text-dos-body">{formatConversationCount(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianInteractions30)} · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.currentCircle].medianMinutes30)}</p>
                   </div>
                   <div className="rounded-xl border border-[#CFDBF7] bg-white p-2.5">
                     <p className="text-[11px] font-bold text-dos-blue">Your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} median</p>
-                    <p className="mt-1 text-dos-body">{Math.round(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30 * 10) / 10} conversations · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
+                    <p className="mt-1 text-dos-body">{formatConversationCount(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianInteractions30)} · {formatInvestedTime(visibleCircleSuggestion.benchmarks[visibleCircleSuggestion.suggestedCircle].medianMinutes30)}</p>
                   </div>
                 </div>
               </div>
@@ -35810,7 +35957,7 @@ function PersonDetailOverlay({
         >
           <div className="grid gap-5">
             <section>
-              <h4 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Fruit observed</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit observed</h4>
               {personOutcomeEntries.length ? (
                 <div className="mt-1 divide-y divide-dos-rule">
                   {personOutcomeEntries.map((entry) => (
@@ -35828,7 +35975,7 @@ function PersonDetailOverlay({
             </section>
 
             <section className="border-t border-dos-rule pt-4">
-              <h4 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">What {firstName} reported</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What {firstName} reported</h4>
               {personReviewItems.length ? (
                 <div className="mt-1 divide-y divide-dos-rule">
                   {personReviewItems.map((item) => (
@@ -35848,12 +35995,12 @@ function PersonDetailOverlay({
 
             {personAssessmentResults.length ? (
               <section className="border-t border-dos-rule pt-4">
-                <h4 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Assessments</h4>
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Assessments</h4>
                 <div className="mt-1 divide-y divide-dos-rule">
                   {personAssessmentResults.map((result) => (
                     <p className="py-2.5 text-[15px] font-semibold leading-[1.4] text-dos-primary" key={result.id}>
                       {result.assessmentTitle}
-                      <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">
+                      <span className="mt-0.5 block text-[13px] text-dos-secondary">
                         {result.percentage}% · {formatDate(result.completedAt)}
                       </span>
                     </p>
@@ -35863,7 +36010,7 @@ function PersonDetailOverlay({
             ) : null}
 
             <section className="border-t border-dos-rule pt-4">
-              <h4 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Ask for feedback</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Ask for feedback</h4>
               {lastMeeting ? (
                 <>
                   <p className="mt-2 text-[13.5px] leading-[1.5] text-dos-body">
@@ -36456,7 +36603,7 @@ function MeetingDetailOverlay({
         </header>
 
         <div className="mt-1 border-b border-dos-rule pb-5">
-          <p className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-blue">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-blue">
             {isScheduledMeeting ? "Scheduled" : "Meeting"}
           </p>
           <h2 className="mt-1.5 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{meetingHeadline}</h2>
@@ -36474,7 +36621,7 @@ function MeetingDetailOverlay({
           <div className="min-w-0 lg:flex-1">
             {isScheduledMeeting ? (
               <section className="border-b border-dos-rule py-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Plan</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Plan</h3>
                 {meetingNotes ? (
                   <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-dos-body">{meetingNotes}</p>
                 ) : (
@@ -36488,7 +36635,7 @@ function MeetingDetailOverlay({
             ) : (
               <>
                 <section className="border-b border-dos-rule py-5">
-                  <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">What happened</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What happened</h3>
                   {meetingNotes ? (
                     <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-dos-body">{meetingNotes}</p>
                   ) : (
@@ -36503,7 +36650,7 @@ function MeetingDetailOverlay({
                   <section className="border-b border-dos-rule py-5">
                     {meetingAgreed ? (
                       <>
-                        <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Agreed</h3>
+                        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Agreed</h3>
                         <p className="mt-2 flex items-start gap-2.5 text-[15.5px] font-semibold leading-[1.4] text-dos-primary">
                           <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
                           {meetingAgreed}
@@ -36524,7 +36671,7 @@ function MeetingDetailOverlay({
 
                 {observedFruit.length ? (
                   <section className="border-b border-dos-rule py-5">
-                    <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Fruit observed</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit observed</h3>
                     <ul className="mt-2 grid gap-1.5">
                       {observedFruit.map((fruitLabel) => (
                         <li className="flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-primary" key={fruitLabel}>
@@ -36540,7 +36687,7 @@ function MeetingDetailOverlay({
 
             {meeting.recommendedResources.length ? (
               <section className="border-b border-dos-rule py-5">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Recommended</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Recommended</h3>
                 <ul className="mt-2 grid gap-2">
                   {meeting.recommendedResources.map((resource) => (
                     <li key={resource.id}>
@@ -36556,7 +36703,7 @@ function MeetingDetailOverlay({
           {/* Who + follow-up: a rail on desktop, inline on mobile. */}
           <aside className="min-w-0 lg:w-[292px] lg:shrink-0 lg:border-l lg:border-dos-rule lg:pl-10">
             <section className="border-b border-dos-rule py-5 lg:border-b-0 lg:pt-5">
-              <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Who</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Who</h3>
               <p className="mt-2 text-[15px] font-semibold leading-[1.45] text-dos-primary">{meetingPeopleLine}</p>
               {meeting.ministryTeam.length ? (
                 <p className="mt-1 text-[13px] font-semibold text-dos-secondary">
@@ -36572,11 +36719,11 @@ function MeetingDetailOverlay({
 
             {isLoggedTableMeeting ? (
               <section className="border-b border-dos-rule py-5 lg:border-b-0">
-                <h3 className="text-[11.5px] font-bold uppercase tracking-[0.13em] text-dos-primary">Follow-up</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Follow-up</h3>
                 {tableFollowUpReminder ? (
                   <p className="mt-2 text-[15px] font-semibold leading-[1.4] text-dos-primary">
                     {tableFollowUpReminder.title || "Follow up"}
-                    <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">
+                    <span className="mt-0.5 block text-[13px] text-dos-secondary">
                       {followUpDuePhrase(nextReminderDate(tableFollowUpReminder))}
                     </span>
                   </p>
@@ -40650,8 +40797,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
     const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    // "What did you agree to?" writes the agreed next step through the
+    // reflection record, and it is the most prominent line on the Person page.
+    // It was missing from this condition, so logging a meeting that filled only
+    // that field discarded it silently.
     const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
       meetingNotes.trim()
+      || agreedNextStepInput
       || observedFruit.length
       || followUpNeeded
       || prayerNeeds.trim()
@@ -40745,7 +40897,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const scheduledStartAt = localDateTimeIso(scheduledDate, scheduledTime);
 
     if (!scheduledStartAt) {
-      setErrorMessage("Choose a valid table date and time.");
+      setErrorMessage("Choose a valid meeting date and time.");
       return;
     }
 
@@ -40771,6 +40923,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
       if (result?.id) {
         closeForm();
+
+        // Scheduling from a Person exists to answer "when are we meeting
+        // next?", so return to that Person and let NEXT show the new meeting
+        // rather than dropping the user into the Meetings list.
+        if (selectedPersonId) {
+          return;
+        }
+
         setActiveTab("meetings");
         setSelectedMeetingId(result.id);
       }
@@ -40837,7 +40997,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       const scheduledStartAt = localDateTimeIso(tableDate, scheduledTime);
 
       if (!scheduledStartAt) {
-        setErrorMessage("Choose a valid table date and time.");
+        setErrorMessage("Choose a valid meeting date and time.");
         return;
       }
 

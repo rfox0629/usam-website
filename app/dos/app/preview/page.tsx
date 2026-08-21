@@ -9,6 +9,7 @@ import {
   type DosAppLeaderReflection,
   type DosAppMeeting,
   type DosAppParticipantReview,
+  type DosAppParticipantTestimony,
   type DosAppPerson,
   type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
@@ -233,18 +234,25 @@ function buildDosPreviewDemoData(): DosAppData {
       updatedAt: demoTimestamp,
     },
     {
-      church: null,
+      // Household and personal fields are stored the way the Person form
+      // writes them (spouse/children columns, plus the "Additional
+      // information" block the form encodes into notes) so Details renders
+      // from the real shape rather than a prototype-only structure.
+      childrenNames: "Ellie (7), Sam (4)",
+      church: "River Valley Church",
       createdAt: "2026-05-12T10:10:00-05:00",
       email: "naomi.lee@example.com",
       discipleshipRelationship: null,
       discipleshipStage: "exploring",
       engagementLevel: "Medium",
       fieldVisibility: "primary",
+      householdNotes: "Her sister Dana lives two streets over and has started asking questions.",
       id: "demo-person-naomi-lee",
       lastActivityAt: "2026-05-14T12:15:00-05:00",
       name: "Naomi Lee",
-      notes: "Asked for prayer after the coffee meeting. Follow up this week.",
+      notes: "Asked for prayer after the coffee meeting. Follow up this week.\n\nAdditional information:\nHome address: 1412 Birch Lane, Tulsa, OK 74104\nOccupation: Dental hygienist\nBirthday: 1991-03-18",
       phone: "918-555-0166",
+      spouseName: "Marcus Lee",
       relationshipContext: "community",
       relationshipType: "Neighbor",
       roleInMyLife: "walking_with_them",
@@ -631,6 +639,44 @@ function buildDosPreviewDemoData(): DosAppData {
       title: "George began multiplying",
       visibility: "internal",
     },
+    // Naomi's arc: family pressure -> prayer -> her family asks why she is
+    // different -> she tells them. Recorded from the leader reflection on the
+    // meeting where it happened, so Fruit, Timeline and the meeting record all
+    // resolve to the same canonical event.
+    {
+      confidenceLevel: "observed",
+      date: daysAgoIso(2, 9),
+      debugContext: {},
+      description: "Naomi told her sister why her life has changed since she started following Jesus.",
+      fruitType: "Gospel conversation",
+      generatedBy: "DOS Preview",
+      generationKey: "demo-naomi-gospel-conversation",
+      id: "demo-fruit-event-naomi-gospel-conversation",
+      meetingId: "demo-meeting-naomi-recent-1",
+      personId: "demo-person-naomi-lee",
+      sourceId: "demo-reflection-naomi-recent-1",
+      sourceType: "leader_reflection",
+      status: "approved",
+      title: "Gospel conversation with her sister",
+      visibility: "internal",
+    },
+    {
+      confidenceLevel: "confirmed",
+      date: daysAgoIso(30, 9),
+      debugContext: {},
+      description: "Naomi committed to a weekly discipleship rhythm and started the Discipleship journey.",
+      fruitType: "Joined Discipleship",
+      generatedBy: "DOS Preview",
+      generationKey: "demo-naomi-joined-discipleship",
+      id: "demo-fruit-event-naomi-joined-discipleship",
+      meetingId: "demo-meeting-naomi-coffee",
+      personId: "demo-person-naomi-lee",
+      sourceId: "demo-reflection-naomi-follow-up",
+      sourceType: "leader_reflection",
+      status: "approved",
+      title: "Joined Discipleship",
+      visibility: "internal",
+    },
   ];
 
   const leaderReflections: DosAppLeaderReflection[] = [
@@ -660,6 +706,19 @@ function buildDosPreviewDemoData(): DosAppData {
       spiritualOpenness: "Open",
       whatHappened: "Naomi was honest and receptive, but needs a gentle follow up.",
     },
+    {
+      createdAt: daysAgoIso(2, 9),
+      followUpNeeded: true,
+      id: "demo-reflection-naomi-recent-1",
+      meetingId: "demo-meeting-naomi-recent-1",
+      nextStep: "Read John 4-6 before Thursday",
+      observedFruit: ["Gospel Conversation"],
+      personId: "demo-person-naomi-lee",
+      prayerNeeds: "Pray for Naomi's sister, and for courage in the next conversation.",
+      privateNotes: "She was nervous telling her sister but did it anyway. Encourage her.",
+      spiritualOpenness: "Actively following",
+      whatHappened: "Naomi's family asked why she is different lately, and she told her sister about Jesus.",
+    },
   ];
 
   const participantReviews: DosAppParticipantReview[] = [
@@ -681,6 +740,42 @@ function buildDosPreviewDemoData(): DosAppData {
       submittedName: "Tim Tran",
       wouldMeetAgain: true,
       wouldMeetAgainResponse: "yes",
+    },
+    {
+      comments: "Having someone actually ask about my family made it easier to talk to them myself.",
+      conversationHelpful: "yes",
+      feltCaredFor: "yes",
+      feltHeard: "yes",
+      id: "demo-participant-review-naomi",
+      meetingId: "demo-meeting-naomi-recent-3",
+      overallRating: "very_meaningful",
+      outcomeTags: ["Encouragement", "Discipling"],
+      personId: "demo-person-naomi-lee",
+      status: "approved",
+      submittedAt: daysAgoIso(5, 20),
+      submittedEmail: null,
+      submittedFirstName: "Naomi",
+      submittedLastName: "Lee",
+      submittedName: "Naomi Lee",
+      wouldMeetAgain: true,
+      wouldMeetAgainResponse: "yes",
+    },
+  ];
+  const participantTestimonies: DosAppParticipantTestimony[] = [
+    {
+      decisionMade: "Keep meeting weekly and bring my sister along.",
+      id: "demo-participant-testimony-naomi",
+      meetingId: "demo-meeting-naomi-recent-1",
+      nextStep: "Invite my sister to the Thursday study.",
+      permissionToShare: true,
+      personId: "demo-person-naomi-lee",
+      publicDisplayName: null,
+      status: "approved",
+      story: "I grew up around church but never thought God had much to do with my week. Reading John together changed that. When my family started asking why I seemed different, I finally had something honest to say.",
+      submittedAt: daysAgoIso(1, 19),
+      submittedEmail: null,
+      submittedName: "Naomi Lee",
+      whatChanged: "I stopped hiding what I believe from my family.",
     },
   ];
   const assessmentResults: DosAppAssessmentResult[] = [
@@ -1391,7 +1486,7 @@ function buildDosPreviewDemoData(): DosAppData {
       },
     ],
     participantReviews,
-    participantTestimonies: [],
+    participantTestimonies,
     people,
     prayerLogs: [],
     prayerPartners: [
