@@ -84,9 +84,24 @@ const resourceAssignmentSuccessSheet = client.slice(
   client.indexOf("function ResourceAssignmentSuccessSheet"),
   client.indexOf("function ResourceAssignmentDuplicateSheet"),
 );
+const groupJourneyRowCard = client.slice(
+  client.indexOf("function GroupJourneyRowCard"),
+  client.indexOf("function GroupJourneyEditSheet"),
+);
+const groupJourneyEditSheet = client.slice(
+  client.indexOf("function GroupJourneyEditSheet"),
+  client.indexOf("function GroupJourneyAssignSheet"),
+);
 const groupJourneyAssignSheet = client.slice(
   client.indexOf("function GroupJourneyAssignSheet"),
   client.indexOf("function AssignTargetPickerSheet"),
+);
+const groupJourneyScheduleSubmit = client.slice(
+  client.indexOf("async function handleGroupJourneyScheduleSubmit"),
+  client.indexOf("const rowCardProps ="),
+);
+const assignmentsPatchRoute = assignmentsRoute.slice(
+  assignmentsRoute.indexOf("export async function PATCH"),
 );
 const assignmentHelpers = loadResourceAssignmentHelpers();
 
@@ -311,6 +326,33 @@ assertIncludes(resourceAssignmentSuccessSheet, "participantInvitationUrlForCurre
 assertNotIncludes(resourceAssignmentSuccessSheet, "Copy Public Link", "Assignment success must not fall back to a generic public Journey link.");
 assertIncludes(assignmentsRoute, "ensureGroupMemberAccessReady", "Group Journey assignment must prepare existing scoped member access behind the scenes.");
 assertIncludes(assignmentsRoute, "source: \"leader_assignment\"", "Assignment provisioning must not mint or rotate participant invitation tokens.");
+assertNotIncludes(assignmentsPatchRoute, "ensureGroupMemberAccessReady", "Editing an existing assignment must not provision, mint, rotate, revoke, or resend member access.");
+assertNotIncludes(assignmentsPatchRoute, "send_member_access", "Assignment PATCH must not send member invitations.");
+assertIncludes(client, "GroupJourneyEditSheet", "Groups must offer a focused Edit Journey schedule flow.");
+assertIncludes(groupJourneyRowCard, "Edit Journey", "Expanded Group Journey cards must expose Edit Journey.");
+assertIncludes(groupJourneyRowCard, "onEditJourney(row)", "Edit Journey must target the existing expanded Journey row.");
+assertIncludes(groupJourneyRowCard, "Manage Members", "Expanded Group Journey cards must keep Manage Members for participation.");
+assertIncludes(groupJourneyEditSheet, "Start Date", "Edit Journey must edit the start date in place.");
+assertIncludes(groupJourneyEditSheet, "Expected Completion", "Edit Journey must show expected completion as read-only information.");
+assertIncludes(groupJourneyEditSheet, "readOnly", "Expected completion must not be editable.");
+assertIncludes(groupJourneyEditSheet, "resourceAssignmentEstimatedCompletionDate(startDate, row.resource)", "Edit Journey completion must be derived from the resource duration.");
+assertIncludes(groupJourneyEditSheet, "Save Changes", "Edit Journey primary action must be Save Changes.");
+assertNotIncludes(groupJourneyEditSheet, "Assign to", "Edit Journey must not present assignment creation copy.");
+assertNotIncludes(groupJourneyEditSheet, "reuseExisting", "Edit Journey must not reuse the duplicate-assignment decision path.");
+assertIncludes(groupJourneyScheduleSubmit, "row.assignments.filter((assignment) => assignment.id)", "Edit Journey must operate on existing assignment identities.");
+assertIncludes(groupJourneyScheduleSubmit, "id: assignment.id", "Edit Journey must PATCH by existing assignment id.");
+assertIncludes(groupJourneyScheduleSubmit, "startDate", "Edit Journey must submit the new start date.");
+assertIncludes(groupJourneyScheduleSubmit, "workspaceId", "Edit Journey must preserve workspace scoping.");
+assertIncludes(groupJourneyScheduleSubmit, "method: \"PATCH\"", "Edit Journey must update existing assignments instead of creating new ones.");
+assertNotIncludes(groupJourneyScheduleSubmit, "method: \"POST\"", "Edit Journey must not create a new assignment.");
+assertNotIncludes(groupJourneyScheduleSubmit, "reuseExisting", "Edit Journey must not run duplicate reuse logic.");
+assertNotIncludes(groupJourneyScheduleSubmit, "sourceGroupId", "Edit Journey must preserve the existing Group connection by omission.");
+assertNotIncludes(groupJourneyScheduleSubmit, "personId", "Edit Journey must preserve participant identity by omission.");
+assertNotIncludes(groupJourneyScheduleSubmit, "resourceSlug", "Edit Journey must preserve the assigned resource by omission.");
+assertNotIncludes(groupJourneyScheduleSubmit, "sharingLevel", "Edit Journey must preserve Austin/Ryan access scope by omission.");
+assertNotIncludes(groupJourneyScheduleSubmit, "status", "Edit Journey must preserve progress and completion state by omission.");
+assertNotIncludes(groupJourneyScheduleSubmit, "guidedResourceProgress", "Edit Journey must not mutate Journey progress or responses.");
+assertNotIncludes(groupJourneyScheduleSubmit, "send_member_access", "Edit Journey must not mint or resend access links.");
 
 // USA-161: Group -> Assign Journey must visibly offer Discipleship, not just theoretically
 // allow it. The picker renders every catalog resource marked assignable, so Discipleship

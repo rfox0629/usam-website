@@ -8507,9 +8507,13 @@ function GroupJourneysTabV2({
   resourceAssignments: DosAppResourceAssignment[];
   workspaceId: string;
 }) {
+  const router = useRouter();
   const [sendingMemberAccessId, setSendingMemberAccessId] = useState<string | null>(null);
   const [memberAccessMessage, setMemberAccessMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<GroupMemberExperiencePreviewState | null>(null);
+  const [editingJourneyRow, setEditingJourneyRow] = useState<GroupJourneyRow | null>(null);
+  const [editJourneyError, setEditJourneyError] = useState("");
+  const [isEditingJourney, setIsEditingJourney] = useState(false);
   // Explicit selection state. `null` means "no explicit pick yet - default to the
   // first current journey"; "" means the user deliberately collapsed every row.
   const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
@@ -8596,11 +8600,65 @@ function GroupJourneysTabV2({
     }
   }
 
+  async function handleGroupJourneyScheduleSubmit(row: GroupJourneyRow, startDate: string) {
+    const existingAssignments = row.assignments.filter((assignment) => assignment.id);
+
+    if (!existingAssignments.length) {
+      setEditJourneyError("No existing assignments were found for this Journey.");
+      return;
+    }
+
+    if (isPreview) {
+      setEditJourneyError("Preview mode is read-only. Demo changes are not saved.");
+      return;
+    }
+
+    setIsEditingJourney(true);
+    setEditJourneyError("");
+
+    try {
+      const results = await Promise.all(existingAssignments.map(async (assignment) => {
+        const response = await fetch("/api/dos/app/resource-assignments", {
+          body: JSON.stringify({
+            id: assignment.id,
+            startDate,
+            workspaceId,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string };
+
+        if (!response.ok) {
+          throw new Error(result.error ?? `Unable to update ${resourceAssignmentTitle(assignment)}.`);
+        }
+
+        return result;
+      }));
+
+      if (results.length !== existingAssignments.length) {
+        throw new Error("Unable to update every assignment.");
+      }
+
+      router.refresh();
+      setEditingJourneyRow(null);
+      setMemberAccessMessage({ text: `${row.resource.title} schedule updated. Existing access and progress were preserved.`, tone: "success" });
+    } catch (error) {
+      setEditJourneyError(error instanceof Error ? error.message : "Unable to save Journey changes.");
+    } finally {
+      setIsEditingJourney(false);
+    }
+  }
+
   const rowCardProps = {
     activeMembers,
     groupAssignments,
     guidedResourceProgress,
     onAssignMore: onAssignJourney,
+    onEditJourney: (row: GroupJourneyRow) => {
+      setEditJourneyError("");
+      setEditingJourneyRow(row);
+    },
     onOpenJourney,
     onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => setPreviewTarget({
       groupId: group.id,
@@ -8665,6 +8723,19 @@ function GroupJourneysTabV2({
               />
             ) : null}
 
+            {editingJourneyRow ? (
+              <GroupJourneyEditSheet
+                errorMessage={editJourneyError}
+                isSubmitting={isEditingJourney}
+                onClose={() => {
+                  setEditJourneyError("");
+                  setEditingJourneyRow(null);
+                }}
+                onSubmit={(startDate) => void handleGroupJourneyScheduleSubmit(editingJourneyRow, startDate)}
+                row={editingJourneyRow}
+              />
+            ) : null}
+
             {currentRows.length ? (
               <div className="grid gap-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Current</p>
@@ -8709,6 +8780,7 @@ function GroupJourneyRowCard({
   guidedResourceProgress,
   isExpanded,
   onAssignMore,
+  onEditJourney,
   onOpenJourney,
   onPreviewMemberExperience,
   onSendMemberAccess,
@@ -8721,6 +8793,7 @@ function GroupJourneyRowCard({
   guidedResourceProgress: DosAppGuidedResourceProgress[];
   isExpanded: boolean;
   onAssignMore: (resource?: DosResource) => void;
+  onEditJourney: (row: GroupJourneyRow) => void;
   onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
   onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => void;
   onSendMemberAccess: (member: DosAppGroupMember) => void;
@@ -8770,7 +8843,11 @@ function GroupJourneyRowCard({
 
       {isExpanded ? (
         <div className="grid gap-2 border-t border-[#EAF2FF] px-3 pb-3 pt-3">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-2.5 text-xs font-black text-white transition-colors hover:bg-[#1E293B]" onClick={() => onEditJourney(row)} type="button">
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+              Edit Journey
+            </button>
             <button className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={() => onAssignMore(resource)} type="button">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
               Manage Members
@@ -8837,6 +8914,70 @@ function GroupJourneyRowCard({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function GroupJourneyEditSheet({
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  row,
+}: {
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (startDate: string) => void;
+  row: GroupJourneyRow;
+}) {
+  const initialStartDate = row.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey();
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const estimatedCompletionDate = resourceAssignmentEstimatedCompletionDate(startDate, row.resource);
+
+  useEffect(() => {
+    setStartDate(initialStartDate);
+  }, [initialStartDate, row.resourceSlug]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit(startDate || todayResourceAssignmentDateKey());
+  }
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Edit Journey">
+      <form className="grid min-w-0 gap-4 overflow-x-hidden" onSubmit={handleSubmit}>
+        <DosFormSection icon="library" title={row.resource.title}>
+          <div className="grid min-w-0 gap-3 min-[380px]:grid-cols-2">
+            <DosDateInput
+              label="Start Date"
+              maxYear={new Date().getFullYear() + 5}
+              minYear={new Date().getFullYear() - 1}
+              name="group_journey_start_date"
+              onChange={setStartDate}
+              required
+              value={startDate}
+            />
+            <DosFormField label="Expected Completion">
+              <input className={FieldInputClass(false)} readOnly value={formatDate(estimatedCompletionDate)} />
+            </DosFormField>
+          </div>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <span className="rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[11px] font-black text-[#1D4ED8]">
+              {resourceAssignmentPlanLengthLabel(row.resource)}
+            </span>
+            <span className="rounded-full border border-[#EAF2FF] bg-white px-2.5 py-1 text-[11px] font-black text-[#64748B]">
+              {row.assignments.length} {row.assignments.length === 1 ? "assignment" : "assignments"}
+            </span>
+          </div>
+        </DosFormSection>
+
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Changes"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
   );
 }
 
