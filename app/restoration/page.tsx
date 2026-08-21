@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
-import { morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { RestorationIntakeClient } from "./RestorationIntakeClient";
 
 export const metadata: Metadata = {
-  alternates: { canonical: morRoutes.restoration },
+  alternates: { canonical: missionCanonical.restoration },
   description:
     "Begin your restoration journey with Mission of Reconciliation. Share your story confidentially so we can prayerfully consider how to come alongside you. In partnership with USA Missionaries.",
   robots: {
@@ -15,10 +17,12 @@ export const metadata: Metadata = {
   title: { absolute: "Restoration Journey | Mission of Reconciliation" },
 };
 
-export default function RestorationPage() {
+export default async function RestorationPage() {
+  const paths = await getMissionPaths();
+
   return (
     <>
-      <MissionHeader cta="home" />
+      <MissionHeader cta="home" paths={paths} />
       <main style={{ backgroundColor: morColor.page }}>
         <section className="px-5 pb-4 pt-12 md:px-8 md:pt-16">
           <div className="mx-auto w-full max-w-6xl">
@@ -75,7 +79,7 @@ export default function RestorationPage() {
               New here?{" "}
               <Link
                 className="underline underline-offset-4"
-                href={morRoutes.home}
+                href={paths.home}
                 style={{ color: morColor.goldInk }}
               >
                 Read about Mission of Reconciliation

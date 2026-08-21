@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
-import { caseStudyHref, type CaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
+import type { CaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
 
 /**
  * One story, linked whole.
@@ -13,10 +13,13 @@ import { caseStudyHref, type CaseStudy } from "@/src/lib/mission-of-reconciliati
  * there are two or more.
  */
 export function StoryCard({
+  href,
   index,
   layout = "card",
   study,
 }: {
+  /** Host-native link to the story page. */
+  href: string;
   index: number;
   layout?: "card" | "feature";
   study: CaseStudy;
@@ -31,7 +34,7 @@ export function StoryCard({
         className={`group flex h-full overflow-hidden rounded-lg border transition-colors hover:border-[#C2A14E] ${
           isFeature ? "flex-col md:flex-row" : "flex-col"
         }`}
-        href={caseStudyHref(study)}
+        href={href}
         style={{ backgroundColor: "#FFFFFF", borderColor: morColor.rule }}
       >
         <div

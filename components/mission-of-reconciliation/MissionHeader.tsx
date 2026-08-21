@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import type { MissionPaths } from "@/src/lib/mission-of-reconciliation/domain";
 
 const ctaClassName = "inline-flex min-h-11 shrink-0 items-center px-4 text-[11px] uppercase tracking-[0.16em] transition-colors md:px-6 md:text-xs";
 
@@ -9,7 +10,14 @@ const ctaClassName = "inline-flex min-h-11 shrink-0 items-center px-4 text-[11px
  * The USA Missionaries mark is white-on-transparent, so the partnership is
  * carried typographically here and by the logo on dark bands further down.
  */
-export function MissionHeader({ cta = "restoration" }: { cta?: "none" | "restoration" | "home" }) {
+export function MissionHeader({
+  cta = "restoration",
+  paths,
+}: {
+  cta?: "none" | "restoration" | "home";
+  /** Host-native link targets, so the header works on either domain. */
+  paths: MissionPaths;
+}) {
   return (
     <header
       className="sticky top-0 z-40 border-b"
@@ -20,7 +28,7 @@ export function MissionHeader({ cta = "restoration" }: { cta?: "none" | "restora
       }}
     >
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3 md:px-8 md:py-4">
-        <Link className="min-w-0" href={morRoutes.home}>
+        <Link className="min-w-0" href={paths.home}>
           <span
             className="block text-[12px] uppercase leading-tight tracking-[0.12em] md:text-[15px] md:tracking-[0.18em]"
             style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
@@ -38,7 +46,7 @@ export function MissionHeader({ cta = "restoration" }: { cta?: "none" | "restora
         {cta === "restoration" ? (
           <Link
             className={ctaClassName}
-            href={morRoutes.restoration}
+            href={paths.restoration}
             style={{
               backgroundColor: morColor.gold,
               color: morColor.ink,
@@ -54,7 +62,7 @@ export function MissionHeader({ cta = "restoration" }: { cta?: "none" | "restora
         {cta === "home" ? (
           <Link
             className={`${ctaClassName} border`}
-            href={morRoutes.home}
+            href={paths.home}
             style={{
               borderColor: morColor.rule,
               color: morColor.ink,

@@ -4,7 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
-import { morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
 import { StoryCard } from "../_components/StoryCard";
 
@@ -12,7 +14,7 @@ const description =
   "Ordinary followers of Jesus making themselves available to the people God has placed around them.";
 
 export const metadata: Metadata = {
-  alternates: { canonical: morRoutes.stories },
+  alternates: { canonical: missionCanonical.stories },
   description,
   openGraph: {
     description,
@@ -20,23 +22,24 @@ export const metadata: Metadata = {
     siteName: domainSites.usam.siteName,
     title: "Stories of Reconciliation | Mission of Reconciliation",
     type: "website",
-    url: morRoutes.stories,
+    url: missionCanonical.stories,
   },
   title: { absolute: "Stories of Reconciliation | Mission of Reconciliation" },
 };
 
-export default function StoriesIndexPage() {
+export default async function StoriesIndexPage() {
+  const paths = await getMissionPaths();
   const onlyOne = caseStudies.length === 1;
 
   return (
     <>
-      <MissionHeader cta="restoration" />
+      <MissionHeader cta="restoration" paths={paths} />
       <main style={{ backgroundColor: morColor.page }}>
         <section className="px-5 pb-16 pt-10 md:px-8 md:pb-24 md:pt-14">
           <div className="mx-auto w-full max-w-6xl">
             <Link
               className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]"
-              href={morRoutes.home}
+              href={paths.home}
               style={{ color: morColor.goldInk, fontFamily: morFont.rajdhani, fontWeight: 700 }}
             >
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
@@ -69,6 +72,7 @@ export default function StoriesIndexPage() {
             >
               {caseStudies.map((study, index) => (
                 <StoryCard
+                  href={paths.storyHref(study.id)}
                   index={index + 1}
                   key={study.id}
                   layout={onlyOne ? "feature" : "card"}

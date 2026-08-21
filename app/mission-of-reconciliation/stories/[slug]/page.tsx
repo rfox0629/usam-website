@@ -5,8 +5,10 @@ import { ArrowLeft } from "lucide-react";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
-import { morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
-import { caseStudies, caseStudyHref, getCaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
+import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
+import { caseStudies, getCaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
 import { CaseStudyBlock } from "../../_components/CaseStudy";
 
 export function generateStaticParams() {
@@ -28,7 +30,7 @@ export async function generateMetadata({
   const title = `${study.name} | Mission of Reconciliation`;
 
   return {
-    alternates: { canonical: caseStudyHref(study) },
+    alternates: { canonical: missionCanonical.story(study.id) },
     description: study.cardSummary,
     openGraph: {
       description: study.cardSummary,
@@ -36,7 +38,7 @@ export async function generateMetadata({
       siteName: domainSites.usam.siteName,
       title,
       type: "article",
-      url: caseStudyHref(study),
+      url: missionCanonical.story(study.id),
     },
     title: { absolute: title },
   };
@@ -48,7 +50,7 @@ export async function generateMetadata({
  */
 export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const study = getCaseStudy(slug);
+  const [study, paths] = [getCaseStudy(slug), await getMissionPaths()];
 
   if (!study) {
     notFound();
@@ -64,11 +66,11 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
 
   return (
     <>
-      <MissionHeader cta="restoration" />
+      <MissionHeader cta="restoration" paths={paths} />
       <main style={{ backgroundColor: morColor.page }}>
         <section className="px-5 pb-16 pt-10 md:px-8 md:pb-24 md:pt-14">
           <div className="mx-auto w-full max-w-6xl">
-            <Link className={backLinkClassName} href={morRoutes.stories} style={backLinkStyle}>
+            <Link className={backLinkClassName} href={paths.stories} style={backLinkStyle}>
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               Stories of Reconciliation
             </Link>
@@ -92,7 +94,7 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
             </div>
 
             <div className="mt-14 border-t pt-8" style={{ borderColor: morColor.rule }}>
-              <Link className={backLinkClassName} href={morRoutes.stories} style={backLinkStyle}>
+              <Link className={backLinkClassName} href={paths.stories} style={backLinkStyle}>
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />
                 All Stories of Reconciliation
               </Link>

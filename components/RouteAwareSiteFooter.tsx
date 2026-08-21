@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { domainSiteRoutePrefix, getAlternateDomainSiteByHostname } from "@/src/lib/domain-sites";
+import { isMissionHostname } from "@/src/lib/mission-of-reconciliation/domain";
 import { SiteFooter } from "./SiteFooter";
 
 export function RouteAwareSiteFooter() {
@@ -30,7 +31,12 @@ export function RouteAwareSiteFooter() {
     || pathname?.startsWith(domainSiteRoutePrefix)
     || (clientRoute === null && pathname === "/")
     || clientRoute?.hasDomainSitePage
-    || Boolean(getAlternateDomainSiteByHostname(clientRoute?.hostname))
+    // Mission of Reconciliation keeps the USA Missionaries footer: it carries the
+    // partnership line and the 501(c)(3) notice.
+    || Boolean(
+      getAlternateDomainSiteByHostname(clientRoute?.hostname)
+      && !isMissionHostname(clientRoute?.hostname),
+    )
   ) {
     return null;
   }

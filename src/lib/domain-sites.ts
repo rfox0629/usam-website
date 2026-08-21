@@ -1,4 +1,8 @@
-export type DomainSiteKey = "usam" | "kitchen-table-gospel" | "discipleship-operating-system";
+export type DomainSiteKey =
+  | "usam"
+  | "kitchen-table-gospel"
+  | "discipleship-operating-system"
+  | "mission-of-reconciliation";
 
 export type DomainSiteConfig = {
   analyticsBrand: string;
@@ -113,6 +117,39 @@ export const domainSites = {
     title: "DOS | Discipleship Operating System",
     titleTemplate: "%s | DOS",
   },
+  "mission-of-reconciliation": {
+    analyticsBrand: "mission_of_reconciliation",
+    // No Mission of Reconciliation icon set exists yet, so the partnership's
+    // USA Missionaries marks stand in until brand assets are produced.
+    appleTouchIconPath: "/favicons/usam/apple-touch-icon.png",
+    canonicalOrigin: "https://www.missionofreconciliation.org",
+    description: "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture. In partnership with USA Missionaries.",
+    favicon16Path: "/favicons/usam/favicon-16x16.png",
+    favicon32Path: "/favicons/usam/favicon-32x32.png",
+    favicon48Path: "/favicons/usam/favicon-48x48.png",
+    faviconPath: "/favicons/usam/favicon.ico",
+    faviconSvgPath: "/favicons/usam/favicon.svg",
+    icon192Path: "/favicons/usam/icon-192.png",
+    icon512Path: "/favicons/usam/icon-512.png",
+    key: "mission-of-reconciliation",
+    manifestPath: "/favicons/usam/site.webmanifest",
+    /**
+     * Unlike the single-page domain sites, Mission of Reconciliation serves a
+     * whole section, so its root is the real route rather than a
+     * `/domain-sites` landing. See src/lib/mission-of-reconciliation/domain.ts
+     * for the host-native path map.
+     */
+    rootPath: "/mission-of-reconciliation",
+    siteName: "Mission of Reconciliation",
+    socialImage: {
+      alt: "Mission of Reconciliation",
+      ...socialImageSize,
+      path: "/images/share/usam.jpg",
+    },
+    themeColor: "#FCFAF6",
+    title: "Mission of Reconciliation",
+    titleTemplate: "%s | Mission of Reconciliation",
+  },
 } as const satisfies Record<DomainSiteKey, DomainSiteConfig>;
 
 export const ga4CrossDomainHosts = [
@@ -126,6 +163,8 @@ export const ga4CrossDomainHosts = [
   "www.ktgospel.com",
   "discipleshipoperatingsystem.com",
   "www.discipleshipoperatingsystem.com",
+  "missionofreconciliation.org",
+  "www.missionofreconciliation.org",
 ];
 
 const siteByHostname: Record<string, DomainSiteConfig> = {
@@ -139,6 +178,8 @@ const siteByHostname: Record<string, DomainSiteConfig> = {
   "www.ktgospel.com": domainSites["kitchen-table-gospel"],
   "discipleshipoperatingsystem.com": domainSites["discipleship-operating-system"],
   "www.discipleshipoperatingsystem.com": domainSites["discipleship-operating-system"],
+  "missionofreconciliation.org": domainSites["mission-of-reconciliation"],
+  "www.missionofreconciliation.org": domainSites["mission-of-reconciliation"],
 };
 
 export function normalizeHostname(hostname?: string | null) {

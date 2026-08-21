@@ -3,7 +3,10 @@ import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
-import { dontWasteYourLife, morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { dontWasteYourLife, morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import type { MissionPaths } from "@/src/lib/mission-of-reconciliation/domain";
+import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies, featuredCaseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
 import {
   Body,
@@ -18,7 +21,7 @@ import { StoryCard } from "./_components/StoryCard";
 import { SermonVideoLink } from "./_components/SermonVideoLink";
 
 export const metadata: Metadata = {
-  alternates: { canonical: morRoutes.home },
+  alternates: { canonical: missionCanonical.home },
   description:
     "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture, pointing them toward restoration and freedom in Jesus Christ. In partnership with USA Missionaries.",
   openGraph: {
@@ -28,7 +31,7 @@ export const metadata: Metadata = {
     siteName: domainSites.usam.siteName,
     title: "Mission of Reconciliation | Healing, Freedom & Restoration",
     type: "website",
-    url: morRoutes.home,
+    url: missionCanonical.home,
   },
   title: { absolute: "Mission of Reconciliation | Healing, Freedom & Restoration" },
 };
@@ -54,7 +57,7 @@ const journeySteps = [
   },
 ] as const;
 
-function HeroSection() {
+function HeroSection({ paths }: { paths: MissionPaths }) {
   return (
     <section
       className="px-5 pb-16 pt-14 md:px-8 md:pb-24 md:pt-24"
@@ -94,7 +97,7 @@ function HeroSection() {
         </div>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap md:mt-12">
-          <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
+          <PrimaryCta href={paths.restoration}>Begin Your Restoration Journey</PrimaryCta>
           <SecondaryCta href="#join-the-mission">Join the Mission</SecondaryCta>
         </div>
       </div>
@@ -133,7 +136,7 @@ function WhyItMattersSection() {
   );
 }
 
-function RestorationJourneySection() {
+function RestorationJourneySection({ paths }: { paths: MissionPaths }) {
   return (
     <Section id="restoration-journey">
       <Eyebrow>The Restoration Journey</Eyebrow>
@@ -172,7 +175,7 @@ function RestorationJourneySection() {
       </div>
 
       <div className="mt-12">
-        <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
+        <PrimaryCta href={paths.restoration}>Begin Your Restoration Journey</PrimaryCta>
       </div>
     </Section>
   );
@@ -238,7 +241,7 @@ function DontWasteYourLifeSection() {
   );
 }
 
-function StoriesSection() {
+function StoriesSection({ paths }: { paths: MissionPaths }) {
   const onlyOne = featuredCaseStudies.length === 1;
 
   return (
@@ -263,6 +266,7 @@ function StoriesSection() {
       <div className={onlyOne ? "mt-12" : "mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"}>
         {featuredCaseStudies.map((study, index) => (
           <StoryCard
+            href={paths.storyHref(study.id)}
             index={index + 1}
             key={study.id}
             layout={onlyOne ? "feature" : "card"}
@@ -273,14 +277,14 @@ function StoriesSection() {
 
       {caseStudies.length > 1 ? (
         <div className="mt-10">
-          <SecondaryCta href={morRoutes.stories}>All Stories of Reconciliation</SecondaryCta>
+          <SecondaryCta href={paths.stories}>All Stories of Reconciliation</SecondaryCta>
         </div>
       ) : null}
     </Section>
   );
 }
 
-function NationalInvitationSection() {
+function NationalInvitationSection({ paths }: { paths: MissionPaths }) {
   return (
     <Section id="join-the-mission">
       <Eyebrow>The Invitation</Eyebrow>
@@ -340,7 +344,7 @@ function NationalInvitationSection() {
             >
               Join the Mission
             </JoinMissionInterestModal>
-            <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
+            <PrimaryCta href={paths.restoration}>Begin Your Restoration Journey</PrimaryCta>
           </div>
         </div>
       </div>
@@ -348,18 +352,20 @@ function NationalInvitationSection() {
   );
 }
 
-export default function MissionOfReconciliationPage() {
+export default async function MissionOfReconciliationPage() {
+  const paths = await getMissionPaths();
+
   return (
     <>
-      <MissionHeader />
+      <MissionHeader paths={paths} />
       <main style={{ backgroundColor: morColor.page }}>
-        <HeroSection />
+        <HeroSection paths={paths} />
         <WhyItMattersSection />
-        <RestorationJourneySection />
+        <RestorationJourneySection paths={paths} />
         <PartnershipSection />
         <DontWasteYourLifeSection />
-        <StoriesSection />
-        <NationalInvitationSection />
+        <StoriesSection paths={paths} />
+        <NationalInvitationSection paths={paths} />
       </main>
     </>
   );

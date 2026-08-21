@@ -1,20 +1,25 @@
 const path = require("path");
 
-const apexRedirectHosts = [
+// [sourceHost, destinationHost]. Most brands collapse www onto the apex;
+// Mission of Reconciliation runs on www, so it points the other way.
+const hostRedirects = [
   ["www.usamissionaries.org", "usamissionaries.org"],
   ["www.kitchentablegospel.org", "kitchentablegospel.org"],
   ["www.discipleshipoperatingsystem.com", "discipleshipoperatingsystem.com"],
+  ["missionofreconciliation.org", "www.missionofreconciliation.org"],
 ];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
-    const redirects = apexRedirectHosts.map(([sourceHost, destinationHost]) => ({
+    const redirects = hostRedirects.map(([sourceHost, destinationHost]) => ({
       source: "/:path*",
       has: [
         {
           type: "host",
-          value: sourceHost,
+          // Anchored: `has.value` is a regex, and an unanchored apex would also
+          // match its own www host, which self-redirects.
+          value: `^${sourceHost.replace(/\./g, "\\.")}$`,
         },
       ],
       destination: `https://${destinationHost}/:path*`,
