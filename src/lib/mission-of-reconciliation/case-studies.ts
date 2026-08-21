@@ -16,6 +16,13 @@
 export type CaseStudyPhoto = {
   alt: string;
   caption: string;
+  /**
+   * CSS object-position for the crop. Frames vary a lot between the wide
+   * feature card and the story page, so a portrait photo of someone standing
+   * needs its focal point biased upward or a centered crop takes the top of
+   * their head. Defaults to "center".
+   */
+  focalPoint?: string;
   src: string;
 };
 
@@ -64,6 +71,8 @@ const martyAndLauriFox: CaseStudy = {
     {
       alt: "Marty and Lauri Fox today",
       caption: "Today",
+      // Portrait source, heads high in the frame: keep the crop off Marty's hat.
+      focalPoint: "center 25%",
       src: "/images/mission-of-reconciliation/marty-lauri-today.webp",
     },
   ],

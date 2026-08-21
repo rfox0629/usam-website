@@ -60,6 +60,7 @@ export function CaseStudyBlock({
                 fill
                 sizes="(max-width: 768px) 46vw, 326px"
                 src={photo.src}
+                style={{ objectPosition: photo.focalPoint ?? "center" }}
               />
             </div>
             <figcaption

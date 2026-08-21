@@ -49,6 +49,7 @@ export function StoryCard({
             fill
             sizes={isFeature ? "(min-width: 768px) 46vw, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
             src={cover.src}
+            style={{ objectPosition: cover.focalPoint ?? "center" }}
           />
         </div>
 
