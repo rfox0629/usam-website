@@ -57,7 +57,8 @@
     "test:pco-donor-identity": "node scripts/pco-donor-identity-regression.mjs",
     "test:operations-documents": "node scripts/operations-documents-regression.mjs",
     "start": "next start",
-    "test:mission-domain-routing": "node scripts/mission-domain-routing-regression.mjs"
+    "test:mission-domain-routing": "node scripts/mission-domain-routing-regression.mjs",
+    "test:preparation": "node --experimental-strip-types --import ./scripts/ts-loader.mjs scripts/restoration-preparation-regression.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

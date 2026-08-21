@@ -11,6 +11,12 @@ import {
   updateOperationsSubmissionReview,
   type OperationsSubmissionStatus,
 } from "@/src/lib/operations/submissions";
+import {
+  generatePreparationSummary,
+  savePreparationNote,
+  savePreparationSummary,
+} from "@/src/lib/operations/restoration-preparation-store";
+import { preparationSectionIds, type PreparationSectionId } from "@/src/lib/operations/restoration-preparation";
 
 function formValue(formData: FormData, name: string) {
   const value = formData.get(name);
@@ -114,4 +120,71 @@ export async function deleteTestSubmissionAction(formData: FormData) {
   }
 
   redirect("/operations/submissions?deleted=1");
+}
+
+/**
+ * Preparation Summary actions (USA-187).
+ *
+ * Each one re-reads authorization on the server and defers the actual
+ * permission check to the store, which reuses the case loader. A reviewer
+ * without Restoration manage access cannot reach any of these by posting
+ * directly.
+ */
+export async function generatePreparationSummaryAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const result = await generatePreparationSummary({ authorization, id });
+
+  revalidatePath(`/operations/submissions/${id}`);
+  redirect(result.error
+    ? `/operations/submissions/${id}?view=summary&error=${encodeURIComponent(result.error)}`
+    : `/operations/submissions/${id}?view=summary&generated=1`);
+}
+
+export async function savePreparationSummaryAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const narratives: Partial<Record<PreparationSectionId, string>> = {};
+  for (const sectionId of preparationSectionIds) {
+    narratives[sectionId] = formValue(formData, `narrative-${sectionId}`);
+  }
+
+  const result = await savePreparationSummary({ authorization, id, narratives });
+
+  revalidatePath(`/operations/submissions/${id}`);
+  redirect(result.error
+    ? `/operations/submissions/${id}?view=summary&error=${encodeURIComponent(result.error)}`
+    : `/operations/submissions/${id}?view=summary&saved=summary`);
+}
+
+export async function savePreparationNoteAction(formData: FormData) {
+  const id = formValue(formData, "id");
+  const sectionId = formValue(formData, "sectionId");
+  const authorization = await getOperationsAuthorization();
+
+  if (!id) {
+    redirect("/operations/submissions?error=missing-submission");
+  }
+
+  const result = await savePreparationNote({
+    authorization,
+    id,
+    sectionId,
+    text: formValue(formData, "note"),
+  });
+
+  revalidatePath(`/operations/submissions/${id}`);
+  redirect(result.error
+    ? `/operations/submissions/${id}?view=summary&error=${encodeURIComponent(result.error)}`
+    : `/operations/submissions/${id}?view=summary&saved=note#section-${sectionId}`);
 }

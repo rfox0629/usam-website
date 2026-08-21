@@ -40,6 +40,9 @@ jobs:
       - name: /join provisioner contract (USA-110)
         run: npm run test:join-contract
 
+      - name: Restoration preparation summary (USA-187)
+        run: npm run test:preparation
+
       - name: Build
         run: npm run build
 
