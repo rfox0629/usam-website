@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buildDomainSiteIcons } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
+import { PartnershipLine } from "@/components/mission-of-reconciliation/PartnershipLine";
 import { morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
 import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
@@ -55,7 +56,7 @@ export default async function RestorationPage() {
               className="mt-4 text-[11px] uppercase tracking-[0.2em]"
               style={{ color: morColor.muted, fontFamily: morFont.rajdhani, fontWeight: 600 }}
             >
-              {morBrand.partnership}
+              <PartnershipLine />
             </p>
 
             <p

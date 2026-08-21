@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { buildDomainSiteIcons, buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
+import { PartnershipLine } from "@/components/mission-of-reconciliation/PartnershipLine";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
 import { dontWasteYourLife, morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 import { missionCanonical, missionCanonicalOrigin } from "@/src/lib/mission-of-reconciliation/domain";
@@ -69,7 +70,9 @@ function HeroSection({ paths }: { paths: MissionPaths }) {
       style={{ backgroundColor: morColor.page }}
     >
       <div className="mx-auto w-full max-w-6xl">
-        <Eyebrow>{morBrand.partnership}</Eyebrow>
+        <Eyebrow>
+          <PartnershipLine />
+        </Eyebrow>
 
         <h1
           className="mt-6 max-w-5xl"
@@ -298,23 +301,11 @@ function NationalInvitationSection({ paths }: { paths: MissionPaths }) {
 
       {/*
         One column, no rules, no split. This is the close, so it reads straight
-        down: what you do not need, what you do, why now, and the two doors.
+        down: what it asks of you, why now, and the two doors.
       */}
       <div className="mt-10 max-w-3xl md:mt-12">
-        <div className="space-y-1">
-          {["You do not need a platform.", "You do not need a stage.", "You do not need a professional title."].map((line) => (
-            <p
-              className="text-[1.2rem] leading-[1.4] md:text-[1.3rem]"
-              key={line}
-              style={{ color: morColor.muted, fontFamily: morFont.oswald, fontWeight: 400 }}
-            >
-              {line}
-            </p>
-          ))}
-        </div>
-
         <p
-          className="mt-6 text-[1.6rem] leading-[1.25] md:text-[2rem]"
+          className="text-[1.6rem] leading-[1.25] md:text-[2rem]"
           style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
         >
           You need to be willing to love people, obey Jesus, and{" "}

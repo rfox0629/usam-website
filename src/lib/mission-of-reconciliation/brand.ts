@@ -39,6 +39,11 @@ export const morColor = {
 
 export const morBrand = {
   name: "Mission of Reconciliation",
+  /** Rendered by <PartnershipLine> so the partner name can be a link. */
+  partner: "USA Missionaries",
+  partnershipPrefix: "In partnership with",
+  partnerUrl: "https://usamissionaries.org",
+  /** Plain-text form, for places that cannot carry markup. */
   partnership: "In partnership with USA Missionaries",
   tagline: "People coming alongside people.",
 } as const;

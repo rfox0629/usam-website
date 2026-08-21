@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
+import { PartnershipLine } from "./PartnershipLine";
 import type { MissionPaths } from "@/src/lib/mission-of-reconciliation/domain";
 
 const ctaClassName = "inline-flex min-h-11 shrink-0 items-center px-4 text-[11px] uppercase tracking-[0.16em] transition-colors md:px-6 md:text-xs";
@@ -28,20 +29,22 @@ export function MissionHeader({
       }}
     >
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3 md:px-8 md:py-4">
-        <Link className="min-w-0" href={paths.home}>
-          <span
-            className="block text-[12px] uppercase leading-tight tracking-[0.12em] md:text-[15px] md:tracking-[0.18em]"
-            style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
-          >
-            {morBrand.name}
-          </span>
-          <span
+        <div className="min-w-0">
+          <Link href={paths.home}>
+            <span
+              className="block text-[12px] uppercase leading-tight tracking-[0.12em] md:text-[15px] md:tracking-[0.18em]"
+              style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
+            >
+              {morBrand.name}
+            </span>
+          </Link>
+          <p
             className="mt-1 hidden text-[10px] uppercase leading-none tracking-[0.16em] sm:block"
             style={{ color: morColor.muted, fontFamily: morFont.rajdhani, fontWeight: 600 }}
           >
-            {morBrand.partnership}
-          </span>
-        </Link>
+            <PartnershipLine />
+          </p>
+        </div>
 
         {cta === "restoration" ? (
           <Link
