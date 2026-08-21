@@ -11,6 +11,11 @@ import type { CaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies
  * published, so a single entry reads as an intentional spotlight rather than a
  * lone tile in an empty grid. "card" is the vertical tile the grid uses once
  * there are two or more.
+ *
+ * The feature image column is deliberately narrow. It stretches to the card
+ * height, so a wide column against a portrait photo crops hard and the subject
+ * reads as zoomed in. At 34% the frame shows about 70% of the source with the
+ * card still compact.
  */
 export function StoryCard({
   href,
@@ -39,7 +44,7 @@ export function StoryCard({
       >
         <div
           className={`relative overflow-hidden ${
-            isFeature ? "aspect-[3/2] w-full md:aspect-auto md:w-[46%] md:shrink-0" : "aspect-[3/2] w-full"
+            isFeature ? "aspect-[3/2] w-full md:aspect-auto md:w-[34%] md:shrink-0" : "aspect-[3/2] w-full"
           }`}
           style={{ backgroundColor: morColor.band }}
         >
@@ -47,7 +52,7 @@ export function StoryCard({
             alt={cover.alt}
             className="object-cover transition duration-500 group-hover:scale-[1.02]"
             fill
-            sizes={isFeature ? "(min-width: 768px) 46vw, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
+            sizes={isFeature ? "(min-width: 768px) 34vw, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
             src={cover.src}
             style={{ objectPosition: cover.focalPoint ?? "center" }}
           />
