@@ -296,13 +296,15 @@ function NationalInvitationSection({ paths }: { paths: MissionPaths }) {
         <Display size="xl">What if thousands of us lived this way?</Display>
       </div>
 
-      <div className="mt-12 grid gap-10 border-t pt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
-        style={{ borderColor: morColor.rule }}
-      >
-        <div className="space-y-2">
+      {/*
+        One column, no rules, no split. This is the close, so it reads straight
+        down: what you do not need, what you do, why now, and the two doors.
+      */}
+      <div className="mt-10 max-w-3xl md:mt-12">
+        <div className="space-y-1">
           {["You do not need a platform.", "You do not need a stage.", "You do not need a professional title."].map((line) => (
             <p
-              className="text-[1.3rem] leading-[1.35] md:text-[1.45rem]"
+              className="text-[1.2rem] leading-[1.4] md:text-[1.3rem]"
               key={line}
               style={{ color: morColor.muted, fontFamily: morFont.oswald, fontWeight: 400 }}
             >
@@ -312,44 +314,33 @@ function NationalInvitationSection({ paths }: { paths: MissionPaths }) {
         </div>
 
         <p
-          className="text-[1.75rem] leading-[1.25] md:text-[2.15rem]"
+          className="mt-6 text-[1.6rem] leading-[1.25] md:text-[2rem]"
           style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
         >
           You need to be willing to love people, obey Jesus, and{" "}
           <span style={{ color: morColor.goldInk }}>make yourself available.</span>
         </p>
-      </div>
 
-      <div
-        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-2 lg:items-center lg:gap-16"
-        style={{ borderColor: morColor.rule }}
-      >
         <p
-          className="text-[2.25rem] leading-[1.05] md:text-[3rem]"
+          className="mt-10 text-[1.5rem] leading-[1.25] md:text-[1.9rem]"
           style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
         >
-          The need is great.
-          <br />
-          <span style={{ color: morColor.goldInk }}>The time is now.</span>
+          The need is great. <span style={{ color: morColor.goldInk }}>The time is now.</span>
         </p>
 
-        <div>
-          <p
-            className="max-w-md text-lg leading-8 md:text-xl md:leading-9"
-            style={{ color: morColor.body }}
+        <p className="mt-4 text-[1.0625rem] leading-8" style={{ color: morColor.body }}>
+          Your kitchen table may be where someone&rsquo;s restoration begins.
+        </p>
+
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <JoinMissionInterestModal
+            defaultInterest="Come alongside people through Mission of Reconciliation"
+            triggerClassName={morTriggerClassName}
+            triggerFontWeight={700}
           >
-            Your kitchen table may be where someone&rsquo;s restoration begins.
-          </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <JoinMissionInterestModal
-              defaultInterest="Come alongside people through Mission of Reconciliation"
-              triggerClassName={morTriggerClassName}
-              triggerFontWeight={700}
-            >
-              Join the Mission
-            </JoinMissionInterestModal>
-            <PrimaryCta href={paths.restoration}>Begin Your Restoration Journey</PrimaryCta>
-          </div>
+            Join the Mission
+          </JoinMissionInterestModal>
+          <PrimaryCta href={paths.restoration}>Begin Your Restoration Journey</PrimaryCta>
         </div>
       </div>
     </Section>
