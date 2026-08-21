@@ -8,7 +8,6 @@ import { domainSites } from "@/src/lib/domain-sites";
 import { morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
 import { caseStudies, caseStudyHref, getCaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
 import { CaseStudyBlock } from "../../_components/CaseStudy";
-import { PrimaryCta, SecondaryCta } from "../../_components/MissionCta";
 
 export function generateStaticParams() {
   return caseStudies.map((study) => ({ slug: study.id }));
@@ -43,6 +42,10 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * A single case study. Deliberately not a second landing page: no national call
+ * and no mission-level CTAs, just the story and a way back to the others.
+ */
 export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const study = getCaseStudy(slug);
@@ -52,6 +55,12 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
   }
 
   const index = caseStudies.findIndex((entry) => entry.id === study.id) + 1;
+  const backLinkClassName = "inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]";
+  const backLinkStyle = {
+    color: morColor.goldInk,
+    fontFamily: morFont.rajdhani,
+    fontWeight: 700,
+  } as const;
 
   return (
     <>
@@ -59,11 +68,7 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
       <main style={{ backgroundColor: morColor.page }}>
         <section className="px-5 pb-16 pt-10 md:px-8 md:pb-24 md:pt-14">
           <div className="mx-auto w-full max-w-6xl">
-            <Link
-              className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]"
-              href={`${morRoutes.home}#stories`}
-              style={{ color: morColor.goldInk, fontFamily: morFont.rajdhani, fontWeight: 700 }}
-            >
+            <Link className={backLinkClassName} href={morRoutes.stories} style={backLinkStyle}>
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
               Stories of Reconciliation
             </Link>
@@ -86,20 +91,11 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
               <CaseStudyBlock hideName index={index} study={study} />
             </div>
 
-            <div
-              className="mt-14 border-t pt-10"
-              style={{ borderColor: morColor.rule }}
-            >
-              <p
-                className="max-w-2xl text-[1.35rem] leading-[1.3] md:text-[1.6rem]"
-                style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 500 }}
-              >
-                What if thousands of us lived this way?
-              </p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
-                <SecondaryCta href={morRoutes.joinAnchor}>Join the Mission</SecondaryCta>
-              </div>
+            <div className="mt-14 border-t pt-8" style={{ borderColor: morColor.rule }}>
+              <Link className={backLinkClassName} href={morRoutes.stories} style={backLinkStyle}>
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                All Stories of Reconciliation
+              </Link>
             </div>
           </div>
         </section>

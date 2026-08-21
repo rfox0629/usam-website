@@ -1,7 +1,10 @@
-import { dontWasteYourLife } from "./brand";
-
 /**
- * Case studies for the "Reconciliation lived out" section.
+ * Case studies: people living out the ministry of reconciliation where they are.
+ *
+ * Deliberately not limited to retired married couples. Future entries may be
+ * grandparents, widows and widowers, mature single believers, younger families,
+ * or anyone whose home has become a place people know they can come. Keep
+ * `name`, `where`, and `cardSummary` free of language that assumes a couple.
  *
  * These are real people who have given permission to be featured. Never add a
  * placeholder, composite, or invented story here — the section renders whatever
@@ -14,14 +17,6 @@ export type CaseStudyPhoto = {
   alt: string;
   caption: string;
   src: string;
-};
-
-export type CaseStudyVideo = {
-  embedUrl: string;
-  /** Link text shown in the study; the video opens over the page. */
-  linkLabel: string;
-  title: string;
-  watchUrl: string;
 };
 
 export type CaseStudy = {
@@ -41,7 +36,6 @@ export type CaseStudy = {
   story: readonly string[];
   /** Pull-lead that opens the study. */
   summary: string;
-  video?: CaseStudyVideo;
   /** Where they serve, shown as a small dateline. */
   where: string;
 };
@@ -82,13 +76,10 @@ const martyAndLauriFox: CaseStudy = {
     "For nearly thirty years they have come alongside marriages and families around kitchen tables, doing for others what was once done for them. Now, in the season when many people start counting down to retirement, they are still pouring into the people God puts in front of them.",
   ],
   summary: "Two ordinary people who simply made themselves available.",
-  video: {
-    embedUrl: dontWasteYourLife.embedUrl,
-    linkLabel: "Watch John Piper on not wasting your life",
-    title: dontWasteYourLife.title,
-    watchUrl: dontWasteYourLife.watchUrl,
-  },
   where: "Minnesota",
 };
 
 export const caseStudies: readonly CaseStudy[] = [martyAndLauriFox];
+
+/** The landing page features a few; the index at /stories carries them all. */
+export const featuredCaseStudies = caseStudies.slice(0, 3);

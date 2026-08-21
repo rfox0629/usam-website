@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PlayCircle, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 
 /**
- * Text link that opens a video over the page instead of embedding a player in
- * the flow. The iframe only mounts while the dialog is open, so nothing loads
- * from YouTube until someone asks for it.
+ * Opens a sermon over the page rather than embedding a player in the flow. The
+ * iframe only mounts while the dialog is open, so nothing loads from YouTube
+ * until someone asks for it, and closing the dialog stops playback.
  */
-export function WatchMessageLink({
+export function SermonVideoLink({
   embedUrl,
   label,
   title,
@@ -63,10 +63,7 @@ export function WatchMessageLink({
         onMouseDown={close}
         role="dialog"
       >
-        <div
-          className="w-full max-w-5xl"
-          onMouseDown={(event) => event.stopPropagation()}
-        >
+        <div className="w-full max-w-5xl" onMouseDown={(event) => event.stopPropagation()}>
           <div className="mb-3 flex items-center justify-between gap-4">
             <p
               className="min-w-0 truncate text-[11px] uppercase tracking-[0.18em] text-white"
@@ -85,7 +82,10 @@ export function WatchMessageLink({
             </button>
           </div>
 
-          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16 / 9", backgroundColor: "#000" }}>
+          <div
+            className="relative w-full overflow-hidden rounded-lg"
+            style={{ aspectRatio: "16 / 9", backgroundColor: "#000" }}
+          >
             <iframe
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
@@ -113,14 +113,19 @@ export function WatchMessageLink({
   return (
     <>
       <button
-        className="inline-flex items-center gap-2 text-left text-[15px] leading-7 underline underline-offset-4 transition-colors hover:opacity-80"
+        className="inline-flex min-h-[3.25rem] cursor-pointer items-center justify-center gap-2 border px-7 text-center text-xs uppercase tracking-[0.18em] transition-colors hover:border-[#C2A14E] md:px-9 md:text-[13px]"
         onClick={() => setIsOpen(true)}
         ref={triggerRef}
-        style={{ color: morColor.goldInk }}
+        style={{
+          borderColor: morColor.rule,
+          color: morColor.ink,
+          fontFamily: morFont.rajdhani,
+          fontWeight: 700,
+        }}
         type="button"
       >
-        <PlayCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
         {label}
+        <ArrowRight aria-hidden="true" className="h-4 w-4" />
       </button>
       {dialog}
     </>

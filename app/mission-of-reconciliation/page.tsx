@@ -3,8 +3,8 @@ import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
-import { morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
-import { caseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
+import { dontWasteYourLife, morBrand, morColor, morFont, morRoutes } from "@/src/lib/mission-of-reconciliation/brand";
+import { caseStudies, featuredCaseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
 import {
   Body,
   Display,
@@ -13,8 +13,9 @@ import {
   ScriptureQuote,
   Section,
 } from "./_components/MissionPrimitives";
-import { PrimaryCta, SecondaryCta, morTriggerOnDarkClassName } from "./_components/MissionCta";
+import { PrimaryCta, SecondaryCta, morTriggerClassName } from "./_components/MissionCta";
 import { StoryCard } from "./_components/StoryCard";
+import { SermonVideoLink } from "./_components/SermonVideoLink";
 
 export const metadata: Metadata = {
   alternates: { canonical: morRoutes.home },
@@ -196,51 +197,98 @@ function PartnershipSection() {
   );
 }
 
-function StoriesSection() {
+function DontWasteYourLifeSection() {
   return (
-    <Section id="stories">
+    <Section id="dont-waste-your-life">
+      <Eyebrow>Don&rsquo;t Waste Your Life</Eyebrow>
+      <div className="mt-5">
+        <Display>What will you do with what God has given you?</Display>
+      </div>
+
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
+        <Body>
+          John Piper challenges Christians not to spend the final chapters of life simply pursuing
+          comfort, leisure, and retirement. The goal is not to arrive safely at the end with a
+          collection of experiences, but to spend our lives for what matters eternally.
+        </Body>
+
+        <div>
+          <p className="text-[15px] leading-8" style={{ color: morColor.muted }}>
+            For Mission of Reconciliation, that raises a simple question:
+          </p>
+          <p
+            className="mt-4 text-[1.4rem] leading-[1.35] md:text-[1.75rem]"
+            style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 500 }}
+          >
+            What if the wisdom, experience, testimony, and years God has given you were meant to be
+            poured into <span style={{ color: morColor.goldInk }}>someone else?</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-10">
+        <SermonVideoLink
+          embedUrl={dontWasteYourLife.embedUrl}
+          label={"Watch \u201cDon\u2019t Waste Your Life\u201d"}
+          title={dontWasteYourLife.title}
+          watchUrl={dontWasteYourLife.watchUrl}
+        />
+      </div>
+    </Section>
+  );
+}
+
+function StoriesSection() {
+  const onlyOne = featuredCaseStudies.length === 1;
+
+  return (
+    <Section id="stories" tone="band">
       <Eyebrow>Stories of Reconciliation</Eyebrow>
       <div className="mt-5">
-        <Display>Reconciliation lived out.</Display>
+        <Display>Meet people who said yes.</Display>
       </div>
 
       <div className="mt-8">
         <Lede>
-          What this looks like in real life: ordinary followers of Jesus walking with the people God
-          has placed around them.
+          Ordinary followers of Jesus making themselves available to the people God has placed
+          around them.
         </Lede>
       </div>
 
-      {/* A directory, not a single feature. Adding a study to `caseStudies` adds a card. */}
-      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-        {caseStudies.map((study, index) => (
-          <StoryCard index={index + 1} key={study.id} study={study} />
+      {/*
+        One published story gets the wide feature treatment so it does not read as
+        a lone tile in an empty grid. Two or three fall into the card grid, and
+        anything beyond that lives on the stories index.
+      */}
+      <div className={onlyOne ? "mt-12" : "mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8"}>
+        {featuredCaseStudies.map((study, index) => (
+          <StoryCard
+            index={index + 1}
+            key={study.id}
+            layout={onlyOne ? "feature" : "card"}
+            study={study}
+          />
         ))}
       </div>
+
+      {caseStudies.length > 1 ? (
+        <div className="mt-10">
+          <SecondaryCta href={morRoutes.stories}>All Stories of Reconciliation</SecondaryCta>
+        </div>
+      ) : null}
     </Section>
   );
 }
 
 function NationalInvitationSection() {
   return (
-    <Section id="join-the-mission" tone="band">
+    <Section id="join-the-mission">
       <Eyebrow>The Invitation</Eyebrow>
       <div className="mt-5">
         <Display size="xl">What if thousands of us lived this way?</Display>
       </div>
 
-      <p
-        className="mt-8 max-w-2xl text-base leading-8 md:text-[1.0625rem] md:leading-9"
-        style={{ color: morColor.muted }}
-      >
-        Across America are followers of Jesus with years of wisdom, lessons learned, healed
-        marriages, and stories of God&rsquo;s faithfulness. Around them are people who need someone
-        willing to come alongside them.
-      </p>
-
-      {/* The turn: three things you don't need, set against the one thing you do. */}
-      <div
-        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
+      <div className="mt-12 grid gap-10 border-t pt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
         style={{ borderColor: morColor.rule }}
       >
         <div className="space-y-2">
@@ -264,51 +312,38 @@ function NationalInvitationSection() {
         </p>
       </div>
 
-    </Section>
-  );
-}
-
-function FinalCtaSection() {
-  return (
-    <Section id="next-step" tone="deep">
-      <div className="grid gap-12 md:grid-cols-2 md:gap-16">
-        <div>
-          <h2
-            className="text-[1.75rem] leading-tight md:text-[2.25rem]"
-            style={{ color: "#FFFFFF", fontFamily: morFont.oswald, fontWeight: 600 }}
-          >
-            Do you need someone to come alongside you?
-          </h2>
-          <p className="mt-4 max-w-md text-base leading-8" style={{ color: "rgba(255,255,255,0.72)" }}>
-            Share your story confidentially and we will prayerfully consider how to walk with you.
-          </p>
-          <div className="mt-7">
-            <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
-          </div>
-        </div>
+      <div
+        className="mt-12 grid gap-8 border-t pt-10 lg:grid-cols-2 lg:items-center lg:gap-16"
+        style={{ borderColor: morColor.rule }}
+      >
+        <p
+          className="text-[2.25rem] leading-[1.05] md:text-[3rem]"
+          style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
+        >
+          The need is great.
+          <br />
+          <span style={{ color: morColor.goldInk }}>The time is now.</span>
+        </p>
 
         <div>
-          <h2
-            className="text-[1.75rem] leading-tight md:text-[2.25rem]"
-            style={{ color: "#FFFFFF", fontFamily: morFont.oswald, fontWeight: 600 }}
+          <p
+            className="max-w-md text-lg leading-8 md:text-xl md:leading-9"
+            style={{ color: morColor.body }}
           >
-            Are you ready to come alongside others?
-          </h2>
-          <p className="mt-4 max-w-md text-base leading-8" style={{ color: "rgba(255,255,255,0.72)" }}>
-            Tell us a little about where God has placed you and we will follow up.
+            Your kitchen table may be where someone&rsquo;s restoration begins.
           </p>
-          <div className="mt-7">
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <JoinMissionInterestModal
               defaultInterest="Come alongside people through Mission of Reconciliation"
-              triggerClassName={morTriggerOnDarkClassName}
+              triggerClassName={morTriggerClassName}
               triggerFontWeight={700}
             >
               Join the Mission
             </JoinMissionInterestModal>
+            <PrimaryCta href={morRoutes.restoration}>Begin Your Restoration Journey</PrimaryCta>
           </div>
         </div>
       </div>
-
     </Section>
   );
 }
@@ -322,9 +357,9 @@ export default function MissionOfReconciliationPage() {
         <WhyItMattersSection />
         <RestorationJourneySection />
         <PartnershipSection />
+        <DontWasteYourLifeSection />
         <StoriesSection />
         <NationalInvitationSection />
-        <FinalCtaSection />
       </main>
     </>
   );

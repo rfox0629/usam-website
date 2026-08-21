@@ -1,13 +1,11 @@
 import Image from "next/image";
 import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 import type { CaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
-import { WatchMessageLink } from "./WatchMessageLink";
 
 /**
- * One case study: a then-and-now photo pair over a two-column read. Any video
- * opens over the page from a link rather than sitting in the flow, which keeps
- * the block short. Numbered by position, so a second or third entry in
- * `caseStudies` renders without touching this component.
+ * One case study: a then-and-now photo pair over a two-column read. Numbered by
+ * position, so a second or third entry in `caseStudies` renders without
+ * touching this component.
  */
 export function CaseStudyBlock({
   hideName = false,
@@ -121,16 +119,6 @@ export function CaseStudyBlock({
             {study.closing}
           </p>
 
-          {study.video ? (
-            <div className="mt-4">
-              <WatchMessageLink
-                embedUrl={study.video.embedUrl}
-                label={study.video.linkLabel}
-                title={study.video.title}
-                watchUrl={study.video.watchUrl}
-              />
-            </div>
-          ) : null}
         </aside>
       </div>
     </article>

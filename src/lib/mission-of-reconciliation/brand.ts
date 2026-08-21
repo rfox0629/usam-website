@@ -46,6 +46,7 @@ export const morBrand = {
 export const morRoutes = {
   home: "/mission-of-reconciliation",
   restoration: "/restoration",
+  stories: "/mission-of-reconciliation/stories",
   joinAnchor: "/mission-of-reconciliation#join-the-mission",
 } as const;
 

@@ -5,31 +5,51 @@ import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 import { caseStudyHref, type CaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
 
 /**
- * One story on the index. The whole card is the link; the arrow is decoration.
- * Leads with the current photo so the grid reads as people, not documents.
+ * One story, linked whole.
+ *
+ * "feature" is a wide horizontal treatment used when only one story is
+ * published, so a single entry reads as an intentional spotlight rather than a
+ * lone tile in an empty grid. "card" is the vertical tile the grid uses once
+ * there are two or more.
  */
-export function StoryCard({ index, study }: { index: number; study: CaseStudy }) {
+export function StoryCard({
+  index,
+  layout = "card",
+  study,
+}: {
+  index: number;
+  layout?: "card" | "feature";
+  study: CaseStudy;
+}) {
   const number = String(index).padStart(2, "0");
   const cover = study.photos[study.photos.length - 1] ?? study.photos[0];
+  const isFeature = layout === "feature";
 
   return (
     <article className="h-full">
       <Link
-        className="group flex h-full flex-col overflow-hidden rounded-lg border transition-colors hover:border-[#C2A14E]"
+        className={`group flex h-full overflow-hidden rounded-lg border transition-colors hover:border-[#C2A14E] ${
+          isFeature ? "flex-col md:flex-row" : "flex-col"
+        }`}
         href={caseStudyHref(study)}
         style={{ backgroundColor: "#FFFFFF", borderColor: morColor.rule }}
       >
-        <div className="relative aspect-[3/2] w-full overflow-hidden" style={{ backgroundColor: morColor.band }}>
+        <div
+          className={`relative overflow-hidden ${
+            isFeature ? "aspect-[3/2] w-full md:aspect-auto md:w-[46%] md:shrink-0" : "aspect-[3/2] w-full"
+          }`}
+          style={{ backgroundColor: morColor.band }}
+        >
           <Image
             alt={cover.alt}
             className="object-cover transition duration-500 group-hover:scale-[1.02]"
             fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            sizes={isFeature ? "(min-width: 768px) 46vw, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
             src={cover.src}
           />
         </div>
 
-        <div className="flex flex-1 flex-col p-5 md:p-6">
+        <div className={`flex flex-1 flex-col ${isFeature ? "p-6 md:p-9 lg:p-11" : "p-5 md:p-6"}`}>
           <div className="flex items-baseline gap-3">
             <span
               className="text-[1.05rem] leading-none"
@@ -46,18 +66,21 @@ export function StoryCard({ index, study }: { index: number; study: CaseStudy })
           </div>
 
           <h3
-            className="mt-2 text-[1.45rem] leading-tight md:text-[1.6rem]"
+            className={`mt-2 leading-tight ${isFeature ? "text-[1.75rem] md:text-[2.35rem]" : "text-[1.45rem] md:text-[1.6rem]"}`}
             style={{ color: morColor.ink, fontFamily: morFont.oswald, fontWeight: 600 }}
           >
             {study.name}
           </h3>
 
-          <p className="mt-3 text-[15px] leading-7" style={{ color: morColor.body }}>
+          <p
+            className={`mt-3 leading-7 ${isFeature ? "max-w-md text-[1.0625rem] md:text-lg md:leading-8" : "text-[15px]"}`}
+            style={{ color: morColor.body }}
+          >
             {study.cardSummary}
           </p>
 
           <span
-            className="mt-auto inline-flex items-center gap-2 pt-6 text-[11px] uppercase tracking-[0.18em]"
+            className={`mt-auto inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] ${isFeature ? "pt-8" : "pt-6"}`}
             style={{ color: morColor.goldInk, fontFamily: morFont.rajdhani, fontWeight: 700 }}
           >
             Read their story
