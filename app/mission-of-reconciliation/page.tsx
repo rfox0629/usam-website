@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { buildDomainSiteIcons, buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
 import { dontWasteYourLife, morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
-import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import { missionCanonical, missionCanonicalOrigin } from "@/src/lib/mission-of-reconciliation/domain";
 import type { MissionPaths } from "@/src/lib/mission-of-reconciliation/domain";
 import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies, featuredCaseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
@@ -21,14 +21,18 @@ import { StoryCard } from "./_components/StoryCard";
 import { SermonVideoLink } from "./_components/SermonVideoLink";
 
 export const metadata: Metadata = {
+  // The root layout emits USA Missionaries icons for every route, so the
+  // Mission of Reconciliation surfaces restate their own brand identity.
+  icons: buildDomainSiteIcons(domainSites["mission-of-reconciliation"]),
+  manifest: domainSites["mission-of-reconciliation"].manifestPath,
   alternates: { canonical: missionCanonical.home },
   description:
     "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture, pointing them toward restoration and freedom in Jesus Christ. In partnership with USA Missionaries.",
   openGraph: {
     description:
       "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture, pointing them toward restoration and freedom in Jesus Christ.",
-    images: [buildDomainSiteSocialImage(domainSites.usam)],
-    siteName: domainSites.usam.siteName,
+    images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"], missionCanonicalOrigin)],
+    siteName: domainSites["mission-of-reconciliation"].siteName,
     title: "Mission of Reconciliation | Healing, Freedom & Restoration",
     type: "website",
     url: missionCanonical.home,

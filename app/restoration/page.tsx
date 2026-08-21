@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildDomainSiteIcons } from "@/src/lib/domain-metadata";
+import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
 import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
@@ -7,6 +9,10 @@ import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-dom
 import { RestorationIntakeClient } from "./RestorationIntakeClient";
 
 export const metadata: Metadata = {
+  // The root layout emits USA Missionaries icons for every route, so the
+  // Mission of Reconciliation surfaces restate their own brand identity.
+  icons: buildDomainSiteIcons(domainSites["mission-of-reconciliation"]),
+  manifest: domainSites["mission-of-reconciliation"].manifestPath,
   alternates: { canonical: missionCanonical.restoration },
   description:
     "Begin your restoration journey with Mission of Reconciliation. Share your story confidentially so we can prayerfully consider how to come alongside you. In partnership with USA Missionaries.",

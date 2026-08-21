@@ -118,6 +118,38 @@ function ktgSquare(markWidth) {
   ${ktgTable(ktgBlue, markWidth)}`;
 }
 
+/**
+ * Mission of Reconciliation: two rounded strokes standing alongside each other,
+ * one black and one gold, on the cream field the site already uses. The mark is
+ * the ministry's one sentence, "people coming alongside people", reduced to two
+ * shapes that still read at 16px.
+ *
+ * Deliberately unlike its siblings in the tab strip: USAM is a dark disc, DOS is
+ * a blue disc, Kitchen Table is a standalone blue table. This one is light.
+ */
+const morCream = "#FCFAF6";
+const morInk = "#15120C";
+const morGold = "#C2A14E";
+
+function morFigures(scale = 1) {
+  return `<g transform="translate(32 32) scale(${scale}) translate(-32 -32)" stroke-linecap="round" fill="none" stroke-width="9">
+    <line x1="23.5" y1="24" x2="23.5" y2="42" stroke="${morInk}"/>
+    <line x1="40.5" y1="29" x2="40.5" y2="42" stroke="${morGold}"/>
+  </g>`;
+}
+
+/** Cream needs an edge or it vanishes against light browser chrome. */
+function morEmblem() {
+  return `<circle cx="32" cy="32" r="32" fill="${morCream}"/>
+  <circle cx="32" cy="32" r="30.9" fill="none" stroke="${morGold}" stroke-width="2.2"/>
+  ${morFigures(0.92)}`;
+}
+
+function morSquare(scale) {
+  return `<rect width="64" height="64" fill="${morCream}"/>
+  ${morFigures(scale)}`;
+}
+
 function svg(label, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${label}">
   ${body}
@@ -176,5 +208,18 @@ export const brandIcons = [
     label: "Kitchen Table Gospel",
     appleSquare: () => svg("Kitchen Table Gospel", ktgSquare(40)),
     maskableSquare: () => svg("Kitchen Table Gospel", ktgSquare(29)),
+  },
+  {
+    backgroundColor: morCream,
+    dir: "mission-of-reconciliation",
+    manifests: [{ file: "site.webmanifest", scope: "/", startUrl: "/" }],
+    shortName: "Mission",
+    themeColor: morCream,
+    webAppName: "Mission of Reconciliation",
+    emblem: () => svg("Mission of Reconciliation", morEmblem()),
+    emblemBody: morEmblem,
+    label: "Mission of Reconciliation",
+    appleSquare: () => svg("Mission of Reconciliation", morSquare(1.05)),
+    maskableSquare: () => svg("Mission of Reconciliation", morSquare(0.72)),
   },
 ];

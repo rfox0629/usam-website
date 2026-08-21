@@ -1,0 +1,29 @@
+{
+  "background_color": "#FCFAF6",
+  "display": "standalone",
+  "icons": [
+    {
+      "purpose": "any",
+      "sizes": "192x192",
+      "src": "/favicons/mission-of-reconciliation/icon-192.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "/favicons/mission-of-reconciliation/icon-512.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/favicons/mission-of-reconciliation/icon-maskable-512.png",
+      "type": "image/png"
+    }
+  ],
+  "name": "Mission of Reconciliation",
+  "scope": "/",
+  "short_name": "Mission",
+  "start_url": "/",
+  "theme_color": "#FCFAF6"
+}

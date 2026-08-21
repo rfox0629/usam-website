@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
-import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { buildDomainSiteIcons, buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
-import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
+import { missionCanonical, missionCanonicalOrigin } from "@/src/lib/mission-of-reconciliation/domain";
 import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
 import { StoryCard } from "../_components/StoryCard";
@@ -14,12 +14,16 @@ const description =
   "Ordinary followers of Jesus making themselves available to the people God has placed around them.";
 
 export const metadata: Metadata = {
+  // The root layout emits USA Missionaries icons for every route, so the
+  // Mission of Reconciliation surfaces restate their own brand identity.
+  icons: buildDomainSiteIcons(domainSites["mission-of-reconciliation"]),
+  manifest: domainSites["mission-of-reconciliation"].manifestPath,
   alternates: { canonical: missionCanonical.stories },
   description,
   openGraph: {
     description,
-    images: [buildDomainSiteSocialImage(domainSites.usam)],
-    siteName: domainSites.usam.siteName,
+    images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"], missionCanonicalOrigin)],
+    siteName: domainSites["mission-of-reconciliation"].siteName,
     title: "Stories of Reconciliation | Mission of Reconciliation",
     type: "website",
     url: missionCanonical.stories,

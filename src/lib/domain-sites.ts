@@ -119,20 +119,18 @@ export const domainSites = {
   },
   "mission-of-reconciliation": {
     analyticsBrand: "mission_of_reconciliation",
-    // No Mission of Reconciliation icon set exists yet, so the partnership's
-    // USA Missionaries marks stand in until brand assets are produced.
-    appleTouchIconPath: "/favicons/usam/apple-touch-icon.png",
+    appleTouchIconPath: "/favicons/mission-of-reconciliation/apple-touch-icon.png",
     canonicalOrigin: "https://www.missionofreconciliation.org",
     description: "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture. In partnership with USA Missionaries.",
-    favicon16Path: "/favicons/usam/favicon-16x16.png",
-    favicon32Path: "/favicons/usam/favicon-32x32.png",
-    favicon48Path: "/favicons/usam/favicon-48x48.png",
-    faviconPath: "/favicons/usam/favicon.ico",
-    faviconSvgPath: "/favicons/usam/favicon.svg",
-    icon192Path: "/favicons/usam/icon-192.png",
-    icon512Path: "/favicons/usam/icon-512.png",
+    favicon16Path: "/favicons/mission-of-reconciliation/favicon-16x16.png",
+    favicon32Path: "/favicons/mission-of-reconciliation/favicon-32x32.png",
+    favicon48Path: "/favicons/mission-of-reconciliation/favicon-48x48.png",
+    faviconPath: "/favicons/mission-of-reconciliation/favicon.ico",
+    faviconSvgPath: "/favicons/mission-of-reconciliation/favicon.svg",
+    icon192Path: "/favicons/mission-of-reconciliation/icon-192.png",
+    icon512Path: "/favicons/mission-of-reconciliation/icon-512.png",
     key: "mission-of-reconciliation",
-    manifestPath: "/favicons/usam/site.webmanifest",
+    manifestPath: "/favicons/mission-of-reconciliation/site.webmanifest",
     /**
      * Unlike the single-page domain sites, Mission of Reconciliation serves a
      * whole section, so its root is the real route rather than a
@@ -142,9 +140,9 @@ export const domainSites = {
     rootPath: "/mission-of-reconciliation",
     siteName: "Mission of Reconciliation",
     socialImage: {
-      alt: "Mission of Reconciliation",
+      alt: "Mission of Reconciliation, in partnership with USA Missionaries",
       ...socialImageSize,
-      path: "/images/share/usam.jpg",
+      path: "/images/share/mission-of-reconciliation.png",
     },
     themeColor: "#FCFAF6",
     title: "Mission of Reconciliation",

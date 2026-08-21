@@ -45,11 +45,14 @@ export function buildDomainSiteIcons(site: DomainSiteConfig): Metadata["icons"] 
  * with its own Open Graph block has to restate the brand image rather than
  * inheriting it — otherwise its links unfurl with no image at all.
  */
-export function buildDomainSiteSocialImage(site: DomainSiteConfig) {
+export function buildDomainSiteSocialImage(site: DomainSiteConfig, origin?: string) {
   return {
     alt: site.socialImage.alt,
     height: site.socialImage.height,
-    url: site.socialImage.path,
+    // Relative paths resolve against the root layout's metadataBase, which is the
+    // USA Missionaries origin. A brand served from its own domain passes that
+    // origin so unfurlers fetch the image from the domain being shared.
+    url: origin ? `${origin}${site.socialImage.path}` : site.socialImage.path,
     width: site.socialImage.width,
   };
 }
