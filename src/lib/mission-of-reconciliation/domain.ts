@@ -42,6 +42,15 @@ export function isMissionHostname(hostname?: string | null) {
 const sharedPaths = new Set(["/restoration"]);
 
 /**
+ * Same-origin infrastructure the browser has to reach directly. Falling through
+ * to the USA Missionaries redirect turns a same-origin fetch into a
+ * cross-origin one, and the browser blocks it on CORS: the restoration form and
+ * the Join the Mission modal both fail with "Load failed" and the submission is
+ * lost. Keep any new browser-called endpoint prefix in here.
+ */
+const sharedPathPrefixes = ["/api/"];
+
+/**
  * Host-native path -> app route. Returns null when the path is not part of the
  * Mission of Reconciliation experience and should fall back to USA Missionaries.
  */
@@ -50,7 +59,7 @@ export function resolveMissionAppPath(pathname: string): null | string {
     return missionSectionPrefix;
   }
 
-  if (sharedPaths.has(pathname)) {
+  if (sharedPaths.has(pathname) || sharedPathPrefixes.some((prefix) => pathname.startsWith(prefix))) {
     return pathname;
   }
 
