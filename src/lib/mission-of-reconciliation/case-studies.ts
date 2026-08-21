@@ -71,8 +71,10 @@ const martyAndLauriFox: CaseStudy = {
     {
       alt: "Marty and Lauri Fox today",
       caption: "Today",
-      // Portrait source, heads high in the frame: keep the crop off Marty's hat.
-      focalPoint: "center 25%",
+      // Portrait source. The wide feature card only shows the middle ~52% of the
+      // image, and the two faces span 19% to 62%, so the crop has to sit between
+      // Marty's hat and Lauri's chin. 32% centres that span.
+      focalPoint: "center 32%",
       src: "/images/mission-of-reconciliation/marty-lauri-today.webp",
     },
   ],
