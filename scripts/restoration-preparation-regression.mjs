@@ -19,6 +19,7 @@ const {
   generateCaseReference,
   preparationSectionIds,
   redactForExport,
+  buildCaseBrief,
 } = await import("../src/lib/operations/restoration-preparation.ts");
 
 const { preparationPdfFilename, renderPreparationPdf } =
@@ -149,6 +150,26 @@ check(!withoutNotes.includes("Dana") && !withoutNotes.includes("Robert, machinis
 check(withoutNotes.includes("He was distant."), "relationship context is kept even when names are withheld");
 check(!withoutNotes.includes("person@example.com"), "no participant identifiers in the export");
 
+console.log("\ncase brief");
+const briefSections = buildPreparationSections(values);
+const brief = buildCaseBrief(briefSections);
+const sectionText = briefSections.flatMap((s) => s.items.map((i) => i.value)).join("\n");
+check(brief.length > 0, "a brief is produced for a substantive case");
+check(brief.every((e) => e.kind === "participant" || e.kind === "generated"),
+  "every brief line is labelled participant or generated");
+for (const entry of brief) {
+  const inSections = sectionText.includes(entry.value)
+    || entry.value.split(" (")[0].split(" ").every((w) => sectionText.includes(w));
+  check(inSections, `brief line "${entry.label}" repeats content already in the sections`);
+}
+check(brief.some((e) => e.label === "Why they are here, in their words"), "brief leads with why they are here");
+check(brief.some((e) => e.label === "Questions to open with"), "brief carries opening questions");
+check(buildCaseBrief([]).length === 0, "an empty case produces no brief rather than invented content");
+const sparse = buildPreparationSections({ whatBringsYouHere: "I need help." });
+check(buildCaseBrief(sparse).length >= 1, "a sparse case still produces the lines it can support");
+check(!buildCaseBrief(sparse).some((e) => e.label === "The context they gave"),
+  "brief omits lines the participant did not answer");
+
 console.log("\npdf document");
 const saved = { ...summary, savedAt: new Date().toISOString(), savedBy: "reviewer@example.org", status: "saved" };
 const pdf = renderPreparationPdf(saved, { includeNotes: false });
@@ -166,6 +187,9 @@ check(!/\/(Title|Author|Subject|Keywords)/.test(pdfText), "PDF metadata carries 
 for (const identifier of ["person@example.com", "Dana"]) {
   check(!pdfText.includes(identifier), `PDF withholds ${identifier}`);
 }
+const briefLead = pdfText.indexOf("Case brief");
+check(briefLead > -1 && briefLead < pdfText.indexOf("Why they are seeking restoration"),
+  "PDF leads with the case brief, before the intake sections");
 check(preparationPdfFilename("R-TEST1") === "restoration-R-TEST1-preparation-summary.pdf",
   "PDF filename uses the case reference and no participant name");
 

@@ -418,6 +418,76 @@ export function buildPreparationSections(values: Record<string, unknown>): Prepa
   }));
 }
 
+export type PreparationBriefEntry = {
+  /** "participant" is their own words; "generated" is organized by this tool. */
+  kind: "generated" | "participant";
+  label: string;
+  value: string;
+};
+
+/**
+ * The lead brief.
+ *
+ * The eight sections below it are ordered the way the intake is ordered, which
+ * means the two most decision-relevant sections land last: on a case like this
+ * one a reviewer scrolls past roughly 80 percent of the summary before reaching
+ * what needs attention first. This block answers the five questions a reviewer
+ * actually opens the case with, before any of that.
+ *
+ * It invents nothing and re-derives everything from the sections already built,
+ * so every line here also appears in full below. It is a lead, not a
+ * replacement, and no detail is dropped from the sections to make room for it.
+ */
+export function buildCaseBrief(
+  // Structural, so the PDF can build the brief from its already-redacted
+  // sections rather than from the raw ones.
+  sections: { id: PreparationSectionId; items: PreparationItem[] }[],
+): PreparationBriefEntry[] {
+  const find = (fieldId: string) => {
+    for (const section of sections) {
+      const item = section.items.find((entry) => entry.fieldId === fieldId);
+
+      if (item) {
+        return item;
+      }
+    }
+
+    return null;
+  };
+
+  const entries: PreparationBriefEntry[] = [];
+  const push = (label: string, fieldId: string, kind: "generated" | "participant") => {
+    const item = find(fieldId);
+
+    if (item) {
+      entries.push({ kind, label, value: item.value });
+    }
+  };
+
+  push("Why they are here, in their words", "whatBringsYouHere", "participant");
+  push("What they hope God will do", "restorationGoals", "participant");
+  push("The context they gave", "relationshipProblems", "participant");
+  push("Safety-relevant items they marked", "safetyRelevantSelections", "generated");
+  push("Where they marked the most", "heaviestAreas", "generated");
+
+  const questions = sections.find((section) => section.id === "questions")?.items ?? [];
+
+  if (questions.length > 0) {
+    const leading = questions.slice(0, 3).map((item) => item.value);
+    const remainder = questions.length - leading.length;
+
+    entries.push({
+      kind: "generated",
+      label: "Questions to open with",
+      value: remainder > 0
+        ? `${leading.join(" ")} (${remainder} more below.)`
+        : leading.join(" "),
+    });
+  }
+
+  return entries;
+}
+
 export function createPreparationSummary({
   caseReference,
   generatedBy,

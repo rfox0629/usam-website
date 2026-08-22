@@ -1,4 +1,4 @@
-import { redactForExport, type PreparationSummary } from "./restoration-preparation";
+import { buildCaseBrief, redactForExport, type PreparationSummary } from "./restoration-preparation";
 
 /**
  * Minimal PDF writer for the redacted preparation summary (USA-187).
@@ -216,6 +216,22 @@ export function renderPreparationPdf(summary: PreparationSummary, { includeNotes
       : "Internal reviewer notes are excluded from this export.",
     { gap: 14, size: 9 },
   );
+
+  // The brief leads, so a reader is not four pages in before reaching what
+  // needs attention first. Every line repeats below in its own section.
+  const brief = buildCaseBrief(redacted.sections);
+
+  if (brief.length > 0) {
+    layout.write("Case brief", { bold: true, gap: 3, size: 11 });
+    layout.write("Drawn from the sections that follow. Nothing here is new.", { gap: 6, size: 9 });
+
+    for (const entry of brief) {
+      layout.write(entry.label, { bold: true, gap: 1, indent: 14, size: 9 });
+      layout.write(entry.value, { gap: 5, indent: 14, size: 10 });
+    }
+
+    layout.write("", { gap: 8, size: 6 });
+  }
 
   for (const section of redacted.sections) {
     layout.write(section.title, { bold: true, gap: 3, size: 11 });
