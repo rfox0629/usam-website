@@ -1,0 +1,36 @@
+{
+  "name": "usam-agent-dispatcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:cooldowns && npm run test:review-policy && npm run test:production-authorization && npm run test:execution-env && npm run test:routing && npm run test:repository-layout && npm run test:founder-revisions && npm run test:website-auto-publish && npm run test:publisher && npm run test:observability && npm run test:log-tail && npm run replacement:test",
+    "test:cooldowns": "node scripts/dispatcher-cooldown-regression.mjs",
+    "test:execution-env": "node scripts/dispatcher-execution-environment-regression.mjs",
+    "test:founder-revisions": "node scripts/dispatcher-founder-revision-regression.mjs",
+    "test:production-authorization": "node scripts/dispatcher-production-authorization-regression.mjs",
+    "test:repository-layout": "node scripts/dispatcher-repository-layout-regression.mjs",
+    "test:routing": "node scripts/dispatcher-routing-regression.mjs",
+    "test:website-auto-publish": "node scripts/dispatcher-website-auto-publish-regression.mjs",
+    "test:publisher": "node scripts/publisher-regression.mjs",
+    "test:review-policy": "node scripts/dispatcher-review-policy-regression.mjs",
+    "test:observability": "node scripts/dispatcher-observability-regression.mjs",
+    "test:log-tail": "node scripts/dispatcher-log-tail-regression.mjs",
+    "once": "node src/dispatcher.mjs --once",
+    "start": "node src/dispatcher.mjs",
+    "status": "node src/dispatcher.mjs --status",
+    "replacement:test": "node --test test/replacement/replacement.test.mjs",
+    "replacement:launcher": "node src/replacement/cli.mjs launcher",
+    "replacement:claude-bridge": "node src/replacement/cli.mjs claude-bridge",
+    "replacement:claude-bridge-daemon": "node src/replacement/cli.mjs claude-bridge-daemon",
+    "replacement:digest": "node src/replacement/cli.mjs digest",
+    "replacement:janitor": "node src/replacement/cli.mjs janitor",
+    "replacement:backup": "node src/replacement/cli.mjs backup"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
+  }
+}

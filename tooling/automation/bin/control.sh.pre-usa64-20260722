@@ -1,0 +1,53 @@
+#!/bin/zsh
+set -euo pipefail
+
+ROOT="/Users/ryanfox/USAM-Automation"
+CONTROL="$ROOT/control"
+mkdir -p "$CONTROL"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  control.sh status
+  control.sh pause global|codex|claude
+  control.sh resume global|codex|claude
+  control.sh once
+USAGE
+}
+
+target_file() {
+  case "$1" in
+    global) printf "%s/global.pause" "$CONTROL" ;;
+    codex) printf "%s/codex.pause" "$CONTROL" ;;
+    claude) printf "%s/claude.pause" "$CONTROL" ;;
+    *) return 1 ;;
+  esac
+}
+
+cmd="${1:-}"
+target="${2:-}"
+
+case "$cmd" in
+  status)
+    "$ROOT/bin/run-dispatcher.sh" --status
+    ;;
+  pause)
+    file="$(target_file "$target")" || { usage; exit 2; }
+    date -u +"%Y-%m-%dT%H:%M:%SZ" > "$file"
+    printf "paused %s\n" "$target"
+    ;;
+  resume)
+    file="$(target_file "$target")" || { usage; exit 2; }
+    if [[ -f "$file" ]]; then
+      rm "$file"
+    fi
+    printf "resumed %s\n" "$target"
+    ;;
+  once)
+    "$ROOT/bin/run-dispatcher.sh" --once
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

@@ -1,0 +1,43 @@
+# ---- Secrets: never version ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*credential*
+*secret*
+
+# ---- Runtime state (regenerable) ----
+logs/
+locks/
+state/
+tmp/
+control/
+*.log
+
+# ---- Worktrees (git worktrees of other repos) ----
+worktrees/
+rescue-worktrees/
+
+# ---- Dependencies & build output ----
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+.cache/
+coverage/
+
+# ---- Backups & data dumps ----
+backups/
+*.bundle
+*.tar.gz
+*.dump
+*.sql.gz
+*.csv
+*.tsv
+*.xlsx
+
+# ---- macOS ----
+.DS_Store
