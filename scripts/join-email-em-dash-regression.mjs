@@ -21,11 +21,19 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
- * Every module that builds copy for an email sent by the /join application
- * flow. Add new ones here as the flow grows (a save/resume email, follow-ups),
- * so the guard covers them from the day they land.
+ * Every module that builds copy carried by the /join application flow. Add new
+ * ones here as the flow grows (a save/resume email, follow-ups), so the guard
+ * covers them from the day they land.
+ *
+ * The submit route is included because it composes applicant text that leaves
+ * the form (references, prayer needs) and is read back by Operations. It is not
+ * an email template, but it is the same USA-167 applicant copy and the founder
+ * asked for the flow to be clean of em dashes, not just the templates.
  */
-const emailSources = [path.join("src", "lib", "email", "resend.ts")];
+const emailSources = [
+  path.join("src", "lib", "email", "resend.ts"),
+  path.join("app", "api", "join", "submit", "route.ts"),
+];
 
 /**
  * Template builders that must exist. Without this the guard would pass

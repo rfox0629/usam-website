@@ -25,12 +25,11 @@
  * itself is the DOS setup screen, and because the page is statically
  * prerendered the ?resume= token never reaches the server at all.
  *
- * THIS GATE FAILS ON PURPOSE TODAY. The USA-167 V2 application is not in this
- * repository (no JOIN_PREVIEW_ACCESS_KEY, no resume-token code, no resume
- * email, nothing in history on any branch). Every failure below names a
- * specific missing piece of the contract. The gate goes green when V2 lands;
- * it is not wired into CI precisely because it is a release gate for work
- * that has not been built yet.
+ * The V2 application that was reported as built turned out not to exist in this
+ * repository, on any branch or in any unreachable object, so it was rebuilt from
+ * the locked Linear specification. This gate is what proves the rebuild holds:
+ * every check below was failing before it, and each failure message still names
+ * the specific piece of the contract it guards.
  *
  *   node scripts/join-v2-release-regression.mjs
  *
@@ -64,6 +63,19 @@ const read = (relativePath) => {
 };
 
 /**
+ * Strips comments so the identity checks below read code rather than prose.
+ *
+ * Without this the gate fails on a file that merely *explains* the defect: a
+ * comment saying "the old route spread dosAppMetadata" is not the route
+ * spreading dosAppMetadata. The `:` guard keeps protocol-relative and absolute
+ * URLs (https://...) from being mistaken for a line comment.
+ */
+const stripComments = (source) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/**
  * Markers unique to the legacy DOS setup experience. If any of these reach an
  * applicant at /join, the USA-167 separation has been violated.
  */
@@ -87,7 +99,8 @@ const joinPage = read(path.join("app", "join", "page.tsx"));
 if (joinPage === null) {
   check(false, "app/join/page.tsx exists");
 } else {
-  const declaredDos = dosMarkers.filter((marker) => joinPage.includes(marker));
+  const joinPageCode = stripComments(joinPage);
+  const declaredDos = dosMarkers.filter((marker) => joinPageCode.includes(marker));
 
   check(
     declaredDos.length === 0,
@@ -96,7 +109,7 @@ if (joinPage === null) {
   );
 
   check(
-    !joinPage.includes("dosAppMetadata"),
+    !joinPageCode.includes("dosAppMetadata"),
     "/join does not import DOS brand metadata",
     "app/join/page.tsx spreads dosAppMetadata, so the tab, favicon and share card all say DOS",
   );
@@ -123,19 +136,49 @@ if (emailModule === null) {
   );
 
   if (hasResumeTemplate) {
-    const resumeUrls = [...emailModule.matchAll(/https?:\/\/[^\s"'`]*resume[^\s"'`]*/gi)].map((m) => m[0]);
-    const buildsJoinPath = /\/join\?[^"'`]*resume/i.test(emailModule);
+    // There must be exactly ONE builder for the resume URL. The Aug 21 and
+    // Aug 23 failures were a resume link that resolved somewhere other than the
+    // application, and the way that stops being possible is for every sender to
+    // call the same function rather than assemble a path of its own.
+    const draftsModule = read(path.join("src", "lib", "join", "drafts.ts"));
 
-    check(
-      buildsJoinPath || resumeUrls.length > 0,
-      "the resume email points at /join with a resume token",
-      "A resume email exists but no /join?resume= URL is built in it.",
-    );
+    if (draftsModule === null) {
+      check(false, "src/lib/join/drafts.ts defines the canonical resume URL builder");
+    } else {
+      const draftsCode = stripComments(draftsModule);
+      const builderBody = draftsCode.slice(draftsCode.indexOf("function buildResumeUrl"));
 
-    for (const url of resumeUrls) {
       check(
-        !/\/dos\b/.test(url) && !/setup/i.test(url),
-        `resume URL ${url} contains no DOS or setup path`,
+        draftsCode.includes("function buildResumeUrl"),
+        "a single canonical buildResumeUrl exists",
+      );
+
+      check(
+        /\/join\?resume=/.test(builderBody),
+        "buildResumeUrl points at /join with a resume token",
+        "The canonical builder does not produce a /join?resume= URL.",
+      );
+
+      const builderLine = builderBody.split("\n").find((line) => line.includes("/join?resume=")) ?? "";
+
+      check(
+        !/\/dos\b/.test(builderLine) && !/setup/i.test(builderLine),
+        "the resume URL contains no DOS or setup path",
+        builderLine.trim(),
+      );
+
+      // The template must consume that URL rather than build its own.
+      const emailCode = stripComments(emailModule);
+      const templateBody = emailCode.slice(emailCode.indexOf("function buildApplicationResumeEmail"));
+
+      check(
+        templateBody.includes("resumeUrl"),
+        "the resume email uses the canonical URL rather than assembling a path",
+      );
+
+      check(
+        !/["'`]https?:\/\/[^"'`]*\/join/i.test(templateBody),
+        "the resume email hardcodes no /join URL of its own",
       );
     }
   }
@@ -145,7 +188,7 @@ if (emailModule === null) {
 // A3. /join must read the resume token server-side. A statically prerendered
 //     page cannot, which is why the token is silently dropped in production.
 // ---------------------------------------------------------------------------
-const joinClient = read(path.join("app", "join", "usam", "UsamJoinClient.tsx"));
+const joinClient = read(path.join("app", "join", "UsamApplicationClient.tsx"));
 
 if (joinPage !== null) {
   const readsResume = /resume/i.test(joinPage) || (joinClient !== null && /resume/i.test(joinClient));

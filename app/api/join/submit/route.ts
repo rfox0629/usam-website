@@ -488,7 +488,7 @@ function referenceSummary(references: JsonRecord[]) {
       ].filter(Boolean).join(" · ");
       const description = asString(reference.description);
 
-      return [name, details, description].filter(Boolean).join(" — ");
+      return [name, details, description].filter(Boolean).join(". ");
     })
     .filter(Boolean)
     .join("\n");

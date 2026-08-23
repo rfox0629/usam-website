@@ -141,7 +141,7 @@ export function DosPortalClient({
               </p>
               <Link
                 className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
-                href="/join"
+                href="/dos/setup"
               >
                 Start Setup
               </Link>

@@ -1295,7 +1295,7 @@ function ReviewSection({
   );
 }
 
-export function UsamJoinClient() {
+export function DosOnboardingClient() {
   const [draft, setDraft] = useState<ApplicationDraft>(initialDraft);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -1320,7 +1320,7 @@ export function UsamJoinClient() {
     window.localStorage.removeItem(draftStorageKey);
     window.localStorage.removeItem(stepStorageKey);
     window.localStorage.removeItem(submittedStorageKey);
-    window.history.replaceState(null, "", "/join");
+    window.history.replaceState(null, "", "/dos/setup");
     setDraft(initialDraft);
     setStepIndex(0);
     setStage("welcome");
@@ -1337,7 +1337,7 @@ export function UsamJoinClient() {
       window.localStorage.removeItem(draftStorageKey);
       window.localStorage.removeItem(stepStorageKey);
       window.localStorage.removeItem(submittedStorageKey);
-      window.history.replaceState(null, "", "/join");
+      window.history.replaceState(null, "", "/dos/setup");
       setDraft(initialDraft);
       setStepIndex(0);
       setStage("welcome");
@@ -2807,11 +2807,11 @@ export function UsamJoinClient() {
   }
 
   return (
-    <main className={`usam-join-route min-h-screen ${joinDawnShellClassName} text-[#0F172A]`} onKeyDown={handleOnboardingKeyDown}>
+    <main className={`dos-setup-route min-h-screen ${joinDawnShellClassName} text-[#0F172A]`} onKeyDown={handleOnboardingKeyDown}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            body:has(.usam-join-route) {
+            body:has(.dos-setup-route) {
               background:
                 radial-gradient(circle at 78% 8%, rgba(219,234,254,0.92), transparent 34%),
                 radial-gradient(circle at 86% 92%, rgba(254,215,170,0.54), transparent 36%),
@@ -2821,7 +2821,7 @@ export function UsamJoinClient() {
               font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             }
 
-            body:has(.usam-join-route) > footer {
+            body:has(.dos-setup-route) > footer {
               display: none !important;
             }
           `,

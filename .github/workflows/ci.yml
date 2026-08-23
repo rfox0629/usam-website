@@ -44,13 +44,18 @@ jobs:
         run: npm run test:preparation
 
       # No em dashes in applicant-facing join email copy (USA-167 founder
-      # direction). The release gate test:join-v2-release is deliberately not
-      # here: it gates work that has not been built yet and fails by design.
+      # direction).
       - name: Join email copy (USA-167)
         run: npm run test:join-email-em-dash
 
       - name: Build
         run: npm run build
+
+      # Phase B boots the production build and probes the served bytes, so this
+      # has to run after Build. It is the gate that would have caught the resume
+      # link landing on the DOS setup screen.
+      - name: /join application and resume routing (USA-167)
+        run: npm run test:join-v2-release
 
       # `--with-deps` runs apt-get, and the runner's Azure apt mirror has twice
       # stalled silently for ~18 minutes until the job timeout killed the run
