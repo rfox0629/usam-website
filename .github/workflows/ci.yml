@@ -43,6 +43,12 @@ jobs:
       - name: Restoration preparation summary (USA-187)
         run: npm run test:preparation
 
+      # No em dashes in applicant-facing join email copy (USA-167 founder
+      # direction). The release gate test:join-v2-release is deliberately not
+      # here: it gates work that has not been built yet and fails by design.
+      - name: Join email copy (USA-167)
+        run: npm run test:join-email-em-dash
+
       - name: Build
         run: npm run build
 
