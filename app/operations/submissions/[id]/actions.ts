@@ -16,7 +16,6 @@ import {
   savePreparationNote,
   savePreparationSummary,
 } from "@/src/lib/operations/restoration-preparation-store";
-import { preparationSectionIds, type PreparationSectionId } from "@/src/lib/operations/restoration-preparation";
 
 function formValue(formData: FormData, name: string) {
   const value = formData.get(name);
@@ -154,12 +153,7 @@ export async function savePreparationSummaryAction(formData: FormData) {
     redirect("/operations/submissions?error=missing-submission");
   }
 
-  const narratives: Partial<Record<PreparationSectionId, string>> = {};
-  for (const sectionId of preparationSectionIds) {
-    narratives[sectionId] = formValue(formData, `narrative-${sectionId}`);
-  }
-
-  const result = await savePreparationSummary({ authorization, id, narratives });
+  const result = await savePreparationSummary({ authorization, id });
 
   revalidatePath(`/operations/submissions/${id}`);
   redirect(result.error

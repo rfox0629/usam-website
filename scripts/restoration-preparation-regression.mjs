@@ -170,6 +170,20 @@ check(buildCaseBrief(sparse).length >= 1, "a sparse case still produces the line
 check(!buildCaseBrief(sparse).some((e) => e.label === "The context they gave"),
   "brief omits lines the participant did not answer");
 
+console.log("\nsummary is not reviewer-editable");
+check(briefSections.every((s) => !("narrative" in s)),
+  "sections carry no narrative field");
+const exported = redactForExport(summary, { includeNotes: true }).sections;
+check(exported.every((s) => !("narrative" in s)),
+  "exported sections carry no narrative field");
+check(exported.every((s) => typeof s.note === "string"),
+  "each exported section still carries its reviewer note slot");
+const savedShape = { ...summary, savedAt: new Date().toISOString(), savedBy: "r", status: "saved" };
+check(JSON.stringify(savedShape.sections) === JSON.stringify(summary.sections),
+  "marking a summary reviewed does not rewrite section content");
+check(Object.keys(savedShape.notes).length === Object.keys(summary.notes).length,
+  "marking a summary reviewed preserves existing reviewer notes");
+
 console.log("\npdf document");
 const saved = { ...summary, savedAt: new Date().toISOString(), savedBy: "reviewer@example.org", status: "saved" };
 const pdf = renderPreparationPdf(saved, { includeNotes: false });
@@ -187,9 +201,39 @@ check(!/\/(Title|Author|Subject|Keywords)/.test(pdfText), "PDF metadata carries 
 for (const identifier of ["person@example.com", "Dana"]) {
   check(!pdfText.includes(identifier), `PDF withholds ${identifier}`);
 }
-const briefLead = pdfText.indexOf("Case brief");
+const briefLead = pdfText.indexOf("Case Brief");
 check(briefLead > -1 && briefLead < pdfText.indexOf("Why they are seeking restoration"),
   "PDF leads with the case brief, before the intake sections");
+check(pdfText.includes("/F3 "), "PDF registers an oblique face for supporting copy");
+check(/[\d.]+ [\d.]+ [\d.]+ rg/.test(pdfText), "PDF sets fill colours for typographic hierarchy");
+check(pdfText.includes(" re f"), "PDF draws filled rules and blocks");
+const headerCount = (pdfText.match(/CONFIDENTIAL - REDACTED PREPARATION SUMMARY/g) || []).length;
+const pageCount = (pdfText.match(/For authorized preparation use only\./g) || []).length;
+check(headerCount >= pageCount,
+  "confidentiality label repeats on every page");
+check((pdfText.match(/\(Case R-TEST1\)/g) || []).length >= pageCount,
+  "case reference repeats on every page");
+check((pdfText.match(/Generated [A-Z][a-z]{2} \d{1,2}, \d{4} {4}Page \d+ of \d+/g) || []).length === pageCount,
+  "generated date and page number repeat on every page");
+check(!pdfText.includes("INTERNAL REVIEWER NOTE"),
+  "note label is absent when notes are excluded");
+
+const withNotesPdf = renderPreparationPdf(saved, { includeNotes: true }).toString("latin1");
+check(withNotesPdf.includes("INTERNAL REVIEWER NOTE"),
+  "note blocks are labelled INTERNAL REVIEWER NOTE when included");
+check(withNotesPdf.includes(" re S"),
+  "note blocks are drawn as bordered boxes distinct from participant content");
+
+const longNote = { ...saved, notes: { seeking: { author: "r", text: "Lorem ipsum dolor sit amet. ".repeat(400), updatedAt: new Date().toISOString() } } };
+const longPdf = renderPreparationPdf(longNote, { includeNotes: true }).toString("latin1");
+// PDF text operators escape parentheses, so the label is stored escaped.
+check(longPdf.includes("INTERNAL REVIEWER NOTE \\(CONTINUED\\)"),
+  "a note taller than a page continues into a labelled second block");
+check((longPdf.match(/INTERNAL REVIEWER NOTE/g) || []).length > 1,
+  "an oversized note is split across more than one labelled block");
+check(longPdf.startsWith("%PDF-") && longPdf.trimEnd().endsWith("%%EOF"),
+  "an oversized note still produces a well formed PDF");
+
 check(preparationPdfFilename("R-TEST1") === "restoration-R-TEST1-preparation-summary.pdf",
   "PDF filename uses the case reference and no participant name");
 

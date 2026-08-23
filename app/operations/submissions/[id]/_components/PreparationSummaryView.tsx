@@ -179,22 +179,6 @@ export function PreparationSummaryView({
                 </p>
               )}
 
-              {canManage ? (
-                <label className="mt-4 block">
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                    Summary in your words (optional)
-                  </span>
-                  <textarea
-                    className={`mt-2 min-h-20 ${inputClassName}`}
-                    defaultValue={section.narrative}
-                    name={`narrative-${section.id}`}
-                    placeholder="Leave blank to keep only what they reported above."
-                  />
-                </label>
-              ) : section.narrative ? (
-                <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-800">{section.narrative}</p>
-              ) : null}
-
               <div className="mt-4 rounded-md border border-slate-200 bg-white p-3">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
                   Internal reviewer note
@@ -233,10 +217,11 @@ export function PreparationSummaryView({
         {canManage ? (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <button className={primaryButtonClassName} type="submit">
-              Save Summary
+              {summary.status === "saved" ? "Mark Reviewed Again" : "Mark Summary Reviewed"}
             </button>
             <p className="text-xs leading-5 text-slate-500">
-              Saving records your edits and enables the redacted PDF.
+              Records that you have read the summary and enables the redacted PDF. Your own words
+              belong in the section notes above.
             </p>
           </div>
         ) : null}

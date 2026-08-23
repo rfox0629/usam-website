@@ -121,14 +121,20 @@ export async function generatePreparationSummary({
   return persist(id, context.submission.payload, summary);
 }
 
+/**
+ * Records that a reviewer has read the generated summary.
+ *
+ * The summary itself is not editable: it is synthesis grounded in the stored
+ * answers, and the reviewer's own words belong in their section notes. This
+ * marks the human-review step that gates the PDF export, and it preserves the
+ * existing notes untouched.
+ */
 export async function savePreparationSummary({
   authorization,
   id,
-  narratives,
 }: {
   authorization: OperationsAuthorization;
   id: string;
-  narratives: Partial<Record<PreparationSectionId, string>>;
 }) {
   const context = await loadPreparationContext({ authorization, id, requireManage: true });
 
@@ -145,10 +151,6 @@ export async function savePreparationSummary({
     ...context.summary,
     savedAt: now,
     savedBy: authorization.email,
-    sections: context.summary.sections.map((section) => ({
-      ...section,
-      narrative: (narratives[section.id] ?? section.narrative ?? "").trim(),
-    })),
     status: "saved",
   };
 

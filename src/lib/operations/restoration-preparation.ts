@@ -36,8 +36,6 @@ export type PreparationSection = {
   kind: "generated" | "participant";
   id: PreparationSectionId;
   items: PreparationItem[];
-  /** Reviewer-editable text. Starts empty and falls back to `items`. */
-  narrative: string;
   provenance: string;
   title: string;
 };
@@ -414,7 +412,6 @@ export function buildPreparationSections(values: Record<string, unknown>): Prepa
     ...sectionMeta[id],
     id,
     items: buckets.get(id) ?? [],
-    narrative: "",
   }));
 }
 
@@ -549,7 +546,6 @@ export function redactForExport(summary: PreparationSummary, { includeNotes }: {
     return {
       id: section.id,
       items: kept,
-      narrative: section.narrative,
       note: includeNotes ? summary.notes[section.id]?.text ?? "" : "",
       provenance: section.provenance,
       title: section.title,
@@ -559,6 +555,6 @@ export function redactForExport(summary: PreparationSummary, { includeNotes }: {
 
   return {
     caseReference: summary.caseReference,
-    sections: sections.filter((section) => section.items.length > 0 || section.narrative || section.note),
+    sections: sections.filter((section) => section.items.length > 0 || section.note),
   };
 }
