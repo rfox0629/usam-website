@@ -162,6 +162,7 @@ type JourneyAssignmentRow = {
 
 type JourneyProgressRow = {
   action_step: string | null;
+  assignment_id: string | null;
   completed_at: string | null;
   id: string;
   prayer_focus: string | null;
@@ -222,6 +223,7 @@ export type GroupMemberPortalData = {
   }>;
   journeyProgress: Array<{
     actionStep: string | null;
+    assignmentId: string | null;
     completedAt: string | null;
     id: string;
     prayerFocus: string | null;
@@ -946,6 +948,7 @@ export function loadDemoGroupMemberPortalData(input: {
       ],
       journeyProgress: completedSessionIds.map((sessionId) => ({
         actionStep: null,
+        assignmentId: `demo-assignment-${payload.memberId}-${resourceSlug}`,
         completedAt: payload.startDate,
         id: `demo-progress-${payload.memberId}-${resourceSlug}-${sessionId}`,
         prayerFocus: null,
@@ -1161,10 +1164,12 @@ export async function loadGroupMemberPortalData(
       .select("id, resource_slug, status, start_date, due_date, completed_at, personal_message")
       .eq("workspace_id", group.workspace_id)
       .eq("person_id", session.person_id)
+      .eq("assignment_context", "group")
+      .eq("source_group_id", group.id)
       .order("start_date", { ascending: false }),
     supabase
       .from("dos_guided_resource_progress")
-      .select("id, resource_slug, session_id, reflection, action_step, prayer_focus, completed_at, updated_at")
+      .select("id, assignment_id, resource_slug, session_id, reflection, action_step, prayer_focus, completed_at, updated_at")
       .eq("workspace_id", group.workspace_id)
       .eq("person_id", session.person_id),
   ]);
@@ -1187,7 +1192,9 @@ export async function loadGroupMemberPortalData(
   const attendance = attendanceResult.error ? [] : attendanceResult.data as AttendanceRow[];
   const preferences = preferencesResult.error ? [] : preferencesResult.data as PreferenceRow[];
   const journeyAssignments = journeyAssignmentsResult.error ? [] : journeyAssignmentsResult.data as JourneyAssignmentRow[];
-  const journeyProgress = journeyProgressResult.error ? [] : journeyProgressResult.data as JourneyProgressRow[];
+  const journeyAssignmentIds = new Set(journeyAssignments.map((assignment) => assignment.id));
+  const journeyProgress = (journeyProgressResult.error ? [] : journeyProgressResult.data as JourneyProgressRow[])
+    .filter((progress) => progress.assignment_id && journeyAssignmentIds.has(progress.assignment_id));
   const location = safeLocationForMember(group, nextGathering);
 
   return {
@@ -1234,6 +1241,7 @@ export async function loadGroupMemberPortalData(
       })),
       journeyProgress: journeyProgress.map((progress) => ({
         actionStep: progress.action_step,
+        assignmentId: progress.assignment_id,
         completedAt: progress.completed_at,
         id: progress.id,
         prayerFocus: progress.prayer_focus,

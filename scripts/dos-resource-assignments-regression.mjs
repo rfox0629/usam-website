@@ -67,12 +67,14 @@ function loadResourceAssignmentHelpers() {
 
 const migration = read("supabase/migrations/20260713113226_dos_resource_assignments.sql");
 const assignmentContextMigration = read("supabase/migrations/20260807151800_dos_journey_assignment_context.sql");
+const assignmentInstanceMigrationDraft = read("docs/usa-170-journey-assignment-instance-migration.sql");
 const catalog = read("src/lib/dos/resource-catalog.ts");
 const assignmentTypes = read("src/lib/dos/resource-assignments.ts");
 const assignmentApiHelper = read("src/lib/dos/resource-assignments-api.ts");
 const assignmentsRoute = read("app/api/dos/app/resource-assignments/route.ts");
 const checkInsRoute = read("app/api/dos/app/resource-assignments/check-ins/route.ts");
 const loader = read("src/lib/dos/missionary-app.ts");
+const memberAccess = read("src/lib/groups/member-access.ts");
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 const preview = read("app/dos/app/preview/page.tsx");
 const packageJson = read("package.json");
@@ -184,6 +186,13 @@ assertIncludes(assignmentContextMigration, "source_group_id uuid references publ
 assertIncludes(assignmentContextMigration, "sharing_level text not null default 'leader_progress'", "assignment context migration stores leader sharing default");
 assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_check", "group assignments must carry group context");
 assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_idx", "group context lookup must be indexed");
+assertIncludes(assignmentInstanceMigrationDraft, "Do not apply to production until Founder Approved", "USA-170 migration must remain a draft gate.");
+assertIncludes(assignmentInstanceMigrationDraft, "drop index if exists public.dos_resource_assignments_active_unique", "USA-170 migration must replace the old active assignment uniqueness.");
+assertIncludes(assignmentInstanceMigrationDraft, "dos_resource_assignments_active_context_unique", "USA-170 migration must add context-aware active assignment uniqueness.");
+assertIncludes(assignmentInstanceMigrationDraft, "coalesce(source_group_id", "USA-170 migration must treat null source groups as a real direct/self context key.");
+assertIncludes(assignmentInstanceMigrationDraft, "drop index if exists public.dos_guided_resource_progress_person_session_unique", "USA-170 migration must remove resource-only progress uniqueness.");
+assertIncludes(assignmentInstanceMigrationDraft, "dos_guided_resource_progress_assignment_session_unique", "USA-170 migration must isolate progress by assignment instance/session.");
+assertIncludes(assignmentInstanceMigrationDraft, "dos_guided_resource_progress_legacy_person_session_unique", "USA-170 migration must keep a compatibility guard for legacy unbound progress.");
 
 assertIncludes(assignmentTypes, "dosResourceAssignmentStatuses", "assignment status helpers exist");
 assertIncludes(assignmentTypes, "dosResourceAssignmentFollowUpCadences", "assignment cadence helpers exist");
@@ -238,6 +247,9 @@ assertIncludes(assignmentsRoute, ".from(\"dos_groups\")", "assignment route vali
 assertIncludes(assignmentsRoute, ".from(\"dos_group_members\")", "assignment route validates group membership context");
 assertIncludes(assignmentsRoute, "assignment_context: assignmentContext", "assignment route writes canonical assignment context");
 assertIncludes(assignmentsRoute, "source_group_id: sourceGroupId", "assignment route writes group context");
+assertIncludes(assignmentsRoute, ".eq(\"assignment_context\", assignmentContext)", "assignment duplicate detection must be scoped to the requested context.");
+assertIncludes(assignmentsRoute, "existingQuery.eq(\"source_group_id\", sourceGroupId)", "group duplicate detection must be scoped to the exact source group.");
+assertIncludes(assignmentsRoute, "existingQuery.is(\"source_group_id\", null)", "direct/self duplicate detection must be scoped to null group context.");
 assertIncludes(assignmentsRoute, "loadWorkspacePerson", "assignment route scopes person to workspace");
 assertIncludes(assignmentsRoute, "resourceAssignmentCommitmentStatusPatch", "assignment status syncs commitment");
 assertIncludes(assignmentsRoute, "syncResourceAssignmentFollowUpSchedules", "assignment route syncs follow-up schedules");
@@ -252,7 +264,12 @@ assertIncludes(loader, "type DosAppResourceAssignment", "loader exposes resource
 assertIncludes(loader, "loadResourceAssignmentsForWorkspace", "loader loads resource assignments");
 assertIncludes(loader, "resourceAssignments: DosAppResourceAssignment[]", "DOS app data includes resource assignments");
 assertIncludes(loader, "latestActivityByPersonId.set(assignment.person_id", "assignments affect person activity");
+assertIncludes(loader, "userPersonId?: string | null", "DOS workspace payload must carry the server-resolved viewer person id.");
+assertIncludes(loader, "viewerPersonId = identityResult.identity.person_id", "DOS loader must trust the verified identity link for Myself.");
 assertIncludes(preview, "resourceAssignments:", "preview supplies resource assignments");
+assertIncludes(memberAccess, ".eq(\"assignment_context\", \"group\")", "Member Group Home must load only group-context Journey assignments.");
+assertIncludes(memberAccess, ".eq(\"source_group_id\", group.id)", "Member Group Home must load only the exact source group Journey assignments.");
+assertIncludes(memberAccess, "journeyAssignmentIds.has(progress.assignment_id)", "Member Group Home progress must be scoped by assignment id.");
 
 assertIncludes(client, "ResourceAssignmentFormSheet", "client has assignment form sheet");
 assertIncludes(client, "ResourceAssignmentCheckInSheet", "client has assignment check-in sheet");
@@ -280,13 +297,22 @@ assertIncludes(client, "onLogResourceCheckIn(assignment)", "dashboard uses resou
 assertIncludes(client, "resourceAssignmentFollowUpScheduleDisplayTitle", "client hides resource assignment schedule marker");
 assertIncludes(client, "onAssign={openAssignTargetPicker}", "Library list routes Assign through target picker");
 assertIncludes(client, "openResourceAssignmentCreate(resource, myPersonId, { assignmentContext: \"self\" })", "Library Assign supports Myself target");
+assertIncludes(client, "const userPersonId = data.workspace.userPersonId ?? null", "Library Assign Myself must use the server-resolved identity person id.");
+assertNotIncludes(client, "person.email?.trim().toLowerCase() === userEmail", "Library Assign Myself must not guess by email in the client.");
+assertNotIncludes(client, "person.name.trim().toLowerCase() === displayName", "Library Assign Myself must not guess by display name in the client.");
+assertIncludes(client, "assignment.assignmentContext !== \"group\"", "Library Journey continue/review fallbacks must not treat Group instances as self/direct assignments.");
+assertIncludes(client, "assignment.assignmentContext === \"self\"", "Library Journey fallback should prefer the self assignment instance when one exists.");
+assertIncludes(client, "activeResourceAssignmentForPerson({ assignments, personId, resource })", "Generic Library Journey detail must resolve through the context-aware assignment helper.");
+assertIncludes(client, "onOpenGuidedResource(resource, activeAssignment?.id ?? null)", "Library Journey Continue must open the resolved assignment instance.");
 assertIncludes(client, "openResourceAssignmentCreate(resource, null, { assignmentContext: \"library\" })", "Library Assign supports Person target through the canonical assignment form");
 assertIncludes(client, "assignmentContext: \"group\"", "Group Journey assignment writes group context");
 assertIncludes(client, "sourceGroupId", "Client carries source group id for group-context assignments");
 assertIncludes(client, "dueDate: \"\"", "Assignment launch must intentionally store no enforced due date.");
 assertIncludes(client, "followUpCadence: \"none\"", "Group assignment launch must not create per-participant due reminders by default.");
 assertIncludes(client, "reuseExistingResourceAssignment", "duplicate warning offers explicit existing-assignment reuse");
-assertIncludes(client, "openLeaderJourneyProgress(personId, resource.slug)", "Person profile opens leader progress instead of editable private participant fields");
+assertIncludes(client, "openLeaderJourneyProgress(personId, resource.slug, assignmentId ?? null)", "Person profile opens leader progress by assignment instance instead of editable private participant fields.");
+assertIncludes(client, "onOpenGuidedResource(guidedResource, assignment.id)", "My Record assignment rows must open the exact assignment instance.");
+assertIncludes(client, "onOpenGuidedResource(resource, assignment.personId, assignment.id)", "Person assignment rows must open the exact assignment instance.");
 assertIncludes(client, "Read Online", "assignment card keeps online reading action");
 assertIncludes(client, "Download PDF", "Library card keeps PDF action");
 assertIncludes(client, "getDosResourceBySlug", "client resolves canonical catalog metadata by slug");
@@ -308,6 +334,7 @@ assertIncludes(groupJourneyAssignSheet, "Start Date", "Group assignment launch m
 assertIncludes(groupJourneyAssignSheet, "DosDateInput", "Group assignment launch must use the compact DOS date input.");
 assertIncludes(groupJourneyAssignSheet, "already has this Journey", "Group assignment must explain duplicate active Journeys in plain member language.");
 assertIncludes(groupJourneyAssignSheet, "Keep their progress", "Group assignment must preserve duplicate prevention without backend wording.");
+assertIncludes(groupJourneyAssignSheet, "assignment.assignmentContext === \"group\" && assignment.sourceGroupId === group.id", "Group assignment duplicate detection must ignore other groups and direct/self instances.");
 assertNotIncludes(groupJourneyAssignSheet, "canonical per-person record", "Group assignment must not expose canonical record terminology to leaders.");
 assertIncludes(groupJourneyAssignSheet, "reuseExisting", "Group assignment must submit the explicit reuse decision.");
 assertIncludes(resourceAssignmentSuccessSheet, "Secure Invitation", "Assignment success must surface secure member invitation actions.");
@@ -319,6 +346,7 @@ assertIncludes(resourceAssignmentSuccessSheet, "Preview {participantFirstName(ta
 // hand-built mock of it. `MemberGroupHomePreview` wraps the same
 // `GroupHomeMemberView` the participant's real secure link renders.
 assertIncludes(resourceAssignmentSuccessSheet, "MemberGroupHomePreview", "Assignment success must render the shared member Group Home preview without creating another participant route.");
+assertIncludes(resourceAssignmentSuccessSheet, "assignment.assignmentContext === \"group\"", "Assignment success member preview progress must be scoped to Group assignment instances.");
 assertNotIncludes(client, "MemberExperiencePreviewPanel", "The duplicate legacy preview panel must stay deleted.");
 assertIncludes(client, "Copy blocked. Select this secure link", "Invitation copy must provide a selectable-link fallback when clipboard/share is blocked.");
 assertIncludes(resourceAssignmentSuccessSheet, "buildPreviewParticipantAccessUrl", "Preview assignment success must generate a real demo-safe member access route.");
@@ -353,6 +381,10 @@ assertNotIncludes(groupJourneyScheduleSubmit, "sharingLevel", "Edit Journey must
 assertNotIncludes(groupJourneyScheduleSubmit, "status", "Edit Journey must preserve progress and completion state by omission.");
 assertNotIncludes(groupJourneyScheduleSubmit, "guidedResourceProgress", "Edit Journey must not mutate Journey progress or responses.");
 assertNotIncludes(groupJourneyScheduleSubmit, "send_member_access", "Edit Journey must not mint or resend access links.");
+assertIncludes(client, "assignment.sourceGroupId === group.id", "Group Journey rows must resolve exact group assignment instances.");
+assertNotIncludes(client, "explicitGroupAssignments.length ? explicitGroupAssignments : allGroupAssignments", "Group Journey rows must not fall back to all person/resource assignments.");
+assertIncludes(groupJourneyRowCard, "item.assignmentId === assignment.id", "Group View Journey progress must be scoped to the selected assignment id.");
+assertIncludes(groupJourneyRowCard, "onOpenJourney(member.personId, resourceSlug, assignment?.id ?? null", "Group View Journey must open the exact assignment instance.");
 
 // USA-161: Group -> Assign Journey must visibly offer Discipleship, not just theoretically
 // allow it. The picker renders every catalog resource marked assignable, so Discipleship

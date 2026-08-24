@@ -31,6 +31,7 @@ type JourneyAssignment = {
 
 type JourneyProgress = {
   actionStep: string | null;
+  assignmentId: string | null;
   completedAt: string | null;
   id: string;
   prayerFocus: string | null;
@@ -253,6 +254,7 @@ export function GroupJourneyView({
               onSubmit={preview ? handlePreviewSubmit : undefined}
             >
               <input name="slug" type="hidden" value={groupSlug} />
+              <input name="assignmentId" type="hidden" value={assignment?.id ?? ""} />
               <input name="resourceSlug" type="hidden" value={resource.slug} />
               <input name="sessionId" type="hidden" value={selectedSession.id} />
 

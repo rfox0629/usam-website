@@ -30,7 +30,7 @@ type GroupHomeMemberViewProps = {
    * overlay instead of navigating the leader away. Without it, read-only rows
    * stay inert.
    */
-  onOpenJourney?: (resourceSlug: string) => void;
+  onOpenJourney?: (assignmentId: string) => void;
   /**
    * Leader preview mode. Structure and styling are identical to the
    * participant's real secure link — only the interactive edges go inert, so a
@@ -175,7 +175,7 @@ export function GroupHomeMemberView({
                   groupPath={groupPath}
                   key={assignment.id}
                   onOpenJourney={onOpenJourney}
-                  progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
+                  progress={data.journeyProgress.filter((item) => item.assignmentId === assignment.id)}
                   readOnly={readOnly}
                 />
               ))
@@ -202,7 +202,7 @@ export function GroupHomeMemberView({
                     groupPath={groupPath}
                     key={assignment.id}
                     onOpenJourney={onOpenJourney}
-                    progress={data.journeyProgress.filter((item) => item.resourceSlug === assignment.resourceSlug)}
+                    progress={data.journeyProgress.filter((item) => item.assignmentId === assignment.id)}
                     readOnly={readOnly}
                   />
                 ))}
@@ -238,7 +238,7 @@ function MemberJourneySummaryRow({
 }: {
   assignment: GroupMemberPortalData["journeyAssignments"][number];
   groupPath: string;
-  onOpenJourney?: (resourceSlug: string) => void;
+  onOpenJourney?: (assignmentId: string) => void;
   progress: GroupMemberPortalData["journeyProgress"];
   readOnly?: boolean;
 }) {
@@ -289,7 +289,7 @@ function MemberJourneySummaryRow({
     // Journey view inside the overlay rather than navigating the leader away.
     if (onOpenJourney) {
       return (
-        <button className={`${rowClassName} w-full text-left`} onClick={() => onOpenJourney(assignment.resourceSlug)} type="button">
+        <button className={`${rowClassName} w-full text-left`} onClick={() => onOpenJourney(assignment.id)} type="button">
           {rowBody}
         </button>
       );
@@ -299,7 +299,7 @@ function MemberJourneySummaryRow({
   }
 
   return (
-    <Link className={rowClassName} href={`${groupPath}/journey?resource=${encodeURIComponent(assignment.resourceSlug)}`}>
+    <Link className={rowClassName} href={`${groupPath}/journey?assignment=${encodeURIComponent(assignment.id)}&resource=${encodeURIComponent(assignment.resourceSlug)}`}>
       {rowBody}
     </Link>
   );
