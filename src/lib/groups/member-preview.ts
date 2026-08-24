@@ -39,6 +39,7 @@ export type LeaderPreviewJourney = {
 };
 
 export type LeaderPreviewProgress = {
+  assignmentId?: string | null;
   completedAt?: string | null;
   id: string;
   resourceSlug: string;
@@ -150,6 +151,7 @@ export function buildLeaderPreviewPortalData(input: LeaderPreviewInput): GroupMe
     })),
     journeyProgress: input.progress.map((item) => ({
       actionStep: null,
+      assignmentId: item.assignmentId ?? null,
       completedAt: item.completedAt ?? null,
       id: item.id,
       prayerFocus: null,

@@ -139,6 +139,7 @@ export type DosAppWorkspace = {
   stateName?: string | null;
   userEmail?: string | null;
   userFullName?: string | null;
+  userPersonId?: string | null;
   userPhone?: string | null;
 };
 
@@ -4194,13 +4195,17 @@ export async function loadDosAppData(
     };
   }
 
+  let viewerPersonId: string | null = null;
+
   if (viewer) {
     const identityResult = await resolveDosIdentityForWorkspace(supabase, viewer, {
       workspaceDisplayName: workspace.display_name,
       workspaceId: workspace.id,
     });
 
-    if (identityResult.status === "ambiguous") {
+    if (identityResult.status === "linked") {
+      viewerPersonId = identityResult.identity.person_id;
+    } else if (identityResult.status === "ambiguous") {
       console.warn("DOS identity verification is ambiguous for this workspace.", {
         candidateCount: identityResult.candidates.length,
         workspaceId: workspace.id,
@@ -5229,8 +5234,9 @@ export async function loadDosAppData(
         showPrayerTeamCount: workspace.show_prayer_team_count !== false,
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
-        userEmail: null,
+        userEmail: viewer?.access === "member" ? viewer.email : null,
         userFullName: null,
+        userPersonId: viewerPersonId,
         userPhone: null,
       },
     },

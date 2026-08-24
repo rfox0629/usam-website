@@ -83,6 +83,9 @@ assertIncludes(previewPanel, "readOnly", "Preview must render the shared member 
 // Group Home -> Journey -> save -> return -> reopen — but still zero-write.
 assertIncludes(previewPanel, "GroupJourneyView", "Preview must click through to the same shared Journey component the member uses.");
 assertIncludes(previewPanel, "onOpenJourney", "Preview Journey rows must open the shared Journey inside the overlay, not navigate the leader away.");
+assertIncludes(previewPanel, "assignmentId: string; view: \"journey\"", "Preview Journey navigation must carry the exact assignment instance.");
+assertIncludes(previewPanel, "item.assignmentId === screen.assignmentId", "Preview Journey progress must be scoped by assignment id.");
+assertIncludes(previewPanel, "drafts[screen.assignmentId]", "Preview Journey drafts must stay isolated per assignment instance.");
 assertIncludes(previewPanel, "nothing you do here is saved", "The preview bar must state that nothing is saved.");
 assertIncludes(previewPanel, "Preview as Member", "The overlay must carry the unmistakable Preview as Member indicator.");
 assertIncludes(previewPanel, "Exit Preview", "The overlay must offer an explicit exit.");
@@ -268,4 +271,3 @@ assertIncludes(groupJourneyView, "href={groupPath}", "Back to Group must navigat
 for (const chrome of ["People</", ">Me<", "bottom-nav", "BottomNav"]) {
   assertNotIncludes(groupJourneyView, chrome, `The participant Journey must not grow app chrome: ${chrome}.`);
 }
-
