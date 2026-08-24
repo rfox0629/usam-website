@@ -1,5 +1,5 @@
--- USA-170 draft only.
--- Do not apply to production until Founder Approved.
+-- USA-170.
+-- Apply to production only after Founder Approval.
 
 begin;
 
@@ -24,6 +24,9 @@ comment on index public.dos_resource_assignments_active_context_unique is
 -- Guided progress must be unique by assignment instance/session, not by
 -- person/resource/session. Keep a legacy null-assignment guard so older
 -- unbound progress rows still cannot duplicate each other.
+alter table public.dos_guided_resource_progress
+  drop constraint if exists dos_guided_resource_progress_person_session_unique;
+
 drop index if exists public.dos_guided_resource_progress_person_session_unique;
 
 create unique index dos_guided_resource_progress_assignment_session_unique
@@ -55,8 +58,9 @@ commit;
 --   where status in ('not_started', 'in_progress', 'paused');
 -- drop index if exists public.dos_guided_resource_progress_assignment_session_unique;
 -- drop index if exists public.dos_guided_resource_progress_legacy_person_session_unique;
--- create unique index dos_guided_resource_progress_person_session_unique
---   on public.dos_guided_resource_progress(workspace_id, person_id, resource_slug, session_id);
+-- alter table public.dos_guided_resource_progress
+--   add constraint dos_guided_resource_progress_person_session_unique
+--   unique (workspace_id, person_id, resource_slug, session_id);
 -- do $$
 -- begin
 --   perform pg_notify('pgrst', 'reload schema');

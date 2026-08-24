@@ -186,11 +186,12 @@ assertIncludes(assignmentContextMigration, "source_group_id uuid references publ
 assertIncludes(assignmentContextMigration, "sharing_level text not null default 'leader_progress'", "assignment context migration stores leader sharing default");
 assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_check", "group assignments must carry group context");
 assertIncludes(assignmentContextMigration, "dos_resource_assignments_group_context_idx", "group context lookup must be indexed");
-assertIncludes(assignmentInstanceMigrationDraft, "Do not apply to production until Founder Approved", "USA-170 migration must remain a draft gate.");
+assertIncludes(assignmentInstanceMigrationDraft, "Apply to production only after Founder Approval", "USA-170 migration must remain behind the founder approval gate.");
 assertIncludes(assignmentInstanceMigrationDraft, "drop index if exists public.dos_resource_assignments_active_unique", "USA-170 migration must replace the old active assignment uniqueness.");
 assertIncludes(assignmentInstanceMigrationDraft, "dos_resource_assignments_active_context_unique", "USA-170 migration must add context-aware active assignment uniqueness.");
 assertIncludes(assignmentInstanceMigrationDraft, "coalesce(source_group_id", "USA-170 migration must treat null source groups as a real direct/self context key.");
-assertIncludes(assignmentInstanceMigrationDraft, "drop index if exists public.dos_guided_resource_progress_person_session_unique", "USA-170 migration must remove resource-only progress uniqueness.");
+assertIncludes(assignmentInstanceMigrationDraft, "drop constraint if exists dos_guided_resource_progress_person_session_unique", "USA-170 migration must remove resource-only progress uniqueness even when it is constraint-backed.");
+assertIncludes(assignmentInstanceMigrationDraft, "drop index if exists public.dos_guided_resource_progress_person_session_unique", "USA-170 migration must also tolerate standalone legacy progress indexes.");
 assertIncludes(assignmentInstanceMigrationDraft, "dos_guided_resource_progress_assignment_session_unique", "USA-170 migration must isolate progress by assignment instance/session.");
 assertIncludes(assignmentInstanceMigrationDraft, "dos_guided_resource_progress_legacy_person_session_unique", "USA-170 migration must keep a compatibility guard for legacy unbound progress.");
 
