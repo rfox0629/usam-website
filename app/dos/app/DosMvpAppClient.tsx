@@ -24,6 +24,8 @@ import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
+import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "@/src/lib/dos/person-evidence";
+import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow, type MeetingWorkflowIds } from "@/src/lib/dos/meeting-workflow";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import {
@@ -3456,103 +3458,8 @@ function relationshipTypePillLabel(person: DosAppPerson) {
   return relationshipTypeOptions.find((option) => option.value === relationshipType)?.label ?? statusLabel(person.relationshipType);
 }
 
-function normalizedSignalText(...values: Array<null | string | string[] | undefined>) {
-  return values
-    .flatMap((value) => Array.isArray(value) ? value : [value])
-    .filter((value): value is string => Boolean(value?.trim()))
-    .join(" ")
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function hasSignal(value: string, signals: string[]) {
-  return signals.some((signal) => value.includes(signal));
-}
-
-const multiplicationJourneySignals = [
-  "disciple maker",
-  "discipling others",
-  "started discipling others",
-  "multiplication",
-  "multiplying",
-  "reproducing",
-  "reproduction",
-];
-
-const disciplingJourneySignals = [
-  "discipling",
-  "disciple",
-  "testimony",
-  "training",
-  "leadership",
-  "leader",
-  "leading",
-  "teaching",
-  "helping others",
-  "walking with another",
-];
-
 function isSubmittedStatus(status: string) {
   return ["approved", "reviewed", "submitted"].includes(status.toLowerCase());
-}
-
-function deriveSpiritualJourney({
-  fruitEvents,
-  fruitSummary,
-  meetings,
-  participantReviews,
-  participantTestimonies,
-  person,
-  reflections,
-}: {
-  fruitEvents: DosAppFruitEvent[];
-  fruitSummary: PersonDetailFruitSummary;
-  meetings: DosAppMeeting[];
-  participantReviews: DosAppParticipantReview[];
-  participantTestimonies: DosAppParticipantTestimony[];
-  person: DosAppPerson;
-  reflections: DosAppLeaderReflection[];
-}) {
-  const personFlags = person as DosAppPerson & { disciple_maker?: boolean; discipleMaker?: boolean };
-  const approvedFruitText = fruitEvents
-    .filter((event) => event.status === "approved")
-    .map((event) => normalizedSignalText(event.fruitType, event.title, event.description))
-    .join(" ");
-  const reflectionText = reflections
-    .map((reflection) => normalizedSignalText(reflection.observedFruit, reflection.whatHappened, reflection.nextStep))
-    .join(" ");
-  const testimonyText = participantTestimonies
-    .filter((testimony) => isSubmittedStatus(testimony.status))
-    .map((testimony) => normalizedSignalText(testimony.story, testimony.whatChanged, testimony.decisionMade, testimony.nextStep))
-    .join(" ");
-  const hasApprovedMultiplicationFruit = fruitSummary.multiplicationStatus !== "Not yet"
-    || hasSignal(approvedFruitText, multiplicationJourneySignals);
-  const hasDiscipleMakerSignal = Boolean(personFlags.disciple_maker || personFlags.discipleMaker)
-    || person.discipleshipStage === "disciple_maker"
-    || hasApprovedMultiplicationFruit;
-
-  if (hasDiscipleMakerSignal) {
-    return "Disciple Maker";
-  }
-
-  const disciplingText = [approvedFruitText, reflectionText, testimonyText].join(" ");
-  const hasDisciplingSignal = person.discipleshipStage === "discipling"
-    || hasSignal(disciplingText, disciplingJourneySignals)
-    || participantTestimonies.some((testimony) => isSubmittedStatus(testimony.status) && Boolean(testimony.story?.trim() || testimony.whatChanged?.trim()));
-
-  if (hasDisciplingSignal) {
-    return "Discipling";
-  }
-
-  const hasMeaningfulGrowthSignal = person.discipleshipStage === "walking_with"
-    || meetings.length >= 2
-    || reflections.length > 0
-    || participantReviews.some((review) => isSubmittedStatus(review.status))
-    || fruitEvents.some((event) => isSubmittedStatus(event.status));
-
-  return hasMeaningfulGrowthSignal ? "Growing" : "Exploring";
 }
 
 function relationshipStatusLabel(person: DosAppPerson) {
@@ -5270,19 +5177,12 @@ function StatTile({
   );
 }
 
-type PersonOutcomeEntry =
-  | {
-    date: string | null;
-    event: DosAppFruitEvent;
-    id: string;
-    type: "fruit";
-  }
-  | {
-    date: string | null;
-    id: string;
-    testimony: DosAppParticipantTestimony;
-    type: "testimony";
-  };
+type PersonOutcomeEntry = {
+  date: string | null;
+  event: DosAppFruitEvent;
+  id: string;
+  type: "fruit";
+};
 
 type PersonGrowthMilestone = {
   date: string | null;
@@ -18006,9 +17906,8 @@ function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePer
 
 // Deterministic Circle Logic V1 (USA-168 revision 3, new proposal — see audit).
 // Every input below is read from meetings/check-ins already logged in DOS; nothing here is
-// AI-inferred. Suggestions are advisory only — production placement still requires a human
-// to confirm via the existing dos_circle_overrides pathway (not yet wired to any UI/API route;
-// this prototype simulates the "confirm" step locally instead of calling that endpoint).
+// AI-inferred. Suggestions are advisory only. Production placement changes only after a human
+// confirms through the existing dos_circle_overrides pathway.
 type CircleKey = CircleFocusView | "field";
 
 const circleProximityOrder: CircleKey[] = ["three", "twelve", "seventy", "my_120", "field"];
@@ -32519,22 +32418,17 @@ function OutcomeDetailSheet({
   onClose: () => void;
   person: DosAppPerson;
 }) {
-  const isTestimony = entry.type === "testimony";
-  const title = isTestimony ? "Testimony Shared" : entry.event.title || entry.event.fruitType;
-  const date = isTestimony ? entry.testimony.submittedAt : entry.event.date;
-  const description = isTestimony
-    ? entry.testimony.whatChanged || entry.testimony.story || "Testimony shared."
-    : fruitNarrative(entry.event);
-  const source = isTestimony
-    ? "Testimony"
-    : entry.event.generatedBy || statusLabel(entry.event.sourceType);
+  const title = entry.event.title || entry.event.fruitType;
+  const date = entry.event.date;
+  const description = fruitNarrative(entry.event);
+  const source = entry.event.generatedBy || statusLabel(entry.event.sourceType);
   const peopleInvolved = meeting?.participantNames.length
     ? formatDosParticipantList(meeting.participantNames)
     : person.name;
 
   return (
     <MobileBottomSheet
-      badge={<span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">{isTestimony ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : entry.type === "fruit" ? <FruitEventIcon event={entry.event} /> : null}</span>}
+      badge={<span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]"><FruitEventIcon event={entry.event} /></span>}
       onClose={onClose}
       subtitle={date ? formatDate(date) : "Date not recorded"}
       title={title}
@@ -34507,6 +34401,7 @@ function PersonDetailOverlay({
   onAddPrayerRequest,
   onAssignResource,
   onCompleteCommitment,
+  onConfirmCircleMove,
   onEditReminder,
   onEditCommitment,
   onEdit,
@@ -34561,6 +34456,7 @@ function PersonDetailOverlay({
   onAddPrayerRequest: () => void;
   onAssignResource: (personId: string) => void;
   onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
+  onConfirmCircleMove: (personId: string, circle: CircleKey) => Promise<boolean>;
   onEditReminder: (reminderId: string) => void;
   onEditCommitment: (commitment: DosAppPersonCommitment) => void;
   onEdit: () => void;
@@ -34596,6 +34492,8 @@ function PersonDetailOverlay({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
+  const [circleMoveError, setCircleMoveError] = useState("");
+  const [isSavingCircleMove, setIsSavingCircleMove] = useState(false);
   // USA-168 Person page (Relationship Brief base). Relationship-level actions
   // live behind the app's established floating "+"; contact-oriented actions
   // live behind a restrained header overflow.
@@ -34653,8 +34551,17 @@ function PersonDetailOverlay({
     .flatMap((gathering) => gathering.attendance
       .filter((attendance) => attendance.personId === person.id && attendance.status !== "absent")
       .map((attendance) => ({ attendance, gathering, group }))));
-  const personParticipantReviews = participantReviews.filter((review) => review.personId === person.id || (!review.personId && personMeetings.some((meeting) => meeting.id === review.meetingId)));
-  const personTestimonies = participantTestimonies.filter((testimony) => testimony.personId === person.id || (!testimony.personId && personMeetings.some((meeting) => meeting.id === testimony.meetingId)));
+  const meetingPersonIds = (meetingId: string) => meetings.find((meeting) => meeting.id === meetingId)?.fieldPersonIds ?? [];
+  const personParticipantReviews = participantReviews.filter((review) => evidenceBelongsToPerson({
+    meetingPersonIds: meetingPersonIds(review.meetingId),
+    personId: person.id,
+    recordPersonId: review.personId,
+  }));
+  const personTestimonies = participantTestimonies.filter((testimony) => evidenceBelongsToPerson({
+    meetingPersonIds: meetingPersonIds(testimony.meetingId),
+    personId: person.id,
+    recordPersonId: testimony.personId,
+  }));
   const personReviewItems = buildSubmittedReviewItems({
     meetings: personMeetings,
     participantReviews: personParticipantReviews,
@@ -34679,7 +34586,6 @@ function PersonDetailOverlay({
   const personFruitEvents = personFruitSummary.fruitEvents;
   const personReflections = leaderReflections.filter((reflection) => reflection.personId === person.id || personLoggedMeetings.some((meeting) => meeting.id === reflection.meetingId));
   const personOutcomeFruitEvents = personFruitEvents.filter(isObservableFruitOutcome);
-  const personOutcomeTestimonies = personTestimonies.filter((testimony) => isSubmittedStatus(testimony.status) && Boolean(testimony.story?.trim() || testimony.whatChanged?.trim()));
   const personOutcomeEntries: PersonOutcomeEntry[] = [
     ...personOutcomeFruitEvents.map((event) => ({
       date: event.date,
@@ -34687,25 +34593,16 @@ function PersonDetailOverlay({
       id: `fruit-${event.id}`,
       type: "fruit" as const,
     })),
-    ...personOutcomeTestimonies.map((testimony) => ({
-      date: testimony.submittedAt,
-      id: `testimony-${testimony.id}`,
-      testimony,
-      type: "testimony" as const,
-    })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   const selectedOutcomeMeeting = selectedOutcomeEntry
-    ? meetings.find((meeting) => meeting.id === (selectedOutcomeEntry.type === "fruit" ? selectedOutcomeEntry.event.meetingId : selectedOutcomeEntry.testimony.meetingId)) ?? null
+    ? meetings.find((meeting) => meeting.id === selectedOutcomeEntry.event.meetingId) ?? null
     : null;
   const relationshipTypePill = relationshipTypePillLabel(person);
-  const spiritualJourneyPill = deriveSpiritualJourney({
-    fruitEvents: personFruitEvents,
-    fruitSummary: personFruitSummary,
-    meetings: personLoggedMeetings,
-    participantReviews: personParticipantReviews,
-    participantTestimonies: personTestimonies,
-    person,
-    reflections: personReflections,
+  const spiritualJourneyPill = canonicalSpiritualJourneyLabel(personRelationshipModel(person).discipleshipStage);
+  const evidenceCounts = personEvidenceCounts({
+    fruit: personOutcomeEntries,
+    reviews: personReviewItems.filter((item) => item.kind === "quick_review"),
+    testimonies: personReviewItems.filter((item) => item.kind === "testimony_review"),
   });
   const lastMeetingDate = [personLoggedMeetings[0]?.date, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
     .filter((date): date is string => Boolean(date))
@@ -34763,23 +34660,14 @@ function PersonDetailOverlay({
       kind: "assessment" as const,
       title: result.assessmentTitle,
     })),
-    ...personOutcomeEntries.map((entry) => entry.type === "testimony"
-      ? {
-        date: entry.date,
-        description: entry.testimony.whatChanged?.trim() || entry.testimony.story?.trim() || "Shared story recorded.",
-        id: `history-${entry.id}`,
-        kind: "testimony" as const,
-        onClick: () => setSelectedOutcomeEntry(entry),
-        title: "Testimony Shared",
-      }
-      : {
-        date: entry.date,
-        description: fruitNarrative(entry.event),
-        id: `history-${entry.id}`,
-        kind: "fruit" as const,
-        onClick: () => setSelectedOutcomeEntry(entry),
-        title: fruitOutcomeLabel(entry.event),
-      }),
+    ...personOutcomeEntries.map((entry) => ({
+      date: entry.date,
+      description: fruitNarrative(entry.event),
+      id: `history-${entry.id}`,
+      kind: "fruit" as const,
+      onClick: () => setSelectedOutcomeEntry(entry),
+      title: fruitOutcomeLabel(entry.event),
+    })),
     ...personReviewItems.filter((item) => item.kind === "quick_review").map((item) => ({
       date: item.date,
       description: item.summary,
@@ -34787,6 +34675,14 @@ function PersonDetailOverlay({
       kind: "quick_review" as const,
       onClick: () => onOpenReview(item),
       title: "Quick Review",
+    })),
+    ...personReviewItems.filter((item) => item.kind === "testimony_review").map((item) => ({
+      date: item.date,
+      description: item.summary,
+      id: `history-${item.id}`,
+      kind: "testimony" as const,
+      onClick: () => onOpenReview(item),
+      title: "Testimony Shared",
     })),
     ...personLoggedMeetings.map((meeting) => ({
       date: meeting.date,
@@ -35029,8 +34925,8 @@ function PersonDetailOverlay({
   // Deliberately not a fourth tab: the founder direction is three destinations.
   const renderFruit = () => {
     const recentOutcomes = personOutcomeEntries.slice(0, 2);
-    const reviewCount = personReviewItems.length;
-    const totalRecords = personOutcomeEntries.length + reviewCount + personAssessmentResults.length;
+    const reportCount = evidenceCounts.reviewCount + evidenceCounts.testimonyCount;
+    const totalRecords = evidenceCounts.fruitCount + reportCount + personAssessmentResults.length;
 
     return (
       <>
@@ -35047,7 +34943,7 @@ function PersonDetailOverlay({
             {recentOutcomes.map((entry) => (
               <button className="block w-full py-3 text-left first:pt-1" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
                 <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
-                  {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
+                  {fruitOutcomeLabel(entry.event)}
                 </span>
                 <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatDate(entry.date)}</span>
               </button>
@@ -35058,23 +34954,24 @@ function PersonDetailOverlay({
             Nothing recorded yet. Fruit is captured when you log a meeting.
           </p>
         )}
-        {reviewCount ? (
+        {reportCount ? (
           <button
             className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
             onClick={() => setIsFruitReviewsOpen(true)}
             type="button"
           >
-            {reviewCount} {reviewCount === 1 ? "review" : "reviews"} from {firstName} {"\u2192"}
+            {evidenceCounts.reviewCount} review{evidenceCounts.reviewCount === 1 ? "" : "s"} · {evidenceCounts.testimonyCount} testimon{evidenceCounts.testimonyCount === 1 ? "y" : "ies"} {"\u2192"}
           </button>
-        ) : (
+        ) : null}
+        {lastMeeting && onRequestReview ? (
           <button
             className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
-            onClick={() => setIsFruitReviewsOpen(true)}
+            onClick={() => onRequestReview(lastMeeting)}
             type="button"
           >
-            Ask {firstName} for a review {"\u2192"}
+            Request review {"\u2192"}
           </button>
-        )}
+        ) : null}
       </>
     );
   };
@@ -35086,7 +34983,7 @@ function PersonDetailOverlay({
          and `md:px-10` were present, so the winning value was whichever
          Tailwind ordered last, and the full-bleed RIGHT NOW band (which offsets
          by the padding) overshot by 16px at exactly 768px. */
-      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+11rem)] md:bg-white md:px-10 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
+      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+4rem)] md:bg-white md:px-10 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -35112,14 +35009,23 @@ function PersonDetailOverlay({
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
-              <button
-                className="-mr-1 flex min-h-10 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
-                onClick={onEdit}
-                type="button"
-              >
-                <Pencil className="h-[15px] w-[15px]" aria-hidden="true" strokeWidth={1.9} />
-                Edit
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  className="flex min-h-10 items-center rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
+                  onClick={onLogMeeting}
+                  type="button"
+                >
+                  Log meeting
+                </button>
+                <button
+                  aria-label={`More actions for ${firstName}`}
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                  onClick={() => setIsPersonActionsOpen(true)}
+                  type="button"
+                >
+                  <Plus className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+                </button>
+              </div>
             </div>
             <div className="mt-1 flex items-center gap-3.5 pb-4">
               {person.photoUrl ? (
@@ -35716,7 +35622,7 @@ function PersonDetailOverlay({
                   <p className="text-dos-body"><span className="font-semibold text-dos-primary">Relationship</span> — the kind of ministry relationship you have. You set this.</p>
                   <p className="text-dos-body"><span className="font-semibold text-dos-primary">Circle</span> — relational proximity and stewardship (My 3 / 12 / 70 / 120). Always confirmed by you.</p>
                   <p className="text-dos-body"><span className="font-semibold text-dos-primary">Engagement</span> — how responsive this relationship is right now. You set this.</p>
-                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Spiritual journey</span> — derived from logged meetings, reviews and fruit.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Spiritual journey</span> — the stage saved on this Person record. You set this.</p>
                 </div>
               </details>
               {visibleCircleSuggestion ? (
@@ -35733,8 +35639,8 @@ function PersonDetailOverlay({
                 <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-dos-body">
                   {/* Count what the destination actually lists, so the summary
                       and the sheet can never disagree. */}
-                  {personOutcomeEntries.length || personReviewItems.length
-                    ? `${personOutcomeEntries.length} fruit · ${personReviewItems.length} review${personReviewItems.length === 1 ? "" : "s"} recorded`
+                  {evidenceCounts.fruitCount || evidenceCounts.reviewCount || evidenceCounts.testimonyCount
+                    ? `${evidenceCounts.fruitCount} fruit · ${evidenceCounts.reviewCount} review${evidenceCounts.reviewCount === 1 ? "" : "s"} · ${evidenceCounts.testimonyCount} testimon${evidenceCounts.testimonyCount === 1 ? "y" : "ies"}`
                     : "Nothing recorded yet."}
                 </p>
                 <PDButton onClick={() => setIsFruitReviewsOpen(true)}>Open</PDButton>
@@ -35800,24 +35706,29 @@ function PersonDetailOverlay({
 
       </div>
       </div>
-      {conceptMode ? (
-        /* Relationship-level actions use the app's established floating "+"
-           pattern; contextual actions stay beside their context. */
-        <MyRecordContextualFloatingActions
-          isOpen={isPersonActionsOpen}
-          items={[
-            { icon: "log", label: "Log meeting", onClick: onLogMeeting },
-            { icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
-            { icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
-            { icon: "library", label: "Assign Journey", onClick: () => onAssignResource(person.id) },
-            { icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
-            { icon: "bell", label: "Add follow-up", onClick: onAddReminder },
-          ]}
-          menuLabel={`actions for ${firstName}`}
-          onClose={() => setIsPersonActionsOpen(false)}
-          onToggle={() => setIsPersonActionsOpen((current) => !current)}
-          variant="quick-action"
-        />
+      {conceptMode && isPersonActionsOpen ? (
+        <Sheet onClose={() => setIsPersonActionsOpen(false)} showEyebrow={false} title={`${firstName} · actions`}>
+          <div className="grid gap-1.5">
+            {[
+              { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule meeting", onClick: onScheduleMeeting },
+              { icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add prayer request", onClick: onAddPrayerRequest },
+              { icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Assign Journey", onClick: () => onAssignResource(person.id) },
+              { icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add accountability", onClick: onAddAccountabilitySchedule },
+              { icon: <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add follow-up", onClick: onAddReminder },
+              { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Person", onClick: onEdit },
+            ].map((item) => (
+              <button
+                className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                key={item.label}
+                onClick={() => { setIsPersonActionsOpen(false); item.onClick(); }}
+                type="button"
+              >
+                <span className="text-dos-blue">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </Sheet>
       ) : null}
       {isOverflowOpen ? (
         <Sheet onClose={() => setIsOverflowOpen(false)} showEyebrow={false} title={person.name}>
@@ -35909,10 +35820,23 @@ function PersonDetailOverlay({
             <p className="text-dos-body">Consider whether {firstName} belongs in your {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}.</p>
             <div className="grid gap-2">
               <AppButton
-                onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setCircleInsightStage(null); }}
+                disabled={isSavingCircleMove}
+                onClick={() => void (async () => {
+                  setCircleMoveError("");
+                  setIsSavingCircleMove(true);
+                  const saved = await onConfirmCircleMove(person.id, visibleCircleSuggestion.suggestedCircle);
+
+                  setIsSavingCircleMove(false);
+                  if (saved) {
+                    setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle);
+                    setCircleInsightStage(null);
+                  } else {
+                    setCircleMoveError("Circle was not changed. Try again.");
+                  }
+                })()}
                 tone="black"
               >
-                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+                {isSavingCircleMove ? "Saving..." : `Move to ${circleDisplayName(visibleCircleSuggestion.suggestedCircle)}`}
               </AppButton>
               <AppButton
                 onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setCircleInsightStage(null); }}
@@ -35921,10 +35845,11 @@ function PersonDetailOverlay({
                 Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
               </AppButton>
             </div>
+            {circleMoveError ? <p className="text-[13px] font-semibold text-red-700">{circleMoveError}</p> : null}
             {circleInsightStage === "why" ? (
               <div className="rounded-2xl bg-dos-band p-3.5 text-[13px] leading-[1.6] text-dos-body">
                 <p className="text-dos-body">
-                  DOS compares your logged one-to-one time over a rolling 30-day window against the people currently in each of your circles. Nothing is inferred — only what you logged counts, and DOS never moves anyone without you.
+                  DOS suggests one circle closer only when that circle has at least 2 people to compare; {firstName} has at least 2 one-to-one meetings in 30 days; their 30-day interaction count and meeting time meet that circle&apos;s medians; their interaction count is at least 1.5× the current-circle median (unless that median is zero); and their 14-day interaction count is at least 0.35× the closer circle&apos;s 30-day median. One-to-one meetings count as 1 interaction, group meetings as 0.35, and accountability check-ins as 0.25. Missing meeting duration is estimated at 45 minutes one-to-one or 75 minutes for a group, then weighted the same way. Check-ins add interaction count, not meeting minutes. DOS never moves anyone without your confirmation.
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#E3E6EB] bg-white p-2.5">
@@ -35963,7 +35888,7 @@ function PersonDetailOverlay({
                   {personOutcomeEntries.map((entry) => (
                     <button className="block w-full py-2.5 text-left" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
                       <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">
-                        {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
+                        {fruitOutcomeLabel(entry.event)}
                       </p>
                       <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{formatDate(entry.date)}</p>
                     </button>
@@ -36059,14 +35984,34 @@ function PersonDetailOverlay({
             <p className="text-dos-eyebrow">
               This pattern is closer to your current {circleDisplayName(visibleCircleSuggestion.suggestedCircle)} relationships than your current {circleDisplayName(visibleCircleSuggestion.currentCircle)} relationships.
             </p>
+            <p className="text-[12.5px] leading-[1.55] text-dos-secondary">
+              Required: at least 2 people in the closer-circle benchmark, 2 one-to-one meetings in 30 days, 30-day interactions and meeting time at or above the closer-circle medians, interactions at least 1.5× the current-circle median unless it is zero, and 14-day interactions at least 0.35× the closer circle&apos;s 30-day median. Weights: one-to-one 1, group 0.35, accountability 0.25. Missing meeting time: 45 minutes one-to-one or 75 minutes group, then meeting-weighted; accountability adds no meeting minutes.
+            </p>
             <div className="grid gap-2">
-              <AppButton onClick={() => { setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle); setIsCircleReviewOpen(false); }} tone="black">
-                Move to {circleDisplayName(visibleCircleSuggestion.suggestedCircle)}
+              <AppButton
+                disabled={isSavingCircleMove}
+                onClick={() => void (async () => {
+                  setCircleMoveError("");
+                  setIsSavingCircleMove(true);
+                  const saved = await onConfirmCircleMove(person.id, visibleCircleSuggestion.suggestedCircle);
+
+                  setIsSavingCircleMove(false);
+                  if (saved) {
+                    setConfirmedCircleMove(visibleCircleSuggestion.suggestedCircle);
+                    setIsCircleReviewOpen(false);
+                  } else {
+                    setCircleMoveError("Circle was not changed. Try again.");
+                  }
+                })()}
+                tone="black"
+              >
+                {isSavingCircleMove ? "Saving..." : `Move to ${circleDisplayName(visibleCircleSuggestion.suggestedCircle)}`}
               </AppButton>
               <AppButton onClick={() => { setDismissedCircleSuggestion(suggestionDismissKey); setIsCircleReviewOpen(false); }} tone="white">
                 Keep in {circleDisplayName(visibleCircleSuggestion.currentCircle)}
               </AppButton>
             </div>
+            {circleMoveError ? <p className="font-semibold text-red-700">{circleMoveError}</p> : null}
           </div>
         </Sheet>
       ) : null}
@@ -36224,16 +36169,21 @@ function MeetingSendConfirmationSheet({
             ? "Add a person to this table before sending a review link."
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
-        {isReviewOptions ? (
-          <>
-            <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
-            <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
-          </>
-        ) : isTestimony ? (
-          <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
-        ) : (
-          <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
-        )}
+        <details className="rounded-2xl border border-[#DCEBFF] bg-white px-3.5 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-[#1D4ED8]">Preview questions</summary>
+          <div className="mt-3 grid gap-3">
+            {isReviewOptions ? (
+              <>
+                <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
+                <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
+              </>
+            ) : isTestimony ? (
+              <SendableFormPreviewCard eyebrow="Testimony Review" form={testimonyReviewFormPreview} />
+            ) : (
+              <SendableFormPreviewCard eyebrow="Quick Review" form={quickReviewFormPreview} />
+            )}
+          </div>
+        </details>
         <div className="grid gap-2">
           <AppButton disabled={isSending || cannotSend} onClick={() => selectedRecipientId ? onConfirm(selectedRecipientId) : undefined} tone="black">
             {isSending ? "Preparing..." : isReviewOptions ? "Send Review Options" : isTestimony ? "Send Testimony Request" : "Send Quick Review"}
@@ -36841,6 +36791,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupQuery, setGroupQuery] = useState("");
   const [groupsNotice, setGroupsNotice] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupOriginPersonId, setGroupOriginPersonId] = useState<string | null>(null);
   const [pendingGroupJoinRequestCounts, setPendingGroupJoinRequestCounts] = useState<Record<string, number>>({});
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("prayers");
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
@@ -36921,6 +36872,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [pendingMeetingSendAction, setPendingMeetingSendAction] = useState<PendingMeetingSendAction | null>(null);
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const reviewSendInFlightRef = useRef<Set<string>>(new Set());
+  const meetingWorkflowIdsRef = useRef<MeetingWorkflowIds | null>(null);
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
   const [reviewOptionsLinksByMeetingId, setReviewOptionsLinksByMeetingId] = useState<Record<string, string>>({});
@@ -37733,6 +37685,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function closeForm() {
+    meetingWorkflowIdsRef.current = null;
     setErrorMessage("");
     setFormMode(null);
     setReviewLinkMeetingId(null);
@@ -37757,6 +37710,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsCirclesOpen(false);
     setFormMode(mode);
     if (mode === "meeting") {
+      meetingWorkflowIdsRef.current = null;
       setSelectedMeetingId(null);
       setSelectedMeetingReviewRecipientId(null);
       setLoggingScheduledMeetingId(null);
@@ -37864,6 +37818,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setGroupsNotice("");
       setSelectedGroupId(null);
       setGroupDetailTab("overview");
+      setGroupOriginPersonId(null);
     }
     scrollAppToTop();
     setErrorMessage("");
@@ -37965,7 +37920,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  function openGroupDetail(groupId: string) {
+  function openGroupDetail(groupId: string, originPersonId: string | null = null) {
+    openMoreApp("groups");
+    setGroupOriginPersonId(originPersonId);
     setSelectedGroupId(groupId);
     setGroupDetailTab("overview");
     setGroupsNotice("");
@@ -37977,6 +37934,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openGroupJoinRequests(groupId: string) {
     openMoreApp("groups");
+    setGroupOriginPersonId(null);
     setSelectedGroupId(groupId);
     setGroupDetailTab(data.featureFlags.groupsSimplifiedV2 ? "people" : "members");
   }
@@ -38782,6 +38740,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openPersonDetail(personId: string) {
+    setGroupOriginPersonId(null);
     setActiveTab("people");
     setMoreAppView(null);
     scrollAppToTop();
@@ -38802,7 +38761,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedRelationshipScore(relationshipScoreFromEngagementLevel(person.engagementLevel));
   }
 
+  async function confirmPersonCircleMove(personId: string, circle: CircleKey) {
+    setErrorMessage("");
+
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Circle changes are not saved.");
+      return false;
+    }
+
+    try {
+      const response = await fetch("/api/dos/circles/override", {
+        body: JSON.stringify({
+          circle,
+          locked: true,
+          personId,
+          reason: "Confirmed from Person circle suggestion",
+          workspaceId: data.workspace.id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Unable to update circle.");
+      }
+
+      router.refresh();
+      return true;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to update circle.");
+      return false;
+    }
+  }
+
   function openMeetingForPerson(personId: string) {
+    meetingWorkflowIdsRef.current = null;
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
@@ -38813,6 +38807,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openLogTableFromCalendar(personIds: string[] = [], meetingType?: DosAppMeetingType) {
+    meetingWorkflowIdsRef.current = null;
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
@@ -39690,21 +39685,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .filter((person): person is DosAppPerson => Boolean(person));
     const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
 
-    try {
-      return await createPrayerRequest({
-        category: "Ministry",
-        fieldPersonId: primaryPersonId,
-        linkedPersonIds: personIds,
-        meetingId,
-        personTags: linkedPeople.map((person) => person.name),
-        priority: "normal",
-        request: requestText,
-        title: primaryPerson ? `Prayer for ${primaryPerson.name}` : "Prayer from Table",
-        visibility: "private",
-      });
-    } catch {
-      return null;
-    }
+    return createPrayerRequest({
+      category: "Ministry",
+      fieldPersonId: primaryPersonId,
+      linkedPersonIds: personIds,
+      meetingId,
+      personTags: linkedPeople.map((person) => person.name),
+      priority: "normal",
+      request: requestText,
+      title: primaryPerson ? `Prayer for ${primaryPerson.name}` : "Prayer from Table",
+      visibility: "private",
+    });
   }
 
   async function updatePrayerRequest(id: string, patch: DosPrayerRequestPatch) {
@@ -40810,81 +40801,141 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       || spiritualOpenness.trim(),
     );
 
-    void (async () => {
-      const result = await submitJson("/api/dos/app/meetings", {
-        conversationFlowKey,
-        conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
-        fieldPersonIds: selectedMeetingPersonIds,
-        ...meetingRolePayload(formData),
-        notes: meetingNotes,
-        scheduledEndAt: loggedEndAt,
-        scheduledStartAt: loggedStartAt,
-        tableDate,
-        tableType: selectedMeetingContext,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }, "POST", false);
+    if (isPreview) {
+      setErrorMessage("Preview mode is read-only. Meetings are not saved.");
+      return;
+    }
 
-      if (result?.id) {
-        if (shouldSaveReflection) {
-          const reflectionResult = await submitJson("/api/dos/app/reflections", {
-            followUpNeeded,
-            meetingId: result.id,
-            nextStep: agreedNextStepInput,
-            observedFruit,
-            prayerNeeds,
-            privateNotes: "",
-            spiritualOpenness,
-            whatHappened: meetingNotes,
-          }, "POST", false);
+    const workflowIds = meetingWorkflowIdsRef.current ?? createMeetingWorkflowIds();
+    const primaryPrayerPersonId = prayerNeedsPersonId || (selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null);
+    const primaryPrayerPerson = primaryPrayerPersonId ? people.find((person) => person.id === primaryPrayerPersonId) ?? null : null;
+    const linkedPrayerPeople = selectedMeetingPersonIds
+      .map((personId) => people.find((person) => person.id === personId))
+      .filter((person): person is DosAppPerson => Boolean(person));
+    const reminderPersonId = selectedMeetingPersonIds[0] ?? "";
+    const reminderDate = /^\d{4}-\d{2}-\d{2}$/.test(followUpDate) ? followUpDate : dateValueFromToday(1);
+    const trimmedFollowUpNote = followUpNote.trim();
+    const postWorkflowJson = async (url: string, payload: Record<string, unknown>) => {
+      const response = await fetch(url, {
+        body: JSON.stringify({ ...payload, workspaceId: data.workspace.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; id?: string; partial?: boolean };
 
-          if (!reflectionResult) {
-            return;
-          }
-
-          if (prayerNeeds.trim()) {
-            const primaryPersonId = prayerNeedsPersonId || (selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null);
-            const newPrayerNeedId = String(reflectionResult.id ?? `local-${result.id}`);
-            const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
-
-            setLocalPrayerNeeds((current) => [
-              {
-                createdAt: new Date().toISOString(),
-                id: newPrayerNeedId,
-                meetingId: String(result.id),
-                personId: primaryPersonId,
-                personName: primaryPerson?.name ?? null,
-                prayerNeeds: prayerNeeds.trim(),
-              },
-              ...current.filter((item) => item.id !== newPrayerNeedId),
-            ]);
-            void createPrayerRequestFromMeeting({
-              meetingId: String(result.id),
-              personIds: selectedMeetingPersonIds,
-              prayerNeeds,
-              primaryPersonId,
-            });
-          }
+      if (!response.ok) {
+        if (result.partial && result.id) {
+          throw new PersistedWorkflowStepError(result.error ?? "Record saved, but a related operation failed.");
         }
 
-        if (shouldUseLeaderReflection) {
-          const reminderSaved = await saveTableFollowUpReminder({
-            followUpDate,
-            followUpNeeded,
-            followUpNote,
-            meetingId: String(result.id),
-            notes: meetingNotes,
-            personIds: selectedMeetingPersonIds,
-          });
+        throw new Error(result.error ?? `Unable to save ${url.split("/").pop()?.replaceAll("-", " ") ?? "record"}.`);
+      }
 
-          if (!reminderSaved) {
-            return;
-          }
+      return result;
+    };
+
+    meetingWorkflowIdsRef.current = workflowIds;
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    void (async () => {
+      try {
+        const workflow = await runMeetingWorkflow({
+          ids: workflowIds,
+          requestPrayer: shouldSaveReflection && Boolean(prayerNeeds.trim()),
+          requestReflection: shouldSaveReflection,
+          requestReminder: shouldUseLeaderReflection && followUpNeeded,
+          steps: {
+            meeting: ({ operationId }) => postWorkflowJson("/api/dos/app/meetings", {
+              conversationFlowKey,
+              conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
+              fieldPersonIds: selectedMeetingPersonIds,
+              ...meetingRolePayload(formData),
+              idempotencyKey: operationId,
+              notes: meetingNotes,
+              scheduledEndAt: loggedEndAt,
+              scheduledStartAt: loggedStartAt,
+              strictChildren: true,
+              tableDate,
+              tableType: selectedMeetingContext,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            }),
+            prayer: ({ meetingId, operationId }) => postWorkflowJson("/api/dos/app/prayer-requests", {
+              category: "Ministry",
+              fieldPersonId: primaryPrayerPersonId,
+              linkedPersonIds: selectedMeetingPersonIds,
+              meetingId,
+              operationId,
+              personTags: linkedPrayerPeople.map((person) => person.name),
+              priority: "normal",
+              request: prayerNeeds.trim(),
+              title: primaryPrayerPerson ? `Prayer for ${primaryPrayerPerson.name}` : "Prayer from Table",
+              visibility: "private",
+            }),
+            reflection: ({ meetingId, operationId }) => postWorkflowJson("/api/dos/app/reflections", {
+              followUpNeeded,
+              meetingId,
+              nextStep: agreedNextStepInput,
+              observedFruit,
+              operationId,
+              prayerNeeds,
+              privateNotes: "",
+              spiritualOpenness,
+              strictChildren: true,
+              whatHappened: meetingNotes,
+            }),
+            reminder: ({ meetingId, operationId }) => {
+              if (!reminderPersonId) {
+                throw new Error("Choose a participant before setting a Table follow-up.");
+              }
+
+              return postWorkflowJson("/api/dos/app/reminders", {
+                googleSyncEnabled: false,
+                notes: joinTableFollowUpReminderMetadata(trimmedFollowUpNote || meetingNotes, meetingId),
+                operationId,
+                personId: reminderPersonId,
+                recurrence: "none",
+                reminderDate,
+                reminderType: "follow_up",
+                title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Follow up from Table",
+              });
+            },
+          },
+        });
+
+        if (!workflow.complete) {
+          const failed = Object.entries(workflow.errors)
+            .map(([step, message]) => `${step === "reflection" ? "Reflection/Fruit" : step.charAt(0).toUpperCase() + step.slice(1)}: ${message}`)
+            .join(" · ");
+          const meetingSaved = workflow.statuses.meeting === "saved" || workflow.statuses.meeting === "partial";
+
+          setErrorMessage(`${meetingSaved ? "Meeting saved. Retry to finish the remaining items" : "Meeting was not saved. Retry"}: ${failed}. The same operation IDs will be reused, so saved items will not be duplicated.`);
+          return;
+        }
+
+        if (prayerNeeds.trim()) {
+          setLocalPrayerNeeds((current) => [
+            {
+              createdAt: new Date().toISOString(),
+              id: workflowIds.reflectionId,
+              meetingId: workflowIds.meetingId,
+              personId: primaryPrayerPersonId,
+              personName: primaryPrayerPerson?.name ?? null,
+              prayerNeeds: prayerNeeds.trim(),
+            },
+            ...current.filter((item) => item.id !== workflowIds.reflectionId),
+          ]);
         }
 
         closeForm();
         setActiveTab("meetings");
-        setSelectedMeetingId(result.id);
-        setPostMeetingFollowUpId(shouldUseLeaderReflection ? result.id : null);
+        setSelectedMeetingId(workflowIds.meetingId);
+        setPostMeetingFollowUpId(shouldUseLeaderReflection ? workflowIds.meetingId : null);
+        router.refresh();
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Unable to save meeting.");
+      } finally {
+        setIsSubmitting(false);
       }
     })();
   }
@@ -41095,12 +41146,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             },
             ...current.filter((item) => item.id !== newPrayerNeedId),
           ]);
-          void createPrayerRequestFromMeeting({
-            meetingId: selectedMeeting.id,
-            personIds: selectedMeetingPersonIds,
-            prayerNeeds,
-            primaryPersonId,
-          });
+          try {
+            await createPrayerRequestFromMeeting({
+              meetingId: selectedMeeting.id,
+              personIds: selectedMeetingPersonIds,
+              prayerNeeds,
+              primaryPersonId,
+            });
+          } catch {
+            return;
+          }
         }
       }
 
@@ -42611,6 +42666,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onOpenGroup={(groupId) => {
                       if (groupId) {
                         openGroupDetail(groupId);
+                      } else if (groupOriginPersonId) {
+                        const originPersonId = groupOriginPersonId;
+
+                        setSelectedGroupId(null);
+                        setGroupOriginPersonId(null);
+                        setActiveTab("people");
+                        setMoreAppView(null);
+                        setSelectedPersonId(originPersonId);
+                        scrollAppToTop();
                       } else {
                         setSelectedGroupId(null);
                         setGroupsNotice("");
@@ -43220,6 +43284,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
             onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
+            onConfirmCircleMove={confirmPersonCircleMove}
             onEdit={() => openPersonEdit(selectedPerson)}
             onEditCommitment={openCommitmentEdit}
             onEditReminder={openReminderEdit}
@@ -43231,8 +43296,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
             onOpenGroup={(groupId) => {
-              setSelectedPersonId(null);
-              openGroupDetail(groupId);
+              openGroupDetail(groupId, selectedPerson.id);
             }}
             onOpenMeeting={(meetingId, recipientPersonId) => openMeetingDetail(meetingId, recipientPersonId, selectedPerson.id)}
             onOpenGuidedResource={openJourneyForPerson}

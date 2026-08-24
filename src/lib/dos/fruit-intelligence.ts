@@ -129,8 +129,13 @@ export async function createFruitEvent(input: FruitEventInput, supabase: Supabas
   return data?.id ? String(data.id) : null;
 }
 
-export async function syncFruitEventsForReflection(input: ReflectionInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
+export async function syncFruitEventsForReflection(
+  input: ReflectionInferenceInput,
+  supabase: SupabaseAdminClient = createSupabaseAdminClient(),
+  options: { strict?: boolean } = {},
+) {
   const events = reflectionFruitEvents(input);
+  const errors: string[] = [];
   const generationKeys = new Set(events.map((event) => event.generationKey).filter((key): key is string => Boolean(key)));
   const existingResult = await supabase
     .from("fruit_events")
@@ -141,6 +146,7 @@ export async function syncFruitEventsForReflection(input: ReflectionInferenceInp
 
   if (existingResult.error) {
     console.warn("[Fruit Intelligence] Unable to load existing reflection fruit events", existingResult.error.message);
+    errors.push(existingResult.error.message);
   } else {
     const staleEventIds = (existingResult.data ?? [])
       .filter((event) => !generationKeys.has(String(event.generation_key ?? "")))
@@ -154,6 +160,7 @@ export async function syncFruitEventsForReflection(input: ReflectionInferenceInp
 
       if (deleteResult.error) {
         console.warn("[Fruit Intelligence] Unable to delete stale reflection fruit events", deleteResult.error.message);
+        errors.push(deleteResult.error.message);
       }
     }
   }
@@ -165,14 +172,23 @@ export async function syncFruitEventsForReflection(input: ReflectionInferenceInp
 
     if (error) {
       console.warn("[Fruit Intelligence] Unable to sync reflection fruit event", error.message);
+      errors.push(error.message);
     }
   }));
+
+  if (options.strict && errors.length) {
+    throw new Error(`Reflection saved, but Fruit could not be synchronized: ${errors[0]}`);
+  }
 
   return events.length;
 }
 
-export async function inferFruitEventsFromReflection(input: ReflectionInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {
-  return syncFruitEventsForReflection(input, supabase);
+export async function inferFruitEventsFromReflection(
+  input: ReflectionInferenceInput,
+  supabase: SupabaseAdminClient = createSupabaseAdminClient(),
+  options: { strict?: boolean } = {},
+) {
+  return syncFruitEventsForReflection(input, supabase, options);
 }
 
 export async function inferFruitEventsFromReview(input: ReviewInferenceInput, supabase: SupabaseAdminClient = createSupabaseAdminClient()) {

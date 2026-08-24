@@ -130,8 +130,10 @@ for (const forbiddenWrite of [
 }
 
 assert(
-  reviews.includes(".from(\"participant_reviews\")") && reviews.includes(".from(\"dos_meeting_reviews\")"),
-  "Quick Review submit path must store review records.",
+  reviews.includes(".from(\"dos_meeting_reviews\")")
+    && reviews.includes("submitCanonicalReview")
+    && !reviews.includes(".from(\"participant_reviews\")"),
+  "Quick Review submit path must write only the canonical dos_meeting_reviews record.",
 );
 assert(
   reviews.includes(".from(\"missionary_field_people\")") && reviews.includes("last_activity_at"),

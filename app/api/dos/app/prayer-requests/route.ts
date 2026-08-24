@@ -34,6 +34,7 @@ type PrayerRequestPayload = {
   meeting_id?: unknown;
   organizationId?: unknown;
   organization_id?: unknown;
+  operationId?: unknown;
   personTags?: unknown;
   person_tags?: unknown;
   priority?: unknown;
@@ -84,6 +85,10 @@ function asNullableString(value: unknown) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "23505" || /duplicate key|unique constraint/i.test(error?.message ?? "");
 }
 
 function asStringArray(value: unknown) {
@@ -401,7 +406,12 @@ export async function POST(request: Request) {
   const gatheringId = asString(payload.gatheringId) || asString(payload.gathering_id);
   const meetingId = asString(payload.meetingId) || asString(payload.meeting_id);
   const organizationId = asString(payload.organizationId) || asString(payload.organization_id);
+  const operationId = asString(payload.operationId);
   const linkedPersonIds = asUuidArray(payload.linkedPersonIds ?? payload.linked_person_ids);
+
+  if (operationId && !isUuid(operationId)) {
+    return NextResponse.json({ error: "Prayer operation ID is invalid." }, { status: 400 });
+  }
 
   if (organizationId && !isUuid(organizationId)) {
     return NextResponse.json({ error: "Selected organization is invalid." }, { status: 400 });
@@ -465,8 +475,16 @@ export async function POST(request: Request) {
     urgency: priority === "urgent" ? "urgent" : priority === "high" ? "important" : "normal",
     visibility: asVisibility(payload.visibility),
     workspace_id: workspaceId,
+    ...(operationId ? { id: operationId } : {}),
   };
-  const existingMeetingPrayerResult = meetingId
+  const existingMeetingPrayerResult = operationId
+    ? await supabase
+      .from("prayer_requests")
+      .select("id")
+      .eq("id", operationId)
+      .or(prayerRequestScopeFilter(workspaceId))
+      .maybeSingle()
+    : meetingId
     ? await supabase
       .from("prayer_requests")
       .select("id")
@@ -510,7 +528,21 @@ export async function POST(request: Request) {
   let data = insertResult.data as PrayerRequestRow | null;
   let error = insertResult.error;
 
-  if (insertResult.error && isMissingPrayerBridgeColumn(insertResult.error)) {
+  if (error && operationId && isUniqueViolation(error)) {
+    const existingOperationResult = await supabase
+      .from("prayer_requests")
+      .select(requestSelect)
+      .eq("id", operationId)
+      .or(prayerRequestScopeFilter(workspaceId))
+      .maybeSingle();
+
+    if (!existingOperationResult.error && existingOperationResult.data) {
+      data = existingOperationResult.data as PrayerRequestRow;
+      error = null;
+    }
+  }
+
+  if (error && isMissingPrayerBridgeColumn(error)) {
     const legacyInsertPayload = {
       category: insertPayload.category,
       confidentiality_level: insertPayload.confidentiality_level,
@@ -527,6 +559,7 @@ export async function POST(request: Request) {
       urgency: insertPayload.urgency,
       visibility: legacyVisibility(insertPayload.visibility),
       workspace_id: insertPayload.workspace_id,
+      ...(operationId ? { id: operationId } : {}),
     };
     let existingLegacyQuery = supabase
         .from("prayer_requests")
@@ -571,6 +604,20 @@ export async function POST(request: Request) {
 
       data = legacyInsertResult.data;
       error = legacyInsertResult.error;
+    }
+  }
+
+  if (error && operationId && isUniqueViolation(error)) {
+    const existingLegacyOperationResult = await supabase
+      .from("prayer_requests")
+      .select(legacyRequestSelect)
+      .eq("id", operationId)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId},related_household_id.eq.${workspaceId}`)
+      .maybeSingle();
+
+    if (!existingLegacyOperationResult.error && existingLegacyOperationResult.data) {
+      data = existingLegacyOperationResult.data as PrayerRequestRow;
+      error = null;
     }
   }
 

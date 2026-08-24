@@ -13,6 +13,7 @@ type ReminderPayload = {
   google_sync_enabled?: unknown;
   id?: unknown;
   notes?: unknown;
+  operationId?: unknown;
   personId?: unknown;
   person_id?: unknown;
   recurrence?: unknown;
@@ -43,6 +44,10 @@ function asNullableString(value: unknown) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "23505" || /duplicate key|unique constraint/i.test(error?.message ?? "");
 }
 
 function asReminderType(value: unknown): ReminderType {
@@ -275,9 +280,10 @@ export async function POST(request: Request) {
 
   const workspaceId = await resolveDosAppWorkspaceId(asString(firstDefined(payload.workspaceId, payload.workspace_id)));
   const personId = asString(firstDefined(payload.personId, payload.person_id));
+  const operationId = asString(payload.operationId);
   const reminderDate = asReminderDate(firstDefined(payload.reminderDate, payload.reminder_date));
 
-  if (!workspaceId || !isUuid(personId) || !reminderDate) {
+  if (!workspaceId || !isUuid(personId) || !reminderDate || (operationId && !isUuid(operationId))) {
     return NextResponse.json({ error: "Person and date are required." }, { status: 400 });
   }
 
@@ -305,20 +311,62 @@ export async function POST(request: Request) {
   const title = asNullableString(payload.title);
   const notes = asNullableString(payload.notes);
   const googleSyncEnabled = firstDefined(payload.googleSyncEnabled, payload.google_sync_enabled) === true;
-  const { data, error } = await supabase
-    .from("relationship_reminders")
-    .insert({
-      google_sync_enabled: googleSyncEnabled,
-      notes,
-      person_id: person.id,
-      recurrence,
-      reminder_date: reminderDate,
-      reminder_type: reminderType,
-      title,
-      workspace_id: workspaceId,
-    })
-    .select("id")
-    .single();
+  const reminderValues = {
+    google_sync_enabled: googleSyncEnabled,
+    notes,
+    person_id: person.id,
+    recurrence,
+    reminder_date: reminderDate,
+    reminder_type: reminderType,
+    title,
+    workspace_id: workspaceId,
+  };
+  const existingOperationResult = operationId
+    ? await supabase
+      .from("relationship_reminders")
+      .select("id, workspace_id, deleted_at")
+      .eq("id", operationId)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (existingOperationResult.error) {
+    return NextResponse.json({ error: existingOperationResult.error.message }, { status: 500 });
+  }
+
+  if (existingOperationResult.data && (existingOperationResult.data.workspace_id !== workspaceId || existingOperationResult.data.deleted_at)) {
+    return NextResponse.json({ error: "Reminder operation ID is already in use." }, { status: 409 });
+  }
+
+  const saveResult = existingOperationResult.data
+    ? await supabase
+      .from("relationship_reminders")
+      .update(reminderValues)
+      .eq("id", operationId)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .select("id")
+      .single()
+    : await supabase
+      .from("relationship_reminders")
+      .insert(operationId ? { ...reminderValues, id: operationId } : reminderValues)
+      .select("id")
+      .single();
+  let data = saveResult.data;
+  let error = saveResult.error;
+
+  if (error && operationId && isUniqueViolation(error)) {
+    const retryResult = await supabase
+      .from("relationship_reminders")
+      .update(reminderValues)
+      .eq("id", operationId)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+
+    data = retryResult.data;
+    error = retryResult.error;
+  }
 
   if (error) {
     if (isMissingReminderSchema(error)) {

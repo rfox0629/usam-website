@@ -1,10 +1,11 @@
 import "server-only";
 
+import { canonicalCircleForRecalculation, type CanonicalCircleAssignment } from "@/src/lib/dos/circle-placement";
 import { relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
-type CircleAssignment = "field" | "my_120" | "seventy" | "three" | "twelve";
+type CircleAssignment = CanonicalCircleAssignment;
 type AssignmentSource = "automatic" | "manual";
 
 export type DosCircleConfig = {
@@ -152,6 +153,7 @@ type OverrideRow = {
 };
 
 type ScoreRow = {
+  assignment_source?: AssignmentSource | null;
   circle_assignment: CircleAssignment;
   person_id: string;
   total_score: number;
@@ -164,13 +166,6 @@ const defaultConfig = {
   momentumWeight: 10,
   multiplicationWeight: 20,
   timeInvestedWeight: 15,
-};
-
-const automaticCircleCapacities: Record<Exclude<CircleAssignment, "field">, number> = {
-  my_120: 50,
-  seventy: 58,
-  three: 3,
-  twelve: 9,
 };
 
 const inactivePersonStatuses = new Set(["archived", "deleted", "inactive", "paused"]);
@@ -245,26 +240,6 @@ function weightedTotal(scores: DosRelationshipScore["breakdown"], config: DosCir
   ) / totalWeight;
 
   return clampScore(weighted);
-}
-
-function automaticCircle(index: number): CircleAssignment {
-  if (index < 3) {
-    return "three";
-  }
-
-  if (index < 12) {
-    return "twelve";
-  }
-
-  if (index < 70) {
-    return "seventy";
-  }
-
-  if (index < 120) {
-    return "my_120";
-  }
-
-  return "field";
 }
 
 function isCircleAssignment(value: unknown): value is CircleAssignment {
@@ -350,14 +325,6 @@ function isAutomaticCircleEligible(
   return relationshipScoreFromEngagementLevel(personEngagementLevel(person)) >= 0;
 }
 
-function automaticCircleSummary(circle: CircleAssignment, totalScore: number, breakdown?: DosRelationshipScore["breakdown"]) {
-  if (hasMeaningfulPositiveScore(breakdown) && totalScore > 0) {
-    return `Assigned to ${circleLabel(circle)} because of current discipleship activity, investment, fruit, and momentum.`;
-  }
-
-  return `Assigned to ${circleLabel(circle)} as an active field contact while discipleship activity builds.`;
-}
-
 function sortCircleScores(first: DosRelationshipScore, second: DosRelationshipScore) {
   const sourceDifference = Number(second.assignmentSource === "manual") - Number(first.assignmentSource === "manual");
 
@@ -413,8 +380,8 @@ export function buildFallbackCircleDataFromActivity({
           negative_factors: personMeetings.length ? [] : ["No logged discipleship activity yet"],
           positive_factors: personMeetings.length ? [`${personMeetings.length} logged ${personMeetings.length === 1 ? "meeting" : "meetings"}`] : [],
           summary: personMeetings.length
-            ? `Placed from visible meeting activity while persisted circle scores catch up.`
-            : "In Field until discipleship activity is logged.",
+            ? "Activity metrics calculated from visible meetings. Circle placement requires your confirmation."
+            : "No activity metric is available yet. Circle placement requires your confirmation.",
         },
         lastCalculatedAt: null,
         person,
@@ -422,21 +389,6 @@ export function buildFallbackCircleDataFromActivity({
       } satisfies DosRelationshipScore;
     })
     .sort((first, second) => second.totalScore - first.totalScore);
-
-  let eligibleIndex = 0;
-
-  scores.forEach((score) => {
-    if (!isAutomaticCircleEligible(score.person, score.totalScore, score.breakdown)) {
-      score.circle = "field";
-      return;
-    }
-
-    score.circle = automaticCircle(eligibleIndex);
-    eligibleIndex += 1;
-    score.explanation.summary = score.circle !== "field"
-      ? automaticCircleSummary(score.circle, score.totalScore, score.breakdown)
-      : score.explanation.summary;
-  });
 
   const activeScores = scores.filter((score) => isAutomaticCircleEligible(score.person, score.totalScore, score.breakdown));
   const field = scores.filter((score) => score.circle === "field");
@@ -559,14 +511,14 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
         multiplication: Number(score.multiplication_score ?? 0),
         timeInvested: Number(score.time_invested_score ?? 0),
       };
-      const circle = lockedOverride
-        ? normalizedCircle(lockedOverride.manual_circle)
-        : isAutomaticCircleEligible(person, totalScore, breakdown)
-          ? normalizedCircle(score.circle_assignment)
-          : "field";
+      const placement = canonicalCircleForRecalculation({
+        existingCircle: normalizedCircle(score.circle_assignment),
+        lockedOverrideCircle: lockedOverride ? normalizedCircle(lockedOverride.manual_circle) : null,
+      });
+      const circle = placement.circle;
 
       return {
-        assignmentSource: lockedOverride ? "manual" as const : "automatic" as const,
+        assignmentSource: placement.assignmentSource,
         breakdown,
         circle,
         confidenceScore: Number(score.confidence_score ?? 0),
@@ -575,11 +527,9 @@ export async function loadCircleData(workspaceId: string): Promise<DosCircleData
           positive_factors: Array.isArray(explanation?.positive_factors) ? explanation.positive_factors : [],
           summary: lockedOverride
             ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${lockedOverride.reason ? ` ${lockedOverride.reason}` : ""}`
-            : isAutomaticCircleEligible(person, totalScore, breakdown)
-              ? typeof explanation?.summary === "string" ? explanation.summary : "Relationship score is ready."
-              : isInactivePerson(person)
-                ? "In Field because this person is inactive."
-                : "In Field until discipleship activity is logged.",
+            : typeof explanation?.summary === "string" && explanation.summary.trim()
+              ? explanation.summary
+              : "Activity metrics are ready. Circle placement changes only after your confirmation.",
         },
         lastCalculatedAt: typeof score.last_calculated_at === "string" ? score.last_calculated_at : null,
         person: {
@@ -722,7 +672,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     safeSelect<ScoreRow>(
       supabase
         .from("dos_relationship_scores")
-        .select("person_id, total_score, circle_assignment")
+        .select("person_id, total_score, circle_assignment, assignment_source")
         .eq("workspace_id", workspaceId),
       "dos_relationship_scores",
     ),
@@ -832,54 +782,9 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     };
   }).sort((first, second) => second.record.total_score - first.record.total_score);
 
-  const manualCircleCounts: Record<Exclude<CircleAssignment, "field">, number> = {
-    my_120: 0,
-    seventy: 0,
-    three: 0,
-    twelve: 0,
-  };
-
-  overrideByPersonId.forEach((override) => {
-    const circle = normalizedCircle(override.manual_circle);
-
-    if (circle !== "field") {
-      manualCircleCounts[circle] += 1;
-    }
-  });
-
-  const automaticSlotsRemaining: Record<Exclude<CircleAssignment, "field">, number> = {
-    my_120: Math.max(0, automaticCircleCapacities.my_120 - manualCircleCounts.my_120),
-    seventy: Math.max(0, automaticCircleCapacities.seventy - manualCircleCounts.seventy),
-    three: Math.max(0, automaticCircleCapacities.three - manualCircleCounts.three),
-    twelve: Math.max(0, automaticCircleCapacities.twelve - manualCircleCounts.twelve),
-  };
-
-  function nextAutomaticCircle(): CircleAssignment {
-    if (automaticSlotsRemaining.three > 0) {
-      automaticSlotsRemaining.three -= 1;
-      return "three";
-    }
-
-    if (automaticSlotsRemaining.twelve > 0) {
-      automaticSlotsRemaining.twelve -= 1;
-      return "twelve";
-    }
-
-    if (automaticSlotsRemaining.seventy > 0) {
-      automaticSlotsRemaining.seventy -= 1;
-      return "seventy";
-    }
-
-    if (automaticSlotsRemaining.my_120 > 0) {
-      automaticSlotsRemaining.my_120 -= 1;
-      return "my_120";
-    }
-
-    return "field";
-  }
-
   computed.forEach((item) => {
     const manualOverride = overrideByPersonId.get(item.person.id);
+    const existing = existingByPersonId.get(item.person.id);
     const breakdown = {
       discipleshipProgress: item.record.discipleship_progress_score,
       fruit: item.record.fruit_score,
@@ -888,23 +793,17 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
       multiplication: item.record.multiplication_score,
       timeInvested: item.record.time_invested_score,
     };
-    const circle = manualOverride
-      ? normalizedCircle(manualOverride.manual_circle)
-      : isAutomaticCircleEligible(item.person, item.record.total_score, breakdown)
-        ? nextAutomaticCircle()
-        : "field";
+    const placement = canonicalCircleForRecalculation({
+      existingCircle: existing ? normalizedCircle(existing.circle_assignment) : null,
+      lockedOverrideCircle: manualOverride ? normalizedCircle(manualOverride.manual_circle) : null,
+    });
+    const circle = placement.circle;
 
     item.record.circle_assignment = circle;
-    item.record.assignment_source = manualOverride ? "manual" : "automatic";
+    item.record.assignment_source = placement.assignmentSource;
     item.record.score_explanation.summary = manualOverride
       ? `Pinned to ${circleLabel(circle)} for workspace stewardship.${manualOverride.reason ? ` ${manualOverride.reason}` : ""}`
-      : circle !== "field"
-        ? automaticCircleSummary(circle, item.record.total_score, breakdown)
-        : isInactivePerson(item.person)
-          ? "In Field because this person is inactive."
-          : isAutomaticCircleEligible(item.person, item.record.total_score, breakdown)
-            ? "In Field because My 3, My 12, My 70, and My 120 are already full."
-            : "In Field until discipleship activity is logged.";
+      : `${circleLabel(circle)} is unchanged. Activity metrics may recommend a move, but only your confirmation changes placement.`;
   });
 
   const scoreRows = computed.map((item) => item.record);

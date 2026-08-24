@@ -10,11 +10,13 @@ type ReflectionPayload = {
   followUpNeeded?: unknown;
   meetingId?: unknown;
   nextStep?: unknown;
+  operationId?: unknown;
   observedFruit?: unknown;
   prayerNeeds?: unknown;
   privateNotes?: unknown;
   replaceLatest?: unknown;
   spiritualOpenness?: unknown;
+  strictChildren?: unknown;
   whatHappened?: unknown;
   workspaceId?: unknown;
 };
@@ -25,6 +27,10 @@ function asString(value: unknown, maxLength = 2000) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "23505" || /duplicate key|unique constraint/i.test(error?.message ?? "");
 }
 
 function asObservedFruit(value: unknown) {
@@ -72,8 +78,9 @@ export async function POST(request: Request) {
 
   const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
   const meetingId = asString(payload.meetingId);
+  const operationId = asString(payload.operationId);
 
-  if (!workspaceId || !isUuid(meetingId)) {
+  if (!workspaceId || !isUuid(meetingId) || (operationId && !isUuid(operationId))) {
     return NextResponse.json({ error: "Meeting not found." }, { status: 404 });
   }
 
@@ -122,7 +129,23 @@ export async function POST(request: Request) {
     what_happened: asString(payload.whatHappened) || null,
   };
   const replaceLatest = payload.replaceLatest === true;
-  const latestReflectionResult = replaceLatest
+  const operationReflectionResult = operationId
+    ? await supabase
+      .from("meeting_reflections")
+      .select("id, meeting_id")
+      .eq("id", operationId)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (operationReflectionResult.error) {
+    return NextResponse.json({ error: operationReflectionResult.error.message }, { status: 500 });
+  }
+
+  if (operationReflectionResult.data && operationReflectionResult.data.meeting_id !== meetingId) {
+    return NextResponse.json({ error: "Reflection operation ID is already in use." }, { status: 409 });
+  }
+
+  const latestReflectionResult = !operationReflectionResult.data && replaceLatest
     ? await supabase
       .from("meeting_reflections")
       .select("id")
@@ -136,37 +159,69 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: latestReflectionResult.error.message }, { status: 500 });
   }
 
-  const reflectionResult = latestReflectionResult.data?.id
+  const existingReflectionId = operationReflectionResult.data?.id ?? latestReflectionResult.data?.id ?? null;
+  let reflectionResult = existingReflectionId
     ? await supabase
       .from("meeting_reflections")
       .update(reflectionValues)
-      .eq("id", latestReflectionResult.data.id)
+      .eq("id", existingReflectionId)
       .select("id")
       .single()
     : await supabase
       .from("meeting_reflections")
-      .insert(reflectionValues)
+      .insert(operationId ? { ...reflectionValues, id: operationId } : reflectionValues)
       .select("id")
       .single();
+  if (reflectionResult.error && operationId && isUniqueViolation(reflectionResult.error)) {
+    const racedReflectionResult = await supabase
+      .from("meeting_reflections")
+      .select("id, meeting_id")
+      .eq("id", operationId)
+      .maybeSingle();
+
+    if (racedReflectionResult.error) {
+      return NextResponse.json({ error: racedReflectionResult.error.message }, { status: 500 });
+    }
+
+    if (!racedReflectionResult.data || racedReflectionResult.data.meeting_id !== meetingId) {
+      return NextResponse.json({ error: "Reflection operation ID is already in use." }, { status: 409 });
+    }
+
+    reflectionResult = await supabase
+      .from("meeting_reflections")
+      .update(reflectionValues)
+      .eq("id", operationId)
+      .select("id")
+      .single();
+  }
   const { data: reflection, error: reflectionError } = reflectionResult;
 
   if (reflectionError || !reflection) {
     return NextResponse.json({ error: reflectionError?.message ?? "Unable to save Leader Reflection." }, { status: 500 });
   }
 
-  await inferFruitEventsFromReflection({
-    followUpNeeded: reflectionValues.follow_up_needed,
-    id: String(reflection.id),
-    leaderId: authResult.authorization.userId,
-    meetingId,
-    nextStep: reflectionValues.next_step,
-    observedFruit,
-    personId: reflectionValues.person_id,
-    prayerNeeds: reflectionValues.prayer_needs,
-    privateNotes: reflectionValues.private_notes,
-    spiritualOpenness: reflectionValues.spiritual_openness,
-    whatHappened: reflectionValues.what_happened,
-  }, supabase);
+  try {
+    await inferFruitEventsFromReflection({
+      followUpNeeded: reflectionValues.follow_up_needed,
+      id: String(reflection.id),
+      leaderId: authResult.authorization.userId,
+      meetingId,
+      nextStep: reflectionValues.next_step,
+      observedFruit,
+      personId: reflectionValues.person_id,
+      prayerNeeds: reflectionValues.prayer_needs,
+      privateNotes: reflectionValues.private_notes,
+      spiritualOpenness: reflectionValues.spiritual_openness,
+      whatHappened: reflectionValues.what_happened,
+    }, supabase, { strict: payload.strictChildren === true });
+  } catch (error) {
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "Reflection saved, but Fruit could not be synchronized.",
+      id: reflection.id,
+      ok: false,
+      partial: true,
+    }, { status: 500 });
+  }
 
   await recalculateCircleScores(workspaceId).catch((scoreError) => {
     console.warn("[DOS circles] Unable to recalculate after reflection save", scoreError);

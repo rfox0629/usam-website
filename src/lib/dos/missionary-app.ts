@@ -1750,6 +1750,25 @@ type ParticipantReviewRow = {
   would_meet_again_response?: string | null;
 };
 
+type CanonicalMeetingReviewRow = {
+  conversation_helpful: string | null;
+  created_at: string | null;
+  felt_cared_for: string | null;
+  felt_heard_response: string | null;
+  id: string;
+  meeting_id: string;
+  overall_rating?: string | null;
+  outcome_tags?: string[] | null;
+  reviewer_person_id: string | null;
+  status?: string | null;
+  stood_out: string | null;
+  submitted_email?: string | null;
+  submitted_first_name?: string | null;
+  submitted_last_name?: string | null;
+  submitted_name?: string | null;
+  would_meet_again_response?: string | null;
+};
+
 type ParticipantTestimonyRow = {
   decision_made: string | null;
   id: string;
@@ -3827,12 +3846,20 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     };
   }
 
-  const [leaderReflectionsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsByMeetingResult, fruitEventsByPersonResult] = await Promise.all([
+  const [leaderReflectionsResult, canonicalReviewsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsByMeetingResult, fruitEventsByPersonResult] = await Promise.all([
     meetingIds.length
       ? supabase
         .from("meeting_reflections")
         .select("id, meeting_id, person_id, spiritual_openness, what_happened, prayer_needs, follow_up_needed, next_step, observed_fruit, private_notes, created_at")
         .in("meeting_id", meetingIds)
+        .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    meetingIds.length
+      ? supabase
+        .from("dos_meeting_reviews")
+        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
+        .in("meeting_id", meetingIds)
+        .in("review_type", [...dosExperienceReviewTypes])
         .order("created_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     meetingIds.length
@@ -3864,9 +3891,13 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
         .order("occurred_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ]);
+  const canonicalReviewsError = canonicalReviewsResult.error && isMissingWorkflowTable(canonicalReviewsResult.error, "dos_meeting_reviews")
+    ? null
+    : canonicalReviewsResult.error;
 
   const missingTableError = [
     leaderReflectionsResult.error,
+    canonicalReviewsError,
     participantReviewsResult.error,
     participantTestimoniesResult.error,
     fruitEventsByMeetingResult.error,
@@ -3888,8 +3919,35 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     };
   }
 
+  const canonicalParticipantReviews: ParticipantReviewRow[] = ((canonicalReviewsResult.data ?? []) as CanonicalMeetingReviewRow[]).map((review) => ({
+    comments: review.stood_out,
+    conversation_helpful: review.conversation_helpful,
+    felt_cared_for: review.felt_cared_for,
+    felt_heard: review.felt_heard_response,
+    id: review.id,
+    meeting_id: review.meeting_id,
+    overall_rating: review.overall_rating ?? null,
+    outcome_tags: review.outcome_tags ?? [],
+    person_id: review.reviewer_person_id,
+    status: review.status ?? "submitted",
+    submitted_at: review.created_at,
+    submitted_email: review.submitted_email ?? null,
+    submitted_first_name: review.submitted_first_name ?? null,
+    submitted_last_name: review.submitted_last_name ?? null,
+    submitted_name: review.submitted_name ?? null,
+    would_meet_again: review.would_meet_again_response === "yes"
+      ? true
+      : review.would_meet_again_response === "no"
+        ? false
+        : null,
+    would_meet_again_response: review.would_meet_again_response ?? null,
+  }));
+  const canonicalReviewKeys = new Set(canonicalParticipantReviews.map((review) => `${review.meeting_id}:${review.person_id ?? ""}`));
+  const legacyParticipantReviews = ((participantReviewsResult.data ?? []) as ParticipantReviewRow[])
+    .filter((review) => !canonicalReviewKeys.has(`${review.meeting_id}:${review.person_id ?? ""}`));
+
   return {
-    error: leaderReflectionsResult.error ?? participantReviewsResult.error ?? participantTestimoniesResult.error ?? fruitEventsByMeetingResult.error ?? fruitEventsByPersonResult.error,
+    error: leaderReflectionsResult.error ?? canonicalReviewsError ?? participantReviewsResult.error ?? participantTestimoniesResult.error ?? fruitEventsByMeetingResult.error ?? fruitEventsByPersonResult.error,
     fruitEvents: Array.from(
       new Map(
         ([...(fruitEventsByMeetingResult.data ?? []), ...(fruitEventsByPersonResult.data ?? [])] as FruitEventRow[])
@@ -3897,7 +3955,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
       ).values(),
     ),
     leaderReflections: (leaderReflectionsResult.data ?? []) as LeaderReflectionRow[],
-    participantReviews: (participantReviewsResult.data ?? []) as ParticipantReviewRow[],
+    participantReviews: [...canonicalParticipantReviews, ...legacyParticipantReviews],
     participantTestimonies: (participantTestimoniesResult.data ?? []) as ParticipantTestimonyRow[],
   };
 }

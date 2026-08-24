@@ -56,17 +56,15 @@ Do not introduce another people, contact, disciple, or relationship table for th
 
 ## Reviews And Fruit Verification
 
-DOS Reviews are external fruit verification from the person ministered to.
+DOS Reviews are reported feedback/evidence from the person ministered to. They are not canonical Fruit.
 
 - Quick Review MVP uses token links under `/dos/review/[token]`.
 - A logged meeting can generate a `Send Review` link from the DOS meeting detail screen.
 - Review status now appears on meeting details as Not Sent, Pending, Submitted, Approved, or Private.
-- Quick Reviews save to `dos_meeting_reviews` with `status = pending_review`.
-- A pending private Fruit item is queued from the review so DOS Fruit and Missionary Workspace Fruit can see it.
-- Quick Review Fruit keeps the review source, snippet, sharing permission, and submitted name only when the reviewer allowed name sharing.
-- The Missionary Workspace Fruit Inbox manages Quick Review status: `pending_review`, `approved`, `private`, or `archived`.
-- Approved means approved for internal Fruit tracking only. It does not publish to public Profiles.
-- Public sharing permission is captured, but reviews and Fruit stay private until a future publishing workflow explicitly publishes them.
+- Quick Reviews save canonically to `dos_meeting_reviews`. `participant_reviews` is legacy read-only compatibility data; new submissions never dual-write to it.
+- Review evidence may support a future suggested-Fruit workflow, but submission does not create or confirm Fruit automatically.
+- Review status remains independent from Fruit status. Any future Review → suggested Fruit → human approval flow must keep that boundary explicit.
+- Public sharing permission is captured, but reviews stay private until a future publishing workflow explicitly publishes them.
 - Future work: publishing approvals, testimony pages, Quick Check-In variants, Ministry Experience, Full Testimony / Fruit Story, SMS/email/WhatsApp sending, and public testimony publishing.
 
 ## Google Calendar Setup

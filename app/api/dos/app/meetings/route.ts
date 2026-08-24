@@ -26,6 +26,7 @@ type MeetingPayload = {
   growthScriptures?: unknown;
   growthWhatGodTaught?: unknown;
   id?: unknown;
+  idempotencyKey?: unknown;
   notes?: unknown;
   notesOnly?: unknown;
   googleSyncEnabled?: unknown;
@@ -40,6 +41,7 @@ type MeetingPayload = {
   scheduledStartAt?: unknown;
   supportingAttendeePersonIds?: unknown;
   supportingAttendees?: unknown;
+  strictChildren?: unknown;
   tableDate?: unknown;
   tableRole?: unknown;
   tableType?: unknown;
@@ -120,6 +122,10 @@ function asNullableText(value: unknown, maxLength = 2000) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined) {
+  return error?.code === "23505" || /duplicate key|unique constraint/i.test(error?.message ?? "");
 }
 
 function isMissingCleanupSchema(error: { message?: string } | null | undefined, terms: string[]) {
@@ -1164,6 +1170,12 @@ export async function POST(request: Request) {
     return workspaceAccess.response;
   }
 
+  const idempotencyKey = asString(payload.idempotencyKey);
+
+  if (idempotencyKey && !isUuid(idempotencyKey)) {
+    return NextResponse.json({ error: "Meeting operation ID is invalid." }, { status: 400 });
+  }
+
   const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
 
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
@@ -1234,6 +1246,7 @@ export async function POST(request: Request) {
     field_person_ids: validPersonIds,
     google_sync_enabled: googleSyncEnabled,
     household_id: workspaceId,
+    ...(idempotencyKey ? { id: idempotencyKey } : {}),
     meeting_status: meetingStatus,
     notes,
     participant_names: participantNames,
@@ -1249,7 +1262,7 @@ export async function POST(request: Request) {
     timezone,
     workspace_id: workspaceId,
   };
-  let insertResult: { data: { id: unknown } | null; error: { message: string } | null } | null = null;
+  let insertResult: { data: { id: unknown } | null; error: { code?: string; message: string } | null } | null = null;
 
   for (const candidate of meetingRecordCandidates(meetingInsert)) {
     insertResult = await supabase
@@ -1267,7 +1280,36 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = insertResult ?? { data: null, error: { message: "Unable to create meeting." } };
+  let data: { id: unknown } | null = insertResult?.data ?? null;
+  let error: { code?: string; message: string } | null = insertResult?.error ?? { message: "Unable to create meeting." };
+
+  if (error && idempotencyKey && isUniqueViolation(error)) {
+    const existingResult = await supabase
+      .from("missionary_tables")
+      .select("id")
+      .eq("id", idempotencyKey)
+      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+      .maybeSingle();
+    const existing = existingResult.error && isMissingWorkspaceScopeColumn(existingResult.error)
+      ? await supabase
+        .from("missionary_tables")
+        .select("id")
+        .eq("id", idempotencyKey)
+        .eq("household_id", workspaceId)
+        .maybeSingle()
+      : existingResult;
+
+    if (existing.error) {
+      return NextResponse.json({ error: existing.error.message }, { status: 500 });
+    }
+
+    if (!existing.data?.id) {
+      return NextResponse.json({ error: "Meeting operation ID is already in use." }, { status: 409 });
+    }
+
+    data = { id: existing.data.id };
+    error = null;
+  }
 
   if (error) {
     if (requiresSchedulingColumns && isMissingSchedulingColumn(error)) {
@@ -1281,23 +1323,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to create meeting." }, { status: 500 });
   }
 
-  await syncMinistryEvent({
-    meetingId: String(data.id),
-    ministryTeamMembers,
-    ministryTeamPeople,
-    notes,
-    participants: validPeople,
-    recorder,
-    scheduledStartAt,
-    source: "field",
-    supabase,
-    supportingAttendees,
-    tableDate,
-    tableType,
-    workspaceId,
-  }).catch((syncError) => {
+  try {
+    await syncMinistryEvent({
+      meetingId: String(data.id),
+      ministryTeamMembers,
+      ministryTeamPeople,
+      notes,
+      participants: validPeople,
+      recorder,
+      scheduledStartAt,
+      source: "field",
+      supabase,
+      supportingAttendees,
+      tableDate,
+      tableType,
+      workspaceId,
+    });
+  } catch (syncError) {
+    const message = syncError instanceof Error ? syncError.message : "Unable to synchronize the canonical ministry event.";
+
+    if (payload.strictChildren === true) {
+      return NextResponse.json({
+        error: `Meeting saved, but its canonical ministry event could not be synchronized: ${message}`,
+        id: data.id,
+        ok: false,
+        partial: true,
+      }, { status: 500 });
+    }
+
     console.warn("[DOS ministry events] Unable to sync ministry event after meeting create", syncError);
-  });
+  }
 
   if (validPersonIds.length && meetingStatus === "logged") {
     await reconcilePeopleLastActivity(supabase, workspaceId, validPersonIds).catch((activityError) => {

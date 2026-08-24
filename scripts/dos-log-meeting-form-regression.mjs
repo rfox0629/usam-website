@@ -131,8 +131,10 @@ assert(
 const saveReminderCallCount = (appClient.match(/await saveTableFollowUpReminder\(\{[^}]*followUpNote,/gs) ?? []).length;
 
 assert(
-  saveReminderCallCount >= 3,
-  "Every saveTableFollowUpReminder call site (create, edit-logged, edit-scheduled-log) must forward the new follow-up note.",
+  saveReminderCallCount >= 2
+    && appClient.includes('return postWorkflowJson("/api/dos/app/reminders"')
+    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || meetingNotes, meetingId)"),
+  "Create and edit Log Meeting paths must forward the specific follow-up note through their retry-safe reminder saves.",
 );
 
 assert(

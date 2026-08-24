@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { normalizeDosQuickReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
+import { submitCanonicalReview } from "@/src/lib/dos/review-submission-policy";
 import {
   dosQuickReviewAnswers,
   dosQuickReviewType,
@@ -378,10 +379,6 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
 
   const typedLink = link as ReviewLinkRow & { created_by_user_id: string | null };
 
-  if (linkIsSubmitted(typedLink)) {
-    return { error: "This review link has already been used.", status: 409 as const };
-  }
-
   if (linkIsExpired(typedLink)) {
     return { error: "This review link has expired.", status: 410 as const };
   }
@@ -434,43 +431,102 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     would_meet_again_response: answerForParticipantReview(submission.wouldMeetAgain),
     workspace_id: typedLink.workspace_id,
   };
-  const { data: review, error: reviewError } = await supabase
-    .from("dos_meeting_reviews")
-    .insert(reviewInsert)
-    .select("id")
-    .single();
+  let submissionResult;
 
-  if (reviewError || !review) {
-    return { error: reviewError?.message ?? "Unable to save review.", status: 500 as const };
+  try {
+    submissionResult = await submitCanonicalReview<{ id: string }>({
+      claimLink: async () => {
+        const previousClaimAt = typedLink.used_at ?? typedLink.submitted_at;
+        const staleClaim = typedLink.status === "submitted"
+          && (!previousClaimAt || new Date(previousClaimAt).getTime() < Date.now() - 120_000);
+
+        if (staleClaim) {
+          let recoveryQuery = supabase
+            .from("dos_review_links")
+            .update({ status: "opened", submitted_at: null, used_at: null })
+            .eq("id", typedLink.id)
+            .eq("status", "submitted");
+          recoveryQuery = previousClaimAt
+            ? recoveryQuery.eq("submitted_at", previousClaimAt).eq("used_at", previousClaimAt)
+            : recoveryQuery.is("submitted_at", null).is("used_at", null);
+          const recoveryResult = await recoveryQuery;
+
+          if (recoveryResult.error) {
+            throw new Error(recoveryResult.error.message);
+          }
+        }
+
+        const claimResult = await supabase
+          .from("dos_review_links")
+          .update({ status: "submitted", submitted_at: submittedAt, used_at: submittedAt })
+          .eq("id", typedLink.id)
+          .in("status", ["pending", "opened"])
+          .is("submitted_at", null)
+          .is("used_at", null)
+          .select("id")
+          .maybeSingle();
+
+        if (claimResult.error) {
+          throw new Error(claimResult.error.message);
+        }
+
+        return Boolean(claimResult.data?.id);
+      },
+      findExisting: async () => {
+        const existingResult = await supabase
+          .from("dos_meeting_reviews")
+          .select("id")
+          .eq("review_link_id", typedLink.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingResult.error) {
+          throw new Error(existingResult.error.message);
+        }
+
+        return existingResult.data?.id ? { id: String(existingResult.data.id) } : null;
+      },
+      insertCanonical: async () => {
+        const insertResult = await supabase
+          .from("dos_meeting_reviews")
+          .insert(reviewInsert)
+          .select("id")
+          .single();
+
+        if (insertResult.error || !insertResult.data?.id) {
+          throw new Error(insertResult.error?.message ?? "Unable to save review.");
+        }
+
+        return { id: String(insertResult.data.id) };
+      },
+      releaseClaim: async () => {
+        const releaseResult = await supabase
+          .from("dos_review_links")
+          .update({
+            status: typedLink.status === "opened" ? "opened" : "pending",
+            submitted_at: null,
+            used_at: null,
+          })
+          .eq("id", typedLink.id)
+          .eq("status", "submitted")
+          .eq("submitted_at", submittedAt)
+          .eq("used_at", submittedAt);
+
+        if (releaseResult.error) {
+          console.error("[DOS reviews] Unable to release failed review submission claim", releaseResult.error);
+        }
+      },
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Unable to save review.", status: 500 as const };
   }
 
-  const { error: participantReviewError } = await supabase
-    .from("participant_reviews")
-    .insert({
-      comments: submission.stoodOut,
-      conversation_helpful: answerForParticipantReview(submission.conversationHelpful),
-      felt_cared_for: answerForParticipantReview(submission.feltCaredFor),
-      felt_heard: answerForParticipantReview(submission.feltHeard),
-      leader_id: typedLink.created_by_user_id,
-      meeting_id: typedLink.meeting_id,
-      overall_rating: submission.overallRating,
-      outcome_tags: submission.outcomeTags ?? [],
-      person_id: recipientPersonId,
-      status: "submitted",
-      submitted_email: submission.submittedEmail,
-      submitted_first_name: submission.submittedFirstName,
-      submitted_last_name: submission.submittedLastName,
-      submitted_name: submission.submittedName,
-      submitted_at: submittedAt,
-      would_meet_again: answerToBoolean(submission.wouldMeetAgain),
-      would_meet_again_response: answerForParticipantReview(submission.wouldMeetAgain),
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (participantReviewError) {
-    return { error: participantReviewError.message ?? "Unable to save contact review.", status: 500 as const };
+  if (submissionResult.status === "in_progress") {
+    return { error: "This review is already being saved. Try again.", status: 409 as const };
   }
+
+  const review = submissionResult.record;
 
   await Promise.all([
     supabase
@@ -481,7 +537,8 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     supabase
       .from("dos_review_links")
       .update({ status: "submitted", submitted_at: submittedAt, used_at: submittedAt })
-      .eq("id", typedLink.id),
+      .eq("id", typedLink.id)
+      .eq("status", "submitted"),
   ]);
 
   await recalculateCircleScores(typedLink.workspace_id).catch((scoreError) => {
