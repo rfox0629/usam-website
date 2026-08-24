@@ -7,8 +7,11 @@ import {
   applicantDisplayName,
   joinApplicationStepIndex,
   joinApplicationSteps,
+  joinDisclosureIds,
+  joinDisclosureLabels,
   type JoinApplicantIdentity,
   type JoinApplicationDraft,
+  type JoinApplicationPhoto,
   type JoinApplicationStepId,
 } from "@/src/lib/join/application-steps";
 
@@ -57,6 +60,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [emailNotice, setEmailNotice] = useState("");
   const [started, setStarted] = useState(initialStep !== "start");
+  const [submitState, setSubmitState] = useState<"error" | "idle" | "submitted" | "submitting">("idle");
+  const [submitError, setSubmitError] = useState("");
+  const [applicationId, setApplicationId] = useState("");
 
   // Skips the autosave that would otherwise fire immediately on mount and
   // create an empty draft row for anyone who merely opened the page.
@@ -135,6 +141,72 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     setDraft((current) => ({ ...current, [person]: { ...current[person], [key]: value } }));
   };
 
+  const setDisclosure = (id: string, value: boolean) => {
+    dirtyRef.current = true;
+    setDraft((current) => ({ ...current, disclosures: { ...current.disclosures, [id]: value } }));
+  };
+
+  const addPhoto = (photo: JoinApplicationPhoto) => {
+    dirtyRef.current = true;
+    setDraft((current) => ({
+      ...current,
+      // One photo per kind: a second profile photo replaces the first rather
+      // than quietly piling up in the bucket.
+      photos: [...current.photos.filter((existing) => existing.kind !== photo.kind), photo],
+    }));
+  };
+
+  const removePhoto = (path: string) => {
+    dirtyRef.current = true;
+    setDraft((current) => ({ ...current, photos: current.photos.filter((photo) => photo.path !== path) }));
+  };
+
+  async function submitApplication() {
+    if (!token) {
+      setSubmitError("Save your application before submitting.");
+
+      return;
+    }
+
+    setSubmitState("submitting");
+    setSubmitError("");
+
+    // Submission reads the draft from the server by token, so it has to be
+    // saved first or the last edits would not be part of what is submitted.
+    const saved = await persist();
+
+    if (!saved) {
+      setSubmitState("error");
+      setSubmitError("We could not save your latest answers, so we have not submitted anything yet.");
+
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/join/application", {
+        body: JSON.stringify({ resumeToken: token }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json().catch(() => ({}))) as { applicationId?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(
+          result.error === "disclosures_required"
+            ? "Please confirm each acknowledgement before submitting."
+            : "We could not submit your application just now. Your answers are saved.",
+        );
+      }
+
+      setApplicationId(result.applicationId ?? "");
+      setSubmitState("submitted");
+      window.scrollTo({ behavior: "smooth", top: 0 });
+    } catch (error) {
+      setSubmitState("error");
+      setSubmitError(error instanceof Error ? error.message : "We could not submit your application just now.");
+    }
+  }
+
   const requiredMissing = useMemo(() => {
     const missing: { label: string; stepId: JoinApplicationStepId }[] = [];
 
@@ -196,7 +268,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           </p>
         ) : null}
 
-        {stepId === "start" && !started ? (
+        {submitState === "submitted" ? (
+          <SubmittedScreen applicationId={applicationId} name={applicantDisplayName(draft)} />
+        ) : stepId === "start" && !started ? (
           <StartScreen onStart={() => { setStarted(true); goTo("about"); }} resumeState={resumeState} />
         ) : (
           <>
@@ -219,7 +293,17 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                 />
               ) : null}
 
-              {stepId === "review" ? <ReviewSection draft={draft} missing={requiredMissing} onJump={goTo} /> : null}
+              {stepId === "review" ? (
+                <ReviewSection
+                  draft={draft}
+                  missing={requiredMissing}
+                  onJump={goTo}
+                  onSubmit={() => void submitApplication()}
+                  onToggleDisclosure={setDisclosure}
+                  submitError={submitError}
+                  submitState={submitState}
+                />
+              ) : null}
 
               {stepId !== "review" && stepId !== "start"
                 ? visibleFieldsForStep(stepId, draft.applyingAsCouple).map((field) => (
@@ -231,6 +315,10 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                     />
                   ))
                 : null}
+
+              {stepId === "profile" ? (
+                <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
+              ) : null}
             </div>
 
             <SaveBar
@@ -471,12 +559,21 @@ function ReviewSection({
   draft,
   missing,
   onJump,
+  onSubmit,
+  onToggleDisclosure,
+  submitError,
+  submitState,
 }: {
   draft: JoinApplicationDraft;
   missing: { label: string; stepId: JoinApplicationStepId }[];
   onJump: (id: JoinApplicationStepId) => void;
+  onSubmit: () => void;
+  onToggleDisclosure: (id: string, value: boolean) => void;
+  submitError: string;
+  submitState: "error" | "idle" | "submitted" | "submitting";
 }) {
   const name = applicantDisplayName(draft);
+  const allDisclosuresConfirmed = joinDisclosureIds.every((id) => draft.disclosures[id] === true);
 
   return (
     <div className="space-y-6">
@@ -524,17 +621,169 @@ function ReviewSection({
         </ul>
       </div>
 
-      {/*
-        Submission is intentionally not wired up in this checkpoint. The
-        canonical write goes through the existing USA-172 ingress and
-        usam_missionary_applications, and mapping these answers onto that
-        contract is the next piece of work. Showing a Submit button that
-        silently dropped an application would be worse than not showing one.
-      */}
-      <p className="rounded-3xl border border-[#DCEBFF] bg-[#F8FBFF] p-5 text-sm leading-6 text-[#475569]">
-        Submission opens once this application is connected to the Operations review queue. Your answers are saved and
-        your resume link keeps working in the meantime.
+      <fieldset className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
+        <legend className="px-2 text-sm font-black uppercase tracking-[0.12em] text-[#2563EB]">
+          Please confirm
+        </legend>
+
+        <div className="space-y-3">
+          {joinDisclosureIds.map((id) => (
+            <label className="flex items-start gap-3" key={id}>
+              <input
+                checked={draft.disclosures[id] === true}
+                className="mt-1 h-5 w-5 shrink-0"
+                onChange={(event) => onToggleDisclosure(id, event.target.checked)}
+                type="checkbox"
+              />
+              <span className="text-sm leading-6 text-[#334155]">{joinDisclosureLabels[id]}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {submitError ? (
+        <p className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[#B91C1C]">
+          {submitError}
+        </p>
+      ) : null}
+
+      <button
+        className="inline-flex h-13 min-h-[3.25rem] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-8 text-base font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={submitState === "submitting" || missing.length > 0 || !allDisclosuresConfirmed}
+        onClick={onSubmit}
+        type="button"
+      >
+        {submitState === "submitting" ? "Submitting..." : "Submit Application"}
+      </button>
+
+      {missing.length > 0 || !allDisclosuresConfirmed ? (
+        <p className="text-center text-sm text-[#475569]">
+          {missing.length > 0
+            ? "Answer the remaining questions above to submit."
+            : "Confirm each acknowledgement to submit."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SubmittedScreen({ applicationId, name }: { applicationId: string; name: string }) {
+  return (
+    <section className="mt-6 rounded-[30px] border border-[#BBF7D0] bg-white p-7 sm:p-10">
+      <h1 className="text-[32px] font-black leading-[1.05] tracking-[-0.03em] text-[#020617] sm:text-[42px]">
+        Your application is submitted
+      </h1>
+
+      <div className="mt-6 space-y-4 text-base leading-7 text-[#334155]">
+        <p>
+          Thank you{name ? `, ${name}` : ""}. We have received your application and a real person on the USA
+          Missionaries team will read it.
+        </p>
+        <p>
+          You will get a confirmation email shortly. We will follow up as the review progresses, and we may come back to
+          you with questions or to arrange a conversation.
+        </p>
+        <p>
+          Nothing you wrote is public. If you are accepted, we would prepare a missionary profile from some of this
+          material and you would review it before anything is published.
+        </p>
+        {applicationId ? (
+          <p className="text-sm text-[#64748B]">
+            Reference: <span className="font-mono">{applicationId}</span>
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function PhotoSection({
+  draft,
+  onRemove,
+  onUploaded,
+}: {
+  draft: JoinApplicationDraft;
+  onRemove: (path: string) => void;
+  onUploaded: (photo: JoinApplicationPhoto) => void;
+}) {
+  const [error, setError] = useState("");
+  const [busyKind, setBusyKind] = useState("");
+
+  async function upload(kind: "family" | "profile", file: File) {
+    setBusyKind(kind);
+    setError("");
+
+    try {
+      const body = new FormData();
+
+      body.append("file", file);
+      body.append("kind", kind);
+
+      const response = await fetch("/api/join/photos", { body, method: "POST" });
+      const result = (await response.json().catch(() => ({}))) as { error?: string; photo?: JoinApplicationPhoto };
+
+      if (!response.ok || !result.photo) {
+        throw new Error(result.error || "We could not upload that photo.");
+      }
+
+      onUploaded(result.photo);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "We could not upload that photo.");
+    } finally {
+      setBusyKind("");
+    }
+  }
+
+  return (
+    <div className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
+      <h2 className="text-base font-black text-[#0F172A]">Photos</h2>
+      <p className="mt-1 text-sm leading-6 text-[#475569]">
+        A photo of you and one of your family, if you have them. These are stored privately and are never published
+        without your review. JPG, PNG, or WebP, up to 5 MB.
       </p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {(["profile", "family"] as const).map((kind) => {
+          const existing = draft.photos.find((photo) => photo.kind === kind);
+
+          return (
+            <div className="rounded-2xl border border-[#EAF2FF] p-4" key={kind}>
+              <p className="text-sm font-black text-[#0F172A]">{kind === "profile" ? "Your photo" : "Family photo"}</p>
+
+              {existing ? (
+                <div className="mt-3">
+                  <p className="truncate text-sm text-[#475569]">{existing.fileName}</p>
+                  <button
+                    className="mt-2 text-sm font-bold text-[#B91C1C] underline underline-offset-2"
+                    onClick={() => onRemove(existing.path)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-3 w-full text-sm"
+                  disabled={busyKind === kind}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+
+                    if (file) {
+                      void upload(kind, file);
+                    }
+                  }}
+                  type="file"
+                />
+              )}
+
+              {busyKind === kind ? <p className="mt-2 text-sm text-[#475569]">Uploading...</p> : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {error ? <p className="mt-3 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
     </div>
   );
 }

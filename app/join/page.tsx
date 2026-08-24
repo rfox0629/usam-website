@@ -8,7 +8,12 @@ import {
   type JoinApplicationStepId,
 } from "@/src/lib/join/application-steps";
 import { resolveResumeToken } from "@/src/lib/join/drafts";
-import { isJoinPreviewTokenValid, JOIN_PREVIEW_COOKIE_NAME } from "@/src/lib/join/preview-access";
+import {
+  isJoinPreviewDeployment,
+  isJoinPreviewGateEnabled,
+  isJoinPreviewTokenValid,
+  JOIN_PREVIEW_COOKIE_NAME,
+} from "@/src/lib/join/preview-access";
 
 /**
  * USA-167: /join is the USA Missionaries application.
@@ -57,7 +62,7 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
   const hasPreviewAccess = await isJoinPreviewTokenValid(cookieStore.get(JOIN_PREVIEW_COOKIE_NAME)?.value);
 
   if (!hasPreviewAccess) {
-    return <JoinPreviewGate />;
+    return <JoinPreviewGate configured={isJoinPreviewGateEnabled() || !isJoinPreviewDeployment()} />;
   }
 
   const params = await searchParams;

@@ -11,8 +11,9 @@ import {
   emptyJoinApplicationDraft,
   isJoinApplicationStepId,
   type JoinApplicationDraft,
+  type JoinApplicationPhoto,
 } from "@/src/lib/join/application-steps";
-import { isJoinPreviewTokenValid, JOIN_PREVIEW_COOKIE_NAME } from "@/src/lib/join/preview-access";
+import { requireJoinPreviewAccess } from "@/src/lib/join/request-access";
 
 /**
  * USA-167: saves an in-progress USA Missionaries application to the server and,
@@ -60,10 +61,37 @@ function normalizeDraft(value: unknown): JoinApplicationDraft {
     }
   }
 
+  const disclosures: Record<string, boolean> = {};
+
+  if (record.disclosures && typeof record.disclosures === "object") {
+    for (const [key, value] of Object.entries(record.disclosures as Record<string, unknown>)) {
+      disclosures[key] = value === true;
+    }
+  }
+
+  const photos = Array.isArray(record.photos)
+    ? (record.photos as unknown[]).filter((photo): photo is JoinApplicationPhoto => {
+      if (!photo || typeof photo !== "object") {
+        return false;
+      }
+
+      const candidate = photo as Record<string, unknown>;
+
+      // Only bucket-relative paths written by our own upload route are kept, so
+      // a crafted draft body cannot point the application at arbitrary storage.
+      return typeof candidate.path === "string"
+        && candidate.path.startsWith("pending/")
+        && !candidate.path.includes("..")
+        && (candidate.kind === "family" || candidate.kind === "profile");
+    })
+    : [];
+
   return {
     answers,
     applicant: normalizeIdentity(record.applicant),
     applyingAsCouple: Boolean(record.applyingAsCouple),
+    disclosures,
+    photos,
     spouse: normalizeIdentity(record.spouse),
   };
 }
@@ -71,14 +99,7 @@ function normalizeDraft(value: unknown): JoinApplicationDraft {
 export async function POST(request: Request) {
   // The draft API sits behind the same gate as the page. Otherwise the preview
   // key would protect the UI while leaving a writable endpoint open.
-  const previewCookie = request.headers
-    .get("cookie")
-    ?.split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${JOIN_PREVIEW_COOKIE_NAME}=`))
-    ?.split("=")[1];
-
-  if (!(await isJoinPreviewTokenValid(previewCookie))) {
+  if (!(await requireJoinPreviewAccess(request))) {
     return NextResponse.json({ error: "not_available" }, { status: 404 });
   }
 

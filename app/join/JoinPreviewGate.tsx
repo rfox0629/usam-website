@@ -11,7 +11,7 @@ import type { FormEvent } from "react";
  * It is the first thing an unauthorized visitor sees at a URL that will later
  * be public, so it stays plain.
  */
-export function JoinPreviewGate() {
+export function JoinPreviewGate({ configured = true }: { configured?: boolean }) {
   const router = useRouter();
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
@@ -59,6 +59,13 @@ export function JoinPreviewGate() {
           The USA Missionaries application is not open to the public yet. If you were given an access code, enter it
           below.
         </p>
+
+        {configured ? null : (
+          <p className="mt-5 rounded-2xl border border-[#FBD5B5] bg-[#FFF7ED] px-4 py-3 text-sm leading-6 text-[#9A3412]">
+            This preview has no access key configured, so the application is closed. Set JOIN_PREVIEW_ACCESS_KEY on the
+            deployment to open it for review.
+          </p>
+        )}
 
         <form className="mt-7 text-left" onSubmit={handleSubmit}>
           <label className="text-xs font-black uppercase tracking-[0.14em] text-[#475569]" htmlFor="join-access-code">

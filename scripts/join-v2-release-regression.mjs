@@ -278,9 +278,12 @@ async function runServedContract() {
     return;
   }
 
+  // stdio is ignored rather than piped. A piped child whose output nobody reads
+  // blocks forever once the pipe buffer fills, which is exactly what happened
+  // as the route count grew: the gate hung instead of failing.
   const server = spawn("npx", ["next", "start", "--hostname", host, "--port", String(port)], {
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: "ignore",
   });
 
   try {

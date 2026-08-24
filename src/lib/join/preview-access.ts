@@ -59,9 +59,23 @@ export async function createJoinPreviewToken() {
   return sha256Hex(`${TOKEN_CONTEXT}:${normalizeCode(key)}`);
 }
 
+/**
+ * Preview deployments fail CLOSED.
+ *
+ * The open-when-unset default is right for production, where /join eventually
+ * becomes a public URL and a missing env var must not lock out an invited
+ * applicant. It is wrong for a preview build, where the same default would put
+ * the application on a guessable vercel.app URL before founder review. So a
+ * preview with no key configured shows the gate and refuses every API call,
+ * rather than serving the application to anyone who finds it.
+ */
+export function isJoinPreviewDeployment() {
+  return process.env.VERCEL_ENV === "preview";
+}
+
 export async function isJoinPreviewTokenValid(token: string | undefined | null) {
   if (!isJoinPreviewGateEnabled()) {
-    return true;
+    return !isJoinPreviewDeployment();
   }
 
   if (!token) {

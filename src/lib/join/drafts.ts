@@ -78,6 +78,11 @@ function parseDraft(value: unknown): JoinApplicationDraft {
     answers: record.answers && typeof record.answers === "object" ? record.answers as Record<string, string> : empty.answers,
     applicant: { ...empty.applicant, ...(record.applicant ?? {}) },
     applyingAsCouple: Boolean(record.applyingAsCouple),
+    disclosures:
+      record.disclosures && typeof record.disclosures === "object"
+        ? record.disclosures as Record<string, boolean>
+        : empty.disclosures,
+    photos: Array.isArray(record.photos) ? record.photos : empty.photos,
     spouse: { ...empty.spouse, ...(record.spouse ?? {}) },
   };
 }

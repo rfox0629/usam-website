@@ -114,11 +114,41 @@ export type JoinApplicantIdentity = {
   phone: string;
 };
 
+/**
+ * A photo the applicant uploaded. Only the private storage path is kept: the
+ * bucket is not public, and nothing here is a URL that could be shared.
+ */
+export type JoinApplicationPhoto = {
+  bucket: string;
+  contentType: string;
+  fileName: string;
+  kind: "family" | "profile";
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+
+/**
+ * Acknowledgements the applicant makes on the review step. Kept as their own
+ * map rather than free text so Operations can render them as answered or not,
+ * and so submission can require them.
+ */
+export const joinDisclosureIds = [
+  "disclosureAccuracy",
+  "disclosureBackgroundCheck",
+  "disclosureDoctrine",
+  "disclosureReviewBeforePublic",
+] as const;
+
+export type JoinDisclosureId = typeof joinDisclosureIds[number];
+
 export type JoinApplicationDraft = {
   applicant: JoinApplicantIdentity;
   /** Free-text answers keyed by field id, one bag per step. */
   answers: Record<string, string>;
   applyingAsCouple: boolean;
+  disclosures: Record<string, boolean>;
+  photos: JoinApplicationPhoto[];
   spouse: JoinApplicantIdentity;
 };
 
@@ -131,9 +161,21 @@ export function emptyJoinApplicationDraft(): JoinApplicationDraft {
     answers: {},
     applicant: emptyJoinApplicantIdentity(),
     applyingAsCouple: false,
+    disclosures: {},
+    photos: [],
     spouse: emptyJoinApplicantIdentity(),
   };
 }
+
+export const joinDisclosureLabels: Record<JoinDisclosureId, string> = {
+  disclosureAccuracy: "Everything I have written here is true and accurate to the best of my knowledge.",
+  disclosureBackgroundCheck:
+    "I understand USA Missionaries conducts reference and background checks as part of its review.",
+  disclosureDoctrine:
+    "I understand USA Missionaries will review beliefs and ministry expectations with me before any acceptance.",
+  disclosureReviewBeforePublic:
+    "I understand nothing I have written becomes public automatically, and that I would review any missionary profile before it is published.",
+};
 
 export function applicantDisplayName(draft: JoinApplicationDraft) {
   const applicant = [draft.applicant.firstName, draft.applicant.lastName].filter(Boolean).join(" ").trim();
