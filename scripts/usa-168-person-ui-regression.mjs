@@ -151,7 +151,7 @@ async function main() {
 
   try {
     for (const width of [390, 768, 1440]) {
-      const page = await browser.newPage({ viewport: { height: width === 390 ? 844 : 900, width } });
+      const page = await browser.newPage({ viewport: { height: width === 390 ? 844 : width === 768 ? 1024 : 900, width } });
       await openNaomi(page);
       await verifyPersonActions(page, width);
       await verifyGroupRoundTrip(page);
@@ -162,7 +162,7 @@ async function main() {
     await browser.close();
   }
 
-  console.log("USA-168 Person UI behavior passed at 390px, 768px, and 1440px.");
+  console.log("USA-168 Person UI behavior passed at 390×844, 768×1024, and 1440×900.");
 }
 
 main()
