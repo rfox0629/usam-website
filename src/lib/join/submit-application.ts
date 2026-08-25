@@ -7,6 +7,8 @@ import {
 } from "@/src/lib/dos/usam-application";
 import {
   applicantDisplayName,
+  supportBudgetAnswerId,
+  supportBudgetCategories,
   type JoinApplicantIdentity,
   type JoinApplicationDraft,
 } from "@/src/lib/join/application-steps";
@@ -192,12 +194,28 @@ export async function submitJoinApplication({
     throw new Error(teamResult.error.message);
   }
 
-  const proposedMonthlyNeed = money(draft, "supportMonthlyNeed");
+  const supportPath = answer(draft, "supportPath");
+  const expectsFundraising = supportPath === "yes" || supportPath === "unsure";
+  const proposedMonthlyNeed = expectsFundraising ? money(draft, "supportMonthlyNeed") : null;
   // The applicant's chosen goal, never derived from the budget. If they did not
   // choose one, the goal stays null for Operations to set at review.
-  const requestedGoal = money(draft, "supportRequestedGoal");
-  const excessSupportAgreementAccepted = draft.disclosures.excessSupportAgreement === true;
+  const requestedGoal = expectsFundraising ? money(draft, "supportRequestedGoal") : null;
+  const excessSupportAgreementAccepted = expectsFundraising && draft.disclosures.excessSupportAgreement === true;
   const profilePhoto = draft.photos.find((photo) => photo.kind === "profile");
+  const supportBudgetValues = Object.fromEntries(
+    supportBudgetCategories.map((category) => [category.key, money(draft, supportBudgetAnswerId(category.key))]),
+  );
+  const supportBudgetTotals = supportBudgetCategories.reduce(
+    (totals, category) => {
+      const amount = money(draft, supportBudgetAnswerId(category.key)) ?? 0;
+
+      totals[category.group] += amount;
+      totals.total += amount;
+
+      return totals;
+    },
+    { household: 0, ministry: 0, total: 0 },
+  );
 
   const application = await submitUsamApplicationForSetup({
     applicantUserId: null,
@@ -261,6 +279,12 @@ export async function submitJoinApplication({
         source: "public_form",
         spouse: draft.applyingAsCouple ? draft.spouse : null,
         support: {
+          budget: {
+            categories: supportBudgetValues,
+            householdTotal: supportBudgetTotals.household,
+            ministryTotal: supportBudgetTotals.ministry,
+            total: supportBudgetTotals.total,
+          },
           budgetNarrative: answer(draft, "supportBudget"),
           committedAmount: money(draft, "supportCommittedAmount"),
           employmentContext: answer(draft, "supportEmploymentContext"),
@@ -268,6 +292,9 @@ export async function submitJoinApplication({
           fundraisingReadiness: answer(draft, "fundraisingReadiness"),
           immediateNeeds: answer(draft, "supportImmediateNeeds"),
           otherMonthlyIncome: money(draft, "supportOtherMonthlyIncome"),
+          path: supportPath,
+          proposedMonthlyNeed,
+          requestedGoal,
         },
       },
       excessSupportAgreementAccepted,

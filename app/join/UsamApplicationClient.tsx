@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { identityFieldLabels, visibleFieldsForStep, type JoinField } from "./application-fields";
+import {
+  identityFieldLabels,
+  joinApplicationSections,
+  supportBudgetAnswerId,
+  supportBudgetCategories,
+  visibleFieldsForSection,
+  visibleFieldsForStep,
+  type JoinField,
+  type JoinFieldSection,
+} from "./application-fields";
 import {
   applicantDisplayName,
   joinApplicationStepIndex,
@@ -37,6 +46,84 @@ type Props = {
 
 const shellClassName =
   "usam-application-route min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)] text-[#0F172A]";
+const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
+  currency: "USD",
+  maximumFractionDigits: 0,
+  style: "currency",
+});
+
+type SupportPath = "no" | "unsure" | "yes";
+
+function isApplicationContentStep(
+  value: JoinApplicationStepId,
+): value is Exclude<JoinApplicationStepId, "review" | "start"> {
+  return value !== "review" && value !== "start";
+}
+
+function moneyNumber(value: string | undefined) {
+  return Number((value ?? "").replace(/[^0-9.]/g, "")) || 0;
+}
+
+function cleanMoneyInput(value: string) {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const [whole = "", ...decimals] = cleaned.split(".");
+
+  return decimals.length > 0 ? `${whole}.${decimals.join("").slice(0, 2)}` : whole;
+}
+
+function formatMoney(value: number) {
+  return wholeDollarFormatter.format(value);
+}
+
+function supportPathFromDraft(draft: JoinApplicationDraft): SupportPath | "" {
+  const value = draft.answers.supportPath;
+
+  return value === "yes" || value === "unsure" || value === "no" ? value : "";
+}
+
+function supportSectionsForDraft(draft: JoinApplicationDraft) {
+  const sections = joinApplicationSections.support;
+  const path = supportPathFromDraft(draft);
+
+  if (!path) {
+    return sections;
+  }
+
+  if (path === "no") {
+    return [sections[0], { ...sections[3], intro: "Share any financial or ministry needs we should still understand.", title: "Anything else" }];
+  }
+
+  return sections;
+}
+
+function supportBudgetSummary(draft: JoinApplicationDraft) {
+  const budget = supportBudgetCategories.reduce(
+    (totals, category) => {
+      totals[category.group] += moneyNumber(draft.answers[supportBudgetAnswerId(category.key)]);
+
+      return totals;
+    },
+    { household: 0, ministry: 0 },
+  );
+  const { household, ministry } = budget;
+  const budgetTotal = household + ministry;
+  const proposedNeed = moneyNumber(draft.answers.supportMonthlyNeed);
+  const committed = moneyNumber(draft.answers.supportCommittedAmount);
+  const otherIncome = moneyNumber(draft.answers.supportOtherMonthlyIncome);
+  const covered = committed + otherIncome;
+
+  return {
+    budgetTotal,
+    committed,
+    covered,
+    gap: Math.max(0, proposedNeed - covered),
+    household,
+    ministry,
+    otherIncome,
+    proposedNeed,
+    requestedGoal: moneyNumber(draft.answers.supportRequestedGoal),
+  };
+}
 
 function resumeNotice(state: ResumeState) {
   switch (state) {
@@ -65,6 +152,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const [submitState, setSubmitState] = useState<"error" | "idle" | "submitted" | "submitting">("idle");
   const [submitError, setSubmitError] = useState("");
   const [applicationId, setApplicationId] = useState("");
+  const [sectionIndexByStep, setSectionIndexByStep] = useState<Partial<Record<JoinApplicationStepId, number>>>({});
 
   // One intentional click owns one stable request ID. It survives an
   // ambiguous network failure so a retry cannot create a second email, while
@@ -77,6 +165,18 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
   const stepIndex = joinApplicationStepIndex(stepId);
   const step = joinApplicationSteps[stepIndex];
+  const currentSections = isApplicationContentStep(stepId)
+    ? stepId === "support"
+      ? supportSectionsForDraft(draft)
+      : joinApplicationSections[stepId]
+    : [];
+  const requestedSectionIndex = sectionIndexByStep[stepId] ?? 0;
+  const sectionIndex = Math.min(requestedSectionIndex, Math.max(0, currentSections.length - 1));
+  const currentSection = currentSections[sectionIndex];
+  const currentSectionFields = isApplicationContentStep(stepId) && currentSection
+    ? visibleFieldsForSection(stepId, currentSection.id, draft.applyingAsCouple)
+    : [];
+  const continueBlocked = stepId === "support" && currentSection?.id === "path" && !supportPathFromDraft(draft);
 
   const persist = useCallback(
     async (options: { sendResumeEmail?: boolean } = {}) => {
@@ -235,14 +335,16 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   }
 
   const requiredMissing = useMemo(() => {
-    const missing: { label: string; stepId: JoinApplicationStepId }[] = [];
+    const missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[] = [];
+    const supportPath = supportPathFromDraft(draft);
+    const expectsFundraising = supportPath === "yes" || supportPath === "unsure";
 
     if (!draft.applicant.firstName.trim() || !draft.applicant.lastName.trim() || !draft.applicant.email.trim()) {
-      missing.push({ label: "Your name and email", stepId: "about" });
+      missing.push({ label: "Your name and email", sectionId: "identity", stepId: "about" });
     }
 
     if (draft.applyingAsCouple && (!draft.spouse.firstName.trim() || !draft.spouse.lastName.trim())) {
-      missing.push({ label: "Your spouse's name", stepId: "about" });
+      missing.push({ label: "Your spouse's name", sectionId: "identity", stepId: "about" });
     }
 
     for (const candidate of joinApplicationSteps) {
@@ -251,26 +353,78 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
       }
 
       for (const field of visibleFieldsForStep(candidate.id, draft.applyingAsCouple)) {
+        if (
+          candidate.id === "support" &&
+          (field.id === "supportMonthlyNeed" || field.id === "fundraisingReadiness") &&
+          !expectsFundraising
+        ) {
+          continue;
+        }
+
         if (field.required && !(draft.answers[field.id] ?? "").trim()) {
-          missing.push({ label: field.label, stepId: candidate.id });
+          missing.push({ label: field.label, sectionId: field.section, stepId: candidate.id });
         }
       }
+    }
+
+    if (!supportPath) {
+      missing.push({ label: "Whether you expect to raise monthly support", sectionId: "path", stepId: "support" });
+    }
+
+    if (expectsFundraising && supportBudgetSummary(draft).budgetTotal <= 0) {
+      missing.push({ label: "Your monthly budget estimates", sectionId: "budget", stepId: "support" });
+    }
+
+    if (expectsFundraising && draft.disclosures.excessSupportAgreement !== true) {
+      missing.push({ label: "Support overflow acknowledgement", sectionId: "readiness", stepId: "support" });
     }
 
     return missing;
   }, [draft]);
 
-  const goTo = (next: JoinApplicationStepId) => {
+  const goTo = (next: JoinApplicationStepId, sectionId?: string) => {
+    if (sectionId && isApplicationContentStep(next)) {
+      const sections = next === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next];
+      const nextSectionIndex = sections.findIndex((section) => section.id === sectionId);
+
+      if (nextSectionIndex >= 0) {
+        setSectionIndexByStep((current) => ({ ...current, [next]: nextSectionIndex }));
+      }
+    } else {
+      setSectionIndexByStep((current) => ({ ...current, [next]: 0 }));
+    }
+
     setStepId(next);
     dirtyRef.current = true;
     window.scrollTo({ behavior: "smooth", top: 0 });
   };
 
   const goRelative = (offset: number) => {
+    if (isApplicationContentStep(stepId)) {
+      const nextSectionIndex = sectionIndex + offset;
+
+      if (nextSectionIndex >= 0 && nextSectionIndex < currentSections.length) {
+        setSectionIndexByStep((current) => ({ ...current, [stepId]: nextSectionIndex }));
+        dirtyRef.current = true;
+        window.scrollTo({ behavior: "smooth", top: 0 });
+
+        return;
+      }
+    }
+
     const next = joinApplicationSteps[stepIndex + offset];
 
     if (next) {
-      goTo(next.id);
+      if (offset < 0 && isApplicationContentStep(next.id)) {
+        const previousSections = next.id === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next.id];
+
+        setSectionIndexByStep((current) => ({ ...current, [next.id]: Math.max(0, previousSections.length - 1) }));
+        setStepId(next.id);
+        dirtyRef.current = true;
+        window.scrollTo({ behavior: "smooth", top: 0 });
+      } else {
+        goTo(next.id);
+      }
     }
   };
 
@@ -301,15 +455,24 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           <StartScreen onStart={() => { setStarted(true); goTo("about"); }} resumeState={resumeState} />
         ) : (
           <>
-            <ProgressRail currentIndex={stepIndex} onSelect={goTo} />
+            <ProgressRail currentIndex={stepIndex} onSelect={(next) => goTo(next)} />
 
             <h1 className="mt-7 text-[34px] font-black leading-[1.05] tracking-[-0.03em] text-[#020617] sm:text-[44px]">
               {step.title}
             </h1>
             <p className="mt-3 text-base leading-7 text-[#475569]">{step.intro}</p>
 
-            <div className="mt-8 space-y-7">
-              {stepId === "about" ? (
+            {currentSection ? (
+              <GuidedPartHeader
+                current={sectionIndex + 1}
+                intro={currentSection.intro}
+                title={currentSection.title}
+                total={currentSections.length}
+              />
+            ) : null}
+
+            <div className="mt-5">
+              {stepId === "about" && currentSection?.id === "identity" ? (
                 <IdentitySection
                   draft={draft}
                   onIdentityChange={setIdentity}
@@ -332,18 +495,29 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                 />
               ) : null}
 
-              {stepId !== "review" && stepId !== "start"
-                ? visibleFieldsForStep(stepId, draft.applyingAsCouple).map((field) => (
+              {stepId === "support" && currentSection ? (
+                <SupportSection
+                  draft={draft}
+                  onAnswer={setAnswer}
+                  onDisclosure={setDisclosure}
+                  section={currentSection}
+                />
+              ) : null}
+
+              {isApplicationContentStep(stepId) && stepId !== "support" && currentSectionFields.length > 0 ? (
+                <div className="grid gap-5 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:grid-cols-2 sm:p-6">
+                  {currentSectionFields.map((field) => (
                     <FieldInput
                       field={field}
                       key={field.id}
                       onChange={(value) => setAnswer(field.id, value)}
                       value={draft.answers[field.id] ?? ""}
                     />
-                  ))
-                : null}
+                  ))}
+                </div>
+              ) : null}
 
-              {stepId === "profile" ? (
+              {stepId === "profile" && currentSection?.id === "photos" ? (
                 <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
               ) : null}
             </div>
@@ -359,7 +533,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
             <nav className="mt-10 flex items-center justify-between gap-3">
               <button
                 className="inline-flex h-12 min-w-[7rem] items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A] disabled:opacity-40"
-                disabled={stepIndex <= 1}
+                disabled={stepIndex <= 1 && sectionIndex === 0}
                 onClick={() => goRelative(-1)}
                 type="button"
               >
@@ -374,11 +548,16 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                 </span>
               ) : (
                 <button
-                  className="inline-flex h-12 min-w-[7rem] items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-6 text-sm font-black text-white"
+                  className="inline-flex h-12 min-w-[7rem] items-center justify-center rounded-full bg-[#F5B82E] px-6 text-sm font-black text-[#111827] shadow-[0_14px_28px_rgba(245,184,46,0.24)] transition hover:bg-[#F7C64B] disabled:cursor-not-allowed disabled:bg-[#E2E8F0] disabled:text-[#64748B] disabled:shadow-none"
+                  disabled={continueBlocked}
                   onClick={() => goRelative(1)}
                   type="button"
                 >
-                  Continue
+                  {continueBlocked
+                    ? "Choose an option"
+                    : sectionIndex < currentSections.length - 1
+                      ? "Continue"
+                      : `Continue to ${joinApplicationSteps[stepIndex + 1]?.title ?? "Review"}`}
                 </button>
               )}
             </nav>
@@ -396,7 +575,7 @@ function StartScreen({ onStart, resumeState }: { onStart: () => void; resumeStat
         Apply to Become a USA Missionary
       </h1>
 
-      <div className="mt-7 space-y-5 text-base leading-7 text-[#334155]">
+      <div className="mt-7 space-y-5 text-base leading-7 text-[#334155] [&>p]:text-[#334155]">
         <p>
           USA Missionaries sends and supports missionaries serving here at home. This is an application to serve with
           us, and a real person on our team will read every word of it.
@@ -417,7 +596,7 @@ function StartScreen({ onStart, resumeState }: { onStart: () => void; resumeStat
       </div>
 
       <button
-        className="mt-9 inline-flex h-13 min-h-[3.25rem] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-8 text-base font-black text-white sm:w-auto sm:px-12"
+        className="mt-9 inline-flex h-13 min-h-[3.25rem] w-full items-center justify-center rounded-full bg-[#F5B82E] px-8 text-base font-black text-[#111827] shadow-[0_16px_32px_rgba(245,184,46,0.24)] transition hover:bg-[#F7C64B] sm:w-auto sm:px-12"
         onClick={onStart}
         type="button"
       >
@@ -435,7 +614,7 @@ function ProgressRail({
   onSelect: (id: JoinApplicationStepId) => void;
 }) {
   return (
-    <ol className="mt-6 flex flex-wrap gap-2">
+    <ol className="mt-6 flex items-center justify-between gap-2 sm:flex-wrap sm:justify-start">
       {joinApplicationSteps.slice(1).map((step, index) => {
         const position = index + 1;
         const isCurrent = position === currentIndex;
@@ -444,8 +623,9 @@ function ProgressRail({
         return (
           <li key={step.id}>
             <button
+              aria-label={step.title}
               aria-current={isCurrent ? "step" : undefined}
-              className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${
+              className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-black transition sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 ${
                 isCurrent
                   ? "border-[#2563EB] bg-[#2563EB] text-white"
                   : isDone
@@ -455,12 +635,345 @@ function ProgressRail({
               onClick={() => onSelect(step.id)}
               type="button"
             >
-              {step.title}
+              <span className="sm:hidden">{position}</span>
+              <span className="hidden sm:inline">{step.title}</span>
             </button>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+function GuidedPartHeader({
+  current,
+  intro,
+  title,
+  total,
+}: {
+  current: number;
+  intro: string;
+  title: string;
+  total: number;
+}) {
+  return (
+    <section className="mt-7 rounded-[26px] border border-[#DCEBFF] bg-white/85 px-5 py-4 shadow-[0_16px_44px_rgba(15,23,42,0.04)] backdrop-blur sm:px-6">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#B77900]">
+          Part {current} of {total}
+        </p>
+        <div className="flex flex-1 justify-end gap-1.5" aria-hidden="true">
+          {Array.from({ length: total }, (_, index) => (
+            <span
+              className={`h-1.5 max-w-10 flex-1 rounded-full ${index < current ? "bg-[#F5B82E]" : "bg-[#E2E8F0]"}`}
+              key={index}
+            />
+          ))}
+        </div>
+      </div>
+      <h2 className="mt-3 text-[22px] font-black leading-tight tracking-[-0.025em] text-[#020617] sm:text-2xl">{title}</h2>
+      <p className="mt-1.5 text-sm leading-6 text-[#475569]">{intro}</p>
+    </section>
+  );
+}
+
+function SupportChoice({
+  description,
+  onSelect,
+  selected,
+  title,
+}: {
+  description: string;
+  onSelect: () => void;
+  selected: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      aria-pressed={selected}
+      className={`rounded-[20px] border p-4 text-left transition ${
+        selected
+          ? "border-[#D59A16] bg-[#FFF8E6] shadow-[0_12px_30px_rgba(245,184,46,0.14)] ring-2 ring-[#F8D77F]"
+          : "border-[#DCEBFF] bg-white hover:border-[#AFCBF3]"
+      }`}
+      onClick={onSelect}
+      type="button"
+    >
+      <span className="block text-sm font-black text-[#0F172A]">{title}</span>
+      <span className="mt-1 block text-sm leading-5 text-[#64748B]">{description}</span>
+    </button>
+  );
+}
+
+function SupportMoneyField({
+  action,
+  help,
+  id,
+  label,
+  onChange,
+  required = false,
+  value,
+}: {
+  action?: { label: string; onClick: () => void };
+  help?: string;
+  id: string;
+  label: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <label className="block text-sm font-black text-[#0F172A]" htmlFor={id}>
+          {label}
+          {required ? <span className="ml-1 text-[#B77900]">*</span> : null}
+        </label>
+        {action ? (
+          <button className="shrink-0 text-xs font-black text-[#1D4ED8] underline underline-offset-2" onClick={action.onClick} type="button">
+            {action.label}
+          </button>
+        ) : null}
+      </div>
+      {help ? <p className="mt-1 text-sm leading-5 text-[#64748B]">{help}</p> : null}
+      <div className="relative mt-2">
+        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-bold text-[#64748B]">$</span>
+        <input
+          className="h-12 w-full rounded-2xl border border-[#DCEBFF] bg-white pl-8 pr-4 text-base text-[#0F172A] outline-none focus:border-[#2563EB]"
+          id={id}
+          inputMode="decimal"
+          onChange={(event) => onChange(cleanMoneyInput(event.target.value))}
+          placeholder="0"
+          type="text"
+          value={value}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SupportMetric({ label, value, tone = "default" }: { label: string; value: number; tone?: "accent" | "default" }) {
+  return (
+    <div className={`rounded-2xl border p-3 ${tone === "accent" ? "border-[#F4D17A] bg-[#FFF9EA]" : "border-[#EAF2FF] bg-[#F8FBFF]"}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">{label}</p>
+      <p className={`mt-1 text-xl font-black tracking-[-0.03em] ${tone === "accent" ? "text-[#8A5A00]" : "text-[#0F172A]"}`}>
+        {formatMoney(value)}
+      </p>
+    </div>
+  );
+}
+
+function SupportSection({
+  draft,
+  onAnswer,
+  onDisclosure,
+  section,
+}: {
+  draft: JoinApplicationDraft;
+  onAnswer: (id: string, value: string) => void;
+  onDisclosure: (id: string, value: boolean) => void;
+  section: JoinFieldSection;
+}) {
+  const path = supportPathFromDraft(draft);
+  const fields = visibleFieldsForSection("support", section.id, false);
+  const summary = supportBudgetSummary(draft);
+  const expectsFundraising = path === "yes" || path === "unsure";
+
+  if (section.id === "path") {
+    const employmentField = fields.find((field) => field.id === "supportEmploymentContext");
+
+    return (
+      <div className="space-y-6 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
+        {employmentField ? (
+          <FieldInput
+            field={employmentField}
+            onChange={(value) => onAnswer(employmentField.id, value)}
+            value={draft.answers[employmentField.id] ?? ""}
+          />
+        ) : null}
+
+        <fieldset>
+          <legend className="text-base font-black text-[#0F172A]">
+            Do you expect to raise monthly support?<span className="ml-1 text-[#B77900]">*</span>
+          </legend>
+          <p className="mt-1 text-sm leading-6 text-[#475569]">Your answer controls which financial questions come next.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <SupportChoice
+              description="I expect monthly partners to help sustain this ministry."
+              onSelect={() => onAnswer("supportPath", "yes")}
+              selected={path === "yes"}
+              title="Yes"
+            />
+            <SupportChoice
+              description="I need help discerning the right support model."
+              onSelect={() => onAnswer("supportPath", "unsure")}
+              selected={path === "unsure"}
+              title="Not sure yet"
+            />
+            <SupportChoice
+              description="My household and ministry are already funded."
+              onSelect={() => onAnswer("supportPath", "no")}
+              selected={path === "no"}
+              title="No"
+            />
+          </div>
+        </fieldset>
+      </div>
+    );
+  }
+
+  if (section.id === "budget") {
+    const contextField = fields.find((field) => field.id === "supportBudget");
+
+    return (
+      <div className="space-y-5">
+        {(["household", "ministry"] as const).map((group) => {
+          const categories = supportBudgetCategories.filter((category) => category.group === group);
+          const subtotal = group === "household" ? summary.household : summary.ministry;
+
+          return (
+            <section className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6" key={group}>
+              <div className="flex items-end justify-between gap-4 border-b border-[#EAF2FF] pb-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#B77900]">
+                    {group === "household" ? "Household" : "Ministry"}
+                  </p>
+                  <h3 className="mt-1 text-lg font-black text-[#0F172A]">Monthly estimates</h3>
+                </div>
+                <p className="text-right text-sm text-[#64748B]">
+                  Subtotal <span className="ml-1 block text-lg font-black text-[#0F172A] sm:inline">{formatMoney(subtotal)}</span>
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {categories.map((category) => {
+                  const answerId = supportBudgetAnswerId(category.key);
+
+                  return (
+                    <SupportMoneyField
+                      id={answerId}
+                      key={category.key}
+                      label={category.label}
+                      onChange={(value) => onAnswer(answerId, value)}
+                      value={draft.answers[answerId] ?? ""}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        <div className="grid gap-3 rounded-[24px] border border-[#F4D17A] bg-[#FFF9EA] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div>
+            <p className="text-sm font-black text-[#8A5A00]">Estimated monthly budget</p>
+            <p className="mt-1 text-sm leading-5 text-[#6B5A2D]">All 17 categories remain private and go only to the review team.</p>
+          </div>
+          <p className="text-3xl font-black tracking-[-0.04em] text-[#6B4700]">{formatMoney(summary.budgetTotal)}</p>
+        </div>
+
+        {contextField ? (
+          <div className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 sm:p-6">
+            <FieldInput
+              field={contextField}
+              onChange={(value) => onAnswer(contextField.id, value)}
+              value={draft.answers[contextField.id] ?? ""}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (section.id === "picture") {
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <SupportMetric label="Budget total" value={summary.budgetTotal} />
+          <SupportMetric label="Proposed need" value={summary.proposedNeed} />
+          <SupportMetric label="Already covered" value={summary.covered} />
+          <SupportMetric label="Remaining gap" tone="accent" value={summary.gap} />
+        </div>
+
+        <section className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <SupportMoneyField
+              action={summary.budgetTotal > 0 ? { label: "Use budget total", onClick: () => onAnswer("supportMonthlyNeed", String(summary.budgetTotal)) } : undefined}
+              help="Your considered estimate. It may match the worksheet, but it is not an approved public goal."
+              id="supportMonthlyNeed"
+              label="Proposed monthly need"
+              onChange={(value) => onAnswer("supportMonthlyNeed", value)}
+              required
+              value={draft.answers.supportMonthlyNeed ?? ""}
+            />
+            <SupportMoneyField
+              id="supportCommittedAmount"
+              label="Committed monthly support"
+              onChange={(value) => onAnswer("supportCommittedAmount", value)}
+              value={draft.answers.supportCommittedAmount ?? ""}
+            />
+            <SupportMoneyField
+              id="supportOtherMonthlyIncome"
+              label="Other monthly household income"
+              onChange={(value) => onAnswer("supportOtherMonthlyIncome", value)}
+              value={draft.answers.supportOtherMonthlyIncome ?? ""}
+            />
+            <SupportMoneyField
+              help="Choose the amount you want Operations to review. It is never calculated automatically."
+              id="supportRequestedGoal"
+              label="Requested fundraising goal"
+              onChange={(value) => onAnswer("supportRequestedGoal", value)}
+              value={draft.answers.supportRequestedGoal ?? ""}
+            />
+          </div>
+        </section>
+
+        <div className="rounded-[22px] border-l-4 border-[#2563EB] bg-white px-4 py-3 text-sm leading-6 text-[#475569] shadow-[0_12px_34px_rgba(15,23,42,0.04)]">
+          Your worksheet total, proposed need, and requested fundraising goal are three separate values. USA Missionaries Operations reviews the application and owns the approved public goal.
+        </div>
+      </div>
+    );
+  }
+
+  const readinessFields = expectsFundraising
+    ? fields
+    : fields.filter((field) => field.id === "supportImmediateNeeds");
+
+  return (
+    <div className="space-y-5 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
+      {!expectsFundraising ? (
+        <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-3">
+          <p className="text-sm font-black text-[#166534]">No monthly fundraising path selected</p>
+          <p className="mt-1 text-sm leading-5 text-[#3F6750]">We will preserve that answer for review. Nothing here creates a public giving page.</p>
+        </div>
+      ) : null}
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        {readinessFields.map((field) => (
+          <FieldInput
+            field={field}
+            key={field.id}
+            onChange={(value) => onAnswer(field.id, value)}
+            value={draft.answers[field.id] ?? ""}
+          />
+        ))}
+      </div>
+
+      {expectsFundraising ? (
+        <label className="flex items-start gap-3 rounded-[20px] border border-[#F4D17A] bg-[#FFF9EA] p-4 text-sm leading-6 text-[#5F4B1C]">
+          <input
+            checked={draft.disclosures.excessSupportAgreement === true}
+            className="mt-1 h-5 w-5 shrink-0 accent-[#D59A16]"
+            onChange={(event) => onDisclosure("excessSupportAgreement", event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong className="block text-[#6B4700]">Support overflow acknowledgement</strong>
+            I understand USA Missionaries leadership approves the public monthly goal. Support above that approved goal is not automatically assigned to my household and may be stewarded by USA Missionaries for ministry needs and approved support priorities.
+          </span>
+        </label>
+      ) : null}
+    </div>
   );
 }
 
@@ -477,7 +990,7 @@ function FieldInput({
     "mt-2 w-full rounded-2xl border border-[#DCEBFF] bg-white px-4 text-base text-[#0F172A] outline-none focus:border-[#2563EB]";
 
   return (
-    <div>
+    <div className={field.kind === "long" ? "sm:col-span-2" : ""}>
       <label className="block text-base font-black text-[#0F172A]" htmlFor={field.id}>
         {field.label}
         {field.required ? <span className="ml-1 text-[#2563EB]">*</span> : null}
@@ -592,8 +1105,8 @@ function ReviewSection({
   submitState,
 }: {
   draft: JoinApplicationDraft;
-  missing: { label: string; stepId: JoinApplicationStepId }[];
-  onJump: (id: JoinApplicationStepId) => void;
+  missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[];
+  onJump: (id: JoinApplicationStepId, sectionId?: string) => void;
   onSubmit: () => void;
   onToggleDisclosure: (id: string, value: boolean) => void;
   submitError: string;
@@ -617,7 +1130,7 @@ function ReviewSection({
               <li key={`${item.stepId}-${item.label}`}>
                 <button
                   className="text-left text-sm font-bold text-[#9A3412] underline underline-offset-2"
-                  onClick={() => onJump(item.stepId)}
+                  onClick={() => onJump(item.stepId, item.sectionId)}
                   type="button"
                 >
                   {item.label}

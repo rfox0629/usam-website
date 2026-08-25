@@ -51,7 +51,15 @@ export async function POST(request: Request) {
   }
 
   const draft = lookup.record.draft;
-  const missingDisclosures = joinDisclosureIds.filter((id) => draft.disclosures[id] !== true);
+  const missingDisclosures: string[] = joinDisclosureIds.filter((id) => draft.disclosures[id] !== true);
+  const supportPath = draft.answers.supportPath;
+
+  if (
+    (supportPath === "yes" || supportPath === "unsure") &&
+    draft.disclosures.excessSupportAgreement !== true
+  ) {
+    missingDisclosures.push("excessSupportAgreement");
+  }
 
   if (missingDisclosures.length > 0) {
     return NextResponse.json({ error: "disclosures_required", missingDisclosures }, { status: 400 });

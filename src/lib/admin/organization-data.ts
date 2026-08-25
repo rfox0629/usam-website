@@ -998,19 +998,38 @@ function applicationReferences(application: OrganizationApplicationRow): Organiz
 }
 
 function applicationSupportDetails(application: OrganizationApplicationRow): OrganizationApplicationDetailItem[] {
-  const support = asRecord(asRecord(application.contact_payload).support_json);
+  const contactPayload = asRecord(application.contact_payload);
+  const support = {
+    ...asRecord(contactPayload.support_json),
+    ...asRecord(contactPayload.support),
+  };
   const budget = asRecord(support.budget);
-  const budgetDetails = Object.entries(budget)
-    .map(([key, value]) => moneyDetail(key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()), value))
+  const budgetCategories = Object.keys(asRecord(budget.categories)).length > 0
+    ? asRecord(budget.categories)
+    : budget;
+  const budgetDetails = Object.entries(budgetCategories)
+    .map(([key, value]) => moneyDetail(
+      key
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      value,
+    ))
     .filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
 
   return [
-    compactDetail("Support Needed", support.supportNeed),
+    compactDetail("Support Path", support.path ?? support.supportNeed),
     compactDetail("Giving Preference", support.donationLinkPreference),
+    compactDetail("Work and Income Context", support.employmentContext),
+    moneyDetail("Worksheet Total", budget.total),
     moneyDetail("Monthly Budget", application.monthly_budget),
-    moneyDetail("Support Goal", application.support_goal),
-    moneyDetail("Committed Support", support.committedSupport),
+    moneyDetail("Applicant Requested Goal", support.requestedGoal ?? application.support_goal),
+    moneyDetail("Committed Support", support.committedAmount ?? support.committedSupport),
     moneyDetail("Other Monthly Income", support.otherMonthlyIncome),
+    compactDetail("Budget Context", support.budgetNarrative),
+    compactDetail("Fundraising Approach", support.fundraisingApproachPlan),
+    compactDetail("Fundraising Readiness", support.fundraisingReadiness),
+    compactDetail("Immediate Needs", support.immediateNeeds),
     ...budgetDetails,
   ].filter((item): item is OrganizationApplicationDetailItem => Boolean(item));
 }

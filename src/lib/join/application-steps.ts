@@ -27,6 +27,37 @@ export const joinApplicationStepIds = [
 
 export type JoinApplicationStepId = typeof joinApplicationStepIds[number];
 
+/**
+ * The private 17-category worksheet shared by the applicant UI and the
+ * Operations submission mapper. Values remain in the server-side draft and
+ * canonical application payload; none of them are public profile fields.
+ */
+export const supportBudgetCategories = [
+  { group: "household", key: "housing", label: "Housing" },
+  { group: "household", key: "foodHousehold", label: "Food and household" },
+  { group: "household", key: "utilities", label: "Utilities" },
+  { group: "household", key: "transportation", label: "Transportation" },
+  { group: "household", key: "insuranceMedical", label: "Insurance and medical" },
+  { group: "household", key: "childrenEducation", label: "Children and education" },
+  { group: "household", key: "debtPayments", label: "Debt payments" },
+  { group: "household", key: "givingTithe", label: "Giving and tithe" },
+  { group: "household", key: "savings", label: "Savings" },
+  { group: "household", key: "retirement", label: "Retirement" },
+  { group: "household", key: "otherPersonalNeeds", label: "Other household needs" },
+  { group: "ministry", key: "hospitalityMeals", label: "Hospitality and meals" },
+  { group: "ministry", key: "localTravel", label: "Local travel" },
+  { group: "ministry", key: "trainingResources", label: "Training and resources" },
+  { group: "ministry", key: "eventsGatherings", label: "Events and gatherings" },
+  { group: "ministry", key: "communicationsSoftware", label: "Communications and software" },
+  { group: "ministry", key: "otherMinistryNeeds", label: "Other ministry needs" },
+] as const;
+
+export type SupportBudgetCategory = typeof supportBudgetCategories[number];
+
+export function supportBudgetAnswerId(key: SupportBudgetCategory["key"]) {
+  return `supportBudget.${key}`;
+}
+
 export type JoinApplicationStep = {
   /** Shown in the progress rail. */
   eyebrow: string;

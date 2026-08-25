@@ -495,13 +495,25 @@ function references(row: UsamApplicationRow): OperationsOnboardingReferenceItem[
     .filter((reference) => reference.name !== "Reference" || reference.email || reference.phone || reference.relationship || reference.description);
 }
 
+function applicationSupport(row: UsamApplicationRow) {
+  const contactPayload = asRecord(row.contact_payload);
+
+  return {
+    ...asRecord(contactPayload.support_json),
+    ...asRecord(contactPayload.support),
+  };
+}
+
 function supportDetails(row: UsamApplicationRow) {
-  const support = asRecord(asRecord(row.contact_payload).support_json);
+  const support = applicationSupport(row);
   const budget = asRecord(support.budget);
+  const budgetCategories = Object.keys(asRecord(budget.categories)).length > 0
+    ? asRecord(budget.categories)
+    : budget;
   const proposedNeed = moneyLabel(row.proposed_monthly_need) ?? moneyLabel(support.proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget);
   const approvedGoal = moneyLabel(row.admin_approved_monthly_goal);
   const agreementAccepted = row.excess_support_agreement_accepted === true || support.excessSupportAgreementAccepted === true;
-  const budgetDetails = Object.entries(budget)
+  const budgetDetails = Object.entries(budgetCategories)
     .map(([key, value]) => {
       const label = key
         .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -514,13 +526,23 @@ function supportDetails(row: UsamApplicationRow) {
     .filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
 
   return [
-    compactDetail("Support Needed", support.supportNeed),
+    compactDetail("Support Path", support.path ?? support.supportNeed),
     compactDetail("Giving Preference", support.donationLinkPreference),
+    compactDetail("Work and Income Context", support.employmentContext),
+    moneyLabel(budget.total) ? { label: "Worksheet Total", value: moneyLabel(budget.total) as string } : null,
     proposedNeed ? { label: "Proposed Monthly Need", value: proposedNeed } : null,
+    moneyLabel(support.requestedGoal) || moneyLabel(row.support_goal)
+      ? { label: "Applicant Requested Goal", value: (moneyLabel(support.requestedGoal) ?? moneyLabel(row.support_goal)) as string }
+      : null,
     approvedGoal ? { label: "Admin Approved Goal", value: approvedGoal } : null,
-    moneyLabel(row.support_goal) ? { label: "Legacy Support Goal", value: moneyLabel(row.support_goal) as string } : null,
-    moneyLabel(support.committedSupport) ? { label: "Committed Support", value: moneyLabel(support.committedSupport) as string } : null,
+    moneyLabel(support.committedAmount ?? support.committedSupport)
+      ? { label: "Committed Support", value: moneyLabel(support.committedAmount ?? support.committedSupport) as string }
+      : null,
     moneyLabel(support.otherMonthlyIncome) ? { label: "Other Monthly Income", value: moneyLabel(support.otherMonthlyIncome) as string } : null,
+    compactDetail("Budget Context", support.budgetNarrative),
+    compactDetail("Fundraising Approach", support.fundraisingApproachPlan),
+    compactDetail("Fundraising Readiness", support.fundraisingReadiness),
+    compactDetail("Immediate Needs", support.immediateNeeds),
     { label: "Excess Support Agreement", value: agreementAccepted ? "Accepted" : "Not accepted" },
     compactDetail("Agreement Accepted At", row.excess_support_agreement_accepted_at ?? support.excessSupportAgreementAcceptedAt),
     compactDetail("Agreement Version", row.excess_support_agreement_version ?? support.excessSupportAgreementVersion),
@@ -581,9 +603,9 @@ function detailFromApplication(
     decisionState: workflowText(row, "decisionState"),
     documents: documentItems(row),
     dosSetupState: workflowText(row, "dosSetupState") ?? (row.workspace_id ? "Workspace linked" : null),
-    excessSupportAgreementAccepted: row.excess_support_agreement_accepted === true || asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementAccepted === true,
-    excessSupportAgreementAcceptedAt: cleanText(row.excess_support_agreement_accepted_at) ?? cleanText(asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementAcceptedAt),
-    excessSupportAgreementVersion: cleanText(row.excess_support_agreement_version) ?? cleanText(asRecord(asRecord(row.contact_payload).support_json).excessSupportAgreementVersion),
+    excessSupportAgreementAccepted: row.excess_support_agreement_accepted === true || applicationSupport(row).excessSupportAgreementAccepted === true,
+    excessSupportAgreementAcceptedAt: cleanText(row.excess_support_agreement_accepted_at) ?? cleanText(applicationSupport(row).excessSupportAgreementAcceptedAt),
+    excessSupportAgreementVersion: cleanText(row.excess_support_agreement_version) ?? cleanText(applicationSupport(row).excessSupportAgreementVersion),
     followUpState: workflowText(row, "followUpState"),
     householdDetails: householdDetails(row),
     householdMembers: householdMembers(row),
@@ -595,7 +617,7 @@ function detailFromApplication(
     prayerPartners: prayerPartners(row),
     prayerRequests: prayerRequests(row),
     profileReadiness: workflowText(row, "publicProfileDraft"),
-    proposedMonthlyNeedLabel: moneyLabel(row.proposed_monthly_need) ?? moneyLabel(asRecord(asRecord(row.contact_payload).support_json).proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget),
+    proposedMonthlyNeedLabel: moneyLabel(row.proposed_monthly_need) ?? moneyLabel(applicationSupport(row).proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget),
     references: references(row),
     reviewedAt: row.reviewed_at,
     storyAnswers: storyAnswers(row),
