@@ -228,6 +228,81 @@ if (joinClient !== null) {
 }
 
 // ---------------------------------------------------------------------------
+// A5. Moving the wizard off /join must preserve DOS setup at /dos/setup, and
+//     every known setup entry must point to that canonical route.
+// ---------------------------------------------------------------------------
+const dosSetupPage = read(path.join("app", "dos", "setup", "page.tsx"));
+const dosOnboardingPage = read(path.join("app", "dos", "onboarding", "page.tsx"));
+const dosPortalClient = read(path.join("app", "dos", "DosPortalClient.tsx"));
+const dormantDosSetupClient = read(path.join("app", "dos", "setup", "DosSetupClient.tsx"));
+
+check(
+  dosSetupPage !== null
+    && dosSetupPage.includes("dosAppMetadata")
+    && dosSetupPage.includes("DosOnboardingClient"),
+  "/dos/setup preserves the DOS-branded setup wizard",
+);
+
+check(
+  dosOnboardingPage !== null && /redirect\(["']\/dos\/setup["']\)/.test(dosOnboardingPage),
+  "/dos/onboarding redirects to the canonical /dos/setup route",
+);
+
+check(
+  dosPortalClient !== null && /href=["']\/dos\/setup["']/.test(dosPortalClient),
+  "the DOS portal Start Setup action points to /dos/setup",
+);
+
+const staleSetupLinks = [dosPortalClient, dormantDosSetupClient]
+  .filter((source) => source !== null)
+  .filter((source) => /href=["']\/dos\/onboarding["']/.test(source));
+
+check(
+  staleSetupLinks.length === 0,
+  "known DOS setup links use /dos/setup, not the legacy onboarding path",
+);
+
+// ---------------------------------------------------------------------------
+// A6. Submission must reuse the USA-172 canonical application ingress without
+//     provisioning DOS or publishing applicant/profile material.
+// ---------------------------------------------------------------------------
+const joinSubmission = read(path.join("src", "lib", "join", "submit-application.ts"));
+const canonicalApplicationIngress = read(path.join("src", "lib", "dos", "usam-application.ts"));
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("submitUsamApplicationForSetup")
+    && canonicalApplicationIngress !== null
+    && canonicalApplicationIngress.includes('.from("usam_missionary_applications")'),
+  "submission reuses the USA-172 usam_missionary_applications ingress",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("relationship_to_workspace: \"owner\"")
+    && joinSubmission.includes("relationship_to_workspace: \"spouse\"")
+    && joinSubmission.includes("source: \"public_form\""),
+  "couple submission preserves distinct owner and spouse records from the public form",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("user_id: null")
+    && joinSubmission.includes("applicantUserId: null")
+    && !joinSubmission.includes("auth.admin.createUser"),
+  "pre-acceptance submission creates no login or DOS account",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("public_visible: false")
+    && joinSubmission.includes('state: "draft_unpublished"')
+    && canonicalApplicationIngress !== null
+    && canonicalApplicationIngress.includes("show_support: false"),
+  "application and profile material remain private and unpublished",
+);
+
+// ---------------------------------------------------------------------------
 // Phase B: the bytes actually served at /join.
 // ---------------------------------------------------------------------------
 function probe(pathname, { hostname = CANONICAL_HOST } = {}) {
@@ -341,6 +416,16 @@ async function runServedContract() {
       "/join?resume=<token> renders differently from /join with no token",
       "Identical bytes mean the token changed nothing, so the link cannot be restoring a draft. "
         + "An invalid or expired token must still produce its own explicit state.",
+    );
+
+    const dosSetup = await probe("/dos/setup");
+    const servedDosIdentity = dosMarkers.some((marker) => dosSetup.body.includes(marker));
+
+    check(dosSetup.status === 200, `/dos/setup responds 200 (got ${dosSetup.status})`);
+    check(
+      servedDosIdentity,
+      "/dos/setup still serves the DOS setup experience",
+      "The canonical DOS route must retain DOS branding and setup content after /join moves away.",
     );
   } finally {
     server.kill("SIGTERM");

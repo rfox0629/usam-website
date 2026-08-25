@@ -286,7 +286,7 @@ export function DosSetupClient() {
       />
       <div className="mx-auto flex min-h-screen max-w-[760px] flex-col px-5 py-6 sm:px-8">
         <header className="flex items-center justify-between gap-4">
-          <Link className="text-[18px] font-black tracking-[-0.035em] text-[#1D4ED8]" href="/dos/onboarding">
+          <Link className="text-[18px] font-black tracking-[-0.035em] text-[#1D4ED8]" href="/dos/setup">
             DOS
           </Link>
           <Link className="rounded-full border border-[#DCEBFF] px-4 py-2 text-xs font-bold text-[#0F172A]" href="/dos">
