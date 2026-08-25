@@ -170,6 +170,14 @@ assertNotIncludes(appClient, "Not Invited", "Leader UI must not conflate partici
 
 assertIncludes(groupJourneyView, "GuidedJourneySessionSelector", "Member Journey view must reuse the shared custom Journey selector.");
 assertIncludes(groupJourneyView, "GuidedJourneyChapterContent", "Member Journey view must reuse the shared chapter renderer.");
+assertIncludes(memberAccess, ".eq(\"assignment_context\", \"group\")", "Member portal Journey assignments must be scoped to Group context.");
+assertIncludes(memberAccess, ".eq(\"source_group_id\", group.id)", "Member portal Journey assignments must be scoped to the exact Group.");
+assertIncludes(memberAccess, "journeyAssignmentIds.has(progress.assignment_id)", "Member portal Journey progress must be scoped by assignment id.");
+assertIncludes(memberHomeView, "journey?assignment=", "Member Group Home Journey links must carry the exact assignment id.");
+assertIncludes(memberJourneyPage, "resolveJourneyAssignment", "Member Journey route must resolve an assignment instance before resolving the resource.");
+assertIncludes(memberJourneyPage, "item.assignmentId === assignment.id", "Member Journey route must pass only progress for the resolved assignment instance.");
+assertIncludes(memberActions, ".eq(\"assignment_id\", assignmentId)", "Member Journey saves must update progress inside the resolved assignment instance.");
+assertIncludes(groupJourneyView, "name=\"assignmentId\"", "Member Journey save form must carry the exact assignment id.");
 assertIncludes(sharedJourneyUi, "function guidedJourneySessionChapterRange", "Member Journey view must expose compact chapter ranges through shared Journey UI.");
 assertIncludes(sharedJourneyUi, "function guidedJourneySessionSelectorTitle", "Member Journey view must show compact chapter titles in the custom selector.");
 assertIncludes(sharedJourneyUi, "function guidedJourneyChapterHeading", "Member Journey view must render chapter number before chapter title.");

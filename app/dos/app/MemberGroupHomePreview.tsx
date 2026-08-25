@@ -37,7 +37,7 @@ type MemberGroupHomePreviewProps = LeaderPreviewInput & {
   onClose: () => void;
 };
 
-type PreviewScreen = { view: "home" } | { resourceSlug: string; view: "journey" };
+type PreviewScreen = { view: "home" } | { assignmentId: string; view: "journey" };
 
 export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePreviewProps) {
   const [mounted, setMounted] = useState(false);
@@ -74,15 +74,15 @@ export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePre
   const firstName = input.member.personName.trim().split(/\s+/)[0] || input.member.personName;
   const groupPath = publicGroupPath(data.group.slug);
 
-  const journeyResource = screen.view === "journey" ? getDosResourceBySlug(screen.resourceSlug) : null;
   const journeyAssignment = screen.view === "journey"
-    ? data.journeyAssignments.find((assignment) => assignment.resourceSlug === screen.resourceSlug) ?? null
+    ? data.journeyAssignments.find((assignment) => assignment.id === screen.assignmentId) ?? null
     : null;
+  const journeyResource = journeyAssignment ? getDosResourceBySlug(journeyAssignment.resourceSlug) : null;
   // Completion state only. Reflections/action steps/prayer stay null in the
   // leader projection by design: a preview must never expose the member's
   // private responses.
   const journeyProgress = screen.view === "journey"
-    ? data.journeyProgress.filter((item) => item.resourceSlug === screen.resourceSlug)
+    ? data.journeyProgress.filter((item) => item.assignmentId === screen.assignmentId)
     : [];
 
   if (!mounted) {
@@ -118,12 +118,12 @@ export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePre
             groupName={data.group.name}
             groupPath={groupPath}
             groupSlug={data.group.slug}
-            key={screen.resourceSlug}
+            key={screen.assignmentId}
             preview={{
-              drafts: drafts[screen.resourceSlug] ?? {},
+              drafts: drafts[screen.assignmentId] ?? {},
               onDraftChange: (sessionId, draft) => setDrafts((current) => ({
                 ...current,
-                [screen.resourceSlug]: { ...current[screen.resourceSlug], [sessionId]: draft },
+                [screen.assignmentId]: { ...current[screen.assignmentId], [sessionId]: draft },
               })),
               onNavigateToGroup: () => setScreen({ view: "home" }),
             }}
@@ -134,7 +134,7 @@ export function MemberGroupHomePreview({ onClose, ...input }: MemberGroupHomePre
         ) : (
           <GroupHomeMemberView
             data={data}
-            onOpenJourney={(resourceSlug) => setScreen({ resourceSlug, view: "journey" })}
+            onOpenJourney={(assignmentId) => setScreen({ assignmentId, view: "journey" })}
             readOnly
           />
         )}

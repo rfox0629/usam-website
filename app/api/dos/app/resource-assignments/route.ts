@@ -243,14 +243,21 @@ export async function POST(request: Request) {
     sourceGroupMemberId = String(membershipResult.data.id);
   }
 
-  const existingResult = await supabase
+  let existingQuery = supabase
     .from("dos_resource_assignments")
     .select(resourceAssignmentSelect)
     .eq("workspace_id", workspaceResult.workspaceId)
     .eq("person_id", person.id)
     .eq("resource_slug", resource.slug)
+    .eq("assignment_context", assignmentContext)
     .in("status", ["not_started", "in_progress", "paused"])
-    .maybeSingle();
+    .limit(1);
+
+  existingQuery = sourceGroupId
+    ? existingQuery.eq("source_group_id", sourceGroupId)
+    : existingQuery.is("source_group_id", null);
+
+  const existingResult = await existingQuery.maybeSingle();
 
   if (existingResult.error) {
     return resourceAssignmentErrorResponse(existingResult.error);

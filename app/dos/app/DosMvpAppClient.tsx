@@ -1056,6 +1056,7 @@ type ResourceAssignmentSheetState =
   | { assignment: DosAppResourceAssignment; kind: "check_in" }
   | null;
 type GuidedResourceDetailState = {
+  assignmentId?: string | null;
   personId?: string | null;
   readOnly?: boolean;
   slug: string;
@@ -1067,6 +1068,7 @@ type LibraryResourceViewState =
   | { kind: "resource"; slug: string }
   | null;
 type LeaderJourneyProgressState = {
+  assignmentId?: string | null;
   personId: string;
   resourceSlug: string;
 } | null;
@@ -1095,6 +1097,7 @@ type ResourceAssignmentInvitationTarget = {
   personName: string;
 };
 type GroupMemberExperiencePreviewState = ResourceAssignmentInvitationTarget & {
+  assignmentId?: string | null;
   resourceSlug: string;
   startDate: string;
 };
@@ -2105,12 +2108,18 @@ function leaderPreviewGroup(group: DosAppGroup): LeaderPreviewInput["group"] {
 function leaderPreviewJourneys(
   resourceAssignments: readonly DosAppResourceAssignment[],
   personId: string,
+  options: { sourceGroupId?: string | null } = {},
 ): LeaderPreviewInput["journeys"] {
   // The real loader scopes to the person, newest start first, with no status
   // filter — completed Journeys stay visible in the participant's history, so
   // they stay visible in the preview too.
   return resourceAssignments
     .filter((assignment) => assignment.personId === personId)
+    .filter((assignment) => (
+      options.sourceGroupId === undefined
+        ? true
+        : assignment.assignmentContext === "group" && assignment.sourceGroupId === options.sourceGroupId
+    ))
     .slice()
     .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
     .map((assignment) => ({
@@ -2152,10 +2161,15 @@ function previewNextGatheringForTarget(
 function leaderPreviewProgress(
   guidedResourceProgress: readonly DosAppGuidedResourceProgress[],
   personId: string,
+  assignmentIds?: readonly string[],
 ): LeaderPreviewInput["progress"] {
+  const assignmentScope = assignmentIds ? new Set(assignmentIds) : null;
+
   return guidedResourceProgress
     .filter((item) => item.personId === personId)
+    .filter((item) => !assignmentScope || (item.assignmentId ? assignmentScope.has(item.assignmentId) : false))
     .map((item) => ({
+      assignmentId: item.assignmentId,
       completedAt: item.completedAt,
       id: item.id,
       resourceSlug: item.resourceSlug,
@@ -5654,11 +5668,17 @@ function activeResourceAssignmentForPerson({
     return null;
   }
 
-  return assignments.find((assignment) => (
+  const activeAssignments = assignments.filter((assignment) => (
     assignment.personId === personId
     && assignment.resourceSlug === resource.slug
+    && assignment.assignmentContext !== "group"
     && assignment.status !== "completed"
-  )) ?? null;
+  ));
+
+  return activeAssignments.find((assignment) => assignment.assignmentContext === "self")
+    ?? activeAssignments.find((assignment) => assignment.assignmentContext === "person")
+    ?? activeAssignments[0]
+    ?? null;
 }
 
 function completedResourceAssignmentsForPerson({
@@ -5677,6 +5697,7 @@ function completedResourceAssignmentsForPerson({
   return assignments.filter((assignment) => (
     assignment.personId === personId
     && assignment.resourceSlug === resource.slug
+    && assignment.assignmentContext !== "group"
     && assignment.status === "completed"
   ));
 }
@@ -5699,7 +5720,7 @@ function CatalogResourceRow({
   onAssign?: (resource: DosResource) => void;
   onClick?: () => void;
   onOpenResource?: (resource: DosResource) => void;
-  onOpenGuidedResource?: (resource: DosResource) => void;
+  onOpenGuidedResource?: (resource: DosResource, assignmentId?: string | null) => void;
   onReviewGuidedResource?: (resource: DosResource) => void;
   progressPersonId?: string | null;
   resource: DosResource;
@@ -5800,7 +5821,7 @@ function CatalogResourceRow({
           {onOpenGuidedResource ? (
             <button
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#2563EB] px-4 text-xs font-black text-white"
-              onClick={() => onOpenGuidedResource(resource)}
+              onClick={() => onOpenGuidedResource(resource, activeAssignment?.id ?? null)}
               type="button"
             >
               <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
@@ -6074,7 +6095,7 @@ function CatalogResourceList({
   guidedResourceProgress?: readonly DosAppGuidedResourceProgress[];
   onAssign?: (resource: DosResource) => void;
   onOpenResource?: (resource: DosResource) => void;
-  onOpenGuidedResource?: (resource: DosResource) => void;
+  onOpenGuidedResource?: (resource: DosResource, assignmentId?: string | null) => void;
   onReviewGuidedResource?: (resource: DosResource) => void;
   progressPersonId?: string | null;
   resources: readonly DosResource[];
@@ -6105,6 +6126,7 @@ function CatalogResourceList({
 }
 
 function GuidedResourceDetailSheet({
+  assignmentId,
   assignments,
   errorMessage,
   guidedResourceProgress,
@@ -6120,6 +6142,7 @@ function GuidedResourceDetailSheet({
   resource,
   variant = "sheet",
 }: {
+  assignmentId?: string | null;
   assignments: readonly DosAppResourceAssignment[];
   errorMessage: string;
   guidedResourceProgress: readonly DosAppGuidedResourceProgress[];
@@ -6148,8 +6171,9 @@ function GuidedResourceDetailSheet({
   const isReadingPlan = resource.type === "reading_plan";
   const sessions = guidedResourceSessions(resource);
   const linkedAssignment = personId
-    ? assignments.find((assignment) => assignment.personId === personId && assignment.resourceSlug === resource.slug && assignment.status !== "completed")
-      ?? null
+    ? assignmentId
+      ? assignments.find((assignment) => assignment.id === assignmentId && assignment.personId === personId && assignment.resourceSlug === resource.slug) ?? null
+      : activeResourceAssignmentForPerson({ assignments, personId, resource })
     : null;
   const personProgress = guidedResourceProgressForPerson({ assignmentId: linkedAssignment?.id ?? null, personId, progress: guidedResourceProgress, resource });
   const progressBySession = guidedResourceProgressBySession(personProgress);
@@ -8070,7 +8094,7 @@ function GroupDetailWorkspaceV2({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
-  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onTabChange: (tab: GroupDetailTab) => void;
@@ -8323,16 +8347,18 @@ function GroupPeopleTabV2({
   );
 }
 
-// A group never owns its own copy of an assignment - "the group's current journey" is
-// always derived from its active members' canonical dos_resource_assignments rows (the
-// most recently started active one). Shared by the group Journeys tab and by the Person
-// profile so both surfaces agree on why a person has a given journey.
+// A Group Journey is the set of assignment instances explicitly created for
+// that group context. Direct/self assignments for the same person/resource are
+// separate Journey instances and must not become this group's current journey.
 function computeGroupFocusAssignment(group: DosAppGroup, resourceAssignments: readonly DosAppResourceAssignment[]) {
   const activeMembers = group.members.filter((member) => member.status === "active");
   const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
-  const groupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
-  const explicitGroupAssignments = groupAssignments.filter((assignment) => assignment.sourceGroupId === group.id);
-  const focusPool = explicitGroupAssignments.length ? explicitGroupAssignments : groupAssignments;
+  const groupAssignments = resourceAssignments.filter((assignment) => (
+    memberPersonIds.has(assignment.personId)
+    && assignment.assignmentContext === "group"
+    && assignment.sourceGroupId === group.id
+  ));
+  const focusPool = groupAssignments;
   const activeGroupAssignments = focusPool.filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress");
   const focusAssignment = (activeGroupAssignments.length ? activeGroupAssignments : focusPool)
     .slice()
@@ -8425,14 +8451,16 @@ function groupJourneyCurrentPositionLabel(row: GroupJourneyRow, resource: DosRes
 }
 
 // A group can run multiple journeys at once (e.g. a reading plan sprint alongside a
-// guided-journey study). Each distinct resource_slug assigned to the group's active
-// members becomes its own row so journeys never overwrite or hide one another.
+// guided-journey study). Rows are scoped to this group's assignment instances so
+// Tuesday and Wednesday copies of the same resource never collapse into one row.
 function computeGroupJourneyRows(group: DosAppGroup, resourceAssignments: readonly DosAppResourceAssignment[]) {
   const activeMembers = group.members.filter((member) => member.status === "active");
   const memberPersonIds = new Set(activeMembers.map((member) => member.personId));
-  const allGroupAssignments = resourceAssignments.filter((assignment) => memberPersonIds.has(assignment.personId));
-  const explicitGroupAssignments = allGroupAssignments.filter((assignment) => assignment.sourceGroupId === group.id);
-  const groupAssignments = explicitGroupAssignments.length ? explicitGroupAssignments : allGroupAssignments;
+  const groupAssignments = resourceAssignments.filter((assignment) => (
+    memberPersonIds.has(assignment.personId)
+    && assignment.assignmentContext === "group"
+    && assignment.sourceGroupId === group.id
+  ));
 
   const assignmentsBySlug = new Map<string, DosAppResourceAssignment[]>();
   groupAssignments.forEach((assignment) => {
@@ -8503,7 +8531,7 @@ function GroupJourneysTabV2({
   isPreview: boolean;
   onAssignJourney: (resource?: DosResource) => void;
   onCopyGroupReminder: () => void;
-  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
   resourceAssignments: DosAppResourceAssignment[];
   workspaceId: string;
 }) {
@@ -8529,6 +8557,7 @@ function GroupJourneysTabV2({
   async function sendMemberAccess(member: DosAppGroupMember) {
     if (isPreview) {
       const previewJourney = currentRows[0] ?? upcomingRows[0] ?? pastRows[0] ?? null;
+      const previewAssignment = previewJourney?.assignments.find((assignment) => assignment.personId === member.personId) ?? null;
       const previewResourceSlug = previewJourney?.resourceSlug ?? "marks-of-discipleship";
       const expiresAt = new Date(Date.now() + demoParticipantAccessTtlMs).toISOString();
       const accessUrl = buildPreviewParticipantAccessUrl({
@@ -8540,11 +8569,11 @@ function GroupJourneysTabV2({
         personName: member.personName,
       }, {
         completedSessionIds: guidedResourceProgress
-          .filter((item) => item.personId === member.personId && item.resourceSlug === previewResourceSlug && item.completedAt)
+          .filter((item) => item.personId === member.personId && item.assignmentId === previewAssignment?.id && item.completedAt)
           .map((item) => item.sessionId),
         expiresAt,
         resourceSlug: previewResourceSlug,
-        startDate: previewJourney?.startDate ?? todayResourceAssignmentDateKey(),
+        startDate: previewAssignment?.startDate ?? previewJourney?.startDate ?? todayResourceAssignmentDateKey(),
       });
 
       if (!accessUrl) {
@@ -8660,7 +8689,8 @@ function GroupJourneysTabV2({
       setEditingJourneyRow(row);
     },
     onOpenJourney,
-    onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => setPreviewTarget({
+    onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string, assignmentId?: string | null) => setPreviewTarget({
+      assignmentId: assignmentId ?? null,
       groupId: group.id,
       groupName: group.name,
       groupSlug: group.slug,
@@ -8715,11 +8745,21 @@ function GroupJourneysTabV2({
             {previewTarget ? (
               <MemberGroupHomePreview
                 group={leaderPreviewGroup(group)}
-                journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+                journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId, { sourceGroupId: previewTarget.groupId })}
                 member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
                 nextGathering={nextExpectedGroupGathering(group)}
                 onClose={() => setPreviewTarget(null)}
-                progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
+                progress={leaderPreviewProgress(
+                  guidedResourceProgress,
+                  previewTarget.personId,
+                  resourceAssignments
+                    .filter((assignment) => (
+                      assignment.personId === previewTarget.personId
+                      && assignment.assignmentContext === "group"
+                      && assignment.sourceGroupId === previewTarget.groupId
+                    ))
+                    .map((assignment) => assignment.id),
+                )}
               />
             ) : null}
 
@@ -8794,8 +8834,8 @@ function GroupJourneyRowCard({
   isExpanded: boolean;
   onAssignMore: (resource?: DosResource) => void;
   onEditJourney: (row: GroupJourneyRow) => void;
-  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
-  onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
+  onPreviewMemberExperience: (member: DosAppGroupMember, resourceSlug: string, startDate: string, assignmentId?: string | null) => void;
   onSendMemberAccess: (member: DosAppGroupMember) => void;
   onToggleExpand: (resourceSlug: string) => void;
   row: GroupJourneyRow;
@@ -8854,8 +8894,10 @@ function GroupJourneyRowCard({
             </button>
           </div>
           {activeMembers.length ? activeMembers.map((member) => {
-            const assignment = groupAssignments.find((item) => item.personId === member.personId && item.resourceSlug === resourceSlug) ?? null;
-            const progressRows = guidedResourceProgress.filter((item) => item.personId === member.personId && item.resourceSlug === resourceSlug);
+            const assignment = assignments.find((item) => item.personId === member.personId) ?? null;
+            const progressRows = assignment
+              ? guidedResourceProgress.filter((item) => item.personId === member.personId && item.assignmentId === assignment.id)
+              : [];
             const completedSessionIds = new Set(progressRows.filter((item) => item.completedAt).map((item) => item.sessionId));
             const currentSession = sessions.find((session) => !completedSessionIds.has(session.id));
             const latestProgress = progressRows.slice().sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime())[0] ?? null;
@@ -8886,7 +8928,7 @@ function GroupJourneyRowCard({
                       shrink-0 single-line row and overflow at 390px. They wrap
                       now, and each button may shrink to its own text. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <button className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-center text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, Boolean(assignment))} type="button">
+                    <button className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full bg-[#0F172A] px-2.5 text-center text-xs font-black text-white" onClick={() => onOpenJourney(member.personId, resourceSlug, assignment?.id ?? null, Boolean(assignment))} type="button">
                       {assignment ? "View Journey" : "Assign"}
                     </button>
                     <button
@@ -8899,7 +8941,7 @@ function GroupJourneyRowCard({
                     </button>
                     <button
                       className="inline-flex min-h-8 max-w-full items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-2.5 text-center text-xs font-black text-[#475569] transition-colors hover:bg-[#F8FAFC]"
-                      onClick={() => onPreviewMemberExperience(member, resourceSlug, assignment?.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey())}
+                      onClick={() => onPreviewMemberExperience(member, resourceSlug, assignment?.startDate ?? row.latestDate ?? todayResourceAssignmentDateKey(), assignment?.id ?? null)}
                       type="button"
                     >
                       Preview {participantFirstName(member.personName)}'s Experience
@@ -9007,6 +9049,7 @@ function GroupJourneyAssignSheet({
     selectedResource
       ? resourceAssignments
         .filter((assignment) => assignment.resourceSlug === selectedResource.slug)
+        .filter((assignment) => assignment.assignmentContext === "group" && assignment.sourceGroupId === group.id)
         .filter((assignment) => assignment.status === "not_started" || assignment.status === "in_progress" || assignment.status === "paused")
         .map((assignment) => assignment.personId)
       : [],
@@ -9244,7 +9287,7 @@ function GroupsWorkspace({
   onLogAsTable: () => void;
   onOpenGroup: (groupId: string) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
-  onOpenJourney: (personId: string, resourceSlug: string, hasAssignment: boolean) => void;
+  onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
   onSearchChange: (value: string) => void;
@@ -13139,7 +13182,7 @@ function ResourceAssignmentCard({
   compact?: boolean;
   groupNames?: string[];
   onEditDates?: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource?: (resource: DosResource) => void;
+  onOpenGuidedResource?: (resource: DosResource, assignmentId?: string | null) => void;
   onLogCheckIn?: (assignment: DosAppResourceAssignment) => void;
   onMarkComplete?: (assignment: DosAppResourceAssignment) => void;
   onMarkInProgress?: (assignment: DosAppResourceAssignment) => void;
@@ -13868,7 +13911,7 @@ function ResourceAssignmentSuccessSheet({
   notice: NonNullable<ResourceAssignmentNotice>;
   onClose: () => void;
   onOpenGroupParticipants: (groupId: string) => void;
-  onOpenJourney: (resource: DosResource, personId: string) => void;
+  onOpenJourney: (resource: DosResource, personId: string, assignmentId?: string | null) => void;
   onOpenPerson: (personId: string) => void;
   resourceAssignments: DosAppResourceAssignment[];
   workspaceId: string;
@@ -14127,15 +14170,25 @@ function ResourceAssignmentSuccessSheet({
         {previewTarget ? (
           <MemberGroupHomePreview
             group={previewGroupForTarget(groups, previewTarget)}
-            journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId)}
+            journeys={leaderPreviewJourneys(resourceAssignments, previewTarget.personId, { sourceGroupId: previewTarget.groupId })}
             member={{ id: previewTarget.memberId, personId: previewTarget.personId, personName: previewTarget.personName }}
             nextGathering={previewNextGatheringForTarget(groups, previewTarget)}
             onClose={() => setPreviewTarget(null)}
-            progress={leaderPreviewProgress(guidedResourceProgress, previewTarget.personId)}
+            progress={leaderPreviewProgress(
+              guidedResourceProgress,
+              previewTarget.personId,
+              resourceAssignments
+                .filter((assignment) => (
+                  assignment.personId === previewTarget.personId
+                  && assignment.assignmentContext === "group"
+                  && assignment.sourceGroupId === previewTarget.groupId
+                ))
+                .map((assignment) => assignment.id),
+            )}
           />
         ) : null}
         {canOpenJourney && resource ? (
-          <AppButton icon="library" onClick={() => notice.personId ? onOpenJourney(resource, notice.personId) : undefined} tone="black">Open Journey</AppButton>
+          <AppButton icon="library" onClick={() => notice.personId ? onOpenJourney(resource, notice.personId, notice.assignmentId ?? null) : undefined} tone="black">Open Journey</AppButton>
         ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {notice.kind === "group" && notice.groupId ? (
@@ -31040,7 +31093,7 @@ function MyRecordResourceAssignmentRow({
   onMarkComplete?: (assignment: DosAppResourceAssignment) => void;
   onMarkInProgress?: (assignment: DosAppResourceAssignment) => void;
   onOpen?: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource?: (resource: DosResource) => void;
+  onOpenGuidedResource?: (resource: DosResource, assignmentId?: string | null) => void;
   onPause?: (assignment: DosAppResourceAssignment) => void;
 }) {
   const assignedBy = assignment.assignedByUserId ? "DOS user" : "DOS";
@@ -31069,7 +31122,7 @@ function MyRecordResourceAssignmentRow({
       />
       {hasActions ? (
         <div className="flex flex-wrap gap-1.5 pl-10">
-          {guidedResource && onOpenGuidedResource ? <CompactButton icon="log" onClick={() => onOpenGuidedResource(guidedResource)}>Continue</CompactButton> : null}
+          {guidedResource && onOpenGuidedResource ? <CompactButton icon="log" onClick={() => onOpenGuidedResource(guidedResource, assignment.id)}>Continue</CompactButton> : null}
           {assignment.status === "not_started" && onMarkInProgress ? <CompactButton icon="commitment" onClick={() => onMarkInProgress(assignment)}>Start</CompactButton> : null}
           {assignment.status !== "completed" && onMarkComplete ? <CompactButton icon="commitment" onClick={() => onMarkComplete(assignment)}>Complete</CompactButton> : null}
           {assignment.status !== "completed" && onLogCheckIn ? <CompactButton icon="log" onClick={() => onLogCheckIn(assignment)}>Check-In</CompactButton> : null}
@@ -31130,7 +31183,7 @@ function MyRecordGrowthPanel({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   people: DosAppPerson[];
@@ -31183,7 +31236,7 @@ function MyRecordGrowthPanel({
                 onLogCheckIn={onLogResourceCheckIn}
                 onMarkComplete={onMarkResourceAssignmentComplete}
                 onMarkInProgress={onMarkResourceAssignmentInProgress}
-                onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                onOpenGuidedResource={(resource, assignmentId) => onOpenGuidedResource(resource, assignment.personId, assignmentId)}
                 onPause={onPauseResourceAssignment}
               />
             ))}
@@ -31206,7 +31259,7 @@ function MyRecordGrowthPanel({
                   assignment={assignment}
                   key={assignment.id}
                   onOpen={onEditResourceAssignment}
-                  onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                  onOpenGuidedResource={(resource, assignmentId) => onOpenGuidedResource(resource, assignment.personId, assignmentId)}
                 />
               ))}
             </div>
@@ -32032,7 +32085,7 @@ function MyRecordWorkspace({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
@@ -34525,7 +34578,7 @@ function PersonDetailOverlay({
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource: (resource: DosResource, personId?: string | null) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenReview: (item: SubmittedReviewListItem) => void;
@@ -35167,7 +35220,7 @@ function PersonDetailOverlay({
                     onLogCheckIn={onLogResourceCheckIn}
                     onMarkComplete={onMarkResourceAssignmentComplete}
                     onMarkInProgress={onMarkResourceAssignmentInProgress}
-                    onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                    onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId, assignment.id)}
                     onPause={onPauseResourceAssignment}
                   />
                 )) : (
@@ -35191,7 +35244,7 @@ function PersonDetailOverlay({
                       groupNames={groupNamesForAssignmentContext({ assignment, groups, resourceAssignments: allResourceAssignments })}
                       key={assignment.id}
                       onEditDates={onEditResourceAssignment}
-                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId)}
+                      onOpenGuidedResource={(resource) => onOpenGuidedResource(resource, assignment.personId, assignment.id)}
                     />
                   ))}
                 </div>
@@ -36174,13 +36227,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     selectedPerson ? data.accountabilityCheckIns.filter((checkIn) => checkIn.personId === selectedPerson.id) : []
   ), [data.accountabilityCheckIns, selectedPerson]);
   const myRecordPerson = useMemo(() => {
-    const userEmail = data.workspace.userEmail?.trim().toLowerCase() ?? "";
-    const displayName = data.myRecord.displayName?.trim().toLowerCase() ?? data.workspace.userFullName?.trim().toLowerCase() ?? "";
+    const userPersonId = data.workspace.userPersonId ?? null;
 
-    return people.find((person) => userEmail && person.email?.trim().toLowerCase() === userEmail)
-      ?? people.find((person) => displayName && person.name.trim().toLowerCase() === displayName)
-      ?? null;
-  }, [data.myRecord.displayName, data.workspace.userEmail, data.workspace.userFullName, people]);
+    return userPersonId ? people.find((person) => person.id === userPersonId) ?? null : null;
+  }, [data.workspace.userPersonId, people]);
   const myRecordResourceAssignments = useMemo(() => (
     myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
   ), [data.resourceAssignments, myRecordPerson]);
@@ -36205,7 +36255,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   ), [leaderJourneyProgress?.personId, people]);
   const leaderJourneyAssignment = useMemo(() => (
     leaderJourneyProgress
-      ? data.resourceAssignments.find((assignment) => assignment.personId === leaderJourneyProgress.personId && assignment.resourceSlug === leaderJourneyProgress.resourceSlug) ?? null
+      ? leaderJourneyProgress.assignmentId
+        ? data.resourceAssignments.find((assignment) => assignment.id === leaderJourneyProgress.assignmentId && assignment.personId === leaderJourneyProgress.personId && assignment.resourceSlug === leaderJourneyProgress.resourceSlug) ?? null
+        : data.resourceAssignments.find((assignment) => assignment.personId === leaderJourneyProgress.personId && assignment.resourceSlug === leaderJourneyProgress.resourceSlug) ?? null
       : null
   ), [data.resourceAssignments, leaderJourneyProgress]);
   const selectedReminder = useMemo(() => data.reminders.find((reminder) => reminder.id === selectedReminderId) ?? null, [data.reminders, selectedReminderId]);
@@ -38096,32 +38148,32 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setResourceAssignmentSheet({ assignment, kind: "check_in" });
   }
 
-  function openGuidedResource(resource: DosResource, personId?: string | null, options?: { readOnly?: boolean }) {
+  function openGuidedResource(resource: DosResource, personId?: string | null, options?: { assignmentId?: string | null; readOnly?: boolean }) {
     if (!isGuidedResource(resource)) {
       return;
     }
 
     setErrorMessage("");
     setLeaderJourneyProgress(null);
-    setGuidedResourceDetail({ personId: personId ?? null, readOnly: options?.readOnly ?? false, slug: resource.slug });
+    setGuidedResourceDetail({ assignmentId: options?.assignmentId ?? null, personId: personId ?? null, readOnly: options?.readOnly ?? false, slug: resource.slug });
   }
 
-  function openLeaderJourneyProgress(personId: string, resourceSlug: string) {
+  function openLeaderJourneyProgress(personId: string, resourceSlug: string, assignmentId?: string | null) {
     setErrorMessage("");
     setGuidedResourceDetail(null);
-    setLeaderJourneyProgress({ personId, resourceSlug });
+    setLeaderJourneyProgress({ assignmentId: assignmentId ?? null, personId, resourceSlug });
   }
 
   // A newly assigned or edited journey should never dead-end. Self-assignments open the
   // editable participant sheet directly; assignments to someone else open the leader's
   // read-only progress summary (which still offers "Preview Participant View").
-  function openJourneyForPerson(resource: DosResource, personId?: string | null) {
+  function openJourneyForPerson(resource: DosResource, personId?: string | null, assignmentId?: string | null) {
     if (personId && personId !== myRecordPerson?.id) {
-      openLeaderJourneyProgress(personId, resource.slug);
+      openLeaderJourneyProgress(personId, resource.slug, assignmentId ?? null);
       return;
     }
 
-    openGuidedResource(resource, personId);
+    openGuidedResource(resource, personId, { assignmentId: assignmentId ?? null });
   }
 
   async function saveGuidedResourceProgress(request: {
@@ -38297,7 +38349,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setResourceAssignmentSheet(null);
 
     if (resource && isGuidedResource(resource)) {
-      openLeaderJourneyProgress(assignment.personId, assignment.resourceSlug);
+      openLeaderJourneyProgress(assignment.personId, assignment.resourceSlug, assignment.id);
       return;
     }
 
@@ -41631,7 +41683,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onLogResourceCheckIn={openResourceAssignmentCheckIn}
                     onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
                     onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
-                    onOpenGuidedResource={openGuidedResource}
+                    onOpenGuidedResource={openJourneyForPerson}
                     onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
                     onQuickTab={setMyRecordTab}
                     onSave={submitMyRecord}
@@ -41681,14 +41733,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       }
                     }}
                     onOpenGroupJoinRequests={openGroupJoinRequests}
-                    onOpenJourney={(personId, resourceSlug, hasAssignment) => {
+                    onOpenJourney={(personId, resourceSlug, assignmentId, hasAssignment) => {
                       if (!getDosResourceBySlug(resourceSlug)) {
                         setErrorMessage("This resource is no longer in the Library.");
                         return;
                       }
 
                       if (hasAssignment) {
-                        openLeaderJourneyProgress(personId, resourceSlug);
+                        openLeaderJourneyProgress(personId, resourceSlug, assignmentId);
                         return;
                       }
 
@@ -42543,9 +42595,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setMoreAppView("groups");
               openGroupDetail(groupId, "people");
             }}
-            onOpenJourney={(resource, personId) => {
+            onOpenJourney={(resource, personId, assignmentId) => {
               setResourceAssignmentNotice(null);
-              openJourneyForPerson(resource, personId);
+              openJourneyForPerson(resource, personId, assignmentId ?? null);
             }}
             onOpenPerson={(personId) => {
               setResourceAssignmentNotice(null);
@@ -42568,6 +42620,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedGuidedResource && isGuidedResource(selectedGuidedResource) ? (
           <GuidedResourceDetailSheet
+            assignmentId={guidedResourceDetail?.assignmentId ?? null}
             assignments={data.resourceAssignments}
             errorMessage={errorMessage}
             guidedResourceProgress={data.guidedResourceProgress}
@@ -42604,7 +42657,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openPersonDetail(personId);
             }}
             onPreviewParticipantView={() => {
-              openGuidedResource(leaderJourneyResource, leaderJourneyProgress.personId, { readOnly: true });
+              openGuidedResource(leaderJourneyResource, leaderJourneyProgress.personId, {
+                assignmentId: leaderJourneyProgress.assignmentId ?? leaderJourneyAssignment?.id ?? null,
+                readOnly: true,
+              });
             }}
             personId={leaderJourneyProgress.personId}
             personName={leaderJourneyPerson.name}

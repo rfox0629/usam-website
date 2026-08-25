@@ -68,8 +68,21 @@ function redirectToSignIn(slug: string, state: string): never {
   redirect(`${publicGroupPath(slug)}/member?state=${state}`);
 }
 
-function redirectToJourney(slug: string, resourceSlug: string, state: string): never {
-  redirect(`${publicGroupPath(slug)}/journey?resource=${encodeURIComponent(resourceSlug)}&state=${state}`);
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function redirectToJourney(slug: string, resourceSlug: string, state: string, assignmentId = ""): never {
+  const params = new URLSearchParams({
+    resource: resourceSlug,
+    state,
+  });
+
+  if (assignmentId) {
+    params.set("assignment", assignmentId);
+  }
+
+  redirect(`${publicGroupPath(slug)}/journey?${params.toString()}`);
 }
 
 async function requireMemberPortal(slug: string) {
@@ -159,6 +172,7 @@ export async function submitMemberRsvp(formData: FormData) {
 
 export async function saveGroupMemberJourneyProgress(formData: FormData) {
   const slug = formString(formData, "slug");
+  const requestedAssignmentId = formString(formData, "assignmentId");
   const resourceSlug = formString(formData, "resourceSlug");
   const sessionId = formString(formData, "sessionId");
   const reflection = formString(formData, "reflection").slice(0, 6000);
@@ -167,7 +181,7 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
   const intent = formString(formData, "intent");
 
   if (!slug || !resourceSlug || !sessionId) {
-    redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error");
+    redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error", requestedAssignmentId);
   }
 
   const cookieStore = await cookies();
@@ -179,13 +193,15 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
   if (demoPortal.data) {
     const resource = getDosResourceBySlug(resourceSlug);
     const sessionExists = resource?.content?.guidedResource?.sessions.some((session) => session.id === sessionId) === true;
-    const assignmentExists = demoPortal.data.journeyAssignments.some((assignment) => assignment.resourceSlug === resourceSlug);
+    const assignment = requestedAssignmentId
+      ? demoPortal.data.journeyAssignments.find((item) => item.id === requestedAssignmentId && item.resourceSlug === resourceSlug) ?? null
+      : demoPortal.data.journeyAssignments.find((item) => item.resourceSlug === resourceSlug) ?? null;
 
-    if (!assignmentExists || !sessionExists) {
-      redirectToJourney(slug, resourceSlug, "journey-error");
+    if (!assignment || !sessionExists) {
+      redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
     }
 
-    redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved");
+    redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved", assignment.id);
   }
 
   const portalResult = await requireMemberPortal(slug);
@@ -202,44 +218,57 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
     .maybeSingle();
 
   if (groupResult.error || !groupResult.data) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+    redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
   }
 
   const workspaceId = groupResult.data.workspace_id as string;
-  const [assignmentResult, existingResult] = await Promise.all([
-    supabase
-      .from("dos_resource_assignments")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .eq("person_id", session.personId)
-      .eq("resource_slug", resourceSlug)
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("dos_guided_resource_progress")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .eq("person_id", session.personId)
-      .eq("resource_slug", resourceSlug)
-      .eq("session_id", sessionId)
-      .maybeSingle(),
-  ]);
+  let assignmentQuery = supabase
+    .from("dos_resource_assignments")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("person_id", session.personId)
+    .eq("resource_slug", resourceSlug)
+    .eq("assignment_context", "group")
+    .eq("source_group_id", session.groupId);
 
-  if (assignmentResult.error || existingResult.error) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+  if (requestedAssignmentId) {
+    if (!isUuid(requestedAssignmentId)) {
+      redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
+    }
+
+    assignmentQuery = assignmentQuery.eq("id", requestedAssignmentId);
   }
 
-  const assignmentId = assignmentResult.data?.id ?? null;
+  const assignmentResult = await assignmentQuery
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (assignmentResult.error || !assignmentResult.data) {
+    redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
+  }
+
+  const assignmentId = assignmentResult.data.id as string;
+  const existingResult = await supabase
+    .from("dos_guided_resource_progress")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("person_id", session.personId)
+    .eq("resource_slug", resourceSlug)
+    .eq("assignment_id", assignmentId)
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (existingResult.error) {
+    redirectToJourney(slug, resourceSlug, "journey-error", assignmentId);
+  }
+
   const patch: Record<string, unknown> = {
     action_step: actionStep || null,
+    assignment_id: assignmentId,
     prayer_focus: prayerFocus || null,
     reflection: reflection || null,
   };
-
-  if (assignmentId) {
-    patch.assignment_id = assignmentId;
-  }
 
   if (intent === "complete") {
     patch.completed_at = new Date().toISOString();
@@ -265,11 +294,11 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
       });
 
   if (error) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+    redirectToJourney(slug, resourceSlug, "journey-error", assignmentId);
   }
 
   revalidatePath(`${publicGroupPath(slug)}/journey`);
-  redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved");
+  redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved", assignmentId);
 }
 
 export async function submitMemberPrayerRequest(formData: FormData) {
