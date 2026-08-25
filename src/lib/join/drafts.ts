@@ -112,7 +112,7 @@ function toRecord(row: DraftRow): JoinDraftRecord {
 const rowColumns = "id, applicant_email, applicant_name, current_step, draft, expires_at, status";
 
 export type ResumeLookup =
-  | { reason: "expired" | "not_found" | "storage_unavailable" | "submitted"; record: null; status: "unavailable" }
+  | { reason: "expired" | "not_found" | "revoked" | "storage_unavailable" | "submitted"; record: null; status: "unavailable" }
   | { reason: null; record: JoinDraftRecord; status: "ok" };
 
 /**
@@ -149,6 +149,10 @@ export async function resolveResumeToken(token: string): Promise<ResumeLookup> {
 
   if (record.status === "submitted") {
     return { reason: "submitted", record: null, status: "unavailable" };
+  }
+
+  if (record.status === "abandoned") {
+    return { reason: "revoked", record: null, status: "unavailable" };
   }
 
   if (new Date(record.expiresAt).getTime() < Date.now()) {

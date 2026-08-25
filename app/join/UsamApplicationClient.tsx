@@ -24,7 +24,7 @@ import {
  * component state and sent with every later save so they all land on one draft.
  */
 
-type ResumeState = "expired" | "none" | "restored" | "submitted" | "unavailable";
+type ResumeState = "expired" | "none" | "restored" | "revoked" | "submitted" | "unavailable";
 
 type SaveState = "error" | "idle" | "saved" | "saving";
 
@@ -44,6 +44,8 @@ function resumeNotice(state: ResumeState) {
       return "That link has expired. Your answers are safe, so contact us and we will send a fresh one.";
     case "restored":
       return "Welcome back. Your application is exactly where you left it.";
+    case "revoked":
+      return "That link is no longer active. Contact us if you need a new one.";
     case "submitted":
       return "This application has already been submitted, so the link no longer opens it.";
     case "unavailable":
@@ -64,6 +66,11 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const [submitError, setSubmitError] = useState("");
   const [applicationId, setApplicationId] = useState("");
 
+  // One intentional click owns one stable request ID. It survives an
+  // ambiguous network failure so a retry cannot create a second email, while
+  // a successful later click starts a new intentional send.
+  const resumeEmailAttemptRef = useRef<{ id: string; inFlight: boolean } | null>(null);
+
   // Skips the autosave that would otherwise fire immediately on mount and
   // create an empty draft row for anyone who merely opened the page.
   const dirtyRef = useRef(false);
@@ -73,6 +80,20 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
   const persist = useCallback(
     async (options: { sendResumeEmail?: boolean } = {}) => {
+      const shouldSendResumeEmail = options.sendResumeEmail === true;
+
+      if (shouldSendResumeEmail && resumeEmailAttemptRef.current?.inFlight) {
+        return true;
+      }
+
+      const emailRequestId = shouldSendResumeEmail
+        ? resumeEmailAttemptRef.current?.id ?? crypto.randomUUID()
+        : undefined;
+
+      if (shouldSendResumeEmail && emailRequestId) {
+        resumeEmailAttemptRef.current = { id: emailRequestId, inFlight: true };
+      }
+
       setSaveState("saving");
 
       try {
@@ -80,8 +101,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           body: JSON.stringify({
             currentStep: stepId,
             draft,
+            emailRequestId,
             resumeToken: token,
-            sendResumeEmail: options.sendResumeEmail === true,
+            sendResumeEmail: shouldSendResumeEmail,
           }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
@@ -99,7 +121,8 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
         setSaveState("saved");
 
-        if (options.sendResumeEmail) {
+        if (shouldSendResumeEmail) {
+          resumeEmailAttemptRef.current = null;
           setEmailNotice(
             result.emailSent
               ? "We sent your link. Check your inbox."
@@ -109,6 +132,10 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
         return true;
       } catch {
+        if (shouldSendResumeEmail && emailRequestId && resumeEmailAttemptRef.current?.id === emailRequestId) {
+          resumeEmailAttemptRef.current = { id: emailRequestId, inFlight: false };
+        }
+
         setSaveState("error");
 
         return false;
@@ -801,6 +828,7 @@ function SaveBar({
   onSaveAndEmail: () => void;
   saveState: SaveState;
 }) {
+  const isSaving = saveState === "saving";
   const label =
     saveState === "saving"
       ? "Saving..."
@@ -817,6 +845,7 @@ function SaveBar({
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           className="inline-flex h-12 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A]"
+          disabled={isSaving}
           onClick={onSave}
           type="button"
         >
@@ -824,7 +853,7 @@ function SaveBar({
         </button>
         <button
           className="inline-flex h-12 items-center justify-center rounded-full border border-[#2563EB] bg-white px-5 text-sm font-black text-[#1D4ED8] disabled:opacity-40"
-          disabled={!hasEmail}
+          disabled={!hasEmail || isSaving}
           onClick={onSaveAndEmail}
           type="button"
         >

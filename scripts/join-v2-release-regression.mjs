@@ -189,6 +189,7 @@ if (emailModule === null) {
 //     page cannot, which is why the token is silently dropped in production.
 // ---------------------------------------------------------------------------
 const joinClient = read(path.join("app", "join", "UsamApplicationClient.tsx"));
+const previewGate = read(path.join("app", "join", "JoinPreviewGate.tsx"));
 
 if (joinPage !== null) {
   const readsResume = /resume/i.test(joinPage) || (joinClient !== null && /resume/i.test(joinClient));
@@ -209,6 +210,14 @@ if (joinPage !== null) {
       + "(observed in production as x-nextjs-prerender: 1) and the token never arrives.",
   );
 }
+
+check(
+  previewGate !== null
+    && previewGate.includes("router.refresh()")
+    && !/router\.(?:push|replace)\(["'`]\/join/.test(stripComments(previewGate)),
+  "founder gate authentication refreshes the original resume URL instead of replacing it",
+  "Replacing the route with /join discards ?resume=<token>; refresh preserves the current pathname and query.",
+);
 
 // ---------------------------------------------------------------------------
 // A4. A resume link is a cross-device return path, so the draft cannot live

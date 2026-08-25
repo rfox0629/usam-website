@@ -16,6 +16,11 @@ type EmailResult = {
   skippedReason?: string;
 };
 
+type EmailSendOptions = {
+  /** Resend retains idempotency keys for 24 hours and returns the original send. */
+  idempotencyKey?: string;
+};
+
 type JoinResumeEmailInput = {
   applicantName: string;
   /** Built by buildResumeUrl in src/lib/join/drafts.ts. Never assembled here. */
@@ -79,7 +84,11 @@ function emailShell(title: string, body: string) {
   `;
 }
 
-async function sendResendEmail(to: string, template: EmailTemplate): Promise<EmailResult> {
+async function sendResendEmail(
+  to: string,
+  template: EmailTemplate,
+  options: EmailSendOptions = {},
+): Promise<EmailResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
 
   if (!resendApiKey) {
@@ -92,6 +101,15 @@ async function sendResendEmail(to: string, template: EmailTemplate): Promise<Ema
   }
 
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    };
+
+    if (options.idempotencyKey) {
+      headers["Idempotency-Key"] = options.idempotencyKey;
+    }
+
     const response = await fetch("https://api.resend.com/emails", {
       body: JSON.stringify({
         from: configuredFromEmail(),
@@ -100,10 +118,7 @@ async function sendResendEmail(to: string, template: EmailTemplate): Promise<Ema
         text: template.text,
         to,
       }),
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       method: "POST",
     });
 
@@ -299,8 +314,12 @@ export function buildApplicationDeclinedEmail(input: JoinApplicationEmailInput):
   };
 }
 
-export async function sendApplicationResumeEmail(to: string, input: JoinResumeEmailInput) {
-  return sendResendEmail(to, buildApplicationResumeEmail(input));
+export async function sendApplicationResumeEmail(
+  to: string,
+  input: JoinResumeEmailInput,
+  options: EmailSendOptions = {},
+) {
+  return sendResendEmail(to, buildApplicationResumeEmail(input), options);
 }
 
 export async function sendApplicantApplicationSubmittedEmail(input: JoinApplicationEmailInput) {

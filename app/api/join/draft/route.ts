@@ -25,6 +25,18 @@ import { requireJoinPreviewAccess } from "@/src/lib/join/request-access";
  */
 export const dynamic = "force-dynamic";
 
+const emailRequestIdPattern = /^[A-Za-z0-9_-]{16,128}$/;
+
+function normalizeEmailRequestId(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const requestId = value.trim();
+
+  return emailRequestIdPattern.test(requestId) ? requestId : "";
+}
+
 function normalizeIdentity(value: unknown) {
   const empty = emptyJoinApplicationDraft().applicant;
 
@@ -118,8 +130,14 @@ export async function POST(request: Request) {
   const currentStep = isJoinApplicationStepId(payload.currentStep) ? payload.currentStep : "start";
   const draft = normalizeDraft(payload.draft);
   const resumeToken = typeof payload.resumeToken === "string" ? payload.resumeToken : null;
+  const sendResumeEmail = payload.sendResumeEmail === true;
+  const emailRequestId = normalizeEmailRequestId(payload.emailRequestId);
   const applicantName = applicantDisplayName(draft);
   const applicantEmail = draft.applicant.email || null;
+
+  if (sendResumeEmail && !emailRequestId) {
+    return NextResponse.json({ error: "missing_email_request_id" }, { status: 400 });
+  }
 
   let result;
 
@@ -140,13 +158,18 @@ export async function POST(request: Request) {
   // A minted token is returned once, on creation, so the browser can keep
   // saving into the same draft. It is never stored in the clear server-side.
   const token = result.resumeToken ?? resumeToken;
-  const shouldEmail = payload.sendResumeEmail === true && Boolean(applicantEmail) && Boolean(token);
+  const shouldEmail = sendResumeEmail && Boolean(applicantEmail) && Boolean(token);
   let emailSent = false;
 
   if (shouldEmail && token && applicantEmail) {
     const email = await sendApplicationResumeEmail(applicantEmail, {
       applicantName,
       resumeUrl: buildResumeUrl(token),
+    }, {
+      // A retry for the same intentional action reaches Resend with the same
+      // key, so the provider returns the original send instead of delivering
+      // a second message. A later intentional action gets a new request ID.
+      idempotencyKey: `join-resume-${emailRequestId}`,
     });
 
     emailSent = email.sent;

@@ -70,7 +70,7 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
 
   let initialDraft = emptyJoinApplicationDraft();
   let initialStep: JoinApplicationStepId = "start";
-  let resumeState: "expired" | "none" | "restored" | "submitted" | "unavailable" = "none";
+  let resumeState: "expired" | "none" | "restored" | "revoked" | "submitted" | "unavailable" = "none";
 
   if (resumeToken) {
     const lookup = await resolveResumeToken(resumeToken);
@@ -83,6 +83,8 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
       resumeState = "expired";
     } else if (lookup.reason === "submitted") {
       resumeState = "submitted";
+    } else if (lookup.reason === "revoked") {
+      resumeState = "revoked";
     } else {
       // A token that resolves to nothing must say so. Rendering the blank first
       // screen is precisely what made the original defect look like a routing
