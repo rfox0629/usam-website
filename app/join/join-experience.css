@@ -1,0 +1,1551 @@
+/*
+ * USA-191: the USA Missionaries application experience.
+ *
+ * The visual benchmark is Stewardship.Capital: a dark foundation, one accent
+ * that is never decorative, very large display type, masked line reveals, and
+ * restraint everywhere else. What is borrowed is the level of craft. What is
+ * used is USA Missionaries' own language, which the rest of the site already
+ * speaks and which /join was the only route to contradict.
+ *
+ * The previous /join forced a light gradient over the site's dark body with a
+ * `body:has()` override. That was the single largest reason the application
+ * read as a form bolted onto the site rather than part of it. This file drops
+ * the override and lets /join sit on the same black the rest of USAM uses.
+ *
+ * One stylesheet rather than utility classes on every element, because the
+ * motion system here is stateful (staggered reveals keyed to step changes) and
+ * that does not survive being spread across a thousand inline class strings.
+ */
+
+.join {
+  /* Foundation. Near-black rather than black, so surfaces can stack without
+     resorting to borders on everything. */
+  --void: #0d0d0d;
+  --base: #101010;
+  --raised: #161615;
+  --raised-2: #1d1d1b;
+  --line: #262624;
+  --line-bright: #35352f;
+
+  /* Type. Warm greys rather than blue greys: the accent is gold, and cool
+     neutrals next to gold read as dirty. */
+  --white: #fafaf8;
+  --dim: #9d9a90;
+  --dimmer: #6b685f;
+
+  /* The one accent. USA Missionaries gold. It marks what is active, answered
+     or arrived at, and nothing else. */
+  --gold: #c2a14e;
+  --gold-hot: #d9b863;
+  --gold-dim: rgba(194, 161, 78, 0.14);
+  --gold-line: rgba(194, 161, 78, 0.32);
+
+  --danger: #e07a5f;
+  --success: #0f9d76;
+
+  --font-display: "Oswald", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-tech: "Rajdhani", "Oswald", system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --shell: min(100% - 40px, 1180px);
+  --reading: 680px;
+
+  background: var(--void);
+  color: var(--white);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100svh;
+  overflow-x: hidden;
+}
+
+.join :where(h1, h2, h3, p, ul, ol, figure, fieldset, legend) {
+  margin: 0;
+}
+
+.join :where(fieldset) {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.join ::selection {
+  background: var(--gold);
+  color: #16130a;
+}
+
+.join :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.join-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+/*
+ * One reveal, used everywhere. A line rises out of a clipped box rather than
+ * fading in place, which is what makes a sequence read as composed rather
+ * than as several elements each animating on their own schedule.
+ */
+.join-mask {
+  overflow: hidden;
+  padding: 0.12em 0;
+  margin: -0.12em 0;
+}
+
+.join-mask > * {
+  animation: join-rise 0.95s var(--ease-out) both;
+}
+
+/*
+ * A masked line inside a heading is a LINE, so it has to be a block. Left
+ * inline, consecutive masks run together and a two line heading renders as
+ * "This applicationis in review."
+ */
+.join h1 .join-mask {
+  display: block;
+}
+
+@keyframes join-rise {
+  from {
+    transform: translateY(105%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* A softer version for blocks that are too tall to travel their own height. */
+.join-lift {
+  animation: join-lift 0.85s var(--ease-out) both;
+}
+
+@keyframes join-lift {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes join-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Stagger utility. Delays are set on the element via --i so a list can drive
+   its own rhythm without a rule per position. */
+.join-stagger > * {
+  animation: join-lift 0.8s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* ------------------------------------------------------------------- field */
+
+/*
+ * The Movement.
+ *
+ * Painted by MovementField.tsx. A field of scattered points, most of them
+ * still. Where attention falls the points reach for each other and hold, and
+ * the gold appears only on what has actually connected. It is the application
+ * in one image: a person joining a work that is already spreading.
+ */
+.join-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  mask-image: radial-gradient(
+    128% 122% at 50% 46%,
+    #000 48%,
+    rgba(0, 0, 0, 0.45) 78%,
+    transparent 100%
+  );
+  animation: join-fade 1.9s var(--ease-out) both;
+}
+
+/* ------------------------------------------------------------------ screen */
+
+.join-screen {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Keeps type legible wherever the field lights up behind it. */
+.join-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    104% 86% at 8% 50%,
+    rgba(13, 13, 13, 0.94) 0%,
+    rgba(13, 13, 13, 0.62) 32%,
+    rgba(13, 13, 13, 0) 64%
+  );
+}
+
+.join-screen-inner {
+  position: relative;
+  z-index: 2;
+  width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(72px, 12vh, 120px) 0 clamp(40px, 8vh, 72px);
+  pointer-events: none;
+}
+
+.join-screen-inner > * {
+  pointer-events: auto;
+}
+
+/* ----------------------------------------------------------------- eyebrow */
+
+.join-eyebrow {
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.join-eyebrow-quiet {
+  color: var(--dim);
+}
+
+/* -------------------------------------------------------------- welcome */
+
+.join-welcome-mark {
+  font-family: var(--font-tech);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: clamp(18px, 3vh, 30px) !important;
+}
+
+/*
+ * "Welcome to the team." is the whole point of the opening, so it is set at
+ * the largest size the viewport will carry and nothing shares the line with
+ * it. Oswald is condensed, so it takes a wider measure than a normal grotesk
+ * before it needs to wrap.
+ */
+.join-welcome h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3.1rem, 13.5vw, 8.5rem);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.022em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+
+.join-welcome h1 span {
+  display: block;
+}
+
+.join-welcome h1 .join-gold {
+  color: var(--gold);
+}
+
+@media (min-width: 900px) {
+  .join-welcome h1 {
+    font-size: clamp(4.6rem, 8.4vw, 9rem);
+  }
+}
+
+/*
+ * On a laptop the welcome is a full screen and the ecosystem sits below it,
+ * which leaves nothing on screen to say there is more. Tightening the opening
+ * on short viewports lets the first work show at the bottom edge, so the list
+ * is discovered rather than missed. A phone gets this for free: the copy alone
+ * is taller than the screen.
+ */
+@media (min-width: 900px) and (max-height: 960px) {
+  .join-welcome h1 {
+    font-size: clamp(3.5rem, 6vw, 5.8rem);
+  }
+
+  .join-screen-inner {
+    padding-top: clamp(48px, 8vh, 76px);
+  }
+
+  .join-welcome-sub {
+    margin-top: 22px !important;
+  }
+
+  .join-welcome-actions {
+    margin-top: 30px;
+  }
+
+  .join-ecosystem {
+    margin-top: 34px;
+  }
+}
+
+.join-welcome-sub {
+  margin-top: clamp(24px, 3.4vh, 38px) !important;
+  max-width: 46ch;
+  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
+  line-height: 1.62;
+  color: #c8c5bc;
+}
+
+.join-welcome-note {
+  margin-top: clamp(16px, 2vh, 22px) !important;
+  max-width: 46ch;
+  font-size: 0.94rem;
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+.join-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: clamp(34px, 5vh, 52px);
+}
+
+/* --------------------------------------------------------------- ecosystem */
+
+/*
+ * The ecosystem is shown, not explained. Four lines, each one a real work,
+ * revealed in sequence so the list reads as something still being added to.
+ * "And growing." is the fourth line and is deliberately set like the others,
+ * because it is a member of the list rather than a caption under it.
+ */
+.join-ecosystem {
+  margin-top: clamp(46px, 7vh, 78px);
+  border-top: 1px solid var(--line);
+  padding-top: clamp(24px, 3.5vh, 34px);
+}
+
+.join-ecosystem-label {
+  font-family: var(--font-tech);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.join-ecosystem-list {
+  list-style: none;
+  padding: 0;
+  margin: clamp(16px, 2.4vh, 24px) 0 0 !important;
+  display: grid;
+  gap: 2px;
+}
+
+.join-ecosystem-item {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(38, 38, 36, 0.7);
+  animation: join-lift 0.85s var(--ease-out) both;
+  animation-delay: calc(1.05s + var(--i, 0) * 130ms);
+}
+
+.join-ecosystem-item:last-child {
+  border-bottom: 0;
+}
+
+/* The node. Latent for the works that exist, lit for the one that is still
+   being written, because that is the line the applicant might become. */
+.join-ecosystem-node {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dimmer);
+  transform: translateY(-3px);
+  transition: background 0.4s var(--ease);
+}
+
+.join-ecosystem-item[data-open="true"] .join-ecosystem-node {
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(194, 161, 78, 0.55);
+}
+
+.join-ecosystem-name {
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2.5vw, 1.65rem);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: var(--white);
+  line-height: 1.15;
+}
+
+.join-ecosystem-item[data-open="true"] .join-ecosystem-name {
+  color: var(--gold);
+}
+
+.join-ecosystem-note {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--dim);
+  margin-left: auto !important;
+  text-align: right;
+  max-width: 30ch;
+}
+
+@media (max-width: 700px) {
+  .join-ecosystem-item {
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+
+  .join-ecosystem-note {
+    margin-left: 20px !important;
+    text-align: left;
+    max-width: none;
+    flex-basis: 100%;
+    margin-top: 3px !important;
+    font-size: 0.84rem;
+  }
+}
+
+/* ----------------------------------------------------------------- buttons */
+
+.join-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-tech);
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 15px 30px;
+  min-height: 52px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.28s var(--ease),
+    border-color 0.28s var(--ease),
+    color 0.28s var(--ease),
+    opacity 0.28s var(--ease);
+}
+
+.join-button svg {
+  width: 17px;
+  height: 17px;
+  transition: transform 0.4s var(--ease-out);
+}
+
+.join-button:hover svg {
+  transform: translateX(5px);
+}
+
+.join-button-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #16130a;
+}
+
+.join-button-primary:hover {
+  background: var(--gold-hot);
+  border-color: var(--gold-hot);
+}
+
+.join-button-secondary {
+  background: transparent;
+  border-color: var(--line-bright);
+  color: var(--white);
+}
+
+.join-button-secondary:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.join-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.join-button:disabled:hover svg {
+  transform: none;
+}
+
+/* A button that reads as prose. */
+.join-plain {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--dim);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--line-bright);
+  cursor: pointer;
+  transition: color 0.24s var(--ease-out), text-decoration-color 0.24s var(--ease-out);
+}
+
+.join-plain:hover {
+  color: var(--gold);
+  text-decoration-color: var(--gold-line);
+}
+
+.join-plain:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* ------------------------------------------------------------------ chrome */
+
+/*
+ * The bar that stays. Progress, save state and resume live here so they are
+ * never something the applicant has to go looking for, and so the application
+ * body below can be nothing but the current question.
+ */
+.join-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(13, 13, 13, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.join-chrome-inner {
+  width: var(--shell);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 0;
+}
+
+.join-chrome-mark {
+  flex: none;
+  font-family: var(--font-tech);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+/* The rail is the only part of the bar allowed to give up space, and it
+   scrolls rather than wrapping. Without min-width:0 a flex item refuses to
+   shrink below its content, which pushed the save state and the resume link
+   off the right edge. */
+.join-chrome > .join-chrome-inner > .join-rail {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.join-chrome-inner > .join-plain {
+  flex: none;
+  white-space: nowrap;
+}
+
+.join-chrome-mark b {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.join-chrome-save {
+  flex: none;
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.join-chrome-save[data-state="saved"] {
+  color: var(--gold);
+}
+
+.join-chrome-save[data-state="error"] {
+  color: var(--danger);
+}
+
+.join-chrome-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.join-chrome-save[data-state="saving"] .join-chrome-dot {
+  animation: join-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes join-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .join-chrome-mark {
+    display: none;
+  }
+}
+
+/* Under 620px the bar keeps the dot and the resume link, which are the two
+   things an applicant needs, and drops the word beside the dot. */
+@media (max-width: 620px) {
+  .join-chrome-save-text {
+    display: none;
+  }
+
+  .join-chrome-inner {
+    gap: 10px;
+  }
+}
+
+/* The thin line of progress across the whole width. */
+.join-progress {
+  height: 2px;
+  background: var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.join-progress span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.6s var(--ease-out);
+}
+
+/* ------------------------------------------------------------------- rail */
+
+/*
+ * Nine steps is too many for a labelled rail on a phone, so the rail is
+ * numbered ticks there and named steps once there is room. Answered steps are
+ * gold because gold marks what has been done.
+ */
+.join-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.join-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.join-rail button {
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-tech);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  padding: 6px 9px;
+  border-radius: 2px;
+  white-space: nowrap;
+  transition: color 0.24s var(--ease), background 0.24s var(--ease);
+}
+
+.join-rail button:hover {
+  color: var(--white);
+  background: var(--raised);
+}
+
+.join-rail button[data-state="done"] {
+  color: var(--gold);
+}
+
+.join-rail button[data-state="current"] {
+  color: #16130a;
+  background: var(--gold);
+}
+
+.join-rail-label {
+  display: none;
+}
+
+.join-rail-index {
+  display: inline;
+}
+
+@media (min-width: 1040px) {
+  .join-rail-label {
+    display: inline;
+  }
+
+  .join-rail-index {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------------- step */
+
+.join-step {
+  width: var(--shell);
+  margin: 0 auto;
+  padding: clamp(38px, 7vh, 76px) 0 clamp(140px, 18vh, 190px);
+}
+
+.join-step-head {
+  max-width: var(--reading);
+}
+
+.join-step-count {
+  font-family: var(--font-tech);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+/*
+ * The section title is the question the applicant is being asked right now,
+ * so it gets display type and full width of the reading measure. The step it
+ * belongs to is set above it, small, because it is orientation rather than
+ * the thing being asked.
+ */
+.join-step-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5.2vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.012em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-top: 10px !important;
+}
+
+.join-step-intro {
+  margin-top: 16px !important;
+  max-width: 58ch;
+  font-size: clamp(1rem, 1.15vw, 1.09rem);
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+/* Progress within the step. Ticks rather than a bar, because the count is
+   small enough to read at a glance and a second bar next to the global one
+   would be noise. */
+.join-parts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 22px;
+}
+
+/*
+ * A class rather than a bare `span`, which also matched the label sitting
+ * beside the ticks and squeezed it into a 30px wide, 2px tall box.
+ */
+.join-parts-tick {
+  flex: none;
+  height: 2px;
+  width: 30px;
+  background: var(--line-bright);
+  border-radius: 2px;
+  transition: background 0.5s var(--ease-out);
+}
+
+.join-parts-tick[data-done="true"] {
+  background: var(--gold);
+}
+
+.join-parts-label {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--font-tech);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  margin-left: 6px;
+}
+
+/* ------------------------------------------------------------------ fields */
+
+/*
+ * No cards. The previous design put every group of questions inside a
+ * rounded white panel with a shadow, which is the "card soup" the redesign is
+ * meant to remove. Questions sit directly on the page, separated by space and
+ * a hairline, and the only thing that draws a box is an input.
+ */
+.join-fields {
+  display: grid;
+  gap: clamp(26px, 3.6vh, 38px);
+  margin-top: clamp(34px, 5vh, 48px);
+  max-width: var(--reading);
+}
+
+.join-fields-wide {
+  max-width: none;
+}
+
+.join-field-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(1.08rem, 1.7vw, 1.32rem);
+  font-weight: 400;
+  line-height: 1.32;
+  letter-spacing: 0.002em;
+  color: var(--white);
+}
+
+.join-field-req {
+  color: var(--gold);
+  margin-left: 4px;
+}
+
+.join-field-help {
+  margin-top: 7px !important;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--dim);
+  max-width: 58ch;
+}
+
+.join-input,
+.join-textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--white);
+  background: var(--base);
+  border: 1px solid var(--line-bright);
+  border-radius: 3px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  transition: border-color 0.24s var(--ease), background 0.24s var(--ease);
+}
+
+.join-input::placeholder,
+.join-textarea::placeholder {
+  color: var(--dimmer);
+}
+
+.join-input:focus,
+.join-textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--raised);
+}
+
+.join-input {
+  height: 52px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/*
+ * Long answers get real room. A missionary describing a call should not be
+ * writing into a four line box, and the founder direction is explicit that
+ * long form answers need space to think.
+ */
+.join-textarea {
+  min-height: 200px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.join-textarea-tall {
+  min-height: 280px;
+}
+
+.join-count {
+  margin-top: 7px !important;
+  font-family: var(--font-tech);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+/* Two short fields sit side by side once there is room. Long ones never do. */
+.join-pair {
+  display: grid;
+  gap: clamp(20px, 3vw, 28px);
+}
+
+@media (min-width: 720px) {
+  .join-pair-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .join-pair-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------- money field */
+
+.join-money {
+  position: relative;
+  margin-top: 12px;
+}
+
+.join-money span {
+  position: absolute;
+  left: 15px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-tech);
+  font-weight: 600;
+  color: var(--dimmer);
+  pointer-events: none;
+}
+
+.join-money input {
+  margin-top: 0;
+  padding-left: 30px;
+  font-family: var(--font-tech);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Compact label for the 17 category worksheet, where a display-size label per
+   row would make the grid unreadable. */
+.join-money-row .join-field-label {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #c8c5bc;
+}
+
+/* ------------------------------------------------------------------ choice */
+
+.join-choices {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (min-width: 760px) {
+  .join-choices-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.join-choice {
+  appearance: none;
+  text-align: left;
+  font: inherit;
+  background: var(--base);
+  border: 1px solid var(--line-bright);
+  border-radius: 3px;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition:
+    border-color 0.26s var(--ease),
+    background 0.26s var(--ease);
+}
+
+.join-choice:hover {
+  border-color: var(--line-bright);
+  background: var(--raised);
+}
+
+.join-choice[aria-pressed="true"] {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.join-choice-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--white);
+}
+
+.join-choice[aria-pressed="true"] .join-choice-title {
+  color: var(--gold);
+}
+
+.join-choice-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.89rem;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* ---------------------------------------------------------------- checkbox */
+
+.join-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--base);
+  cursor: pointer;
+  transition: border-color 0.26s var(--ease);
+}
+
+.join-check:hover {
+  border-color: var(--line-bright);
+}
+
+.join-check:has(input:checked) {
+  border-color: var(--gold-line);
+  background: var(--gold-dim);
+}
+
+.join-check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.join-check-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #c8c5bc;
+}
+
+.join-check-body strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.02rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+
+/* ------------------------------------------------------------------ panels */
+
+/* Used sparingly: a total, a caution, a confirmation. Never as a wrapper
+   around ordinary questions. */
+.join-panel {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--base);
+  padding: clamp(18px, 2.6vw, 24px);
+}
+
+.join-panel-gold {
+  border-color: var(--gold-line);
+  background: var(--gold-dim);
+}
+
+.join-panel-note {
+  border: 0;
+  border-left: 2px solid var(--gold);
+  border-radius: 0;
+  background: none;
+  padding: 4px 0 4px 18px;
+  font-size: 0.93rem;
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+.join-panel-title {
+  font-family: var(--font-display);
+  font-size: 1.06rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.012em;
+  color: var(--white);
+}
+
+.join-panel-body {
+  margin-top: 8px !important;
+  font-size: 0.93rem;
+  line-height: 1.65;
+  color: var(--dim);
+}
+
+/* -------------------------------------------------------------- worksheet */
+
+.join-worksheet {
+  display: grid;
+  gap: clamp(20px, 3vw, 26px);
+  margin-top: 22px;
+}
+
+@media (min-width: 720px) {
+  .join-worksheet {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.join-worksheet-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.join-subtotal {
+  font-family: var(--font-tech);
+  font-size: 1.32rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--white);
+}
+
+.join-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@media (min-width: 760px) {
+  .join-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.join-metric {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--base);
+  padding: 14px 16px;
+}
+
+.join-metric[data-tone="accent"] {
+  border-color: var(--gold-line);
+  background: var(--gold-dim);
+}
+
+.join-metric-label {
+  font-family: var(--font-tech);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.join-metric-value {
+  margin-top: 6px !important;
+  font-family: var(--font-tech);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--white);
+}
+
+.join-metric[data-tone="accent"] .join-metric-value {
+  color: var(--gold);
+}
+
+/* ----------------------------------------------------------------- footer */
+
+/*
+ * The advance control is fixed to the bottom of the viewport rather than
+ * sitting at the end of the page. On a phone that is the difference between
+ * a guided flow and a scroll to the bottom to find the button.
+ */
+.join-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  background: linear-gradient(
+    to top,
+    rgba(13, 13, 13, 0.97) 60%,
+    rgba(13, 13, 13, 0)
+  );
+  padding: clamp(16px, 2.4vh, 22px) 0 clamp(18px, 2.6vh, 24px);
+  pointer-events: none;
+}
+
+.join-footer-inner {
+  width: var(--shell);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.join-footer-hint {
+  font-family: var(--font-tech);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  margin-left: auto !important;
+}
+
+/* The keyboard hint is only true where there is a keyboard. */
+@media (max-width: 860px) {
+  .join-footer-hint {
+    display: none;
+  }
+}
+
+.join-footer .join-button {
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .join-footer-inner {
+    gap: 8px;
+  }
+
+  .join-footer .join-button {
+    padding: 14px 18px;
+    font-size: 0.9rem;
+  }
+
+  .join-footer .join-button-primary {
+    flex: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ notice */
+
+.join-notice {
+  border-left: 2px solid var(--gold);
+  padding: 10px 0 10px 16px;
+  margin-bottom: 26px;
+  font-size: 0.94rem;
+  line-height: 1.6;
+  color: #c8c5bc;
+  animation: join-lift 0.7s var(--ease-out) both;
+}
+
+.join-notice[data-tone="warn"] {
+  border-left-color: var(--danger);
+}
+
+.join-error {
+  border-left: 2px solid var(--danger);
+  padding: 10px 0 10px 16px;
+  font-size: 0.93rem;
+  line-height: 1.6;
+  color: #e6b3a2;
+}
+
+/* ------------------------------------------------------------------ review */
+
+.join-review-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0 !important;
+  display: grid;
+  gap: 1px;
+}
+
+.join-review-list li {
+  border-bottom: 1px solid var(--line);
+}
+
+.join-review-list li:last-child {
+  border-bottom: 0;
+}
+
+.join-review-jump {
+  appearance: none;
+  background: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #c8c5bc;
+  padding: 12px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: color 0.22s var(--ease);
+}
+
+.join-review-jump:hover {
+  color: var(--gold);
+}
+
+.join-review-jump span:last-child {
+  margin-left: auto;
+  font-family: var(--font-tech);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.join-disclosures {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* --------------------------------------------------------------- photos */
+
+.join-photos {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+@media (min-width: 720px) {
+  .join-photos {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.join-photo {
+  border: 1px dashed var(--line-bright);
+  border-radius: 3px;
+  background: var(--base);
+  padding: 20px;
+  transition: border-color 0.26s var(--ease);
+}
+
+.join-photo:hover {
+  border-color: var(--gold-line);
+}
+
+.join-photo[data-filled="true"] {
+  border-style: solid;
+  border-color: var(--gold-line);
+  background: var(--gold-dim);
+}
+
+.join-photo-kind {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--white);
+}
+
+.join-photo input[type="file"] {
+  margin-top: 14px;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  color: var(--dim);
+}
+
+.join-photo input[type="file"]::file-selector-button {
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--raised-2);
+  border: 1px solid var(--line-bright);
+  border-radius: 2px;
+  padding: 9px 14px;
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.join-photo input[type="file"]::file-selector-button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* -------------------------------------------------------------- submitted */
+
+.join-done {
+  position: relative;
+  z-index: 2;
+  width: var(--shell);
+  margin: 0 auto;
+  max-width: 760px;
+  padding: clamp(80px, 16vh, 150px) 0 clamp(60px, 12vh, 110px);
+}
+
+.join-done h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 600;
+  line-height: 0.94;
+  letter-spacing: -0.018em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-top: 14px !important;
+}
+
+.join-done-body {
+  margin-top: clamp(26px, 4vh, 36px);
+  display: grid;
+  gap: 18px;
+  font-size: 1.02rem;
+  line-height: 1.68;
+  color: #c8c5bc;
+  max-width: 60ch;
+}
+
+.join-done-ref {
+  margin-top: 30px !important;
+  font-family: var(--font-tech);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.join-done-ref b {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ transitions */
+
+/*
+ * The step transition. Keyed on a React key change so every advance replays
+ * it, which is what gives the flow its pacing. Kept short: the applicant is
+ * doing this nine times over, and a long transition that delights once
+ * becomes an obstacle by the fourth repetition.
+ */
+.join-transition {
+  animation: join-step-in 0.5s var(--ease-out) both;
+}
+
+@keyframes join-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.join-transition[data-direction="back"] {
+  animation-name: join-step-back;
+}
+
+@keyframes join-step-back {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ gate */
+
+.join-gate {
+  position: relative;
+  z-index: 2;
+  width: var(--shell);
+  margin: 0 auto;
+  max-width: 420px;
+  text-align: left;
+}
+
+.join-gate h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 5vw, 2.7rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-top: 12px !important;
+}
+
+.join-gate-sub {
+  margin-top: 14px !important;
+  font-size: 0.98rem;
+  line-height: 1.62;
+  color: var(--dim);
+}
+
+.join-gate-form {
+  margin-top: 28px;
+  display: grid;
+  gap: 12px;
+}
+
+/* ----------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .join *,
+  .join *::before,
+  .join *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
