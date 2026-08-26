@@ -1,47 +1,51 @@
 /*
  * USA-191: the USA Missionaries application experience.
  *
- * The visual benchmark is Stewardship.Capital: a dark foundation, one accent
- * that is never decorative, very large display type, masked line reveals, and
- * restraint everywhere else. What is borrowed is the level of craft. What is
- * used is USA Missionaries' own language, which the rest of the site already
- * speaks and which /join was the only route to contradict.
+ * Two references, doing different jobs.
  *
- * The previous /join forced a light gradient over the site's dark body with a
- * `body:has()` override. That was the single largest reason the application
- * read as a form bolted onto the site rather than part of it. This file drops
- * the override and lets /join sit on the same black the rest of USAM uses.
+ * The palette, the surfaces and the type system come from USA Missionaries
+ * Operations (/operations): #F5F7FB paper, white cards on slate hairlines,
+ * #D8A932 gold for state, #0B1220 navy for structure, Rajdhani micro-labels in
+ * uppercase, Inter for everything a person actually reads. An applicant and an
+ * operator should be looking at the same product.
  *
- * One stylesheet rather than utility classes on every element, because the
- * motion system here is stateful (staggered reveals keyed to step changes) and
- * that does not survive being spread across a thousand inline class strings.
+ * The craft level comes from Stewardship.Capital: a field behind the opening
+ * that carries the metaphor, masked line reveals, display type set to fill its
+ * measure, and no decoration that is not doing work. On a light ground the
+ * tech feel has to come from precision rather than from glow, so it is built
+ * out of hairline structure, a finely drafted mesh, numeric metadata and tight
+ * radii rather than from a dark screen.
+ *
+ * The pacing is Typeform: one question at a time, set large, with room to
+ * answer it and Enter to move on.
  */
 
 .join {
-  /* Foundation. Near-black rather than black, so surfaces can stack without
-     resorting to borders on everything. */
-  --void: #0d0d0d;
-  --base: #101010;
-  --raised: #161615;
-  --raised-2: #1d1d1b;
-  --line: #262624;
-  --line-bright: #35352f;
+  /* Operations surfaces. */
+  --paper: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
 
-  /* Type. Warm greys rather than blue greys: the accent is gold, and cool
-     neutrals next to gold read as dirty. */
-  --white: #fafaf8;
-  --dim: #9d9a90;
-  --dimmer: #6b685f;
+  /* Operations ink. */
+  --ink: #020617;
+  --ink-2: #0f172a;
+  --muted: #475569;
+  --muted-2: #64748b;
+  --faint: #94a3b8;
 
-  /* The one accent. USA Missionaries gold. It marks what is active, answered
-     or arrived at, and nothing else. */
-  --gold: #c2a14e;
-  --gold-hot: #d9b863;
-  --gold-dim: rgba(194, 161, 78, 0.14);
-  --gold-line: rgba(194, 161, 78, 0.32);
+  /* Operations structure and state. */
+  --navy: #0b1220;
+  --navy-2: #1c2e4a;
+  --gold: #d8a932;
+  --gold-hot: #e7bf57;
+  --gold-tint: #fff7df;
+  --gold-line: rgba(216, 169, 50, 0.38);
+  --gold-ink: #7a5200;
 
-  --danger: #e07a5f;
-  --success: #0f9d76;
+  --danger: #b91c1c;
+  --danger-tint: #fef2f2;
 
   --font-display: "Oswald", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-tech: "Rajdhani", "Oswald", system-ui, sans-serif;
@@ -50,11 +54,12 @@
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --shell: min(100% - 40px, 1180px);
-  --reading: 680px;
+  --shell: min(100% - 40px, 1200px);
+  --reading: 720px;
+  --nav-h: 58px;
 
-  background: var(--void);
-  color: var(--white);
+  background: var(--paper);
+  color: var(--ink-2);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -73,14 +78,14 @@
 }
 
 .join ::selection {
-  background: var(--gold);
-  color: #16130a;
+  background: var(--gold-tint);
+  color: var(--gold-ink);
 }
 
 .join :focus-visible {
   outline: 2px solid var(--gold);
-  outline-offset: 3px;
-  border-radius: 2px;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .join-sr {
@@ -99,8 +104,8 @@
 
 /*
  * One reveal, used everywhere. A line rises out of a clipped box rather than
- * fading in place, which is what makes a sequence read as composed rather
- * than as several elements each animating on their own schedule.
+ * fading in place, which is what makes a sequence read as composed rather than
+ * as several elements each animating on their own schedule.
  */
 .join-mask {
   overflow: hidden;
@@ -109,7 +114,7 @@
 }
 
 .join-mask > * {
-  animation: join-rise 0.95s var(--ease-out) both;
+  animation: join-rise 0.9s var(--ease-out) both;
 }
 
 /*
@@ -132,14 +137,14 @@
   }
 }
 
-/* A softer version for blocks that are too tall to travel their own height. */
+/* A softer version for blocks too tall to travel their own height. */
 .join-lift {
-  animation: join-lift 0.85s var(--ease-out) both;
+  animation: join-lift 0.8s var(--ease-out) both;
 }
 
 @keyframes join-lift {
   from {
-    transform: translateY(14px);
+    transform: translateY(12px);
     opacity: 0;
   }
   to {
@@ -157,22 +162,19 @@
   }
 }
 
-/* Stagger utility. Delays are set on the element via --i so a list can drive
-   its own rhythm without a rule per position. */
 .join-stagger > * {
-  animation: join-lift 0.8s var(--ease-out) both;
+  animation: join-lift 0.75s var(--ease-out) both;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
 /* ------------------------------------------------------------------- field */
 
 /*
- * The Movement.
+ * The Movement, painted by MovementField.tsx.
  *
- * Painted by MovementField.tsx. A field of scattered points, most of them
- * still. Where attention falls the points reach for each other and hold, and
- * the gold appears only on what has actually connected. It is the application
- * in one image: a person joining a work that is already spreading.
+ * On a light ground this reads as a drafted mesh rather than a constellation,
+ * which is the point: precision is what carries the tech feel here. It is
+ * masked back hard on the left so the opening type sits on clean paper.
  */
 .join-field {
   position: absolute;
@@ -181,12 +183,12 @@
   height: 100%;
   z-index: 0;
   mask-image: radial-gradient(
-    128% 122% at 50% 46%,
-    #000 48%,
-    rgba(0, 0, 0, 0.45) 78%,
-    transparent 100%
+    120% 130% at 78% 44%,
+    #000 30%,
+    rgba(0, 0, 0, 0.55) 62%,
+    transparent 92%
   );
-  animation: join-fade 1.9s var(--ease-out) both;
+  animation: join-fade 1.8s var(--ease-out) both;
 }
 
 /* ------------------------------------------------------------------ screen */
@@ -198,20 +200,22 @@
   align-items: center;
   overflow: hidden;
   isolation: isolate;
+  background: var(--paper);
 }
 
-/* Keeps type legible wherever the field lights up behind it. */
+/* Keeps the opening type on clean paper wherever the mesh runs behind it. */
 .join-screen::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(
-    104% 86% at 8% 50%,
-    rgba(13, 13, 13, 0.94) 0%,
-    rgba(13, 13, 13, 0.62) 32%,
-    rgba(13, 13, 13, 0) 64%
+  background: linear-gradient(
+    100deg,
+    var(--paper) 0%,
+    rgba(245, 247, 251, 0.93) 26%,
+    rgba(245, 247, 251, 0.5) 48%,
+    rgba(245, 247, 251, 0) 72%
   );
 }
 
@@ -220,7 +224,7 @@
   z-index: 2;
   width: var(--shell);
   margin: 0 auto;
-  padding: clamp(72px, 12vh, 120px) 0 clamp(40px, 8vh, 72px);
+  padding: calc(var(--nav-h) + clamp(26px, 5vh, 54px)) 0 clamp(30px, 5vh, 56px);
   pointer-events: none;
 }
 
@@ -228,215 +232,340 @@
   pointer-events: auto;
 }
 
-/* ----------------------------------------------------------------- eyebrow */
+/* --------------------------------------------------------------- top bar */
+
+/*
+ * The opening carries a real product bar. A page that states its own name and
+ * release reads as a system; a page that just starts with a headline reads as
+ * a brochure.
+ */
+.join-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  height: var(--nav-h);
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.join-topbar-inner {
+  width: var(--shell);
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.join-badge {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--gold);
+  color: #111827;
+  font-family: var(--font-tech);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.join-topbar .join-badge {
+  width: 30px;
+  height: 30px;
+  font-size: 0.7rem;
+}
+
+.join-topbar-name {
+  font-size: 0.87rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.join-topbar-meta {
+  margin-left: auto !important;
+  font-family: var(--font-tech);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .join-topbar-meta {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------- labels */
 
 .join-eyebrow {
   font-family: var(--font-tech);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-eyebrow-quiet {
-  color: var(--dim);
+  color: var(--muted-2);
 }
 
 /* -------------------------------------------------------------- welcome */
 
-.join-welcome-mark {
+/*
+ * A run of system metadata under a rule, the way a product states its own
+ * facts. This does most of the work of making the first screen read as
+ * engineered rather than decorated.
+ */
+.join-spec {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--line);
+  max-width: 820px;
+}
+
+.join-spec span {
   font-family: var(--font-tech);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.28em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: clamp(18px, 3vh, 30px) !important;
+  color: var(--muted-2);
+}
+
+.join-spec span[data-lead="true"] {
+  color: var(--gold-ink);
+}
+
+.join-spec i {
+  font-style: normal;
+  color: var(--line-strong);
 }
 
 /*
- * "Welcome to the team." is the whole point of the opening, so it is set at
- * the largest size the viewport will carry and nothing shares the line with
- * it. Oswald is condensed, so it takes a wider measure than a normal grotesk
- * before it needs to wrap.
+ * "Welcome to the team." is the point of the opening, so it is set as large as
+ * the viewport will carry and nothing shares a line with it. Oswald is
+ * condensed, so it holds a wide measure before it needs to wrap.
  */
 .join-welcome h1 {
+  margin-top: clamp(16px, 2.4vh, 24px) !important;
   font-family: var(--font-display);
-  font-size: clamp(3.1rem, 13.5vw, 8.5rem);
+  font-size: clamp(3rem, 13vw, 7.5rem);
   font-weight: 600;
   line-height: 0.9;
-  letter-spacing: -0.022em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  color: var(--white);
-}
-
-.join-welcome h1 span {
-  display: block;
+  color: var(--ink);
 }
 
 .join-welcome h1 .join-gold {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 @media (min-width: 900px) {
   .join-welcome h1 {
-    font-size: clamp(4.6rem, 8.4vw, 9rem);
-  }
-}
-
-/*
- * On a laptop the welcome is a full screen and the ecosystem sits below it,
- * which leaves nothing on screen to say there is more. Tightening the opening
- * on short viewports lets the first work show at the bottom edge, so the list
- * is discovered rather than missed. A phone gets this for free: the copy alone
- * is taller than the screen.
- */
-@media (min-width: 900px) and (max-height: 960px) {
-  .join-welcome h1 {
-    font-size: clamp(3.5rem, 6vw, 5.8rem);
-  }
-
-  .join-screen-inner {
-    padding-top: clamp(48px, 8vh, 76px);
-  }
-
-  .join-welcome-sub {
-    margin-top: 22px !important;
-  }
-
-  .join-welcome-actions {
-    margin-top: 30px;
-  }
-
-  .join-ecosystem {
-    margin-top: 34px;
+    font-size: clamp(4rem, 7.2vw, 7.5rem);
   }
 }
 
 .join-welcome-sub {
-  margin-top: clamp(24px, 3.4vh, 38px) !important;
+  margin-top: clamp(18px, 2.6vh, 28px) !important;
   max-width: 46ch;
-  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
+  font-size: clamp(1rem, 1.2vw, 1.14rem);
   line-height: 1.62;
-  color: #c8c5bc;
-}
-
-.join-welcome-note {
-  margin-top: clamp(16px, 2vh, 22px) !important;
-  max-width: 46ch;
-  font-size: 0.94rem;
-  line-height: 1.65;
-  color: var(--dim);
+  color: var(--muted);
 }
 
 .join-welcome-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  margin-top: clamp(34px, 5vh, 52px);
+  gap: 12px 20px;
+  margin-top: clamp(24px, 3.4vh, 36px);
 }
 
-/* --------------------------------------------------------------- ecosystem */
+.join-welcome-note {
+  font-family: var(--font-tech);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+/* On a laptop, tightening the opening lets the product tiles break the bottom
+   edge, so the suite below is discovered rather than missed. */
+@media (min-width: 900px) and (max-height: 980px) {
+  .join-welcome h1 {
+    font-size: clamp(3rem, 5.2vw, 5rem);
+  }
+
+  .join-welcome-sub {
+    margin-top: 16px !important;
+  }
+
+  .join-welcome-actions {
+    margin-top: 22px;
+  }
+}
+
+/* --------------------------------------------------------------- products */
 
 /*
- * The ecosystem is shown, not explained. Four lines, each one a real work,
- * revealed in sequence so the list reads as something still being added to.
- * "And growing." is the fourth line and is deliberately set like the others,
- * because it is a member of the list rather than a caption under it.
+ * The works of the movement, presented as a product suite. Each is a real card
+ * with its own mark and accent, because the founder direction is that these
+ * should read as distinguished works rather than as three lines of text.
  */
-.join-ecosystem {
-  margin-top: clamp(46px, 7vh, 78px);
-  border-top: 1px solid var(--line);
-  padding-top: clamp(24px, 3.5vh, 34px);
+.join-suite {
+  margin-top: clamp(30px, 4.4vh, 52px);
 }
 
-.join-ecosystem-label {
-  font-family: var(--font-tech);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dimmer);
-}
-
-.join-ecosystem-list {
-  list-style: none;
-  padding: 0;
-  margin: clamp(16px, 2.4vh, 24px) 0 0 !important;
-  display: grid;
-  gap: 2px;
-}
-
-.join-ecosystem-item {
+.join-suite-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(38, 38, 36, 0.7);
-  animation: join-lift 0.85s var(--ease-out) both;
-  animation-delay: calc(1.05s + var(--i, 0) * 130ms);
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
 }
 
-.join-ecosystem-item:last-child {
-  border-bottom: 0;
-}
-
-/* The node. Latent for the works that exist, lit for the one that is still
-   being written, because that is the line the applicant might become. */
-.join-ecosystem-node {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--dimmer);
-  transform: translateY(-3px);
-  transition: background 0.4s var(--ease);
-}
-
-.join-ecosystem-item[data-open="true"] .join-ecosystem-node {
-  background: var(--gold);
-  box-shadow: 0 0 10px rgba(194, 161, 78, 0.55);
-}
-
-.join-ecosystem-name {
-  font-family: var(--font-display);
-  font-size: clamp(1.15rem, 2.5vw, 1.65rem);
-  font-weight: 500;
-  letter-spacing: 0.005em;
+.join-suite-head p {
+  font-family: var(--font-tech);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--white);
-  line-height: 1.15;
+  color: var(--muted-2);
+  white-space: nowrap;
 }
 
-.join-ecosystem-item[data-open="true"] .join-ecosystem-name {
-  color: var(--gold);
-}
-
-.join-ecosystem-note {
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--dim);
+.join-suite-count {
   margin-left: auto !important;
-  text-align: right;
-  max-width: 30ch;
+  color: var(--faint) !important;
 }
 
-@media (max-width: 700px) {
-  .join-ecosystem-item {
-    flex-wrap: wrap;
-    gap: 0 12px;
+/* At 390px the heading alone fills the row, so the attribution is dropped
+   rather than pushed off the edge. */
+@media (max-width: 780px) {
+  .join-suite-count {
+    display: none;
   }
+}
 
-  .join-ecosystem-note {
-    margin-left: 20px !important;
-    text-align: left;
-    max-width: none;
-    flex-basis: 100%;
-    margin-top: 3px !important;
-    font-size: 0.84rem;
+.join-suite-grid {
+  list-style: none;
+  margin: 15px 0 0 !important;
+  padding: 0;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 700px) {
+  .join-suite-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
+}
+
+@media (min-width: 1080px) {
+  .join-suite-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.join-product {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.26s var(--ease),
+    box-shadow 0.26s var(--ease),
+    transform 0.26s var(--ease-out);
+  animation: join-lift 0.8s var(--ease-out) both;
+  animation-delay: calc(0.8s + var(--i, 0) * 110ms);
+}
+
+.join-product:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+/* The open fourth is drawn as a slot rather than as a thing. */
+.join-product[data-open="true"] {
+  border-style: dashed;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.join-product[data-open="true"]:hover {
+  box-shadow: none;
+}
+
+/* The tile. Solid accent, white mark, generous radius: an app icon. */
+.join-product-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.join-product-tile svg {
+  width: 23px;
+  height: 23px;
+}
+
+.join-product[data-open="true"] .join-product-tile {
+  background: transparent !important;
+  border: 1px dashed var(--line-strong);
+  color: var(--faint);
+  box-shadow: none;
+}
+
+.join-product-category {
+  font-family: var(--font-tech);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.join-product-name {
+  margin-top: 3px !important;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: -0.008em;
+  color: var(--ink);
+}
+
+.join-product-note {
+  margin-top: 6px !important;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: var(--muted-2);
 }
 
 /* ----------------------------------------------------------------- buttons */
@@ -447,36 +576,38 @@
   justify-content: center;
   gap: 10px;
   font-family: var(--font-tech);
-  font-size: 0.98rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  padding: 15px 30px;
-  min-height: 52px;
-  border-radius: 3px;
+  padding: 13px 24px;
+  min-height: 46px;
+  border-radius: 6px;
   border: 1px solid transparent;
   cursor: pointer;
   transition:
-    background 0.28s var(--ease),
-    border-color 0.28s var(--ease),
-    color 0.28s var(--ease),
-    opacity 0.28s var(--ease);
+    background 0.24s var(--ease),
+    border-color 0.24s var(--ease),
+    color 0.24s var(--ease),
+    box-shadow 0.24s var(--ease),
+    opacity 0.24s var(--ease);
 }
 
 .join-button svg {
-  width: 17px;
-  height: 17px;
-  transition: transform 0.4s var(--ease-out);
+  width: 16px;
+  height: 16px;
+  transition: transform 0.36s var(--ease-out);
 }
 
 .join-button:hover svg {
-  transform: translateX(5px);
+  transform: translateX(4px);
 }
 
 .join-button-primary {
   background: var(--gold);
   border-color: var(--gold);
-  color: #16130a;
+  color: #101826;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .join-button-primary:hover {
@@ -485,19 +616,19 @@
 }
 
 .join-button-secondary {
-  background: transparent;
-  border-color: var(--line-bright);
-  color: var(--white);
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-2);
 }
 
 .join-button-secondary:hover {
   border-color: var(--gold);
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-button:disabled {
   cursor: not-allowed;
-  opacity: 0.38;
+  opacity: 0.42;
 }
 
 .join-button:disabled:hover svg {
@@ -511,17 +642,17 @@
   border: 0;
   padding: 0;
   font: inherit;
-  font-size: 0.92rem;
-  color: var(--dim);
+  font-size: 0.85rem;
+  color: var(--muted-2);
   text-decoration: underline;
   text-underline-offset: 4px;
-  text-decoration-color: var(--line-bright);
+  text-decoration-color: var(--line-strong);
   cursor: pointer;
-  transition: color 0.24s var(--ease-out), text-decoration-color 0.24s var(--ease-out);
+  transition: color 0.22s var(--ease-out), text-decoration-color 0.22s var(--ease-out);
 }
 
 .join-plain:hover {
-  color: var(--gold);
+  color: var(--gold-ink);
   text-decoration-color: var(--gold-line);
 }
 
@@ -534,16 +665,16 @@
 
 /*
  * The bar that stays. Progress, save state and resume live here so they are
- * never something the applicant has to go looking for, and so the application
- * body below can be nothing but the current question.
+ * never something an applicant has to go looking for, and so the body below
+ * can be nothing but the current question.
  */
 .join-chrome {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(13, 13, 13, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
 
@@ -552,25 +683,27 @@
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 13px 0;
+  gap: 13px;
+  padding: 9px 0;
+}
+
+.join-chrome .join-badge {
+  width: 26px;
+  height: 26px;
+  font-size: 0.65rem;
 }
 
 .join-chrome-mark {
   flex: none;
   font-family: var(--font-tech);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--muted-2);
   white-space: nowrap;
 }
 
-/* The rail is the only part of the bar allowed to give up space, and it
-   scrolls rather than wrapping. Without min-width:0 a flex item refuses to
-   shrink below its content, which pushed the save state and the resume link
-   off the right edge. */
 .join-chrome > .join-chrome-inner > .join-rail {
   flex: 1 1 auto;
   min-width: 0;
@@ -581,27 +714,22 @@
   white-space: nowrap;
 }
 
-.join-chrome-mark b {
-  color: var(--white);
-  font-weight: 600;
-}
-
 .join-chrome-save {
   flex: none;
   font-family: var(--font-tech);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--muted-2);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   white-space: nowrap;
 }
 
 .join-chrome-save[data-state="saved"] {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-chrome-save[data-state="error"] {
@@ -630,21 +758,23 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 940px) {
   .join-chrome-mark {
     display: none;
   }
 }
 
-/* Under 620px the bar keeps the dot and the resume link, which are the two
-   things an applicant needs, and drops the word beside the dot. */
 @media (max-width: 620px) {
   .join-chrome-save-text {
     display: none;
   }
 
   .join-chrome-inner {
-    gap: 10px;
+    gap: 9px;
+  }
+
+  .join-chrome .join-badge {
+    display: none;
   }
 }
 
@@ -666,9 +796,10 @@
 /* ------------------------------------------------------------------- rail */
 
 /*
- * Nine steps is too many for a labelled rail on a phone, so the rail is
- * numbered ticks there and named steps once there is room. Answered steps are
- * gold because gold marks what has been done.
+ * The rail scrolls when the seven steps do not fit. Without the mask a
+ * scrolled item is chopped through the middle of a letter at the container
+ * edge, which reads as the wordmark overlapping the rail rather than as
+ * something scrolled out of view.
  */
 .join-rail {
   list-style: none;
@@ -676,9 +807,16 @@
   padding: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   overflow-x: auto;
   scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 10px,
+    #000 calc(100% - 10px),
+    transparent 100%
+  );
 }
 
 .join-rail::-webkit-scrollbar {
@@ -691,29 +829,30 @@
   border: 0;
   cursor: pointer;
   font-family: var(--font-tech);
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--dimmer);
+  color: var(--faint);
   padding: 6px 9px;
-  border-radius: 2px;
+  border-radius: 5px;
   white-space: nowrap;
-  transition: color 0.24s var(--ease), background 0.24s var(--ease);
+  transition: color 0.22s var(--ease), background 0.22s var(--ease);
 }
 
 .join-rail button:hover {
-  color: var(--white);
-  background: var(--raised);
+  color: var(--ink-2);
+  background: var(--surface-2);
 }
 
 .join-rail button[data-state="done"] {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-rail button[data-state="current"] {
-  color: #16130a;
-  background: var(--gold);
+  color: #101826;
+  background: var(--gold-tint);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
 }
 
 .join-rail-label {
@@ -724,7 +863,7 @@
   display: inline;
 }
 
-@media (min-width: 1040px) {
+@media (min-width: 1100px) {
   .join-rail-label {
     display: inline;
   }
@@ -734,132 +873,115 @@
   }
 }
 
-/* -------------------------------------------------------------------- step */
+/* -------------------------------------------------------------- question */
 
-.join-step {
+/*
+ * Typeform pacing. One question owns the screen: the viewport height less the
+ * chrome and the advance bar, with the question sitting a little above centre
+ * so a long answer has somewhere to grow without the whole thing jumping.
+ */
+.join-stage {
   width: var(--shell);
   margin: 0 auto;
-  padding: clamp(38px, 7vh, 76px) 0 clamp(140px, 18vh, 190px);
-}
-
-.join-step-head {
-  max-width: var(--reading);
-}
-
-.join-step-count {
-  font-family: var(--font-tech);
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dimmer);
-}
-
-/*
- * The section title is the question the applicant is being asked right now,
- * so it gets display type and full width of the reading measure. The step it
- * belongs to is set above it, small, because it is orientation rather than
- * the thing being asked.
- */
-.join-step-title {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 5.2vw, 3.4rem);
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.012em;
-  text-transform: uppercase;
-  color: var(--white);
-  margin-top: 10px !important;
-}
-
-.join-step-intro {
-  margin-top: 16px !important;
-  max-width: 58ch;
-  font-size: clamp(1rem, 1.15vw, 1.09rem);
-  line-height: 1.65;
-  color: var(--dim);
-}
-
-/* Progress within the step. Ticks rather than a bar, because the count is
-   small enough to read at a glance and a second bar next to the global one
-   would be noise. */
-.join-parts {
+  min-height: calc(100svh - 46px - 92px);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(26px, 4.5vh, 52px) 0 clamp(100px, 12vh, 136px);
+}
+
+.join-q {
+  max-width: var(--reading);
+  width: 100%;
+}
+
+.join-q-wide {
+  max-width: 1000px;
+}
+
+/* The index, set as a system value rather than as prose. */
+.join-q-index {
+  display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 22px;
-}
-
-/*
- * A class rather than a bare `span`, which also matched the label sitting
- * beside the ticks and squeezed it into a 30px wide, 2px tall box.
- */
-.join-parts-tick {
-  flex: none;
-  height: 2px;
-  width: 30px;
-  background: var(--line-bright);
-  border-radius: 2px;
-  transition: background 0.5s var(--ease-out);
-}
-
-.join-parts-tick[data-done="true"] {
-  background: var(--gold);
-}
-
-.join-parts-label {
-  flex: none;
-  white-space: nowrap;
+  gap: 0 9px;
   font-family: var(--font-tech);
-  font-size: 0.74rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--dimmer);
-  margin-left: 6px;
+  color: var(--faint);
+}
+
+.join-q-index b {
+  color: var(--gold-ink);
+  font-weight: 700;
+}
+
+.join-q-index i {
+  font-style: normal;
+  color: var(--line-strong);
+}
+
+/*
+ * The question itself. Inter rather than the display face: this is something a
+ * person reads and answers, not a banner, and Operations sets everything
+ * readable in Inter too.
+ */
+/* The required marker is a marker, not part of the sentence, so it never
+   takes the heading's size. */
+.join-q-title .join-field-req {
+  font-size: 0.62em;
+  vertical-align: 0.35em;
+}
+
+.join-q-title {
+  margin-top: 11px !important;
+  font-size: clamp(1.45rem, 3.1vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.021em;
+  color: var(--ink);
+}
+
+.join-q-help {
+  margin-top: 11px !important;
+  max-width: 60ch;
+  font-size: clamp(0.94rem, 1.1vw, 1.02rem);
+  line-height: 1.62;
+  color: var(--muted);
+}
+
+.join-answer {
+  margin-top: clamp(20px, 3vh, 30px);
 }
 
 /* ------------------------------------------------------------------ fields */
 
-/*
- * No cards. The previous design put every group of questions inside a
- * rounded white panel with a shadow, which is the "card soup" the redesign is
- * meant to remove. Questions sit directly on the page, separated by space and
- * a hairline, and the only thing that draws a box is an input.
- */
 .join-fields {
   display: grid;
-  gap: clamp(26px, 3.6vh, 38px);
-  margin-top: clamp(34px, 5vh, 48px);
-  max-width: var(--reading);
-}
-
-.join-fields-wide {
-  max-width: none;
+  gap: clamp(18px, 2.6vh, 26px);
 }
 
 .join-field-label {
   display: block;
-  font-family: var(--font-display);
-  font-size: clamp(1.08rem, 1.7vw, 1.32rem);
-  font-weight: 400;
-  line-height: 1.32;
-  letter-spacing: 0.002em;
-  color: var(--white);
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-2);
 }
 
 .join-field-req {
-  color: var(--gold);
-  margin-left: 4px;
+  color: var(--gold-ink);
+  margin-left: 3px;
 }
 
 .join-field-help {
-  margin-top: 7px !important;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--dim);
-  max-width: 58ch;
+  margin-top: 5px !important;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted-2);
+  max-width: 60ch;
 }
 
 .join-input,
@@ -867,71 +989,64 @@
   width: 100%;
   font-family: var(--font-body);
   font-size: 1rem;
-  color: var(--white);
-  background: var(--base);
-  border: 1px solid var(--line-bright);
-  border-radius: 3px;
-  padding: 14px 16px;
-  margin-top: 12px;
-  transition: border-color 0.24s var(--ease), background 0.24s var(--ease);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 13px 15px;
+  margin-top: 10px;
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
 }
 
 .join-input::placeholder,
 .join-textarea::placeholder {
-  color: var(--dimmer);
+  color: var(--faint);
 }
 
 .join-input:focus,
 .join-textarea:focus {
   outline: none;
   border-color: var(--gold);
-  background: var(--raised);
+  box-shadow: 0 0 0 3px rgba(216, 169, 50, 0.16);
 }
 
 .join-input {
-  height: 52px;
+  height: 50px;
   padding-top: 0;
   padding-bottom: 0;
 }
 
 /*
  * Long answers get real room. A missionary describing a call should not be
- * writing into a four line box, and the founder direction is explicit that
- * long form answers need space to think.
+ * writing into a four line box.
  */
 .join-textarea {
-  min-height: 200px;
-  line-height: 1.7;
+  min-height: 190px;
+  line-height: 1.68;
   resize: vertical;
 }
 
 .join-textarea-tall {
-  min-height: 280px;
+  min-height: 240px;
 }
 
-.join-count {
-  margin-top: 7px !important;
-  font-family: var(--font-tech);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dimmer);
+/* A single question owning the screen needs no label above its box: the
+   question heading is the label, so repeating it would be noise. */
+.join-solo .join-textarea,
+.join-solo .join-input {
+  margin-top: 0;
 }
 
-/* Two short fields sit side by side once there is room. Long ones never do. */
 .join-pair {
   display: grid;
-  gap: clamp(20px, 3vw, 28px);
+  gap: clamp(16px, 2.2vw, 22px);
 }
 
-@media (min-width: 720px) {
+@media (min-width: 700px) {
   .join-pair-2 {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .join-pair-3 {
-    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -939,46 +1054,42 @@
 
 .join-money {
   position: relative;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .join-money span {
   position: absolute;
-  left: 15px;
+  left: 14px;
   top: 0;
   bottom: 0;
   display: flex;
   align-items: center;
   font-family: var(--font-tech);
-  font-weight: 600;
-  color: var(--dimmer);
+  font-weight: 700;
+  color: var(--faint);
   pointer-events: none;
 }
 
 .join-money input {
   margin-top: 0;
-  padding-left: 30px;
+  padding-left: 28px;
   font-family: var(--font-tech);
   font-size: 1.05rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-/* Compact label for the 17 category worksheet, where a display-size label per
-   row would make the grid unreadable. */
 .join-money-row .join-field-label {
-  font-family: var(--font-body);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 500;
-  color: #c8c5bc;
+  color: var(--muted);
 }
 
 /* ------------------------------------------------------------------ choice */
 
 .join-choices {
   display: grid;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 10px;
 }
 
 @media (min-width: 760px) {
@@ -987,115 +1098,140 @@
   }
 }
 
+/*
+ * Choices carry a keyboard letter the way a guided flow does, so a branch can
+ * be answered without reaching for the pointer.
+ */
 .join-choice {
   appearance: none;
   text-align: left;
   font: inherit;
-  background: var(--base);
-  border: 1px solid var(--line-bright);
-  border-radius: 3px;
-  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 15px 17px;
   cursor: pointer;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition:
-    border-color 0.26s var(--ease),
-    background 0.26s var(--ease);
+    border-color 0.22s var(--ease),
+    background 0.22s var(--ease),
+    box-shadow 0.22s var(--ease);
 }
 
 .join-choice:hover {
-  border-color: var(--line-bright);
-  background: var(--raised);
+  border-color: var(--gold-line);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
 }
 
 .join-choice[aria-pressed="true"] {
   border-color: var(--gold);
-  background: var(--gold-dim);
+  background: var(--gold-tint);
+}
+
+.join-choice-key {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--muted-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-tech);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.join-choice[aria-pressed="true"] .join-choice-key {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #101826;
 }
 
 .join-choice-title {
   display: block;
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  color: var(--white);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .join-choice[aria-pressed="true"] .join-choice-title {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-choice-note {
   display: block;
-  margin-top: 6px;
-  font-size: 0.89rem;
+  margin-top: 4px;
+  font-size: 0.86rem;
   line-height: 1.5;
-  color: var(--dim);
+  color: var(--muted-2);
 }
 
 /* ---------------------------------------------------------------- checkbox */
 
 .join-check {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 13px;
+  align-items: start;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--base);
+  border-radius: 8px;
+  background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.26s var(--ease);
+  transition: border-color 0.22s var(--ease), background 0.22s var(--ease);
 }
 
 .join-check:hover {
-  border-color: var(--line-bright);
+  border-color: var(--line-strong);
 }
 
 .join-check:has(input:checked) {
   border-color: var(--gold-line);
-  background: var(--gold-dim);
+  background: var(--gold-tint);
 }
 
 .join-check input {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
+  width: 19px;
+  height: 19px;
+  margin: 1px 0 0;
   accent-color: var(--gold);
   cursor: pointer;
 }
 
 .join-check-body {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: #c8c5bc;
+  font-size: 0.91rem;
+  line-height: 1.58;
+  color: var(--muted);
 }
 
 .join-check-body strong {
   display: block;
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 1.02rem;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  color: var(--white);
-  margin-bottom: 4px;
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
 }
 
 /* ------------------------------------------------------------------ panels */
 
-/* Used sparingly: a total, a caution, a confirmation. Never as a wrapper
-   around ordinary questions. */
 .join-panel {
   border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--base);
-  padding: clamp(18px, 2.6vw, 24px);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: clamp(15px, 2.2vw, 19px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .join-panel-gold {
   border-color: var(--gold-line);
-  background: var(--gold-dim);
+  background: var(--gold-tint);
+  box-shadow: none;
 }
 
 .join-panel-note {
@@ -1103,37 +1239,35 @@
   border-left: 2px solid var(--gold);
   border-radius: 0;
   background: none;
-  padding: 4px 0 4px 18px;
-  font-size: 0.93rem;
-  line-height: 1.65;
-  color: var(--dim);
+  box-shadow: none;
+  padding: 3px 0 3px 16px;
+  font-size: 0.88rem;
+  line-height: 1.62;
+  color: var(--muted);
 }
 
 .join-panel-title {
-  font-family: var(--font-display);
-  font-size: 1.06rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.012em;
-  color: var(--white);
+  font-size: 0.99rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .join-panel-body {
-  margin-top: 8px !important;
-  font-size: 0.93rem;
-  line-height: 1.65;
-  color: var(--dim);
+  margin-top: 6px !important;
+  font-size: 0.88rem;
+  line-height: 1.62;
+  color: var(--muted-2);
 }
 
 /* -------------------------------------------------------------- worksheet */
 
 .join-worksheet {
   display: grid;
-  gap: clamp(20px, 3vw, 26px);
-  margin-top: 22px;
+  gap: clamp(15px, 2.2vw, 20px);
+  margin-top: 16px;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 700px) {
   .join-worksheet {
     grid-template-columns: 1fr 1fr;
   }
@@ -1144,23 +1278,21 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
 
 .join-subtotal {
   font-family: var(--font-tech);
-  font-size: 1.32rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--white);
+  font-size: 1.28rem;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .join-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 22px;
 }
 
 @media (min-width: 760px) {
@@ -1171,44 +1303,45 @@
 
 .join-metric {
   border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--base);
-  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 13px 15px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .join-metric[data-tone="accent"] {
   border-color: var(--gold-line);
-  background: var(--gold-dim);
+  background: var(--gold-tint);
+  box-shadow: none;
 }
 
 .join-metric-label {
   font-family: var(--font-tech);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: 0.65rem;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--dimmer);
+  color: var(--muted-2);
 }
 
 .join-metric-value {
-  margin-top: 6px !important;
-  font-family: var(--font-tech);
-  font-size: 1.5rem;
+  margin-top: 5px !important;
+  font-size: 1.45rem;
   font-weight: 600;
-  letter-spacing: 0.005em;
-  color: var(--white);
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .join-metric[data-tone="accent"] .join-metric-value {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 /* ----------------------------------------------------------------- footer */
 
 /*
- * The advance control is fixed to the bottom of the viewport rather than
- * sitting at the end of the page. On a phone that is the difference between
- * a guided flow and a scroll to the bottom to find the button.
+ * The advance control is pinned to the bottom of the viewport rather than
+ * sitting at the end of the page. On a phone that is the difference between a
+ * guided flow and a scroll to find the button.
  */
 .join-footer {
   position: fixed;
@@ -1216,12 +1349,8 @@
   right: 0;
   bottom: 0;
   z-index: 45;
-  background: linear-gradient(
-    to top,
-    rgba(13, 13, 13, 0.97) 60%,
-    rgba(13, 13, 13, 0)
-  );
-  padding: clamp(16px, 2.4vh, 22px) 0 clamp(18px, 2.6vh, 24px);
+  background: linear-gradient(to top, var(--paper) 58%, rgba(245, 247, 251, 0));
+  padding: clamp(13px, 2vh, 19px) 0 clamp(15px, 2.2vh, 21px);
   pointer-events: none;
 }
 
@@ -1230,21 +1359,43 @@
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .join-footer-hint {
   font-family: var(--font-tech);
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  gap: 6px;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--dimmer);
+  color: var(--faint);
   margin-left: auto !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
-/* The keyboard hint is only true where there is a keyboard. */
+/* A real key cap, because the hint is a real instruction. */
+.join-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-tech);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 860px) {
   .join-footer-hint {
     display: none;
@@ -1256,13 +1407,9 @@
 }
 
 @media (max-width: 560px) {
-  .join-footer-inner {
-    gap: 8px;
-  }
-
   .join-footer .join-button {
-    padding: 14px 18px;
-    font-size: 0.9rem;
+    padding: 13px 16px;
+    font-size: 0.8rem;
   }
 
   .join-footer .join-button-primary {
@@ -1274,24 +1421,24 @@
 
 .join-notice {
   border-left: 2px solid var(--gold);
-  padding: 10px 0 10px 16px;
-  margin-bottom: 26px;
-  font-size: 0.94rem;
-  line-height: 1.6;
-  color: #c8c5bc;
+  background: var(--gold-tint);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-size: 0.89rem;
+  line-height: 1.58;
+  color: var(--gold-ink);
   animation: join-lift 0.7s var(--ease-out) both;
-}
-
-.join-notice[data-tone="warn"] {
-  border-left-color: var(--danger);
 }
 
 .join-error {
   border-left: 2px solid var(--danger);
-  padding: 10px 0 10px 16px;
-  font-size: 0.93rem;
-  line-height: 1.6;
-  color: #e6b3a2;
+  background: var(--danger-tint);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.58;
+  color: var(--danger);
 }
 
 /* ------------------------------------------------------------------ review */
@@ -1299,9 +1446,8 @@
 .join-review-list {
   list-style: none;
   padding: 0;
-  margin: 14px 0 0 !important;
+  margin: 12px 0 0 !important;
   display: grid;
-  gap: 1px;
 }
 
 .join-review-list li {
@@ -1319,56 +1465,62 @@
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: 0.95rem;
-  color: #c8c5bc;
-  padding: 12px 0;
+  font-size: 0.91rem;
+  color: var(--muted);
+  padding: 11px 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: color 0.22s var(--ease);
+  transition: color 0.2s var(--ease);
 }
 
 .join-review-jump:hover {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 .join-review-jump span:last-child {
   margin-left: auto;
   font-family: var(--font-tech);
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--dimmer);
+  color: var(--faint);
+}
+
+.join-review-note {
+  font-size: 0.89rem;
+  line-height: 1.6;
+  color: var(--muted-2);
+  padding: 11px 0;
 }
 
 .join-disclosures {
   display: grid;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 9px;
+  margin-top: 14px;
 }
 
 /* --------------------------------------------------------------- photos */
 
 .join-photos {
   display: grid;
-  gap: 14px;
-  margin-top: 22px;
+  gap: 12px;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 700px) {
   .join-photos {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 .join-photo {
-  border: 1px dashed var(--line-bright);
-  border-radius: 3px;
-  background: var(--base);
-  padding: 20px;
-  transition: border-color 0.26s var(--ease);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 17px;
+  transition: border-color 0.24s var(--ease);
 }
 
 .join-photo:hover {
@@ -1378,44 +1530,41 @@
 .join-photo[data-filled="true"] {
   border-style: solid;
   border-color: var(--gold-line);
-  background: var(--gold-dim);
+  background: var(--gold-tint);
 }
 
 .join-photo-kind {
-  font-family: var(--font-display);
-  font-size: 1.02rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  color: var(--white);
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .join-photo input[type="file"] {
-  margin-top: 14px;
+  margin-top: 12px;
   width: 100%;
   font-family: var(--font-body);
-  font-size: 0.86rem;
-  color: var(--dim);
+  font-size: 0.82rem;
+  color: var(--muted-2);
 }
 
 .join-photo input[type="file"]::file-selector-button {
   font-family: var(--font-tech);
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--white);
-  background: var(--raised-2);
-  border: 1px solid var(--line-bright);
-  border-radius: 2px;
-  padding: 9px 14px;
-  margin-right: 12px;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 8px 13px;
+  margin-right: 11px;
   cursor: pointer;
 }
 
 .join-photo input[type="file"]::file-selector-button:hover {
   border-color: var(--gold);
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 
 /* -------------------------------------------------------------- submitted */
@@ -1426,61 +1575,69 @@
   width: var(--shell);
   margin: 0 auto;
   max-width: 760px;
-  padding: clamp(80px, 16vh, 150px) 0 clamp(60px, 12vh, 110px);
+  padding: clamp(70px, 13vh, 120px) 0 clamp(46px, 9vh, 84px);
 }
 
 .join-done h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-size: clamp(2.4rem, 7vw, 4.4rem);
   font-weight: 600;
   line-height: 0.94;
   letter-spacing: -0.018em;
   text-transform: uppercase;
-  color: var(--white);
-  margin-top: 14px !important;
+  color: var(--ink);
+  margin-top: 11px !important;
 }
 
 .join-done-body {
-  margin-top: clamp(26px, 4vh, 36px);
+  margin-top: clamp(20px, 3.2vh, 30px);
   display: grid;
-  gap: 18px;
-  font-size: 1.02rem;
+  gap: 15px;
+  font-size: 1rem;
   line-height: 1.68;
-  color: #c8c5bc;
+  color: var(--muted);
   max-width: 60ch;
 }
 
 .join-done-ref {
-  margin-top: 30px !important;
+  margin-top: 24px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
   font-family: var(--font-tech);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--dimmer);
+  color: var(--faint);
 }
 
 .join-done-ref b {
-  color: var(--dim);
-  font-weight: 600;
+  color: var(--ink-2);
+  font-weight: 700;
+  letter-spacing: 0.07em;
 }
 
 /* ------------------------------------------------------------ transitions */
 
 /*
  * The step transition. Keyed on a React key change so every advance replays
- * it, which is what gives the flow its pacing. Kept short: the applicant is
- * doing this nine times over, and a long transition that delights once
- * becomes an obstacle by the fourth repetition.
+ * it, which is what gives the flow its pacing. Kept short: an applicant does
+ * this dozens of times, and a transition that delights once becomes an
+ * obstacle by the tenth repetition.
  */
 .join-transition {
-  animation: join-step-in 0.5s var(--ease-out) both;
+  animation: join-step-in 0.42s var(--ease-out) both;
 }
 
 @keyframes join-step-in {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -1495,7 +1652,7 @@
 @keyframes join-step-back {
   from {
     opacity: 0;
-    transform: translateY(-14px);
+    transform: translateY(-12px);
   }
   to {
     opacity: 1;
@@ -1505,35 +1662,45 @@
 
 /* ------------------------------------------------------------------ gate */
 
+/* The gate is one card on paper, centred, rather than a block of copy pinned
+   to the left the way the opening is. */
+.join-screen-gate .join-screen-inner {
+  display: flex;
+  justify-content: center;
+}
+
 .join-gate {
   position: relative;
   z-index: 2;
-  width: var(--shell);
-  margin: 0 auto;
-  max-width: 420px;
-  text-align: left;
+  width: 100%;
+  max-width: 430px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.07);
+  padding: clamp(24px, 3.4vw, 34px);
 }
 
 .join-gate h1 {
   font-family: var(--font-display);
-  font-size: clamp(1.9rem, 5vw, 2.7rem);
-  font-weight: 500;
-  line-height: 1.04;
-  letter-spacing: -0.01em;
+  font-size: clamp(1.7rem, 4.2vw, 2.3rem);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.012em;
   text-transform: uppercase;
-  color: var(--white);
-  margin-top: 12px !important;
+  color: var(--ink);
+  margin-top: 10px !important;
 }
 
 .join-gate-sub {
-  margin-top: 14px !important;
-  font-size: 0.98rem;
-  line-height: 1.62;
-  color: var(--dim);
+  margin-top: 11px !important;
+  font-size: 0.93rem;
+  line-height: 1.6;
+  color: var(--muted);
 }
 
 .join-gate-form {
-  margin-top: 28px;
+  margin-top: 22px;
   display: grid;
   gap: 12px;
 }

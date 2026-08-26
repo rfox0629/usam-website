@@ -70,6 +70,27 @@ async function nextPart(page) {
   await page.waitForTimeout(650);
 }
 
+/** Advances with Continue until `probe` matches, so the walk survives the
+    page model changing shape underneath it. */
+async function advanceUntil(page, probe, max = 14) {
+  for (let i = 0; i < max; i += 1) {
+    if (await page.$(probe)) {
+      return true;
+    }
+
+    const next = await page.$(".join-footer .join-button-primary");
+
+    if (!next) {
+      return false;
+    }
+
+    await next.click();
+    await page.waitForTimeout(420);
+  }
+
+  return Boolean(await page.$(probe));
+}
+
 async function run(label, viewport, dir, extra = {}) {
   const browser = await chromium.launch({ executablePath: EXEC });
   const context = await browser.newContext({
@@ -96,14 +117,14 @@ async function run(label, viewport, dir, extra = {}) {
 
   await fillIdentity(page);
   await page.check('.join-check input[type="checkbox"]');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(450);
   await shot(page, dir, "03-about-couple");
 
-  // 04 household, a mixed short/long section
+  // 04 a run of short factual fields kept on one screen
   await nextPart(page);
   await shot(page, dir, "04-about-household");
 
-  // 05 long form room
+  // 05 a narrative question owning its screen
   await gotoStep(page, "Your Story");
   await page.fill(
     "#story\\.testimony",
@@ -112,49 +133,44 @@ async function run(label, viewport, dir, extra = {}) {
   await page.waitForTimeout(400);
   await shot(page, dir, "05-story-longform");
 
-  // 06 branching support path
+  // 06 the branch
   await gotoStep(page, "Support and Fundraising");
   await shot(page, dir, "06-support-path");
 
   await page.click('.join-choice:has(.join-choice-title:text-is("Yes"))');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(450);
   await shot(page, dir, "07-support-path-chosen");
 
   // 08 the private 17 category worksheet
-  await nextPart(page);
+  await advanceUntil(page, "#supportBudget\\.housing");
   await page.fill("#supportBudget\\.housing", "2400");
   await page.fill("#supportBudget\\.foodHousehold", "900");
   await page.fill("#supportBudget\\.utilities", "260");
   await page.fill("#supportBudget\\.transportation", "410");
   await page.fill("#supportBudget\\.hospitalityMeals", "300");
   await page.fill("#supportBudget\\.localTravel", "180");
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(450);
   await shot(page, dir, "08-support-worksheet");
 
   // 09 the support picture
-  await nextPart(page);
+  await advanceUntil(page, "#supportMonthlyNeed");
   await page.fill("#supportMonthlyNeed", "4450");
   await page.fill("#supportCommittedAmount", "1200");
   await page.fill("#supportRequestedGoal", "4450");
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(450);
   await shot(page, dir, "09-support-picture");
 
   // 10 photos
   await gotoStep(page, "Build Your Missionary Profile");
-  for (let i = 0; i < 3; i += 1) {
-    await nextPart(page);
-  }
+  await advanceUntil(page, ".join-photos");
   await shot(page, dir, "10-profile-photos");
 
-  // 11 review. The rail carries the seven question steps, so Review is reached
-  // by advancing out of the last one rather than by jumping to it.
-  await nextPart(page);
-  await page.waitForTimeout(500);
+  // 11 review
+  await advanceUntil(page, ".join-review-list");
   await shot(page, dir, "11-review");
 
   await browser.close();
 }
-
 
 const VIEWPORTS = [
   { dir: "desktop", extra: {}, viewport: { height: 900, width: 1440 } },
@@ -174,7 +190,7 @@ async function stub(page) {
 
 /** Fills every question on the current screen with plausible sample material. */
 async function fillScreen(page) {
-  const textareas = await page.$$(".join-step textarea");
+  const textareas = await page.$$(".join-stage textarea");
 
   for (const area of textareas) {
     if (await area.inputValue()) continue;
@@ -183,7 +199,7 @@ async function fillScreen(page) {
     );
   }
 
-  const inputs = await page.$$('.join-step input[type="text"], .join-step input[type="email"]');
+  const inputs = await page.$$('.join-stage input[type="text"], .join-stage input[type="email"]');
 
   for (const input of inputs) {
     if (await input.inputValue()) continue;
@@ -208,7 +224,7 @@ async function fillScreen(page) {
 
   // Acknowledgements yes, the couple toggle no: checking it would add a second
   // person's required fields to a run that is only trying to reach the end.
-  const checks = await page.$$(".join-step .join-check");
+  const checks = await page.$$(".join-stage .join-check");
 
   for (const check of checks) {
     const text = (await check.innerText()).toLowerCase();
@@ -241,7 +257,7 @@ async function runSubmitted({ dir, extra, viewport }) {
   await page.click(".join-welcome-actions .join-button-primary");
   await page.waitForTimeout(800);
 
-  for (let i = 0; i < 40; i += 1) {
+  for (let i = 0; i < 70; i += 1) {
     await fillScreen(page);
     await page.waitForTimeout(160);
 

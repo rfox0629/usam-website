@@ -7,15 +7,22 @@ import { useEffect, useRef } from "react";
  *
  * A scattered field of people. Most are latent. Every few seconds one of them
  * is sent, and what follows travels: the light reaches a neighbour, then their
- * neighbours, and the gold spreads outward along real connections rather than
- * appearing everywhere at once. Where the applicant's attention rests the
- * field leans toward them.
+ * neighbours, and the accent spreads outward along real connections rather
+ * than appearing everywhere at once. Where the applicant's attention rests the
+ * field leans toward them and its longer range structure resolves.
  *
  * The metaphor is the whole reason the artwork exists. USA Missionaries sends
  * people who reach people, so the image had to be propagation through a
  * network, not a grid lighting up under a cursor. The accent only ever appears
  * on a point the movement has actually reached, so the gold on screen is
  * always a count of what has been carried.
+ *
+ * Drawn on Operations paper rather than on a dark screen, which changes how it
+ * has to be built: on white, a glow reads as smudge, so the tech feel comes
+ * from fine dark linework at low alpha, a denser mesh, and a third pass of
+ * long chords that only appear where attention is strongest. That last pass is
+ * what makes the field resolve into deliberate structure instead of staying an
+ * even texture.
  *
  * Canvas 2D over a relaxed scatter with precomputed proximity edges. No
  * dependencies, no WebGL, DPR aware, and a single composed still frame under
@@ -35,15 +42,20 @@ type Node = {
   phase: number;
 };
 
-/* Fewer, larger cells on a phone. The density that reads as fine structure on
-   a desktop reads as noise at 390px. */
-const spacingFor = (width: number) => (width < 640 ? 74 : 54);
-const ATTENTION_RADIUS = 230;
+/* Fewer, larger cells on a phone. The density that reads as fine drafting on a
+   desktop reads as noise at 390px. */
+const spacingFor = (width: number) => (width < 640 ? 66 : 46);
+const ATTENTION_RADIUS = 240;
 const IDLE_MS = 2200;
 /* How long the light takes to cross one connection. Slow enough to read as
    travel rather than as a flash. */
-const HOP_MS = 135;
-const SEND_EVERY_MS = 2600;
+const HOP_MS = 130;
+const SEND_EVERY_MS = 2500;
+
+/* Ink for the latent field. Slate 900, the same ink Operations sets text in. */
+const INK = "15, 23, 42";
+/* The one accent, matching the Operations gold exactly. */
+const GOLD = "216, 169, 50";
 
 /** Deterministic PRNG, so the field never reshuffles across resizes. */
 function rand(seed: number) {
@@ -74,6 +86,10 @@ export function MovementField() {
     let height = 0;
     let nodes: Node[] = [];
     let edges: Array<[number, number]> = [];
+    /* Longer range connections that only appear where attention is strongest,
+       so the focus resolves into deliberate architecture rather than into a
+       denser patch of the same mesh. */
+    let chords: Array<[number, number]> = [];
     let neighbours: number[][] = [];
     let frame = 0;
 
@@ -113,8 +129,8 @@ export function MovementField() {
              that no row or column ever reads as a line, which is what keeps
              this from looking like graph paper. */
           const seed = r * 977 + c * 131;
-          const jx = (rand(seed) - 0.5) * spacing * 0.92;
-          const jy = (rand(seed + 0.5) - 0.5) * spacing * 0.92;
+          const jx = (rand(seed) - 0.5) * spacing * 0.9;
+          const jy = (rand(seed + 0.5) - 0.5) * spacing * 0.9;
           const x = (c - 1) * spacing + jx;
           const y = (r - 1) * spacing + jy;
 
@@ -130,12 +146,13 @@ export function MovementField() {
         }
       }
 
-      /* Proximity edges. Only the near pairs, found through the same grid the
-         points were generated on so this stays linear rather than n squared. */
-      const linkRadius = spacing * 1.42;
+      /* Proximity edges, found through the same grid the points were generated
+         on so this stays linear rather than n squared. */
+      const linkRadius = spacing * 1.44;
       const linkRadiusSq = linkRadius * linkRadius;
 
       edges = [];
+      chords = [];
       neighbours = nodes.map(() => []);
 
       for (let r = 0; r < rows; r += 1) {
@@ -143,14 +160,14 @@ export function MovementField() {
           const i = r * cols + c;
 
           /* Forward-only neighbourhood, so each pair is considered once. */
-          const candidates = [
+          const near = [
             r * cols + c + 1,
             (r + 1) * cols + c,
             (r + 1) * cols + c + 1,
             (r + 1) * cols + c - 1,
           ];
 
-          for (const j of candidates) {
+          for (const j of near) {
             if (j <= i || j >= nodes.length) {
               continue;
             }
@@ -172,6 +189,26 @@ export function MovementField() {
             neighbours[i].push(j);
             neighbours[j].push(i);
           }
+
+          /* Two cells out, in three directions. These are never part of the
+             propagation graph: they are structure, not relationship. */
+          const far = [
+            r * cols + c + 2,
+            (r + 2) * cols + c,
+            (r + 2) * cols + c + 2,
+          ];
+
+          for (const j of far) {
+            if (j <= i || j >= nodes.length) {
+              continue;
+            }
+
+            if (Math.abs((j % cols) - c) > 2) {
+              continue;
+            }
+
+            chords.push([i, j]);
+          }
         }
       }
 
@@ -179,8 +216,8 @@ export function MovementField() {
       reached = new Set();
 
       if (!seeded) {
-        attractorX = width * 0.58;
-        attractorY = height * 0.5;
+        attractorX = width * 0.62;
+        attractorY = height * 0.48;
         seeded = true;
       }
     };
@@ -228,10 +265,10 @@ export function MovementField() {
       const idle = time - lastPointer > IDLE_MS;
 
       const targetX = idle
-        ? width * 0.5 + Math.cos(time * 0.00017) * width * 0.3
+        ? width * 0.56 + Math.cos(time * 0.00017) * width * 0.26
         : pointerX;
       const targetY = idle
-        ? height * 0.5 + Math.sin(time * 0.00024) * height * 0.28
+        ? height * 0.5 + Math.sin(time * 0.00024) * height * 0.26
         : pointerY;
 
       const chase = idle ? 0.018 : 0.13;
@@ -251,11 +288,13 @@ export function MovementField() {
 
         n.a += (target - n.a) * 0.1;
         /* The light fades faster than the next hop arrives, so what travels is
-           a band moving outward rather than a stain that keeps growing until
-           the whole field is gold and the type has to fight it. */
-        n.e *= 0.938;
+           a narrow band moving outward rather than a stain that keeps growing
+           until the whole field is gold. On paper this matters more than it
+           did on a dark ground: the ink mesh is the structure, and the accent
+           is only ever the thing moving through it. */
+        n.e *= 0.905;
 
-        const pull = n.a * 12;
+        const pull = n.a * 11;
 
         n.rx = n.x + (dx / dist) * pull;
         n.ry = n.y + (dy / dist) * pull;
@@ -266,9 +305,10 @@ export function MovementField() {
       ctx.clearRect(0, 0, width, height);
 
       /* Pass one: the field as it stands. Everyone is there before anything
-         happens to them. */
+         happens to them. Kept very light, because on paper this is the tone
+         of a drafting line rather than of an object. */
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(250, 250, 248, 0.05)";
+      ctx.strokeStyle = `rgba(${INK}, 0.1)`;
       ctx.beginPath();
 
       for (let i = 0; i < edges.length; i += 1) {
@@ -281,43 +321,60 @@ export function MovementField() {
 
       ctx.stroke();
 
-      /* Pass two: connections the movement has actually crossed. */
-      for (let i = 0; i < edges.length; i += 1) {
-        const a = nodes[edges[i][0]];
-        const b = nodes[edges[i][1]];
-        const carried = Math.min(a.e, b.e);
-        const near = Math.min(a.a, b.a);
-        const strength = Math.max(carried, near * 0.42);
+      /* Pass two: structure. Only where attention is strongest, so the field
+         resolves under the eye instead of being uniformly busy. */
+      for (let i = 0; i < chords.length; i += 1) {
+        const a = nodes[chords[i][0]];
+        const b = nodes[chords[i][1]];
+        const strength = Math.min(a.a, b.a);
 
-        if (strength < 0.05) {
+        if (strength < 0.42) {
           continue;
         }
 
-        ctx.strokeStyle = `rgba(194, 161, 78, ${(strength * 0.55).toFixed(3)})`;
+        ctx.strokeStyle = `rgba(${INK}, ${((strength - 0.42) * 0.34).toFixed(3)})`;
         ctx.beginPath();
         ctx.moveTo(a.rx, a.ry);
         ctx.lineTo(b.rx, b.ry);
         ctx.stroke();
       }
 
+      /* Pass three: connections the movement has actually crossed. */
+      for (let i = 0; i < edges.length; i += 1) {
+        const a = nodes[edges[i][0]];
+        const b = nodes[edges[i][1]];
+        const carried = Math.min(a.e, b.e);
+
+        if (carried < 0.06) {
+          continue;
+        }
+
+        ctx.strokeStyle = `rgba(${GOLD}, ${(carried * 0.5).toFixed(3)})`;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(a.rx, a.ry);
+        ctx.lineTo(b.rx, b.ry);
+        ctx.stroke();
+      }
+
+      ctx.lineWidth = 1;
+
       /* The people themselves. */
       for (let i = 0; i < nodes.length; i += 1) {
         const n = nodes[i];
-        const lit = Math.max(n.e, n.a * 0.55);
-        const shimmer = 0.09 + 0.045 * Math.sin(time * 0.0005 + n.phase);
-        const size = 0.9 + lit * 2.2;
+        const shimmer = 0.13 + 0.05 * Math.sin(time * 0.0005 + n.phase);
+        const size = 0.85 + Math.max(n.e, n.a * 0.5) * 2;
 
         ctx.beginPath();
         ctx.arc(n.rx, n.ry, size, 0, Math.PI * 2);
 
-        if (lit > 0.04) {
-          /* Gold at full strength, warming back to white as it fades, so a
-             point that has been reached cools rather than switching off. */
-          ctx.fillStyle = `rgba(${Math.round(194 + (250 - 194) * (1 - lit))}, ${Math.round(
-            161 + (250 - 161) * (1 - lit),
-          )}, ${Math.round(78 + (248 - 78) * (1 - lit))}, ${(0.14 + lit * 0.86).toFixed(3)})`;
+        if (n.e > 0.06) {
+          /* Gold at full strength, cooling back toward the field ink as it
+             fades, so a point that has been reached settles rather than
+             switching off. */
+          ctx.fillStyle = `rgba(${GOLD}, ${(n.e * 0.75).toFixed(3)})`;
         } else {
-          ctx.fillStyle = `rgba(250, 250, 248, ${shimmer.toFixed(3)})`;
+          ctx.fillStyle = `rgba(${INK}, ${(shimmer + n.a * 0.22).toFixed(3)})`;
         }
 
         ctx.fill();
@@ -332,7 +389,7 @@ export function MovementField() {
 
     /** One composed frame: attention settled, one send already carried. */
     const renderStatic = () => {
-      attractorX = width * 0.58;
+      attractorX = width * 0.62;
       attractorY = height * 0.46;
 
       for (let pass = 0; pass < 40; pass += 1) {
@@ -345,14 +402,13 @@ export function MovementField() {
             dist < ATTENTION_RADIUS ? Math.pow(1 - dist / ATTENTION_RADIUS, 1.6) : 0;
 
           n.a += (target - n.a) * 0.2;
-          n.rx = n.x + (dx / dist) * n.a * 10;
-          n.ry = n.y + (dy / dist) * n.a * 10;
+          n.rx = n.x + (dx / dist) * n.a * 9;
+          n.ry = n.y + (dy / dist) * n.a * 9;
         }
       }
 
-      /* Carry one send a fixed number of hops, then let it decay by distance,
-         so the still frame shows a movement mid-spread rather than a blank
-         field. */
+      /* Carry one send a fixed number of hops and let it decay by distance, so
+         the still frame shows a movement mid-spread rather than a blank field. */
       if (nodes.length) {
         const origin = Math.floor(nodes.length * 0.34);
 

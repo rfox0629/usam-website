@@ -59,7 +59,7 @@ export function JoinPreviewGate({ configured = true }: { configured?: boolean })
 
   return (
     <main className="join">
-      <div className="join-screen">
+      <div className="join-screen join-screen-gate">
         <MovementField />
 
         <div className="join-screen-inner">

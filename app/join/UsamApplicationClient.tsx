@@ -37,11 +37,12 @@ import {
  * component state and sent with every later save so they all land on one draft.
  *
  * USA-191 rebuilt the presentation on top of that machinery without touching
- * it. The step and section state below is the same guided spine USA-167 shipped;
- * what changed is that one section is now a screen rather than a card in a
- * stack, the chrome carries progress and save state so the body can be nothing
- * but the current question, and every advance replays a transition. No data
- * contract, validation rule or request shape was altered.
+ * it. The nine step model, the couple model, the private worksheet, the
+ * validation and every request shape are exactly as USA-167 shipped them. What
+ * changed is pacing: the step and section model is now compiled into a flat
+ * list of pages, one question to a page, so the application is walked rather
+ * than filled in. A narrative question owns its screen; a run of short factual
+ * fields that make up one thought, like an address, stays together.
  */
 
 type ResumeState = "expired" | "none" | "restored" | "revoked" | "submitted" | "unavailable";
@@ -63,9 +64,23 @@ const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
 
 type SupportPath = "no" | "unsure" | "yes";
 
-function isApplicationContentStep(
-  value: JoinApplicationStepId,
-): value is Exclude<JoinApplicationStepId, "review" | "start"> {
+type ContentStepId = Exclude<JoinApplicationStepId, "review" | "start">;
+
+/**
+ * One screen of the application.
+ *
+ * Compiled from the USA-167 step and section model rather than replacing it,
+ * so the information architecture, the review jumps and the submitted payload
+ * all still speak in steps and sections.
+ */
+type Page =
+  | { fields: JoinField[]; kind: "fields"; sectionId: string; solo: boolean; stepId: ContentStepId }
+  | { kind: "identity"; sectionId: string; stepId: ContentStepId }
+  | { kind: "photos"; sectionId: string; stepId: ContentStepId }
+  | { kind: "review"; sectionId: string; stepId: JoinApplicationStepId }
+  | { kind: "support"; section: JoinFieldSection; sectionId: string; stepId: ContentStepId };
+
+function isApplicationContentStep(value: JoinApplicationStepId): value is ContentStepId {
   return value !== "review" && value !== "start";
 }
 
@@ -134,6 +149,97 @@ function supportBudgetSummary(draft: JoinApplicationDraft) {
   };
 }
 
+/**
+ * Compiles the step and section model into pages.
+ *
+ * The rule is one thought per screen. A long answer is a thought on its own and
+ * gets the screen to itself, with the question set as the heading so nothing
+ * competes with it. A run of short factual fields inside one section is a
+ * single thought too, so an address is not dealt out over four screens just to
+ * imitate a guided form.
+ */
+function buildPages(draft: JoinApplicationDraft): Page[] {
+  const pages: Page[] = [];
+
+  for (const step of joinApplicationSteps) {
+    if (step.id === "start") {
+      continue;
+    }
+
+    if (step.id === "review") {
+      pages.push({ kind: "review", sectionId: "review", stepId: "review" });
+      continue;
+    }
+
+    // Captured into a const so the narrowing survives into the closure below.
+    // Narrowing a property access does not.
+    const stepId = step.id;
+
+    if (!isApplicationContentStep(stepId)) {
+      continue;
+    }
+
+    const sections =
+      stepId === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[stepId];
+
+    for (const section of sections) {
+      if (stepId === "support") {
+        pages.push({ kind: "support", section, sectionId: section.id, stepId });
+        continue;
+      }
+
+      if (stepId === "about" && section.id === "identity") {
+        pages.push({ kind: "identity", sectionId: section.id, stepId });
+        continue;
+      }
+
+      if (stepId === "profile" && section.id === "photos") {
+        pages.push({ kind: "photos", sectionId: section.id, stepId });
+        continue;
+      }
+
+      const fields = visibleFieldsForSection(stepId, section.id, draft.applyingAsCouple);
+      let run: JoinField[] = [];
+
+      const flushRun = () => {
+        if (run.length > 0) {
+          pages.push({ fields: run, kind: "fields", sectionId: section.id, solo: false, stepId });
+          run = [];
+        }
+      };
+
+      for (const field of fields) {
+        if (field.kind === "long") {
+          flushRun();
+          pages.push({ fields: [field], kind: "fields", sectionId: section.id, solo: true, stepId });
+          continue;
+        }
+
+        run.push(field);
+      }
+
+      flushRun();
+    }
+  }
+
+  return pages;
+}
+
+function sectionTitle(page: Page) {
+  if (page.kind === "support") {
+    return { intro: page.section.intro, title: page.section.title };
+  }
+
+  if (page.stepId === "review") {
+    return { intro: "Check your answers, then submit.", title: "Review and submit" };
+  }
+
+  const sections = joinApplicationSections[page.stepId as ContentStepId] ?? [];
+  const section = sections.find((candidate) => candidate.id === page.sectionId);
+
+  return { intro: section?.intro ?? "", title: section?.title ?? "" };
+}
+
 function resumeNotice(state: ResumeState) {
   switch (state) {
     case "expired":
@@ -154,14 +260,13 @@ function resumeNotice(state: ResumeState) {
 function ArrowRight() {
   return (
     <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-      <path d="M4 12h15m0 0-6-6m6 6-6 6" stroke="currentColor" strokeLinecap="square" strokeWidth="1.6" />
+      <path d="M4 12h15m0 0-6-6m6 6-6 6" stroke="currentColor" strokeLinecap="square" strokeWidth="1.7" />
     </svg>
   );
 }
 
 export function UsamApplicationClient({ initialDraft, initialStep, resumeState, resumeToken }: Props) {
   const [draft, setDraft] = useState<JoinApplicationDraft>(initialDraft);
-  const [stepId, setStepId] = useState<JoinApplicationStepId>(initialStep);
   const [token, setToken] = useState<string | null>(resumeToken);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [emailNotice, setEmailNotice] = useState("");
@@ -169,9 +274,17 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const [submitState, setSubmitState] = useState<"error" | "idle" | "submitted" | "submitting">("idle");
   const [submitError, setSubmitError] = useState("");
   const [applicationId, setApplicationId] = useState("");
-  const [sectionIndexByStep, setSectionIndexByStep] = useState<Partial<Record<JoinApplicationStepId, number>>>({});
   /** Drives which way the transition plays, so back does not read as forward. */
   const [direction, setDirection] = useState<"back" | "forward">("forward");
+
+  const pages = useMemo(() => buildPages(draft), [draft]);
+
+  const [pageIndex, setPageIndex] = useState(() => {
+    const built = buildPages(initialDraft);
+    const found = built.findIndex((page) => page.stepId === initialStep);
+
+    return found >= 0 ? found : 0;
+  });
 
   // One intentional click owns one stable request ID. It survives an
   // ambiguous network failure so a retry cannot create a second email, while
@@ -182,20 +295,16 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   // create an empty draft row for anyone who merely opened the page.
   const dirtyRef = useRef(false);
 
+  // Answering the support branch adds or removes pages behind the current one,
+  // so the index is clamped rather than trusted.
+  const safeIndex = Math.min(pageIndex, pages.length - 1);
+  const page = pages[safeIndex];
+  const stepId = page.stepId;
   const stepIndex = joinApplicationStepIndex(stepId);
   const step = joinApplicationSteps[stepIndex];
-  const currentSections = isApplicationContentStep(stepId)
-    ? stepId === "support"
-      ? supportSectionsForDraft(draft)
-      : joinApplicationSections[stepId]
-    : [];
-  const requestedSectionIndex = sectionIndexByStep[stepId] ?? 0;
-  const sectionIndex = Math.min(requestedSectionIndex, Math.max(0, currentSections.length - 1));
-  const currentSection = currentSections[sectionIndex];
-  const currentSectionFields = isApplicationContentStep(stepId) && currentSection
-    ? visibleFieldsForSection(stepId, currentSection.id, draft.applyingAsCouple)
-    : [];
-  const continueBlocked = stepId === "support" && currentSection?.id === "path" && !supportPathFromDraft(draft);
+  const heading = sectionTitle(page);
+  const continueBlocked =
+    page.kind === "support" && page.sectionId === "path" && !supportPathFromDraft(draft);
 
   const persist = useCallback(
     async (options: { sendResumeEmail?: boolean } = {}) => {
@@ -233,7 +342,6 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         }
 
         const result = (await response.json()) as { emailSent?: boolean; resumeToken?: string | null };
-
         const savedToken = result.resumeToken ?? token;
 
         if (result.resumeToken) {
@@ -277,7 +385,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [draft, persist, started, stepId]);
+  }, [draft, persist, started, safeIndex]);
 
   const setAnswer = (id: string, value: string) => {
     dirtyRef.current = true;
@@ -412,53 +520,29 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     return missing;
   }, [draft]);
 
-  const goTo = (next: JoinApplicationStepId, sectionId?: string) => {
-    if (sectionId && isApplicationContentStep(next)) {
-      const sections = next === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next];
-      const nextSectionIndex = sections.findIndex((section) => section.id === sectionId);
+  const moveTo = (index: number, how: "back" | "forward") => {
+    const clamped = Math.max(0, Math.min(pages.length - 1, index));
 
-      if (nextSectionIndex >= 0) {
-        setSectionIndexByStep((current) => ({ ...current, [next]: nextSectionIndex }));
-      }
-    } else {
-      setSectionIndexByStep((current) => ({ ...current, [next]: 0 }));
-    }
-
-    setStepId(next);
+    setDirection(how);
+    setPageIndex(clamped);
     dirtyRef.current = true;
     window.scrollTo({ behavior: "smooth", top: 0 });
   };
 
-  const goRelative = (offset: number) => {
-    setDirection(offset < 0 ? "back" : "forward");
+  const goTo = (nextStep: JoinApplicationStepId, sectionId?: string) => {
+    const target = pages.findIndex(
+      (candidate) =>
+        candidate.stepId === nextStep && (!sectionId || candidate.sectionId === sectionId),
+    );
+    const fallback = pages.findIndex((candidate) => candidate.stepId === nextStep);
+    const index = target >= 0 ? target : fallback;
 
-    if (isApplicationContentStep(stepId)) {
-      const nextSectionIndex = sectionIndex + offset;
-
-      if (nextSectionIndex >= 0 && nextSectionIndex < currentSections.length) {
-        setSectionIndexByStep((current) => ({ ...current, [stepId]: nextSectionIndex }));
-        dirtyRef.current = true;
-        window.scrollTo({ behavior: "smooth", top: 0 });
-
-        return;
-      }
-    }
-
-    const next = joinApplicationSteps[stepIndex + offset];
-
-    if (next) {
-      if (offset < 0 && isApplicationContentStep(next.id)) {
-        const previousSections = next.id === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next.id];
-
-        setSectionIndexByStep((current) => ({ ...current, [next.id]: Math.max(0, previousSections.length - 1) }));
-        setStepId(next.id);
-        dirtyRef.current = true;
-        window.scrollTo({ behavior: "smooth", top: 0 });
-      } else {
-        goTo(next.id);
-      }
+    if (index >= 0) {
+      moveTo(index, index < safeIndex ? "back" : "forward");
     }
   };
+
+  const goRelative = (offset: number) => moveTo(safeIndex + offset, offset < 0 ? "back" : "forward");
 
   /**
    * Keyboard pacing.
@@ -466,8 +550,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
    * Enter advances from a single line field, the way a guided flow is expected
    * to behave. Inside a textarea Enter has to stay a newline, because these are
    * the long answers the whole application is asking for, so those advance on
-   * the modifier instead. Nothing here is the only way to move: the footer
-   * control does the same job for anyone using a pointer or a touch screen.
+   * the modifier instead. Number keys answer a choice screen. Nothing here is
+   * the only way to move: the footer control does the same job for anyone using
+   * a pointer or a touch screen.
    */
   useEffect(() => {
     if (!started || submitState === "submitted") {
@@ -475,13 +560,25 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || continueBlocked || stepId === "review") {
-        return;
-      }
-
       const target = event.target as HTMLElement | null;
       const isTextarea = target?.tagName === "TEXTAREA";
+      const isInput = target?.tagName === "INPUT";
       const modified = event.metaKey || event.ctrlKey;
+
+      if (page.kind === "support" && page.sectionId === "path" && !isTextarea && !isInput) {
+        const choice = { 1: "yes", 2: "unsure", 3: "no" }[Number(event.key)];
+
+        if (choice) {
+          event.preventDefault();
+          setAnswer("supportPath", choice);
+
+          return;
+        }
+      }
+
+      if (event.key !== "Enter" || continueBlocked || page.kind === "review") {
+        return;
+      }
 
       if (isTextarea && !modified) {
         return;
@@ -513,14 +610,14 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     );
   }
 
-  if (stepId === "start" && !started) {
+  if (!started) {
     return (
       <main aria-label="Apply to become a USA Missionary" className="join">
         <WelcomeExperience
           onStart={() => {
             setStarted(true);
             setDirection("forward");
-            goTo("about");
+            dirtyRef.current = true;
           }}
           returning={resumeState === "restored"}
         />
@@ -534,21 +631,21 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const hasEmail = Boolean(draft.applicant.email.trim());
   const isSaving = saveState === "saving";
 
-  const answeredSteps = joinApplicationSteps.slice(1, -1);
-  const overallProgress = Math.round((stepIndex / (joinApplicationSteps.length - 1)) * 100);
-  const isLastSection = sectionIndex >= currentSections.length - 1;
-  const nextStepTitle = joinApplicationSteps[stepIndex + 1]?.title ?? "Review";
+  const railSteps = joinApplicationSteps.slice(1, -1);
+  const progress = Math.round((safeIndex / Math.max(1, pages.length - 1)) * 100);
+  const questionSteps = joinApplicationSteps.length - 2;
 
   return (
     <main aria-label="Apply to become a USA Missionary" className="join">
       <header className="join-chrome">
         <div className="join-chrome-inner">
-          <p className="join-chrome-mark">
-            <b>USA Missionaries</b>
-          </p>
+          <span aria-hidden="true" className="join-badge">
+            UM
+          </span>
+          <p className="join-chrome-mark">USA Missionaries</p>
 
           <ol className="join-rail">
-            {answeredSteps.map((railStep, index) => {
+            {railSteps.map((railStep, index) => {
               const position = index + 1;
               const state = position === stepIndex ? "current" : position < stepIndex ? "done" : "todo";
 
@@ -558,10 +655,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                     aria-current={state === "current" ? "step" : undefined}
                     aria-label={railStep.title}
                     data-state={state}
-                    onClick={() => {
-                      setDirection(position < stepIndex ? "back" : "forward");
-                      goTo(railStep.id);
-                    }}
+                    onClick={() => goTo(railStep.id)}
                     type="button"
                   >
                     <span className="join-rail-label">{railStep.title}</span>
@@ -601,84 +695,39 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         </div>
 
         <div aria-hidden="true" className="join-progress">
-          <span style={{ width: `${overallProgress}%` }} />
+          <span style={{ width: `${progress}%` }} />
         </div>
       </header>
 
-      <div className="join-step">
+      <div className="join-stage">
         {notice ? <p className="join-notice">{notice}</p> : null}
         {emailNotice ? <p className="join-notice">{emailNotice}</p> : null}
 
-        <div
-          className="join-transition"
-          data-direction={direction}
-          key={`${stepId}-${sectionIndex}`}
-        >
-          <div className="join-step-head">
-            <p className="join-step-count">
-              {step.eyebrow}
-              {currentSections.length > 0 ? ` of ${joinApplicationSteps.length - 2}` : ""}
-            </p>
-
-            <h1 className="join-step-title">{currentSection ? currentSection.title : step.title}</h1>
-
-            <p className="join-step-intro">{currentSection ? currentSection.intro : step.intro}</p>
-
-            {currentSections.length > 1 ? (
-              <div className="join-parts">
-                {currentSections.map((part, index) => (
-                  <span
-                    className="join-parts-tick"
-                    data-done={index <= sectionIndex ? "true" : "false"}
-                    key={part.id}
-                  />
-                ))}
-                <span className="join-parts-label">
-                  {step.title}, part {sectionIndex + 1} of {currentSections.length}
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          {stepId === "about" && currentSection?.id === "identity" ? (
-            <IdentitySection
-              draft={draft}
-              onIdentityChange={setIdentity}
-              onToggleCouple={(value) => {
-                dirtyRef.current = true;
-                setDraft((current) => ({ ...current, applyingAsCouple: value }));
-              }}
-            />
-          ) : null}
-
-          {stepId === "review" ? (
-            <ReviewSection
-              draft={draft}
-              missing={requiredMissing}
-              onJump={goTo}
-              onSubmit={() => void submitApplication()}
-              onToggleDisclosure={setDisclosure}
-              submitError={submitError}
-              submitState={submitState}
-            />
-          ) : null}
-
-          {stepId === "support" && currentSection ? (
-            <SupportSection
-              draft={draft}
-              onAnswer={setAnswer}
-              onDisclosure={setDisclosure}
-              section={currentSection}
-            />
-          ) : null}
-
-          {isApplicationContentStep(stepId) && stepId !== "support" && currentSectionFields.length > 0 ? (
-            <FieldGroup fields={currentSectionFields} onAnswer={setAnswer} values={draft.answers} />
-          ) : null}
-
-          {stepId === "profile" && currentSection?.id === "photos" ? (
-            <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
-          ) : null}
+        <div className="join-transition" data-direction={direction} key={safeIndex}>
+          <PageView
+            addPhoto={addPhoto}
+            draft={draft}
+            heading={heading}
+            missing={requiredMissing}
+            onAnswer={setAnswer}
+            onDisclosure={setDisclosure}
+            onIdentityChange={setIdentity}
+            onJump={goTo}
+            onSubmit={() => void submitApplication()}
+            onToggleCouple={(value) => {
+              dirtyRef.current = true;
+              setDraft((current) => ({ ...current, applyingAsCouple: value }));
+            }}
+            page={page}
+            pageIndex={safeIndex}
+            pageTotal={pages.length}
+            questionSteps={questionSteps}
+            removePhoto={removePhoto}
+            step={step}
+            stepIndex={stepIndex}
+            submitError={submitError}
+            submitState={submitState}
+          />
         </div>
       </div>
 
@@ -686,14 +735,14 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         <div className="join-footer-inner">
           <button
             className="join-button join-button-secondary"
-            disabled={stepIndex <= 1 && sectionIndex === 0}
+            disabled={safeIndex === 0}
             onClick={() => goRelative(-1)}
             type="button"
           >
             Back
           </button>
 
-          {stepId === "review" ? (
+          {page.kind === "review" ? (
             <p className="join-footer-hint">
               {requiredMissing.length === 0
                 ? "Ready to submit"
@@ -707,11 +756,23 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                 onClick={() => goRelative(1)}
                 type="button"
               >
-                {continueBlocked ? "Choose an option" : isLastSection ? nextStepTitle : "Continue"}
+                {continueBlocked ? "Choose an option" : "Continue"}
                 <ArrowRight />
               </button>
 
-              <p className="join-footer-hint">Press Enter to continue</p>
+              {/* A long answer needs Enter for newlines, so that screen asks
+                  for the modifier instead. One instruction, never both. */}
+              {page.kind === "fields" && page.solo ? (
+                <p className="join-footer-hint">
+                  Press <span className="join-key">Cmd</span>
+                  <span aria-hidden="true">+</span>
+                  <span className="join-key">Enter</span>
+                </p>
+              ) : (
+                <p className="join-footer-hint">
+                  Press <span className="join-key">Enter</span>
+                </p>
+              )}
             </>
           )}
         </div>
@@ -720,11 +781,211 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   );
 }
 
+/** The index line, set as a system value rather than as prose. */
+function QuestionIndex({
+  pageIndex,
+  pageTotal,
+  stepIndex,
+  stepTitle,
+  questionSteps,
+}: {
+  pageIndex: number;
+  pageTotal: number;
+  questionSteps: number;
+  stepIndex: number;
+  stepTitle: string;
+}) {
+  return (
+    <p className="join-q-index">
+      <b>
+        Step {Math.min(stepIndex, questionSteps)} of {questionSteps}
+      </b>
+      <i aria-hidden="true">/</i>
+      <span>{stepTitle}</span>
+      <i aria-hidden="true">/</i>
+      <span>
+        {String(pageIndex + 1).padStart(2, "0")} of {pageTotal}
+      </span>
+    </p>
+  );
+}
+
+function PageView({
+  addPhoto,
+  draft,
+  heading,
+  missing,
+  onAnswer,
+  onDisclosure,
+  onIdentityChange,
+  onJump,
+  onSubmit,
+  onToggleCouple,
+  page,
+  pageIndex,
+  pageTotal,
+  questionSteps,
+  removePhoto,
+  step,
+  stepIndex,
+  submitError,
+  submitState,
+}: {
+  addPhoto: (photo: JoinApplicationPhoto) => void;
+  draft: JoinApplicationDraft;
+  heading: { intro: string; title: string };
+  missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[];
+  onAnswer: (id: string, value: string) => void;
+  onDisclosure: (id: string, value: boolean) => void;
+  onIdentityChange: (person: "applicant" | "spouse", key: keyof JoinApplicantIdentity, value: string) => void;
+  onJump: (id: JoinApplicationStepId, sectionId?: string) => void;
+  onSubmit: () => void;
+  onToggleCouple: (value: boolean) => void;
+  page: Page;
+  pageIndex: number;
+  pageTotal: number;
+  questionSteps: number;
+  removePhoto: (path: string) => void;
+  step: { title: string };
+  stepIndex: number;
+  submitError: string;
+  submitState: "error" | "idle" | "submitted" | "submitting";
+}) {
+  const index = (
+    <QuestionIndex
+      pageIndex={pageIndex}
+      pageTotal={pageTotal}
+      questionSteps={questionSteps}
+      stepIndex={stepIndex}
+      stepTitle={step.title}
+    />
+  );
+
+  /*
+   * A single long answer is presented as the question itself: the field label
+   * becomes the heading and the box carries no second label, because repeating
+   * the question directly above the box is exactly the form clutter this
+   * redesign exists to remove.
+   */
+  if (page.kind === "fields" && page.solo) {
+    const field = page.fields[0];
+    const isNarrative = /story|testimony|journey|narrative|vision|describe|why/i.test(field.id);
+
+    return (
+      <div className="join-q join-solo">
+        {index}
+        <h1 className="join-q-title">
+          {field.label}
+          {field.required ? <span className="join-field-req">*</span> : null}
+        </h1>
+        {field.help ? <p className="join-q-help">{field.help}</p> : null}
+
+        <div className="join-answer">
+          <label className="join-sr" htmlFor={field.id}>
+            {field.label}
+          </label>
+          <textarea
+            className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
+            id={field.id}
+            onChange={(event) => onAnswer(field.id, event.target.value)}
+            value={draft.answers[field.id] ?? ""}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "fields") {
+    return (
+      <div className="join-q">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <FieldGroup fields={page.fields} onAnswer={onAnswer} values={draft.answers} />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "identity") {
+    return (
+      <div className="join-q">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <IdentitySection
+            draft={draft}
+            onIdentityChange={onIdentityChange}
+            onToggleCouple={onToggleCouple}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "photos") {
+    return (
+      <div className="join-q join-q-wide">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "support") {
+    const wide = page.sectionId === "budget" || page.sectionId === "picture";
+
+    return (
+      <div className={`join-q${wide ? " join-q-wide" : ""}`}>
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <SupportSection
+            draft={draft}
+            onAnswer={onAnswer}
+            onDisclosure={onDisclosure}
+            section={page.section}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="join-q join-q-wide">
+      {index}
+      <h1 className="join-q-title">{heading.title}</h1>
+
+      <div className="join-answer">
+        <ReviewSection
+          draft={draft}
+          missing={missing}
+          onJump={onJump}
+          onSubmit={onSubmit}
+          onToggleDisclosure={onDisclosure}
+          submitError={submitError}
+          submitState={submitState}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
- * Lays a section's questions out as a column of questions rather than a grid
- * of boxes. Consecutive short answers pair up once there is room, because two
- * of them on one line still read as one thought, while a long answer always
- * gets the full measure to itself.
+ * Short fields that belong to one thought. Two sit side by side once there is
+ * room, unless one of them carries help text, in which case it takes the full
+ * measure so the help is not squeezed into a column.
  */
 function FieldGroup({
   fields,
@@ -740,7 +1001,7 @@ function FieldGroup({
   for (const field of fields) {
     const last = rows[rows.length - 1];
 
-    if (field.kind === "short" && last && last.length < 2 && last[0].kind === "short" && !last[0].help && !field.help) {
+    if (last && last.length === 1 && !last[0].help && !field.help) {
       last.push(field);
       continue;
     }
@@ -750,11 +1011,11 @@ function FieldGroup({
 
   return (
     <div className="join-fields join-stagger">
-      {rows.map((row, index) => (
+      {rows.map((row, rowIndex) => (
         <div
           className={row.length > 1 ? "join-pair join-pair-2" : undefined}
           key={row.map((field) => field.id).join("-")}
-          style={{ "--i": index } as CSSProperties}
+          style={{ "--i": rowIndex } as CSSProperties}
         >
           {row.map((field) => (
             <FieldInput
@@ -772,19 +1033,26 @@ function FieldGroup({
 
 function SupportChoice({
   description,
+  hotkey,
   onSelect,
   selected,
   title,
 }: {
   description: string;
+  hotkey: string;
   onSelect: () => void;
   selected: boolean;
   title: string;
 }) {
   return (
     <button aria-pressed={selected} className="join-choice" onClick={onSelect} type="button">
-      <span className="join-choice-title">{title}</span>
-      <span className="join-choice-note">{description}</span>
+      <span aria-hidden="true" className="join-choice-key">
+        {hotkey}
+      </span>
+      <span>
+        <span className="join-choice-title">{title}</span>
+        <span className="join-choice-note">{description}</span>
+      </span>
     </button>
   );
 }
@@ -883,21 +1151,24 @@ function SupportSection({
           </legend>
           <p className="join-field-help">Your answer controls which financial questions come next.</p>
 
-          <div className="join-choices join-choices-3">
+          <div className="join-choices join-choices-3" style={{ marginTop: 16 }}>
             <SupportChoice
               description="I expect monthly partners to help sustain this ministry."
+              hotkey="1"
               onSelect={() => onAnswer("supportPath", "yes")}
               selected={path === "yes"}
               title="Yes"
             />
             <SupportChoice
               description="I need help discerning the right support model."
+              hotkey="2"
               onSelect={() => onAnswer("supportPath", "unsure")}
               selected={path === "unsure"}
               title="Not sure yet"
             />
             <SupportChoice
               description="My household and ministry are already funded."
+              hotkey="3"
               onSelect={() => onAnswer("supportPath", "no")}
               selected={path === "no"}
               title="No"
@@ -912,7 +1183,7 @@ function SupportSection({
     const contextField = fields.find((field) => field.id === "supportBudget");
 
     return (
-      <div className="join-fields join-fields-wide">
+      <div className="join-fields">
         {(["household", "ministry"] as const).map((group) => {
           const categories = supportBudgetCategories.filter((category) => category.group === group);
           const subtotal = group === "household" ? summary.household : summary.ministry;
@@ -922,7 +1193,7 @@ function SupportSection({
               <div className="join-worksheet-head">
                 <div>
                   <p className="join-eyebrow">{group === "household" ? "Household" : "Ministry"}</p>
-                  <p className="join-panel-title" style={{ marginTop: 6 }}>
+                  <p className="join-panel-title" style={{ marginTop: 4 }}>
                     Monthly estimates
                   </p>
                 </div>
@@ -949,8 +1220,8 @@ function SupportSection({
         })}
 
         <div className="join-panel join-panel-gold">
-          <p className="join-panel-title">Estimated monthly budget</p>
-          <p className="join-metric-value" style={{ fontSize: "2rem", color: "var(--gold)" }}>
+          <p className="join-metric-label">Estimated monthly budget</p>
+          <p className="join-metric-value" style={{ fontSize: "1.9rem", color: "var(--gold-ink)" }}>
             {formatMoney(summary.budgetTotal)}
           </p>
           <p className="join-panel-body">
@@ -971,7 +1242,7 @@ function SupportSection({
 
   if (section.id === "picture") {
     return (
-      <div className="join-fields join-fields-wide">
+      <div className="join-fields">
         <div className="join-metrics">
           <SupportMetric label="Budget total" value={summary.budgetTotal} />
           <SupportMetric label="Proposed need" value={summary.proposedNeed} />
@@ -1067,8 +1338,6 @@ function FieldInput({
   onChange: (value: string) => void;
   value: string;
 }) {
-  /* The questions that ask for a whole story get a taller box than the ones
-     that ask for a detail, so the field itself signals how much is wanted. */
   const isNarrative = /story|testimony|journey|narrative|vision|describe|why/i.test(field.id);
 
   return (
@@ -1120,9 +1389,9 @@ function IdentityFields({
 }) {
   return (
     <fieldset>
-      <legend className="join-eyebrow">{heading}</legend>
+      <legend className="join-eyebrow join-eyebrow-quiet">{heading}</legend>
 
-      <div className="join-pair join-pair-2" style={{ marginTop: 18 }}>
+      <div className="join-pair join-pair-2" style={{ marginTop: 14 }}>
         {(Object.keys(identityFieldLabels) as (keyof JoinApplicantIdentity)[]).map((key) => (
           <div key={key}>
             <label className="join-field-label" htmlFor={`${name}-${key}`}>
@@ -1206,8 +1475,8 @@ function ReviewSection({
   const allDisclosuresConfirmed = joinDisclosureIds.every((id) => draft.disclosures[id] === true);
 
   return (
-    <div className="join-fields join-fields-wide">
-      <p className="join-step-intro" style={{ marginTop: 0 }}>
+    <div className="join-fields">
+      <p className="join-q-help" style={{ marginTop: 0 }}>
         {name ? `This is the application for ${name}.` : "This is your application."} Check anything you want to revisit
         before you submit.
       </p>
@@ -1237,26 +1506,24 @@ function ReviewSection({
       )}
 
       <section>
-        <p className="join-eyebrow">Before you submit</p>
+        <p className="join-eyebrow join-eyebrow-quiet">Before you submit</p>
         <ul className="join-review-list">
           <li>
-            <p className="join-check-body" style={{ padding: "12px 0" }}>
-              Submitting does not guarantee acceptance.
-            </p>
+            <p className="join-review-note">Submitting does not guarantee acceptance.</p>
           </li>
           <li>
-            <p className="join-check-body" style={{ padding: "12px 0" }}>
+            <p className="join-review-note">
               Nothing you have written becomes public because you submitted it.
             </p>
           </li>
           <li>
-            <p className="join-check-body" style={{ padding: "12px 0" }}>
+            <p className="join-review-note">
               If you are accepted, we would use some of this to prepare your missionary profile, and you would review it
               before anything is published.
             </p>
           </li>
           <li>
-            <p className="join-check-body" style={{ padding: "12px 0" }}>
+            <p className="join-review-note">
               USA Missionaries reviews beliefs and ministry expectations with every applicant before acceptance, and we
               will walk through ours with you as part of that conversation.
             </p>
@@ -1265,7 +1532,7 @@ function ReviewSection({
       </section>
 
       <fieldset>
-        <legend className="join-eyebrow">Please confirm</legend>
+        <legend className="join-eyebrow join-eyebrow-quiet">Please confirm</legend>
 
         <div className="join-disclosures">
           {joinDisclosureIds.map((id) => (
@@ -1321,7 +1588,7 @@ function SubmittedScreen({ applicationId, name }: { applicationId: string; name:
           <span>Thank you for</span>
         </span>
         <span className="join-mask">
-          <span style={{ color: "var(--gold)" }}>stepping forward.</span>
+          <span style={{ color: "var(--gold-ink)" }}>stepping forward.</span>
         </span>
       </h1>
 
@@ -1387,7 +1654,7 @@ function PhotoSection({
   }
 
   return (
-    <div className="join-fields join-fields-wide">
+    <div className="join-fields">
       <p className="join-field-help" style={{ marginTop: 0 }}>
         A photo of you and one of your family, if you have them. These are stored privately and are never published
         without your review. JPG, PNG, or WebP, up to 5 MB.

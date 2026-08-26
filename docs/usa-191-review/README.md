@@ -1,80 +1,88 @@
 # USA-191 founder review package
 
-Redesign of `/join` as a Typeform-style "Welcome to the Team" experience, built on
-top of the USA-167 application without changing its backend, data contracts or
-validation.
+Redesign of `/join` as a Typeform-paced "Welcome to the Team" experience, built
+on top of the USA-167 application without changing its backend, data contracts
+or validation.
 
 Nothing here is merged or deployed. This is for review.
 
 - Branch: `claude/usa-191-join-refinement-tfvv5p`
 - Benchmark studied: `rfox0629/stewardship.capital` @ `55630f3`
+- Palette source: USA Missionaries Operations (`/operations`)
 
 ---
 
-## 1. What the benchmark actually taught
+## 1. What changed in the second pass
 
-Stewardship.Capital was read as source, not as a screenshot. The transferable
-craft turned out to be six things, none of them Stewardship's branding:
+Your feedback was three things, and all three are addressed.
 
-| Principle in the benchmark | How USA-191 uses it |
-| --- | --- |
-| Dark foundation, **one** accent that only ever marks what has been activated | USAM near-black `#0D0D0D` with USAM gold `#C2A14E`. Gold marks answered steps, the current step, a chosen option, a reached point in the artwork. Never decoration. |
-| Masked line reveals (`translateY(105%)` out of a clipped box, staggered) | The same technique, USAM timing. Headings arrive as composed sequences rather than as elements fading independently. |
-| A bespoke canvas field carrying the product's core metaphor | A new one built for USAM (see below). Same discipline: Canvas 2D, zero dependencies, DPR aware, static frame under reduced motion. |
-| Very large display type, tight tracking, near-1.0 leading | Oswald, already USAM's display face, set far larger than `/join` has ever used it. |
-| Restraint: no cards, hairlines instead of borders, 3px radii | Card soup removed entirely. Questions sit on the page. |
-| Design rationale written into the CSS as comments | `app/join/join-experience.css` explains why each decision was made. |
+**"I don't see the tech feel on the first screen."** The opening now carries a
+real product bar (gold tile, product name, application label) and a spec line
+that states the application's own facts before the headline: `APPLICATION / 9
+SECTIONS / ABOUT 30 MINUTES / SAVES AS YOU GO / RESUME ON ANY DEVICE`. Behind
+it, the field was rebuilt for paper: a fine drafted mesh in slate ink at 10%,
+a third pass of long chords that resolve only where attention is strongest, and
+the gold reduced to a narrow travelling band. On white, a glow reads as smudge,
+so the tech feel now comes from precision (hairlines, numeric metadata, tight
+6px radii, a real key-cap hint) rather than from a dark screen.
 
-**Deliberately not copied:** Stewardship's graphite/orange palette, its Archivo
+**"The colors should be like the Operations system with a lighter background."**
+The whole surface was rebuilt on the `/operations` palette, read from
+`OperationsShell.tsx` and `OperationsUI.tsx` rather than approximated:
+
+| Token | Value | Where Operations uses it |
+| --- | --- | --- |
+| Paper | `#F5F7FB` | the Operations page background |
+| Surface | `#FFFFFF` on `#E2E8F0` hairlines | Operations panels and metrics |
+| Gold | `#D8A932`, tint `#FFF7DF`, ink `#7A5200` | Operations brand tile, active nav, badges |
+| Navy | `#0B1220` / `#1C2E4A` | Operations sidebar and persona |
+| Labels | Rajdhani 700 uppercase, `0.16em` | every Operations micro-label |
+| Body | Inter | everything readable in Operations |
+
+An applicant and an operator are now looking at the same product. The previous
+pass was dark; that is gone.
+
+**"Make the three works look like products or apps."** Kitchen Table Gospel, the
+Discipleship Operating System and Mission of Reconciliation are now a product
+suite: four cards, each with its own drawn mark on a solid accent tile, a
+category line, the name, and a one-line descriptor. The marks are geometry on a
+24-unit grid in `ProductMarks.tsx`, and each says what the work is:
+
+| Work | Category | Mark | Accent |
+| --- | --- | --- | --- |
+| Kitchen Table Gospel | Evangelism | people seated around a table | `#D8A932` |
+| Discipleship Operating System | Platform | one disciple branching into many | `#1C2E4A` |
+| Mission of Reconciliation | Restoration | two halves brought back together | `#0F9D76` |
+| And growing. | Next | an open slot, dashed | `#94A3B8` |
+
+"And growing." stays a member of the set rather than a caption, and is drawn as
+a slot rather than a thing, so the list still reads as open.
+
+**Typeform pacing, properly this time.** The step and section model is now
+compiled into a flat list of 42 pages, one question to a page. A narrative
+question owns its screen with the question set as the heading and no second
+label above the box. A run of short factual fields inside one section stays
+together, so an address is one screen rather than four. Enter advances;
+Cmd/Ctrl+Enter advances from a long answer; number keys answer a choice screen.
+The index line reads `STEP 2 OF 7 / YOUR STORY / 07 OF 42`.
+
+---
+
+## 2. What carried over from the benchmark
+
+Stewardship.Capital was read as source, not as a screenshot. What transferred is
+craft, not branding: a canvas field carrying the product's core metaphor, masked
+line reveals, display type set to fill its measure, restraint, and design
+rationale written into the stylesheet as comments.
+
+Deliberately not copied: Stewardship's graphite and orange palette, its Archivo
 type, its wordmark, its lattice artwork, and its copy voice.
 
-### The artwork is USAM's own
-
-Stewardship's field is a *lattice of entrusted points* that activate under
-attention. Copying it would have been the obvious move and the wrong one.
-
-`app/join/MovementField.tsx` paints **The Movement** instead: a scattered field
-of people, mostly latent. Every few seconds one is *sent*, and the light
-**travels** outward hop by hop along real proximity connections. It is a
-different mechanism (wavefront propagation through a graph, not a radial
-falloff) expressing a different idea: a movement spreading person to person,
-which is what USA Missionaries does. Gold only ever appears on a point the
-movement has actually reached.
-
----
-
-## 2. What changed in the experience
-
-**The opening.** `/join` used to open with a heading and four paragraphs of
-administrative preamble. It now opens full-screen on "Welcome to the team," with
-the movement behind it, and the ecosystem revealed in sequence underneath:
-Kitchen Table Gospel, Discipleship Operating System, Mission of Reconciliation,
-and **And growing.** The fourth is styled as a member of the list, not a caption
-under it, and is the only one with a lit node, because it is the line the
-applicant might become. Everything the old preamble said about review, privacy
-and saving is still said, in two lines instead of four paragraphs.
-
-**The application.** One section is now one screen. USA-167 already modelled
-steps → sections → fields, so the guided spine was preserved exactly and only
-its presentation changed:
-
-- sticky chrome carries the step rail, live save state and "Email me a link", so
-  the body below can be nothing but the current question;
-- a fixed advance bar means Continue is always reachable without scrolling;
-- Enter advances from a single-line field; inside a textarea Enter stays a
-  newline (Cmd/Ctrl+Enter advances) because these are the long answers the
-  application exists to collect;
-- long-form answers get 200px minimum, 280px for the narrative questions;
-- forward and back replay different transitions, so back does not read as
-  forward;
-- grouped substeps were kept. Tiny fields were **not** split onto separate
-  screens to imitate Typeform.
-
-**Consistency fix.** The rest of usamissionaries.org is dark (`bg-usam-black`,
-Oswald/Rajdhani). `/join` was the one route forcing a light gradient over it via
-a `body:has()` override. That override is gone, so the application now sits in
-the site's own visual language rather than fighting it. The mobile browser chrome
-colour was updated to match.
+The artwork is USAM's own. Stewardship's field is a lattice of entrusted points
+that activate under a cursor. `MovementField.tsx` instead propagates a *send*
+outward hop by hop through a proximity graph, so the accent only ever appears on
+a point the movement has actually reached. Different mechanism, different idea:
+a movement spreading person to person, which is what USA Missionaries does.
 
 ---
 
@@ -101,8 +109,8 @@ build. Same numbering in `desktop/` and `mobile/`.
 | `12-review-complete` | Review, everything answered, disclosures confirmed |
 | `13-submitted` | Submitted |
 
-On desktop the opening is tuned so the first ecosystem row breaks the bottom
-edge, which is what invites the scroll. On mobile that happens naturally.
+On desktop the opening is tuned so the product tiles break the bottom edge,
+which is what invites the scroll. On mobile that happens naturally.
 
 **How the evidence was made:** `scripts/usa-191-preview-capture.mjs` drives the
 whole flow end to end and can regenerate every image. The draft and application
