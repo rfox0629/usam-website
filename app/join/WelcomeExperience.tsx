@@ -3,22 +3,21 @@
 import type { CSSProperties } from "react";
 
 import { ecosystemEntries } from "./ecosystem";
-import { MovementField } from "./MovementField";
 import { productMarks } from "./ProductMarks";
+import { WatershedMap } from "./WatershedMap";
 
 /**
  * USA-191: the opening.
  *
- * The founder direction is that receiving this application means someone is
- * stepping toward becoming part of USA Missionaries, and that opening the link
- * should feel like entering a built system rather than opening a form. So the
- * first screen carries a real product bar, states its own facts the way a
- * product does, says the one thing worth saying, shows the works this team has
- * already shipped, and offers exactly one way forward.
+ * Built to the approved reference. A wordmark and a label sit on the top line
+ * and nothing else does: the app tile and the specification strip that used to
+ * run above the headline are gone, because they made the first thing an
+ * applicant met a set of instructions. How long it takes and that it saves as
+ * you go are true and useful, but they belong further in, where somebody is
+ * actually deciding whether to stop for the night.
  *
- * Everything the old start screen said about review, privacy and saving is
- * still said. The four paragraphs of administrative preamble that used to be
- * the first thing an applicant read are now a spec line and a sentence.
+ * What is left is the sentence, the map, and the works this team is already
+ * doing. The map is the argument: many streams, one river.
  */
 
 type WelcomeExperienceProps = {
@@ -26,9 +25,6 @@ type WelcomeExperienceProps = {
   /** Set when a resume link brought them back to an application in progress. */
   returning: boolean;
 };
-
-/* Facts, stated flatly. A product that declares what it is reads as built. */
-const specs = ["9 sections", "About 30 minutes", "Saves as you go", "Resume on any device"];
 
 function ArrowRight() {
   return (
@@ -45,97 +41,95 @@ function ArrowRight() {
 
 export function WelcomeExperience({ onStart, returning }: WelcomeExperienceProps) {
   return (
-    <div className="join-screen join-welcome">
-      <MovementField />
+    <div className="join-welcome">
+      {/* The landscape sits under the whole page and is masked back to almost
+          nothing at the top, so it reads as depth rather than as a photograph. */}
+      <div aria-hidden="true" className="join-landscape" />
 
-      <header className="join-topbar">
-        <div className="join-topbar-inner">
-          <span aria-hidden="true" className="join-badge">
-            UM
-          </span>
-          <p className="join-topbar-name">USA Missionaries</p>
-          <p className="join-topbar-meta">Missionary Application</p>
+      <header className="join-topline">
+        <div className="join-topline-inner">
+          <p className="join-wordmark">USA Missionaries</p>
+          <p className="join-topline-meta">Missionary Application</p>
         </div>
       </header>
 
-      <div className="join-screen-inner">
-        <div className="join-spec join-lift">
-          <span data-lead="true">Application</span>
-          {specs.map((spec) => (
-            <span key={spec}>
-              <i aria-hidden="true">/</i> {spec}
+      <div className="join-hero">
+        <div className="join-hero-copy">
+          <h1>
+            <span className="join-mask">
+              <span>Welcome</span>
             </span>
-          ))}
-        </div>
+            <span className="join-mask">
+              <span>to the</span>
+            </span>
+            <span className="join-mask">
+              <span className="join-gold">team.</span>
+            </span>
+          </h1>
 
-        <h1>
-          <span className="join-mask">
-            <span>Welcome</span>
-          </span>
-          <span className="join-mask">
-            <span>to the</span>
-          </span>
-          <span className="join-mask">
-            <span className="join-gold">team.</span>
-          </span>
-        </h1>
+          <span aria-hidden="true" className="join-rule join-lift" style={{ animationDelay: "0.5s" }} />
 
-        <div className="join-mask" style={{ animationDelay: "0.46s" }}>
-          <p className="join-welcome-sub" style={{ animationDelay: "0.46s" }}>
-            You are not filling out a form. You are stepping toward a movement of
-            missionaries sent to reach people here at home, and toward the work God
-            is building through this team.
-          </p>
-        </div>
-
-        <div className="join-welcome-actions join-lift" style={{ animationDelay: "0.62s" }}>
-          <button className="join-button join-button-primary" onClick={onStart} type="button">
-            {returning ? "Continue application" : "Begin application"}
-            <ArrowRight />
-          </button>
-
-          <p className="join-welcome-note">
-            {returning
-              ? "Your answers are exactly where you left them"
-              : "A real person reads every application"}
-          </p>
-        </div>
-
-        <section className="join-suite" aria-labelledby="join-suite-label">
-          <div className="join-suite-head">
-            <p id="join-suite-label">What this team is already building</p>
-            <p className="join-suite-count">USA Missionaries</p>
+          <div className="join-mask" style={{ animationDelay: "0.56s" }}>
+            <p className="join-hero-sub" style={{ animationDelay: "0.56s" }}>
+              You are stepping toward a movement of missionaries reaching people here
+              at home, and toward the work God is building through this team.
+            </p>
           </div>
 
-          <ul className="join-suite-grid">
-            {ecosystemEntries.map((entry, index) => {
-              const Mark = productMarks[entry.mark];
+          <div className="join-hero-actions join-lift" style={{ animationDelay: "0.7s" }}>
+            <button className="join-button join-button-primary" onClick={onStart} type="button">
+              {returning ? "Continue application" : "Begin application"}
+              <ArrowRight />
+            </button>
 
-              return (
-                <li
-                  className="join-product"
-                  data-open={entry.open ? "true" : undefined}
-                  key={entry.name}
-                  style={{ "--i": index } as CSSProperties}
-                >
-                  <span
-                    className="join-product-tile"
-                    style={{ background: entry.accent }}
-                  >
-                    <Mark />
-                  </span>
+            <p className="join-hero-note">
+              {returning
+                ? "Your answers are where you left them"
+                : "A real person reads every application"}
+            </p>
+          </div>
+        </div>
 
-                  <span>
-                    <span className="join-product-category">{entry.category}</span>
-                    <p className="join-product-name">{entry.name}</p>
-                    <p className="join-product-note">{entry.note}</p>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <div className="join-hero-map">
+          <WatershedMap />
+        </div>
       </div>
+
+      <section className="join-suite" aria-labelledby="join-suite-label">
+        <div className="join-suite-head">
+          <p id="join-suite-label">Part of something greater</p>
+          <span aria-hidden="true" className="join-rule join-rule-center" />
+        </div>
+
+        <ul className="join-suite-grid">
+          {ecosystemEntries.map((entry, index) => {
+            const Mark = productMarks[entry.mark];
+
+            return (
+              <li
+                className="join-work"
+                data-open={entry.open ? "true" : undefined}
+                key={entry.name}
+                style={{ "--i": index } as CSSProperties}
+              >
+                <span className="join-work-ring">
+                  <Mark />
+                </span>
+
+                <p className="join-work-name">{entry.name}</p>
+
+                <span aria-hidden="true" className="join-rule join-rule-tiny" />
+
+                <div className="join-work-lines">
+                  {entry.lines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }

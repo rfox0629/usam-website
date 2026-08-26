@@ -111,7 +111,7 @@ async function run(label, viewport, dir, extra = {}) {
   await shot(page, dir, "01b-welcome-full");
 
   // 02 identity
-  await page.click(".join-welcome-actions .join-button-primary");
+  await page.click(".join-hero-actions .join-button-primary");
   await page.waitForTimeout(900);
   await shot(page, dir, "02-about-identity");
 
@@ -254,7 +254,7 @@ async function runSubmitted({ dir, extra, viewport }) {
   await stub(page);
   await page.goto("http://127.0.0.1:4300/join", { waitUntil: "networkidle" });
   await page.waitForTimeout(1800);
-  await page.click(".join-welcome-actions .join-button-primary");
+  await page.click(".join-hero-actions .join-button-primary");
   await page.waitForTimeout(800);
 
   for (let i = 0; i < 70; i += 1) {

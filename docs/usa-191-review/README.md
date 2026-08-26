@@ -1,88 +1,78 @@
 # USA-191 founder review package
 
-Redesign of `/join` as a Typeform-paced "Welcome to the Team" experience, built
-on top of the USA-167 application without changing its backend, data contracts
-or validation.
+The Welcome experience rebuilt to the approved reference image, on top of the
+USA-167 application without changing its backend, data contracts or validation.
 
 Nothing here is merged or deployed. This is for review.
 
 - Branch: `claude/usa-191-join-refinement-tfvv5p`
-- Benchmark studied: `rfox0629/stewardship.capital` @ `55630f3`
-- Palette source: USA Missionaries Operations (`/operations`)
+- Reference: the attached approved comp (cream / black-navy / USAM gold, dotted
+  US with a watershed, "Part of something greater")
 
 ---
 
-## 1. What changed in the second pass
+## 1. What changed in this pass
 
-Your feedback was three things, and all three are addressed.
+**The spiderweb is gone.** It has been replaced by the dotted United States and
+the real Mississippi watershed.
 
-**"I don't see the tech feel on the first screen."** The opening now carries a
-real product bar (gold tile, product name, application label) and a spec line
-that states the application's own facts before the headline: `APPLICATION / 9
-SECTIONS / ABOUT 30 MINUTES / SAVES AS YOU GO / RESUME ON ANY DEVICE`. Behind
-it, the field was rebuilt for paper: a fine drafted mesh in slate ink at 10%,
-a third pass of long chords that resolve only where attention is strongest, and
-the gold reduced to a narrow travelling band. On white, a glow reads as smudge,
-so the tech feel now comes from precision (hairlines, numeric metadata, tight
-6px radii, a real key-cap hint) rather than from a dark screen.
+The geography is real, not invented. `watershed-data.ts` carries the lower 48
+traced as a polygon, Lake Michigan cut out of it as a hole, and **43 real
+rivers**: the main stem from Lake Itasca in Minnesota down past Baton Rouge and
+New Orleans to the Gulf, with the Missouri, Ohio, Arkansas, Red, Tennessee,
+Platte, Illinois, Cumberland, Wabash, Yellowstone, Kansas, Canadian, Cimarron,
+Allegheny, Monongahela, Kanawha, Niobrara, James, Republican, Neosho, Washita
+and the rest joining it where they actually do. Everything is drawn through an
+Albers equal-area conic, the standard projection for a map of the United States,
+so the country reads correctly rather than as a stretched rectangle.
 
-**"The colors should be like the Operations system with a lighter background."**
-The whole surface was rebuilt on the `/operations` palette, read from
-`OperationsShell.tsx` and `OperationsUI.tsx` rather than approximated:
+Each river declares the river it empties into. The renderer splices a
+tributary's course onto the rest of its parent's course all the way to the sea,
+so a drop of light entering the Yellowstone in Wyoming runs the Yellowstone,
+then the Missouri, then the Mississippi, and leaves past New Orleans. That is
+the motion: **many streams, one river.** Light travels downstream rather than
+blinking, tributaries visibly feed larger tributaries, the channel widens and
+the light brightens and accelerates as it goes, and the pointer gently wakes
+whatever is near it. It moves on its own when nobody touches the mouse, and
+`prefers-reduced-motion` gets a single composed still frame.
 
-| Token | Value | Where Operations uses it |
-| --- | --- | --- |
-| Paper | `#F5F7FB` | the Operations page background |
-| Surface | `#FFFFFF` on `#E2E8F0` hairlines | Operations panels and metrics |
-| Gold | `#D8A932`, tint `#FFF7DF`, ink `#7A5200` | Operations brand tile, active nav, badges |
-| Navy | `#0B1220` / `#1C2E4A` | Operations sidebar and persona |
-| Labels | Rajdhani 700 uppercase, `0.16em` | every Operations micro-label |
-| Body | Inter | everything readable in Operations |
+Weights are deliberate: the country's dots are stronger than the streams so the
+silhouette reads first; tributaries are thin; the Mississippi thickens
+downstream without ever becoming a glowing stripe. One gold tonal family
+throughout, no second accent, no blue.
 
-An applicant and an operator are now looking at the same product. The previous
-pass was dark; that is gone.
+**The hero matches the reference.** The app tile and the `APPLICATION / 9
+SECTIONS / ABOUT 30 MINUTES / ...` strip are both gone. The top line is
+`USA MISSIONARIES` left and `MISSIONARY APPLICATION` right, and nothing else.
+The large WELCOME TO THE TEAM. type, the gold rule under it, and the spacious
+composition are kept. The atmospheric mountain photograph
+(`missionary-mountain-background-v2.png`, already in the repo) sits behind the
+lower portion of the page, masked to nothing at the top and held under half
+opacity so it gives depth without competing.
 
-**"Make the three works look like products or apps."** Kitchen Table Gospel, the
-Discipleship Operating System and Mission of Reconciliation are now a product
-suite: four cards, each with its own drawn mark on a solid accent tile, a
-category line, the name, and a one-line descriptor. The marks are geometry on a
-24-unit grid in `ProductMarks.tsx`, and each says what the work is:
+**Part of something greater.** Centred label with a gold rule, four cream cards
+with thin gold line marks in rings, centred copy, and the exact wording from the
+reference. **No category labels** - the EVANGELISM / PLATFORM / RESTORATION /
+NEXT line from the previous pass is removed. The cards are translucent so the
+landscape carries through them, which is what keeps the section part of the page
+rather than four SaaS tiles sitting on top of it.
 
-| Work | Category | Mark | Accent |
-| --- | --- | --- | --- |
-| Kitchen Table Gospel | Evangelism | people seated around a table | `#D8A932` |
-| Discipleship Operating System | Platform | one disciple branching into many | `#1C2E4A` |
-| Mission of Reconciliation | Restoration | two halves brought back together | `#0F9D76` |
-| And growing. | Next | an open slot, dashed | `#94A3B8` |
-
-"And growing." stays a member of the set rather than a caption, and is drawn as
-a slot rather than a thing, so the list still reads as open.
-
-**Typeform pacing, properly this time.** The step and section model is now
-compiled into a flat list of 42 pages, one question to a page. A narrative
-question owns its screen with the question set as the heading and no second
-label above the box. A run of short factual fields inside one section stays
-together, so an address is one screen rather than four. Enter advances;
-Cmd/Ctrl+Enter advances from a long answer; number keys answer a choice screen.
-The index line reads `STEP 2 OF 7 / YOUR STORY / 07 OF 42`.
+**Palette.** Cream `#FAF7F1` paper, `#FDFCF9` surfaces on warm `#E7DFD0`
+hairlines, `#16202E` black-navy ink, and gold `#C9A227` with `#8A6A16` for gold
+text. Applied across the whole join experience, not only the Welcome screen, so
+there is no seam when an applicant starts the application. Flagging that as a
+judgement call: the previous pass used the cooler Operations greys, and this
+reference is warm.
 
 ---
 
-## 2. What carried over from the benchmark
+## 2. What was preserved
 
-Stewardship.Capital was read as source, not as a screenshot. What transferred is
-craft, not branding: a canvas field carrying the product's core metaphor, masked
-line reveals, display type set to fill its measure, restraint, and design
-rationale written into the stylesheet as comments.
-
-Deliberately not copied: Stewardship's graphite and orange palette, its Archivo
-type, its wordmark, its lattice artwork, and its copy voice.
-
-The artwork is USAM's own. Stewardship's field is a lattice of entrusted points
-that activate under a cursor. `MovementField.tsx` instead propagates a *send*
-outward hop by hop through a proximity graph, so the accent only ever appears on
-a point the movement has actually reached. Different mechanism, different idea:
-a movement spreading person to person, which is what USA Missionaries does.
+Untouched: the USA-167 nine-step model, the couple flow, save and resume, the
+private 17-category worksheet, the three separate money values, the overflow
+acknowledgement, the canonical Operations ingress, email idempotency, the
+founder gate, and the guided Typeform-paced application built in the previous
+pass. No request shape, validation rule or data contract was altered.
 
 ---
 
@@ -109,8 +99,9 @@ build. Same numbering in `desktop/` and `mobile/`.
 | `12-review-complete` | Review, everything answered, disclosures confirmed |
 | `13-submitted` | Submitted |
 
-On desktop the opening is tuned so the product tiles break the bottom edge,
-which is what invites the scroll. On mobile that happens naturally.
+On mobile the map sits below the call to action at its own size rather than
+being squeezed beside the type, and the mountains stay at the very bottom so
+the map keeps clean cream behind it.
 
 **How the evidence was made:** `scripts/usa-191-preview-capture.mjs` drives the
 whole flow end to end and can regenerate every image. The draft and application

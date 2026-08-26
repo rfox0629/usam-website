@@ -9,10 +9,10 @@ import type { ProductMarkId } from "./ProductMarks";
  * still being added to and that a missionary joining now may be the reason it
  * grows again.
  *
- * Each carries its own mark and accent so it reads as a product with an
- * identity of its own, which is what the founder asked for: three distinguished
- * works under one organisation, not three lines of text. The accents stay
- * inside the Operations palette so the set still reads as one family.
+ * Deliberately uncategorised. An earlier pass labelled these Evangelism,
+ * Platform, Restoration and Next; the founder direction is that we do not need
+ * to classify them, and that a label turns a work into a product tile. The mark
+ * and the sentence are enough.
  *
  * Held in its own module rather than in app/join/page.tsx on purpose. The
  * USA-167 release gate reads that route for markers of the DOS setup wizard,
@@ -22,46 +22,36 @@ import type { ProductMarkId } from "./ProductMarks";
  */
 
 export type EcosystemEntry = {
-  /** Tile colour. One per work, all drawn from the Operations palette. */
-  accent: string;
-  /** Category line above the name, the way a product states its class. */
-  category: string;
+  /** One or more lines. Kitchen Table Gospel is set as three short ones. */
+  lines: string[];
   mark: ProductMarkId;
   name: string;
-  /** One line, present tense, describing the work rather than selling it. */
-  note: string;
   /** The entry that is deliberately unfinished. */
   open?: boolean;
 };
 
 export const ecosystemEntries: EcosystemEntry[] = [
   {
-    accent: "#D8A932",
-    category: "Evangelism",
+    lines: ["Ordinary homes.", "Ordinary conversations.", "Extraordinary eternity."],
     mark: "kitchenTable",
     name: "Kitchen Table Gospel",
-    note: "The gospel carried into ordinary homes and ordinary conversations.",
   },
   {
-    accent: "#1C2E4A",
-    category: "Platform",
+    lines: ["The tools and training to help disciples make disciples on purpose."],
     mark: "discipleship",
     name: "Discipleship Operating System",
-    note: "The tooling that helps disciples make disciples on purpose.",
   },
   {
-    accent: "#0F9D76",
-    category: "Restoration",
+    lines: [
+      "Restoration for families and households in crisis through the power of Christ.",
+    ],
     mark: "reconciliation",
     name: "Mission of Reconciliation",
-    note: "Restoration work with families and households in crisis.",
   },
   {
-    accent: "#94A3B8",
-    category: "Next",
+    lines: ["The next work is not on this list yet. It may be yours."],
     mark: "growing",
     name: "And growing.",
-    note: "The next work is not on this list yet. It may be yours.",
     open: true,
   },
 ];

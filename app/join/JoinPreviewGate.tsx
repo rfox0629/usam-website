@@ -5,7 +5,6 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import "./join-experience.css";
-import { MovementField } from "./MovementField";
 
 /**
  * USA-167: the access screen shown while JOIN_PREVIEW_ACCESS_KEY is set.
@@ -60,7 +59,7 @@ export function JoinPreviewGate({ configured = true }: { configured?: boolean })
   return (
     <main className="join">
       <div className="join-screen join-screen-gate">
-        <MovementField />
+        <div aria-hidden="true" className="join-landscape" />
 
         <div className="join-screen-inner">
           <div className="join-gate">

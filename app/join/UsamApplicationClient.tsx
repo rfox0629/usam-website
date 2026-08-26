@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 import "./join-experience.css";
-import { MovementField } from "./MovementField";
 import { WelcomeExperience } from "./WelcomeExperience";
 import {
   identityFieldLabels,
@@ -603,7 +602,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     return (
       <main aria-label="Apply to become a USA Missionary" className="join">
         <div className="join-screen">
-          <MovementField />
+          <div aria-hidden="true" className="join-landscape" />
           <SubmittedScreen applicationId={applicationId} name={applicantDisplayName(draft)} />
         </div>
       </main>
