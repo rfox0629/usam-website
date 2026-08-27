@@ -638,9 +638,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     <main aria-label="Apply to become a USA Missionary" className="join">
       <header className="join-chrome">
         <div className="join-chrome-inner">
-          <span aria-hidden="true" className="join-badge">
-            UM
-          </span>
+          {/* No app tile here. The approved reference removed that treatment
+              from the opening, and the application chrome carries the wordmark
+              alone for the same reason. */}
           <p className="join-chrome-mark">USA Missionaries</p>
 
           <ol className="join-rail">

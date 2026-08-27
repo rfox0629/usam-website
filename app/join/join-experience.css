@@ -688,12 +688,6 @@
   padding: 9px 0;
 }
 
-.join-chrome .join-badge {
-  width: 26px;
-  height: 26px;
-  font-size: 0.65rem;
-}
-
 .join-chrome-mark {
   flex: none;
   font-family: var(--font-tech);
@@ -774,9 +768,6 @@
     gap: 9px;
   }
 
-  .join-chrome .join-badge {
-    display: none;
-  }
 }
 
 /* The thin line of progress across the whole width. */
