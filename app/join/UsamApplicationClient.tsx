@@ -256,6 +256,39 @@ function resumeNotice(state: ResumeState) {
   }
 }
 
+/**
+ * Wayfinding labels for the rail.
+ *
+ * The full step titles are what the screen heading says; in the rail they
+ * overflowed seven across and were chopped mid word at the container edge.
+ * These are the short forms. The full title stays the accessible name.
+ */
+const railLabels: Partial<Record<JoinApplicationStepId, string>> = {
+  about: "About you",
+  calling: "Calling",
+  experience: "Experience",
+  mission: "Mission",
+  profile: "Profile",
+  story: "Your story",
+  support: "Support",
+};
+
+/**
+ * The required marker.
+ *
+ * Preceded by a word joiner (U+2060), which is a zero width character that
+ * forbids a line break at that point. Without it the asterisk wraps onto a
+ * line of its own after a long question, which reads as a typo.
+ */
+function RequiredMark() {
+  return (
+    <>
+      {"\u2060"}
+      <span className="join-field-req">*</span>
+    </>
+  );
+}
+
 function ArrowRight() {
   return (
     <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
@@ -657,7 +690,9 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                     onClick={() => goTo(railStep.id)}
                     type="button"
                   >
-                    <span className="join-rail-label">{railStep.title}</span>
+                    <span className="join-rail-label">
+                      {railLabels[railStep.id] ?? railStep.title}
+                    </span>
                     <span className="join-rail-index">{position}</span>
                   </button>
                 </li>
@@ -799,11 +834,13 @@ function QuestionIndex({
       <b>
         Step {Math.min(stepIndex, questionSteps)} of {questionSteps}
       </b>
-      <i aria-hidden="true">/</i>
-      <span>{stepTitle}</span>
-      <i aria-hidden="true">/</i>
-      <span>
-        {String(pageIndex + 1).padStart(2, "0")} of {pageTotal}
+      {/* Each separator travels with the label it introduces, so a wrap can
+          never strand a slash at the end of a line. */}
+      <span className="join-q-seg">
+        <i aria-hidden="true">/</i> {stepTitle}
+      </span>
+      <span className="join-q-seg">
+        <i aria-hidden="true">/</i> {String(pageIndex + 1).padStart(2, "0")} of {pageTotal}
       </span>
     </p>
   );
@@ -875,7 +912,7 @@ function PageView({
         {index}
         <h1 className="join-q-title">
           {field.label}
-          {field.required ? <span className="join-field-req">*</span> : null}
+          {field.required ? <RequiredMark /> : null}
         </h1>
         {field.help ? <p className="join-q-help">{field.help}</p> : null}
 
@@ -1077,7 +1114,7 @@ function SupportMoneyField({
     <div className="join-money-row">
       <label className="join-field-label" htmlFor={id}>
         {label}
-        {required ? <span className="join-field-req">*</span> : null}
+        {required ? <RequiredMark /> : null}
       </label>
 
       {help ? <p className="join-field-help">{help}</p> : null}
@@ -1146,7 +1183,10 @@ function SupportSection({
 
         <fieldset>
           <legend className="join-field-label">
-            Do you expect to raise monthly support?<span className="join-field-req">*</span>
+            {/* No whitespace before the marker: a JSX newline here would
+                become a space, which is exactly the break the joiner exists
+                to prevent. */}
+            Do you expect to raise monthly support?<RequiredMark />
           </legend>
           <p className="join-field-help">Your answer controls which financial questions come next.</p>
 
@@ -1343,7 +1383,7 @@ function FieldInput({
     <div>
       <label className="join-field-label" htmlFor={field.id}>
         {field.label}
-        {field.required ? <span className="join-field-req">*</span> : null}
+        {field.required ? <RequiredMark /> : null}
       </label>
 
       {field.help ? <p className="join-field-help">{field.help}</p> : null}
@@ -1378,19 +1418,24 @@ function FieldInput({
 function IdentityFields({
   heading,
   identity,
+  labelled,
   name,
   onChange,
 }: {
   heading: string;
   identity: JoinApplicantIdentity;
+  labelled: boolean;
   name: "applicant" | "spouse";
   onChange: (key: keyof JoinApplicantIdentity, value: string) => void;
 }) {
   return (
     <fieldset>
-      <legend className="join-eyebrow join-eyebrow-quiet">{heading}</legend>
+      {/* Only labelled when there is a second person to tell it apart from.
+          On a single applicant the screen heading already says whose details
+          these are, and the label was repeating the step name. */}
+      {labelled ? <legend className="join-eyebrow join-eyebrow-quiet">{heading}</legend> : null}
 
-      <div className="join-pair join-pair-2" style={{ marginTop: 14 }}>
+      <div className="join-pair join-pair-2" style={{ marginTop: labelled ? 14 : 0 }}>
         {(Object.keys(identityFieldLabels) as (keyof JoinApplicantIdentity)[]).map((key) => (
           <div key={key}>
             <label className="join-field-label" htmlFor={`${name}-${key}`}>
@@ -1425,6 +1470,7 @@ function IdentitySection({
       <IdentityFields
         heading="About you"
         identity={draft.applicant}
+        labelled={draft.applyingAsCouple}
         name="applicant"
         onChange={(key, value) => onIdentityChange("applicant", key, value)}
       />
@@ -1445,6 +1491,7 @@ function IdentitySection({
         <IdentityFields
           heading="About your spouse"
           identity={draft.spouse}
+          labelled
           name="spouse"
           onChange={(key, value) => onIdentityChange("spouse", key, value)}
         />

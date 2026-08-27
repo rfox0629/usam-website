@@ -76,6 +76,45 @@ pass. No request shape, validation rule or data contract was altered.
 
 ---
 
+## 2b. Visual review pass, and the six defects it found
+
+Reviewing all eight screens at 1440 and 390 turned up six real defects. All are
+fixed.
+
+1. **Body copy on the submitted screen rendered light grey.** The root cause was
+   a cascade collision, not a colour choice: `globals.css` carries the site's
+   dark-surface readability pass, including `:where(p, li, dd) { color: #d1d5db }`.
+   That selector has no specificity, but it matches the paragraph itself, and a
+   rule that matches an element always beats a colour the element would
+   otherwise inherit from its container. Measured on the rendered pixels: the
+   heading at `rgb(22,32,46)`, the body at `rgb(209,213,219)`. Restoring
+   inheritance for paragraphs inside `.join` fixed it; the body now measures
+   `rgb(35,46,62)`. Worth noting the first diagnosis was wrong, and a scrim
+   added on that assumption left a visible rectangle; measuring the pixels
+   rather than trusting the screenshot is what found the real cause.
+2. **The step rail overflowed at 1440 and chopped mid word** ("SUPPORT AND FU").
+   Seven full step titles plus the wordmark, save state and resume link needed
+   about 1330px inside a 1200px shell. The rail now carries short wayfinding
+   labels; the full title stays the accessible name.
+3. **The identity step asked for Email before First name.** The label map's
+   declaration order was its render order by accident. Name now comes before
+   contact, and the order is documented as deliberate.
+4. **"About you" was labelled twice** on the identity screen, once as the step
+   and again as a fieldset legend. The legend now appears only when a spouse
+   fieldset exists for it to distinguish.
+5. **The index line stranded a separator** at the end of a wrapped line at
+   390px. Each separator now travels with the label it introduces.
+6. **The required asterisk could wrap onto a line of its own** after a long
+   question. It is now bound to the preceding word with a word joiner.
+
+Also confirmed unchanged and correct: the real Mississippi geography, the single
+gold family, the subtle downstream flow that gathers into the main stem, ambient
+motion with no pointer, cursor proximity, the reduced-motion still frame, the
+cream system end to end, the mountain atmosphere anchored to the page, and the
+removal of the app/UM tile from both the opening and the application chrome.
+
+---
+
 ## 3. Screenshots
 
 Desktop 1440×900 and mobile 390×844, both at 2× DPR, captured from a production

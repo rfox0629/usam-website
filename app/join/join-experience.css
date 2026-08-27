@@ -84,6 +84,22 @@
   min-width: 0;
 }
 
+/*
+ * globals.css carries the site's dark-surface readability pass, which includes
+ * `:where(p, li, dd) { color: #d1d5db }`. That selector has no specificity, but
+ * it matches the paragraph itself, and a rule that matches an element always
+ * beats a colour the element would otherwise inherit. The effect on cream was
+ * that any paragraph here which did not name its own colour rendered in the
+ * dark theme's light grey: the submitted screen's body copy measured
+ * rgb(209, 213, 219) against a heading at rgb(22, 32, 46).
+ *
+ * Restoring inheritance puts the cascade back the way the rest of this file
+ * assumes it works. Every rule below that names a colour still wins.
+ */
+.join :where(p, li, dd) {
+  color: inherit;
+}
+
 .join ::selection {
   background: var(--gold-tint);
   color: var(--gold-ink);
@@ -198,7 +214,10 @@
   pointer-events: none;
   background:
     url("/missionary-mountain-background-v2.png") center bottom / cover no-repeat;
-  opacity: 0.42;
+  /* Held back further than it was. On the submitted screen the body copy sits
+     directly over the brightest part of the ridge line, and at the previous
+     opacity it washed out. */
+  opacity: 0.32;
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
@@ -217,8 +236,8 @@
   background: linear-gradient(
     to bottom,
     var(--paper) 0%,
-    rgba(250, 247, 241, 0.55) 30%,
-    rgba(250, 247, 241, 0.1) 62%,
+    rgba(250, 247, 241, 0.72) 34%,
+    rgba(250, 247, 241, 0.34) 66%,
     rgba(250, 247, 241, 0) 100%
   );
 }
@@ -910,6 +929,15 @@
   font-weight: 700;
 }
 
+/* A separator and the label it introduces are one unit, so a wrap on a narrow
+   screen cannot leave a slash hanging at the end of a line. */
+.join-q-seg {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  white-space: nowrap;
+}
+
 .join-q-index i {
   font-style: normal;
   color: var(--line-strong);
@@ -1587,7 +1615,9 @@
   gap: 15px;
   font-size: 1rem;
   line-height: 1.68;
-  color: var(--muted);
+  /* Full ink, not the muted supporting tone: this copy sits over the
+     landscape rather than over plain paper. */
+  color: var(--ink-2);
   max-width: 60ch;
 }
 

@@ -149,10 +149,15 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
  * application over two distinct people, and those two people have to survive
  * into Operations as separate identities rather than as fields on one record.
  */
+/**
+ * Declaration order is render order: the application iterates these keys. Name
+ * before contact, because asking somebody for an email address before their
+ * name is the wrong way round.
+ */
 export const identityFieldLabels = {
-  email: "Email",
   firstName: "First name",
   lastName: "Last name",
+  email: "Email",
   phone: "Phone",
 };
 
