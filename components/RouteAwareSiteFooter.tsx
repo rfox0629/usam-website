@@ -22,6 +22,10 @@ export function RouteAwareSiteFooter() {
 
   if (
     pathname?.startsWith("/dos")
+    // USA-191: /join is a full-screen guided experience with its own fixed
+    // advance bar. The site footer would sit underneath that bar and break the
+    // immersion, so the application owns the whole viewport.
+    || pathname?.startsWith("/join")
     || pathname?.startsWith("/groups")
     || pathname?.startsWith("/operations")
     || pathname?.startsWith("/guide/new-testament-14-days")

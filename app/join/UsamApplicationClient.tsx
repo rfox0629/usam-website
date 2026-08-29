@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 
+import "./join-experience.css";
+import { WelcomeExperience } from "./WelcomeExperience";
 import {
   identityFieldLabels,
   joinApplicationSections,
@@ -25,12 +28,20 @@ import {
 } from "@/src/lib/join/application-steps";
 
 /**
- * USA-167: the USA Missionaries application.
+ * USA-167 / USA-191: the USA Missionaries application.
  *
  * The draft lives on the server, not in localStorage. That is the whole reason a
  * resume link can work at all: the applicant can start on a laptop, get the
  * email, and continue on a phone. The token minted on first save is held in
  * component state and sent with every later save so they all land on one draft.
+ *
+ * USA-191 rebuilt the presentation on top of that machinery without touching
+ * it. The nine step model, the couple model, the private worksheet, the
+ * validation and every request shape are exactly as USA-167 shipped them. What
+ * changed is pacing: the step and section model is now compiled into a flat
+ * list of pages, one question to a page, so the application is walked rather
+ * than filled in. A narrative question owns its screen; a run of short factual
+ * fields that make up one thought, like an address, stays together.
  */
 
 type ResumeState = "expired" | "none" | "restored" | "revoked" | "submitted" | "unavailable";
@@ -44,8 +55,6 @@ type Props = {
   resumeToken: string | null;
 };
 
-const shellClassName =
-  "usam-application-route min-h-screen bg-[linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)] text-[#0F172A]";
 const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
@@ -54,9 +63,23 @@ const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
 
 type SupportPath = "no" | "unsure" | "yes";
 
-function isApplicationContentStep(
-  value: JoinApplicationStepId,
-): value is Exclude<JoinApplicationStepId, "review" | "start"> {
+type ContentStepId = Exclude<JoinApplicationStepId, "review" | "start">;
+
+/**
+ * One screen of the application.
+ *
+ * Compiled from the USA-167 step and section model rather than replacing it,
+ * so the information architecture, the review jumps and the submitted payload
+ * all still speak in steps and sections.
+ */
+type Page =
+  | { fields: JoinField[]; kind: "fields"; sectionId: string; solo: boolean; stepId: ContentStepId }
+  | { kind: "identity"; sectionId: string; stepId: ContentStepId }
+  | { kind: "photos"; sectionId: string; stepId: ContentStepId }
+  | { kind: "review"; sectionId: string; stepId: JoinApplicationStepId }
+  | { kind: "support"; section: JoinFieldSection; sectionId: string; stepId: ContentStepId };
+
+function isApplicationContentStep(value: JoinApplicationStepId): value is ContentStepId {
   return value !== "review" && value !== "start";
 }
 
@@ -125,6 +148,97 @@ function supportBudgetSummary(draft: JoinApplicationDraft) {
   };
 }
 
+/**
+ * Compiles the step and section model into pages.
+ *
+ * The rule is one thought per screen. A long answer is a thought on its own and
+ * gets the screen to itself, with the question set as the heading so nothing
+ * competes with it. A run of short factual fields inside one section is a
+ * single thought too, so an address is not dealt out over four screens just to
+ * imitate a guided form.
+ */
+function buildPages(draft: JoinApplicationDraft): Page[] {
+  const pages: Page[] = [];
+
+  for (const step of joinApplicationSteps) {
+    if (step.id === "start") {
+      continue;
+    }
+
+    if (step.id === "review") {
+      pages.push({ kind: "review", sectionId: "review", stepId: "review" });
+      continue;
+    }
+
+    // Captured into a const so the narrowing survives into the closure below.
+    // Narrowing a property access does not.
+    const stepId = step.id;
+
+    if (!isApplicationContentStep(stepId)) {
+      continue;
+    }
+
+    const sections =
+      stepId === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[stepId];
+
+    for (const section of sections) {
+      if (stepId === "support") {
+        pages.push({ kind: "support", section, sectionId: section.id, stepId });
+        continue;
+      }
+
+      if (stepId === "about" && section.id === "identity") {
+        pages.push({ kind: "identity", sectionId: section.id, stepId });
+        continue;
+      }
+
+      if (stepId === "profile" && section.id === "photos") {
+        pages.push({ kind: "photos", sectionId: section.id, stepId });
+        continue;
+      }
+
+      const fields = visibleFieldsForSection(stepId, section.id, draft.applyingAsCouple);
+      let run: JoinField[] = [];
+
+      const flushRun = () => {
+        if (run.length > 0) {
+          pages.push({ fields: run, kind: "fields", sectionId: section.id, solo: false, stepId });
+          run = [];
+        }
+      };
+
+      for (const field of fields) {
+        if (field.kind === "long") {
+          flushRun();
+          pages.push({ fields: [field], kind: "fields", sectionId: section.id, solo: true, stepId });
+          continue;
+        }
+
+        run.push(field);
+      }
+
+      flushRun();
+    }
+  }
+
+  return pages;
+}
+
+function sectionTitle(page: Page) {
+  if (page.kind === "support") {
+    return { intro: page.section.intro, title: page.section.title };
+  }
+
+  if (page.stepId === "review") {
+    return { intro: "Check your answers, then submit.", title: "Review and submit" };
+  }
+
+  const sections = joinApplicationSections[page.stepId as ContentStepId] ?? [];
+  const section = sections.find((candidate) => candidate.id === page.sectionId);
+
+  return { intro: section?.intro ?? "", title: section?.title ?? "" };
+}
+
 function resumeNotice(state: ResumeState) {
   switch (state) {
     case "expired":
@@ -142,9 +256,49 @@ function resumeNotice(state: ResumeState) {
   }
 }
 
+/**
+ * Wayfinding labels for the rail.
+ *
+ * The full step titles are what the screen heading says; in the rail they
+ * overflowed seven across and were chopped mid word at the container edge.
+ * These are the short forms. The full title stays the accessible name.
+ */
+const railLabels: Partial<Record<JoinApplicationStepId, string>> = {
+  about: "About you",
+  calling: "Calling",
+  experience: "Experience",
+  mission: "Mission",
+  profile: "Profile",
+  story: "Your story",
+  support: "Support",
+};
+
+/**
+ * The required marker.
+ *
+ * Preceded by a word joiner (U+2060), which is a zero width character that
+ * forbids a line break at that point. Without it the asterisk wraps onto a
+ * line of its own after a long question, which reads as a typo.
+ */
+function RequiredMark() {
+  return (
+    <>
+      {"\u2060"}
+      <span className="join-field-req">*</span>
+    </>
+  );
+}
+
+function ArrowRight() {
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+      <path d="M4 12h15m0 0-6-6m6 6-6 6" stroke="currentColor" strokeLinecap="square" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 export function UsamApplicationClient({ initialDraft, initialStep, resumeState, resumeToken }: Props) {
   const [draft, setDraft] = useState<JoinApplicationDraft>(initialDraft);
-  const [stepId, setStepId] = useState<JoinApplicationStepId>(initialStep);
   const [token, setToken] = useState<string | null>(resumeToken);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [emailNotice, setEmailNotice] = useState("");
@@ -152,7 +306,17 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const [submitState, setSubmitState] = useState<"error" | "idle" | "submitted" | "submitting">("idle");
   const [submitError, setSubmitError] = useState("");
   const [applicationId, setApplicationId] = useState("");
-  const [sectionIndexByStep, setSectionIndexByStep] = useState<Partial<Record<JoinApplicationStepId, number>>>({});
+  /** Drives which way the transition plays, so back does not read as forward. */
+  const [direction, setDirection] = useState<"back" | "forward">("forward");
+
+  const pages = useMemo(() => buildPages(draft), [draft]);
+
+  const [pageIndex, setPageIndex] = useState(() => {
+    const built = buildPages(initialDraft);
+    const found = built.findIndex((page) => page.stepId === initialStep);
+
+    return found >= 0 ? found : 0;
+  });
 
   // One intentional click owns one stable request ID. It survives an
   // ambiguous network failure so a retry cannot create a second email, while
@@ -163,27 +327,23 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   // create an empty draft row for anyone who merely opened the page.
   const dirtyRef = useRef(false);
 
+  // Answering the support branch adds or removes pages behind the current one,
+  // so the index is clamped rather than trusted.
+  const safeIndex = Math.min(pageIndex, pages.length - 1);
+  const page = pages[safeIndex];
+  const stepId = page.stepId;
   const stepIndex = joinApplicationStepIndex(stepId);
   const step = joinApplicationSteps[stepIndex];
-  const currentSections = isApplicationContentStep(stepId)
-    ? stepId === "support"
-      ? supportSectionsForDraft(draft)
-      : joinApplicationSections[stepId]
-    : [];
-  const requestedSectionIndex = sectionIndexByStep[stepId] ?? 0;
-  const sectionIndex = Math.min(requestedSectionIndex, Math.max(0, currentSections.length - 1));
-  const currentSection = currentSections[sectionIndex];
-  const currentSectionFields = isApplicationContentStep(stepId) && currentSection
-    ? visibleFieldsForSection(stepId, currentSection.id, draft.applyingAsCouple)
-    : [];
-  const continueBlocked = stepId === "support" && currentSection?.id === "path" && !supportPathFromDraft(draft);
+  const heading = sectionTitle(page);
+  const continueBlocked =
+    page.kind === "support" && page.sectionId === "path" && !supportPathFromDraft(draft);
 
   const persist = useCallback(
     async (options: { sendResumeEmail?: boolean } = {}) => {
       const shouldSendResumeEmail = options.sendResumeEmail === true;
 
       if (shouldSendResumeEmail && resumeEmailAttemptRef.current?.inFlight) {
-        return true;
+        return { resumeToken: token, saved: true };
       }
 
       const emailRequestId = shouldSendResumeEmail
@@ -214,6 +374,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         }
 
         const result = (await response.json()) as { emailSent?: boolean; resumeToken?: string | null };
+        const savedToken = result.resumeToken ?? token;
 
         if (result.resumeToken) {
           setToken(result.resumeToken);
@@ -230,7 +391,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           );
         }
 
-        return true;
+        return { resumeToken: savedToken, saved: true };
       } catch {
         if (shouldSendResumeEmail && emailRequestId && resumeEmailAttemptRef.current?.id === emailRequestId) {
           resumeEmailAttemptRef.current = { id: emailRequestId, inFlight: false };
@@ -238,7 +399,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
         setSaveState("error");
 
-        return false;
+        return { resumeToken: null, saved: false };
       }
     },
     [draft, stepId, token],
@@ -256,7 +417,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [draft, persist, started, stepId]);
+  }, [draft, persist, started, safeIndex]);
 
   const setAnswer = (id: string, value: string) => {
     dirtyRef.current = true;
@@ -289,29 +450,38 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   };
 
   async function submitApplication() {
-    if (!token) {
-      setSubmitError("Save your application before submitting.");
-
-      return;
-    }
-
     setSubmitState("submitting");
     setSubmitError("");
 
     // Submission reads the draft from the server by token, so it has to be
     // saved first or the last edits would not be part of what is submitted.
+    //
+    // The token comes back from that save rather than from component state.
+    // Autosave is debounced, so somebody who fills the application quickly and
+    // submits can still be holding a null token in state while the save that
+    // mints one is in flight. Reading it from the response is what makes the
+    // submit button work on the first click regardless of that timing.
     const saved = await persist();
 
-    if (!saved) {
+    if (!saved.saved) {
       setSubmitState("error");
       setSubmitError("We could not save your latest answers, so we have not submitted anything yet.");
 
       return;
     }
 
+    const submissionToken = saved.resumeToken ?? token;
+
+    if (!submissionToken) {
+      setSubmitState("error");
+      setSubmitError("We could not save your application, so we have not submitted anything yet.");
+
+      return;
+    }
+
     try {
       const response = await fetch("/api/join/application", {
-        body: JSON.stringify({ resumeToken: token }),
+        body: JSON.stringify({ resumeToken: submissionToken }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -382,325 +552,543 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     return missing;
   }, [draft]);
 
-  const goTo = (next: JoinApplicationStepId, sectionId?: string) => {
-    if (sectionId && isApplicationContentStep(next)) {
-      const sections = next === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next];
-      const nextSectionIndex = sections.findIndex((section) => section.id === sectionId);
+  const moveTo = (index: number, how: "back" | "forward") => {
+    const clamped = Math.max(0, Math.min(pages.length - 1, index));
 
-      if (nextSectionIndex >= 0) {
-        setSectionIndexByStep((current) => ({ ...current, [next]: nextSectionIndex }));
-      }
-    } else {
-      setSectionIndexByStep((current) => ({ ...current, [next]: 0 }));
-    }
-
-    setStepId(next);
+    setDirection(how);
+    setPageIndex(clamped);
     dirtyRef.current = true;
     window.scrollTo({ behavior: "smooth", top: 0 });
   };
 
-  const goRelative = (offset: number) => {
-    if (isApplicationContentStep(stepId)) {
-      const nextSectionIndex = sectionIndex + offset;
+  const goTo = (nextStep: JoinApplicationStepId, sectionId?: string) => {
+    const target = pages.findIndex(
+      (candidate) =>
+        candidate.stepId === nextStep && (!sectionId || candidate.sectionId === sectionId),
+    );
+    const fallback = pages.findIndex((candidate) => candidate.stepId === nextStep);
+    const index = target >= 0 ? target : fallback;
 
-      if (nextSectionIndex >= 0 && nextSectionIndex < currentSections.length) {
-        setSectionIndexByStep((current) => ({ ...current, [stepId]: nextSectionIndex }));
-        dirtyRef.current = true;
-        window.scrollTo({ behavior: "smooth", top: 0 });
-
-        return;
-      }
-    }
-
-    const next = joinApplicationSteps[stepIndex + offset];
-
-    if (next) {
-      if (offset < 0 && isApplicationContentStep(next.id)) {
-        const previousSections = next.id === "support" ? supportSectionsForDraft(draft) : joinApplicationSections[next.id];
-
-        setSectionIndexByStep((current) => ({ ...current, [next.id]: Math.max(0, previousSections.length - 1) }));
-        setStepId(next.id);
-        dirtyRef.current = true;
-        window.scrollTo({ behavior: "smooth", top: 0 });
-      } else {
-        goTo(next.id);
-      }
+    if (index >= 0) {
+      moveTo(index, index < safeIndex ? "back" : "forward");
     }
   };
 
+  const goRelative = (offset: number) => moveTo(safeIndex + offset, offset < 0 ? "back" : "forward");
+
+  /**
+   * Keyboard pacing.
+   *
+   * Enter advances from a single line field, the way a guided flow is expected
+   * to behave. Inside a textarea Enter has to stay a newline, because these are
+   * the long answers the whole application is asking for, so those advance on
+   * the modifier instead. Number keys answer a choice screen. Nothing here is
+   * the only way to move: the footer control does the same job for anyone using
+   * a pointer or a touch screen.
+   */
+  useEffect(() => {
+    if (!started || submitState === "submitted") {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTextarea = target?.tagName === "TEXTAREA";
+      const isInput = target?.tagName === "INPUT";
+      const modified = event.metaKey || event.ctrlKey;
+
+      if (page.kind === "support" && page.sectionId === "path" && !isTextarea && !isInput) {
+        const choice = { 1: "yes", 2: "unsure", 3: "no" }[Number(event.key)];
+
+        if (choice) {
+          event.preventDefault();
+          setAnswer("supportPath", choice);
+
+          return;
+        }
+      }
+
+      if (event.key !== "Enter" || continueBlocked || page.kind === "review") {
+        return;
+      }
+
+      if (isTextarea && !modified) {
+        return;
+      }
+
+      if (target?.tagName === "BUTTON" && !modified) {
+        return;
+      }
+
+      event.preventDefault();
+      goRelative(1);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   const notice = resumeNotice(resumeState);
 
-  return (
-    <main className={shellClassName}>
-      <style>{`
-        body:has(.usam-application-route) {
-          background: linear-gradient(135deg, #F8FBFF 0%, #F6F8FF 48%, #FFF4EC 100%) !important;
-          color: #0F172A;
-        }
-        body:has(.usam-application-route) > footer { display: none !important; }
-      `}</style>
-
-      <div className="mx-auto w-full max-w-[820px] px-4 pb-32 pt-8 sm:px-6 sm:pt-12">
-        <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#2563EB]">Join USA Missionaries</p>
-
-        {notice ? (
-          <p className="mt-4 rounded-2xl border border-[#DCEBFF] bg-white px-4 py-3 text-sm font-semibold text-[#1D4ED8]">
-            {notice}
-          </p>
-        ) : null}
-
-        {submitState === "submitted" ? (
+  if (submitState === "submitted") {
+    return (
+      <main aria-label="Apply to become a USA Missionary" className="join">
+        <div className="join-screen">
+          <div aria-hidden="true" className="join-landscape" />
           <SubmittedScreen applicationId={applicationId} name={applicantDisplayName(draft)} />
-        ) : stepId === "start" && !started ? (
-          <StartScreen onStart={() => { setStarted(true); goTo("about"); }} resumeState={resumeState} />
-        ) : (
-          <>
-            <ProgressRail currentIndex={stepIndex} onSelect={(next) => goTo(next)} />
+        </div>
+      </main>
+    );
+  }
 
-            <h1 className="mt-7 text-[34px] font-black leading-[1.05] tracking-[-0.03em] text-[#020617] sm:text-[44px]">
-              {step.title}
-            </h1>
-            <p className="mt-3 text-base leading-7 text-[#475569]">{step.intro}</p>
+  if (!started) {
+    return (
+      <main aria-label="Apply to become a USA Missionary" className="join">
+        <WelcomeExperience
+          onStart={() => {
+            setStarted(true);
+            setDirection("forward");
+            dirtyRef.current = true;
+          }}
+          returning={resumeState === "restored"}
+        />
+      </main>
+    );
+  }
 
-            {currentSection ? (
-              <GuidedPartHeader
-                current={sectionIndex + 1}
-                intro={currentSection.intro}
-                title={currentSection.title}
-                total={currentSections.length}
-              />
-            ) : null}
+  // Named locals rather than inline expressions on the button: the resume-email
+  // idempotency guard reads this exact condition, because "the email action is
+  // dead while a save is in flight" is the property that stops a second send.
+  const hasEmail = Boolean(draft.applicant.email.trim());
+  const isSaving = saveState === "saving";
 
-            <div className="mt-5">
-              {stepId === "about" && currentSection?.id === "identity" ? (
-                <IdentitySection
-                  draft={draft}
-                  onIdentityChange={setIdentity}
-                  onToggleCouple={(value) => {
-                    dirtyRef.current = true;
-                    setDraft((current) => ({ ...current, applyingAsCouple: value }));
-                  }}
-                />
-              ) : null}
+  const railSteps = joinApplicationSteps.slice(1, -1);
+  const progress = Math.round((safeIndex / Math.max(1, pages.length - 1)) * 100);
+  const questionSteps = joinApplicationSteps.length - 2;
 
-              {stepId === "review" ? (
-                <ReviewSection
-                  draft={draft}
-                  missing={requiredMissing}
-                  onJump={goTo}
-                  onSubmit={() => void submitApplication()}
-                  onToggleDisclosure={setDisclosure}
-                  submitError={submitError}
-                  submitState={submitState}
-                />
-              ) : null}
+  return (
+    <main aria-label="Apply to become a USA Missionary" className="join">
+      <header className="join-chrome">
+        <div className="join-chrome-inner">
+          {/* No app tile here. The approved reference removed that treatment
+              from the opening, and the application chrome carries the wordmark
+              alone for the same reason. */}
+          <p className="join-chrome-mark">USA Missionaries</p>
 
-              {stepId === "support" && currentSection ? (
-                <SupportSection
-                  draft={draft}
-                  onAnswer={setAnswer}
-                  onDisclosure={setDisclosure}
-                  section={currentSection}
-                />
-              ) : null}
+          <ol className="join-rail">
+            {railSteps.map((railStep, index) => {
+              const position = index + 1;
+              const state = position === stepIndex ? "current" : position < stepIndex ? "done" : "todo";
 
-              {isApplicationContentStep(stepId) && stepId !== "support" && currentSectionFields.length > 0 ? (
-                <div className="grid gap-5 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:grid-cols-2 sm:p-6">
-                  {currentSectionFields.map((field) => (
-                    <FieldInput
-                      field={field}
-                      key={field.id}
-                      onChange={(value) => setAnswer(field.id, value)}
-                      value={draft.answers[field.id] ?? ""}
-                    />
-                  ))}
-                </div>
-              ) : null}
+              return (
+                <li key={railStep.id}>
+                  <button
+                    aria-current={state === "current" ? "step" : undefined}
+                    aria-label={railStep.title}
+                    data-state={state}
+                    onClick={() => goTo(railStep.id)}
+                    type="button"
+                  >
+                    <span className="join-rail-label">
+                      {railLabels[railStep.id] ?? railStep.title}
+                    </span>
+                    <span className="join-rail-index">{position}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
-              {stepId === "profile" && currentSection?.id === "photos" ? (
-                <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
-              ) : null}
-            </div>
+          <p aria-live="polite" className="join-chrome-save" data-state={saveState}>
+            <span aria-hidden="true" className="join-chrome-dot" />
+            <span className="join-chrome-save-text">
+              {saveState === "saving"
+                ? "Saving"
+                : saveState === "saved"
+                  ? "Saved"
+                  : saveState === "error"
+                    ? "Retrying"
+                    : "Autosaving"}
+            </span>
+          </p>
 
-            <SaveBar
-              emailNotice={emailNotice}
-              hasEmail={Boolean(draft.applicant.email.trim())}
-              onSave={() => void persist()}
-              onSaveAndEmail={() => void persist({ sendResumeEmail: true })}
-              saveState={saveState}
-            />
+          <button
+            className="join-plain"
+            disabled={!hasEmail || isSaving}
+            onClick={() => void persist({ sendResumeEmail: true })}
+            title={
+              hasEmail
+                ? "Save and email yourself a link back into this application"
+                : "Add your email on the About You step to get a resume link"
+            }
+            type="button"
+          >
+            Email me a link
+          </button>
+        </div>
 
-            <nav className="mt-10 flex items-center justify-between gap-3">
+        <div aria-hidden="true" className="join-progress">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+      </header>
+
+      <div className="join-stage">
+        {notice ? <p className="join-notice">{notice}</p> : null}
+        {emailNotice ? <p className="join-notice">{emailNotice}</p> : null}
+
+        <div className="join-transition" data-direction={direction} key={safeIndex}>
+          <PageView
+            addPhoto={addPhoto}
+            draft={draft}
+            heading={heading}
+            missing={requiredMissing}
+            onAnswer={setAnswer}
+            onDisclosure={setDisclosure}
+            onIdentityChange={setIdentity}
+            onJump={goTo}
+            onSubmit={() => void submitApplication()}
+            onToggleCouple={(value) => {
+              dirtyRef.current = true;
+              setDraft((current) => ({ ...current, applyingAsCouple: value }));
+            }}
+            page={page}
+            pageIndex={safeIndex}
+            pageTotal={pages.length}
+            questionSteps={questionSteps}
+            removePhoto={removePhoto}
+            step={step}
+            stepIndex={stepIndex}
+            submitError={submitError}
+            submitState={submitState}
+          />
+        </div>
+      </div>
+
+      <div className="join-footer">
+        <div className="join-footer-inner">
+          <button
+            className="join-button join-button-secondary"
+            disabled={safeIndex === 0}
+            onClick={() => goRelative(-1)}
+            type="button"
+          >
+            Back
+          </button>
+
+          {page.kind === "review" ? (
+            <p className="join-footer-hint">
+              {requiredMissing.length === 0
+                ? "Ready to submit"
+                : `${requiredMissing.length} question${requiredMissing.length === 1 ? "" : "s"} still to answer`}
+            </p>
+          ) : (
+            <>
               <button
-                className="inline-flex h-12 min-w-[7rem] items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A] disabled:opacity-40"
-                disabled={stepIndex <= 1 && sectionIndex === 0}
-                onClick={() => goRelative(-1)}
+                className="join-button join-button-primary"
+                disabled={continueBlocked}
+                onClick={() => goRelative(1)}
                 type="button"
               >
-                Back
+                {continueBlocked ? "Choose an option" : "Continue"}
+                <ArrowRight />
               </button>
 
-              {stepId === "review" ? (
-                <span className="text-sm font-semibold text-[#475569]">
-                  {requiredMissing.length === 0
-                    ? "Ready to submit."
-                    : `${requiredMissing.length} question${requiredMissing.length === 1 ? "" : "s"} still to answer.`}
-                </span>
+              {/* A long answer needs Enter for newlines, so that screen asks
+                  for the modifier instead. One instruction, never both. */}
+              {page.kind === "fields" && page.solo ? (
+                <p className="join-footer-hint">
+                  Press <span className="join-key">Cmd</span>
+                  <span aria-hidden="true">+</span>
+                  <span className="join-key">Enter</span>
+                </p>
               ) : (
-                <button
-                  className="inline-flex h-12 min-w-[7rem] items-center justify-center rounded-full bg-[#F5B82E] px-6 text-sm font-black text-[#111827] shadow-[0_14px_28px_rgba(245,184,46,0.24)] transition hover:bg-[#F7C64B] disabled:cursor-not-allowed disabled:bg-[#E2E8F0] disabled:text-[#64748B] disabled:shadow-none"
-                  disabled={continueBlocked}
-                  onClick={() => goRelative(1)}
-                  type="button"
-                >
-                  {continueBlocked
-                    ? "Choose an option"
-                    : sectionIndex < currentSections.length - 1
-                      ? "Continue"
-                      : `Continue to ${joinApplicationSteps[stepIndex + 1]?.title ?? "Review"}`}
-                </button>
+                <p className="join-footer-hint">
+                  Press <span className="join-key">Enter</span>
+                </p>
               )}
-            </nav>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </main>
   );
 }
 
-function StartScreen({ onStart, resumeState }: { onStart: () => void; resumeState: ResumeState }) {
+/** The index line, set as a system value rather than as prose. */
+function QuestionIndex({
+  pageIndex,
+  pageTotal,
+  stepIndex,
+  stepTitle,
+  questionSteps,
+}: {
+  pageIndex: number;
+  pageTotal: number;
+  questionSteps: number;
+  stepIndex: number;
+  stepTitle: string;
+}) {
   return (
-    <section className="mt-5">
-      <h1 className="text-[40px] font-black leading-[1.02] tracking-[-0.035em] text-[#020617] sm:text-[56px]">
-        Apply to Become a USA Missionary
-      </h1>
+    <p className="join-q-index">
+      <b>
+        Step {Math.min(stepIndex, questionSteps)} of {questionSteps}
+      </b>
+      {/* Each separator travels with the label it introduces, so a wrap can
+          never strand a slash at the end of a line. */}
+      <span className="join-q-seg">
+        <i aria-hidden="true">/</i> {stepTitle}
+      </span>
+      <span className="join-q-seg">
+        <i aria-hidden="true">/</i> {String(pageIndex + 1).padStart(2, "0")} of {pageTotal}
+      </span>
+    </p>
+  );
+}
 
-      <div className="mt-7 space-y-5 text-base leading-7 text-[#334155] [&>p]:text-[#334155]">
-        <p>
-          USA Missionaries sends and supports missionaries serving here at home. This is an application to serve with
-          us, and a real person on our team will read every word of it.
-        </p>
-        <p>
-          Take your time. The questions ask about your faith, your calling, your ministry experience, and what you
-          believe God is asking you to do. Thoughtful answers help us understand you, and rushed ones do not.
-        </p>
-        <p>
-          Your progress is saved as you go. You can stop at any point and we will email you a link that brings you
-          straight back here, on any device.
-        </p>
-        <p>
-          Submitting an application does not guarantee acceptance. Nothing you write becomes public automatically. If
-          you are accepted, we would use some of this material to prepare a missionary profile, and you would review it
-          before anything is published.
-        </p>
+function PageView({
+  addPhoto,
+  draft,
+  heading,
+  missing,
+  onAnswer,
+  onDisclosure,
+  onIdentityChange,
+  onJump,
+  onSubmit,
+  onToggleCouple,
+  page,
+  pageIndex,
+  pageTotal,
+  questionSteps,
+  removePhoto,
+  step,
+  stepIndex,
+  submitError,
+  submitState,
+}: {
+  addPhoto: (photo: JoinApplicationPhoto) => void;
+  draft: JoinApplicationDraft;
+  heading: { intro: string; title: string };
+  missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[];
+  onAnswer: (id: string, value: string) => void;
+  onDisclosure: (id: string, value: boolean) => void;
+  onIdentityChange: (person: "applicant" | "spouse", key: keyof JoinApplicantIdentity, value: string) => void;
+  onJump: (id: JoinApplicationStepId, sectionId?: string) => void;
+  onSubmit: () => void;
+  onToggleCouple: (value: boolean) => void;
+  page: Page;
+  pageIndex: number;
+  pageTotal: number;
+  questionSteps: number;
+  removePhoto: (path: string) => void;
+  step: { title: string };
+  stepIndex: number;
+  submitError: string;
+  submitState: "error" | "idle" | "submitted" | "submitting";
+}) {
+  const index = (
+    <QuestionIndex
+      pageIndex={pageIndex}
+      pageTotal={pageTotal}
+      questionSteps={questionSteps}
+      stepIndex={stepIndex}
+      stepTitle={step.title}
+    />
+  );
+
+  /*
+   * A single long answer is presented as the question itself: the field label
+   * becomes the heading and the box carries no second label, because repeating
+   * the question directly above the box is exactly the form clutter this
+   * redesign exists to remove.
+   */
+  if (page.kind === "fields" && page.solo) {
+    const field = page.fields[0];
+    const isNarrative = /story|testimony|journey|narrative|vision|describe|why/i.test(field.id);
+
+    return (
+      <div className="join-q join-solo">
+        {index}
+        <h1 className="join-q-title">
+          {field.label}
+          {field.required ? <RequiredMark /> : null}
+        </h1>
+        {field.help ? <p className="join-q-help">{field.help}</p> : null}
+
+        <div className="join-answer">
+          <label className="join-sr" htmlFor={field.id}>
+            {field.label}
+          </label>
+          <textarea
+            className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
+            id={field.id}
+            onChange={(event) => onAnswer(field.id, event.target.value)}
+            value={draft.answers[field.id] ?? ""}
+          />
+        </div>
       </div>
+    );
+  }
 
-      <button
-        className="mt-9 inline-flex h-13 min-h-[3.25rem] w-full items-center justify-center rounded-full bg-[#F5B82E] px-8 text-base font-black text-[#111827] shadow-[0_16px_32px_rgba(245,184,46,0.24)] transition hover:bg-[#F7C64B] sm:w-auto sm:px-12"
-        onClick={onStart}
-        type="button"
-      >
-        {resumeState === "restored" ? "Continue Application" : "Start Application"}
-      </button>
-    </section>
+  if (page.kind === "fields") {
+    return (
+      <div className="join-q">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <FieldGroup fields={page.fields} onAnswer={onAnswer} values={draft.answers} />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "identity") {
+    return (
+      <div className="join-q">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <IdentitySection
+            draft={draft}
+            onIdentityChange={onIdentityChange}
+            onToggleCouple={onToggleCouple}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "photos") {
+    return (
+      <div className="join-q join-q-wide">
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
+        </div>
+      </div>
+    );
+  }
+
+  if (page.kind === "support") {
+    const wide = page.sectionId === "budget" || page.sectionId === "picture";
+
+    return (
+      <div className={`join-q${wide ? " join-q-wide" : ""}`}>
+        {index}
+        <h1 className="join-q-title">{heading.title}</h1>
+        {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
+
+        <div className="join-answer">
+          <SupportSection
+            draft={draft}
+            onAnswer={onAnswer}
+            onDisclosure={onDisclosure}
+            section={page.section}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="join-q join-q-wide">
+      {index}
+      <h1 className="join-q-title">{heading.title}</h1>
+
+      <div className="join-answer">
+        <ReviewSection
+          draft={draft}
+          missing={missing}
+          onJump={onJump}
+          onSubmit={onSubmit}
+          onToggleDisclosure={onDisclosure}
+          submitError={submitError}
+          submitState={submitState}
+        />
+      </div>
+    </div>
   );
 }
 
-function ProgressRail({
-  currentIndex,
-  onSelect,
+/**
+ * Short fields that belong to one thought. Two sit side by side once there is
+ * room, unless one of them carries help text, in which case it takes the full
+ * measure so the help is not squeezed into a column.
+ */
+function FieldGroup({
+  fields,
+  onAnswer,
+  values,
 }: {
-  currentIndex: number;
-  onSelect: (id: JoinApplicationStepId) => void;
+  fields: JoinField[];
+  onAnswer: (id: string, value: string) => void;
+  values: Record<string, string>;
 }) {
-  return (
-    <ol className="mt-6 flex items-center justify-between gap-2 sm:flex-wrap sm:justify-start">
-      {joinApplicationSteps.slice(1).map((step, index) => {
-        const position = index + 1;
-        const isCurrent = position === currentIndex;
-        const isDone = position < currentIndex;
+  const rows: JoinField[][] = [];
 
-        return (
-          <li key={step.id}>
-            <button
-              aria-label={step.title}
-              aria-current={isCurrent ? "step" : undefined}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-black transition sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 ${
-                isCurrent
-                  ? "border-[#2563EB] bg-[#2563EB] text-white"
-                  : isDone
-                    ? "border-[#DCEBFF] bg-white text-[#1D4ED8]"
-                    : "border-[#E2E8F0] bg-white/70 text-[#64748B]"
-              }`}
-              onClick={() => onSelect(step.id)}
-              type="button"
-            >
-              <span className="sm:hidden">{position}</span>
-              <span className="hidden sm:inline">{step.title}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
+  for (const field of fields) {
+    const last = rows[rows.length - 1];
 
-function GuidedPartHeader({
-  current,
-  intro,
-  title,
-  total,
-}: {
-  current: number;
-  intro: string;
-  title: string;
-  total: number;
-}) {
+    if (last && last.length === 1 && !last[0].help && !field.help) {
+      last.push(field);
+      continue;
+    }
+
+    rows.push([field]);
+  }
+
   return (
-    <section className="mt-7 rounded-[26px] border border-[#DCEBFF] bg-white/85 px-5 py-4 shadow-[0_16px_44px_rgba(15,23,42,0.04)] backdrop-blur sm:px-6">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#B77900]">
-          Part {current} of {total}
-        </p>
-        <div className="flex flex-1 justify-end gap-1.5" aria-hidden="true">
-          {Array.from({ length: total }, (_, index) => (
-            <span
-              className={`h-1.5 max-w-10 flex-1 rounded-full ${index < current ? "bg-[#F5B82E]" : "bg-[#E2E8F0]"}`}
-              key={index}
+    <div className="join-fields join-stagger">
+      {rows.map((row, rowIndex) => (
+        <div
+          className={row.length > 1 ? "join-pair join-pair-2" : undefined}
+          key={row.map((field) => field.id).join("-")}
+          style={{ "--i": rowIndex } as CSSProperties}
+        >
+          {row.map((field) => (
+            <FieldInput
+              field={field}
+              key={field.id}
+              onChange={(value) => onAnswer(field.id, value)}
+              value={values[field.id] ?? ""}
             />
           ))}
         </div>
-      </div>
-      <h2 className="mt-3 text-[22px] font-black leading-tight tracking-[-0.025em] text-[#020617] sm:text-2xl">{title}</h2>
-      <p className="mt-1.5 text-sm leading-6 text-[#475569]">{intro}</p>
-    </section>
+      ))}
+    </div>
   );
 }
 
 function SupportChoice({
   description,
+  hotkey,
   onSelect,
   selected,
   title,
 }: {
   description: string;
+  hotkey: string;
   onSelect: () => void;
   selected: boolean;
   title: string;
 }) {
   return (
-    <button
-      aria-pressed={selected}
-      className={`rounded-[20px] border p-4 text-left transition ${
-        selected
-          ? "border-[#D59A16] bg-[#FFF8E6] shadow-[0_12px_30px_rgba(245,184,46,0.14)] ring-2 ring-[#F8D77F]"
-          : "border-[#DCEBFF] bg-white hover:border-[#AFCBF3]"
-      }`}
-      onClick={onSelect}
-      type="button"
-    >
-      <span className="block text-sm font-black text-[#0F172A]">{title}</span>
-      <span className="mt-1 block text-sm leading-5 text-[#64748B]">{description}</span>
+    <button aria-pressed={selected} className="join-choice" onClick={onSelect} type="button">
+      <span aria-hidden="true" className="join-choice-key">
+        {hotkey}
+      </span>
+      <span>
+        <span className="join-choice-title">{title}</span>
+        <span className="join-choice-note">{description}</span>
+      </span>
     </button>
   );
 }
@@ -723,23 +1111,18 @@ function SupportMoneyField({
   value: string;
 }) {
   return (
-    <div>
-      <div className="flex items-start justify-between gap-3">
-        <label className="block text-sm font-black text-[#0F172A]" htmlFor={id}>
-          {label}
-          {required ? <span className="ml-1 text-[#B77900]">*</span> : null}
-        </label>
-        {action ? (
-          <button className="shrink-0 text-xs font-black text-[#1D4ED8] underline underline-offset-2" onClick={action.onClick} type="button">
-            {action.label}
-          </button>
-        ) : null}
-      </div>
-      {help ? <p className="mt-1 text-sm leading-5 text-[#64748B]">{help}</p> : null}
-      <div className="relative mt-2">
-        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-bold text-[#64748B]">$</span>
+    <div className="join-money-row">
+      <label className="join-field-label" htmlFor={id}>
+        {label}
+        {required ? <RequiredMark /> : null}
+      </label>
+
+      {help ? <p className="join-field-help">{help}</p> : null}
+
+      <div className="join-money">
+        <span aria-hidden="true">$</span>
         <input
-          className="h-12 w-full rounded-2xl border border-[#DCEBFF] bg-white pl-8 pr-4 text-base text-[#0F172A] outline-none focus:border-[#2563EB]"
+          className="join-input"
           id={id}
           inputMode="decimal"
           onChange={(event) => onChange(cleanMoneyInput(event.target.value))}
@@ -748,17 +1131,23 @@ function SupportMoneyField({
           value={value}
         />
       </div>
+
+      {action ? (
+        <p style={{ marginTop: 8 }}>
+          <button className="join-plain" onClick={action.onClick} type="button">
+            {action.label}
+          </button>
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function SupportMetric({ label, value, tone = "default" }: { label: string; value: number; tone?: "accent" | "default" }) {
   return (
-    <div className={`rounded-2xl border p-3 ${tone === "accent" ? "border-[#F4D17A] bg-[#FFF9EA]" : "border-[#EAF2FF] bg-[#F8FBFF]"}`}>
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]">{label}</p>
-      <p className={`mt-1 text-xl font-black tracking-[-0.03em] ${tone === "accent" ? "text-[#8A5A00]" : "text-[#0F172A]"}`}>
-        {formatMoney(value)}
-      </p>
+    <div className="join-metric" data-tone={tone}>
+      <p className="join-metric-label">{label}</p>
+      <p className="join-metric-value">{formatMoney(value)}</p>
     </div>
   );
 }
@@ -783,7 +1172,7 @@ function SupportSection({
     const employmentField = fields.find((field) => field.id === "supportEmploymentContext");
 
     return (
-      <div className="space-y-6 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
+      <div className="join-fields">
         {employmentField ? (
           <FieldInput
             field={employmentField}
@@ -793,25 +1182,32 @@ function SupportSection({
         ) : null}
 
         <fieldset>
-          <legend className="text-base font-black text-[#0F172A]">
-            Do you expect to raise monthly support?<span className="ml-1 text-[#B77900]">*</span>
+          <legend className="join-field-label">
+            {/* No whitespace before the marker: a JSX newline here would
+                become a space, which is exactly the break the joiner exists
+                to prevent. */}
+            Do you expect to raise monthly support?<RequiredMark />
           </legend>
-          <p className="mt-1 text-sm leading-6 text-[#475569]">Your answer controls which financial questions come next.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <p className="join-field-help">Your answer controls which financial questions come next.</p>
+
+          <div className="join-choices join-choices-3" style={{ marginTop: 16 }}>
             <SupportChoice
               description="I expect monthly partners to help sustain this ministry."
+              hotkey="1"
               onSelect={() => onAnswer("supportPath", "yes")}
               selected={path === "yes"}
               title="Yes"
             />
             <SupportChoice
               description="I need help discerning the right support model."
+              hotkey="2"
               onSelect={() => onAnswer("supportPath", "unsure")}
               selected={path === "unsure"}
               title="Not sure yet"
             />
             <SupportChoice
               description="My household and ministry are already funded."
+              hotkey="3"
               onSelect={() => onAnswer("supportPath", "no")}
               selected={path === "no"}
               title="No"
@@ -826,26 +1222,24 @@ function SupportSection({
     const contextField = fields.find((field) => field.id === "supportBudget");
 
     return (
-      <div className="space-y-5">
+      <div className="join-fields">
         {(["household", "ministry"] as const).map((group) => {
           const categories = supportBudgetCategories.filter((category) => category.group === group);
           const subtotal = group === "household" ? summary.household : summary.ministry;
 
           return (
-            <section className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6" key={group}>
-              <div className="flex items-end justify-between gap-4 border-b border-[#EAF2FF] pb-3">
+            <section key={group}>
+              <div className="join-worksheet-head">
                 <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#B77900]">
-                    {group === "household" ? "Household" : "Ministry"}
+                  <p className="join-eyebrow">{group === "household" ? "Household" : "Ministry"}</p>
+                  <p className="join-panel-title" style={{ marginTop: 4 }}>
+                    Monthly estimates
                   </p>
-                  <h3 className="mt-1 text-lg font-black text-[#0F172A]">Monthly estimates</h3>
                 </div>
-                <p className="text-right text-sm text-[#64748B]">
-                  Subtotal <span className="ml-1 block text-lg font-black text-[#0F172A] sm:inline">{formatMoney(subtotal)}</span>
-                </p>
+                <p className="join-subtotal">{formatMoney(subtotal)}</p>
               </div>
 
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="join-worksheet">
                 {categories.map((category) => {
                   const answerId = supportBudgetAnswerId(category.key);
 
@@ -864,22 +1258,22 @@ function SupportSection({
           );
         })}
 
-        <div className="grid gap-3 rounded-[24px] border border-[#F4D17A] bg-[#FFF9EA] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <p className="text-sm font-black text-[#8A5A00]">Estimated monthly budget</p>
-            <p className="mt-1 text-sm leading-5 text-[#6B5A2D]">All 17 categories remain private and go only to the review team.</p>
-          </div>
-          <p className="text-3xl font-black tracking-[-0.04em] text-[#6B4700]">{formatMoney(summary.budgetTotal)}</p>
+        <div className="join-panel join-panel-gold">
+          <p className="join-metric-label">Estimated monthly budget</p>
+          <p className="join-metric-value" style={{ fontSize: "1.9rem", color: "var(--gold-ink)" }}>
+            {formatMoney(summary.budgetTotal)}
+          </p>
+          <p className="join-panel-body">
+            All 17 categories remain private and go only to the review team.
+          </p>
         </div>
 
         {contextField ? (
-          <div className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 sm:p-6">
-            <FieldInput
-              field={contextField}
-              onChange={(value) => onAnswer(contextField.id, value)}
-              value={draft.answers[contextField.id] ?? ""}
-            />
-          </div>
+          <FieldInput
+            field={contextField}
+            onChange={(value) => onAnswer(contextField.id, value)}
+            value={draft.answers[contextField.id] ?? ""}
+          />
         ) : null}
       </div>
     );
@@ -887,50 +1281,48 @@ function SupportSection({
 
   if (section.id === "picture") {
     return (
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="join-fields">
+        <div className="join-metrics">
           <SupportMetric label="Budget total" value={summary.budgetTotal} />
           <SupportMetric label="Proposed need" value={summary.proposedNeed} />
           <SupportMetric label="Already covered" value={summary.covered} />
           <SupportMetric label="Remaining gap" tone="accent" value={summary.gap} />
         </div>
 
-        <section className="rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <SupportMoneyField
-              action={summary.budgetTotal > 0 ? { label: "Use budget total", onClick: () => onAnswer("supportMonthlyNeed", String(summary.budgetTotal)) } : undefined}
-              help="Your considered estimate. It may match the worksheet, but it is not an approved public goal."
-              id="supportMonthlyNeed"
-              label="Proposed monthly need"
-              onChange={(value) => onAnswer("supportMonthlyNeed", value)}
-              required
-              value={draft.answers.supportMonthlyNeed ?? ""}
-            />
-            <SupportMoneyField
-              id="supportCommittedAmount"
-              label="Committed monthly support"
-              onChange={(value) => onAnswer("supportCommittedAmount", value)}
-              value={draft.answers.supportCommittedAmount ?? ""}
-            />
-            <SupportMoneyField
-              id="supportOtherMonthlyIncome"
-              label="Other monthly household income"
-              onChange={(value) => onAnswer("supportOtherMonthlyIncome", value)}
-              value={draft.answers.supportOtherMonthlyIncome ?? ""}
-            />
-            <SupportMoneyField
-              help="Choose the amount you want Operations to review. It is never calculated automatically."
-              id="supportRequestedGoal"
-              label="Requested fundraising goal"
-              onChange={(value) => onAnswer("supportRequestedGoal", value)}
-              value={draft.answers.supportRequestedGoal ?? ""}
-            />
-          </div>
-        </section>
-
-        <div className="rounded-[22px] border-l-4 border-[#2563EB] bg-white px-4 py-3 text-sm leading-6 text-[#475569] shadow-[0_12px_34px_rgba(15,23,42,0.04)]">
-          Your worksheet total, proposed need, and requested fundraising goal are three separate values. USA Missionaries Operations reviews the application and owns the approved public goal.
+        <div className="join-pair join-pair-2">
+          <SupportMoneyField
+            action={summary.budgetTotal > 0 ? { label: "Use budget total", onClick: () => onAnswer("supportMonthlyNeed", String(summary.budgetTotal)) } : undefined}
+            help="Your considered estimate. It may match the worksheet, but it is not an approved public goal."
+            id="supportMonthlyNeed"
+            label="Proposed monthly need"
+            onChange={(value) => onAnswer("supportMonthlyNeed", value)}
+            required
+            value={draft.answers.supportMonthlyNeed ?? ""}
+          />
+          <SupportMoneyField
+            id="supportCommittedAmount"
+            label="Committed monthly support"
+            onChange={(value) => onAnswer("supportCommittedAmount", value)}
+            value={draft.answers.supportCommittedAmount ?? ""}
+          />
+          <SupportMoneyField
+            id="supportOtherMonthlyIncome"
+            label="Other monthly household income"
+            onChange={(value) => onAnswer("supportOtherMonthlyIncome", value)}
+            value={draft.answers.supportOtherMonthlyIncome ?? ""}
+          />
+          <SupportMoneyField
+            help="Choose the amount you want Operations to review. It is never calculated automatically."
+            id="supportRequestedGoal"
+            label="Requested fundraising goal"
+            onChange={(value) => onAnswer("supportRequestedGoal", value)}
+            value={draft.answers.supportRequestedGoal ?? ""}
+          />
         </div>
+
+        <p className="join-panel-note">
+          Your worksheet total, proposed need, and requested fundraising goal are three separate values. USA Missionaries Operations reviews the application and owns the approved public goal.
+        </p>
       </div>
     );
   }
@@ -940,35 +1332,34 @@ function SupportSection({
     : fields.filter((field) => field.id === "supportImmediateNeeds");
 
   return (
-    <div className="space-y-5 rounded-[26px] border border-[#DCEBFF] bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6">
+    <div className="join-fields">
       {!expectsFundraising ? (
-        <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-3">
-          <p className="text-sm font-black text-[#166534]">No monthly fundraising path selected</p>
-          <p className="mt-1 text-sm leading-5 text-[#3F6750]">We will preserve that answer for review. Nothing here creates a public giving page.</p>
+        <div className="join-panel">
+          <p className="join-panel-title">No monthly fundraising path selected</p>
+          <p className="join-panel-body">
+            We will preserve that answer for review. Nothing here creates a public giving page.
+          </p>
         </div>
       ) : null}
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        {readinessFields.map((field) => (
-          <FieldInput
-            field={field}
-            key={field.id}
-            onChange={(value) => onAnswer(field.id, value)}
-            value={draft.answers[field.id] ?? ""}
-          />
-        ))}
-      </div>
+      {readinessFields.map((field) => (
+        <FieldInput
+          field={field}
+          key={field.id}
+          onChange={(value) => onAnswer(field.id, value)}
+          value={draft.answers[field.id] ?? ""}
+        />
+      ))}
 
       {expectsFundraising ? (
-        <label className="flex items-start gap-3 rounded-[20px] border border-[#F4D17A] bg-[#FFF9EA] p-4 text-sm leading-6 text-[#5F4B1C]">
+        <label className="join-check">
           <input
             checked={draft.disclosures.excessSupportAgreement === true}
-            className="mt-1 h-5 w-5 shrink-0 accent-[#D59A16]"
             onChange={(event) => onDisclosure("excessSupportAgreement", event.target.checked)}
             type="checkbox"
           />
-          <span>
-            <strong className="block text-[#6B4700]">Support overflow acknowledgement</strong>
+          <span className="join-check-body">
+            <strong>Support overflow acknowledgement</strong>
             I understand USA Missionaries leadership approves the public monthly goal. Support above that approved goal is not automatically assigned to my household and may be stewarded by USA Missionaries for ministry needs and approved support priorities.
           </span>
         </label>
@@ -986,27 +1377,27 @@ function FieldInput({
   onChange: (value: string) => void;
   value: string;
 }) {
-  const shared =
-    "mt-2 w-full rounded-2xl border border-[#DCEBFF] bg-white px-4 text-base text-[#0F172A] outline-none focus:border-[#2563EB]";
+  const isNarrative = /story|testimony|journey|narrative|vision|describe|why/i.test(field.id);
 
   return (
-    <div className={field.kind === "long" ? "sm:col-span-2" : ""}>
-      <label className="block text-base font-black text-[#0F172A]" htmlFor={field.id}>
+    <div>
+      <label className="join-field-label" htmlFor={field.id}>
         {field.label}
-        {field.required ? <span className="ml-1 text-[#2563EB]">*</span> : null}
+        {field.required ? <RequiredMark /> : null}
       </label>
-      {field.help ? <p className="mt-1 text-sm leading-6 text-[#475569]">{field.help}</p> : null}
+
+      {field.help ? <p className="join-field-help">{field.help}</p> : null}
 
       {field.kind === "long" ? (
         <textarea
-          className={`${shared} min-h-[9rem] py-3 leading-7`}
+          className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
           id={field.id}
           onChange={(event) => onChange(event.target.value)}
           value={value}
         />
       ) : (
         <input
-          className={`${shared} h-12`}
+          className="join-input"
           id={field.id}
           inputMode={field.kind === "money" ? "decimal" : undefined}
           onChange={(event) => onChange(event.target.value)}
@@ -1018,29 +1409,42 @@ function FieldInput({
   );
 }
 
+/**
+ * `name` exists separately from `heading` because these ids used to be built
+ * from the heading text, which produced ids containing a space ("About
+ * you-firstName"). That is invalid HTML and unaddressable by an id selector,
+ * so the person key supplies the id and the heading stays prose.
+ */
 function IdentityFields({
   heading,
   identity,
+  labelled,
+  name,
   onChange,
 }: {
   heading: string;
   identity: JoinApplicantIdentity;
+  labelled: boolean;
+  name: "applicant" | "spouse";
   onChange: (key: keyof JoinApplicantIdentity, value: string) => void;
 }) {
   return (
-    <fieldset className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
-      <legend className="px-2 text-sm font-black uppercase tracking-[0.12em] text-[#2563EB]">{heading}</legend>
+    <fieldset>
+      {/* Only labelled when there is a second person to tell it apart from.
+          On a single applicant the screen heading already says whose details
+          these are, and the label was repeating the step name. */}
+      {labelled ? <legend className="join-eyebrow join-eyebrow-quiet">{heading}</legend> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="join-pair join-pair-2" style={{ marginTop: labelled ? 14 : 0 }}>
         {(Object.keys(identityFieldLabels) as (keyof JoinApplicantIdentity)[]).map((key) => (
           <div key={key}>
-            <label className="block text-sm font-black text-[#0F172A]" htmlFor={`${heading}-${key}`}>
+            <label className="join-field-label" htmlFor={`${name}-${key}`}>
               {identityFieldLabels[key]}
             </label>
             <input
               autoComplete="off"
-              className="mt-2 h-12 w-full rounded-2xl border border-[#DCEBFF] bg-white px-4 text-base text-[#0F172A] outline-none focus:border-[#2563EB]"
-              id={`${heading}-${key}`}
+              className="join-input"
+              id={`${name}-${key}`}
               onChange={(event) => onChange(key, event.target.value)}
               type={key === "email" ? "email" : "text"}
               value={identity[key]}
@@ -1062,25 +1466,24 @@ function IdentitySection({
   onToggleCouple: (value: boolean) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="join-fields">
       <IdentityFields
         heading="About you"
         identity={draft.applicant}
+        labelled={draft.applyingAsCouple}
+        name="applicant"
         onChange={(key, value) => onIdentityChange("applicant", key, value)}
       />
 
-      <label className="flex items-start gap-3 rounded-2xl border border-[#DCEBFF] bg-white px-4 py-3">
+      <label className="join-check">
         <input
           checked={draft.applyingAsCouple}
-          className="mt-1 h-5 w-5"
           onChange={(event) => onToggleCouple(event.target.checked)}
           type="checkbox"
         />
-        <span className="text-base font-semibold text-[#0F172A]">
-          We are applying as a couple
-          <span className="mt-1 block text-sm font-normal leading-6 text-[#475569]">
-            You apply together as one household, and we keep both of you on file as two people in your own right.
-          </span>
+        <span className="join-check-body">
+          <strong>We are applying as a couple</strong>
+          You apply together as one household, and we keep both of you on file as two people in your own right.
         </span>
       </label>
 
@@ -1088,6 +1491,8 @@ function IdentitySection({
         <IdentityFields
           heading="About your spouse"
           identity={draft.spouse}
+          labelled
+          name="spouse"
           onChange={(key, value) => onIdentityChange("spouse", key, value)}
         />
       ) : null}
@@ -1116,105 +1521,124 @@ function ReviewSection({
   const allDisclosuresConfirmed = joinDisclosureIds.every((id) => draft.disclosures[id] === true);
 
   return (
-    <div className="space-y-6">
-      <p className="text-base leading-7 text-[#334155]">
+    <div className="join-fields">
+      <p className="join-q-help" style={{ marginTop: 0 }}>
         {name ? `This is the application for ${name}.` : "This is your application."} Check anything you want to revisit
         before you submit.
       </p>
 
       {missing.length > 0 ? (
-        <div className="rounded-3xl border border-[#FBD5B5] bg-[#FFF7ED] p-5">
-          <h2 className="text-base font-black text-[#9A3412]">Still to answer</h2>
-          <ul className="mt-3 space-y-2">
+        <section className="join-panel">
+          <p className="join-panel-title">Still to answer</p>
+          <ul className="join-review-list">
             {missing.map((item) => (
               <li key={`${item.stepId}-${item.label}`}>
                 <button
-                  className="text-left text-sm font-bold text-[#9A3412] underline underline-offset-2"
+                  className="join-review-jump"
                   onClick={() => onJump(item.stepId, item.sectionId)}
                   type="button"
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  <span>Go</span>
                 </button>
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : (
-        <div className="rounded-3xl border border-[#BBF7D0] bg-[#F0FDF4] p-5">
-          <h2 className="text-base font-black text-[#166534]">Every required question is answered.</h2>
-        </div>
+        <section className="join-panel join-panel-gold">
+          <p className="join-panel-title">Every required question is answered.</p>
+        </section>
       )}
 
-      <div className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
-        <h2 className="text-base font-black text-[#0F172A]">Before you submit</h2>
-        <ul className="mt-3 space-y-2 text-sm leading-6 text-[#475569]">
-          <li>Submitting does not guarantee acceptance.</li>
-          <li>Nothing you have written becomes public because you submitted it.</li>
+      <section>
+        <p className="join-eyebrow join-eyebrow-quiet">Before you submit</p>
+        <ul className="join-review-list">
           <li>
-            If you are accepted, we would use some of this to prepare your missionary profile, and you would review it
-            before anything is published.
+            <p className="join-review-note">Submitting does not guarantee acceptance.</p>
           </li>
           <li>
-            USA Missionaries reviews beliefs and ministry expectations with every applicant before acceptance, and we
-            will walk through ours with you as part of that conversation.
+            <p className="join-review-note">
+              Nothing you have written becomes public because you submitted it.
+            </p>
+          </li>
+          <li>
+            <p className="join-review-note">
+              If you are accepted, we would use some of this to prepare your missionary profile, and you would review it
+              before anything is published.
+            </p>
+          </li>
+          <li>
+            <p className="join-review-note">
+              USA Missionaries reviews beliefs and ministry expectations with every applicant before acceptance, and we
+              will walk through ours with you as part of that conversation.
+            </p>
           </li>
         </ul>
-      </div>
+      </section>
 
-      <fieldset className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
-        <legend className="px-2 text-sm font-black uppercase tracking-[0.12em] text-[#2563EB]">
-          Please confirm
-        </legend>
+      <fieldset>
+        <legend className="join-eyebrow join-eyebrow-quiet">Please confirm</legend>
 
-        <div className="space-y-3">
+        <div className="join-disclosures">
           {joinDisclosureIds.map((id) => (
-            <label className="flex items-start gap-3" key={id}>
+            <label className="join-check" key={id}>
               <input
                 checked={draft.disclosures[id] === true}
-                className="mt-1 h-5 w-5 shrink-0"
                 onChange={(event) => onToggleDisclosure(id, event.target.checked)}
                 type="checkbox"
               />
-              <span className="text-sm leading-6 text-[#334155]">{joinDisclosureLabels[id]}</span>
+              <span className="join-check-body">{joinDisclosureLabels[id]}</span>
             </label>
           ))}
         </div>
       </fieldset>
 
-      {submitError ? (
-        <p className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[#B91C1C]">
-          {submitError}
-        </p>
-      ) : null}
+      {submitError ? <p className="join-error">{submitError}</p> : null}
 
-      <button
-        className="inline-flex h-13 min-h-[3.25rem] w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-8 text-base font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={submitState === "submitting" || missing.length > 0 || !allDisclosuresConfirmed}
-        onClick={onSubmit}
-        type="button"
-      >
-        {submitState === "submitting" ? "Submitting..." : "Submit Application"}
-      </button>
+      <div>
+        <button
+          className="join-button join-button-primary"
+          disabled={submitState === "submitting" || missing.length > 0 || !allDisclosuresConfirmed}
+          onClick={onSubmit}
+          type="button"
+        >
+          {submitState === "submitting" ? "Submitting" : "Submit application"}
+          <ArrowRight />
+        </button>
 
-      {missing.length > 0 || !allDisclosuresConfirmed ? (
-        <p className="text-center text-sm text-[#475569]">
-          {missing.length > 0
-            ? "Answer the remaining questions above to submit."
-            : "Confirm each acknowledgement to submit."}
-        </p>
-      ) : null}
+        {missing.length > 0 || !allDisclosuresConfirmed ? (
+          <p className="join-field-help" style={{ marginTop: 12 }}>
+            {missing.length > 0
+              ? "Answer the remaining questions above to submit."
+              : "Confirm each acknowledgement to submit."}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
 
 function SubmittedScreen({ applicationId, name }: { applicationId: string; name: string }) {
   return (
-    <section className="mt-6 rounded-[30px] border border-[#BBF7D0] bg-white p-7 sm:p-10">
-      <h1 className="text-[32px] font-black leading-[1.05] tracking-[-0.03em] text-[#020617] sm:text-[42px]">
-        Your application is submitted
+    <section className="join-done">
+      <div className="join-mask">
+        <p className="join-eyebrow">Application received</p>
+      </div>
+
+      {/* Warm without promising anything. Submitting is not acceptance, and the
+          acknowledgements the applicant just signed say so, so the closing line
+          thanks them for the step rather than implying they are through. */}
+      <h1>
+        <span className="join-mask">
+          <span>Thank you for</span>
+        </span>
+        <span className="join-mask">
+          <span style={{ color: "var(--gold-ink)" }}>stepping forward.</span>
+        </span>
       </h1>
 
-      <div className="mt-6 space-y-4 text-base leading-7 text-[#334155]">
+      <div className="join-done-body join-lift" style={{ animationDelay: "0.4s" }}>
         <p>
           Thank you{name ? `, ${name}` : ""}. We have received your application and a real person on the USA
           Missionaries team will read it.
@@ -1227,12 +1651,13 @@ function SubmittedScreen({ applicationId, name }: { applicationId: string; name:
           Nothing you wrote is public. If you are accepted, we would prepare a missionary profile from some of this
           material and you would review it before anything is published.
         </p>
-        {applicationId ? (
-          <p className="text-sm text-[#64748B]">
-            Reference: <span className="font-mono">{applicationId}</span>
-          </p>
-        ) : null}
       </div>
+
+      {applicationId ? (
+        <p className="join-done-ref">
+          Reference <b>{applicationId}</b>
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -1275,36 +1700,32 @@ function PhotoSection({
   }
 
   return (
-    <div className="rounded-3xl border border-[#DCEBFF] bg-white p-5">
-      <h2 className="text-base font-black text-[#0F172A]">Photos</h2>
-      <p className="mt-1 text-sm leading-6 text-[#475569]">
+    <div className="join-fields">
+      <p className="join-field-help" style={{ marginTop: 0 }}>
         A photo of you and one of your family, if you have them. These are stored privately and are never published
         without your review. JPG, PNG, or WebP, up to 5 MB.
       </p>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="join-photos">
         {(["profile", "family"] as const).map((kind) => {
           const existing = draft.photos.find((photo) => photo.kind === kind);
 
           return (
-            <div className="rounded-2xl border border-[#EAF2FF] p-4" key={kind}>
-              <p className="text-sm font-black text-[#0F172A]">{kind === "profile" ? "Your photo" : "Family photo"}</p>
+            <div className="join-photo" data-filled={existing ? "true" : "false"} key={kind}>
+              <p className="join-photo-kind">{kind === "profile" ? "Your photo" : "Family photo"}</p>
 
               {existing ? (
-                <div className="mt-3">
-                  <p className="truncate text-sm text-[#475569]">{existing.fileName}</p>
-                  <button
-                    className="mt-2 text-sm font-bold text-[#B91C1C] underline underline-offset-2"
-                    onClick={() => onRemove(existing.path)}
-                    type="button"
-                  >
+                <div style={{ marginTop: 12 }}>
+                  <p className="join-field-help" style={{ marginTop: 0, overflowWrap: "anywhere" }}>
+                    {existing.fileName}
+                  </p>
+                  <button className="join-plain" onClick={() => onRemove(existing.path)} type="button">
                     Remove
                   </button>
                 </div>
               ) : (
                 <input
                   accept="image/jpeg,image/png,image/webp"
-                  className="mt-3 w-full text-sm"
                   disabled={busyKind === kind}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
@@ -1317,70 +1738,13 @@ function PhotoSection({
                 />
               )}
 
-              {busyKind === kind ? <p className="mt-2 text-sm text-[#475569]">Uploading...</p> : null}
+              {busyKind === kind ? <p className="join-field-help">Uploading...</p> : null}
             </div>
           );
         })}
       </div>
 
-      {error ? <p className="mt-3 text-sm font-semibold text-[#B91C1C]">{error}</p> : null}
-    </div>
-  );
-}
-
-function SaveBar({
-  emailNotice,
-  hasEmail,
-  onSave,
-  onSaveAndEmail,
-  saveState,
-}: {
-  emailNotice: string;
-  hasEmail: boolean;
-  onSave: () => void;
-  onSaveAndEmail: () => void;
-  saveState: SaveState;
-}) {
-  const isSaving = saveState === "saving";
-  const label =
-    saveState === "saving"
-      ? "Saving..."
-      : saveState === "saved"
-        ? "All changes saved"
-        : saveState === "error"
-          ? "We could not save just now. We will keep trying."
-          : "Your progress saves automatically";
-
-  return (
-    <div className="mt-9 rounded-3xl border border-[#DCEBFF] bg-white p-5">
-      <p className="text-sm font-bold text-[#475569]">{label}</p>
-
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <button
-          className="inline-flex h-12 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-5 text-sm font-black text-[#0F172A]"
-          disabled={isSaving}
-          onClick={onSave}
-          type="button"
-        >
-          Save now
-        </button>
-        <button
-          className="inline-flex h-12 items-center justify-center rounded-full border border-[#2563EB] bg-white px-5 text-sm font-black text-[#1D4ED8] disabled:opacity-40"
-          disabled={!hasEmail || isSaving}
-          onClick={onSaveAndEmail}
-          type="button"
-        >
-          Save and email me a link
-        </button>
-      </div>
-
-      {!hasEmail ? (
-        <p className="mt-3 text-sm leading-6 text-[#475569]">
-          Add your email on the About You step and we can send you a link back into this application.
-        </p>
-      ) : null}
-
-      {emailNotice ? <p className="mt-3 text-sm font-semibold text-[#1D4ED8]">{emailNotice}</p> : null}
+      {error ? <p className="join-error">{error}</p> : null}
     </div>
   );
 }

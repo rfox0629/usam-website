@@ -40,8 +40,11 @@ export const metadata: Metadata = {
   title: { absolute: "Apply to Become a USA Missionary" },
 };
 
+// The application is served on the same near-black the rest of USA Missionaries
+// uses, so the mobile browser chrome has to match it or the top of the screen
+// stays a leftover blue band above a dark page.
 export const viewport: Viewport = {
-  themeColor: "#2563EB",
+  themeColor: "#0D0D0D",
   width: "device-width",
 };
 
