@@ -168,6 +168,7 @@ export const joinDisclosureIds = [
   "disclosureAccuracy",
   "disclosureBackgroundCheck",
   "disclosureDoctrine",
+  "disclosureOrganizationalSupport",
   "disclosureReviewBeforePublic",
 ] as const;
 
@@ -204,6 +205,8 @@ export const joinDisclosureLabels: Record<JoinDisclosureId, string> = {
     "I understand USA Missionaries conducts reference and background checks as part of its review.",
   disclosureDoctrine:
     "I understand USA Missionaries will review beliefs and ministry expectations with me before any acceptance.",
+  disclosureOrganizationalSupport:
+    "I understand USA Missionaries allocates 10% of the contributions designated for my ministry to organizational support, that this applies to what is actually received whether I am underfunded or fully funded, and that my fundraising target is set so my approved ministry budget is what remains after that allocation.",
   disclosureReviewBeforePublic:
     "I understand nothing I have written becomes public automatically, and that I would review any missionary profile before it is published.",
 };

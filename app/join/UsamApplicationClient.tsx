@@ -5,6 +5,11 @@ import type { CSSProperties } from "react";
 
 import "./join-experience.css";
 import { parseListValue, serializeListValue } from "./field-list";
+import {
+  fundraisingTarget,
+  organizationalSupportAtTarget,
+  ORGANIZATIONAL_SUPPORT_RATE,
+} from "@/src/lib/organizational-support";
 import { WelcomeExperience } from "./WelcomeExperience";
 import {
   identityFieldLabels,
@@ -145,11 +150,21 @@ function supportBudgetSummary(draft: JoinApplicationDraft) {
    */
   const covered = committed;
 
+  /*
+   * The proposed need is a ministry budget: what the household needs available
+   * for ministry. USA Missionaries allocates 10% of contributions received to
+   * organizational support, so the amount to raise is the grossed-up target,
+   * and the gap is measured against that rather than against the budget.
+   */
+  const target = fundraisingTarget(proposedNeed);
+
   return {
     budgetTotal,
     committed,
     covered,
-    gap: Math.max(0, proposedNeed - committed),
+    gap: Math.max(0, target - committed),
+    organizationalSupport: organizationalSupportAtTarget(proposedNeed),
+    target,
     household,
     ministry,
     otherIncome,
@@ -1309,10 +1324,44 @@ function SupportSection({
       <div className="join-fields">
         <div className="join-metrics">
           <SupportMetric help="From your worksheet" label="Budget total" value={summary.budgetTotal} />
-          <SupportMetric help="What you are asking for" label="Proposed need" value={summary.proposedNeed} />
+          <SupportMetric help="Available for ministry" label="Ministry budget" value={summary.proposedNeed} />
           <SupportMetric help="Already pledged" label="Committed support" value={summary.committed} />
-          <SupportMetric help="Proposed need less committed" label="Still to raise" tone="accent" value={summary.gap} />
+          <SupportMetric help="Target less committed" label="Still to raise" tone="accent" value={summary.gap} />
         </div>
+
+        {summary.proposedNeed > 0 ? (
+          <div className="join-plan">
+            <p className="join-plan-title">Monthly funding plan</p>
+
+            <dl className="join-plan-rows">
+              <div className="join-plan-row">
+                <dt>Ministry budget</dt>
+                <dd>{formatMoney(summary.proposedNeed)}</dd>
+              </div>
+              <div className="join-plan-row">
+                <dt>Organizational support</dt>
+                <dd>{formatMoney(summary.organizationalSupport)}</dd>
+              </div>
+              <div className="join-plan-row join-plan-row-total">
+                <dt>Fundraising target</dt>
+                <dd>{formatMoney(summary.target)}</dd>
+              </div>
+            </dl>
+
+            <p className="join-plan-note">
+              USA Missionaries allocates {Math.round(ORGANIZATIONAL_SUPPORT_RATE * 100)}% of the contributions
+              designated for your ministry to organizational support: administration, financial management,
+              donation processing and receipting, technology, training, missionary support, and organizational
+              oversight.
+            </p>
+            <p className="join-plan-note">
+              That allocation comes out of what is actually received, whether or not you have reached your
+              target. Your target is set so that the ministry budget above is what remains after it, which is
+              why it is a little more than the budget plus ten percent. You do not need to work this out
+              yourself.
+            </p>
+          </div>
+        ) : null}
 
         <div className="join-money-group">
           <p className="join-money-group-title">What you need</p>

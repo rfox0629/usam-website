@@ -10,6 +10,7 @@ import {
 } from "@/src/lib/dos/usam-application";
 import { hasOperationsTestMarker, payloadHasOperationsTestMarker } from "@/src/lib/operations/test-records";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { fundraisingTarget, organizationalSupportAtTarget } from "@/src/lib/organizational-support";
 
 type UsamApplicationRow = {
   admin_notes?: string | null;
@@ -534,7 +535,21 @@ function supportDetails(row: UsamApplicationRow) {
     moneyLabel(support.requestedGoal) || moneyLabel(row.support_goal)
       ? { label: "Applicant Requested Goal", value: (moneyLabel(support.requestedGoal) ?? moneyLabel(row.support_goal)) as string }
       : null,
-    approvedGoal ? { label: "Admin Approved Goal", value: approvedGoal } : null,
+    approvedGoal ? { label: "Approved Ministry Budget", value: approvedGoal } : null,
+    /* Derived, never stored: the approved ministry budget grossed up so the 10%
+       organizational allocation still leaves the budget intact. */
+    moneyLabel(row.admin_approved_monthly_goal)
+      ? {
+          label: "Fundraising Target",
+          value: moneyLabel(fundraisingTarget(Number(row.admin_approved_monthly_goal))) as string,
+        }
+      : null,
+    moneyLabel(row.admin_approved_monthly_goal)
+      ? {
+          label: "Organizational Support At Target",
+          value: moneyLabel(organizationalSupportAtTarget(Number(row.admin_approved_monthly_goal))) as string,
+        }
+      : null,
     moneyLabel(support.committedAmount ?? support.committedSupport)
       ? { label: "Committed Support", value: moneyLabel(support.committedAmount ?? support.committedSupport) as string }
       : null,

@@ -73,7 +73,7 @@ export const joinApplicationSections: Record<Exclude<JoinApplicationStepId, "rev
   support: [
     { id: "path", title: "Your support path", intro: "Start with your current work and whether you expect to raise monthly support." },
     { id: "budget", title: "Monthly budget", intro: "Use the worksheet to estimate household and ministry needs." },
-    { id: "picture", title: "Your support picture", intro: "Compare the budget, current coverage, proposed need, and the goal you would request." },
+    { id: "picture", title: "Your support picture", intro: "Your ministry budget, the organizational support it carries, and the target that funds it." },
     { id: "readiness", title: "Fundraising readiness", intro: "Tell us how you would begin and what support you may need." },
   ],
   profile: [

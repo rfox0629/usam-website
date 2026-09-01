@@ -53,7 +53,12 @@ check("submission writes a structured private budget object", submission.include
 check("submission never derives the applicant requested goal from the budget", submission.includes('money(draft, "supportRequestedGoal")') && !submission.includes("requestedGoal = supportBudgetTotals"));
 check("a no-support path cannot submit stale proposed or requested goals", submission.includes('const proposedMonthlyNeed = expectsFundraising ? money(draft, "supportMonthlyNeed") : null') && submission.includes('const requestedGoal = expectsFundraising ? money(draft, "supportRequestedGoal") : null'));
 check("Operations reads both the legacy and V2 support payload shapes", operations.includes("contactPayload.support_json") && operations.includes("contactPayload.support"));
-check("Operations labels the applicant request separately from its approved goal", operations.includes("Applicant Requested Goal") && operations.includes("Admin Approved Goal"));
+check("Operations labels the applicant request separately from its approved figure", operations.includes("Applicant Requested Goal") && operations.includes("Approved Ministry Budget"));
+// The approved figure is a ministry budget, so the target that has to be raised
+// for it and the allocation it carries are derived and shown, never stored and
+// never folded back into the budget itself.
+check("Operations derives the fundraising target from the approved ministry budget", operations.includes("Fundraising Target") && operations.includes("fundraisingTarget(Number(row.admin_approved_monthly_goal))"));
+check("Operations shows the organizational support the target carries", operations.includes("Organizational Support At Target") && operations.includes("organizationalSupportAtTarget(Number(row.admin_approved_monthly_goal))"));
 check("the founder preview gate still wraps /join", joinPage.includes("JoinPreviewGate"));
 
 console.log("\nThe gated application preserves the V2 backend while restoring guided UX and the private finance worksheet.");

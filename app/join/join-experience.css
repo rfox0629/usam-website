@@ -260,7 +260,10 @@
   z-index: 2;
   width: var(--shell);
   margin: 0 auto;
-  padding: clamp(60px, 12vh, 120px) 0 clamp(40px, 8vh, 80px);
+  /* The lower value clears the fixed footer, which overlays the page rather
+     than taking part in its flow. The support step is now tall enough that the
+     last field was sitting underneath it. */
+  padding: clamp(60px, 12vh, 120px) 0 clamp(104px, 15vh, 156px);
 }
 
 /* ----------------------------------------------------------------- labels */
@@ -1360,6 +1363,74 @@
   margin-top: 4px !important;
   font-size: 0.72rem;
   line-height: 1.35;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------ monthly funding plan */
+
+/* USA-191: the 10% organizational allocation is shown as arithmetic the
+   applicant can follow, not as fine print in an acknowledgement. */
+.join-plan {
+  margin-top: clamp(18px, 2.4vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: clamp(16px, 2.2vw, 22px);
+}
+
+.join-plan-title {
+  font-family: var(--font-tech);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.join-plan-rows {
+  margin-top: 12px;
+}
+
+.join-plan-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.join-plan-row dt {
+  color: var(--ink-2);
+}
+
+.join-plan-row dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.join-plan-row-total {
+  border-bottom: 0;
+  border-top: 2px solid var(--gold-line);
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.join-plan-row-total dt {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.join-plan-row-total dd {
+  font-size: 1.15rem;
+  color: var(--gold-ink);
+}
+
+.join-plan-note {
+  margin-top: 12px !important;
+  font-size: 0.82rem;
+  line-height: 1.55;
   color: var(--muted);
 }
 

@@ -6,6 +6,11 @@ import {
 } from "@/src/lib/operations/auth";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { donorLabel, loadDonorIdentities } from "@/src/lib/planning-center/people-sync";
+import {
+  fundraisingTarget,
+  netMinistryFunding,
+  organizationalSupportOnReceived,
+} from "@/src/lib/organizational-support";
 
 type PcoGivingRecordRow = {
   attributed_missionary_profile_id: string | null;
@@ -484,9 +489,15 @@ export type OperationsMissionaryFunding = {
   approvedMonthlyGoal: number | null;
   connected: boolean;
   excessLabel: string | null;
+  /** Approved ministry budget grossed up for organizational support. */
+  fundraisingTargetLabel: string | null;
   fundedPercent: number | null;
   gapLabel: string | null;
   giftCount: number;
+  /** 10% of contributions actually received this month. */
+  organizationalSupportLabel: string;
+  /** What reaches the ministry from contributions actually received. */
+  netMinistryFundingLabel: string;
   oneTimeTotalLabel: string;
   recurringMonthlyLabel: string;
   reliable: boolean;
@@ -513,7 +524,10 @@ export async function loadMissionaryGivingSummary({
     fundedPercent: null,
     gapLabel: null,
     giftCount: 0,
+    fundraisingTargetLabel: null,
+    netMinistryFundingLabel: moneyLabel(0),
     oneTimeTotalLabel: moneyLabel(0),
+    organizationalSupportLabel: moneyLabel(0),
     recurringMonthlyLabel: moneyLabel(0),
     reliable: false,
   };
@@ -557,19 +571,32 @@ export async function loadMissionaryGivingSummary({
     .filter((row) => row.is_recurring !== true)
     .reduce((sum, row) => sum + asNumber(row.gross_amount), 0);
 
-  const goal = approvedMonthlyGoal && approvedMonthlyGoal > 0 ? approvedMonthlyGoal : null;
-  const fundedPercent = goal ? Math.round((recurringMonthly / goal) * 100) : null;
-  const gap = goal ? Math.max(goal - recurringMonthly, 0) : null;
-  const excess = goal ? Math.max(recurringMonthly - goal, 0) : null;
+  /*
+   * The approved monthly goal is an approved MINISTRY BUDGET: the amount that
+   * has to be available for ministry after USA Missionaries allocates 10% of
+   * contributions received to organizational support. Progress is therefore
+   * measured against the grossed-up fundraising target, not against the budget.
+   * Measured the old way a household showing 100% funded was in fact ten percent
+   * short of its ministry budget.
+   */
+  const budget = approvedMonthlyGoal && approvedMonthlyGoal > 0 ? approvedMonthlyGoal : null;
+  const target = budget === null ? null : fundraisingTarget(budget);
+  const fundedPercent = target ? Math.round((recurringMonthly / target) * 100) : null;
+  const gap = target ? Math.max(target - recurringMonthly, 0) : null;
+  /* Overflow stays its own policy: this is only what sits above the target. */
+  const excess = target ? Math.max(recurringMonthly - target, 0) : null;
 
   return {
     approvedMonthlyGoal,
     connected: true,
     excessLabel: excess !== null && excess > 0 ? moneyLabel(excess) : null,
+    fundraisingTargetLabel: target === null ? null : moneyLabel(target),
     fundedPercent,
     gapLabel: gap !== null ? moneyLabel(gap) : null,
     giftCount: rows.length,
+    netMinistryFundingLabel: moneyLabel(netMinistryFunding(recurringMonthly)),
     oneTimeTotalLabel: moneyLabel(oneTimeTotal),
+    organizationalSupportLabel: moneyLabel(organizationalSupportOnReceived(recurringMonthly)),
     recurringMonthlyLabel: moneyLabel(recurringMonthly),
     reliable: true,
   };
