@@ -36,6 +36,9 @@
  * contributions received; treatment of missionary-designated funds above the
  * approved target is decided by the overflow and budget-review policy. Changing
  * one does not change the other.
+ *
+ * The allocation base is GROSS. See OrganizationalSupportAllocation below for
+ * the settled rule and the values a future ledger has to keep apart.
  */
 export const ORGANIZATIONAL_SUPPORT_POLICY = {
   /** Bump alongside `rate`, and stamp it on an allocation when one is recorded. */
@@ -103,3 +106,42 @@ export function appliedOrganizationalSupport(received: number, rate: number) {
 export function appliedNetMinistryFunding(received: number, rate: number) {
   return usable(received) - appliedOrganizationalSupport(received, rate);
 }
+
+/* -------------------------------------------------------------- future ledger
+
+   Not implemented, and deliberately not implemented here. This is the settled
+   policy written down at the point someone will look for it, so the decision is
+   not re-derived from scratch or quietly guessed at later. */
+
+/**
+ * The shape a recorded allocation has to preserve. Nothing writes this yet.
+ *
+ * The base is the GROSS missionary-designated contribution, before
+ * payment-processing fees. Processing fees are a separate transaction and
+ * organizational expense; they do not reduce the base the allocation is
+ * calculated on. Netting fees out first would quietly shrink organizational
+ * support by a slice of every gift, which is not the policy.
+ *
+ * All five values are kept distinct rather than derived on read. Rate and
+ * version are stored with the row precisely so that a future change to the
+ * organizational support rate cannot reprice history: an allocation is always
+ * interpreted at the rate that was applied to it, which is why
+ * appliedOrganizationalSupport takes the rate rather than reaching for the
+ * current constant.
+ *
+ * Amounts are exact. Planning rounds to whole dollars; recorded money does not.
+ */
+export type OrganizationalSupportAllocation = {
+  /** The full missionary-designated contribution, before any fee. */
+  grossContribution: number;
+  /** Charged by the payment processor. Never subtracted from the base above. */
+  processingFee: number;
+  /** The rate actually applied to this contribution, not today's rate. */
+  appliedRate: number;
+  /** The policy version this allocation was taken under. */
+  appliedPolicyVersion: string;
+  /** grossContribution * appliedRate. */
+  organizationalSupportAmount: number;
+  /** What remains for the ministry after the allocation. */
+  netAmount: number;
+};
