@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 
 import { ecosystemEntries } from "./ecosystem";
 import { productMarks } from "./ProductMarks";
-import { WatershedMap } from "./WatershedMap";
+import { MovementField } from "./MovementField";
 
 /**
  * USA-191: the opening.
@@ -91,7 +91,7 @@ export function WelcomeExperience({ onStart, returning }: WelcomeExperienceProps
         </div>
 
         <div className="join-hero-map">
-          <WatershedMap />
+          <MovementField />
         </div>
       </div>
 
