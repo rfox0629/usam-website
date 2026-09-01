@@ -1356,6 +1356,153 @@
   color: var(--gold-ink);
 }
 
+.join-metric-help {
+  margin-top: 4px !important;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------- money grouping */
+
+/* USA-191: the four money questions used to sit in one 2x2 grid, where help
+   text of different lengths pushed the boxes out of line and nothing said which
+   figure meant what. They are grouped by what they answer instead. */
+.join-money-group + .join-money-group {
+  margin-top: clamp(20px, 2.6vw, 28px);
+}
+
+.join-money-group-title {
+  font-family: var(--font-tech);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 12px !important;
+}
+
+.join-money-group .join-pair {
+  align-items: start;
+}
+
+/* ------------------------------------------------------- repeating answers */
+
+.join-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.join-list-row {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.join-list-cells {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (min-width: 700px) {
+  .join-list-cells {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    align-items: end;
+  }
+
+  /* An age needs a fraction of the width a name does. */
+  .join-list-cells:has(.join-list-cell-narrow) {
+    grid-auto-columns: 1fr;
+  }
+
+  .join-list-cell-narrow {
+    max-width: 96px;
+  }
+}
+
+.join-list-cell {
+  display: block;
+  min-width: 0;
+}
+
+.join-list-cell-label {
+  display: block;
+  font-family: var(--font-tech);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 5px;
+}
+
+.join-list-cell .join-input {
+  margin-top: 0;
+}
+
+.join-list-remove {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-tech);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0 12px;
+  height: 42px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.join-list-remove:hover {
+  color: var(--ink);
+  border-color: var(--muted-2);
+}
+
+@media (max-width: 699px) {
+  .join-list-row {
+    display: block;
+    border-left: 2px solid var(--gold-line);
+    padding-left: 12px;
+  }
+
+  .join-list-remove {
+    margin-top: 10px;
+    height: 38px;
+  }
+}
+
+.join-list-add {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px dashed var(--gold-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold-ink);
+  font-family: var(--font-tech);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.join-list-add:hover {
+  background: var(--gold-tint);
+  border-color: var(--gold);
+}
+
 /* ----------------------------------------------------------------- footer */
 
 /*

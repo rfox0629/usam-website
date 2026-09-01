@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 import "./join-experience.css";
+import { parseListValue, serializeListValue } from "./field-list";
 import { WelcomeExperience } from "./WelcomeExperience";
 import {
   identityFieldLabels,
@@ -13,6 +14,7 @@ import {
   visibleFieldsForSection,
   visibleFieldsForStep,
   type JoinField,
+  type JoinListColumn,
   type JoinFieldSection,
 } from "./application-fields";
 import {
@@ -133,13 +135,21 @@ function supportBudgetSummary(draft: JoinApplicationDraft) {
   const proposedNeed = moneyNumber(draft.answers.supportMonthlyNeed);
   const committed = moneyNumber(draft.answers.supportCommittedAmount);
   const otherIncome = moneyNumber(draft.answers.supportOtherMonthlyIncome);
-  const covered = committed + otherIncome;
+  /**
+   * USA-191: committed support and other household income are deliberately not
+   * added together. Committed support is what partners have pledged, and it is
+   * the only thing that reduces what is still to be raised. Other household
+   * income is context for Operations, not support already in hand. Summing them
+   * into one "already covered" figure made a household look further along than
+   * it was and understated the fundraising target.
+   */
+  const covered = committed;
 
   return {
     budgetTotal,
     committed,
     covered,
-    gap: Math.max(0, proposedNeed - covered),
+    gap: Math.max(0, proposedNeed - committed),
     household,
     ministry,
     otherIncome,
@@ -335,8 +345,17 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const stepIndex = joinApplicationStepIndex(stepId);
   const step = joinApplicationSteps[stepIndex];
   const heading = sectionTitle(page);
+  const supportPathForGate = supportPathFromDraft(draft);
+  /**
+   * USA-191: the overflow acknowledgement is a condition of applying, not a
+   * detail to notice at review, so it holds the page it is asked on.
+   */
   const continueBlocked =
-    page.kind === "support" && page.sectionId === "path" && !supportPathFromDraft(draft);
+    (page.kind === "support" && page.sectionId === "path" && !supportPathForGate) ||
+    (page.kind === "support" &&
+      page.sectionId === "readiness" &&
+      (supportPathForGate === "yes" || supportPathForGate === "unsure") &&
+      draft.disclosures.excessSupportAgreement !== true);
 
   const persist = useCallback(
     async (options: { sendResumeEmail?: boolean } = {}) => {
@@ -1143,11 +1162,17 @@ function SupportMoneyField({
   );
 }
 
-function SupportMetric({ label, value, tone = "default" }: { label: string; value: number; tone?: "accent" | "default" }) {
+function SupportMetric({
+  help,
+  label,
+  value,
+  tone = "default",
+}: { help?: string; label: string; value: number; tone?: "accent" | "default" }) {
   return (
     <div className="join-metric" data-tone={tone}>
       <p className="join-metric-label">{label}</p>
       <p className="join-metric-value">{formatMoney(value)}</p>
+      {help ? <p className="join-metric-help">{help}</p> : null}
     </div>
   );
 }
@@ -1283,41 +1308,52 @@ function SupportSection({
     return (
       <div className="join-fields">
         <div className="join-metrics">
-          <SupportMetric label="Budget total" value={summary.budgetTotal} />
-          <SupportMetric label="Proposed need" value={summary.proposedNeed} />
-          <SupportMetric label="Already covered" value={summary.covered} />
-          <SupportMetric label="Remaining gap" tone="accent" value={summary.gap} />
+          <SupportMetric help="From your worksheet" label="Budget total" value={summary.budgetTotal} />
+          <SupportMetric help="What you are asking for" label="Proposed need" value={summary.proposedNeed} />
+          <SupportMetric help="Already pledged" label="Committed support" value={summary.committed} />
+          <SupportMetric help="Proposed need less committed" label="Still to raise" tone="accent" value={summary.gap} />
         </div>
 
-        <div className="join-pair join-pair-2">
-          <SupportMoneyField
-            action={summary.budgetTotal > 0 ? { label: "Use budget total", onClick: () => onAnswer("supportMonthlyNeed", String(summary.budgetTotal)) } : undefined}
-            help="Your considered estimate. It may match the worksheet, but it is not an approved public goal."
-            id="supportMonthlyNeed"
-            label="Proposed monthly need"
-            onChange={(value) => onAnswer("supportMonthlyNeed", value)}
-            required
-            value={draft.answers.supportMonthlyNeed ?? ""}
-          />
-          <SupportMoneyField
-            id="supportCommittedAmount"
-            label="Committed monthly support"
-            onChange={(value) => onAnswer("supportCommittedAmount", value)}
-            value={draft.answers.supportCommittedAmount ?? ""}
-          />
-          <SupportMoneyField
-            id="supportOtherMonthlyIncome"
-            label="Other monthly household income"
-            onChange={(value) => onAnswer("supportOtherMonthlyIncome", value)}
-            value={draft.answers.supportOtherMonthlyIncome ?? ""}
-          />
-          <SupportMoneyField
-            help="Choose the amount you want Operations to review. It is never calculated automatically."
-            id="supportRequestedGoal"
-            label="Requested fundraising goal"
-            onChange={(value) => onAnswer("supportRequestedGoal", value)}
-            value={draft.answers.supportRequestedGoal ?? ""}
-          />
+        <div className="join-money-group">
+          <p className="join-money-group-title">What you need</p>
+          <div className="join-pair join-pair-2">
+            <SupportMoneyField
+              action={summary.budgetTotal > 0 ? { label: "Use budget total", onClick: () => onAnswer("supportMonthlyNeed", String(summary.budgetTotal)) } : undefined}
+              help="Your considered estimate. It may match the worksheet, but it is not an approved public goal."
+              id="supportMonthlyNeed"
+              label="Proposed monthly need"
+              onChange={(value) => onAnswer("supportMonthlyNeed", value)}
+              required
+              value={draft.answers.supportMonthlyNeed ?? ""}
+            />
+            <SupportMoneyField
+              help="Choose the amount you want Operations to review. It is never calculated automatically."
+              id="supportRequestedGoal"
+              label="Requested fundraising goal"
+              onChange={(value) => onAnswer("supportRequestedGoal", value)}
+              value={draft.answers.supportRequestedGoal ?? ""}
+            />
+          </div>
+        </div>
+
+        <div className="join-money-group">
+          <p className="join-money-group-title">What you already have</p>
+          <div className="join-pair join-pair-2">
+            <SupportMoneyField
+              help="Recurring support partners have already pledged. This is what reduces the amount still to raise."
+              id="supportCommittedAmount"
+              label="Committed monthly support"
+              onChange={(value) => onAnswer("supportCommittedAmount", value)}
+              value={draft.answers.supportCommittedAmount ?? ""}
+            />
+            <SupportMoneyField
+              help="Wages or other income your household lives on. Context for Operations, not counted against your support goal."
+              id="supportOtherMonthlyIncome"
+              label="Other monthly household income"
+              onChange={(value) => onAnswer("supportOtherMonthlyIncome", value)}
+              value={draft.answers.supportOtherMonthlyIncome ?? ""}
+            />
+          </div>
         </div>
 
         <p className="join-panel-note">
@@ -1359,11 +1395,89 @@ function SupportSection({
             type="checkbox"
           />
           <span className="join-check-body">
-            <strong>Support overflow acknowledgement</strong>
+            <strong>
+              Support overflow acknowledgement
+              <RequiredMark />
+            </strong>
             I understand USA Missionaries leadership approves the public monthly goal. Support above that approved goal is not automatically assigned to my household and may be stewarded by USA Missionaries for ministry needs and approved support priorities.
           </span>
         </label>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * USA-191: a repeating answer, one row per person.
+ *
+ * These were single free-text boxes that asked for several people at once, so
+ * what came back was inconsistent and hard to read in Operations. Each person
+ * now gets their own row. The value is still stored as text (see field-list.ts)
+ * so nothing behind the form had to change.
+ */
+function ListField({
+  addLabel,
+  columns,
+  onChange,
+  value,
+}: {
+  addLabel?: string;
+  columns: JoinListColumn[];
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const rows = parseListValue(value, columns.length);
+
+  const write = (next: string[][]) => onChange(serializeListValue(next));
+
+  return (
+    <div className="join-list">
+      {rows.map((row, rowIndex) => (
+        // Rows have no identity of their own, and reordering is not offered,
+        // so the index is a stable enough key here.
+        <div className="join-list-row" key={rowIndex}>
+          <div className="join-list-cells">
+            {columns.map((column, cellIndex) => (
+              <label
+                className={`join-list-cell${column.narrow ? " join-list-cell-narrow" : ""}`}
+                key={column.id}
+              >
+                <span className="join-list-cell-label">{column.label}</span>
+                <input
+                  className="join-input"
+                  onChange={(event) => {
+                    const next = rows.map((existing) => [...existing]);
+
+                    next[rowIndex][cellIndex] = event.target.value;
+                    write(next);
+                  }}
+                  type="text"
+                  value={row[cellIndex] ?? ""}
+                />
+              </label>
+            ))}
+          </div>
+
+          {rows.length > 1 ? (
+            <button
+              aria-label={`Remove person ${rowIndex + 1}`}
+              className="join-list-remove"
+              onClick={() => write(rows.filter((_unused, index) => index !== rowIndex))}
+              type="button"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+      ))}
+
+      <button
+        className="join-list-add"
+        onClick={() => write([...rows, columns.map(() => "")])}
+        type="button"
+      >
+        <span aria-hidden="true">+</span> {addLabel ?? "Add another"}
+      </button>
     </div>
   );
 }
@@ -1388,7 +1502,9 @@ function FieldInput({
 
       {field.help ? <p className="join-field-help">{field.help}</p> : null}
 
-      {field.kind === "long" ? (
+      {field.kind === "list" && field.columns ? (
+        <ListField columns={field.columns} addLabel={field.addLabel} onChange={onChange} value={value} />
+      ) : field.kind === "long" ? (
         <textarea
           className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
           id={field.id}

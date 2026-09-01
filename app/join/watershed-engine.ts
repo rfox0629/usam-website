@@ -88,6 +88,58 @@ function along(points: Point[], cumulative: number[], distance: number): Point {
   };
 }
 
+/**
+ * Channel weight by Strahler rank, where 4 is the Mississippi itself and 1 is a
+ * headwater creek.
+ *
+ * The first pass gave a creek 0.45px and the main stem 0.85px at its head. Under
+ * two decimal places of difference the basin read as a bare tree rather than as
+ * a river with streams running into it. The spread is now roughly sixteen to one
+ * at the mouth and five to one at the source, and tone carries the same
+ * hierarchy: creeks are pale and recessive, the trunk is deep gold and nearly
+ * opaque, so the eye is drawn down the spine rather than out into the branches.
+ */
+function channelWeight(order: number) {
+  switch (order) {
+    case 4:
+      /* The Mississippi has to win the composition outright. The Missouri is the
+         longer river and the eye follows length, so the main stem is given a
+         clear margin over it at every point of its course. */
+      return { base: 1.7, gain: 2.9, from: 0.82, to: 0.97, ink: "166, 120, 26" };
+    case 3:
+      return { base: 0.7, gain: 0.62, from: 0.56, to: 0.74, ink: "178, 134, 44" };
+    case 2:
+      return { base: 0.56, gain: 0.34, from: 0.5, to: 0.64, ink: "186, 145, 56" };
+    default:
+      /* Creeks stay hairlines, but readable ones. Pushed any fainter and the
+         "many streams" half of the idea disappears. */
+      return { base: 0.5, gain: 0.18, from: 0.48, to: 0.62, ink: "194, 158, 80" };
+  }
+}
+
+/**
+ * How far down its own course a channel has run, shaped for drawing.
+ *
+ * A river does not keep widening all the way to the sea. Letting width track
+ * distance linearly to t=1 put a bulb on the end of the Mississippi that read as
+ * a tuber rather than a mouth, so the ramp finishes early and the last stretch
+ * runs at an even width.
+ */
+function channelRamp(t: number) {
+  if (t < 0.82) {
+    return t / 0.82;
+  }
+
+  /* The last stretch eases back off its full width so the Mississippi finishes
+     as a mouth opening to the Gulf rather than as a club with a round cap on
+     the end of it. */
+  if (t > 0.96) {
+    return 1 - ((t - 0.96) / 0.04) * 0.34;
+  }
+
+  return 1;
+}
+
 export function startWatershed(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d", { alpha: true });
 
@@ -269,8 +321,10 @@ export function startWatershed(canvas: HTMLCanvasElement) {
 
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    /* The country. Stronger than the streams so the shape reads first. */
-    lctx.fillStyle = "rgba(186, 145, 58, 0.72)";
+    /* The country. Present enough to hold the silhouette, but stepped back from
+       the earlier weight: the river is the subject, and when the dots matched it
+       the whole image flattened into one texture. */
+    lctx.fillStyle = "rgba(190, 152, 70, 0.58)";
 
     for (const dot of dots) {
       lctx.beginPath();
@@ -294,8 +348,7 @@ export function startWatershed(canvas: HTMLCanvasElement) {
 
       const cumulative = cumulativeLengths(points);
       const total = cumulative[cumulative.length - 1] || 1;
-      const base = river.order === 4 ? 0.85 : river.order === 3 ? 0.7 : river.order === 2 ? 0.55 : 0.45;
-      const gain = river.order === 4 ? 1.9 : river.order === 3 ? 0.95 : river.order === 2 ? 0.55 : 0.3;
+      const { base, gain, from: alphaFrom, to: alphaTo, ink } = channelWeight(river.order);
 
       /*
        * Drawn as quadratic curves between the midpoints of consecutive
@@ -311,13 +364,44 @@ export function startWatershed(canvas: HTMLCanvasElement) {
         const from = i === 1 ? points[0] : mid(points[i - 1], points[i]);
         const to = i === points.length - 1 ? points[i] : mid(points[i], points[i + 1]);
 
-        lctx.strokeStyle = `rgba(178, 134, 46, ${(0.34 + t * 0.36).toFixed(3)})`;
-        lctx.lineWidth = base + gain * t;
+        const ramp = channelRamp(t);
+
+        lctx.strokeStyle = `rgba(${ink}, ${(alphaFrom + (alphaTo - alphaFrom) * ramp).toFixed(3)})`;
+        lctx.lineWidth = base + gain * ramp;
         lctx.beginPath();
         lctx.moveTo(from.x, from.y);
         lctx.quadraticCurveTo(points[i].x, points[i].y, to.x, to.y);
         lctx.stroke();
       }
+    }
+
+    /*
+     * Lake Itasca. Every stream on the map runs to one place, and that story
+     * only lands if the eye can find where the river begins, so the source gets
+     * a mark of its own: a filled node with a ring drawn off it, the way a
+     * survey drawing marks an origin. It sits on top of the network because it
+     * is the one point the composition is asking you to find.
+     */
+    const source = projectedRivers.get("mississippi")?.[0];
+
+    if (source) {
+      /* Cleared to paper first so the ring reads as a mark on the map rather
+         than as a knot in the line it sits on. */
+      lctx.beginPath();
+      lctx.arc(source.x, source.y, 5.4, 0, Math.PI * 2);
+      lctx.fillStyle = "rgba(250, 247, 241, 0.92)";
+      lctx.fill();
+
+      lctx.beginPath();
+      lctx.arc(source.x, source.y, 5.4, 0, Math.PI * 2);
+      lctx.strokeStyle = "rgba(168, 122, 28, 0.85)";
+      lctx.lineWidth = 1.3;
+      lctx.stroke();
+
+      lctx.beginPath();
+      lctx.arc(source.x, source.y, 2.1, 0, Math.PI * 2);
+      lctx.fillStyle = "rgba(150, 106, 22, 1)";
+      lctx.fill();
     }
 
     statics = layer;
@@ -359,7 +443,9 @@ export function startWatershed(canvas: HTMLCanvasElement) {
       gradient.addColorStop(1, `rgba(233, 199, 110, ${Math.min(0.95, alpha).toFixed(3)})`);
 
       ctx.strokeStyle = gradient;
-      ctx.lineWidth = 1.1 + journey * 2.1;
+      /* Sized under the channel it runs in, so light never overflows the banks
+         of a hairline creek and still fills the trunk near the Gulf. */
+      ctx.lineWidth = 0.55 + journey * 3.4;
       ctx.beginPath();
       ctx.moveTo(tail.x, tail.y);
       ctx.lineTo(head.x, head.y);
