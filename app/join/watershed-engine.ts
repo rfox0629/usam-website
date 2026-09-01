@@ -99,21 +99,57 @@ function along(points: Point[], cumulative: number[], distance: number): Point {
  * hierarchy: creeks are pale and recessive, the trunk is deep gold and nearly
  * opaque, so the eye is drawn down the spine rather than out into the branches.
  */
+type PlaceDot = { pull: number; x: number; y: number };
+
+/**
+ * The rivers the hero actually draws.
+ *
+ * The data carries 43 real rivers. Drawing all of them produced dozens of thin
+ * branches radiating outward, which read as a tree or a root system rather than
+ * as water running to one place. Only the recognisable systems are drawn: the
+ * Mississippi, the four major tributaries that meet it, and five well known
+ * rivers feeding those. The rest stay in the data, unused, because the point of
+ * the image is one movement gathering, not an inventory of every creek.
+ */
+const drawnRivers = rivers.filter((river) => river.order >= 2);
+
+/** Shortest distance from a point to a polyline. Drives the pull to the spine. */
+function distanceToPath(x: number, y: number, path: Point[]) {
+  let best = Infinity;
+
+  for (let i = 1; i < path.length; i += 1) {
+    const a = path[i - 1];
+    const b = path[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared
+      ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lengthSquared))
+      : 0;
+    const distance = Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy));
+
+    if (distance < best) {
+      best = distance;
+    }
+  }
+
+  return best;
+}
+
 function channelWeight(order: number) {
   switch (order) {
     case 4:
       /* The Mississippi has to win the composition outright. The Missouri is the
          longer river and the eye follows length, so the main stem is given a
          clear margin over it at every point of its course. */
-      return { base: 1.7, gain: 2.9, from: 0.82, to: 0.97, ink: "166, 120, 26" };
+      return { base: 1.5, gain: 2.4, from: 0.86, to: 0.98, ink: "150, 106, 22" };
     case 3:
-      return { base: 0.7, gain: 0.62, from: 0.56, to: 0.74, ink: "178, 134, 44" };
-    case 2:
-      return { base: 0.56, gain: 0.34, from: 0.5, to: 0.64, ink: "186, 145, 56" };
+      /* The four rivers that meet the Mississippi: clearly secondary, clearly
+         rivers. */
+      return { base: 0.72, gain: 0.66, from: 0.5, to: 0.68, ink: "172, 128, 38" };
     default:
-      /* Creeks stay hairlines, but readable ones. Pushed any fainter and the
-         "many streams" half of the idea disappears. */
-      return { base: 0.5, gain: 0.18, from: 0.48, to: 0.62, ink: "194, 158, 80" };
+      /* What feeds those. Tertiary, but never so faint it reads as a scratch. */
+      return { base: 0.5, gain: 0.28, from: 0.36, to: 0.5, ink: "190, 152, 70" };
   }
 }
 
@@ -197,30 +233,42 @@ export function startWatershed(canvas: HTMLCanvasElement) {
     const outline = usOutline.map(place);
     const lake = lakeMichigan.map(place);
 
-    /* The dot field. Spacing is tied to the drawn width so the country reads
-       as the same texture on a phone as on a desktop. */
-    const spacing = Math.max(5, Math.min(10, width / 66));
-    const dotRadius = Math.max(0.95, spacing * 0.145);
-    const dots: Point[] = [];
+    /*
+     * Places, not texture.
+     *
+     * The previous field was a uniform staggered dot grid, which read as clip
+     * art and gave the country no direction. These are sparse, jittered points
+     * that grow and warm as they near the Mississippi, so the field itself
+     * leans toward the spine: many places gathering into one movement rather
+     * than decoration laid over a map. Spacing is tied to the drawn width so a
+     * phone gets the same density of idea, not the same number of points.
+     */
+    const spacing = Math.max(17, width / 40);
+    const dots: PlaceDot[] = [];
+    /* Deterministic jitter: the field must not reshuffle on every resize. */
+    let seed = 7;
+    const noise = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+
+      return seed / 2147483648;
+    };
 
     for (let y = minY * scale + offsetY; y <= maxY * scale + offsetY; y += spacing) {
       for (let x = minX * scale + offsetX; x <= maxX * scale + offsetX; x += spacing) {
-        /* A half step stagger, so the field reads as a considered matrix
-           rather than as graph paper. */
-        const row = Math.round((y - (minY * scale + offsetY)) / spacing);
-        const px = x + (row % 2 === 0 ? 0 : spacing / 2);
+        const px = x + (noise() - 0.5) * spacing * 0.7;
+        const py = y + (noise() - 0.5) * spacing * 0.7;
 
-        if (!polygonContains(outline, px, y) || polygonContains(lake, px, y)) {
+        if (!polygonContains(outline, px, py) || polygonContains(lake, px, py)) {
           continue;
         }
 
-        dots.push({ x: px, y });
+        dots.push({ pull: 0, x: px, y: py });
       }
     }
 
     const projectedRivers = new Map<string, Point[]>();
 
-    for (const river of rivers) {
+    for (const river of drawnRivers) {
       projectedRivers.set(river.name, river.points.map(place));
     }
 
@@ -277,7 +325,7 @@ export function startWatershed(canvas: HTMLCanvasElement) {
     routesByRiver = new Map();
     drops = [];
 
-    for (const river of rivers) {
+    for (const river of drawnRivers) {
       const route = routeFor(river);
 
       if (route.length < 2) {
@@ -321,20 +369,45 @@ export function startWatershed(canvas: HTMLCanvasElement) {
 
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    /* The country. Present enough to hold the silhouette, but stepped back from
-       the earlier weight: the river is the subject, and when the dots matched it
-       the whole image flattened into one texture. */
-    lctx.fillStyle = "rgba(190, 152, 70, 0.58)";
+    /*
+     * The country, drawn as a hairline rather than filled in. A faint outline
+     * states America in one read and leaves the interior to the river, which is
+     * what the composition is actually about.
+     */
+    lctx.beginPath();
+
+    outline.forEach((point, index) => {
+      if (index === 0) {
+        lctx.moveTo(point.x, point.y);
+      } else {
+        lctx.lineTo(point.x, point.y);
+      }
+    });
+
+    lctx.closePath();
+    lctx.strokeStyle = "rgba(168, 130, 50, 0.34)";
+    lctx.lineWidth = 0.9;
+    lctx.stroke();
+
+    /* The places. Each is sized and warmed by how near it sits to the main
+       stem, so the field leans toward the river instead of sitting on the map
+       as an even texture. */
+    const spine = projectedRivers.get("mississippi") ?? [];
 
     for (const dot of dots) {
+      dot.pull = spine.length > 1
+        ? Math.max(0, 1 - distanceToPath(dot.x, dot.y, spine) / (width * 0.34))
+        : 0;
+
       lctx.beginPath();
-      lctx.arc(dot.x, dot.y, dotRadius, 0, Math.PI * 2);
+      lctx.arc(dot.x, dot.y, 0.8 + dot.pull * 1.5, 0, Math.PI * 2);
+      lctx.fillStyle = `rgba(178, 140, 60, ${(0.2 + dot.pull * 0.5).toFixed(3)})`;
       lctx.fill();
     }
 
     /* The rivers, drawn narrowest first so a trunk always sits over the
        streams that feed it. */
-    const ordered = [...rivers].sort((a, b) => a.order - b.order);
+    const ordered = [...drawnRivers].sort((a, b) => a.order - b.order);
 
     lctx.lineCap = "round";
     lctx.lineJoin = "round";
@@ -404,6 +477,34 @@ export function startWatershed(canvas: HTMLCanvasElement) {
       lctx.fill();
     }
 
+    /*
+     * Where each major tributary meets the Mississippi. Small, quiet, and the
+     * literal subject of the picture: separate journeys arriving at one river.
+     */
+    for (const river of drawnRivers) {
+      if (river.order !== 3 || !river.attachTo) {
+        continue;
+      }
+
+      const points = projectedRivers.get(river.name);
+      const join = points?.[points.length - 1];
+
+      if (!join) {
+        continue;
+      }
+
+      lctx.beginPath();
+      lctx.arc(join.x, join.y, 2.6, 0, Math.PI * 2);
+      lctx.fillStyle = "rgba(250, 247, 241, 0.9)";
+      lctx.fill();
+
+      lctx.beginPath();
+      lctx.arc(join.x, join.y, 2.6, 0, Math.PI * 2);
+      lctx.strokeStyle = "rgba(150, 106, 22, 0.8)";
+      lctx.lineWidth = 1;
+      lctx.stroke();
+    }
+
     statics = layer;
   };
 
@@ -427,7 +528,7 @@ export function startWatershed(canvas: HTMLCanvasElement) {
       /* Brighter the further it has travelled, so the lower river carries the
          most light without needing to be drawn heavier. */
       const journey = drop.distance / drop.length;
-      let alpha = 0.22 + journey * 0.4;
+      let alpha = 0.14 + journey * 0.26;
 
       if (awake) {
         const near = Math.hypot(head.x - pointerX, head.y - pointerY);
@@ -440,12 +541,13 @@ export function startWatershed(canvas: HTMLCanvasElement) {
       const gradient = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
 
       gradient.addColorStop(0, "rgba(216, 169, 50, 0)");
-      gradient.addColorStop(1, `rgba(233, 199, 110, ${Math.min(0.95, alpha).toFixed(3)})`);
+      gradient.addColorStop(1, `rgba(226, 188, 96, ${Math.min(0.6, alpha).toFixed(3)})`);
 
       ctx.strokeStyle = gradient;
-      /* Sized under the channel it runs in, so light never overflows the banks
-         of a hairline creek and still fills the trunk near the Gulf. */
-      ctx.lineWidth = 0.55 + journey * 3.4;
+      /* Kept well under the channel it runs in. At the old width the light was
+         as wide as the river and its round cap bled past the banks, which read
+         as a smear alongside the Mississippi rather than as movement in it. */
+      ctx.lineWidth = 0.4 + journey * 1.5;
       ctx.beginPath();
       ctx.moveTo(tail.x, tail.y);
       ctx.lineTo(head.x, head.y);
