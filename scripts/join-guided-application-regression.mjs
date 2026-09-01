@@ -57,8 +57,17 @@ check("Operations labels the applicant request separately from its approved figu
 // The approved figure is a ministry budget, so the target that has to be raised
 // for it and the allocation it carries are derived and shown, never stored and
 // never folded back into the budget itself.
-check("Operations derives the fundraising target from the approved ministry budget", operations.includes("Fundraising Target") && operations.includes("fundraisingTarget(Number(row.admin_approved_monthly_goal))"));
-check("Operations shows the organizational support the target carries", operations.includes("Organizational Support At Target") && operations.includes("organizationalSupportAtTarget(Number(row.admin_approved_monthly_goal))"));
+check("Operations derives the fundraising target from the approved ministry budget", operations.includes("Fundraising Target") && operations.includes("planningFundraisingTarget(Number(row.admin_approved_monthly_goal))"));
+check("Operations shows the organizational support the target carries", operations.includes("Organizational Support At Target") && operations.includes("planningOrganizationalSupport(Number(row.admin_approved_monthly_goal))"));
 check("the founder preview gate still wraps /join", joinPage.includes("JoinPreviewGate"));
 
 console.log("\nThe gated application preserves the V2 backend while restoring guided UX and the private finance worksheet.");
+
+// The organizational support rate must stay a parameter of anything describing
+// money that already moved. Baking the current constant into applied allocation
+// would silently reprice history the day the rate changes.
+const orgPolicy = readFileSync("src/lib/organizational-support.ts", "utf8");
+const finance = readFileSync("src/lib/operations/finance.ts", "utf8");
+check("applied organizational support takes the rate that was applied", orgPolicy.includes("export function appliedOrganizationalSupport(received: number, rate: number)") && orgPolicy.includes("export function appliedNetMinistryFunding(received: number, rate: number)"));
+check("the fundraising target rounds up so rounding never underfunds the budget", orgPolicy.includes("Math.ceil(usable(ministryBudget) / ministryShare(rate))"));
+check("Operations keeps cents on money that actually moved", finance.includes("exactMoneyLabel(appliedOrganizationalSupport(recurringMonthly, appliedRate))") && finance.includes("minimumFractionDigits: 2"));

@@ -7,9 +7,10 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { donorLabel, loadDonorIdentities } from "@/src/lib/planning-center/people-sync";
 import {
-  fundraisingTarget,
-  netMinistryFunding,
-  organizationalSupportOnReceived,
+  appliedNetMinistryFunding,
+  appliedOrganizationalSupport,
+  CURRENT_ORGANIZATIONAL_SUPPORT_RATE,
+  planningFundraisingTarget,
 } from "@/src/lib/organizational-support";
 
 type PcoGivingRecordRow = {
@@ -149,6 +150,24 @@ function moneyLabel(value: unknown) {
     maximumFractionDigits: 0,
     style: "currency",
   }).format(asNumber(value));
+}
+
+/**
+ * Money that actually moved, to the cent.
+ *
+ * Planning figures are whole dollars; contributions, allocations and anything
+ * downstream of them are not rounded for display, because a reviewer
+ * reconciling against Planning Center needs the number that is really there.
+ */
+function exactMoneyLabel(value: unknown) {
+  const amount = asNumber(value);
+
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(Number.isFinite(amount) ? amount : 0);
 }
 
 function titleFromValue(value: string | null | undefined) {
@@ -525,10 +544,10 @@ export async function loadMissionaryGivingSummary({
     gapLabel: null,
     giftCount: 0,
     fundraisingTargetLabel: null,
-    netMinistryFundingLabel: moneyLabel(0),
-    oneTimeTotalLabel: moneyLabel(0),
-    organizationalSupportLabel: moneyLabel(0),
-    recurringMonthlyLabel: moneyLabel(0),
+    netMinistryFundingLabel: exactMoneyLabel(0),
+    oneTimeTotalLabel: exactMoneyLabel(0),
+    organizationalSupportLabel: exactMoneyLabel(0),
+    recurringMonthlyLabel: exactMoneyLabel(0),
     reliable: false,
   };
 
@@ -580,24 +599,34 @@ export async function loadMissionaryGivingSummary({
    * short of its ministry budget.
    */
   const budget = approvedMonthlyGoal && approvedMonthlyGoal > 0 ? approvedMonthlyGoal : null;
-  const target = budget === null ? null : fundraisingTarget(budget);
+  const target = budget === null ? null : planningFundraisingTarget(budget);
   const fundedPercent = target ? Math.round((recurringMonthly / target) * 100) : null;
   const gap = target ? Math.max(target - recurringMonthly, 0) : null;
   /* Overflow stays its own policy: this is only what sits above the target. */
   const excess = target ? Math.max(recurringMonthly - target, 0) : null;
 
+  /*
+   * These describe money that has already moved, so they keep their cents and
+   * are computed at an explicit rate. Nothing records an allocation yet, so the
+   * rate in force is the only one available; once allocations are written with
+   * the rate applied to them, this reads that stored rate instead and history
+   * stops depending on the current constant. That is a change of argument here,
+   * not a change of shape.
+   */
+  const appliedRate = CURRENT_ORGANIZATIONAL_SUPPORT_RATE;
+
   return {
     approvedMonthlyGoal,
     connected: true,
-    excessLabel: excess !== null && excess > 0 ? moneyLabel(excess) : null,
+    excessLabel: excess !== null && excess > 0 ? exactMoneyLabel(excess) : null,
     fundraisingTargetLabel: target === null ? null : moneyLabel(target),
     fundedPercent,
-    gapLabel: gap !== null ? moneyLabel(gap) : null,
+    gapLabel: gap !== null ? exactMoneyLabel(gap) : null,
     giftCount: rows.length,
-    netMinistryFundingLabel: moneyLabel(netMinistryFunding(recurringMonthly)),
-    oneTimeTotalLabel: moneyLabel(oneTimeTotal),
-    organizationalSupportLabel: moneyLabel(organizationalSupportOnReceived(recurringMonthly)),
-    recurringMonthlyLabel: moneyLabel(recurringMonthly),
+    netMinistryFundingLabel: exactMoneyLabel(appliedNetMinistryFunding(recurringMonthly, appliedRate)),
+    oneTimeTotalLabel: exactMoneyLabel(oneTimeTotal),
+    organizationalSupportLabel: exactMoneyLabel(appliedOrganizationalSupport(recurringMonthly, appliedRate)),
+    recurringMonthlyLabel: exactMoneyLabel(recurringMonthly),
     reliable: true,
   };
 }

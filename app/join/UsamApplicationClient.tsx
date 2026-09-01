@@ -6,9 +6,9 @@ import type { CSSProperties } from "react";
 import "./join-experience.css";
 import { parseListValue, serializeListValue } from "./field-list";
 import {
-  fundraisingTarget,
-  organizationalSupportAtTarget,
-  ORGANIZATIONAL_SUPPORT_RATE,
+  CURRENT_ORGANIZATIONAL_SUPPORT_RATE,
+  planningFundraisingTarget,
+  planningOrganizationalSupport,
 } from "@/src/lib/organizational-support";
 import { WelcomeExperience } from "./WelcomeExperience";
 import {
@@ -156,14 +156,14 @@ function supportBudgetSummary(draft: JoinApplicationDraft) {
    * organizational support, so the amount to raise is the grossed-up target,
    * and the gap is measured against that rather than against the budget.
    */
-  const target = fundraisingTarget(proposedNeed);
+  const target = planningFundraisingTarget(proposedNeed);
 
   return {
     budgetTotal,
     committed,
     covered,
     gap: Math.max(0, target - committed),
-    organizationalSupport: organizationalSupportAtTarget(proposedNeed),
+    organizationalSupport: planningOrganizationalSupport(proposedNeed),
     target,
     household,
     ministry,
@@ -1349,7 +1349,7 @@ function SupportSection({
             </dl>
 
             <p className="join-plan-note">
-              USA Missionaries allocates {Math.round(ORGANIZATIONAL_SUPPORT_RATE * 100)}% of the contributions
+              USA Missionaries allocates {Math.round(CURRENT_ORGANIZATIONAL_SUPPORT_RATE * 100)}% of the contributions
               designated for your ministry to organizational support: administration, financial management,
               donation processing and receipting, technology, training, missionary support, and organizational
               oversight.

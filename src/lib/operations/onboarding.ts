@@ -10,7 +10,7 @@ import {
 } from "@/src/lib/dos/usam-application";
 import { hasOperationsTestMarker, payloadHasOperationsTestMarker } from "@/src/lib/operations/test-records";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
-import { fundraisingTarget, organizationalSupportAtTarget } from "@/src/lib/organizational-support";
+import { planningFundraisingTarget, planningOrganizationalSupport } from "@/src/lib/organizational-support";
 
 type UsamApplicationRow = {
   admin_notes?: string | null;
@@ -541,13 +541,13 @@ function supportDetails(row: UsamApplicationRow) {
     moneyLabel(row.admin_approved_monthly_goal)
       ? {
           label: "Fundraising Target",
-          value: moneyLabel(fundraisingTarget(Number(row.admin_approved_monthly_goal))) as string,
+          value: moneyLabel(planningFundraisingTarget(Number(row.admin_approved_monthly_goal))) as string,
         }
       : null,
     moneyLabel(row.admin_approved_monthly_goal)
       ? {
           label: "Organizational Support At Target",
-          value: moneyLabel(organizationalSupportAtTarget(Number(row.admin_approved_monthly_goal))) as string,
+          value: moneyLabel(planningOrganizationalSupport(Number(row.admin_approved_monthly_goal))) as string,
         }
       : null,
     moneyLabel(support.committedAmount ?? support.committedSupport)
