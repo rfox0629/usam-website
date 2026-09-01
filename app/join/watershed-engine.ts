@@ -32,13 +32,15 @@ function albers([lon, lat]: [number, number]): [number, number] {
 type Point = { x: number; y: number };
 
 /** A drop of light, and the whole course it will run to the Gulf. */
-type Drop = {
-  cumulative: number[];
-  distance: number;
-  length: number;
-  route: Point[];
-  speed: number;
+type ActivityPoint = {
+  /** 0 dormant, 1 fully lit. Eased every frame, never set directly. */
+  glow: number;
+  /** Fixed per point, so a cluster does not light as one flat block. */
+  offset: number;
+  x: number;
+  y: number;
 };
+
 
 function polygonContains(polygon: Point[], x: number, y: number) {
   let inside = false;
@@ -99,8 +101,6 @@ function along(points: Point[], cumulative: number[], distance: number): Point {
  * hierarchy: creeks are pale and recessive, the trunk is deep gold and nearly
  * opaque, so the eye is drawn down the spine rather than out into the branches.
  */
-type PlaceDot = { pull: number; x: number; y: number };
-
 /**
  * The rivers the hero actually draws.
  *
@@ -113,43 +113,20 @@ type PlaceDot = { pull: number; x: number; y: number };
  */
 const drawnRivers = rivers.filter((river) => river.order >= 2);
 
-/** Shortest distance from a point to a polyline. Drives the pull to the spine. */
-function distanceToPath(x: number, y: number, path: Point[]) {
-  let best = Infinity;
-
-  for (let i = 1; i < path.length; i += 1) {
-    const a = path[i - 1];
-    const b = path[i];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSquared = dx * dx + dy * dy;
-    const t = lengthSquared
-      ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / lengthSquared))
-      : 0;
-    const distance = Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy));
-
-    if (distance < best) {
-      best = distance;
-    }
-  }
-
-  return best;
-}
-
 function channelWeight(order: number) {
   switch (order) {
+    /*
+     * The rivers are structure now, not the subject. The activity field is what
+     * the eye is meant to find first, so these sit close to the weight of the
+     * country outline: the Mississippi still legibly the spine, but read on a
+     * second look rather than announced.
+     */
     case 4:
-      /* The Mississippi has to win the composition outright. The Missouri is the
-         longer river and the eye follows length, so the main stem is given a
-         clear margin over it at every point of its course. */
-      return { base: 1.5, gain: 2.4, from: 0.86, to: 0.98, ink: "150, 106, 22" };
+      return { base: 0.9, gain: 1.1, from: 0.5, to: 0.66, ink: "158, 114, 28" };
     case 3:
-      /* The four rivers that meet the Mississippi: clearly secondary, clearly
-         rivers. */
-      return { base: 0.72, gain: 0.66, from: 0.5, to: 0.68, ink: "172, 128, 38" };
+      return { base: 0.6, gain: 0.34, from: 0.36, to: 0.48, ink: "172, 128, 38" };
     default:
-      /* What feeds those. Tertiary, but never so faint it reads as a scratch. */
-      return { base: 0.5, gain: 0.28, from: 0.36, to: 0.5, ink: "190, 152, 70" };
+      return { base: 0.48, gain: 0.18, from: 0.27, to: 0.37, ink: "184, 144, 58" };
   }
 }
 
@@ -189,12 +166,19 @@ export function startWatershed(canvas: HTMLCanvasElement) {
   let height = 0;
   let frame = 0;
   let statics: HTMLCanvasElement | null = null;
-  let drops: Drop[] = [];
-  let routesByRiver = new Map<string, Point[]>();
+  let points: ActivityPoint[] = [];
+  let riverPaths: Point[][] = [];
 
-  /* Attention. Nearby streams wake a little; it is never required. */
-  let pointerX = -9999;
-  let pointerY = -9999;
+  /*
+   * Where the light is coming from, in canvas space.
+   *
+   * On a device with a pointer this follows the cursor. Without one it is a
+   * quiet ambient focus that drifts between parts of the country, so a phone
+   * still sees the movement waking somewhere rather than a dead image.
+   */
+  let focusX = -9999;
+  let focusY = -9999;
+  let focusStrength = 0;
   let lastPointer = -99999;
 
   const build = () => {
@@ -234,17 +218,19 @@ export function startWatershed(canvas: HTMLCanvasElement) {
     const lake = lakeMichigan.map(place);
 
     /*
-     * Places, not texture.
+     * The activity field.
      *
-     * The previous field was a uniform staggered dot grid, which read as clip
-     * art and gave the country no direction. These are sparse, jittered points
-     * that grow and warm as they near the Mississippi, so the field itself
-     * leans toward the spine: many places gathering into one movement rather
-     * than decoration laid over a map. Spacing is tied to the drawn width so a
-     * phone gets the same density of idea, not the same number of points.
+     * These are the subject of the image now, and the rivers are the structure
+     * behind them. Each point stands for the movement spreading across the
+     * country, NOT for a real missionary at a real address: nothing here is
+     * derived from location data, and it must not be presented as if it were
+     * until there is approved public data to draw on.
+     *
+     * Sparse on purpose. The field should read as counted, and it should sit
+     * almost dormant until someone touches it.
      */
-    const spacing = Math.max(17, width / 40);
-    const dots: PlaceDot[] = [];
+    const spacing = Math.max(26, width / 26);
+    points = [];
     /* Deterministic jitter: the field must not reshuffle on every resize. */
     let seed = 7;
     const noise = () => {
@@ -255,14 +241,15 @@ export function startWatershed(canvas: HTMLCanvasElement) {
 
     for (let y = minY * scale + offsetY; y <= maxY * scale + offsetY; y += spacing) {
       for (let x = minX * scale + offsetX; x <= maxX * scale + offsetX; x += spacing) {
-        const px = x + (noise() - 0.5) * spacing * 0.7;
-        const py = y + (noise() - 0.5) * spacing * 0.7;
+        const px = x + (noise() - 0.5) * spacing * 0.78;
+        const py = y + (noise() - 0.5) * spacing * 0.78;
+        const offset = noise();
 
         if (!polygonContains(outline, px, py) || polygonContains(lake, px, py)) {
           continue;
         }
 
-        dots.push({ pull: 0, x: px, y: py });
+        points.push({ glow: 0, offset, x: px, y: py });
       }
     }
 
@@ -272,90 +259,8 @@ export function startWatershed(canvas: HTMLCanvasElement) {
       projectedRivers.set(river.name, river.points.map(place));
     }
 
-    /*
-     * Splice each tributary onto its parent's remaining course, so a route is
-     * a real journey from a headwater to the Gulf rather than a line that
-     * stops at a confluence. Memoised, because the Ohio's route is shared by
-     * everything that feeds the Ohio.
-     */
-    const byName = new Map(rivers.map((river) => [river.name, river]));
-    const routeCache = new Map<string, Point[]>();
+    riverPaths = Array.from(projectedRivers.values());
 
-    const routeFor = (river: River): Point[] => {
-      const cached = routeCache.get(river.name);
-
-      if (cached) {
-        return cached;
-      }
-
-      const own = projectedRivers.get(river.name) ?? [];
-      const parent = river.attachTo ? byName.get(river.attachTo) : undefined;
-
-      if (!parent) {
-        routeCache.set(river.name, own);
-
-        return own;
-      }
-
-      const parentRoute = routeFor(parent);
-      const mouth = own[own.length - 1];
-
-      /* Join where the tributary actually meets it: the nearest vertex on the
-         parent's course. Hand maintaining indices in the data would rot the
-         first time a waypoint moved. */
-      let nearest = 0;
-      let best = Infinity;
-
-      for (let i = 0; i < parentRoute.length; i += 1) {
-        const d = Math.hypot(parentRoute[i].x - mouth.x, parentRoute[i].y - mouth.y);
-
-        if (d < best) {
-          best = d;
-          nearest = i;
-        }
-      }
-
-      const route = own.concat(parentRoute.slice(nearest + 1));
-
-      routeCache.set(river.name, route);
-
-      return route;
-    };
-
-    routesByRiver = new Map();
-    drops = [];
-
-    for (const river of drawnRivers) {
-      const route = routeFor(river);
-
-      if (route.length < 2) {
-        continue;
-      }
-
-      routesByRiver.set(river.name, route);
-
-      const cumulative = cumulativeLengths(route);
-      const length = cumulative[cumulative.length - 1];
-      /* A headwater carries fewer drops than a trunk, so the lower river
-         visibly gathers what the branches brought. */
-      const count = river.order >= 3 ? 3 : river.order === 2 ? 2 : 1;
-
-      for (let i = 0; i < count; i += 1) {
-        drops.push({
-          cumulative,
-          distance: (length * (i + Math.random())) / count,
-          length,
-          route,
-          speed: 16 + river.order * 3.5,
-        });
-      }
-    }
-
-    /*
-     * Everything that never changes is drawn once. Each frame then costs one
-     * drawImage plus the light, which is what keeps this cheap enough to sit
-     * behind a page an applicant is typing into.
-     */
     const layer = document.createElement("canvas");
 
     layer.width = canvas.width;
@@ -385,130 +290,24 @@ export function startWatershed(canvas: HTMLCanvasElement) {
     });
 
     lctx.closePath();
-    lctx.strokeStyle = "rgba(168, 130, 50, 0.34)";
+    lctx.strokeStyle = "rgba(168, 130, 50, 0.3)";
     lctx.lineWidth = 0.9;
     lctx.stroke();
 
-    /* The places. Each is sized and warmed by how near it sits to the main
-       stem, so the field leans toward the river instead of sitting on the map
-       as an even texture. */
-    const spine = projectedRivers.get("mississippi") ?? [];
-
-    for (const dot of dots) {
-      dot.pull = spine.length > 1
-        ? Math.max(0, 1 - distanceToPath(dot.x, dot.y, spine) / (width * 0.34))
-        : 0;
-
-      lctx.beginPath();
-      lctx.arc(dot.x, dot.y, 0.8 + dot.pull * 1.5, 0, Math.PI * 2);
-      lctx.fillStyle = `rgba(178, 140, 60, ${(0.2 + dot.pull * 0.5).toFixed(3)})`;
-      lctx.fill();
-    }
-
-    /* The rivers, drawn narrowest first so a trunk always sits over the
-       streams that feed it. */
-    const ordered = [...drawnRivers].sort((a, b) => a.order - b.order);
-
-    lctx.lineCap = "round";
-    lctx.lineJoin = "round";
-
-    for (const river of ordered) {
-      const points = projectedRivers.get(river.name);
-
-      if (!points || points.length < 2) {
-        continue;
-      }
-
-      const cumulative = cumulativeLengths(points);
-      const total = cumulative[cumulative.length - 1] || 1;
-      const { base, gain, from: alphaFrom, to: alphaTo, ink } = channelWeight(river.order);
-
-      /*
-       * Drawn as quadratic curves between the midpoints of consecutive
-       * segments, with each waypoint as the control point. Straight segments
-       * joined at the waypoints gave the basin a spiky, root-like look;
-       * rivers bend. Each span is stroked separately so the channel can keep
-       * widening downstream.
-       */
-      const mid = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-
-      for (let i = 1; i < points.length; i += 1) {
-        const t = cumulative[i] / total;
-        const from = i === 1 ? points[0] : mid(points[i - 1], points[i]);
-        const to = i === points.length - 1 ? points[i] : mid(points[i], points[i + 1]);
-
-        const ramp = channelRamp(t);
-
-        lctx.strokeStyle = `rgba(${ink}, ${(alphaFrom + (alphaTo - alphaFrom) * ramp).toFixed(3)})`;
-        lctx.lineWidth = base + gain * ramp;
-        lctx.beginPath();
-        lctx.moveTo(from.x, from.y);
-        lctx.quadraticCurveTo(points[i].x, points[i].y, to.x, to.y);
-        lctx.stroke();
-      }
-    }
-
     /*
-     * Lake Itasca. Every stream on the map runs to one place, and that story
-     * only lands if the eye can find where the river begins, so the source gets
-     * a mark of its own: a filled node with a ring drawn off it, the way a
-     * survey drawing marks an origin. It sits on top of the network because it
-     * is the one point the composition is asking you to find.
+     * The confluence rings and the Lake Itasca source mark are deliberately
+     * gone. They annotated the river while the river was the subject; with it
+     * dialled back to structure they read as unexplained circles sitting louder
+     * than anything they pointed at. The activity field is the subject now.
      */
-    const source = projectedRivers.get("mississippi")?.[0];
-
-    if (source) {
-      /* Cleared to paper first so the ring reads as a mark on the map rather
-         than as a knot in the line it sits on. */
-      lctx.beginPath();
-      lctx.arc(source.x, source.y, 5.4, 0, Math.PI * 2);
-      lctx.fillStyle = "rgba(250, 247, 241, 0.92)";
-      lctx.fill();
-
-      lctx.beginPath();
-      lctx.arc(source.x, source.y, 5.4, 0, Math.PI * 2);
-      lctx.strokeStyle = "rgba(168, 122, 28, 0.85)";
-      lctx.lineWidth = 1.3;
-      lctx.stroke();
-
-      lctx.beginPath();
-      lctx.arc(source.x, source.y, 2.1, 0, Math.PI * 2);
-      lctx.fillStyle = "rgba(150, 106, 22, 1)";
-      lctx.fill();
-    }
-
-    /*
-     * Where each major tributary meets the Mississippi. Small, quiet, and the
-     * literal subject of the picture: separate journeys arriving at one river.
-     */
-    for (const river of drawnRivers) {
-      if (river.order !== 3 || !river.attachTo) {
-        continue;
-      }
-
-      const points = projectedRivers.get(river.name);
-      const join = points?.[points.length - 1];
-
-      if (!join) {
-        continue;
-      }
-
-      lctx.beginPath();
-      lctx.arc(join.x, join.y, 2.6, 0, Math.PI * 2);
-      lctx.fillStyle = "rgba(250, 247, 241, 0.9)";
-      lctx.fill();
-
-      lctx.beginPath();
-      lctx.arc(join.x, join.y, 2.6, 0, Math.PI * 2);
-      lctx.strokeStyle = "rgba(150, 106, 22, 0.8)";
-      lctx.lineWidth = 1;
-      lctx.stroke();
-    }
 
     statics = layer;
   };
 
-  const paintLight = (time: number) => {
+  /* Radius of influence, and how hard the field is allowed to be pushed. */
+  const REACH = () => Math.max(120, Math.min(210, width * 0.19));
+
+  const paintFrame = () => {
     if (!statics) {
       return;
     }
@@ -516,82 +315,159 @@ export function startWatershed(canvas: HTMLCanvasElement) {
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(statics, 0, 0, width, height);
 
-    const awake = time - lastPointer < 2600;
+    const reach = REACH();
 
-    ctx.lineCap = "round";
+    /*
+     * A few river segments near the light warm slightly, so the water reads as
+     * carrying the activity rather than sitting under it. Deliberately capped
+     * and applied per segment rather than per river: lighting whole rivers put
+     * the branching structure back on screen, which is the look this is meant
+     * to stay away from.
+     */
+    if (focusStrength > 0.01) {
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
 
-    for (const drop of drops) {
-      const head = along(drop.route, drop.cumulative, drop.distance);
-      const tailLength = 14 + (drop.distance / drop.length) * 22;
-      const tail = along(drop.route, drop.cumulative, drop.distance - tailLength);
+      for (const path of riverPaths) {
+        for (let i = 1; i < path.length; i += 1) {
+          const midX = (path[i - 1].x + path[i].x) / 2;
+          const midY = (path[i - 1].y + path[i].y) / 2;
+          const near = 1 - Math.min(1, Math.hypot(midX - focusX, midY - focusY) / (reach * 0.85));
 
-      /* Brighter the further it has travelled, so the lower river carries the
-         most light without needing to be drawn heavier. */
-      const journey = drop.distance / drop.length;
-      let alpha = 0.14 + journey * 0.26;
+          if (near <= 0) {
+            continue;
+          }
 
-      if (awake) {
-        const near = Math.hypot(head.x - pointerX, head.y - pointerY);
-
-        if (near < 130) {
-          alpha += (1 - near / 130) * 0.42;
+          ctx.strokeStyle = `rgba(196, 152, 58, ${(near * near * 0.3 * focusStrength).toFixed(3)})`;
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.moveTo(path[i - 1].x, path[i - 1].y);
+          ctx.lineTo(path[i].x, path[i].y);
+          ctx.stroke();
         }
       }
+    }
 
-      const gradient = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+    for (const point of points) {
+      const { glow } = point;
 
-      gradient.addColorStop(0, "rgba(216, 169, 50, 0)");
-      gradient.addColorStop(1, `rgba(226, 188, 96, ${Math.min(0.6, alpha).toFixed(3)})`);
+      /* Dormant is genuinely faint. The field should look like a quiet record
+         of presence until someone moves across it. */
+      const radius = 1 + glow * 2.1;
+      const alpha = 0.2 + glow * 0.68;
 
-      ctx.strokeStyle = gradient;
-      /* Kept well under the channel it runs in. At the old width the light was
-         as wide as the river and its round cap bled past the banks, which read
-         as a smear alongside the Mississippi rather than as movement in it. */
-      ctx.lineWidth = 0.4 + journey * 1.5;
+      if (glow > 0.06) {
+        /* A soft halo, so a lit point reads as illumination rather than as a
+           bigger dot. */
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius + 3.4 * glow, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(214, 172, 74, ${(glow * 0.13).toFixed(3)})`;
+        ctx.fill();
+      }
+
       ctx.beginPath();
-      ctx.moveTo(tail.x, tail.y);
-      ctx.lineTo(head.x, head.y);
-      ctx.stroke();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${glow > 0.4 ? "168, 122, 28" : "178, 140, 60"}, ${alpha.toFixed(3)})`;
+      ctx.fill();
     }
   };
 
   let previous = 0;
+  /* Where the ambient focus is heading, and when it last chose a destination. */
+  let ambientFromX = 0;
+  let ambientFromY = 0;
+  let ambientToX = 0;
+  let ambientToY = 0;
+  let ambientSince = 0;
+  const AMBIENT_DWELL = 3200;
+
+  const pickAmbientTarget = (time: number) => {
+    if (points.length === 0) {
+      return;
+    }
+
+    /* Chosen from the field itself, so the light always lands somewhere the
+       country actually has points rather than in empty ocean. */
+    const next = points[Math.floor(Math.random() * points.length)];
+
+    ambientFromX = ambientToX || next.x;
+    ambientFromY = ambientToY || next.y;
+    ambientToX = next.x;
+    ambientToY = next.y;
+    ambientSince = time;
+  };
+
+  const advance = (time: number, delta: number) => {
+    const hasPointer = time - lastPointer < 2400;
+
+    if (hasPointer) {
+      focusStrength += (1 - focusStrength) * Math.min(1, delta / 220);
+    } else {
+      /* No cursor: drift between clusters and breathe, well under the
+         intensity a deliberate hover produces. */
+      if (time - ambientSince > AMBIENT_DWELL) {
+        pickAmbientTarget(time);
+      }
+
+      const span = Math.min(1, (time - ambientSince) / AMBIENT_DWELL);
+      const eased = span < 0.5 ? 2 * span * span : 1 - (-2 * span + 2) ** 2 / 2;
+
+      focusX = ambientFromX + (ambientToX - ambientFromX) * eased;
+      focusY = ambientFromY + (ambientToY - ambientFromY) * eased;
+
+      const breathe = Math.sin(span * Math.PI);
+
+      focusStrength += (breathe * 0.62 - focusStrength) * Math.min(1, delta / 420);
+    }
+
+    const reach = REACH();
+
+    for (const point of points) {
+      const distance = Math.hypot(point.x - focusX, point.y - focusY);
+      const near = distance >= reach ? 0 : 1 - distance / reach;
+      /* Squared falloff keeps the lit area tight and the edge soft. */
+      const target = near * near * (0.55 + point.offset * 0.45) * focusStrength;
+
+      /* Rises quickly under the cursor, fades slowly behind it. The decay is
+         the part that makes the map feel alive rather than switched. */
+      const rate = target > point.glow ? delta / 150 : delta / 900;
+
+      point.glow += (target - point.glow) * Math.min(1, rate);
+    }
+  };
 
   const render = (time: number) => {
     const delta = previous ? Math.min(64, time - previous) : 16;
 
     previous = time;
 
-    for (const drop of drops) {
-      /* Water speeds up as the channel deepens. */
-      const accelerate = 1 + (drop.distance / drop.length) * 0.7;
+    advance(time, delta);
+    paintFrame();
 
-      drop.distance += (drop.speed * accelerate * delta) / 1000;
-
-      if (drop.distance > drop.length) {
-        /* Past the delta, and back to a headwater. */
-        drop.distance = 0;
-      }
-    }
-
-    paintLight(time);
     frame = window.requestAnimationFrame(render);
   };
 
-  /** One composed still: the drops spread down the basin, nothing moving. */
+  /** One composed still: a quiet resting field, nothing moving. */
   const renderStatic = () => {
-    for (let i = 0; i < drops.length; i += 1) {
-      drops[i].distance = drops[i].length * (0.25 + ((i * 0.37) % 1) * 0.6);
+    for (const point of points) {
+      point.glow = 0.1 + point.offset * 0.12;
     }
 
-    paintLight(0);
+    focusStrength = 0;
+    paintFrame();
   };
 
   const onPointerMove = (event: PointerEvent) => {
+    /* Touch drags should not drive the cursor treatment; a phone gets the
+       ambient behaviour instead. */
+    if (event.pointerType !== "mouse") {
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
 
-    pointerX = event.clientX - rect.left;
-    pointerY = event.clientY - rect.top;
+    focusX = event.clientX - rect.left;
+    focusY = event.clientY - rect.top;
     lastPointer = performance.now();
   };
 
