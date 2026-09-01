@@ -4,7 +4,7 @@
  * The point of this script is that the review cannot lie. Rather than
  * reimplementing the Welcome screen and the application in a mockup, it drives
  * the real production build, lifts the real rendered DOM off each screen, and
- * ships it alongside the real stylesheet and the real watershed engine
+ * ships it alongside the real stylesheet and the real hero engine
  * compiled from the same TypeScript the site runs. What a reviewer looks at is
  * the shipping markup, the shipping CSS and the shipping animation.
  *
@@ -223,12 +223,12 @@ async function captureScreens() {
 /* ------------------------------------------------------------- the engine */
 
 /**
- * Compiles the shipping watershed engine to plain script.
+ * Compiles the shipping hero engine to plain script.
  *
  * The two modules are emitted by the project's own TypeScript, then their
  * import and export keywords are removed so they concatenate into one classic
- * script. No reimplementation: the animation on the review page is the
- * animation on the site.
+ * script. No reimplementation: the interaction on the review page is the
+ * interaction on the site.
  */
 function buildEngine() {
   const dir = mkdtempSync(path.join(tmpdir(), "usa191-"));
@@ -237,8 +237,8 @@ function buildEngine() {
     "npx",
     [
       "tsc",
-      "app/join/watershed-data.ts",
-      "app/join/watershed-engine.ts",
+      "app/join/movement-geography.ts",
+      "app/join/movement-field-engine.ts",
       "--outDir",
       dir,
       "--target",
@@ -252,9 +252,9 @@ function buildEngine() {
     { stdio: "inherit" },
   );
 
-  const data = readFileSync(path.join(dir, "watershed-data.js"), "utf8")
+  const data = readFileSync(path.join(dir, "movement-geography.js"), "utf8")
     .replace(/^export /gm, "");
-  const engine = readFileSync(path.join(dir, "watershed-engine.js"), "utf8")
+  const engine = readFileSync(path.join(dir, "movement-field-engine.js"), "utf8")
     .replace(/^import[^;]+;\s*$/gm, "")
     .replace(/^export /gm, "");
 
@@ -267,7 +267,7 @@ console.log("Capturing the shipping screens\n");
 
 const screens = await captureScreens();
 
-console.log("\nCompiling the shipping watershed engine\n");
+console.log("\nCompiling the shipping hero engine\n");
 
 const engine = buildEngine();
 
@@ -281,7 +281,7 @@ const css = readFileSync("app/join/join-experience.css", "utf8").replace(
 );
 
 const SCREENS = [
-  { key: "welcome", label: "Welcome", live: true, note: "The opening. The watershed is live: light travels from the headwaters down to the Gulf, and the pointer wakes whatever is near it." },
+  { key: "welcome", label: "Welcome", live: true, note: "The opening. The field is live: move a cursor across the country and the points nearby come alive, then fade slowly behind it. On a phone small areas light gently on their own." },
   { key: "identity", label: "About you", note: "Step 1. The couple model is the checkbox; ticking it adds a second person in their own right." },
   { key: "story", label: "A narrative question", note: "Typeform pacing. One question owns the screen, set as the heading, with room to write and no second label over the box." },
   { key: "supportPath", label: "The branch", note: "Nothing advances until this is answered. Number keys 1, 2 and 3 answer it from the keyboard." },
@@ -475,7 +475,7 @@ const page = `<title>USA-191 Join Review</title>
     <h1>USA-191 &middot; Join experience</h1>
     <p class="lede">
       Not a mockup. Every screen here is the rendered markup lifted straight off the production build and
-      styled by the shipping stylesheet, and the Welcome screen runs the shipping watershed engine compiled
+      styled by the shipping stylesheet, and the Welcome screen runs the shipping hero engine compiled
       from the same TypeScript the site uses. Each screen renders in a frame at a true device width, so what
       you see is what responds at that size. <b>The Welcome map is live</b> &mdash; watch the light travel
       down the tributaries into the Mississippi, and move your pointer across it. The application screens are
@@ -550,7 +550,7 @@ const page = `<title>USA-191 Join Review</title>
 
     const live = screen.live
       ? "<scr" + "ipt>" + DATA.engine +
-        "\\nconst c = document.querySelector('canvas.join-map'); if (c) startWatershed(c);</scr" + "ipt>"
+        "\\nconst c = document.querySelector('canvas.join-map'); if (c) startMovementField(c);</scr" + "ipt>"
       : "";
 
     frame.srcdoc =
