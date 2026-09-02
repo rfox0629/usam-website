@@ -139,6 +139,7 @@ export type DosAppWorkspace = {
   stateName?: string | null;
   userEmail?: string | null;
   userFullName?: string | null;
+  userPersonId?: string | null;
   userPhone?: string | null;
 };
 
@@ -431,6 +432,10 @@ export type DosAppGroupMember = {
   id: string;
   joinedAt: string | null;
   memberAccess?: {
+    /** True when the scoped identity is linked to a full DOS auth account. */
+    authLinked: boolean;
+    /** Latest invitation link state — metadata only, never the token itself. */
+    invitation: "active" | "expired" | "none" | "revoked" | "used";
     status: "invited" | "not_invited" | "revoked" | "verified";
     verifiedAt: string | null;
     verifiedEmail: string | null;
@@ -1268,6 +1273,7 @@ type GroupMemberRow = {
 };
 
 type GroupMemberIdentityRow = {
+  auth_user_id?: string | null;
   group_id: string;
   group_member_id: string;
   id: string;
@@ -1276,6 +1282,18 @@ type GroupMemberIdentityRow = {
   verified_at: string | null;
   verified_email: string | null;
   verified_phone: string | null;
+};
+
+/**
+ * USA-170: invitation *state* for the leader UI — status and expiry only.
+ * `token_hash` is never selected; leaders see whether a link is live, expired,
+ * used, or revoked without any access to the credential itself.
+ */
+type GroupMemberAccessTokenStateRow = {
+  created_at: string | null;
+  expires_at: string | null;
+  member_identity_id: string;
+  status: string | null;
 };
 
 type GroupGatheringRow = {
@@ -1320,6 +1338,7 @@ type GroupResourceRow = {
 };
 
 type GroupLoadRows = {
+  accessTokenStates: GroupMemberAccessTokenStateRow[];
   attendance: GroupAttendanceRow[];
   gatherings: GroupGatheringRow[];
   groups: GroupRow[];
@@ -2226,7 +2245,32 @@ function mapGroupMemberStatus(value: string | null | undefined): DosAppGroupMemb
   return "active";
 }
 
-function groupMemberAccessSummary(identity: GroupMemberIdentityRow | undefined): DosAppGroupMember["memberAccess"] {
+function groupMemberInvitationState(latestToken: GroupMemberAccessTokenStateRow | undefined): NonNullable<DosAppGroupMember["memberAccess"]>["invitation"] {
+  if (!latestToken) {
+    return "none";
+  }
+
+  if (latestToken.status === "used") {
+    return "used";
+  }
+
+  if (latestToken.status === "revoked") {
+    return "revoked";
+  }
+
+  if (latestToken.status !== "active") {
+    return "none";
+  }
+
+  const expiresAt = latestToken.expires_at ? new Date(latestToken.expires_at).getTime() : Number.NaN;
+
+  return Number.isNaN(expiresAt) || expiresAt <= Date.now() ? "expired" : "active";
+}
+
+function groupMemberAccessSummary(
+  identity: GroupMemberIdentityRow | undefined,
+  latestToken?: GroupMemberAccessTokenStateRow,
+): DosAppGroupMember["memberAccess"] {
   if (!identity) {
     return null;
   }
@@ -2240,6 +2284,8 @@ function groupMemberAccessSummary(identity: GroupMemberIdentityRow | undefined):
         : "not_invited";
 
   return {
+    authLinked: Boolean(identity.auth_user_id),
+    invitation: groupMemberInvitationState(latestToken),
     status,
     verifiedAt: identity.verified_at,
     verifiedEmail: identity.verified_email,
@@ -3462,6 +3508,7 @@ async function loadPrayerRequestsForWorkspace(supabase: SupabaseAdminClient, wor
 
 async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string): Promise<{ data: GroupLoadRows; error: SupabaseQueryError }> {
   const emptyRows: GroupLoadRows = {
+    accessTokenStates: [],
     attendance: [],
     gatherings: [],
     groups: [],
@@ -3512,7 +3559,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
   const v2MemberSelect = `${baseMemberSelect}, permissions, title`;
   const baseGatheringSelect = "id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id";
   const v2GatheringSelect = `${baseGatheringSelect}, acting_leader_person_id, shared_notes, shared_prayer_summary, shared_follow_up, fruit_summary, ministry_event_id, started_at, completed_at`;
-  const [v2MembersResult, v2GatheringsResult, resourcesResult, identitiesResult] = await Promise.all([
+  const [v2MembersResult, v2GatheringsResult, resourcesResult, identitiesResult, accessTokenStatesResult] = await Promise.all([
     supabase
       .from("dos_group_members")
       .select(v2MemberSelect)
@@ -3532,8 +3579,13 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       .order("title", { ascending: true }),
     supabase
       .from("dos_group_member_identities")
-      .select("id, group_id, group_member_id, person_id, verified_email, verified_phone, status, verified_at")
+      .select("id, group_id, group_member_id, person_id, auth_user_id, verified_email, verified_phone, status, verified_at")
       .in("group_id", groupIds),
+    supabase
+      .from("dos_group_member_access_tokens")
+      .select("member_identity_id, status, expires_at, created_at")
+      .in("group_id", groupIds)
+      .order("created_at", { ascending: false }),
   ]);
   const [membersResult, gatheringsResult] = await Promise.all([
     v2MembersResult.error && isMissingColumnError(v2MembersResult.error)
@@ -3563,6 +3615,11 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
   const groupIdentitiesResult = identitiesResult.error && isMissingWorkflowTable(identitiesResult.error, "dos_group_member_identities")
     ? { data: [] as GroupMemberIdentityRow[], error: null }
     : identitiesResult;
+  // Invitation state is additive leader context: a missing/unreadable token
+  // table degrades to "no invitation info", never to a failed payload.
+  const accessTokenStateRows = accessTokenStatesResult.error
+    ? []
+    : (accessTokenStatesResult.data ?? []) as GroupMemberAccessTokenStateRow[];
 
   const relatedError = [
     membersResult.error,
@@ -3602,6 +3659,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
 
   return {
     data: {
+      accessTokenStates: accessTokenStateRows,
       attendance: (attendanceResult.data ?? []) as GroupAttendanceRow[],
       gatherings: gatheringRows,
       groups: groupRows,
@@ -4211,13 +4269,17 @@ export async function loadDosAppData(
     };
   }
 
+  let viewerPersonId: string | null = null;
+
   if (viewer) {
     const identityResult = await resolveDosIdentityForWorkspace(supabase, viewer, {
       workspaceDisplayName: workspace.display_name,
       workspaceId: workspace.id,
     });
 
-    if (identityResult.status === "ambiguous") {
+    if (identityResult.status === "linked") {
+      viewerPersonId = identityResult.identity.person_id;
+    } else if (identityResult.status === "ambiguous") {
       console.warn("DOS identity verification is ambiguous for this workspace.", {
         candidateCount: identityResult.candidates.length,
         workspaceId: workspace.id,
@@ -4317,6 +4379,7 @@ export async function loadDosAppData(
   const groupRows = groupsResult.data.groups;
   const groupMemberRows = groupsResult.data.members;
   const groupIdentityRows = groupsResult.data.identities;
+  const groupAccessTokenStateRows = groupsResult.data.accessTokenStates;
   const groupGatheringRows = groupsResult.data.gatherings;
   const groupAttendanceRows = groupsResult.data.attendance;
   const groupResourceRows = groupsResult.data.resources;
@@ -4594,6 +4657,15 @@ export async function loadDosAppData(
     groupIdentitiesByMemberId.set(identity.group_member_id, identity);
   });
 
+  // Rows arrive newest-first, so first write per identity wins = latest token.
+  const latestAccessTokenByIdentityId = new Map<string, GroupMemberAccessTokenStateRow>();
+
+  groupAccessTokenStateRows.forEach((tokenState) => {
+    if (!latestAccessTokenByIdentityId.has(tokenState.member_identity_id)) {
+      latestAccessTokenByIdentityId.set(tokenState.member_identity_id, tokenState);
+    }
+  });
+
   groupGatheringRows.forEach((gathering) => {
     const rows = groupGatheringsByGroupId.get(gathering.group_id) ?? [];
 
@@ -4630,7 +4702,10 @@ export async function loadDosAppData(
     const members = (groupMembersByGroupId.get(group.id) ?? []).map((member) => ({
       id: member.id,
       joinedAt: member.joined_at,
-      memberAccess: groupMemberAccessSummary(groupIdentitiesByMemberId.get(member.id)),
+      memberAccess: groupMemberAccessSummary(
+        groupIdentitiesByMemberId.get(member.id),
+        latestAccessTokenByIdentityId.get(groupIdentitiesByMemberId.get(member.id)?.id ?? ""),
+      ),
       notes: member.notes,
       permissions: member.permissions ?? {},
       personId: member.person_id,
@@ -5233,8 +5308,9 @@ export async function loadDosAppData(
         showPrayerTeamCount: workspace.show_prayer_team_count !== false,
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
-        userEmail: null,
+        userEmail: viewer?.access === "member" ? viewer.email : null,
         userFullName: null,
+        userPersonId: viewerPersonId,
         userPhone: null,
       },
     },

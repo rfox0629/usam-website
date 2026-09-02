@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { UpdatePasswordForm } from "./UpdatePasswordForm";
 
 export const metadata: Metadata = {
-  title: "Update Password | USA Missionaries",
+  title: "Update Password",
   robots: {
     follow: false,
     index: false,

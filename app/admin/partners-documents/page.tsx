@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     follow: false,
     index: false,
   },
-  title: "Partner Documents | Command Center",
+  title: "Partner Documents",
 };
 
 export default async function PartnersDocumentsPage() {
@@ -21,7 +21,9 @@ export default async function PartnersDocumentsPage() {
     return null;
   }
 
-  const documents = await listPartnersDocuments();
+  // Admin manages the whole legacy library, including documents held back
+  // from the shared-passphrase partner surface.
+  const documents = await listPartnersDocuments({ includeHidden: true });
 
   return (
     <AdminShell

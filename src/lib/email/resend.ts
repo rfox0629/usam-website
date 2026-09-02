@@ -16,6 +16,17 @@ type EmailResult = {
   skippedReason?: string;
 };
 
+type EmailSendOptions = {
+  /** Resend retains idempotency keys for 24 hours and returns the original send. */
+  idempotencyKey?: string;
+};
+
+type JoinResumeEmailInput = {
+  applicantName: string;
+  /** Built by buildResumeUrl in src/lib/join/drafts.ts. Never assembled here. */
+  resumeUrl: string;
+};
+
 type JoinApplicationEmailInput = {
   adminUrl?: string;
   adminNote?: string;
@@ -73,7 +84,11 @@ function emailShell(title: string, body: string) {
   `;
 }
 
-async function sendResendEmail(to: string, template: EmailTemplate): Promise<EmailResult> {
+async function sendResendEmail(
+  to: string,
+  template: EmailTemplate,
+  options: EmailSendOptions = {},
+): Promise<EmailResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
 
   if (!resendApiKey) {
@@ -86,6 +101,15 @@ async function sendResendEmail(to: string, template: EmailTemplate): Promise<Ema
   }
 
   try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    };
+
+    if (options.idempotencyKey) {
+      headers["Idempotency-Key"] = options.idempotencyKey;
+    }
+
     const response = await fetch("https://api.resend.com/emails", {
       body: JSON.stringify({
         from: configuredFromEmail(),
@@ -94,10 +118,7 @@ async function sendResendEmail(to: string, template: EmailTemplate): Promise<Ema
         text: template.text,
         to,
       }),
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       method: "POST",
     });
 
@@ -154,6 +175,45 @@ export function buildApplicantApplicationSubmittedEmail(input: JoinApplicationEm
       `Submitted: ${submittedAt}`,
       "",
       "Your account will be activated after your application is reviewed. We will follow up if we need anything else.",
+    ].join("\n"),
+  };
+}
+
+/**
+ * USA-167 save/resume email.
+ *
+ * The link is the applicant's only way back into a part-finished application
+ * from another device, so the URL is not assembled here. It comes from
+ * buildResumeUrl in src/lib/join/drafts.ts, the single builder the release gate
+ * asserts against. The Aug 21 and Aug 23 failures were a resume link that
+ * resolved to the DOS setup screen, and one builder is how that stops being
+ * possible.
+ *
+ * Copy note: no em dashes, per founder direction, enforced by
+ * scripts/join-email-em-dash-regression.mjs.
+ */
+export function buildApplicationResumeEmail(input: JoinResumeEmailInput): EmailTemplate {
+  const greetingName = input.applicantName || "there";
+  const body = emailShell("Pick up where you left off", `
+    <p style="margin:0 0 16px;">Hi ${escapeHtml(greetingName)},</p>
+    <p style="margin:0 0 16px;">Your USA Missionaries application is saved. Nothing has been submitted yet, and you can come back to it whenever you have time.</p>
+    <p style="margin:22px 0;"><a href="${escapeHtml(input.resumeUrl)}" style="display:inline-block;border-radius:999px;background:#2563eb;color:#ffffff;font-weight:800;padding:12px 18px;text-decoration:none;">Continue your application</a></p>
+    <p style="margin:0 0 16px;color:#475569;">If the button does not work, paste this address into your browser:</p>
+    <p style="margin:0 0 16px;word-break:break-all;color:#475569;">${escapeHtml(input.resumeUrl)}</p>
+    <p style="margin:0;color:#475569;">This link is personal to your application, so please do not forward it. It stops working once you submit.</p>
+  `);
+
+  return {
+    html: body,
+    subject: "Your USA Missionaries application is saved",
+    text: [
+      `Hi ${greetingName},`,
+      "",
+      "Your USA Missionaries application is saved. Nothing has been submitted yet, and you can come back to it whenever you have time.",
+      "",
+      `Continue your application: ${input.resumeUrl}`,
+      "",
+      "This link is personal to your application, so please do not forward it. It stops working once you submit.",
     ].join("\n"),
   };
 }
@@ -252,6 +312,14 @@ export function buildApplicationDeclinedEmail(input: JoinApplicationEmailInput):
       "Ryan or the USA Missionaries team will follow up personally if there are additional next steps.",
     ].filter(Boolean).join("\n"),
   };
+}
+
+export async function sendApplicationResumeEmail(
+  to: string,
+  input: JoinResumeEmailInput,
+  options: EmailSendOptions = {},
+) {
+  return sendResendEmail(to, buildApplicationResumeEmail(input), options);
 }
 
 export async function sendApplicantApplicationSubmittedEmail(input: JoinApplicationEmailInput) {

@@ -6,7 +6,7 @@ import { DosMobileMessageScreen } from "./DosMobileMessageScreen";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOS App | USA Missionaries",
+  title: "Home",
   robots: {
     follow: false,
     index: false,

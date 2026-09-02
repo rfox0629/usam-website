@@ -49,10 +49,22 @@ assert(
   "Log Meeting form must keep one canonical Meeting Notes field.",
 );
 
+/* USA-168 retired the free-text "What did you agree to?" field. The concept
+   split into two canonical records instead: Accountability is what the person
+   agreed to do, Reminder is what the DOS user must remember. Both are captured
+   inline in Log Meeting, so the Person page is populated by real records rather
+   than one overloaded sentence. An existing next_step still rides along in a
+   hidden field so re-saving a historical meeting cannot erase it. */
 assert(
-  leaderReflectionSectionBlock.includes("label=\"What did you agree to?\"")
-    && leaderReflectionSectionBlock.includes("name=\"next_step\""),
-  "Log Meeting must capture the agreed next step, which populates the Person page.",
+  !leaderReflectionSectionBlock.includes("label=\"What did you agree to?\"")
+    && leaderReflectionSectionBlock.includes('{nextStepDefault ? <input name="next_step" type="hidden" value={nextStepDefault} /> : null}'),
+  "The agreed-next-step field must be retired without dropping an existing record's value.",
+);
+
+assert(
+  leaderReflectionSectionBlock.includes("<AccountabilityFields")
+    && leaderReflectionSectionBlock.includes('name="follow_up_note"'),
+  "Log Meeting must capture what they agreed to as Accountability and what the user must remember as a Reminder.",
 );
 
 // Guard the write path: the agreed step has to reach the reflection record even

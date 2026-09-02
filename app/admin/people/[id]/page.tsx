@@ -10,7 +10,7 @@ import type { OrganizationPersonDetail } from "@/src/lib/admin/organization-shar
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Person | National Command Center",
+  title: "Person",
 };
 
 const peopleHref = "/admin/organizations/usa-missionaries?tab=members";

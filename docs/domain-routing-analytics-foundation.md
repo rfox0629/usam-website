@@ -177,7 +177,7 @@ TheLords.Army:
 - `movement_interest_click`
 - `interest_form_submit`
 
-Future MOR:
+Future Mission of Reconciliation:
 
 - `request_prayer_ministry_click`
 - `request_appointment_submit`
@@ -221,7 +221,7 @@ Clarity is excluded from:
 - `/update-password`
 - `/system/preview`
 
-Keep future confidential MOR prayer ministry routes on this exclusion list.
+Keep future confidential Mission of Reconciliation prayer ministry routes on this exclusion list.
 
 ## Metadata, Robots, and Sitemap
 

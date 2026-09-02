@@ -40,11 +40,38 @@ jobs:
       - name: /join provisioner contract (USA-110)
         run: npm run test:join-contract
 
+      - name: Restoration preparation summary (USA-187)
+        run: npm run test:preparation
+
+      # No em dashes in applicant-facing join email copy (USA-167 founder
+      # direction).
+      - name: Join email copy (USA-167)
+        run: npm run test:join-email-em-dash
+
       - name: Build
         run: npm run build
 
-      - name: Install Chromium
+      # Phase B boots the production build and probes the served bytes, so this
+      # has to run after Build. It is the gate that would have caught the resume
+      # link landing on the DOS setup screen.
+      - name: /join application and resume routing (USA-167)
+        run: npm run test:join-v2-release
+
+      # `--with-deps` runs apt-get, and the runner's Azure apt mirror has twice
+      # stalled silently for ~18 minutes until the job timeout killed the run
+      # (PR #57 and PR #62, before any test executed). Cap the apt path and
+      # fall back to installing just the browser binaries — the GitHub runner
+      # image already carries Chromium's system libraries, and the Playwright
+      # CDN download has never been the part that stalled.
+      - name: Install Chromium (with system deps)
+        id: chromium-with-deps
+        continue-on-error: true
+        timeout-minutes: 6
         run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium (fallback without apt)
+        if: steps.chromium-with-deps.outcome != 'success'
+        run: npx playwright install chromium
 
       - name: Smoke test
         run: npm run smoke

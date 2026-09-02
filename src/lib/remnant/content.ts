@@ -3,12 +3,12 @@
  *
  * This is the ONE place a video is added or edited. Both the public USA
  * Missionaries `/remnant` page and the DOS Library "Remnant" collection
- * import from this file — never copy a record into either surface.
+ * import from this file. Never copy a record into either surface.
  *
  * How to add the next video:
  *   1. Add one object to `remnantVideos` below with a unique `id`/`slug`.
  *   2. Fill every required field. Do not invent `title`, `speaker`,
- *      `ministry`, dates, or quotes — confirm them directly from YouTube
+ *      `ministry`, dates, or quotes. Confirm them directly from YouTube
  *      (oEmbed and/or an embed check) before publishing.
  *   3. Set `status: "published"` when ready. Both surfaces pick it up
  *      automatically; no other file needs to change.
@@ -71,7 +71,7 @@ const remnantVideos: readonly RemnantVideo[] = [
     tags: ["Obedience", "Discipleship", "Surrender"],
     thumbnailUrl: youtubeThumbnailUrl("PLirnAQ-40M"),
     title: "The Most Dangerous Kind of Christian",
-    whyWeRecommendIt: "We recommend this message because it calls listeners beyond passive Christian belief into surrender, obedience, and a wholeheartedly lived discipleship — central convictions behind USA Missionaries' work.",
+    whyWeRecommendIt: "We recommend this message because it calls listeners beyond passive Christian belief into surrender, obedience, and a wholeheartedly lived discipleship. Those are central convictions behind USA Missionaries' work.",
     youtubeId: "PLirnAQ-40M",
     youtubeUrl: "https://www.youtube.com/watch?v=PLirnAQ-40M",
   },
@@ -92,6 +92,24 @@ const remnantVideos: readonly RemnantVideo[] = [
     whyWeRecommendIt: "We recommend this message because it calls ordinary believers toward bold evangelism and active participation in God's mission, not just spectating it.",
     youtubeId: "ae0RJpCGt4I",
     youtubeUrl: "https://www.youtube.com/watch?v=ae0RJpCGt4I",
+  },
+  {
+    category: "Consecration & Mission",
+    description: "A call to consecrated, apostolic living that fixes on the worth of Jesus and His glory among all nations.",
+    featured: false,
+    id: "dick-brogden-apostolic-nasty",
+    order: 3,
+    slug: "dick-brogden-apostolic-nasty",
+    speaker: "Dick Brogden",
+    ministry: "River Valley Church",
+    startTimeSeconds: 140,
+    status: "published",
+    tags: ["Consecration", "Mission", "The Nations"],
+    thumbnailUrl: youtubeThumbnailUrl("cq6rx5VUWLE"),
+    title: "Apostolic Nasty - Dick Brogden",
+    whyWeRecommendIt: "We recommend this message because it presses past comfortable faith into consecrated, apostolic living: a life fixed on the worth of Jesus and His glory among the nations.",
+    youtubeId: "cq6rx5VUWLE",
+    youtubeUrl: "https://www.youtube.com/watch?v=cq6rx5VUWLE",
   },
 ] as const;
 

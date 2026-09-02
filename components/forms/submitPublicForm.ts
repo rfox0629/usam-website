@@ -2,6 +2,7 @@ type FormSubmissionType =
   | "dos_walkthrough_request"
   | "financial_freedom"
   | "field_report_access"
+  | "restoration"
   | "join_mission_interest"
   | "major_gift"
   | "missionary_profile_review"

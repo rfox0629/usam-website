@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { domainSites } from "@/src/lib/domain-sites";
 import { MissionaryProfileTemplate } from "@/src/components/missionaries/MissionaryProfileTemplate";
 import { getMissionaryProfileBySlug, getMissionaryStaticParams } from "@/src/lib/missionaries/queries";
 
@@ -12,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   if (!missionary) {
     return {
-      title: "Missionary Profile | USA Missionaries",
+      title: "Missionary Profile",
     };
   }
 
@@ -20,10 +22,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     alternates: {
       canonical: `/missionaries/${missionary.slug}`,
     },
-    title: `${missionary.name} | USA Missionaries`,
+    title: missionary.name,
     description: `${missionary.role} profile for USA Missionaries.`,
     openGraph: {
       description: `${missionary.role} profile for USA Missionaries.`,
+      images: missionary.heroImage
+        ? [{ alt: `${missionary.name}, USA Missionaries`, url: missionary.heroImage }]
+        : [buildDomainSiteSocialImage(domainSites.usam)],
+      siteName: domainSites.usam.siteName,
       title: `${missionary.name} | USA Missionaries`,
       type: "profile",
       url: `/missionaries/${missionary.slug}`,

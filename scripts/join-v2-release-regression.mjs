@@ -1,0 +1,454 @@
+#!/usr/bin/env node
+/**
+ * USA-167 release gate for the /join application and its resume links.
+ *
+ * WHY THIS EXISTS
+ * On Aug 21 and again on Aug 23 the founder tapped "Continue your application"
+ * in a real resume email on a real phone and landed on the legacy DOS setup
+ * screen: "Discipleship on the go" / Meet / Minister / Multiply / Start Setup.
+ * A harness had reported 27/27 green for the same flow.
+ *
+ * The harness was green because it constructed resume URLs itself and checked
+ * that a second browser could follow one. It never looked at the page the link
+ * actually served. So this gate inspects the served bytes, and takes the resume
+ * URL from the code that really sends it rather than rebuilding the URL.
+ *
+ * Traced against production (deployment dpl_9xKjF8PSuX3U2gZmu7bp2YhBWGZR,
+ * commit 3233670, current head of main), GET /join?resume=<token> returns:
+ *
+ *   HTTP 200, no redirect, x-matched-path: /join
+ *   <title>Join DOS</title>, og:title "DOS | Discipleship Operating System"
+ *   <h1>Discipleship on the go.</h1>, Meet / Minister / Multiply, Start Setup
+ *   x-nextjs-prerender: 1, x-vercel-cache: PRERENDER
+ *
+ * There is no redirect and no middleware rule for /join. The destination
+ * itself is the DOS setup screen, and because the page is statically
+ * prerendered the ?resume= token never reaches the server at all.
+ *
+ * The V2 application that was reported as built turned out not to exist in this
+ * repository, on any branch or in any unreachable object, so it was rebuilt from
+ * the locked Linear specification. This gate is what proves the rebuild holds:
+ * every check below was failing before it, and each failure message still names
+ * the specific piece of the contract it guards.
+ *
+ *   node scripts/join-v2-release-regression.mjs
+ *
+ * Phase A is static and always runs. Phase B boots the production build and
+ * probes with real Host headers, the same approach as
+ * mission-domain-routing-regression.mjs; it is skipped with a notice when
+ * there is no build, so the static contract stays runnable without one.
+ */
+import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { request as httpRequest } from "node:http";
+import path from "node:path";
+
+const host = "127.0.0.1";
+const port = Number(process.env.JOIN_RELEASE_PORT || 4199);
+const CANONICAL_HOST = "usamissionaries.org";
+
+const failures = [];
+const check = (ok, message, detail) => {
+  console.log(`${ok ? "  ok  " : "  FAIL"}  ${message}`);
+  if (!ok) {
+    failures.push(message);
+    if (detail) console.log(`          ${detail}`);
+  }
+};
+
+const read = (relativePath) => {
+  const absolutePath = path.join(process.cwd(), relativePath);
+
+  return existsSync(absolutePath) ? readFileSync(absolutePath, "utf8") : null;
+};
+
+/**
+ * Strips comments so the identity checks below read code rather than prose.
+ *
+ * Without this the gate fails on a file that merely *explains* the defect: a
+ * comment saying "the old route spread dosAppMetadata" is not the route
+ * spreading dosAppMetadata. The `:` guard keeps protocol-relative and absolute
+ * URLs (https://...) from being mistaken for a line comment.
+ */
+const stripComments = (source) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/**
+ * Markers unique to the legacy DOS setup experience. If any of these reach an
+ * applicant at /join, the USA-167 separation has been violated.
+ */
+const dosMarkers = [
+  "Discipleship on the go",
+  "Start Setup",
+  "Join DOS",
+  "Set up DOS",
+  "favicons/dos",
+  "Discipleship Operating System",
+];
+
+console.log("USA-167 /join release gate\n");
+console.log("Phase A: static contract\n");
+
+// ---------------------------------------------------------------------------
+// A1. The /join route must not declare DOS identity.
+// ---------------------------------------------------------------------------
+const joinPage = read(path.join("app", "join", "page.tsx"));
+
+if (joinPage === null) {
+  check(false, "app/join/page.tsx exists");
+} else {
+  const joinPageCode = stripComments(joinPage);
+  const declaredDos = dosMarkers.filter((marker) => joinPageCode.includes(marker));
+
+  check(
+    declaredDos.length === 0,
+    "/join route metadata carries USA Missionaries identity, not DOS",
+    declaredDos.length > 0 ? `DOS markers in the route: ${declaredDos.join(", ")}` : undefined,
+  );
+
+  check(
+    !joinPageCode.includes("dosAppMetadata"),
+    "/join does not import DOS brand metadata",
+    "app/join/page.tsx spreads dosAppMetadata, so the tab, favicon and share card all say DOS",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// A2. Something must actually send a resume email carrying a resume URL.
+//     The Aug 23 evidence is a delivered email, so the template has to exist
+//     in the code that sends it, or the gate cannot read the real URL.
+// ---------------------------------------------------------------------------
+const emailModule = read(path.join("src", "lib", "email", "resend.ts"));
+
+if (emailModule === null) {
+  check(false, "src/lib/email/resend.ts exists");
+} else {
+  const hasResumeTemplate = /resume/i.test(emailModule);
+
+  check(
+    hasResumeTemplate,
+    "the join email module builds a save/resume email",
+    "No resume template exists. The five templates present are submitted, admin notification, "
+      + "approved, more-info and declined. The resume email the founder received on Aug 23 was "
+      + "not sent by this repository.",
+  );
+
+  if (hasResumeTemplate) {
+    // There must be exactly ONE builder for the resume URL. The Aug 21 and
+    // Aug 23 failures were a resume link that resolved somewhere other than the
+    // application, and the way that stops being possible is for every sender to
+    // call the same function rather than assemble a path of its own.
+    const draftsModule = read(path.join("src", "lib", "join", "drafts.ts"));
+
+    if (draftsModule === null) {
+      check(false, "src/lib/join/drafts.ts defines the canonical resume URL builder");
+    } else {
+      const draftsCode = stripComments(draftsModule);
+      const builderBody = draftsCode.slice(draftsCode.indexOf("function buildResumeUrl"));
+
+      check(
+        draftsCode.includes("function buildResumeUrl"),
+        "a single canonical buildResumeUrl exists",
+      );
+
+      check(
+        /\/join\?resume=/.test(builderBody),
+        "buildResumeUrl points at /join with a resume token",
+        "The canonical builder does not produce a /join?resume= URL.",
+      );
+
+      const builderLine = builderBody.split("\n").find((line) => line.includes("/join?resume=")) ?? "";
+
+      check(
+        !/\/dos\b/.test(builderLine) && !/setup/i.test(builderLine),
+        "the resume URL contains no DOS or setup path",
+        builderLine.trim(),
+      );
+
+      // The template must consume that URL rather than build its own.
+      const emailCode = stripComments(emailModule);
+      const templateBody = emailCode.slice(emailCode.indexOf("function buildApplicationResumeEmail"));
+
+      check(
+        templateBody.includes("resumeUrl"),
+        "the resume email uses the canonical URL rather than assembling a path",
+      );
+
+      check(
+        !/["'`]https?:\/\/[^"'`]*\/join/i.test(templateBody),
+        "the resume email hardcodes no /join URL of its own",
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A3. /join must read the resume token server-side. A statically prerendered
+//     page cannot, which is why the token is silently dropped in production.
+// ---------------------------------------------------------------------------
+const joinClient = read(path.join("app", "join", "UsamApplicationClient.tsx"));
+const previewGate = read(path.join("app", "join", "JoinPreviewGate.tsx"));
+
+if (joinPage !== null) {
+  const readsResume = /resume/i.test(joinPage) || (joinClient !== null && /resume/i.test(joinClient));
+
+  check(
+    readsResume,
+    "/join reads a resume token from the request",
+    "Nothing in the /join route or its client reads a resume parameter. The page only reads "
+      + "restart, reset, fresh and demo, client side, so ?resume=<token> is discarded.",
+  );
+
+  const declaresDynamic = /searchParams|export const dynamic|force-dynamic/.test(joinPage);
+
+  check(
+    declaresDynamic,
+    "/join is request-time rendered so the query string reaches the server",
+    "app/join/page.tsx takes no searchParams and sets no dynamic flag, so Next prerenders it "
+      + "(observed in production as x-nextjs-prerender: 1) and the token never arrives.",
+  );
+}
+
+check(
+  previewGate !== null
+    && previewGate.includes("router.refresh()")
+    && !/router\.(?:push|replace)\(["'`]\/join/.test(stripComments(previewGate)),
+  "founder gate authentication refreshes the original resume URL instead of replacing it",
+  "Replacing the route with /join discards ?resume=<token>; refresh preserves the current pathname and query.",
+);
+
+// ---------------------------------------------------------------------------
+// A4. A resume link is a cross-device return path, so the draft cannot live
+//     only in the browser that typed it.
+// ---------------------------------------------------------------------------
+if (joinClient !== null) {
+  const localStorageWrites = (joinClient.match(/localStorage\.setItem/g) || []).length;
+  const hasServerDraft = /\/api\/join\/(draft|resume)/.test(joinClient);
+
+  check(
+    hasServerDraft,
+    "the application draft is persisted server-side, not only in localStorage",
+    `The draft is written to localStorage in ${localStorageWrites} place(s) under the key `
+      + "dos-unified-setup-draft-v1 and to no server endpoint. Cross-device resume is impossible "
+      + "by construction, whatever the link says.",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// A5. Moving the wizard off /join must preserve DOS setup at /dos/setup, and
+//     every known setup entry must point to that canonical route.
+// ---------------------------------------------------------------------------
+const dosSetupPage = read(path.join("app", "dos", "setup", "page.tsx"));
+const dosOnboardingPage = read(path.join("app", "dos", "onboarding", "page.tsx"));
+const dosPortalClient = read(path.join("app", "dos", "DosPortalClient.tsx"));
+const dormantDosSetupClient = read(path.join("app", "dos", "setup", "DosSetupClient.tsx"));
+
+check(
+  dosSetupPage !== null
+    && dosSetupPage.includes("dosAppMetadata")
+    && dosSetupPage.includes("DosOnboardingClient"),
+  "/dos/setup preserves the DOS-branded setup wizard",
+);
+
+check(
+  dosOnboardingPage !== null && /redirect\(["']\/dos\/setup["']\)/.test(dosOnboardingPage),
+  "/dos/onboarding redirects to the canonical /dos/setup route",
+);
+
+check(
+  dosPortalClient !== null && /href=["']\/dos\/setup["']/.test(dosPortalClient),
+  "the DOS portal Start Setup action points to /dos/setup",
+);
+
+const staleSetupLinks = [dosPortalClient, dormantDosSetupClient]
+  .filter((source) => source !== null)
+  .filter((source) => /href=["']\/dos\/onboarding["']/.test(source));
+
+check(
+  staleSetupLinks.length === 0,
+  "known DOS setup links use /dos/setup, not the legacy onboarding path",
+);
+
+// ---------------------------------------------------------------------------
+// A6. Submission must reuse the USA-172 canonical application ingress without
+//     provisioning DOS or publishing applicant/profile material.
+// ---------------------------------------------------------------------------
+const joinSubmission = read(path.join("src", "lib", "join", "submit-application.ts"));
+const canonicalApplicationIngress = read(path.join("src", "lib", "dos", "usam-application.ts"));
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("submitUsamApplicationForSetup")
+    && canonicalApplicationIngress !== null
+    && canonicalApplicationIngress.includes('.from("usam_missionary_applications")'),
+  "submission reuses the USA-172 usam_missionary_applications ingress",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("relationship_to_workspace: \"owner\"")
+    && joinSubmission.includes("relationship_to_workspace: \"spouse\"")
+    && joinSubmission.includes("source: \"public_form\""),
+  "couple submission preserves distinct owner and spouse records from the public form",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("user_id: null")
+    && joinSubmission.includes("applicantUserId: null")
+    && !joinSubmission.includes("auth.admin.createUser"),
+  "pre-acceptance submission creates no login or DOS account",
+);
+
+check(
+  joinSubmission !== null
+    && joinSubmission.includes("public_visible: false")
+    && joinSubmission.includes('state: "draft_unpublished"')
+    && canonicalApplicationIngress !== null
+    && canonicalApplicationIngress.includes("show_support: false"),
+  "application and profile material remain private and unpublished",
+);
+
+// ---------------------------------------------------------------------------
+// Phase B: the bytes actually served at /join.
+// ---------------------------------------------------------------------------
+function probe(pathname, { hostname = CANONICAL_HOST } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { headers: { host: hostname }, hostname: host, method: "GET", path: pathname, port },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.on("end", () =>
+          resolve({
+            body,
+            header: (name) => res.headers[name.toLowerCase()] ?? null,
+            location: res.headers.location ?? null,
+            status: res.statusCode,
+          }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+async function waitForServer() {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      const response = await probe("/");
+      if (response.status > 0) return true;
+    } catch {
+      // still starting
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  return false;
+}
+
+async function runServedContract() {
+  console.log("\nPhase B: served /join contract\n");
+
+  if (!existsSync(path.join(process.cwd(), ".next"))) {
+    console.log("  skip  no .next build found. Run `npm run build` first to check the served page.");
+
+    return;
+  }
+
+  // stdio is ignored rather than piped. A piped child whose output nobody reads
+  // blocks forever once the pipe buffer fills, which is exactly what happened
+  // as the route count grew: the gate hung instead of failing.
+  const server = spawn("npx", ["next", "start", "--hostname", host, "--port", String(port)], {
+    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+    stdio: "ignore",
+  });
+
+  try {
+    if (!(await waitForServer())) {
+      check(false, `server started on ${host}:${port}`);
+
+      return;
+    }
+
+    const plain = await probe("/join");
+
+    check(plain.status === 200, `/join responds 200 (got ${plain.status})`);
+
+    const servedDosMarkers = dosMarkers.filter((marker) => plain.body.includes(marker));
+
+    check(
+      servedDosMarkers.length === 0,
+      "/join serves no DOS setup content",
+      servedDosMarkers.length > 0
+        ? `The applicant is shown: ${servedDosMarkers.join(", ")}. This is the exact screen from `
+          + "the founder's mobile screenshots."
+        : undefined,
+    );
+
+    check(
+      /Apply to Become a USA Missionary|USA Missionaries application|JOIN USA MISSIONARIES/i.test(plain.body),
+      "/join opens as a USA Missionaries application",
+      "The first screen must unmistakably say the applicant is applying to USA Missionaries.",
+    );
+
+    // The real click, not a constructed one: the token must reach the server.
+    const token = process.env.JOIN_RESUME_TEST_TOKEN || "usa-167-gate-token";
+    const resumed = await probe(`/join?resume=${encodeURIComponent(token)}`);
+
+    check(
+      resumed.header("x-nextjs-prerender") !== "1",
+      "/join?resume= is rendered at request time, not served from a prerender",
+      "x-nextjs-prerender: 1 means the token was never seen by the server, so no link can restore "
+        + "a draft on any device.",
+    );
+
+    check(
+      resumed.status === 200,
+      `/join?resume=<token> responds 200 (got ${resumed.status})`,
+    );
+
+    check(
+      resumed.location === null || !/\/dos/.test(resumed.location),
+      "/join?resume=<token> does not redirect into DOS",
+      resumed.location ? `redirected to ${resumed.location}` : undefined,
+    );
+
+    check(
+      resumed.body !== plain.body,
+      "/join?resume=<token> renders differently from /join with no token",
+      "Identical bytes mean the token changed nothing, so the link cannot be restoring a draft. "
+        + "An invalid or expired token must still produce its own explicit state.",
+    );
+
+    const dosSetup = await probe("/dos/setup");
+    const servedDosIdentity = dosMarkers.some((marker) => dosSetup.body.includes(marker));
+
+    check(dosSetup.status === 200, `/dos/setup responds 200 (got ${dosSetup.status})`);
+    check(
+      servedDosIdentity,
+      "/dos/setup still serves the DOS setup experience",
+      "The canonical DOS route must retain DOS branding and setup content after /join moves away.",
+    );
+  } finally {
+    server.kill("SIGTERM");
+  }
+}
+
+await runServedContract();
+
+console.log("");
+
+if (failures.length > 0) {
+  console.error(`${failures.length} check(s) failed.\n`);
+  console.error("USA-167 is not releasable and the resume link must not be sent to applicants.");
+  process.exit(1);
+}
+
+console.log("The /join application and its resume links satisfy the USA-167 contract.");

@@ -4,11 +4,15 @@ import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  createGroupMemberAccessInvitation,
+  claimDemoGroupMemberAccessToken,
+  claimGroupMemberAccessToken,
   groupMemberSessionCookieName,
+  loadDemoGroupMemberPortalData,
   loadMemberSessionIdentity,
   revokeGroupMemberSession,
 } from "@/src/lib/groups/member-access";
+import { notifyGroupAccessRecovery } from "@/src/lib/groups/notify-access-recovery";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import {
   missingPublicSiteSchema,
   publicGroupPath,
@@ -26,6 +30,25 @@ const memberNotificationTypes = [
   "prayer_update",
   "rsvp_reminder",
 ] as const;
+
+const memberSessionTtlSeconds = 60 * 60 * 24 * 30;
+const demoSessionTtlSeconds = 60 * 60 * 24 * 7;
+
+/**
+ * One place that writes the scoped member session cookie, so redemption paths
+ * cannot drift apart on httpOnly/sameSite/path.
+ */
+async function setMemberSessionCookie(sessionToken: string, maxAge: number) {
+  const cookieStore = await cookies();
+
+  cookieStore.set(groupMemberSessionCookieName, sessionToken, {
+    httpOnly: true,
+    maxAge,
+    path: "/groups",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+}
 
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -45,8 +68,21 @@ function redirectToSignIn(slug: string, state: string): never {
   redirect(`${publicGroupPath(slug)}/member?state=${state}`);
 }
 
-function redirectToJourney(slug: string, resourceSlug: string, state: string): never {
-  redirect(`${publicGroupPath(slug)}/journey?resource=${encodeURIComponent(resourceSlug)}&state=${state}`);
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function redirectToJourney(slug: string, resourceSlug: string, state: string, assignmentId = ""): never {
+  const params = new URLSearchParams({
+    resource: resourceSlug,
+    state,
+  });
+
+  if (assignmentId) {
+    params.set("assignment", assignmentId);
+  }
+
+  redirect(`${publicGroupPath(slug)}/journey?${params.toString()}`);
 }
 
 async function requireMemberPortal(slug: string) {
@@ -136,6 +172,7 @@ export async function submitMemberRsvp(formData: FormData) {
 
 export async function saveGroupMemberJourneyProgress(formData: FormData) {
   const slug = formString(formData, "slug");
+  const requestedAssignmentId = formString(formData, "assignmentId");
   const resourceSlug = formString(formData, "resourceSlug");
   const sessionId = formString(formData, "sessionId");
   const reflection = formString(formData, "reflection").slice(0, 6000);
@@ -144,7 +181,27 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
   const intent = formString(formData, "intent");
 
   if (!slug || !resourceSlug || !sessionId) {
-    redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error");
+    redirectToJourney(slug || "group", resourceSlug || "resource", "journey-error", requestedAssignmentId);
+  }
+
+  const cookieStore = await cookies();
+  const demoPortal = loadDemoGroupMemberPortalData({
+    sessionToken: cookieStore.get(groupMemberSessionCookieName)?.value ?? null,
+    slug,
+  });
+
+  if (demoPortal.data) {
+    const resource = getDosResourceBySlug(resourceSlug);
+    const sessionExists = resource?.content?.guidedResource?.sessions.some((session) => session.id === sessionId) === true;
+    const assignment = requestedAssignmentId
+      ? demoPortal.data.journeyAssignments.find((item) => item.id === requestedAssignmentId && item.resourceSlug === resourceSlug) ?? null
+      : demoPortal.data.journeyAssignments.find((item) => item.resourceSlug === resourceSlug) ?? null;
+
+    if (!assignment || !sessionExists) {
+      redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
+    }
+
+    redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved", assignment.id);
   }
 
   const portalResult = await requireMemberPortal(slug);
@@ -161,44 +218,57 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
     .maybeSingle();
 
   if (groupResult.error || !groupResult.data) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+    redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
   }
 
   const workspaceId = groupResult.data.workspace_id as string;
-  const [assignmentResult, existingResult] = await Promise.all([
-    supabase
-      .from("dos_resource_assignments")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .eq("person_id", session.personId)
-      .eq("resource_slug", resourceSlug)
-      .order("start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("dos_guided_resource_progress")
-      .select("id")
-      .eq("workspace_id", workspaceId)
-      .eq("person_id", session.personId)
-      .eq("resource_slug", resourceSlug)
-      .eq("session_id", sessionId)
-      .maybeSingle(),
-  ]);
+  let assignmentQuery = supabase
+    .from("dos_resource_assignments")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("person_id", session.personId)
+    .eq("resource_slug", resourceSlug)
+    .eq("assignment_context", "group")
+    .eq("source_group_id", session.groupId);
 
-  if (assignmentResult.error || existingResult.error) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+  if (requestedAssignmentId) {
+    if (!isUuid(requestedAssignmentId)) {
+      redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
+    }
+
+    assignmentQuery = assignmentQuery.eq("id", requestedAssignmentId);
   }
 
-  const assignmentId = assignmentResult.data?.id ?? null;
+  const assignmentResult = await assignmentQuery
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (assignmentResult.error || !assignmentResult.data) {
+    redirectToJourney(slug, resourceSlug, "journey-error", requestedAssignmentId);
+  }
+
+  const assignmentId = assignmentResult.data.id as string;
+  const existingResult = await supabase
+    .from("dos_guided_resource_progress")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("person_id", session.personId)
+    .eq("resource_slug", resourceSlug)
+    .eq("assignment_id", assignmentId)
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (existingResult.error) {
+    redirectToJourney(slug, resourceSlug, "journey-error", assignmentId);
+  }
+
   const patch: Record<string, unknown> = {
     action_step: actionStep || null,
+    assignment_id: assignmentId,
     prayer_focus: prayerFocus || null,
     reflection: reflection || null,
   };
-
-  if (assignmentId) {
-    patch.assignment_id = assignmentId;
-  }
 
   if (intent === "complete") {
     patch.completed_at = new Date().toISOString();
@@ -224,11 +294,11 @@ export async function saveGroupMemberJourneyProgress(formData: FormData) {
       });
 
   if (error) {
-    redirectToJourney(slug, resourceSlug, "journey-error");
+    redirectToJourney(slug, resourceSlug, "journey-error", assignmentId);
   }
 
   revalidatePath(`${publicGroupPath(slug)}/journey`);
-  redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved");
+  redirectToJourney(slug, resourceSlug, intent === "complete" ? "journey-completed" : "journey-saved", assignmentId);
 }
 
 export async function submitMemberPrayerRequest(formData: FormData) {
@@ -328,73 +398,139 @@ export async function updateMemberNotificationPreferences(formData: FormData) {
   redirectToMember(slug, "preferences-saved");
 }
 
+/**
+ * USA-170 — explicit, human-only redemption.
+ *
+ * Reached only by the POST on the invitation page. Everything that establishes
+ * a session lives here, so a GET or HEAD from an unfurler cannot reach it.
+ */
+export async function openGroupMemberAccess(formData: FormData) {
+  const slug = formString(formData, "slug");
+  const token = formString(formData, "token");
+
+  if (!token) {
+    redirectToSignIn(slug || "group", "access-invalid");
+  }
+
+  const demoResult = claimDemoGroupMemberAccessToken(token, slug);
+
+  if (demoResult.sessionToken) {
+    await setMemberSessionCookie(demoResult.sessionToken, demoSessionTtlSeconds);
+    redirect(`${publicGroupPath(demoResult.groupSlug ?? slug)}?state=signed-in`);
+  }
+
+  if (demoResult.error === "expired") {
+    redirectToSignIn(slug, "access-expired");
+  }
+
+  if (demoResult.error === "invalid") {
+    redirectToSignIn(slug, "access-invalid");
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    redirectToSignIn(slug, "access-unavailable");
+  }
+
+  const result = await claimGroupMemberAccessToken(createSupabaseAdminClient(), token);
+
+  if (!result.sessionToken) {
+    redirectToSignIn(slug, "access-expired");
+  }
+
+  await setMemberSessionCookie(result.sessionToken, memberSessionTtlSeconds);
+
+  // Redirect to the slug the token's Group actually carries, not the slug in
+  // the URL the participant arrived on. A public slug rename must not strand a
+  // link that was texted before the rename (USA-173 coordination).
+  redirect(`${publicGroupPath(result.groupSlug ?? slug)}?state=signed-in`);
+}
+
+/**
+ * USA-170 — leader-assisted recovery.
+ *
+ * This used to call `createGroupMemberAccessInvitation`, which revokes every
+ * active token for the identity before minting a new one — and then nothing
+ * delivered that new token anywhere. Production evidence: six tokens revoked
+ * with `consumed_at = null` while Tanner was locked out. Every time he pressed
+ * the button he destroyed the link Ryan had just texted him.
+ *
+ * So this mints nothing and revokes nothing. It notifies the leader, who
+ * already has a working "Copy Link" action, and reports honestly whether the
+ * request actually went anywhere.
+ */
 export async function requestGroupMemberAccess(formData: FormData) {
   const slug = formString(formData, "slug");
   const email = normalizeEmail(formString(formData, "email"));
 
-  if (!slug || !emailPattern.test(email)) {
-    redirectToSignIn(slug || "group", "access-requested");
-  }
-
-  if (!isSupabaseAdminConfigured()) {
-    redirectToSignIn(slug, "access-requested");
+  // One neutral outcome for "no match" and "matched", so this endpoint can
+  // never be used to test whether an address belongs to a member.
+  if (!slug || !emailPattern.test(email) || !isSupabaseAdminConfigured()) {
+    redirectToSignIn(slug || "group", "recovery-requested");
   }
 
   const supabase = createSupabaseAdminClient();
-  const headersList = await headers();
-  const siteResolution = await resolvePublicSiteForHost(supabase, requestHostname(headersList));
-  const site = siteResolution.site;
-  const groupQuery = supabase
-    .from("dos_groups")
-    .select("id, slug, active, member_access_enabled, public_site_id, public_status")
-    .eq("slug", slug)
-    .eq("active", true);
-  const groupResult = siteResolution.schemaReady && site?.id
-    ? await groupQuery
-      .eq("public_site_id", site.id)
-      .eq("public_status", "published")
-      .maybeSingle()
-    : siteResolution.allowLegacyGlobalGroups
-      ? await groupQuery.maybeSingle()
-      : { data: null, error: null };
 
-  if (groupResult.error && !missingPublicSiteSchema(groupResult.error)) {
-    redirectToSignIn(slug, "access-requested");
-  }
+  try {
+    const headersList = await headers();
+    const siteResolution = await resolvePublicSiteForHost(supabase, requestHostname(headersList));
+    const site = siteResolution.site;
+    const groupQuery = supabase
+      .from("dos_groups")
+      .select("id, name, slug, workspace_id, active, member_access_enabled, public_site_id, public_status")
+      .eq("slug", slug)
+      .eq("active", true);
+    const groupResult = siteResolution.schemaReady && site?.id
+      ? await groupQuery.eq("public_site_id", site.id).eq("public_status", "published").maybeSingle()
+      : siteResolution.allowLegacyGlobalGroups
+        ? await groupQuery.maybeSingle()
+        : { data: null, error: null };
 
-  if (!groupResult.error && groupResult.data && groupResult.data.member_access_enabled !== false) {
-    const membersResult = await supabase
-      .from("dos_group_members")
-      .select("id, person_id, status")
-      .eq("group_id", groupResult.data.id)
-      .eq("status", "active");
+    const group = groupResult.error ? null : groupResult.data;
 
-    const personIds = (membersResult.data ?? []).map((member) => member.person_id).filter(Boolean);
+    if (group && group.member_access_enabled !== false) {
+      const membersResult = await supabase
+        .from("dos_group_members")
+        .select("id, person_id, status")
+        .eq("group_id", group.id)
+        .eq("status", "active");
+      const personIds = (membersResult.data ?? []).map((member) => member.person_id).filter(Boolean);
 
-    if (personIds.length) {
-      const peopleResult = await supabase
-        .from("missionary_field_people")
-        .select("id, email, phone")
-        .in("id", personIds)
-        .ilike("email", email);
-      const matchingPerson = peopleResult.data?.length === 1 ? peopleResult.data[0] : null;
-      const matchingMember = matchingPerson
-        ? membersResult.data?.find((member) => member.person_id === matchingPerson.id)
-        : null;
+      if (personIds.length) {
+        const peopleResult = await supabase
+          .from("missionary_field_people")
+          .select("id, name, email")
+          .in("id", personIds)
+          .ilike("email", email);
 
-      if (matchingPerson && matchingMember) {
-        await createGroupMemberAccessInvitation(supabase, {
-          email,
-          groupId: groupResult.data.id,
-          memberId: matchingMember.id,
-          personId: matchingPerson.id,
-          phone: matchingPerson.phone,
-        });
+        // Exactly one match only. Production carries three "Tanner Kent"
+        // records; matching loosely here could route a recovery request at the
+        // wrong person. Ambiguity falls through to the same neutral state.
+        const matchingPerson = peopleResult.data?.length === 1 ? peopleResult.data[0] : null;
+
+        if (matchingPerson) {
+          const delivered = await notifyGroupAccessRecovery(supabase, {
+            id: group.id,
+            name: group.name,
+            slug: group.slug,
+            workspace_id: group.workspace_id,
+          }, {
+            memberName: matchingPerson.name ?? "A group member",
+            requestedAt: new Date().toISOString(),
+          });
+
+          redirectToSignIn(slug, delivered ? "recovery-sent" : "recovery-requested");
+        }
       }
     }
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) {
+      throw error;
+    }
+
+    console.warn("[Group Member Access] Recovery request failed", error instanceof Error ? error.message : error);
   }
 
-  redirectToSignIn(slug, "access-requested");
+  redirectToSignIn(slug, "recovery-requested");
 }
 
 export async function signOutGroupMember(formData: FormData) {

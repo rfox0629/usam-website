@@ -61,7 +61,7 @@ export function RemnantCollectionClient({
             </div>
           </div>
           <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">
-            Trusted messages to strengthen obedience, evangelism, and formation. A short, curated list — not a
+            Trusted messages to strengthen obedience, evangelism, and formation. A short, curated list, not a
             search catalog.
           </p>
         </header>

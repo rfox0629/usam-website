@@ -79,7 +79,13 @@ if (!quickActionsMatch) {
   throw new Error("dashboard quick actions not found");
 }
 
-assertIncludes(quickActionsMatch[0], 'label: "Commitment"', "enabled dashboard quick action uses Commitment");
+/* USA-168 locked the user-facing word to Accountability. The storage contract
+   is unchanged -- dos_commitments and its routes keep their names, asserted
+   above -- so this is vocabulary, not a migration. */
+assertIncludes(quickActionsMatch[0], 'label: "Accountability"', "dashboard quick action uses the Accountability vocabulary");
+if (quickActionsMatch[0].includes('label: "Commitment"')) {
+  throw new Error("dashboard quick action must not still say Commitment");
+}
 assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick action does not fall back to Pray Now");
 
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard accountability card");

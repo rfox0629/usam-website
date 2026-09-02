@@ -29,32 +29,46 @@ assert(
   "Schedule Meeting must clear stale person search text when the query matches a selected person chip.",
 );
 
+/* USA-168 order: Person -> When -> How will you connect? -> optional Notes.
+   "Timing" is now "When" and "Meeting Context" is "How will you connect?",
+   which asks the communication medium rather than the meeting's purpose. */
 assert(
-  formBlock.indexOf('title="Person"') < formBlock.indexOf('title="Timing"')
-    && formBlock.indexOf('title="Timing"') < formBlock.indexOf('title="Meeting Context"')
-    && formBlock.indexOf('title="Meeting Context"') < formBlock.indexOf('title="More Options"'),
-  "Schedule Meeting must present Person, then Timing, then Meeting Context before any More Options disclosure.",
+  formBlock.indexOf('title="Person"') < formBlock.indexOf('title="When"')
+    && formBlock.indexOf('title="When"') < formBlock.indexOf('title="How will you connect?"')
+    && formBlock.indexOf('title="How will you connect?"') < formBlock.indexOf('title="Notes"'),
+  "Schedule Meeting must present Person, then When, then How will you connect? before the Notes disclosure.",
 );
 
 assert(
-  formBlock.includes("DisclosureSection") && formBlock.includes('title="More Options"'),
-  "Calendar sync, discipleship role, and notes must be tucked behind a More Options disclosure by default.",
+  formBlock.includes("DisclosureSection") && formBlock.includes('title="Notes"'),
+  "Notes must stay behind a disclosure by default.",
 );
 
-const moreOptionsStart = formBlock.indexOf('title="More Options"');
-const moreOptionsBlock = formBlock.slice(moreOptionsStart);
+const moreOptionsStart = formBlock.indexOf('title="Notes"');
 
+/* Calendar connection management moved to Settings: scheduling a meeting is
+   not the place to connect or disconnect Google. The sync state still posts,
+   which the hidden-input guard below asserts, so no capability was lost. */
 assert(
-  moreOptionsBlock.includes("<CalendarConnectionCard")
-    && moreOptionsBlock.includes("<TableRolePicker")
-    && moreOptionsBlock.includes('name="notes"'),
-  "Calendar connection, discipleship role, and notes must live inside the More Options disclosure.",
+  !formBlock.includes("<CalendarConnectionCard")
+    && !formBlock.includes("<DosFormToggleRow"),
+  "Calendar connection management must not live inside Schedule Meeting.",
 );
 
+/* Role is inherited from the Person relationship rather than asked per
+   meeting, but the value still posts so the payload is unchanged. */
 assert(
-  !formBlock.slice(0, moreOptionsStart).includes("<CalendarConnectionCard")
-    && !formBlock.slice(0, moreOptionsStart).includes("<TableRolePicker"),
-  "Calendar connection and discipleship role must not also appear above the fold outside More Options.",
+  !formBlock.includes("<TableRolePicker")
+    && formBlock.includes('name="table_role" type="hidden" value={selectedTableRole}'),
+  "Schedule Meeting must inherit the relationship role while still posting table_role.",
+);
+
+/* The duration control is a designed DOS control, not an OS select. */
+assert(
+  formBlock.includes("<ScheduledTableTimingFields")
+    && appClient.includes("function ScheduledDurationSelect(")
+    && appClient.includes("<CompactOptionSelect"),
+  "Duration must use a designed DOS control rather than a native select.",
 );
 
 assert(
@@ -70,11 +84,14 @@ assert(
   "(Regression guard: the visible checkbox alone is unmounted while More Options is collapsed, and unchecked/absent checkboxes are indistinguishable in FormData, which silently disabled calendar sync for the default fast path.)",
 );
 
+/* The visible Sync to Google toggle moved to Settings, so the state is now
+   seeded from the workspace calendar connection and carried by the hidden
+   input alone. Scheduling therefore respects the user's own calendar setting
+   without asking again, and the submitted value is still explicit. */
 assert(
   formBlock.includes("const [syncToGoogle, setSyncToGoogle] = useState(canSyncToGoogle);")
-    && formBlock.includes("checked={syncToGoogle}")
-    && formBlock.includes("onChange={(event) => setSyncToGoogle(event.currentTarget.checked)}"),
-  "The Sync to Google checkbox must be a controlled input wired to the same syncToGoogle state that drives the hidden field, so toggling it while More Options is open still updates what gets submitted.",
+    && formBlock.includes('value={syncToGoogle ? "on" : ""}'),
+  "Schedule Meeting must seed calendar sync from the workspace connection and submit it explicitly.",
 );
 
 assert(

@@ -3,7 +3,7 @@ import { PrimaryNav } from "../../components/PrimaryNav";
 import { FinancialFreedomInquiryForm } from "./FinancialFreedomInquiryForm";
 
 export const metadata: Metadata = {
-  title: "Financial Freedom | USA Missionaries",
+  title: "Financial Freedom",
   description: "Voluntary Financial Freedom inquiry form for USA Missionaries.",
 };
 

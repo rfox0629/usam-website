@@ -29,6 +29,7 @@ import {
   resolveAssignableDosResource,
   syncResourceAssignmentFollowUpSchedules,
 } from "@/src/lib/dos/resource-assignments-api";
+import { ensureGroupMemberAccessReady } from "@/src/lib/groups/member-access";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, status, completed_date, created_by_user_id, created_at, updated_at";
@@ -196,6 +197,7 @@ export async function POST(request: Request) {
   const sharingLevel = normalizeResourceAssignmentSharingLevel(firstAssignmentPayloadValue(payload, "sharingLevel", "sharing_level"));
   const assignedBy = authResult.authorization.status === "authorized" ? authResult.authorization.userId : null;
   const reuseExisting = payloadBoolean(firstDefined(payload.reuseExisting, payload.reuse_existing));
+  let sourceGroupMemberId: string | null = null;
 
   if (assignmentContext === "group" && !sourceGroupId) {
     return NextResponse.json({ error: "Group context is required for a group assignment." }, { status: 400 });
@@ -237,16 +239,25 @@ export async function POST(request: Request) {
     if (!membershipResult.data) {
       return NextResponse.json({ error: `${person.name} is not an active member of this group.` }, { status: 400 });
     }
+
+    sourceGroupMemberId = String(membershipResult.data.id);
   }
 
-  const existingResult = await supabase
+  let existingQuery = supabase
     .from("dos_resource_assignments")
     .select(resourceAssignmentSelect)
     .eq("workspace_id", workspaceResult.workspaceId)
     .eq("person_id", person.id)
     .eq("resource_slug", resource.slug)
+    .eq("assignment_context", assignmentContext)
     .in("status", ["not_started", "in_progress", "paused"])
-    .maybeSingle();
+    .limit(1);
+
+  existingQuery = sourceGroupId
+    ? existingQuery.eq("source_group_id", sourceGroupId)
+    : existingQuery.is("source_group_id", null);
+
+  const existingResult = await existingQuery.maybeSingle();
 
   if (existingResult.error) {
     return resourceAssignmentErrorResponse(existingResult.error);
@@ -358,9 +369,38 @@ export async function POST(request: Request) {
     return resourceAssignmentErrorResponse(scheduleSyncResult.error);
   }
 
+  let memberAccessWarning: string | null = null;
+
+  if (sourceGroupId && sourceGroupMemberId) {
+    const memberAccessResult = await ensureGroupMemberAccessReady(supabase, {
+      createdByUserId: assignedBy,
+      groupId: sourceGroupId,
+      memberId: sourceGroupMemberId,
+      personId: person.id,
+      source: "leader_assignment",
+    });
+
+    if (memberAccessResult.error || memberAccessResult.missingSchema || !memberAccessResult.access) {
+      memberAccessWarning = memberAccessResult.error
+        ?? (memberAccessResult.missingSchema ? "Member access schema is not configured." : "Member access could not be prepared.");
+      console.warn("[Resource Assignment] Unable to prepare scoped member access", {
+        groupId: sourceGroupId,
+        memberId: sourceGroupMemberId,
+        personId: person.id,
+        warning: memberAccessWarning,
+      });
+    }
+  }
+
   return NextResponse.json({
     assignment: mapResourceAssignmentRow(assignmentResult.data as Record<string, unknown>),
     commitment: commitmentRow ? mapCommitmentRow(commitmentRow) : null,
+    memberAccess: sourceGroupId
+      ? {
+        status: memberAccessWarning ? "needs_attention" : "ready",
+        warning: memberAccessWarning,
+      }
+      : null,
     ok: true,
   });
 }

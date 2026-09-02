@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { dosAppIcons, dosAppManifest } from "@/src/lib/dos/icon-metadata";
+import { dosAppMetadata, dosAppViewport } from "@/src/lib/dos/brand-metadata";
 
-export const metadata: Metadata = {
-  icons: dosAppIcons,
-  manifest: dosAppManifest,
-};
+// Everything under /dos is DOS-branded, not USAM-branded. Pages below here should
+// only set their own title, description, canonical, and robots.
+export const metadata: Metadata = dosAppMetadata;
+
+export const viewport: Viewport = dosAppViewport;
 
 export default function DosLayout({ children }: { children: ReactNode }) {
   return children;

@@ -1,8 +1,15 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+import { getDosResourceBySlug } from "@/src/lib/dos/resource-catalog";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
+import {
+  buildDemoGroupMemberSessionToken,
+  demoGroupMemberAccessTokenPrefix,
+  parseDemoGroupMemberAccessToken,
+  parseDemoGroupMemberSessionToken,
+} from "@/src/lib/groups/demo-member-access";
 import { missingPublicSiteSchema, publicGroupPath } from "@/src/lib/groups/public-site";
 import { isRouteBuilderEligibleGroup } from "@/src/lib/groups/route-builder";
 
@@ -155,6 +162,7 @@ type JourneyAssignmentRow = {
 
 type JourneyProgressRow = {
   action_step: string | null;
+  assignment_id: string | null;
   completed_at: string | null;
   id: string;
   prayer_focus: string | null;
@@ -169,6 +177,14 @@ export type MemberAccessInvitation = {
   expiresAt: string;
   identityId: string;
   token: string;
+};
+
+type PreparedGroupMemberAccess = {
+  group: Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug">;
+  identity: MemberIdentityRow;
+  member: MemberRow;
+  person: PersonRow;
+  provisionedGroupAccess: boolean;
 };
 
 export type GroupMemberPortalData = {
@@ -192,6 +208,7 @@ export type GroupMemberPortalData = {
   identity: {
     email: string | null;
     id: string;
+    name: string;
     personId: string;
     phone: string | null;
   };
@@ -206,6 +223,7 @@ export type GroupMemberPortalData = {
   }>;
   journeyProgress: Array<{
     actionStep: string | null;
+    assignmentId: string | null;
     completedAt: string | null;
     id: string;
     prayerFocus: string | null;
@@ -301,7 +319,42 @@ function expiresIso(ttlMs: number) {
 }
 
 function isExpired(value: string) {
-  return new Date(value).getTime() <= Date.now();
+  const timestamp = new Date(value).getTime();
+
+  return Number.isNaN(timestamp) || timestamp <= Date.now();
+}
+
+function demoGroupMemberAccessEnabled() {
+  return process.env.DOS_DISABLE_DEMO_PREVIEW !== "true"
+    && (process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview" || process.env.VERCEL_ENV === "development");
+}
+
+export function claimDemoGroupMemberAccessToken(
+  token: string,
+  expectedSlug: string,
+): { error?: "disabled" | "expired" | "invalid"; groupSlug?: string; sessionToken?: string } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { error: "disabled" };
+  }
+
+  if (!token.trim().startsWith(demoGroupMemberAccessTokenPrefix)) {
+    return { error: "disabled" };
+  }
+
+  const payload = parseDemoGroupMemberAccessToken(token);
+
+  if (!payload || payload.groupSlug !== expectedSlug) {
+    return { error: "invalid" };
+  }
+
+  if (isExpired(payload.expiresAt)) {
+    return { error: "expired" };
+  }
+
+  return {
+    groupSlug: payload.groupSlug,
+    sessionToken: buildDemoGroupMemberSessionToken(payload),
+  };
 }
 
 function memberIsActive(member: MemberRow | null | undefined): member is MemberRow {
@@ -316,6 +369,45 @@ function groupIsMemberAccessible<T extends Pick<GroupRow, "active" | "member_acc
   group: T | null | undefined,
 ): group is T {
   return Boolean(group && group.active !== false && group.member_access_enabled !== false);
+}
+
+async function ensureGroupMemberAccessEnabled(
+  supabase: SupabaseAdminClient,
+  group: Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug"> | null,
+) {
+  if (!group || group.active === false) {
+    return { error: "Group is not active." };
+  }
+
+  if (group.member_access_enabled !== false) {
+    return { group, provisioned: false };
+  }
+
+  const { data, error } = await supabase
+    .from("dos_groups")
+    .update({
+      member_access_enabled: true,
+    })
+    .eq("id", group.id)
+    .eq("active", true)
+    .select("id, slug, active, member_access_enabled, public_site_id")
+    .single();
+
+  if (error || !data) {
+    return missingPublicSiteSchema(error)
+      ? { missingSchema: true }
+      : { error: error?.message ?? "Unable to enable member access for this group." };
+  }
+
+  console.info("[Group Member Access] Auto-enabled scoped member access", {
+    groupId: group.id,
+    slug: group.slug,
+  });
+
+  return {
+    group: data as Pick<GroupRow, "active" | "id" | "member_access_enabled" | "public_site_id" | "slug">,
+    provisioned: true,
+  };
 }
 
 function safeLocationForMember(group: GroupRow, gathering?: Pick<GatheringRow, "location"> | null) {
@@ -386,7 +478,7 @@ async function loadGroupMemberIdentity(
   return { error, identity: data as MemberIdentityRow | null };
 }
 
-export async function createGroupMemberAccessInvitation(
+export async function ensureGroupMemberAccessReady(
   supabase: SupabaseAdminClient,
   input: {
     createdByPersonId?: string | null;
@@ -396,8 +488,9 @@ export async function createGroupMemberAccessInvitation(
     memberId?: string | null;
     personId: string;
     phone?: string | null;
+    source?: "leader_assignment" | "leader_invitation";
   },
-): Promise<{ error?: string; invitation?: MemberAccessInvitation; missingSchema?: boolean }> {
+): Promise<{ access?: PreparedGroupMemberAccess; error?: string; missingSchema?: boolean }> {
   const [groupResult, memberResult, personResult] = await Promise.all([
     supabase
       .from("dos_groups")
@@ -437,8 +530,14 @@ export async function createGroupMemberAccessInvitation(
   const member = memberResult.data as MemberRow | null;
   const person = personResult.data as PersonRow | null;
 
-  if (!group || !groupIsMemberAccessible(group)) {
-    return { error: "Member access is not enabled for this group." };
+  const groupAccess = await ensureGroupMemberAccessEnabled(supabase, group);
+
+  if (groupAccess.missingSchema) {
+    return { missingSchema: true };
+  }
+
+  if (groupAccess.error || !groupAccess.group || !groupIsMemberAccessible(groupAccess.group)) {
+    return { error: groupAccess.error ?? "Member access could not be enabled for this group." };
   }
 
   if (!memberIsActive(member)) {
@@ -466,15 +565,17 @@ export async function createGroupMemberAccessInvitation(
     return { error: existingIdentity.error.message ?? "Unable to load member identity." };
   }
 
+  const source = input.source ?? "leader_invitation";
+  const metadata = {
+    [existingIdentity.identity ? (source === "leader_assignment" ? "lastProvisionedAt" : "lastInvitedAt") : (source === "leader_assignment" ? "firstProvisionedAt" : "firstInvitedAt")]: nowIso(),
+    source,
+  };
   const identityWrite = existingIdentity.identity
     ? await supabase
       .from("dos_group_member_identities")
       .update({
         group_member_id: member.id,
-        metadata: {
-          lastInvitedAt: nowIso(),
-          source: "leader_invitation",
-        },
+        metadata,
         status: existingIdentity.identity.status === "verified" ? "verified" : "invited",
         verification_method: existingIdentity.identity.status === "verified" ? "email_invitation_token" : "leader_approval",
         verified_email: verifiedEmail,
@@ -488,10 +589,7 @@ export async function createGroupMemberAccessInvitation(
       .insert({
         group_id: input.groupId,
         group_member_id: member.id,
-        metadata: {
-          firstInvitedAt: nowIso(),
-          source: "leader_invitation",
-        },
+        metadata,
         person_id: input.personId,
         status: "invited",
         verification_method: "leader_approval",
@@ -508,6 +606,43 @@ export async function createGroupMemberAccessInvitation(
   }
 
   const identity = identityWrite.data as MemberIdentityRow;
+
+  return {
+    access: {
+      group: groupAccess.group,
+      identity,
+      member,
+      person,
+      provisionedGroupAccess: groupAccess.provisioned === true,
+    },
+  };
+}
+
+export async function createGroupMemberAccessInvitation(
+  supabase: SupabaseAdminClient,
+  input: {
+    createdByPersonId?: string | null;
+    createdByUserId?: string | null;
+    email?: string | null;
+    groupId: string;
+    memberId?: string | null;
+    personId: string;
+    phone?: string | null;
+  },
+): Promise<{ error?: string; invitation?: MemberAccessInvitation; missingSchema?: boolean }> {
+  const prepared = await ensureGroupMemberAccessReady(supabase, {
+    ...input,
+    source: "leader_invitation",
+  });
+
+  if (prepared.error || prepared.missingSchema || !prepared.access) {
+    return {
+      error: prepared.error,
+      missingSchema: prepared.missingSchema,
+    };
+  }
+
+  const { group, identity } = prepared.access;
 
   await supabase
     .from("dos_group_member_access_tokens")
@@ -552,6 +687,71 @@ export async function createGroupMemberAccessInvitation(
       token,
     },
   };
+}
+
+/**
+ * USA-170: read-only inspection of an invitation token.
+ *
+ * The production failure this exists to prevent: `GET /member/access?token=...`
+ * used to redeem on sight. When Ryan texted Tanner an invitation, iMessage's
+ * unfurler fetched the URL and burned the token ~10 seconds later — before
+ * Tanner ever tapped it. He landed on "That link has expired."
+ *
+ * So redemption is now split in two. This half answers "is this link good?"
+ * and performs NO writes: no consume, no rotate, no revoke, no session. It is
+ * what a crawler, a security scanner, a HEAD request, or a browser prefetch
+ * gets, no matter how many times it asks. Establishing the session is
+ * `claimGroupMemberAccessToken`, reachable only through an explicit human POST.
+ */
+export async function inspectGroupMemberAccessToken(
+  supabase: SupabaseAdminClient,
+  token: string,
+): Promise<{
+  groupName?: string;
+  groupSlug?: string;
+  state: "expired" | "invalid" | "revoked" | "valid";
+}> {
+  const cleanedToken = token.trim();
+
+  if (cleanedToken.length < 32) {
+    return { state: "invalid" };
+  }
+
+  const tokenResult = await supabase
+    .from("dos_group_member_access_tokens")
+    .select("id, member_identity_id, group_id, status, expires_at")
+    .eq("token_hash", tokenHash(cleanedToken))
+    .maybeSingle();
+
+  if (tokenResult.error || !tokenResult.data) {
+    return { state: "invalid" };
+  }
+
+  const accessToken = tokenResult.data as AccessTokenRow;
+  const groupResult = await supabase
+    .from("dos_groups")
+    .select("id, name, slug, active, member_access_enabled")
+    .eq("id", accessToken.group_id)
+    .maybeSingle();
+  const group = groupResult.data as { name?: string | null; slug?: string | null } | null;
+  const groupName = group?.name ?? undefined;
+  const groupSlug = group?.slug ?? undefined;
+
+  if (accessToken.status === "used") {
+    // Already redeemed. The holder may still have a live session, so the page
+    // offers "Open Group Home" rather than pretending nothing exists.
+    return { groupName, groupSlug, state: "expired" };
+  }
+
+  if (accessToken.status === "revoked") {
+    return { groupName, groupSlug, state: "revoked" };
+  }
+
+  if (accessToken.status !== "active" || isExpired(accessToken.expires_at)) {
+    return { groupName, groupSlug, state: "expired" };
+  }
+
+  return { groupName, groupSlug, state: "valid" };
 }
 
 export async function claimGroupMemberAccessToken(
@@ -694,13 +894,108 @@ function mapAttendanceStatus(value: string | null | undefined): "absent" | "gues
   return value === "absent" || value === "guest" ? value : "present";
 }
 
+export function loadDemoGroupMemberPortalData(input: {
+  sessionToken: string | null | undefined;
+  slug: string;
+}): { data?: GroupMemberPortalData; error?: string; unauthorized?: boolean } {
+  if (!demoGroupMemberAccessEnabled()) {
+    return { unauthorized: true };
+  }
+
+  const payload = parseDemoGroupMemberSessionToken(input.sessionToken);
+
+  if (!payload || payload.groupSlug !== input.slug || isExpired(payload.expiresAt)) {
+    return { unauthorized: true };
+  }
+
+  const resource = getDosResourceBySlug(payload.resourceSlug);
+  const resourceSlug = resource?.type === "guided_resource" && resource.content?.guidedResource
+    ? payload.resourceSlug
+    : "marks-of-discipleship";
+  const completedSessionIds = (payload.completedSessionIds ?? []).filter(Boolean);
+
+  return {
+    data: {
+      attendance: [],
+      group: {
+        description: "A weekly gathering focused on Scripture, accountability, prayer, and helping men pursue Christ together.",
+        id: payload.groupId,
+        location: "Ryan's House",
+        name: payload.groupName,
+        rhythm: "Weekly · Wednesday · 5:30 PM",
+        routeBuilderEligible: false,
+        slug: payload.groupSlug,
+        tagline: "Brotherhood. Prayer. Discipleship.",
+        type: "Discipleship group",
+      },
+      identity: {
+        email: payload.personName === "Tanner Kent" ? "tanner.kent@example.com" : null,
+        id: payload.identityId,
+        name: payload.personName,
+        personId: payload.personId,
+        phone: null,
+      },
+      journeyAssignments: [
+        {
+          completedAt: null,
+          dueDate: null,
+          id: `demo-assignment-${payload.memberId}-${resourceSlug}`,
+          personalMessage: null,
+          resourceSlug,
+          startDate: payload.startDate,
+          status: "not_started",
+        },
+      ],
+      journeyProgress: completedSessionIds.map((sessionId) => ({
+        actionStep: null,
+        assignmentId: `demo-assignment-${payload.memberId}-${resourceSlug}`,
+        completedAt: payload.startDate,
+        id: `demo-progress-${payload.memberId}-${resourceSlug}-${sessionId}`,
+        prayerFocus: null,
+        reflection: null,
+        resourceSlug,
+        sessionId,
+        updatedAt: payload.startDate,
+      })),
+      nextGathering: {
+        description: "Study Scripture, pray together, and encourage one another.",
+        endsAt: "2026-08-19T20:00:00-05:00",
+        id: "demo-wednesday-mens-next-gathering",
+        location: "Ryan's House",
+        startsAt: "2026-08-19T18:30:00-05:00",
+        status: "scheduled",
+        title: "Wednesday Men's Group",
+      },
+      prayerRequests: [],
+      preferences: [],
+      resources: [],
+      rsvp: null,
+      sessionId: `demo-session-${payload.identityId}`,
+      updates: [],
+    },
+  };
+}
+
+/**
+ * Result of resolving a scoped member session. `staleSlug` + `canonicalSlug`
+ * let a caller redirect a renamed public slug instead of treating the rename
+ * as lost access.
+ */
+export type GroupMemberPortalResult = {
+  canonicalSlug?: string;
+  data?: GroupMemberPortalData | null;
+  error?: string;
+  staleSlug?: boolean;
+  unauthorized?: boolean;
+};
+
 export async function loadGroupMemberPortalData(
   supabase: SupabaseAdminClient,
   input: {
     sessionToken: string | null | undefined;
     slug: string;
   },
-): Promise<{ data?: GroupMemberPortalData; error?: string; unauthorized?: boolean }> {
+): Promise<GroupMemberPortalResult> {
   const sessionToken = input.sessionToken?.trim();
 
   if (!sessionToken) {
@@ -737,11 +1032,18 @@ export async function loadGroupMemberPortalData(
       .eq("group_id", session.group_id)
       .eq("person_id", session.person_id)
       .maybeSingle(),
+    // USA-170/USA-173: resolve the Group by canonical id ONLY.
+    //
+    // This used to also filter `.eq("slug", input.slug)`, which quietly made a
+    // mutable public slug a second condition on the member's own session. The
+    // moment a Group's public slug is renamed, every existing scoped session
+    // would fail this lookup and Tanner's installed Home Screen app, bookmarks,
+    // and already-texted links would all break. The slug is routing; the id is
+    // identity. Stale-slug handling is resolved by the caller below.
     supabase
       .from("dos_groups")
       .select("id, workspace_id, organization_id, public_site_id, public_status, name, slug, description, tagline, type, template_category, template_key, activity_type, rhythm_label, default_location, active, accepting_members, member_access_enabled, member_visible_location_mode")
       .eq("id", session.group_id)
-      .eq("slug", input.slug)
       .maybeSingle(),
     supabase
       .from("missionary_field_people")
@@ -761,6 +1063,34 @@ export async function loadGroupMemberPortalData(
 
   if (!identity || identity.status !== "verified" || !memberIsActive(member) || !groupIsMemberAccessible(group) || !person) {
     return { unauthorized: true };
+  }
+
+  // The session names one Group by id; the URL names one by slug. When they
+  // disagree there are exactly two cases, and they need opposite handling:
+  //
+  //   a) The visitor is browsing a DIFFERENT live Group's public page while
+  //      holding a session for their own. Serving their portal here would
+  //      hijack that navigation, so decline and let the public page render.
+  //   b) The URL slug matches no live Group — it is this member's own Group
+  //      under a since-renamed slug (a texted link, a bookmark, an installed
+  //      Home Screen start_url). Serve the portal and tell the caller the
+  //      canonical slug so it can redirect instead of breaking access.
+  //
+  // Durable slug-history/alias records are USA-173's schema-gated work; this
+  // distinguishes the two cases without any new table.
+  if (group.slug !== input.slug) {
+    const otherGroupResult = await supabase
+      .from("dos_groups")
+      .select("id")
+      .eq("slug", input.slug)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (otherGroupResult.data?.id && otherGroupResult.data.id !== group.id) {
+      return { unauthorized: true };
+    }
+
+    return { canonicalSlug: group.slug, staleSlug: true };
   }
 
   const now = new Date().toISOString();
@@ -834,10 +1164,12 @@ export async function loadGroupMemberPortalData(
       .select("id, resource_slug, status, start_date, due_date, completed_at, personal_message")
       .eq("workspace_id", group.workspace_id)
       .eq("person_id", session.person_id)
+      .eq("assignment_context", "group")
+      .eq("source_group_id", group.id)
       .order("start_date", { ascending: false }),
     supabase
       .from("dos_guided_resource_progress")
-      .select("id, resource_slug, session_id, reflection, action_step, prayer_focus, completed_at, updated_at")
+      .select("id, assignment_id, resource_slug, session_id, reflection, action_step, prayer_focus, completed_at, updated_at")
       .eq("workspace_id", group.workspace_id)
       .eq("person_id", session.person_id),
   ]);
@@ -860,7 +1192,9 @@ export async function loadGroupMemberPortalData(
   const attendance = attendanceResult.error ? [] : attendanceResult.data as AttendanceRow[];
   const preferences = preferencesResult.error ? [] : preferencesResult.data as PreferenceRow[];
   const journeyAssignments = journeyAssignmentsResult.error ? [] : journeyAssignmentsResult.data as JourneyAssignmentRow[];
-  const journeyProgress = journeyProgressResult.error ? [] : journeyProgressResult.data as JourneyProgressRow[];
+  const journeyAssignmentIds = new Set(journeyAssignments.map((assignment) => assignment.id));
+  const journeyProgress = (journeyProgressResult.error ? [] : journeyProgressResult.data as JourneyProgressRow[])
+    .filter((progress) => progress.assignment_id && journeyAssignmentIds.has(progress.assignment_id));
   const location = safeLocationForMember(group, nextGathering);
 
   return {
@@ -892,6 +1226,7 @@ export async function loadGroupMemberPortalData(
       identity: {
         email: identity.verified_email ?? normalizeEmail(person.email),
         id: identity.id,
+        name: person.name ?? "Group member",
         personId: identity.person_id,
         phone: identity.verified_phone ?? normalizePhone(person.phone),
       },
@@ -906,6 +1241,7 @@ export async function loadGroupMemberPortalData(
       })),
       journeyProgress: journeyProgress.map((progress) => ({
         actionStep: progress.action_step,
+        assignmentId: progress.assignment_id,
         completedAt: progress.completed_at,
         id: progress.id,
         prayerFocus: progress.prayer_focus,

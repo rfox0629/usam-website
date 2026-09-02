@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthSessionBridge } from "../session/AuthSessionBridge";
 
 export const metadata: Metadata = {
-  title: "Completing Sign In | USA Missionaries",
+  title: "Completing Sign In",
   robots: {
     follow: false,
     index: false,

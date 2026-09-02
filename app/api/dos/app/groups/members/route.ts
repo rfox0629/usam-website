@@ -82,6 +82,46 @@ function memberRole(row: MemberRow): "leader" | "co_leader" | "helper" | "member
   return row.role === "leader" || row.role === "co_leader" || row.role === "helper" || row.role === "guest" ? row.role : "member";
 }
 
+function firstForwardedHeaderValue(value: string | null) {
+  return value?.split(",")[0]?.trim() ?? "";
+}
+
+function requestOrigin(request: Request) {
+  const requestUrl = new URL(request.url);
+  const forwardedHost = firstForwardedHeaderValue(request.headers.get("x-forwarded-host"));
+  const forwardedProtocol = firstForwardedHeaderValue(request.headers.get("x-forwarded-proto"));
+  const host = forwardedHost || request.headers.get("host") || requestUrl.host;
+  const protocol = forwardedProtocol || requestUrl.protocol.replace(/:$/, "");
+
+  return `${protocol}://${host}`;
+}
+
+function shouldUseRequestOriginForMemberAccess(origin: URL) {
+  const hostname = origin.hostname.toLowerCase();
+
+  return hostname === "localhost"
+    || hostname === "127.0.0.1"
+    || hostname.endsWith(".localhost")
+    || hostname.endsWith(".vercel.app")
+    || process.env.VERCEL_ENV === "preview";
+}
+
+function memberAccessUrlForRequest(accessUrl: string, request: Request) {
+  try {
+    const origin = new URL(requestOrigin(request));
+    const url = new URL(accessUrl);
+
+    if (shouldUseRequestOriginForMemberAccess(origin)) {
+      url.protocol = origin.protocol;
+      url.host = origin.host;
+    }
+
+    return url.toString();
+  } catch {
+    return accessUrl;
+  }
+}
+
 async function authorizeWrite() {
   const authorization = await getDosAuthorization();
 
@@ -334,7 +374,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       memberAccess: {
-        accessUrl: invitationResult.invitation.accessUrl,
+        accessUrl: memberAccessUrlForRequest(invitationResult.invitation.accessUrl, request),
         expiresAt: invitationResult.invitation.expiresAt,
         status: "invited",
       },

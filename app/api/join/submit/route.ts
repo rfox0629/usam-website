@@ -19,6 +19,7 @@ type JoinSubmitPayload = {
   contactEmail?: unknown;
   country?: unknown;
   donationLinkPreference?: unknown;
+  excessSupportAgreement?: unknown;
   familyMembers?: unknown;
   familyPhotoName?: unknown;
   familyPhotoUpload?: unknown;
@@ -462,6 +463,16 @@ function validatePayload(payload: JoinSubmitPayload) {
     return "Add at least one reference with name and email.";
   }
 
+  if (supportNeeded(payload)) {
+    if (!supportMonthlyNeed(payload)) {
+      return "Add your proposed monthly support need.";
+    }
+
+    if (!asBoolean(payload.excessSupportAgreement)) {
+      return "Confirm the excess-support agreement.";
+    }
+  }
+
   return "";
 }
 
@@ -477,7 +488,7 @@ function referenceSummary(references: JsonRecord[]) {
       ].filter(Boolean).join(" · ");
       const description = asString(reference.description);
 
-      return [name, details, description].filter(Boolean).join(" — ");
+      return [name, details, description].filter(Boolean).join(". ");
     })
     .filter(Boolean)
     .join("\n");
@@ -519,8 +530,12 @@ function supportMonthlyNeed(payload: JoinSubmitPayload) {
   return statedMonthlyNeed || budgetTotal || null;
 }
 
+function supportNeeded(payload: JoinSubmitPayload) {
+  return asString(payload.supportNeed) !== "no";
+}
+
 function supportGoal(payload: JoinSubmitPayload) {
-  if (asString(payload.supportNeed) === "no") {
+  if (!supportNeeded(payload)) {
     return null;
   }
 
@@ -583,9 +598,17 @@ function onboardingContactPayload(payload: JoinSubmitPayload) {
       budget: asRecord(payload.supportBudget),
       committedSupport: moneyNumber(payload.supportCommittedAmount),
       donationLinkPreference: asString(payload.donationLinkPreference),
+      excessSupportAgreementAccepted: supportNeeded(payload) && asBoolean(payload.excessSupportAgreement),
+      excessSupportAgreementAcceptedAt: supportNeeded(payload) && asBoolean(payload.excessSupportAgreement)
+        ? new Date().toISOString()
+        : null,
+      excessSupportAgreementVersion: supportNeeded(payload) && asBoolean(payload.excessSupportAgreement)
+        ? "usa-174-v1"
+        : null,
       otherMonthlyIncome: moneyNumber(payload.supportOtherMonthlyIncome),
+      proposedMonthlyNeed: supportMonthlyNeed(payload),
       supportGoal: supportGoal(payload),
-      supportNeed: asString(payload.supportNeed) === "no" ? "no" : "yes",
+      supportNeed: supportNeeded(payload) ? "yes" : "no",
     },
   };
 }
@@ -833,16 +856,23 @@ export async function POST(request: Request) {
 
     const references = asArray(payload.references);
     const prayerRequests = asArray(payload.prayerRequests);
+    const proposedMonthlyNeed = supportMonthlyNeed(payload);
+    const excessSupportAgreementAccepted = supportNeeded(payload) && asBoolean(payload.excessSupportAgreement);
     const applicationPayload: UsamApplicationSubmitPayload = {
+      adminApprovedMonthlyGoal: null,
       applicantEmail: email,
       applicantName,
       applicantPhone: phone,
       callingFocus: asString(payload.callingFocus) || asString(payload.storyWhyUsam) || asString(payload.storyCallingToward),
       contactPayload: onboardingContactPayload(payload),
+      excessSupportAgreementAccepted,
+      excessSupportAgreementAcceptedAt: excessSupportAgreementAccepted ? new Date().toISOString() : null,
+      excessSupportAgreementVersion: excessSupportAgreementAccepted ? "usa-174-v1" : null,
       location,
-      monthlyBudget: supportMonthlyNeed(payload),
+      monthlyBudget: proposedMonthlyNeed,
       prayerNeeds: prayerNeedsSummary(prayerRequests),
       profilePhotoUrl: "",
+      proposedMonthlyNeed,
       referencesText: referenceSummary(references),
       storyTestimony: storyFromPayload(payload),
       supportGoal: supportGoal(payload),

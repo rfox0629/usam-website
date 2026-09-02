@@ -1,0 +1,730 @@
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const dirs = {
+  control: join(rootDir, "control"),
+  locks: join(rootDir, "locks"),
+  logs: join(rootDir, "logs"),
+  state: join(rootDir, "state"),
+  tmp: join(rootDir, "tmp"),
+  worktrees: join(rootDir, "worktrees"),
+};
+
+for (const dir of Object.values(dirs)) {
+  mkdirSync(dir, { recursive: true });
+}
+
+const defaultConfigPath = join(rootDir, "config", "dispatcher.config.json");
+const configPath = process.env.DISPATCHER_CONFIG || defaultConfigPath;
+const config = JSON.parse(readFileSync(configPath, "utf8"));
+const flags = new Set(process.argv.slice(2));
+const once = flags.has("--once");
+const statusOnly = flags.has("--status");
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function dateStamp() {
+  return isoNow().slice(0, 10);
+}
+
+function jsonLog(event, fields = {}) {
+  const entry = {
+    at: isoNow(),
+    event,
+    ...fields,
+  };
+  const line = `${JSON.stringify(entry)}\n`;
+  writeFileSync(join(dirs.logs, `dispatcher-${dateStamp()}.jsonl`), line, { flag: "a" });
+  process.stdout.write(line);
+}
+
+function writeState(name, value) {
+  writeFileSync(join(dirs.state, `${name}.json`), `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function safeIssueFile(identifier) {
+  return identifier.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+}
+
+function lockPath(identifier) {
+  return join(dirs.locks, `${safeIssueFile(identifier)}.json`);
+}
+
+function readJsonFile(path) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function readLocks() {
+  return readdirSync(dirs.locks)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => {
+      const path = join(dirs.locks, file);
+      try {
+        return { file, path, lock: readJsonFile(path) };
+      } catch (error) {
+        jsonLog("lock_read_failed", { file, error: error.message });
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function isActiveLock(lock) {
+  if (!["claimed", "running", "retrying"].includes(lock.status)) {
+    return false;
+  }
+
+  const heartbeat = Date.parse(lock.heartbeatAt || lock.createdAt || 0);
+  if (!Number.isFinite(heartbeat)) {
+    return true;
+  }
+
+  return Date.now() - heartbeat < config.lockStaleAfterMs;
+}
+
+function isBlockingLock(lock) {
+  return isActiveLock(lock) || ["crashed", "failed"].includes(lock.status);
+}
+
+function recoverStaleLocks() {
+  for (const item of readLocks()) {
+    if (!["claimed", "running", "retrying"].includes(item.lock.status)) {
+      continue;
+    }
+
+    if (isActiveLock(item.lock)) {
+      continue;
+    }
+
+    const recovered = {
+      ...item.lock,
+      status: "crashed",
+      crashedAt: isoNow(),
+      note: "Recovered by dispatcher startup because heartbeat was stale.",
+    };
+    writeFileSync(item.path, `${JSON.stringify(recovered, null, 2)}\n`);
+    jsonLog("lock_recovered", { issue: item.lock.identifier, runner: item.lock.runner, lock: item.path });
+  }
+}
+
+function pauseFile(runner) {
+  return join(dirs.control, `${runner}.pause`);
+}
+
+function isPaused(runner) {
+  if (config.pauses?.global || existsSync(pauseFile("global"))) {
+    return true;
+  }
+
+  return Boolean(config.pauses?.[runner] || existsSync(pauseFile(runner)));
+}
+
+function dispatcherStatus() {
+  const locks = readLocks().map((item) => ({
+    active: isActiveLock(item.lock),
+    attempts: item.lock.attempts,
+    branch: item.lock.branch,
+    issue: item.lock.identifier,
+    runner: item.lock.runner,
+    status: item.lock.status,
+    worktree: item.lock.worktreePath,
+  }));
+
+  return {
+    configPath,
+    linearApiConfigured: Boolean(process.env.LINEAR_API_KEY),
+    paused: {
+      global: isPaused("codex") && isPaused("claude"),
+      codex: isPaused("codex"),
+      claude: isPaused("claude"),
+    },
+    rootDir,
+    testMode: config.testMode,
+    locks,
+  };
+}
+
+async function linearGraphql(query, variables = {}) {
+  const apiKey = process.env.LINEAR_API_KEY;
+  if (!apiKey) {
+    const error = new Error("LINEAR_API_KEY is not configured.");
+    error.code = "MISSING_LINEAR_API_KEY";
+    throw error;
+  }
+
+  const response = await fetch(config.linear.apiUrl, {
+    body: JSON.stringify({ query, variables }),
+    headers: {
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.errors?.length) {
+    const error = new Error(payload.errors?.map((item) => item.message).join("; ") || `Linear HTTP ${response.status}`);
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload.data;
+}
+
+const issuesQuery = `
+query DispatcherIssues($teamKey: String!, $first: Int!) {
+  issues(
+    first: $first
+    filter: {
+      team: { key: { eq: $teamKey } }
+      state: { name: { eq: "Todo" } }
+      labels: { name: { eq: "Ready for Dispatcher" } }
+    }
+  ) {
+    nodes {
+      id
+      identifier
+      title
+      description
+      url
+      branchName
+      createdAt
+      updatedAt
+      state { name type }
+      labels { nodes { name } }
+    }
+  }
+}`;
+
+const stateQuery = `
+query WorkflowState($teamKey: String!, $name: String!) {
+  workflowStates(first: 20, filter: { team: { key: { eq: $teamKey } }, name: { eq: $name } }) {
+    nodes { id name }
+  }
+}`;
+
+const issueUpdateMutation = `
+mutation DispatcherIssueUpdate($id: String!, $input: IssueUpdateInput!) {
+  issueUpdate(id: $id, input: $input) {
+    success
+    issue { id identifier state { name } }
+  }
+}`;
+
+const commentMutation = `
+mutation DispatcherComment($input: CommentCreateInput!) {
+  commentCreate(input: $input) {
+    success
+    comment { id }
+  }
+}`;
+
+async function listCandidateIssues() {
+  const data = await linearGraphql(issuesQuery, {
+    first: config.linear.pollFirst,
+    teamKey: config.linear.teamKey,
+  });
+
+  return data.issues.nodes;
+}
+
+async function getWorkflowStateId(name) {
+  const data = await linearGraphql(stateQuery, {
+    name,
+    teamKey: config.linear.teamKey,
+  });
+  const state = data.workflowStates.nodes[0];
+  if (!state) {
+    throw new Error(`Linear workflow state not found: ${name}`);
+  }
+  return state.id;
+}
+
+async function updateIssueState(issue, stateName) {
+  const stateId = await getWorkflowStateId(stateName);
+  await linearGraphql(issueUpdateMutation, {
+    id: issue.id,
+    input: { stateId },
+  });
+  jsonLog("linear_state_updated", { issue: issue.identifier, state: stateName });
+}
+
+async function postIssueComment(issue, body) {
+  await linearGraphql(commentMutation, {
+    input: {
+      body,
+      issueId: issue.id,
+    },
+  });
+  jsonLog("linear_comment_posted", { issue: issue.identifier });
+}
+
+function issueLabels(issue) {
+  return new Set(issue.labels.nodes.map((label) => label.name));
+}
+
+function issueText(issue) {
+  return `${issue.title}\n\n${issue.description || ""}`;
+}
+
+function extractMentionedPaths(text) {
+  const paths = new Set();
+  const re = /(?:^|[\s`'"])((?:app|src|components|docs|scripts|public|supabase|config|bin|sandbox)\/[A-Za-z0-9._/\-[\]]+)/gm;
+  for (const match of text.matchAll(re)) {
+    paths.add(match[1].replace(/[.,;:)]$/, ""));
+  }
+  return [...paths].sort();
+}
+
+function classifyIssue(issue) {
+  const labels = issueLabels(issue);
+  const hasCodex = labels.has(config.linear.labelReadyForCodex);
+  const hasClaude = labels.has(config.linear.labelReadyForClaude);
+  const blocked = config.linear.blockedLabels.filter((label) => labels.has(label));
+  const existingIssueLock = readLocks().find((item) => item.lock.identifier === issue.identifier && isBlockingLock(item.lock));
+
+  if (issue.state?.name !== config.linear.statusTodo) {
+    return { eligible: false, reason: `state is ${issue.state?.name || "unknown"}` };
+  }
+  if (!labels.has(config.linear.labelReadyForDispatcher)) {
+    return { eligible: false, reason: "missing Ready for Dispatcher" };
+  }
+  if (hasCodex === hasClaude) {
+    return { eligible: false, reason: hasCodex ? "both runner labels present" : "missing runner label" };
+  }
+  if (blocked.length) {
+    return { eligible: false, reason: `blocked labels present: ${blocked.join(", ")}` };
+  }
+  if (!issue.description || issue.description.trim().length < 20) {
+    return { eligible: false, reason: "scope is too thin" };
+  }
+  if (existingIssueLock) {
+    return { eligible: false, reason: `${existingIssueLock.lock.status} lock exists` };
+  }
+
+  return {
+    eligible: true,
+    expectedPaths: extractMentionedPaths(issueText(issue)),
+    runner: hasCodex ? "codex" : "claude",
+  };
+}
+
+function activeRunnerCount(runner) {
+  return readLocks().filter((item) => item.lock.runner === runner && isActiveLock(item.lock)).length;
+}
+
+function hasPathOverlap(expectedPaths) {
+  if (!expectedPaths.length) {
+    return null;
+  }
+
+  for (const item of readLocks()) {
+    if (!isActiveLock(item.lock)) {
+      continue;
+    }
+
+    const activePaths = item.lock.expectedPaths || [];
+    const overlap = expectedPaths.filter((path) => activePaths.includes(path));
+    if (overlap.length) {
+      return { issue: item.lock.identifier, overlap };
+    }
+  }
+
+  return null;
+}
+
+function acquireLock(issue, runner, expectedPaths) {
+  const path = lockPath(issue.identifier);
+  if (existsSync(path)) {
+    const existing = readJsonFile(path);
+    if (isBlockingLock(existing)) {
+      return null;
+    }
+    const archivePath = `${path}.${Date.now()}.${existing.status || "old"}`;
+    renameSync(path, archivePath);
+  }
+
+  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+  const branch = `${config.git.branchPrefix}/${issue.identifier.toLowerCase()}-${runner}-${timestamp}`;
+  const worktreePath = join(dirs.worktrees, `${issue.identifier.toLowerCase()}-${runner}-${timestamp}`);
+  const lock = {
+    attempts: 0,
+    baseRef: config.git.baseRef,
+    branch,
+    createdAt: isoNow(),
+    expectedPaths,
+    heartbeatAt: isoNow(),
+    id: issue.id,
+    identifier: issue.identifier,
+    runner,
+    status: "claimed",
+    title: issue.title,
+    url: issue.url,
+    worktreePath,
+  };
+
+  const fd = openSync(path, "wx");
+  writeFileSync(fd, `${JSON.stringify(lock, null, 2)}\n`);
+  return { lock, path };
+}
+
+function updateLock(lockPathValue, patch) {
+  const current = readJsonFile(lockPathValue);
+  const next = {
+    ...current,
+    ...patch,
+    heartbeatAt: isoNow(),
+  };
+  writeFileSync(lockPathValue, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
+}
+
+function runCommand(command, args, options = {}) {
+  const { cwd = rootDir, env = {}, input = "", timeoutMs = config.runnerTimeoutMs } = options;
+
+  return new Promise((resolvePromise) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: {
+        ...process.env,
+        NO_COLOR: "1",
+        TERM: process.env.TERM || "xterm-256color",
+        ...env,
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      setTimeout(() => child.kill("SIGKILL"), 5000).unref();
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      resolvePromise({ code: 127, error, stderr, stdout, timedOut });
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      resolvePromise({ code, signal, stderr, stdout, timedOut });
+    });
+
+    if (input) {
+      child.stdin.write(input);
+    }
+    child.stdin.end();
+  });
+}
+
+async function git(args, cwd = config.git.repositoryPath, timeoutMs = 120000) {
+  const result = await runCommand("git", args, { cwd, timeoutMs });
+  if (result.code !== 0) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout.trim();
+}
+
+async function createWorktree(lock, lockPathValue) {
+  mkdirSync(dirname(lock.worktreePath), { recursive: true });
+  await git(["fetch", "origin"], config.git.repositoryPath, 120000);
+  await git(["worktree", "add", "-b", lock.branch, lock.worktreePath, config.git.baseRef], config.git.repositoryPath, 120000);
+  const baseCommit = await git(["rev-parse", "HEAD"], lock.worktreePath, 30000);
+  return updateLock(lockPathValue, {
+    baseCommit,
+    status: "running",
+    worktreeCreatedAt: isoNow(),
+  });
+}
+
+function buildPrompt(issue, lock) {
+  const lane = lock.runner === "codex"
+    ? "Codex engineering and validation lane"
+    : "Claude Code product-experience lane";
+  const fixtureGuidance = issue.identifier === "USA-40"
+    ? "\nFor this dispatcher test, update only `docs/dispatcher-fixtures/codex-pickup.md` or create it if missing. Keep it harmless and run a lightweight validation such as `git diff --check`."
+    : issue.identifier === "USA-41"
+      ? "\nFor this dispatcher test, update only `sandbox/dispatcher-fixtures/claude-product-experience.html` or create it if missing. Keep it a sandbox UI/copy fixture and run a lightweight validation such as `git diff --check`."
+      : "";
+
+  return [
+    `You are running from the USAM automatic Linear dispatcher in the ${lane}.`,
+    "",
+    "Hard rules:",
+    "- Work only in this isolated worktree.",
+    "- Do not merge, push, deploy, change DNS, change production database/schema, send external communications, or touch unrelated worktrees.",
+    "- Keep the smallest complete implementation that satisfies the Linear issue.",
+    "- Preserve existing repo patterns and AGENTS.md instructions.",
+    "- At the end, report changed files, validation commands, risks, and whether founder approval is still required.",
+    fixtureGuidance,
+    "",
+    `Linear issue: ${issue.identifier} - ${issue.title}`,
+    `URL: ${issue.url}`,
+    "",
+    issue.description || "",
+  ].join("\n");
+}
+
+function runnerInvocation(runner, worktreePath, outputPath) {
+  if (runner === "codex") {
+    return {
+      args: [
+        ...config.runners.codex.args,
+        "--cd",
+        worktreePath,
+        "--output-last-message",
+        outputPath,
+        "-",
+      ],
+      command: config.runners.codex.command,
+      cwd: worktreePath,
+      stdin: true,
+    };
+  }
+
+  return {
+    args: [
+      ...config.runners.claude.args,
+      "--debug-file",
+      join(dirs.logs, `claude-${dateStamp()}.debug.log`),
+    ],
+    command: config.runners.claude.command,
+    cwd: worktreePath,
+    stdin: false,
+  };
+}
+
+async function runAgent(issue, lock, lockPathValue, attempt) {
+  const prompt = buildPrompt(issue, lock);
+  const promptPath = join(dirs.tmp, `${safeIssueFile(issue.identifier)}-${lock.runner}-prompt.txt`);
+  const outputPath = join(dirs.tmp, `${safeIssueFile(issue.identifier)}-${lock.runner}-last-message.txt`);
+  writeFileSync(promptPath, prompt);
+  const invocation = runnerInvocation(lock.runner, lock.worktreePath, outputPath);
+  const args = invocation.stdin ? invocation.args : [...invocation.args, prompt];
+  jsonLog("runner_start", { attempt, command: invocation.command, issue: issue.identifier, runner: lock.runner, worktree: lock.worktreePath });
+  updateLock(lockPathValue, { attempts: attempt, lastAttemptAt: isoNow(), promptPath, status: attempt > 1 ? "retrying" : "running" });
+
+  const result = await runCommand(invocation.command, args, {
+    cwd: invocation.cwd,
+    input: invocation.stdin ? prompt : "",
+    timeoutMs: config.runnerTimeoutMs,
+  });
+  const stdoutPath = join(dirs.logs, `${safeIssueFile(issue.identifier)}-${lock.runner}-attempt-${attempt}.stdout.log`);
+  const stderrPath = join(dirs.logs, `${safeIssueFile(issue.identifier)}-${lock.runner}-attempt-${attempt}.stderr.log`);
+  writeFileSync(stdoutPath, result.stdout || "");
+  writeFileSync(stderrPath, result.stderr || "");
+  updateLock(lockPathValue, { lastExitCode: result.code, lastSignal: result.signal, stderrPath, stdoutPath, timedOut: result.timedOut });
+  jsonLog("runner_exit", { attempt, code: result.code, issue: issue.identifier, runner: lock.runner, signal: result.signal, timedOut: result.timedOut });
+
+  return {
+    ...result,
+    outputPath: existsSync(outputPath) ? outputPath : stdoutPath,
+    stderrPath,
+    stdoutPath,
+  };
+}
+
+async function gitSummary(worktreePath) {
+  const status = await git(["status", "--short"], worktreePath, 30000);
+  const diffStat = await git(["diff", "--stat"], worktreePath, 30000).catch((error) => `diff stat failed: ${error.message}`);
+  const changedFiles = status.split("\n").filter(Boolean).map((line) => line.slice(3));
+  return { changedFiles, diffStat, status };
+}
+
+function tailText(path, maxChars = 4000) {
+  if (!path || !existsSync(path)) {
+    return "";
+  }
+
+  const text = readFileSync(path, "utf8");
+  return text.length > maxChars ? text.slice(-maxChars) : text;
+}
+
+async function handleIssue(issue, classification) {
+  if (isPaused(classification.runner)) {
+    jsonLog("issue_skipped_paused", { issue: issue.identifier, runner: classification.runner });
+    return;
+  }
+
+  const workerCount = activeRunnerCount(classification.runner);
+  if (workerCount >= config.maxWorkers[classification.runner]) {
+    jsonLog("issue_skipped_worker_limit", { issue: issue.identifier, runner: classification.runner, workerCount });
+    return;
+  }
+
+  const overlap = hasPathOverlap(classification.expectedPaths);
+  if (overlap) {
+    jsonLog("issue_skipped_overlap", { issue: issue.identifier, overlap });
+    return;
+  }
+
+  const acquired = acquireLock(issue, classification.runner, classification.expectedPaths);
+  if (!acquired) {
+    jsonLog("issue_skipped_lock_exists", { issue: issue.identifier });
+    return;
+  }
+
+  let lock = acquired.lock;
+  const lockPathValue = acquired.path;
+  jsonLog("issue_claimed", { issue: issue.identifier, runner: lock.runner, lock: lockPathValue });
+
+  try {
+    lock = await createWorktree(lock, lockPathValue);
+    await updateIssueState(issue, config.linear.statusInProgress);
+    await postIssueComment(issue, [
+      `Dispatcher pickup started.`,
+      "",
+      `Runner: ${lock.runner}`,
+      `Branch: \`${lock.branch}\``,
+      `Worktree: \`${lock.worktreePath}\``,
+      `Base: \`${config.git.baseRef}\` (${lock.baseCommit})`,
+      `Test mode: ${config.testMode ? "on" : "off"}`,
+      "",
+      "Safety: no merge, push, deploy, DNS, production database, financial/legal, or non-Linear external communication actions are allowed.",
+    ].join("\n"));
+
+    let result = null;
+    const maxAttempts = Math.max(1, config.maxRetries + 1);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      result = await runAgent(issue, lock, lockPathValue, attempt);
+      if (result.code === 0 && !result.timedOut) {
+        break;
+      }
+
+      if (attempt < maxAttempts) {
+        await postIssueComment(issue, `Dispatcher runner attempt ${attempt} failed${result.timedOut ? " by timeout" : ""}. Retrying once in the same isolated worktree.`);
+      }
+    }
+
+    const summary = await gitSummary(lock.worktreePath);
+    const finalText = tailText(result.outputPath);
+
+    if (result.code === 0 && !result.timedOut) {
+      updateLock(lockPathValue, { completedAt: isoNow(), status: "completed" });
+      await postIssueComment(issue, [
+        `Dispatcher runner completed successfully.`,
+        "",
+        `Runner: ${lock.runner}`,
+        `Branch: \`${lock.branch}\``,
+        `Worktree: \`${lock.worktreePath}\``,
+        `Changed files: ${summary.changedFiles.length ? summary.changedFiles.map((file) => `\`${file}\``).join(", ") : "none reported by git status"}`,
+        "",
+        "Validation / runner summary:",
+        "```text",
+        finalText.trim() || "(runner produced no final text)",
+        "```",
+        "",
+        "Git status:",
+        "```text",
+        summary.status || "(clean)",
+        "```",
+        "",
+        "No merge, push, deploy, DNS, production database, or external communication action was performed.",
+      ].join("\n"));
+      await updateIssueState(issue, config.linear.statusInReview);
+      jsonLog("issue_completed", { issue: issue.identifier, runner: lock.runner });
+      return;
+    }
+
+    updateLock(lockPathValue, { failedAt: isoNow(), status: "failed" });
+    await postIssueComment(issue, [
+      `Dispatcher runner failed after ${Math.max(1, config.maxRetries + 1)} attempt(s).`,
+      "",
+      `Runner: ${lock.runner}`,
+      `Branch: \`${lock.branch}\``,
+      `Worktree: \`${lock.worktreePath}\``,
+      `Timed out: ${result.timedOut ? "yes" : "no"}`,
+      `Exit code: ${result.code ?? "unknown"}`,
+      "",
+      "stderr tail:",
+      "```text",
+      tailText(result.stderrPath).trim() || "(empty)",
+      "```",
+      "",
+      "The issue is being returned to Todo, but the failed lock remains in place so it will not be picked up again until the lock is cleared intentionally.",
+    ].join("\n"));
+    await updateIssueState(issue, config.linear.statusTodo);
+    jsonLog("issue_failed", { code: result.code, issue: issue.identifier, runner: lock.runner, timedOut: result.timedOut });
+  } catch (error) {
+    updateLock(lockPathValue, { error: error.message, failedAt: isoNow(), status: "failed" });
+    jsonLog("issue_error", { error: error.message, issue: issue.identifier, runner: lock.runner });
+    try {
+      await postIssueComment(issue, `Dispatcher failed before completion.\n\n\`\`\`text\n${error.message}\n\`\`\``);
+      await updateIssueState(issue, config.linear.statusTodo);
+    } catch (commentError) {
+      jsonLog("issue_error_comment_failed", { error: commentError.message, issue: issue.identifier });
+    }
+  }
+}
+
+async function pollOnce() {
+  recoverStaleLocks();
+
+  if (isPaused("codex") && isPaused("claude")) {
+    jsonLog("poll_skipped_paused");
+    return;
+  }
+
+  const issues = await listCandidateIssues();
+  writeState("last-poll", { at: isoNow(), candidateCount: issues.length });
+  jsonLog("poll_candidates", { count: issues.length });
+
+  for (const issue of issues) {
+    const classification = classifyIssue(issue);
+    if (!classification.eligible) {
+      jsonLog("issue_not_eligible", { issue: issue.identifier, reason: classification.reason });
+      continue;
+    }
+
+    await handleIssue(issue, classification);
+  }
+}
+
+async function main() {
+  if (statusOnly) {
+    process.stdout.write(`${JSON.stringify(dispatcherStatus(), null, 2)}\n`);
+    return;
+  }
+
+  jsonLog("dispatcher_start", { configPath, once, rootDir, testMode: config.testMode });
+
+  while (true) {
+    let nextDelayMs = config.pollIntervalMs;
+    try {
+      await pollOnce();
+    } catch (error) {
+      jsonLog("poll_error", { code: error.code || null, error: error.message });
+      if (once && error.code === "MISSING_LINEAR_API_KEY") {
+        process.exitCode = 2;
+      }
+      if (!once && error.code === "MISSING_LINEAR_API_KEY") {
+        nextDelayMs = config.credentialRetryMs || config.pollIntervalMs;
+      }
+    }
+
+    if (once) {
+      break;
+    }
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, nextDelayMs));
+  }
+}
+
+main().catch((error) => {
+  jsonLog("dispatcher_fatal", { error: error.message, stack: error.stack });
+  process.exitCode = 1;
+});

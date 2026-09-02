@@ -21,7 +21,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const document = await getPartnersDocumentById(id);
 
-  if (!document) {
+  // A hidden document is not reachable through the shared passphrase, even by
+  // direct id. Same 404 as a missing document, so the surface reveals nothing.
+  if (!document || !document.partnerVisible) {
     return NextResponse.json({ error: "Document not found." }, { status: 404 });
   }
 

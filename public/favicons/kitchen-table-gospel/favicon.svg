@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kitchen Table Gospel"><rect width="64" height="64" rx="9" fill="#C2A14E"/><path d="M17 22H47L55 34H9L17 22Z" fill="#0D0D0D"/><rect x="15" y="35" width="5.5" height="18" fill="#0D0D0D"/><rect x="25" y="35" width="4" height="11" fill="#0D0D0D"/><rect x="35" y="35" width="4" height="11" fill="#0D0D0D"/><rect x="43.5" y="35" width="5.5" height="18" fill="#0D0D0D"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kitchen Table Gospel">
+  <g fill="#378ADD" transform="translate(-4.174 -10.391) scale(1.13043)">
+    <path d="M17 22H47L55 34H9L17 22Z"/>
+    <rect x="15" y="35" width="5.5" height="18"/>
+    <rect x="25" y="35" width="4" height="11"/>
+    <rect x="35" y="35" width="4" height="11"/>
+    <rect x="43.5" y="35" width="5.5" height="18"/>
+  </g>
+</svg>

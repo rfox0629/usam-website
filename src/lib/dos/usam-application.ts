@@ -75,15 +75,20 @@ type OrganizationRow = {
 };
 
 export type UsamApplicationSubmitPayload = {
+  adminApprovedMonthlyGoal?: number | null;
   applicantEmail: string;
   applicantName: string;
   applicantPhone: string;
   callingFocus: string;
   contactPayload?: Record<string, unknown>;
+  excessSupportAgreementAccepted?: boolean;
+  excessSupportAgreementAcceptedAt?: string | null;
+  excessSupportAgreementVersion?: string | null;
   location: string;
   monthlyBudget: number | null;
   prayerNeeds: string;
   profilePhotoUrl: string;
+  proposedMonthlyNeed?: number | null;
   referencesText: string;
   storyTestimony: string;
   supportGoal: number | null;
@@ -451,7 +456,11 @@ async function writeUsamApplication({
   }
 
   const submittedAt = new Date().toISOString();
+  const proposedMonthlyNeed = payload.proposedMonthlyNeed ?? payload.monthlyBudget ?? payload.supportGoal ?? null;
+  const adminApprovedMonthlyGoal = payload.adminApprovedMonthlyGoal ?? null;
+  const excessSupportAgreementAccepted = payload.excessSupportAgreementAccepted === true;
   const applicationRecord = {
+    admin_approved_monthly_goal: adminApprovedMonthlyGoal,
     applicant_email: cleanText(payload.applicantEmail),
     applicant_name: payload.applicantName,
     applicant_phone: cleanText(payload.applicantPhone),
@@ -469,11 +478,19 @@ async function writeUsamApplication({
     prayer_needs: cleanText(payload.prayerNeeds),
     profile_id: profileId,
     profile_photo_url: cleanText(payload.profilePhotoUrl),
+    proposed_monthly_need: proposedMonthlyNeed,
     references_text: cleanText(payload.referencesText),
     status: "pending_review" as const,
     story_testimony: cleanText(payload.storyTestimony),
     submitted_at: submittedAt,
     support_goal: payload.supportGoal,
+    excess_support_agreement_accepted: excessSupportAgreementAccepted,
+    excess_support_agreement_accepted_at: excessSupportAgreementAccepted
+      ? cleanText(payload.excessSupportAgreementAcceptedAt) ?? submittedAt
+      : null,
+    excess_support_agreement_version: excessSupportAgreementAccepted
+      ? cleanText(payload.excessSupportAgreementVersion) ?? "usa-174-v1"
+      : null,
     workspace_id: payload.workspaceId,
   };
   const writeResult = existingResult.data?.id
@@ -500,7 +517,7 @@ async function writeUsamApplication({
     supabase,
   });
 
-  const monthlyGoal = payload.supportGoal ?? payload.monthlyBudget ?? null;
+  const monthlyGoal = adminApprovedMonthlyGoal;
   const householdUpdate = {
     display_name: publicDisplayName,
     location: cleanText(payload.location),

@@ -7,7 +7,7 @@ import { getMissionaryHouseholdsResult, type MissionaryHouseholdDirectoryRow } f
 import { normalizeLocationVisibility, normalizePrimaryState } from "@/src/lib/missionaries/location";
 
 export const metadata: Metadata = {
-  title: "Missionary Team | USA Missionaries",
+  title: "Missionary Team",
   description: "Meet the USA Missionaries team serving across America.",
 };
 

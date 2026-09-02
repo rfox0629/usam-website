@@ -1,0 +1,138 @@
+{
+  "issueId": "USA-82",
+  "manifestVersion": "usa-82-release-matrix-v1",
+  "name": "USA-82 release matrix",
+  "primaryRouteId": "system-v2",
+  "requestedReviewRoute": "/system/v2",
+  "textMatching": "case-insensitive",
+  "staleGlobalMarkers": "ignore_when_route_checks_exist",
+  "excludedLaunchDependencies": [
+    {
+      "issueId": "USA-80",
+      "reason": "River of Ministries animation is post-launch and must not block USA-82.",
+      "contentMarkers": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    }
+  ],
+  "routeChecks": [
+    {
+      "id": "system-v1",
+      "label": "System V1 rollback route",
+      "host": "usamissionaries.org",
+      "path": "/system/v1",
+      "rendersExperience": "system-v1",
+      "expectedMarkers": [
+        "INFRASTRUCTURE IS BEING BUILT",
+        "JOIN THE WAITING LIST",
+        "ENTER WITH ACCESS CODE"
+      ],
+      "forbiddenMarkers": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "system-v2",
+      "label": "System V2 direct preview",
+      "host": "usamissionaries.org",
+      "path": "/system/v2",
+      "rendersExperience": "system-v2",
+      "expectedMarkers": [
+        "USA Missionaries System",
+        "One Mission.",
+        "Distinct Doors.",
+        "Two Initiatives.",
+        "One Disciple-Making Path."
+      ],
+      "forbiddenMarkers": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "system",
+      "label": "Canonical System route",
+      "host": "usamissionaries.org",
+      "path": "/system",
+      "rendersExperience": "system-v2",
+      "safeResolution": "serves-v2",
+      "expectedMarkers": [
+        "USA Missionaries System",
+        "One Mission.",
+        "Distinct Doors.",
+        "Two Initiatives.",
+        "One Disciple-Making Path."
+      ],
+      "forbiddenMarkers": [
+        "RIVER OF MINISTRIES",
+        "MANY STREAMS.",
+        "ONE MOVEMENT."
+      ]
+    },
+    {
+      "id": "dos-hostname",
+      "label": "DOS hostname public route",
+      "host": "discipleshipoperatingsystem.com",
+      "path": "/",
+      "directPreviewPath": "/domain-sites/discipleship-operating-system",
+      "rendersExperience": "discipleship-operating-system",
+      "expectedMarkers": [
+        "Discipleship Operating System",
+        "The operating system for intentional discipleship",
+        "Never lose a person or a moment that matters.",
+        "Request Information",
+        "USA Missionaries"
+      ],
+      "forbiddenMarkers": [
+        "Kitchen Table Gospel",
+        "Join the Table",
+        "INFRASTRUCTURE IS BEING BUILT",
+        "RIVER OF MINISTRIES"
+      ]
+    },
+    {
+      "id": "dos-private-separation",
+      "label": "Private DOS portal separation",
+      "host": "usamissionaries.org",
+      "path": "/dos",
+      "rendersExperience": "dos-private-portal",
+      "expectedMarkers": [
+        "Start your DOS field",
+        "Create your personal workspace",
+        "Sign In"
+      ],
+      "forbiddenMarkers": [
+        "Never lose a person or a moment that matters.",
+        "Request Information",
+        "Kitchen Table Gospel",
+        "Join the Table"
+      ]
+    },
+    {
+      "id": "ktg-hostname",
+      "label": "Kitchen Table Gospel hostname public route",
+      "host": "kitchentablegospel.org",
+      "path": "/",
+      "directPreviewPath": "/domain-sites/kitchen-table-gospel",
+      "rendersExperience": "kitchen-table-gospel",
+      "expectedMarkers": [
+        "Kitchen Table Gospel",
+        "An initiative of USA Missionaries",
+        "Discipleship Doesn't Start on a Stage.",
+        "Join the Table",
+        "Pull Up a Chair"
+      ],
+      "forbiddenMarkers": [
+        "Discipleship Operating System",
+        "Request Information",
+        "INFRASTRUCTURE IS BEING BUILT",
+        "RIVER OF MINISTRIES"
+      ]
+    }
+  ]
+}

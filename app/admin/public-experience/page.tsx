@@ -10,7 +10,7 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Public Experience | USA Missionaries",
+  title: "Public Experience",
   robots: {
     follow: false,
     index: false,
@@ -77,6 +77,13 @@ const publicPages: PublicPageRow[] = [
     owner: "Support Team",
     pageName: "Financial Freedom",
     route: "/financialfreedom",
+    status: "Live",
+  },
+  {
+    id: "restoration",
+    owner: "Mission of Reconciliation / USA Missionaries",
+    pageName: "Restoration",
+    route: "/restoration",
     status: "Live",
   },
 ];
@@ -159,6 +166,13 @@ const publicFormsBase = [
     ownerInbox: "Applications",
     publicRoute: "/join/usam",
   },
+  {
+    formName: "Restoration Reflection",
+    formType: "restoration",
+    inboxHref: "/admin/restoration",
+    ownerInbox: "Restoration",
+    publicRoute: "/restoration",
+  },
 ] satisfies Array<Omit<PublicFormRow, "lastSubmission" | "newPending" | "submissions">>;
 
 const accessGates: AccessGateRow[] = [
@@ -182,6 +196,13 @@ const accessGates: AccessGateRow[] = [
     gateName: "DOS Access",
     route: "/system/preview",
     status: "Protected",
+  },
+  {
+    actionHref: "/admin/restoration",
+    actionLabel: "View",
+    gateName: "Restoration Intake",
+    route: "/restoration",
+    status: "Public",
   },
 ];
 

@@ -1,0 +1,57 @@
+{
+  "testMode": true,
+  "linear": {
+    "apiUrl": "https://api.linear.app/graphql",
+    "teamKey": "USA",
+    "pollFirst": 30,
+    "statusTodo": "Todo",
+    "statusInProgress": "In Progress",
+    "statusInReview": "In Review",
+    "labelReadyForDispatcher": "Ready for Dispatcher",
+    "labelReadyForCodex": "Ready for Codex",
+    "labelReadyForClaude": "Ready for Claude",
+    "blockedLabels": ["Blocked", "Needs Discussion"]
+  },
+  "git": {
+    "repositoryPath": "/Users/ryanfox/Documents/GitHub/usam-website",
+    "baseRef": "origin/main",
+    "branchPrefix": "dispatcher"
+  },
+  "pollIntervalMs": 30000,
+  "credentialRetryMs": 300000,
+  "lockStaleAfterMs": 2700000,
+  "runnerTimeoutMs": 1800000,
+  "maxRetries": 1,
+  "maxWorkers": {
+    "codex": 1,
+    "claude": 1
+  },
+  "runners": {
+    "codex": {
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "args": [
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json"
+      ]
+    },
+    "claude": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@anthropic-ai/claude-code",
+        "-p",
+        "--permission-mode",
+        "acceptEdits",
+        "--output-format",
+        "text"
+      ]
+    }
+  },
+  "pauses": {
+    "global": false,
+    "codex": false,
+    "claude": false
+  }
+}

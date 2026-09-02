@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 2,
+  "_comment": "USA-89 Repository Registry — SOURCE OF TRUTH for repository ownership. Every repository reference in automation must resolve through this file. A repository name is never authoritative without its owner.",
+  "_ownershipPolicy": {
+    "rule": "Never use a bare repository name. Always resolve github.owner + github.repo, or github.slug.",
+    "reason": "An empty duplicate USA-Missionaries/usam-website previously existed alongside the canonical rfox0629/usam-website. Any tool resolving by bare name could have targeted the wrong repository. That duplicate has been deleted; this policy prevents recurrence.",
+    "canonicalWebsite": "rfox0629/usam-website"
+  },
+  "canonicalRepositories": {
+    "automation": {
+      "kind": "local",
+      "repositoryPath": "/Users/ryanfox/Code/usam-website/tooling/automation",
+      "metadataPath": "/Users/ryanfox/Code/usam-website/.git",
+      "sourceOfTruth": true,
+      "github": {
+        "owner": "rfox0629",
+        "repo": "usam-website",
+        "slug": "rfox0629/usam-website",
+        "url": "https://github.com/rfox0629/usam-website.git",
+        "defaultBranch": "main",
+        "visibility": "public"
+      },
+      "runtimePath": "/Users/ryanfox/Code/usam-website/tooling/automation"
+    },
+    "website": {
+      "kind": "git-worktree",
+      "repositoryPath": "/Users/ryanfox/Code/usam-website",
+      "metadataPath": "/Users/ryanfox/Code/usam-website/.git",
+      "baseRef": "origin/main",
+      "sourceOfTruth": true,
+      "worktreeRoot": "/Users/ryanfox/USAM-Worktrees",
+      "github": {
+        "owner": "rfox0629",
+        "repo": "usam-website",
+        "slug": "rfox0629/usam-website",
+        "url": "https://github.com/rfox0629/usam-website.git",
+        "defaultBranch": "main",
+        "visibility": "public"
+      }
+    }
+  },
+  "roots": {
+    "issueWorktrees": "/Users/ryanfox/USAM-Worktrees",
+    "releaseWorktrees": "/Users/ryanfox/USAM-Releases",
+    "runtimeState": "/Users/ryanfox/.usam-dispatcher"
+  },
+  "applications": [
+    {
+      "application": "USAM Website / DOS / Kitchen Table Gospel",
+      "githubOwner": "rfox0629",
+      "repository": "usam-website",
+      "slug": "rfox0629/usam-website",
+      "defaultBranch": "main",
+      "visibility": "public",
+      "vercelProject": "usam-website",
+      "vercelProjectId": "prj_gB0MBTEfFRmDb5FnZGg7YpYD7ng4",
+      "supabaseProject": "usam-website",
+      "supabaseRef": "dbupuphezeqkiolprrlg",
+      "linearApplication": [
+        "USAM Website",
+        "DOS",
+        "Kitchen Table Gospel",
+        "Automation",
+        "Infrastructure"
+      ],
+      "runtimePath": "/Users/ryanfox/Code/usam-website",
+      "status": "active-production",
+      "notes": "Canonical production monorepo and local automation source checkout. Public product code lives at the repository root; local dispatcher/Claude bridge source lives under tooling/automation. Runtime state remains outside Git at ~/.usam-dispatcher."
+    },
+    {
+      "application": "Automation",
+      "githubOwner": "rfox0629",
+      "repository": "usam-automation",
+      "slug": "rfox0629/usam-automation",
+      "defaultBranch": "preservation/initial-20260727",
+      "visibility": "private",
+      "vercelProject": null,
+      "supabaseProject": null,
+      "linearApplication": [
+        "Automation",
+        "Infrastructure"
+      ],
+      "sourcePath": "/Users/ryanfox/Code/usam-website/tooling/automation",
+      "runtimePath": "/Users/ryanfox/Code/usam-website/tooling/automation",
+      "status": "archived",
+      "notes": "Retired USA-189 source repository. Automation now resolves through rfox0629/usam-website under tooling/automation; this historical record remains only to prevent accidental reuse of the old separate repository."
+    },
+    {
+      "application": "SAVE",
+      "githubOwner": "rfox0629",
+      "repository": "save-website",
+      "slug": "rfox0629/save-website",
+      "defaultBranch": "main",
+      "visibility": "public",
+      "vercelProject": "save-platform",
+      "vercelProjectId": "prj_AHSBTqddgOzVX1exoYhsiGZYpiFa",
+      "supabaseProject": "UNKNOWN - second account",
+      "supabaseRef": "lcxgfn (masked, not in accessible org)",
+      "linearApplication": [
+        "SAVE"
+      ],
+      "runtimePath": "/Users/ryanfox/Code/save-website",
+      "status": "active",
+      "notes": "Vercel project is named save-platform, not save-website. Supabase project is in a SECOND, inaccessible account (USA-89 D17)."
+    },
+    {
+      "application": "Stewardship Capital",
+      "githubOwner": "rfox0629",
+      "repository": "stewardship.capital",
+      "slug": "rfox0629/stewardship.capital",
+      "defaultBranch": "main",
+      "visibility": "public",
+      "vercelProject": "stewardship.capital",
+      "vercelProjectId": "prj_WHNTtoq00xTvMS6cGDkmWB8eVJR7",
+      "supabaseProject": "UNKNOWN - second account",
+      "supabaseRef": "hbvjxm (masked, not in accessible org)",
+      "linearApplication": [
+        "Stewardship Capital"
+      ],
+      "runtimePath": "/Users/ryanfox/Code/stewardship.capital",
+      "status": "active",
+      "notes": "Supabase project is in the SECOND, inaccessible account (USA-89 D17)."
+    },
+    {
+      "application": "The Lord's Army",
+      "githubOwner": "rfox0629",
+      "repository": "theLordsarmy",
+      "slug": "rfox0629/theLordsarmy",
+      "defaultBranch": "main",
+      "visibility": "public",
+      "vercelProject": "army-website",
+      "vercelProjectId": "prj_wlBSmqDY3JxQ6FxWxG2uxW5prwxH",
+      "supabaseProject": null,
+      "linearApplication": [
+        "The Lord's Army"
+      ],
+      "runtimePath": "/Users/ryanfox/Code/theLordsarmy-website",
+      "status": "active",
+      "notes": "Repo name (theLordsarmy) differs from local dir (theLordsarmy-website) and Vercel project (army-website). army-website owns thelords.army; the thelordsarmy-website Vercel project is redundant."
+    },
+    {
+      "application": "DOS (legacy)",
+      "githubOwner": "USA-Missionaries",
+      "repository": "dos-platform",
+      "slug": "USA-Missionaries/dos-platform",
+      "defaultBranch": "main",
+      "visibility": "private",
+      "vercelProject": null,
+      "supabaseProject": "dos-platform",
+      "supabaseRef": "wtmzhfggcgzyloepqeyi",
+      "linearApplication": [
+        "DOS"
+      ],
+      "runtimePath": "/Users/ryanfox/Documents/GitHub/dos-platform",
+      "status": "legacy-reference",
+      "notes": "Legacy DOS Reference. NOT active. NOT to be archived during Project Zero. Preserved on rescue/dos-platform-legacy-reference-20260727 (51ffeef) plus encrypted archives. Its 24 migrations are historical only."
+    },
+    {
+      "application": "Organization OS (legacy)",
+      "githubOwner": "USA-Missionaries",
+      "repository": "usam-dashboard",
+      "slug": "USA-Missionaries/usam-dashboard",
+      "defaultBranch": "main",
+      "visibility": "private",
+      "vercelProject": "usam-dashboard",
+      "vercelProjectId": "prj_Xpqt641mbqZPKUz1hlBWGDXZ1klT",
+      "supabaseProject": "usam-dashboard",
+      "supabaseRef": "httbugkowzladdlsjozr",
+      "linearApplication": [
+        "Organization OS"
+      ],
+      "runtimePath": null,
+      "status": "dormant - review pending",
+      "notes": "388 KB, 1 branch, last push 2026-02-20. Zero references in dispatcher, config, scripts, or LaunchAgents. The local folder ~/Documents/GitHub/USAM-Dashboard has NO remote and is NOT a clone of this repo."
+    },
+    {
+      "application": "Aligned Insights (ownership unconfirmed)",
+      "githubOwner": "rfox0629",
+      "repository": "alignedinsights-website",
+      "slug": "rfox0629/alignedinsights-website",
+      "defaultBranch": "main",
+      "visibility": "public",
+      "vercelProject": "alignedinsights-website",
+      "vercelProjectId": "prj_2zX4MIP3Q3da9gpNkLOk4ZUqdtaK",
+      "supabaseProject": "alignedinsights-website",
+      "supabaseRef": "igbzzezhjovyuuopyiki",
+      "linearApplication": null,
+      "runtimePath": "/Users/ryanfox/Documents/GitHub/alignedinsights-website",
+      "status": "held - out of scope",
+      "notes": "alignedinsights.tech. Zero USAM references in source. Maps to no approved Application label. Its Supabase project sits inside the USA Missionaries organization - flagged for ownership review."
+    },
+    {
+      "application": "Archived experiments",
+      "githubOwner": "rfox0629",
+      "repository": "dos-2.0, fish-tank, auto-pilot-strategies, groundwork",
+      "slug": "rfox0629/dos-2.0, rfox0629/fish-tank, rfox0629/auto-pilot-strategies, rfox0629/groundwork",
+      "defaultBranch": "varies",
+      "visibility": "public",
+      "vercelProject": null,
+      "supabaseProject": null,
+      "linearApplication": null,
+      "runtimePath": null,
+      "status": "archived",
+      "notes": "Archived on GitHub 2026-07-27. Local clones removed after byte-level verification. Rescue branches pushed."
+    }
+  ],
+  "knownGaps": [
+    "A SECOND Supabase account holds save-website and stewardship.capital projects. It is not accessible from this machine, so those projects cannot be inventoried or backed up (USA-89 D17).",
+    "USA-Missionaries/usam-dashboard has no runtime dependencies but retains a Vercel project and a paused Supabase project - decide archive vs keep.",
+    "alignedinsights-website ownership unconfirmed; its Supabase project sits in the USA Missionaries organization."
+  ]
+}

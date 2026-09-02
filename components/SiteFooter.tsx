@@ -19,13 +19,7 @@ export function SiteFooter() {
         </div>
         <div className="max-w-3xl text-left md:text-right">
           <p
-            className="text-[10px] uppercase tracking-[0.16em] text-stone-600"
-            style={{ fontFamily: font.rajdhani }}
-          >
-            Kitchen Table Gospel and DOS are USA Missionaries initiatives. MOR is a strategic ministry partner.
-          </p>
-          <p
-            className="mt-3 text-xs uppercase tracking-[0.18em] text-stone-400"
+            className="text-xs uppercase tracking-[0.18em] text-stone-400"
             style={{ fontFamily: font.rajdhani }}
           >
             GO. MAKE DISCIPLES. BAPTIZE THEM. TEACH THEM THE COMMANDS. MATTHEW 28:19&ndash;20

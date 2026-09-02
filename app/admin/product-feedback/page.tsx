@@ -11,7 +11,7 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Product Feedback | Command Center",
+  title: "Product Feedback",
   robots: {
     follow: false,
     index: false,

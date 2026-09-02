@@ -14,6 +14,14 @@ import {
   normalizeHostname,
   type DomainSiteConfig,
 } from "@/src/lib/domain-sites";
+import {
+  isMissionHostname,
+  missionCanonicalOrigin,
+  missionRouteHeader,
+  missionSectionPrefix,
+  resolveMissionAppPath,
+  toMissionNativePath,
+} from "@/src/lib/mission-of-reconciliation/domain";
 
 const domainFaviconAssetPaths = new Set([
   "/apple-touch-icon.png",
@@ -91,6 +99,61 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith(domainSiteRoutePrefix) && !request.headers.get(domainRouteHeader) && !isPreviewDeployment) {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  // Mission of Reconciliation runs a whole section on its own domain, so it is
+  // handled before the single-page domain-site rules below.
+  if (isMissionHostname(hostname)) {
+    // Second pass over our own rewrite: serve it and stop.
+    if (request.headers.get(missionRouteHeader)) {
+      return NextResponse.next();
+    }
+
+    if (alternateDomainPassthroughPaths.has(pathname)) {
+      return NextResponse.next();
+    }
+
+    // Collapse section-prefixed URLs to their host-native equivalent so the
+    // domain never serves the same page at two addresses.
+    if (pathname === missionSectionPrefix || pathname.startsWith(`${missionSectionPrefix}/`)) {
+      const url = request.nextUrl.clone();
+      url.pathname = toMissionNativePath(pathname);
+
+      return NextResponse.redirect(url, 308);
+    }
+
+    const appPath = resolveMissionAppPath(pathname);
+
+    if (appPath) {
+      if (appPath === pathname) {
+        return NextResponse.next();
+      }
+
+      const url = request.nextUrl.clone();
+      url.pathname = appPath;
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set(missionRouteHeader, "1");
+
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    }
+
+    // Anything outside the section belongs to USA Missionaries.
+    return NextResponse.redirect(
+      new URL(`${domainSites.usam.canonicalOrigin}${pathname}${request.nextUrl.search}`),
+      308,
+    );
+  }
+
+  // Legacy usamissionaries.org section URLs move to the custom domain once it is
+  // verified. Gated so the cutover does not strand visitors while SSL issues.
+  if (
+    process.env.ENABLE_MOR_DOMAIN_REDIRECT === "true"
+    && (pathname === missionSectionPrefix || pathname.startsWith(`${missionSectionPrefix}/`))
+  ) {
+    return NextResponse.redirect(
+      new URL(`${missionCanonicalOrigin}${toMissionNativePath(pathname)}${request.nextUrl.search}`),
+      308,
+    );
   }
 
   if (pathname === "/") {

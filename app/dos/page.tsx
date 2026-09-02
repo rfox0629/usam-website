@@ -6,7 +6,7 @@ import { DosPortalClient } from "./DosPortalClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOS Portal | USA Missionaries",
+  title: { absolute: "Portal | DOS" },
   description: "Set up your DOS workspace and begin walking with people.",
 };
 

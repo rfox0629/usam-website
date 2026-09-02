@@ -1,0 +1,220 @@
+{
+  "testMode": true,
+  "linear": {
+    "apiUrl": "https://api.linear.app/graphql",
+    "teamKey": "USA",
+    "pollFirst": 100,
+    "statusTodo": "Ready",
+    "statusInProgress": "In Progress",
+    "statusInReview": "Founder Review",
+    "labelReadyForDispatcher": "Ready for Dispatcher",
+    "ownershipLabels": [
+      "Claude",
+      "Codex"
+    ],
+    "deprecatedRoutingLabels": [
+      "Ready for Codex",
+      "Ready for Claude"
+    ],
+    "labelFounderApprovedProduction": "Founder Approved — Production",
+    "labelFounderApprovedProductionData": "Founder Approved — Production Data",
+    "applicationLabelGroup": "Application",
+    "runnerLabelGroup": "Runner",
+    "blockedLabels": [
+      "Blocked",
+      "Needs Discussion"
+    ],
+    "revisionPriority": [
+      "USA-38",
+      "USA-36",
+      "USA-71"
+    ],
+    "previewFirstIteration": {
+      "enabled": true,
+      "repositoryNames": [
+        "website"
+      ],
+      "minimumRevisionCycle": 2
+    }
+  },
+  "repositoryRegistryPath": "config/repository-registry.json",
+  "runtimeStateRoot": "/Users/ryanfox/.usam-dispatcher",
+  "worktreeRoots": {
+    "issues": "/Users/ryanfox/USAM-Worktrees",
+    "releases": "/Users/ryanfox/USAM-Releases"
+  },
+  "git": {
+    "repositoryPath": "/Users/ryanfox/Code/usam-website",
+    "metadataPath": "/Users/ryanfox/Code/usam-website/.git",
+    "baseRef": "origin/main",
+    "branchPrefix": "dispatcher"
+  },
+  "defaultRepository": "website",
+  "repositories": {
+    "automation": {
+      "kind": "local",
+      "repositoryPath": "/Users/ryanfox/Code/usam-website/tooling/automation",
+      "metadataPath": "/Users/ryanfox/Code/usam-website/.git",
+      "baseRef": null,
+      "branchPrefix": "automation",
+      "priority": 100,
+      "routing": {
+        "labelNames": [
+          "Automation",
+          "Infrastructure"
+        ],
+        "pathPrefixes": [
+          "tooling/automation/",
+          "bin/",
+          "config/",
+          "docs/dispatcher-fixtures/",
+          "docs/usa-70",
+          "launchd/",
+          "scripts/dispatcher-",
+          "scripts/host-publisher",
+          "src/dispatcher",
+          "src/execution-policy",
+          "src/review-policy",
+          "src/runner-",
+          "src/replacement/",
+          "test/replacement/"
+        ],
+        "textPatterns": [
+          "\\bautomation\\b",
+          "\\bdispatcher\\b",
+          "\\bClaude\\s+bridge\\b",
+          "\\bLaunchAgent\\b",
+          "\\bLaunchDaemon\\b",
+          "\\bLinear\\s+integration\\b",
+          "\\bpolling\\s+loop\\b",
+          "\\brunner\\s+adapters?\\b",
+          "\\bno\\s+available\\s+environments\\b",
+          "/Users/ryanfox/Code/usam-website/tooling/automation"
+        ]
+      }
+    },
+    "website": {
+      "kind": "git-worktree",
+      "repositoryPath": "/Users/ryanfox/Code/usam-website",
+      "metadataPath": "/Users/ryanfox/Code/usam-website/.git",
+      "baseRef": "origin/main",
+      "branchPrefix": "dispatcher",
+      "priority": 10,
+      "routing": {
+        "labelNames": [
+          "USAM Website",
+          "Website",
+          "DOS",
+          "Kitchen Table Gospel"
+        ],
+        "pathPrefixes": [
+          "app/",
+          "components/",
+          "data/",
+          "docs/",
+          "public/",
+          "scripts/",
+          "src/",
+          "supabase/"
+        ],
+        "textPatterns": [
+          "\\bwebsite\\b",
+          "\\bwebsite\\s+repository\\b",
+          "\\bpublic\\s+(?:site|page|profile|experience)\\b",
+          "\\bMissionar(?:y|ies)\\b",
+          "\\bFinancial\\s+Freedom\\b",
+          "\\bProfiles?\\b",
+          "\\bCommand\\s+Center\\b",
+          "\\bdomain-sites?\\b",
+          "\\bKitchen\\s+Table\\s+Gospel\\b",
+          "\\bDiscipleship\\s+Operating\\s+System\\b",
+          "\\bEcosystem\\b"
+        ]
+      }
+    },
+    "save": {
+      "kind": "git-worktree",
+      "repositoryPath": "/Users/ryanfox/Code/save-website",
+      "metadataPath": "/Users/ryanfox/Code/save-website/.git",
+      "baseRef": "origin/main",
+      "branchPrefix": "save",
+      "priority": 20,
+      "routing": {
+        "labelNames": [
+          "SAVE",
+          "Save Standard"
+        ],
+        "pathPrefixes": [],
+        "textPatterns": [
+          "\\bSAVE\\s+(?:Standard|ministry|donor|staff|platform|assessment|portal)\\b",
+          "\\bSave\\s+Standard\\b",
+          "\\bsave-website\\b",
+          "\\bdonor\\b",
+          "\\bministry\\s+(?:portal|library|assessment)\\b",
+          "\\bstaff\\s+administration\\b"
+        ]
+      }
+    }
+  },
+  "pollIntervalMs": 30000,
+  "credentialRetryMs": 300000,
+  "environmentRetryMs": 300000,
+  "heartbeatIntervalMs": 15000,
+  "websiteAutoPublish": {
+    "enabled": true,
+    "handoffDir": "handoffs",
+    "maxRetries": 2,
+    "publisherTimeoutMs": 2700000,
+    "retryMs": 300000,
+    "vercelTimeoutMs": 600000,
+    "verificationTimeoutMs": 120000
+  },
+  "health": {
+    "bridgeStaleAfterMs": 300000,
+    "readyForDispatcherStaleMs": 120000,
+    "staleAfterMs": 300000
+  },
+  "cooldowns": {
+    "defaultMs": 3600000,
+    "defaultTimeZone": "America/Chicago",
+    "fallbackInitialMs": 900000,
+    "fallbackMaxMs": 7200000,
+    "resumeDelayMs": 120000
+  },
+  "lockStaleAfterMs": 2700000,
+  "runnerTimeoutMs": 1800000,
+  "maxRetries": 1,
+  "maxWorkers": {
+    "codex": 1,
+    "claude": 1
+  },
+  "runners": {
+    "codex": {
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "args": [
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json"
+      ]
+    },
+    "claude": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "@anthropic-ai/claude-code",
+        "-p",
+        "--permission-mode",
+        "acceptEdits",
+        "--output-format",
+        "text"
+      ]
+    }
+  },
+  "pauses": {
+    "global": false,
+    "codex": false,
+    "claude": false
+  },
+  "repositorySlug": "rfox0629/usam-website"
+}
