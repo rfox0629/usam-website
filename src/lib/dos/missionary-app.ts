@@ -163,6 +163,15 @@ export type DosAppPerson = {
    * source begins supplying one.
    */
   photoUrl?: string | null;
+  /**
+   * How often this relationship meets ("Monthly", "Every two weeks").
+   * DOS already models this concept on `dos_user_mentor_relationships`
+   * (`meeting_rhythm`), but `missionary_field_people` has no equivalent
+   * column, so this is unset in production and prototype-only until a
+   * schema decision is made. Person Relationship renders it when present
+   * and omits the line entirely when absent — it is never inferred.
+   */
+  meetingRhythm?: string | null;
   createdAt: string | null;
   discipleshipRelationship: DosAppDiscipleshipRelationship | null;
   discipleshipStage: DiscipleshipStageValue;

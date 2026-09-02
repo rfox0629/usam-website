@@ -4490,6 +4490,13 @@ function FieldInputClass(spaced = true) {
   return `${spaced ? "mt-2 " : ""}min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
 
+// Native selects render OS chrome (grey gradient, platform arrow) that does not
+// belong in DOS. This resets appearance and draws a DOS chevron, keeping the
+// same height, radius, border and focus ring as text inputs.
+function FieldSelectClass(spaced = true) {
+  return `${spaced ? "mt-2 " : ""}min-h-12 w-full cursor-pointer appearance-none rounded-[18px] border border-[#D6E4F7] bg-white bg-[length:18px_18px] bg-[right_0.9rem_center] bg-no-repeat py-2.5 pl-4 pr-11 text-[15px] font-semibold text-dos-primary outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 disabled:cursor-not-allowed disabled:text-dos-disabled bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%235A6473%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6 9 6 6 6-6%22/%3E%3C/svg%3E')]`;
+}
+
 function FieldTextareaClass(spaced = true) {
   return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }
@@ -12959,7 +12966,7 @@ function CommitmentsPanel({
 
       <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
         <div className="grid gap-2">
-          <CompactButton icon="calendar" onClick={onAddSchedule}>Add Check-In Rhythm</CompactButton>
+          <CompactButton icon="calendar" onClick={onAddSchedule}>Add Accountability</CompactButton>
           {activeSchedules.length ? activeSchedules.map((schedule) => (
             <button
               className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
@@ -13553,7 +13560,7 @@ function CommitmentFormSheet({
         <DosFormSection icon="commitment" title="Commitment">
           {!personId && !commitment ? (
             <DosFormField label="Person">
-              <select className={FieldInputClass(false)} defaultValue={selectedPersonId} name="person_id" required>
+              <select className={FieldSelectClass(false)} defaultValue={selectedPersonId} name="person_id" required>
                 {people.map((person) => (
                   <option key={person.id} value={person.id}>{person.name}</option>
                 ))}
@@ -13571,7 +13578,7 @@ function CommitmentFormSheet({
         <DosFormSection icon="settings" title="Details">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DosFormField label="Category">
-              <select className={FieldInputClass(false)} defaultValue={commitment?.category ?? ""} name="category">
+              <select className={FieldSelectClass(false)} defaultValue={commitment?.category ?? ""} name="category">
                 <option value="">None</option>
                 {dosCommitmentCategories.map((category) => (
                   <option key={category} value={category}>{category}</option>
@@ -13622,7 +13629,7 @@ function CommitmentUpdateSheet({
             <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="progress_note" required />
           </DosFormField>
           <DosFormField label="Progress state">
-            <select className={FieldInputClass(false)} defaultValue="" name="progress_state">
+            <select className={FieldSelectClass(false)} defaultValue="" name="progress_state">
               <option value="">None</option>
               {dosCommitmentProgressStates.map((state) => (
                 <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
@@ -13655,12 +13662,17 @@ function AccountabilityScheduleSheet({
   person: DosAppPerson;
   schedule?: DosAppAccountabilitySchedule | null;
 }) {
+  // Frequency drives which timing fields make sense: a recurring item needs a
+  // day and start date, a one-time item needs a due date.
+  const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(schedule?.frequency ?? "weekly");
+  const isOneTime = frequency === "one_time";
+
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Check-In Rhythm" : "New Check-In Rhythm"}>
+    <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Accountability" : "Add Accountability"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
-        <DosFormSection icon="calendar" title="Rhythm">
+        <DosFormSection icon="commitment" title="Accountability">
           <DosFormField label="Person">
             <input className={FieldInputClass(false)} readOnly value={person.name} />
           </DosFormField>
@@ -13669,30 +13681,39 @@ function AccountabilityScheduleSheet({
           </DosFormField>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DosFormField label="Frequency">
-              <select className={FieldInputClass(false)} defaultValue={schedule?.frequency ?? "weekly"} name="frequency">
-                {dosAccountabilityFrequencies.map((frequency) => (
-                  <option key={frequency} value={frequency}>{accountabilityFrequencyLabels[frequency]}</option>
+              <select
+                className={FieldSelectClass(false)}
+                name="frequency"
+                onChange={(event) => setFrequency(event.target.value as DosAccountabilityFrequency)}
+                value={frequency}
+              >
+                {dosAccountabilityFrequencies.map((option) => (
+                  <option key={option} value={option}>{accountabilityFrequencyLabels[option]}</option>
                 ))}
               </select>
             </DosFormField>
-            <DosFormField label="Day">
-              <select className={FieldInputClass(false)} defaultValue={schedule?.dayOfWeek ?? new Date().getDay()} name="day_of_week">
-                {accountabilityDayLabels.map((label, index) => (
-                  <option key={label} value={index}>{label}</option>
-                ))}
-              </select>
-            </DosFormField>
+            {isOneTime ? null : (
+              <DosFormField label="Day">
+                <select className={FieldSelectClass(false)} defaultValue={schedule?.dayOfWeek ?? new Date().getDay()} name="day_of_week">
+                  {accountabilityDayLabels.map((label, index) => (
+                    <option key={label} value={index}>{label}</option>
+                  ))}
+                </select>
+              </DosFormField>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Time">
-              <input className={FieldInputClass(false)} defaultValue={schedule?.scheduledTime?.slice(0, 5) ?? ""} name="scheduled_time" type="time" />
-            </DosFormField>
-            <DosFormField label="Start Date">
+            {isOneTime ? null : (
+              <DosFormField label="Time">
+                <input className={FieldInputClass(false)} defaultValue={schedule?.scheduledTime?.slice(0, 5) ?? ""} name="scheduled_time" type="time" />
+              </DosFormField>
+            )}
+            <DosFormField label={isOneTime ? "Due date" : "Start date"}>
               <input className={FieldInputClass(false)} defaultValue={schedule?.startDate ?? todayCommitmentDateKey()} name="start_date" type="date" />
             </DosFormField>
           </div>
           <DosFormField label="Status">
-            <select className={FieldInputClass(false)} defaultValue={schedule?.status ?? "active"} name="status">
+            <select className={FieldSelectClass(false)} defaultValue={schedule?.status ?? "active"} name="status">
               <option value="active">Active</option>
               <option value="paused">Paused</option>
             </select>
@@ -13700,7 +13721,7 @@ function AccountabilityScheduleSheet({
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Rhythm"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Accountability"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -13783,7 +13804,7 @@ function LogCheckInSheet({
                 {selected ? (
                   <div className="mt-3 grid gap-2">
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name={`commitment_note_${commitment.id}`} placeholder="Progress note" />
-                    <select className={FieldInputClass(false)} defaultValue="" name={`commitment_state_${commitment.id}`}>
+                    <select className={FieldSelectClass(false)} defaultValue="" name={`commitment_state_${commitment.id}`}>
                       <option value="">No state</option>
                       {dosCommitmentProgressStates.map((state) => (
                         <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
@@ -13804,7 +13825,7 @@ function LogCheckInSheet({
           </DosFormField>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <DosFormField label="Category">
-              <select className={FieldInputClass(false)} defaultValue="" name="new_commitment_category">
+              <select className={FieldSelectClass(false)} defaultValue="" name="new_commitment_category">
                 <option value="">None</option>
                 {dosCommitmentCategories.map((category) => (
                   <option key={category} value={category}>{category}</option>
@@ -20702,7 +20723,7 @@ function MeetingLeaderReflectionSection({
         <DosFormSection icon="prayer" title="Prayer Need">
           {attendeeOptions.length > 1 ? (
             <DosFormField label="Who is this for?">
-              <select className={FieldInputClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
+              <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
                 {attendeeOptions.map((person) => (
                   <option key={person.id} value={person.id}>{person.name}</option>
                 ))}
@@ -21023,7 +21044,7 @@ function ScheduledTableTimingFields({
           <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
         </DosFormField>
         <DosFormField label="Duration">
-          <select className={FieldInputClass()} defaultValue={scheduledTableDurationValue(durationDefault)} name={durationName}>
+          <select className={FieldSelectClass()} defaultValue={scheduledTableDurationValue(durationDefault)} name={durationName}>
             {scheduledTableDurationOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
@@ -21733,7 +21754,7 @@ function ReminderFormContent({
         title={isPrayerReminder ? "Prayer Request" : "Reminder"}
       >
         <DosFormField label="Person">
-          <select className={FieldInputClass()} defaultValue={reminder?.personId ?? fallbackPersonId} name="person_id" required>
+          <select className={FieldSelectClass()} defaultValue={reminder?.personId ?? fallbackPersonId} name="person_id" required>
             {people.map((person) => (
               <option key={person.id} value={person.id}>{person.name}</option>
             ))}
@@ -25234,7 +25255,7 @@ function LogPrayerSheet({
                 <div className="mt-3 grid gap-3">
                   <label className="block">
                     <FieldLabel>Prayer Request</FieldLabel>
-                    <select className={FieldInputClass()} defaultValue={defaultPrayerId} name="prayer_id">
+                    <select className={FieldSelectClass()} defaultValue={defaultPrayerId} name="prayer_id">
                       {prayerRows.map((row) => (
                         <option key={row.id} value={row.id}>{row.personName} · {row.request}</option>
                       ))}
@@ -28444,7 +28465,7 @@ function MyRecordLearningBookForm({
           <input className={FieldInputClass()} defaultValue={book?.author ?? ""} name="author" placeholder="Author" />
         </DosFormField>
         <DosFormField label="Status">
-          <select className={FieldInputClass()} defaultValue={book?.status ?? "reading"} name="status">
+          <select className={FieldSelectClass()} defaultValue={book?.status ?? "reading"} name="status">
             {myRecordLearningBookStatuses.map((status) => (
               <option key={status.value} value={status.value}>{status.label}</option>
             ))}
@@ -29519,7 +29540,7 @@ function MyRecordExternalAssessmentForm({
           <input className={FieldInputClass()} defaultValue={assessmentResult?.assessmentName ?? ""} name="assessment_name" placeholder="Working Genius, DISC, Spiritual Gifts" required />
         </DosFormField>
         <DosFormField label="Category">
-          <select className={FieldInputClass()} name="category" defaultValue={assessmentResult?.category ?? ""}>
+          <select className={FieldSelectClass()} name="category" defaultValue={assessmentResult?.category ?? ""}>
             <option value="">Select category</option>
             {myRecordExternalAssessmentCategories.map((category) => (
               <option key={category} value={category}>{category}</option>
@@ -29533,7 +29554,7 @@ function MyRecordExternalAssessmentForm({
           <input className={FieldInputClass()} defaultValue={assessmentResult?.dateTaken ?? todayDateValue()} name="date_taken" type="date" />
         </DosFormField>
         <DosFormField label="Status">
-          <select className={FieldInputClass()} name="status" defaultValue={assessmentResult?.status ?? "completed"}>
+          <select className={FieldSelectClass()} name="status" defaultValue={assessmentResult?.status ?? "completed"}>
             {myRecordExternalAssessmentStatuses.map((status) => (
               <option key={status.value} value={status.value}>{status.label}</option>
             ))}
@@ -34830,6 +34851,12 @@ function PersonDetailOverlay({
   // the meeting has a real title, a two-sentence reduced excerpt, and a
   // one-line prayer summary for the PRAY FOR section.
   const genericMeetingTitles = new Set(["coffee", "phone", "zoom", "text", "prayer", "meeting", "group", "discipleship", "other", "kitchen table", "prayer check-in", "check-in"]);
+  // Human-readable label for the meeting itself: an explicit saved title when
+  // there is one, otherwise the meeting's real context/type.
+  const lastMeetingDurationMinutes = lastMeeting ? tableDurationMinutes(lastMeeting) : 0;
+  const lastMeetingDurationLabel = lastMeetingDurationMinutes ? formatLoggedTime(lastMeetingDurationMinutes) : "";
+  // Relationship comes from canonical Person fields only — never inferred.
+  const relationshipCadence = person.meetingRhythm?.trim() ?? "";
   const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
     ? lastMeeting.title.trim()
     : null;
@@ -34873,56 +34900,8 @@ function PersonDetailOverlay({
   // COMING UP rows. For a future event the *time* is the answer, so it leads;
   // the meeting type is demoted to a chip. `subdued` renders the desktop rail
   // variant, which is deliberately subordinate to the main column.
-  const renderComingUp = (subdued: boolean) => (
-    <div className={`mt-2 divide-y divide-[#F0F2F5] ${subdued ? "" : ""}`}>
-      {nextMeeting ? (
-        <div className="py-3 first:pt-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Meeting</p>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <p className={`font-bold leading-[1.2] tracking-[-0.01em] text-dos-primary ${subdued ? "text-[16px]" : "text-[18px]"}`}>
-              {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
-            </p>
-            {nextMeeting.title?.trim() ? (
-              <span className="rounded-[5px] bg-[#EEF1F6] px-1.5 py-0.5 text-[11.5px] font-bold text-dos-secondary">
-                {nextMeeting.title.trim()}
-              </span>
-            ) : null}
-          </div>
-          {nextMeeting.notes?.trim() ? (
-            <p className={`mt-1.5 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[14.5px]"}`}>{nextMeeting.notes}</p>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex items-center justify-between gap-3 py-3 first:pt-1">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Meeting</p>
-            <p className={`mt-1 leading-[1.5] text-dos-body ${subdued ? "text-[13.5px]" : "text-[15px]"}`}>Nothing scheduled yet.</p>
-          </div>
-          <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
-        </div>
-      )}
-      {conceptFollowUps.map((followUp) => (
-        <button className="block w-full py-3 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
-          <span className="block text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Follow-up</span>
-          <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>{followUp.title}</span>
-          {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] text-dos-secondary">{followUp.duePhrase}</span> : null}
-        </button>
-      ))}
-      {upcomingGatherings.map(({ gathering, group }) => (
-        <button className="block w-full py-3 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
-          <span className="block text-[11px] font-bold uppercase tracking-[0.15em] text-dos-secondary">Group gathering</span>
-          <span className={`mt-1 block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>
-            {gathering.title?.trim() || group.name}
-          </span>
-          <span className="mt-0.5 block text-[13px] text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
-        </button>
-      ))}
-    </div>
-  );
-
-  // FRUIT — the observed outcomes and what the person reported back, summarised
-  // on Overview and opened in full through the Fruit & reviews destination.
-  // Deliberately not a fourth tab: the founder direction is three destinations.
+  // Fruit stays a quiet Overview presence with the compact review request —
+  // protected Codex behavior (review-request simplification), not a tab.
   const renderFruit = () => {
     const recentOutcomes = personOutcomeEntries.slice(0, 2);
     const reportCount = evidenceCounts.reviewCount + evidenceCounts.testimonyCount;
@@ -34943,7 +34922,7 @@ function PersonDetailOverlay({
             {recentOutcomes.map((entry) => (
               <button className="block w-full py-3 text-left first:pt-1" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
                 <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
-                  {fruitOutcomeLabel(entry.event)}
+                  {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
                 </span>
                 <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatDate(entry.date)}</span>
               </button>
@@ -34975,6 +34954,62 @@ function PersonDetailOverlay({
       </>
     );
   };
+
+  // NEXT MEETING is only the real scheduled record. Canonical follow-up
+  // reminders are a separate section — never generated preparation prose.
+  const renderNextMeeting = (subdued: boolean) => (
+    <>
+      <section>
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next meeting</h3>
+        {nextMeeting ? (
+          <>
+            <div className="mt-2 flex items-baseline gap-4">
+              <p className={`min-w-0 flex-1 font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary ${subdued ? "text-[16px]" : "text-[19px]"}`}>
+                {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
+              </p>
+              <PDButton onClick={() => onOpenMeeting(nextMeeting.id, person.id)} tone="quiet">View</PDButton>
+            </div>
+            {nextMeeting.title?.trim() ? (
+              <p className="mt-1 text-[14px] font-semibold text-dos-secondary">{nextMeeting.title.trim()}</p>
+            ) : null}
+          </>
+        ) : (
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className={`leading-[1.5] text-dos-body ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>Nothing scheduled.</p>
+            <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+          </div>
+        )}
+      </section>
+      {conceptFollowUps.length ? (
+        <section className="mt-6 border-t border-dos-rule pt-5">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Follow-up</h3>
+          <div className="mt-1 divide-y divide-dos-rule">
+            {conceptFollowUps.map((followUp) => (
+              <button className="block w-full py-2.5 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
+                <span className={`block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14.5px]" : "text-[15.5px]"}`}>{followUp.title}</span>
+                {followUp.duePhrase ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{followUp.duePhrase}</span> : null}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {upcomingGatherings.length ? (
+        <section className="mt-6 border-t border-dos-rule pt-5">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Group gathering</h3>
+          <div className="mt-1 divide-y divide-dos-rule">
+            {upcomingGatherings.map(({ gathering, group }) => (
+              <button className="block w-full py-2.5 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
+                <span className={`block font-semibold leading-[1.4] text-dos-primary ${subdued ? "text-[14.5px]" : "text-[15.5px]"}`}>
+                  {gathering.title?.trim() || group.name}
+                </span>
+                <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{upcomingDayLabel(gathering.startsAt, true)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
 
   return (
     <div
@@ -35153,15 +35188,15 @@ function PersonDetailOverlay({
 
       <div className="mt-3 grid min-w-0 grid-cols-1 gap-3">
         {conceptMode && activeDetailTab === "overview" ? (
-          /* Overview scans as LAST TIME → RIGHT NOW → NEXT. Three mental
-             buckets, not nine stacked sections. */
+          /* Overview follows the relationship, not the system:
+             LAST MEETING → RELATIONSHIP → ACCOUNTABILITY → NEXT MEETING. */
           <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
             <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
               <div className="min-w-0 lg:flex-1">
-                {/* LAST TIME — what happened, what mattered, what we agreed to. */}
+                {/* LAST MEETING — the meeting itself. The record holds the detail. */}
                 <section className="pt-5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Last time</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Last meeting</h3>
                     {lastMeeting ? <span className="text-[12.5px] font-semibold text-dos-secondary">{formatRelativeDate(lastMeeting.date)}</span> : null}
                   </div>
                   {lastMeeting ? (
@@ -35172,33 +35207,44 @@ function PersonDetailOverlay({
                         </p>
                         <PDButton onClick={() => onOpenMeeting(lastMeeting.id, person.id)} tone="quiet">View</PDButton>
                       </div>
-                      {lastTimeNote ? (
-                        <p className="mt-2 text-[15.5px] leading-[1.62] text-dos-body">{lastTimeNote}</p>
-                      ) : null}
-                      {agreedNextStep ? (
-                        <p className="mt-2.5 flex items-start gap-2.5 text-[15px] leading-[1.45] text-dos-primary">
-                          <CheckCircle2 className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={2} />
-                          {agreedNextStep}
-                        </p>
+                      {lastMeetingDurationLabel ? (
+                        <p className="mt-1 text-[14px] font-semibold text-dos-secondary">{lastMeetingDurationLabel}</p>
                       ) : null}
                     </>
                   ) : (
-                    <p className="mt-2.5 text-[15.5px] leading-[1.62] text-dos-body">Nothing logged yet — use + to record your first time together.</p>
+                    <p className="mt-2.5 text-[15.5px] leading-[1.62] text-dos-body">Nothing logged yet — use + to record your first meeting.</p>
                   )}
                 </section>
 
-                {/* RIGHT NOW — everything actively being walked through, as
-                    scannable rows on one supporting surface. */}
+                {/* RELATIONSHIP — the persistent relationship that was established. */}
+                <section className="mt-6 border-t border-dos-rule pt-5">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Relationship</h3>
+                  <p className="mt-2 text-[19px] font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary">{relationshipTypePill}</p>
+                  {relationshipCadence ? (
+                    <p className="mt-1 text-[14px] font-semibold text-dos-secondary">Meeting {relationshipCadence.toLowerCase()}</p>
+                  ) : null}
+                </section>
+
+                {/* ACCOUNTABILITY — the primary active work. */}
                 <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:-mx-10 md:px-10 lg:-mx-14 lg:px-14">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Right now</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
                   <div className="mt-1 divide-y divide-dos-rule">
+                    {accountabilityTopics.map((topic) => (
+                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
+                        </div>
+                        <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
+                      </div>
+                    ))}
                     {conceptJourneys.map((journey) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{journey.title}</p>
-                          <p className="mt-0.5 text-[13px] text-dos-secondary">{journey.stageLabel}</p>
+                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
                           {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-1 max-w-[168px] overflow-hidden rounded-full bg-[#E7E9ED]">
+                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
                               <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
                             </span>
                           ) : null}
@@ -35206,75 +35252,55 @@ function PersonDetailOverlay({
                         {journey.isInAppJourney && journey.resource ? (
                           <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
                         ) : journey.resource ? (
-                          <PDButton href={journey.resource.path} tone="quiet">Open</PDButton>
+                          <PDButton href={journey.resource.path}>Open</PDButton>
                         ) : null}
-                      </div>
-                    ))}
-                    {accountabilityTopics.map((topic) => (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{topic.title}</p>
-                          <p className="mt-0.5 text-[13px] text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
-                        </div>
-                        <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
                     ))}
                     {primaryPrayer ? (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-dos-secondary">Prayer</p>
-                          <p className="mt-1 text-[15.5px] leading-[1.55] text-dos-primary">{primaryPrayerText}</p>
-                          {additionalPrayerCount ? (
-                            <p className="mt-0.5 text-[13px] text-dos-secondary">and {additionalPrayerCount} more</p>
-                          ) : null}
+                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">Prayer</p>
+                          <p className="mt-0.5 text-[13px] font-semibold leading-[1.45] text-dos-secondary">
+                            {primaryPrayerText}
+                            {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
+                          </p>
                         </div>
-                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources} tone="quiet">Open</PDButton>
+                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
                       </div>
                     ) : null}
                     {personGroups.map((group) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[16px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{group.name}</p>
-                          <p className="mt-0.5 text-[13px] text-dos-secondary">
+                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
+                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
                             Group{group.leaderPersonId === person.id ? " · Leader" : ""}
                           </p>
                         </div>
-                        <PDButton onClick={() => onOpenGroup(group.id)} tone="quiet">View</PDButton>
+                        <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
                       </div>
                     ))}
-                    {!conceptJourneys.length && !accountabilityTopics.length && !primaryPrayer && !personGroups.length ? (
-                      <p className="py-1 text-[15px] leading-[1.6] text-dos-body">Nothing active together yet — use + to begin.</p>
+                    {!accountabilityTopics.length && !conceptJourneys.length && !primaryPrayer && !personGroups.length ? (
+                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing active yet — use + to add accountability.</p>
                     ) : null}
                   </div>
-                  {!conceptJourneys.length ? (
-                    <button className="mt-3 text-[13.5px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
-                      + Start a Journey together
+                  {!accountabilityTopics.length ? (
+                    <button className="mt-3 text-[13.5px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">
+                      + Add accountability
                     </button>
                   ) : null}
                 </section>
 
-                {/* NEXT — one coherent answer to "what happens next?" */}
                 <section className="mt-6 lg:hidden">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next</h3>
-                  {renderComingUp(false)}
+                  {renderNextMeeting(false)}
                 </section>
-
-                {/* FRUIT — what has come of this relationship. This is the
-                    signal that separates DOS from a CRM, so it reads as story
-                    on the Person page rather than living only behind Details.
-                    Every row is a canonical record; the deeper destination
-                    holds reviews, assessments and the request actions. */}
-                <section className="mt-6 lg:hidden">
+                <section className="mt-6 border-t border-dos-rule pt-5 lg:hidden">
                   {renderFruit()}
                 </section>
               </div>
 
               <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next</h3>
-                {renderComingUp(true)}
-                <div className="mt-7 border-t border-dos-rule pt-5">
-                  {renderFruit()}
-                </div>
+                {renderNextMeeting(true)}
+                <div className="mt-6 border-t border-dos-rule pt-5">{renderFruit()}</div>
               </aside>
             </div>
           </article>

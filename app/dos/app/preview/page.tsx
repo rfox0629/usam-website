@@ -38,10 +38,10 @@ const isDemoPreviewRouteEnabled = process.env.DOS_DISABLE_DEMO_PREVIEW !== "true
 // The deterministic circle-suggestion rolling windows (14/30 days) compare against the real
 // clock, so a handful of meetings below are dated relative to "today" instead of the fixed
 // demo date — otherwise every meeting in this fixture would already be outside every window.
-function daysAgoIso(days: number, hour = 9) {
+function daysAgoIso(days: number, hour = 9, minute = 0) {
   const date = new Date();
   date.setDate(date.getDate() - days);
-  date.setHours(hour, 0, 0, 0);
+  date.setHours(hour, minute, 0, 0);
   return date.toISOString();
 }
 type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
@@ -278,9 +278,73 @@ function buildDosPreviewDemoData(): DosAppData {
       status: "new",
       updatedAt: demoTimestamp,
     },
+    // Acceptance fixture: a real first mentoring meeting. Philip asked to be
+    // mentored during a 2h30m first meeting; the mentoring relationship and
+    // monthly cadence are recorded on the Person, homework became
+    // Accountability, and the next meeting is scheduled. Encouraging him to
+    // begin discipling other men is Accountability — NOT Fruit, because
+    // nothing has been observed yet.
+    {
+      church: "Redemption Church",
+      createdAt: daysAgoIso(6),
+      email: "philip.saco@example.com",
+      discipleshipRelationship: "mentee",
+      discipleshipStage: "walking_with",
+      engagementLevel: "High",
+      fieldVisibility: "primary",
+      id: "demo-person-philip-saco",
+      lastActivityAt: daysAgoIso(6),
+      meetingRhythm: "Monthly",
+      name: "Philip John Saco",
+      notes: "Asked to be mentored after the men's breakfast.",
+      phone: "918-555-0173",
+      relationshipContext: "church",
+      relationshipType: "discipling",
+      roleInMyLife: "discipling_them",
+      status: "active",
+      updatedAt: demoTimestamp,
+    },
   ];
 
   const meetingInputs = [
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(6, 10),
+      fieldPersonIds: ["demo-person-philip-saco"],
+      growthReflection: emptyGrowthReflection,
+      id: "demo-meeting-philip-first",
+      notes: "Philip asked me to mentor him. We talked through where he is with God, his marriage, and the men he already has influence with. Agreed to meet monthly.",
+      participantNames: ["Philip John Saco"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(6, 12, 30),
+      scheduledStartAt: daysAgoIso(6, 10),
+      source: "table",
+      title: "First mentoring meeting",
+      type: "kitchen_table",
+      updatedAt: daysAgoIso(6, 13),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(-24, 13),
+      fieldPersonIds: ["demo-person-philip-saco"],
+      googleSyncEnabled: false,
+      id: "demo-meeting-philip-next",
+      meetingStatus: "scheduled",
+      notes: "",
+      participantNames: ["Philip John Saco"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(-24, 14),
+      scheduledStartAt: daysAgoIso(-24, 13),
+      source: "table",
+      timezone: "America/Chicago",
+      title: "In person",
+      type: "kitchen_table",
+      updatedAt: demoTimestamp,
+    },
     {
       conversationFlowKey: "none",
       conversationResponses: {},
@@ -1250,6 +1314,18 @@ function buildDosPreviewDemoData(): DosAppData {
   ];
   const reminders: DosAppRelationshipReminder[] = [
     {
+      googleSyncEnabled: false,
+      googleSyncStatus: null,
+      id: "demo-reminder-philip-followup",
+      notes: "",
+      personId: "demo-person-philip-saco",
+      recurrence: "none",
+      reminderDate: daysAgoIso(-12, 12),
+      reminderType: "follow_up",
+      title: "Ask how conversations with the men are going",
+      updatedAt: demoTimestamp,
+    },
+    {
       googleSyncEnabled: true,
       googleSyncStatus: "pending",
       id: "demo-reminder-george-birthday",
@@ -1317,6 +1393,36 @@ function buildDosPreviewDemoData(): DosAppData {
       },
     ],
     accountabilitySchedules: [
+      {
+        createdAt: daysAgoIso(6),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-philip-reading",
+        nextCheckIn: daysAgoIso(-24).slice(0, 10),
+        personId: "demo-person-philip-saco",
+        scheduledTime: null,
+        startDate: daysAgoIso(6).slice(0, 10),
+        status: "active",
+        title: "Read assigned material",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(6),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-philip-disciple",
+        nextCheckIn: daysAgoIso(-24).slice(0, 10),
+        personId: "demo-person-philip-saco",
+        scheduledTime: null,
+        startDate: daysAgoIso(6).slice(0, 10),
+        status: "active",
+        title: "Begin discipling other men",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
       {
         createdAt: demoTimestamp,
         createdByUserId: null,

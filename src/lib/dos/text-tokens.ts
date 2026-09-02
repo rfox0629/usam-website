@@ -47,7 +47,7 @@ export const dosSurface = {
    * rather than a blue tint: a blue band reads as a dashboard panel, which
    * is the exact impression USA-168 is removing.
    */
-  band: "#FBFAF8",
+  band: "#F6F9FE",
   /** DOS blue — actions, progress, and the single section eyebrow. */
   blue: "#2450C8",
 } as const;

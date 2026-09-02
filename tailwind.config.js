@@ -27,7 +27,7 @@ module.exports = {
           blue: "#2450C8",
           hairline: "#E7E9ED",
           rule: "#EDEFF2",
-          band: "#FBFAF8",
+          band: "#F6F9FE",
         },
       },
     },
