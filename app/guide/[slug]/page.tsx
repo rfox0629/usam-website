@@ -59,7 +59,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description = resource.content?.seoDescription ?? resource.description;
   const url = `${getCanonicalSiteUrl()}${resource.path}`;
   const coverUrl = resource.coverImage ? `${getCanonicalSiteUrl()}${resource.coverImage.src}` : null;
-  const coverImages = coverUrl ? [{ alt: resource.coverImage!.alt, url: coverUrl }] : undefined;
+  // A guide with its own cover art keeps it. Without one the keys must be absent
+  // entirely — `images: undefined` still counts as declaring them, which is what
+  // used to leave coverless guides unfurling with no picture at all. Left out,
+  // opengraph-image.tsx draws a card carrying the guide's title.
+  const coverImage = coverUrl
+    ? {
+        openGraph: { images: [{ alt: resource.coverImage!.alt, url: coverUrl }] },
+        twitter: { images: [coverUrl] },
+      }
+    : { openGraph: {}, twitter: {} };
 
   return {
     alternates: {
@@ -68,7 +77,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description,
     openGraph: {
       description,
-      images: coverImages,
+      ...coverImage.openGraph,
       siteName: "USA Missionaries",
       title,
       type: "article",
@@ -76,9 +85,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     title,
     twitter: {
-      card: coverUrl ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       description,
-      images: coverUrl ? [coverUrl] : undefined,
+      ...coverImage.twitter,
       title,
     },
   };

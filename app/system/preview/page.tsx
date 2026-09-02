@@ -11,6 +11,12 @@ import { USAM_ACCESS_COOKIE_NAME, verifyAccessToken } from "@/src/lib/access";
 export const metadata: Metadata = {
   title: "DOS Preview",
   description: "A protected preview of the Disciple Operating System for invited USA Missionaries partners.",
+  // Invite-only. robots.txt has always disallowed it; the page now says so too,
+  // so a link shared into an indexable surface cannot pull it into search.
+  robots: {
+    follow: false,
+    index: false,
+  },
 };
 
 export const dynamic = "force-dynamic";

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import type { DomainSiteConfig } from "@/src/lib/domain-sites";
+import { domainSites, type DomainSiteConfig } from "@/src/lib/domain-sites";
 
 export function buildDomainSiteIcons(site: DomainSiteConfig): Metadata["icons"] {
   return {
@@ -39,20 +39,24 @@ export function buildDomainSiteIcons(site: DomainSiteConfig): Metadata["icons"] 
 }
 
 /**
- * A brand's standard social preview image.
+ * A brand's standard social preview card, drawn by `src/lib/share/share-card.tsx`
+ * and served from `/share/<brand>`.
  *
- * Next replaces the whole `openGraph` object when a page declares one, so any page
- * with its own Open Graph block has to restate the brand image rather than
- * inheriting it — otherwise its links unfurl with no image at all.
+ * Absolute, and always on the USA Missionaries origin: a brand host serves only
+ * its own pages and bounces everything else back to usamissionaries.org, so a
+ * card addressed on the brand's own domain would unfurl through a redirect at
+ * best. Unfurlers do not care which host an image comes from.
+ *
+ * Reach for this only on a surface that cannot use the file convention — a brand
+ * served from another domain. A page on usamissionaries.org should add an
+ * `opengraph-image.tsx` (see `src/lib/share/share-image.ts`) and leave the
+ * `images` key out of its metadata entirely.
  */
-export function buildDomainSiteSocialImage(site: DomainSiteConfig, origin?: string) {
+export function buildDomainSiteSocialImage(site: DomainSiteConfig) {
   return {
     alt: site.socialImage.alt,
     height: site.socialImage.height,
-    // Relative paths resolve against the root layout's metadataBase, which is the
-    // USA Missionaries origin. A brand served from its own domain passes that
-    // origin so unfurlers fetch the image from the domain being shared.
-    url: origin ? `${origin}${site.socialImage.path}` : site.socialImage.path,
+    url: `${domainSites.usam.canonicalOrigin}${site.socialImage.path}`,
     width: site.socialImage.width,
   };
 }
@@ -91,10 +95,24 @@ export function buildDomainSiteMetadata(
     manifestPath = site.manifestPath,
     metadataBaseOrigin = site.canonicalOrigin as string,
     noIndex = false,
+    shareImage = "brand" as "brand" | "file",
     surface = "layout" as "layout" | "page",
   } = {},
 ): Metadata {
-  const socialImage = buildDomainSiteSocialImage(site);
+  // "file" leaves the `images` keys out so Next's `opengraph-image.tsx`
+  // convention applies — the app-root card, or a page's own. Setting `images`
+  // at all, even to undefined, suppresses it. Only the root layout wants this;
+  // brands served from their own domain cannot reach a file-convention card.
+  const socialImages: {
+    openGraph?: Pick<NonNullable<Metadata["openGraph"]>, "images">;
+    twitter?: { images: string[] };
+  } =
+    shareImage === "file"
+      ? {}
+      : {
+          openGraph: { images: [buildDomainSiteSocialImage(site)] },
+          twitter: { images: [buildDomainSiteSocialImage(site).url] },
+        };
 
   return {
     alternates: canonical ? { canonical } : undefined,
@@ -109,7 +127,7 @@ export function buildDomainSiteMetadata(
     metadataBase: new URL(metadataBaseOrigin),
     openGraph: {
       description: site.description,
-      images: [socialImage],
+      ...socialImages.openGraph,
       siteName: site.siteName,
       title: site.title,
       type: "website",
@@ -133,7 +151,7 @@ export function buildDomainSiteMetadata(
     twitter: {
       card: "summary_large_image",
       description: site.description,
-      images: [site.socialImage.path],
+      ...socialImages.twitter,
       title: site.title,
     },
   };

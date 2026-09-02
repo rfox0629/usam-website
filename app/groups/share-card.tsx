@@ -1,6 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { ImageResponse } from "next/og";
+import {
+  renderShareCard,
+  shareCardContentType,
+  shareCardSize,
+} from "@/src/lib/share/share-card";
 import {
   fallbackUsamPublicSite,
   resolvePublicSiteForHost,
@@ -9,27 +11,21 @@ import {
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 /**
- * The shared social card for Groups surfaces: the directory and every individual
- * group. One renderer so the two cannot drift apart visually.
+ * Groups are the one place cards are drawn per request rather than from a fixed
+ * card definition, because each group needs its own name on it.
  *
- * USA Missionaries black and gold with the circular USAM emblem. Tenant sites
- * that set their own brand colors get those instead.
+ * The drawing itself is the site-wide share card — cream field, the name set
+ * large, one gold rule — so a group link and a page link unfurl as the same
+ * system. A tenant site that sets its own `brand.primaryColor` gets that as the
+ * accent; the field stays cream so the family holds together.
  */
-export const shareCardSize = { height: 630, width: 1200 };
-export const shareCardContentType = "image/png";
-
-/** Long names and descriptions have to stay on the card, not overflow it. */
-export function clampCardText(value: string, limit: number) {
-  const text = value.trim();
-
-  return text.length <= limit ? text : `${text.slice(0, limit - 1).trimEnd()}…`;
-}
+export { shareCardContentType, shareCardSize };
 
 /** Site branding is stored loosely, so only usable color strings are trusted. */
-function brandColor(brand: Record<string, unknown>, key: string, fallback: string) {
+function brandColor(brand: Record<string, unknown>, key: string) {
   const value = brand[key];
 
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export async function resolveShareCardSite(hostname: string): Promise<PublicSiteConfig> {
@@ -47,12 +43,6 @@ export async function resolveShareCardSite(hostname: string): Promise<PublicSite
   }
 }
 
-async function inlineEmblem() {
-  const file = await readFile(join(process.cwd(), "public/favicons/usam/icon-512.png"));
-
-  return `data:image/png;base64,${file.toString("base64")}`;
-}
-
 export async function renderGroupsShareCard({
   footnote,
   site,
@@ -64,64 +54,11 @@ export async function renderGroupsShareCard({
   subtitle: string;
   title: string;
 }) {
-  const accent = brandColor(site.brand, "primaryColor", "#C2A14E");
-  const surface = brandColor(site.brand, "surfaceColor", "#0B0D10");
-  const emblem = await inlineEmblem();
-
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          background: surface,
-          backgroundImage: `radial-gradient(circle at 88% 14%, ${accent}2E, transparent 46%)`,
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "space-between",
-          padding: "78px 84px",
-          width: "100%",
-        }}
-      >
-        <div style={{ alignItems: "center", display: "flex", gap: "26px" }}>
-          <img alt="" height={92} src={emblem} width={92} />
-          <span
-            style={{
-              color: accent,
-              fontSize: 26,
-              fontWeight: 700,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-            }}
-          >
-            {site.displayName}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <span
-            style={{
-              color: "#FFFFFF",
-              fontSize: 82,
-              fontWeight: 800,
-              letterSpacing: "-0.022em",
-              lineHeight: 1.04,
-            }}
-          >
-            {clampCardText(title, 46)}
-          </span>
-          <span style={{ color: "#C8C3B6", fontSize: 32, lineHeight: 1.35, marginTop: 24, maxWidth: 900 }}>
-            {clampCardText(subtitle, 118)}
-          </span>
-        </div>
-
-        <div style={{ alignItems: "center", display: "flex", gap: "20px" }}>
-          <span style={{ backgroundColor: accent, display: "flex", height: 3, width: 64 }} />
-          <span style={{ color: accent, fontSize: 26, fontWeight: 600, letterSpacing: "0.05em" }}>
-            {clampCardText(footnote, 54)}
-          </span>
-        </div>
-      </div>
-    ),
-    { ...shareCardSize },
-  );
+  return renderShareCard({
+    accent: brandColor(site.brand, "primaryColor"),
+    eyebrow: footnote,
+    eyebrowBrand: site.displayName,
+    subtitle,
+    title,
+  });
 }

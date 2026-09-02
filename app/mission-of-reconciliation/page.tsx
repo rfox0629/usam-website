@@ -5,7 +5,7 @@ import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHea
 import { PartnershipLine } from "@/components/mission-of-reconciliation/PartnershipLine";
 import { JoinMissionInterestModal } from "@/components/forms/JoinMissionInterestModal";
 import { dontWasteYourLife, morBrand, morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
-import { missionCanonical, missionCanonicalOrigin } from "@/src/lib/mission-of-reconciliation/domain";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
 import type { MissionPaths } from "@/src/lib/mission-of-reconciliation/domain";
 import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies, featuredCaseStudies } from "@/src/lib/mission-of-reconciliation/case-studies";
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     description:
       "Mission of Reconciliation equips followers of Jesus across America to come alongside people with love, truth, prayer, and Scripture, pointing them toward restoration and freedom in Jesus Christ.",
-    images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"], missionCanonicalOrigin)],
+    images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"])],
     siteName: domainSites["mission-of-reconciliation"].siteName,
     title: "Mission of Reconciliation | Healing, Freedom & Restoration",
     type: "website",
