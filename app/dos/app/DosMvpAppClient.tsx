@@ -476,17 +476,25 @@ const dosRelationshipResourceItems = getDosResourcesByCategory("Relationships");
 const dosSendableResourceItems = getSendableDosResources();
 const dosAssignableResourceItems = dosResourceCatalog.filter((resource) => resource.assignable);
 
+/* Meeting context answers "how did we connect", never "what did we discuss".
+   Prayer, Group and Discipleship are ministry content, not a channel: praying
+   alone is a Prayer record, and praying together is still an in-person, phone
+   or video meeting that a Prayer record can come out of. Their enum values
+   stay valid so historical meetings keep a label, but they are not offered. */
 const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppMeetingType }> = [
-  { helper: "Around the table", label: "Kitchen Table", value: "kitchen_table" },
+  { helper: "Met face to face", label: "In person", value: "kitchen_table" },
   { helper: "Coffee or meal", label: "Coffee", value: "coffee" },
   { helper: "Voice call", label: "Phone", value: "phone" },
-  { helper: "Video call", label: "Zoom", value: "zoom" },
+  { helper: "Video call", label: "Video", value: "zoom" },
   { helper: "Message thread", label: "Text", value: "text" },
   { helper: "Prayer moment", label: "Prayer", value: "prayer" },
   { helper: "Several people", label: "Group", value: "group" },
   { helper: "Training rhythm", label: "Discipleship", value: "discipleship" },
   { helper: "Something else", label: "Other", value: "other" },
 ];
+
+// What the picker offers. The list above stays complete for label lookup.
+const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table", "coffee", "phone", "zoom", "text", "other"];
 
 const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
   { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
@@ -532,6 +540,11 @@ const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: Dos
   { label: "Other", value: "other" },
 ];
 
+/* Log Meeting starts with nobody but the person you met. The old default
+   prefilled the workspace's own members -- a Fox-family ministry workflow that
+   is not a DOS default -- which quietly attributed every logged conversation to
+   a team. Kept for callers that genuinely want a workspace default; Log Meeting
+   no longer uses it. */
 function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
   const activeMembers = data.householdMembers.filter((member) => !["archived", "inactive"].includes(member.status.toLowerCase()));
   const workspaceLabel = `${data.workspace.slug} ${data.workspace.displayName}`.toLowerCase();
@@ -19976,7 +19989,9 @@ function MeetingContextPicker({
       hideLabel
       label="Meeting context"
       onChange={(nextValue) => onChange(nextValue as DosAppMeetingType)}
-      options={meetingTypeOptions.map((option) => ({ label: option.label, value: option.value }))}
+      options={meetingTypeOptions
+        .filter((option) => meetingContextChoices.includes(option.value) || option.value === value)
+        .map((option) => ({ label: option.label, value: option.value }))}
       value={value}
     />
   );
@@ -20592,14 +20607,17 @@ function MeetingCaptureNotes({
   defaultValue,
   label = "Notes",
   showLabel = true,
+  tall = false,
 }: {
   defaultValue?: string | null;
   label?: string;
   showLabel?: boolean;
+  tall?: boolean;
 }) {
   return (
     <DosFormField label={showLabel ? label : undefined}>
-      <VoiceTextarea aria-label={label} className={`${FieldTextareaClass(showLabel)} min-h-24`} defaultValue={defaultValue ?? ""} name="notes" />
+      {/* Tall enough to hold the conversation, not a one-line summary of it. */}
+      <VoiceTextarea aria-label={label} className={`${FieldTextareaClass(showLabel)} ${tall ? "min-h-44" : "min-h-24"}`} defaultValue={defaultValue ?? ""} name="notes" />
     </DosFormField>
   );
 }
@@ -20634,7 +20652,7 @@ function MeetingLeaderReflectionSection({
   followUpNeededDefault = false,
   followUpNoteDefault,
   notesDefault,
-  onOpenCommitment,
+  onOpenAccountability,
   onToggleOutcomeTag,
   prayerNeedsDefault,
   primaryPersonId,
@@ -20647,7 +20665,7 @@ function MeetingLeaderReflectionSection({
   followUpNoteDefault?: string | null;
   notesDefault?: string | null;
   nextStepDefault?: string | null;
-  onOpenCommitment?: (personId: string | null) => void;
+  onOpenAccountability?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
   prayerNeedsDefault?: string | null;
   primaryPersonId?: string | null;
@@ -20658,7 +20676,6 @@ function MeetingLeaderReflectionSection({
   const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));
   const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);
   const [prayerPersonId, setPrayerPersonId] = useState(primaryPersonId || selectedPersonIds[0] || "");
-  const [isRelationshipOpen, setIsRelationshipOpen] = useState(false);
 
   useEffect(() => {
     setIsFollowUpNeeded(followUpNeededDefault);
@@ -20668,83 +20685,65 @@ function MeetingLeaderReflectionSection({
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
 
-  // The relationship itself can change in a meeting -- someone asks to be
-  // discipled, or a season ends. That belongs on the canonical Person record,
-  // not in meeting prose, so this writes `relationship_type` straight through
-  // to the person on save. It is offered only for a one-on-one, because a
-  // group meeting has no single relationship to move.
-  const relationshipPerson = attendeeOptions.length === 1 ? attendeeOptions[0] : null;
-  const currentRelationshipType = relationshipPerson
-    ? relationshipTypeFromModel(personRelationshipModel(relationshipPerson))
-    : null;
-
+  /* Every one of these is a real toggle. Closing a section clears the values
+     it owns, so a section that was opened and thought better of cannot leave
+     a blank Prayer, Follow-up or Fruit record behind on save. Accountability
+     is not a toggle -- it opens the canonical Add Accountability form and
+     saves its own record there. */
+  const [prayerKey, setPrayerKey] = useState(0);
+  const [followUpKey, setFollowUpKey] = useState(0);
+  const closePrayer = () => { setIsPrayerOpen(false); setPrayerKey((key) => key + 1); };
+  const closeFollowUp = () => { setIsFollowUpNeeded(false); setFollowUpKey((key) => key + 1); };
+  const closeFruit = () => {
+    setIsFruitOpen(false);
+    selectedOutcomeTags.forEach((tag) => onToggleOutcomeTag(tag));
+  };
   const quickActions = [
-    !isFruitOpen ? { key: "fruit", label: "Add observed fruit", onClick: () => setIsFruitOpen(true) } : null,
-    !isPrayerOpen ? { key: "prayer", label: "Add prayer need", onClick: () => setIsPrayerOpen(true) } : null,
-    !isFollowUpNeeded ? { key: "followUp", label: "Add follow-up", onClick: () => setIsFollowUpNeeded(true) } : null,
-    onOpenCommitment ? { key: "commitment", label: "Add accountability", onClick: () => onOpenCommitment(primaryPersonId || selectedPersonIds[0] || null) } : null,
-    relationshipPerson && !isRelationshipOpen
-      ? { key: "relationship", label: "Change relationship", onClick: () => setIsRelationshipOpen(true) }
+    { active: isPrayerOpen, key: "prayer", label: "Prayer", onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)) },
+    onOpenAccountability
+      ? { active: false, key: "accountability", label: "Accountability", onClick: () => onOpenAccountability(primaryPersonId || selectedPersonIds[0] || null) }
       : null,
-  ].filter((action): action is { key: string; label: string; onClick: () => void } => Boolean(action));
+    { active: isFollowUpNeeded, key: "followUp", label: "Follow-up", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
+    { active: isFruitOpen, key: "fruit", label: "Observed Fruit", onClick: () => (isFruitOpen ? closeFruit() : setIsFruitOpen(true)) },
+  ].filter((action): action is { active: boolean; key: string; label: string; onClick: () => void } => Boolean(action));
 
   return (
     <>
-      <DosFormSection description="What happened, and what you agreed to." icon="log" title="Meeting Notes">
-        <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} />
-        <DosFormField
-          helper="Shows on their profile as the step you agreed to together."
-          label="What did you agree to?"
-        >
-          <input
-            className={FieldInputClass()}
-            defaultValue={nextStepDefault ?? ""}
-            name="next_step"
-            placeholder="Read John 4-6 before Thursday"
-          />
-        </DosFormField>
+      <DosFormSection icon="log" title="Meeting Notes">
+        <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} tall />
+        {/* "What did you agree to?" is gone -- what they agreed to is
+            Accountability, what you owe them is a Follow-up. An existing
+            record's value still rides along so re-saving cannot erase it. */}
+        {nextStepDefault ? <input name="next_step" type="hidden" value={nextStepDefault} /> : null}
       </DosFormSection>
 
       {quickActions.length ? (
         <div className="flex flex-wrap gap-2">
           {quickActions.map((action) => (
             <button
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+              aria-pressed={action.active}
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-colors ${
+                action.active
+                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                  : "border-[#DCEBFF] bg-[#F8FBFF] text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+              }`}
               key={action.key}
               onClick={action.onClick}
               type="button"
             >
-              <span aria-hidden="true" className="text-sm leading-none">+</span>
+              <span aria-hidden="true" className="text-sm leading-none">{action.active ? "\u2212" : "+"}</span>
               {action.label}
             </button>
           ))}
         </div>
       ) : null}
 
-      {isRelationshipOpen && relationshipPerson && currentRelationshipType ? (
-        <DosFormSection icon="people" title="Relationship">
-          <DosFormField
-            helper={`Saves to ${relationshipPerson.name}'s record and updates the Relationship on their profile.`}
-            label="Where this relationship stands now"
-          >
-            <select className={FieldSelectClass(false)} defaultValue={currentRelationshipType} name="relationship_type_change">
-              {relationshipTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{`${option.label} — ${option.helper}`}</option>
-              ))}
-            </select>
-          </DosFormField>
-          <button
-            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
-            onClick={() => setIsRelationshipOpen(false)}
-            type="button"
-          >
-            Leave relationship unchanged
-          </button>
-        </DosFormSection>
-      ) : null}
-
       {isFruitOpen ? (
-        <DosFormSection icon="fruit" title="Observed Fruit">
+        <DosFormSection
+          description="Something you actually observed happen -- not something you encouraged them to do."
+          icon="fruit"
+          title="Observed Fruit"
+        >
           {selectedOutcomeTags.map((tag) => (
             <input key={tag} name="observed_fruit" type="hidden" value={tag} />
           ))}
@@ -20752,11 +20751,18 @@ function MeetingLeaderReflectionSection({
             onToggle={onToggleOutcomeTag}
             selectedOutcomeTags={selectedOutcomeTags}
           />
+          <button
+            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+            onClick={closeFruit}
+            type="button"
+          >
+            Remove observed fruit
+          </button>
         </DosFormSection>
       ) : null}
 
       {isPrayerOpen ? (
-        <DosFormSection icon="prayer" title="Prayer Need">
+        <DosFormSection icon="prayer" key={`prayer-${prayerKey}`} title="Prayer Request">
           {attendeeOptions.length > 1 ? (
             <DosFormField label="Who is this for?">
               <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
@@ -20768,17 +20774,29 @@ function MeetingLeaderReflectionSection({
           ) : (
             <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
           )}
-          <DosFormField>
-            <VoiceTextarea aria-label="Prayer Need" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
+          <DosFormField helper="Saves a canonical Prayer request for them, linked to this meeting.">
+            <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
           </DosFormField>
+          <button
+            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+            onClick={closePrayer}
+            type="button"
+          >
+            Remove prayer request
+          </button>
         </DosFormSection>
       ) : null}
 
       {isFollowUpNeeded ? (
-        <DosFormSection icon="arrow" title="Follow Up">
+        <DosFormSection
+          description="Something you need to remember to do. What they agreed to do is Accountability."
+          icon="arrow"
+          key={`follow-up-${followUpKey}`}
+          title="Follow-up"
+        >
           <input name="follow_up_needed" type="hidden" value="on" />
-          <DosFormField label={<>What needs to happen?<RequiredMark /></>}>
-            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Send the article, check in after surgery..." required />
+          <DosFormField label={<>What do you need to do?<RequiredMark /></>}>
+            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text Philip Friday, send the book..." required />
           </DosFormField>
           <DosDateInput
             defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
@@ -20786,8 +20804,8 @@ function MeetingLeaderReflectionSection({
             name="follow_up_date"
           />
           <button
-            className="justify-self-start text-xs font-semibold text-[#64748B] transition-colors hover:text-[#0F172A]"
-            onClick={() => setIsFollowUpNeeded(false)}
+            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+            onClick={closeFollowUp}
             type="button"
           >
             Remove follow-up
@@ -20896,7 +20914,7 @@ function MeetingRoleReflectionSections({
   growthReflectionDefault,
   leaderReflectionDefault,
   notesDefault,
-  onOpenCommitment,
+  onOpenAccountability,
   onToggleOutcomeTag,
   planningReflectionDefault,
   primaryPersonId,
@@ -20910,7 +20928,7 @@ function MeetingRoleReflectionSections({
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
   leaderReflectionDefault?: DosAppLeaderReflection | null;
   notesDefault?: string | null;
-  onOpenCommitment?: (personId: string | null) => void;
+  onOpenAccountability?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
   primaryPersonId?: string | null;
@@ -20932,7 +20950,7 @@ function MeetingRoleReflectionSections({
           followUpNeededDefault={leaderReflectionDefault?.followUpNeeded}
           followUpNoteDefault={followUpNoteDefault}
           notesDefault={notesDefault}
-          onOpenCommitment={onOpenCommitment}
+          onOpenAccountability={onOpenAccountability}
           onToggleOutcomeTag={onToggleOutcomeTag}
           prayerNeedsDefault={leaderReflectionDefault?.prayerNeeds}
           primaryPersonId={primaryPersonId}
@@ -20951,11 +20969,15 @@ const meetingFormGroupClassName = "grid gap-3 border-t border-[#EAF2FF] pt-5 fir
 const meetingFormGroupCardClassName = "grid gap-3";
 const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
 
+// Ordinary logging rounds to the nearest quarter hour. Custom still handles
+// the exact cases (2h 30m), so precision is available without being required.
 const meetingDurationOptions = [
   { label: "15m", value: "15" },
   { label: "30m", value: "30" },
+  { label: "45m", value: "45" },
   { label: "1h", value: "60" },
-  { label: "90m", value: "90" },
+  { label: "1h 15m", value: "75" },
+  { label: "1h 30m", value: "90" },
   { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
@@ -21221,7 +21243,7 @@ function MeetingFormContent({
   onConversationFlowChange,
   onConversationResponse,
   onMinistryTeamQueryChange,
-  onOpenCommitment,
+  onOpenAccountability,
   onSubmit,
   onSupportingAttendeeQueryChange,
   onSupportingAttendeeSubRoleChange,
@@ -21278,7 +21300,7 @@ function MeetingFormContent({
   onConversationFlowChange: (value: DosConversationFlowKey) => void;
   onConversationResponse: (questionId: string, value: DosConversationResponseValue | undefined) => void;
   onMinistryTeamQueryChange: (value: string) => void;
-  onOpenCommitment?: (personId: string | null) => void;
+  onOpenAccountability?: (personId: string | null) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSupportingAttendeeQueryChange: (value: string) => void;
   onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
@@ -21310,6 +21332,7 @@ function MeetingFormContent({
   supportingAttendeeQuery: string;
   supportingAttendeeSubRoles: Record<string, DosSupportingAttendeeSubRole | "">;
 }) {
+  const [isAddingPerson, setIsAddingPerson] = useState(false);
   const peopleSelector = (
     <MeetingPeopleSelector
       allPeople={allPeople}
@@ -21325,6 +21348,55 @@ function MeetingFormContent({
       selectedPersonIds={selectedPersonIds}
     />
   );
+  /* Launched from a Person, who you met is already answered. Show the answer
+     and keep the search behind "Add person" -- a full search field on open
+     asks a question that has one obvious wrong outcome (the wrong person). */
+  const attendingPeople = selectedPersonIds
+    .map((personId) => allPeople.find((person) => person.id === personId))
+    .filter((person): person is DosAppPerson => Boolean(person));
+  const compactPeopleSelector = attendingPeople.length && !isAddingPerson ? (
+    <div className="flex flex-wrap items-center gap-2">
+      {attendingPeople.map((person) => (
+        <span
+          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#D6E4F7] bg-white pl-3.5 pr-2 text-[14px] font-semibold text-dos-primary"
+          key={person.id}
+        >
+          {person.name}
+          {attendingPeople.length > 1 ? (
+            <button
+              aria-label={`Remove ${person.name}`}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-[#F1F5F9] hover:text-dos-primary"
+              onClick={() => onTogglePerson(person.id)}
+              type="button"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
+            </button>
+          ) : null}
+        </span>
+      ))}
+      <button
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-dashed border-[#C7D9F5] px-3.5 text-[13.5px] font-semibold text-dos-blue transition-colors hover:bg-[#F6F9FE]"
+        onClick={() => setIsAddingPerson(true)}
+        type="button"
+      >
+        <span aria-hidden="true">+</span>
+        Add person
+      </button>
+    </div>
+  ) : (
+    <div className="grid gap-2">
+      {peopleSelector}
+      {attendingPeople.length ? (
+        <button
+          className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+          onClick={() => { onPeopleQueryChange(""); setIsAddingPerson(false); }}
+          type="button"
+        >
+          Done adding
+        </button>
+      ) : null}
+    </div>
+  );
   const durationSelector = showDurationField ? <MeetingDurationSelector defaultMinutes={durationDefault} /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
   const conversationFlowPicker = showConversationFlow ? (
@@ -21337,7 +21409,6 @@ function MeetingFormContent({
   // Collapsed summary for "More people & role", so the section can stay shut
   // without concealing the prefilled ministry team.
   const morePeopleSummary = (() => {
-    const roleLabel = tableRoleOptions.find((option) => option.value === selectedTableRole)?.label ?? "Ministering";
     const teamNames = [
       ...selectedMinistryTeamMemberIds
         .map((memberId) => householdMembers.find((member) => member.id === memberId)?.displayName)
@@ -21346,17 +21417,17 @@ function MeetingFormContent({
         .map((personId) => allPeople.find((person) => person.id === personId)?.name)
         .filter((name): name is string => Boolean(name)),
     ];
-    const parts = [roleLabel];
+    const parts: string[] = [];
 
     if (teamNames.length) {
-      parts.push(`with ${teamNames.join(", ")}`);
+      parts.push(`With ${teamNames.join(", ")}`);
     }
 
     if (selectedSupportingAttendeeIds.length) {
       parts.push(`+${selectedSupportingAttendeeIds.length} supporting`);
     }
 
-    return parts.join(" · ");
+    return parts.length ? parts.join(" · ") : "Just the two of you";
   })();
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
   const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
@@ -21376,25 +21447,28 @@ function MeetingFormContent({
             timeName="scheduled_time"
           />
         ) : (
-          <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
+          /* A date is a short value; a full-bleed pill made it read as the
+             most important field on the form. Size it to its content. */
+          <div className="max-w-[15rem]">
+            <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
+          </div>
         )}
       </DosFormSection>
       <DosFormSection icon="people" title="Who was there?">
-        {peopleSelector}
+        {compactPeopleSelector}
       </DosFormSection>
+      {/* A Person meeting is my relationship with them; it does not need me to
+          declare a role first. Being mentored belongs in My Record. The value
+          still posts so the backend contract is unchanged. */}
+      <input name="table_role" type="hidden" value={selectedTableRole} />
       <DisclosureSection
-        /* The workspace ministry team is prefilled on every log, so opening
-           merely because it is present kept this section permanently expanded
-           and undid the simplification. Open only when something non-default
-           is inside; otherwise report the contents in the collapsed summary. */
-        defaultOpen={selectedMinistryTeamPersonIds.length + selectedSupportingAttendeeIds.length > 0 || selectedTableRole !== "ministering"}
-        description="Your role, ministry team, and others who were present."
+        /* Nothing is prefilled any more, so this stays shut unless the launch
+           context actually supplied someone. */
+        defaultOpen={selectedMinistryTeamPersonIds.length + selectedMinistryTeamMemberIds.length + selectedSupportingAttendeeIds.length > 0}
+        description="Ministry team and others who were present."
         summary={morePeopleSummary}
-        title="More people & role"
+        title="More people"
       >
-        <DosFormField helper="Changes which reflection fields you are asked for." label="Your role">
-          <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
-        </DosFormField>
         <DosFormField label="Ministry Team">
           <MinistryTeamSelector
             allPeople={allPeople}
@@ -21427,18 +21501,8 @@ function MeetingFormContent({
           {durationSelector}
         </DosFormSection>
       ) : null}
-      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "Meeting Context"}>
+      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"}>
         {meetingContextPicker}
-        {conversationFlowPicker}
-        {showConversationFlow && selectedConversationFlow !== "none" ? (
-          <ConversationFlowExperience
-            flowKey={selectedConversationFlow}
-            onResponseChange={onConversationResponse}
-            onToggleFollowUpAction={onToggleFollowUpAction}
-            recommendedResources={recommendedResources}
-            responses={conversationResponses}
-          />
-        ) : null}
       </DosFormSection>
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
@@ -21448,7 +21512,7 @@ function MeetingFormContent({
           growthReflectionDefault={growthReflectionDefault}
           leaderReflectionDefault={reflectionDefault}
           notesDefault={notesDefault}
-          onOpenCommitment={onOpenCommitment}
+          onOpenAccountability={onOpenAccountability}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
           planningReflectionDefault={planningReflectionDefault}
           primaryPersonId={selectedPersonIds[0] ?? null}
@@ -24498,12 +24562,14 @@ function AddPrayerRequestSheet({
   onClose,
   onSubmit,
   people,
+  preselectedPersonId = null,
 }: {
   groups: DosAppGroup[];
   householdMembers: DosAppHouseholdMember[];
   onClose: () => void;
   onSubmit: (draft: DosPrayerRequestDraft) => Promise<void>;
   people: DosAppPerson[];
+  preselectedPersonId?: string | null;
 }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [audienceValues, setAudienceValues] = useState<string[]>([prayerAudienceGeneralValue]);
@@ -24511,7 +24577,7 @@ function AddPrayerRequestSheet({
   const [groupId, setGroupId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priority, setPriority] = useState<DosAppPrayerRequest["priority"]>("normal");
-  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(preselectedPersonId ? [preselectedPersonId] : []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37001,7 +37067,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [meetingOriginPersonId, setMeetingOriginPersonId] = useState<string | null>(null);
   const [loggingScheduledMeetingId, setLoggingScheduledMeetingId] = useState<string | null>(null);
   const [selectedMeetingPersonIds, setSelectedMeetingPersonIds] = useState<string[]>([]);
-  const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>(() => defaultMinistryTeamMemberIdsForWorkspace(data));
+  const [selectedMinistryTeamMemberIds, setSelectedMinistryTeamMemberIds] = useState<string[]>([]);
   const [selectedMinistryTeamPersonIds, setSelectedMinistryTeamPersonIds] = useState<string[]>([]);
   const [selectedSupportingAttendeeIds, setSelectedSupportingAttendeeIds] = useState<string[]>([]);
   const [supportingAttendeeSubRoles, setSupportingAttendeeSubRoles] = useState<Record<string, DosSupportingAttendeeSubRole | "">>({});
@@ -37044,6 +37110,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: GroupGatheringView | null; groupId: string } | null>(null);
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
+  const [prayerRequestPersonId, setPrayerRequestPersonId] = useState<string | null>(null);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
@@ -37782,7 +37849,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingContext("kitchen_table");
     setSelectedTableRole("ministering");
     setSelectedMeetingPersonIds(personIds);
-    setSelectedMinistryTeamMemberIds(defaultMinistryTeamMemberIdsForWorkspace(data));
+    setSelectedMinistryTeamMemberIds([]);
     setSelectedMinistryTeamPersonIds([]);
     setSelectedSupportingAttendeeIds([]);
     setSupportingAttendeeSubRoles({});
@@ -38986,6 +39053,30 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setCommitmentNotice(null);
     setCommitmentSheet({ kind: "schedule", personId, schedule: schedule ?? null });
+  }
+
+  /* One canonical Add Accountability form, wherever accountability is created.
+     Log Meeting used to open the separate "New Commitment" sheet, which is a
+     different record type with different words for the same idea. */
+  /* One canonical Prayer creation flow. The Person action used to create a
+     prayer-typed reminder while Log Meeting created a real prayer_requests
+     record, so the same words produced two different records depending on
+     where you started. Both now write the canonical request. */
+  function openPrayerRequestForPerson(personId: string) {
+    setErrorMessage("");
+    setPrayerRequestPersonId(personId);
+    setIsMobileAddPrayerRequestOpen(true);
+  }
+
+  function openAccountabilityScheduleForPerson(personId: string | null) {
+    const targetPersonId = personId ?? selectedPersonId ?? selectedMeetingPersonIds[0] ?? null;
+
+    if (!targetPersonId) {
+      setErrorMessage("Choose who this meeting was with before adding accountability.");
+      return;
+    }
+
+    openAccountabilitySchedule(targetPersonId);
   }
 
   function openAccountabilityCheckIn(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
@@ -43419,7 +43510,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onAddCommitmentUpdate={openCommitmentUpdate}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
-            onAddPrayerRequest={() => openReminderForm(selectedPerson.id, "prayer")}
+            onAddPrayerRequest={() => openPrayerRequestForPerson(selectedPerson.id)}
             onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
             onConfirmCircleMove={confirmPersonCircleMove}
@@ -43937,12 +44028,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <AddPrayerRequestSheet
             groups={data.groups}
             householdMembers={data.householdMembers}
-            onClose={() => setIsMobileAddPrayerRequestOpen(false)}
+            key={prayerRequestPersonId ?? "prayer-request"}
+            onClose={() => { setIsMobileAddPrayerRequestOpen(false); setPrayerRequestPersonId(null); }}
             onSubmit={async (draft) => {
               const savedRequest = await createPrayerRequest(draft);
               setMobilePrayerRequests((current) => upsertById(current, savedRequest));
             }}
             people={people}
+            preselectedPersonId={prayerRequestPersonId}
           />
         ) : null}
 
@@ -44213,7 +44306,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onConversationFlowChange={handleConversationFlowChange}
             onConversationResponse={handleConversationResponse}
             onMinistryTeamQueryChange={setMinistryTeamQuery}
-            onOpenCommitment={(personId) => setCommitmentSheet({ kind: "commitment", personId })}
+            onOpenAccountability={(personId) => openAccountabilityScheduleForPerson(personId)}
             onPeopleQueryChange={setMeetingPeopleQuery}
             onSubmit={handleMeetingSubmit}
             onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
@@ -44328,7 +44421,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onConversationFlowChange={handleConversationFlowChange}
               onConversationResponse={handleConversationResponse}
               onMinistryTeamQueryChange={setMinistryTeamQuery}
-              onOpenCommitment={(personId) => setCommitmentSheet({ kind: "commitment", personId })}
+              onOpenAccountability={(personId) => openAccountabilityScheduleForPerson(personId)}
               onPeopleQueryChange={setMeetingPeopleQuery}
               onSubmit={handleEditMeetingSubmit}
               onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
