@@ -218,6 +218,10 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // The link identifies the recipient when the request was sent to a known
+  // Person; only then can we skip asking who they are.
+  const linkKnowsReviewer = Boolean(reviewLink.reviewerPersonName?.trim());
+  const [isEditingIdentity, setIsEditingIdentity] = useState(false);
 
   function updateDraft(patch: Partial<QuickReviewDraft>) {
     setDraft((currentDraft) => ({ ...currentDraft, ...patch }));
@@ -239,9 +243,21 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
 
     try {
       const submittedName = [draft.submittedFirstName, draft.submittedLastName].map((value) => value.trim()).filter(Boolean).join(" ");
+      /* The five-point Overall answer and the old "this conversation was
+         helpful" agreement are the same question at different resolutions,
+         so the coarser one is derived rather than asked twice. Keeping it
+         populated preserves the `encouraged` signal it feeds downstream. */
+      const conversationHelpful = draft.overallRating
+        ? draft.overallRating === "not_very_helpful"
+          ? "no"
+          : draft.overallRating === "somewhat_helpful"
+            ? "somewhat"
+            : "yes"
+        : null;
       const response = await fetch(`/api/dos/reviews/${reviewLink.token}`, {
         body: JSON.stringify({
           ...draft,
+          conversationHelpful,
           submittedName,
         }),
         headers: {
@@ -288,20 +304,41 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
           <p className="mt-2 text-sm leading-6 text-[#475569]">{dosQuickReviewFormDefinition.description}</p>
         </header>
 
-        <SectionCard title="About You">
-          <div className="grid gap-2.5">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <TextField autoComplete="given-name" label="First Name" onChange={(value) => updateDraft({ submittedFirstName: value })} value={draft.submittedFirstName} />
-              <TextField autoComplete="family-name" label="Last Name" onChange={(value) => updateDraft({ submittedLastName: value })} value={draft.submittedLastName} />
+        {/* When the link already identifies who it was sent to, re-typing a
+            name and email is pure friction on a form we want completed. Show
+            who it is and let them correct it if we got it wrong. Links that
+            genuinely do not know the recipient still ask. */}
+        {linkKnowsReviewer && !isEditingIdentity ? (
+          <SectionCard title="About You">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-[#0F172A]">{[draft.submittedFirstName, draft.submittedLastName].filter(Boolean).join(" ")}</p>
+                {draft.submittedEmail ? <p className="mt-0.5 truncate text-xs font-semibold text-[#475569]">{draft.submittedEmail}</p> : null}
+              </div>
+              <button
+                className="shrink-0 text-xs font-bold text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
+                onClick={() => setIsEditingIdentity(true)}
+                type="button"
+              >
+                Not you?
+              </button>
             </div>
-            <TextField autoComplete="email" helper="Optional when this link already knows you." label="Email" onChange={(value) => updateDraft({ submittedEmail: value })} type="email" value={draft.submittedEmail} />
-          </div>
-        </SectionCard>
+          </SectionCard>
+        ) : (
+          <SectionCard title="About You">
+            <div className="grid gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <TextField autoComplete="given-name" label="First Name" onChange={(value) => updateDraft({ submittedFirstName: value })} value={draft.submittedFirstName} />
+                <TextField autoComplete="family-name" label="Last Name" onChange={(value) => updateDraft({ submittedLastName: value })} value={draft.submittedLastName} />
+              </div>
+              <TextField autoComplete="email" helper="Optional when this link already knows you." label="Email" onChange={(value) => updateDraft({ submittedEmail: value })} type="email" value={draft.submittedEmail} />
+            </div>
+          </SectionCard>
+        )}
 
         <SectionCard helper="How much do you agree?" title="How was your experience today?">
           <SegmentedQuestion label="I felt heard" onChange={(value) => updateDraft({ feltHeard: value })} value={draft.feltHeard} />
           <SegmentedQuestion label="I felt cared for" onChange={(value) => updateDraft({ feltCaredFor: value })} value={draft.feltCaredFor} />
-          <SegmentedQuestion label="This conversation was helpful" onChange={(value) => updateDraft({ conversationHelpful: value })} value={draft.conversationHelpful} />
           <SegmentedQuestion label="I would be happy to meet again" onChange={(value) => updateDraft({ wouldMeetAgain: value })} value={draft.wouldMeetAgain} />
         </SectionCard>
 
@@ -309,6 +346,13 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
           <OutcomeQuestion onToggle={toggleOutcomeTag} value={draft.outcomeTags} />
         </SectionCard>
 
+        {/* This asks helpfulness on a five-point scale, which is strictly
+            richer than the agree/disagree "This conversation was helpful"
+            that used to sit above it. Asking both was the same question
+            twice, so the agreement one is gone and this one stays.
+            `conversation_helpful` is still written -- derived from this
+            answer rather than asked again -- because it also feeds the
+            `encouraged` flag downstream. Same question, one answer. */}
         <SectionCard title="Overall">
           <OverallRatingQuestion onChange={(value) => updateDraft({ overallRating: value })} value={draft.overallRating} />
         </SectionCard>

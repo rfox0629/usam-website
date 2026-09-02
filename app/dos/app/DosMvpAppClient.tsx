@@ -34638,7 +34638,6 @@ function PersonDetailOverlay({
   onOpenMeeting,
   onLogMeeting,
   onRequestReview,
-  onRequestTestimony,
   onPauseCommitment,
   onPauseResourceAssignment,
   onEditResourceAssignment,
@@ -34693,8 +34692,7 @@ function PersonDetailOverlay({
   onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
-  onRequestReview?: (meeting: DosAppMeeting) => void;
-  onRequestTestimony?: (meeting: DosAppMeeting) => void;
+  onRequestReview?: (meeting: DosAppMeeting, type: "quick_review" | "testimony_request") => void;
   onPauseCommitment: (commitment: DosAppPersonCommitment) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
@@ -34711,6 +34709,7 @@ function PersonDetailOverlay({
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const [isCircleReviewOpen, setIsCircleReviewOpen] = useState(false);
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
+  const [isFeedbackChoiceOpen, setIsFeedbackChoiceOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
   const [confirmedCircleMove, setConfirmedCircleMove] = useState<CircleKey | null>(null);
@@ -35062,14 +35061,19 @@ function PersonDetailOverlay({
      for: the meeting, walking with them, their growth, then administration.
      One list, rendered by both the mobile and desktop FAB. */
   const personFabItems: MobileFloatingActionItem[] = [
-    { group: "meeting", icon: "log", label: "Log meeting", onClick: onLogMeeting },
-    { group: "meeting", icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
-    { group: "walking", icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
-    { group: "walking", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
-    { group: "walking", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
-    { group: "growth", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
-    { group: "growth", icon: "fruit", label: "Add observed fruit", onClick: onLogMeetingWithFruit },
-    { group: "admin", icon: "settings", label: "Edit person", onClick: onEdit },
+    { group: "meet", icon: "log", label: "Log meeting", onClick: onLogMeeting },
+    { group: "meet", icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
+    { group: "walk", icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
+    { group: "walk", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
+    { group: "walk", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
+    { group: "walk", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
+    { group: "capture", icon: "fruit", label: "Add observed fruit", onClick: onLogMeetingWithFruit },
+    /* One entry, not two. Quick Review and Testimony are the same intent --
+       asking them for feedback -- and the choice belongs one level down. */
+    ...(lastMeeting && onRequestReview
+      ? [{ group: "capture", icon: "send" as IconName, label: "Request feedback", onClick: () => setIsFeedbackChoiceOpen(true) }]
+      : []),
+    { group: "person", icon: "settings", label: "Edit person", onClick: onEdit },
   ];
   const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
     ? lastMeeting.title.trim()
@@ -35147,24 +35151,20 @@ function PersonDetailOverlay({
             Nothing recorded yet. Fruit is captured when you log a meeting.
           </p>
         )}
-        {reportCount ? (
-          <button
-            className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
-            onClick={() => setIsFruitReviewsOpen(true)}
-            type="button"
-          >
-            {evidenceCounts.reviewCount} review{evidenceCounts.reviewCount === 1 ? "" : "s"} · {evidenceCounts.testimonyCount} testimon{evidenceCounts.testimonyCount === 1 ? "y" : "ies"} {"\u2192"}
-          </button>
-        ) : null}
-        {lastMeeting && onRequestReview ? (
-          <button
-            className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
-            onClick={() => onRequestReview(lastMeeting)}
-            type="button"
-          >
-            Request review {"\u2192"}
-          </button>
-        ) : null}
+        {/* Always present, so what someone submitted has a findable home even
+            before anything has arrived. Reviews and testimonies are reported
+            evidence, counted separately from Fruit. */}
+        <button
+          className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
+          onClick={() => setIsFruitReviewsOpen(true)}
+          type="button"
+        >
+          Reviews &amp; testimonies
+          {reportCount
+            ? ` · ${evidenceCounts.reviewCount} review${evidenceCounts.reviewCount === 1 ? "" : "s"}, ${evidenceCounts.testimonyCount} testimon${evidenceCounts.testimonyCount === 1 ? "y" : "ies"}`
+            : ""} {"\u2192"}
+        </button>
+
       </>
     );
   };
@@ -35975,6 +35975,29 @@ function PersonDetailOverlay({
           blue, icon, shadow and bottom-nav clearance. Ranked by reach, and
           grouped by what the action is for: the meeting, walking with them,
           their growth, then administration. */}
+      {/* Request feedback resolves to one of two canonical requests. Both go
+          through the same MeetingSendConfirmationSheet the Meeting Detail
+          screen uses -- there is no second implementation of either. */}
+      {isFeedbackChoiceOpen && lastMeeting && onRequestReview ? (
+        <Sheet onClose={() => setIsFeedbackChoiceOpen(false)} showEyebrow={false} title={`Request feedback from ${firstName}`}>
+          <div className="grid gap-2">
+            {[
+              { description: "Short feedback about your time together.", label: "Quick Review", type: "quick_review" as const },
+              { description: "Their story of what God did.", label: "Testimony", type: "testimony_request" as const },
+            ].map((option) => (
+              <button
+                className="flex flex-col rounded-2xl border border-dos-hairline bg-white px-4 py-3.5 text-left transition-colors hover:border-[#C7D9F5] hover:bg-[#FAFCFF]"
+                key={option.type}
+                onClick={() => { setIsFeedbackChoiceOpen(false); onRequestReview(lastMeeting, option.type); }}
+                type="button"
+              >
+                <span className="text-[15.5px] font-bold leading-[1.25] text-dos-primary">{option.label}</span>
+                <span className="mt-0.5 text-[13.5px] font-semibold leading-[1.4] text-dos-secondary">{option.description}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
       {conceptMode ? (
         <>
         <MobileFloatingActions
@@ -36143,7 +36166,7 @@ function PersonDetailOverlay({
           description="What has been observed, and what people have reported."
           onClose={() => setIsFruitReviewsOpen(false)}
           showEyebrow={false}
-          title={`Fruit & reviews · ${firstName}`}
+          title={`Fruit & feedback · ${firstName}`}
         >
           <div className="grid gap-5">
             <section>
@@ -36207,10 +36230,10 @@ function PersonDetailOverlay({
                     Requests are tied to a specific conversation — this will use {formatDate(lastMeeting.date)}.
                   </p>
                   <div className="mt-2.5 grid gap-2">
-                    <AppButton onClick={() => { setIsFruitReviewsOpen(false); onRequestReview?.(lastMeeting); }} tone="black">
+                    <AppButton onClick={() => { setIsFruitReviewsOpen(false); onRequestReview?.(lastMeeting, "quick_review"); }} tone="black">
                       Request Review
                     </AppButton>
-                    <AppButton onClick={() => { setIsFruitReviewsOpen(false); onRequestTestimony?.(lastMeeting); }} tone="white">
+                    <AppButton onClick={() => { setIsFruitReviewsOpen(false); onRequestReview?.(lastMeeting, "testimony_request"); }} tone="white">
                       Request Testimony
                     </AppButton>
                   </div>
@@ -43679,8 +43702,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onOpenReview={openSubmittedReview}
-            onRequestReview={(meeting) => setPendingMeetingSendAction({ meeting, type: "quick_review" })}
-            onRequestTestimony={(meeting) => setPendingMeetingSendAction({ meeting, type: "testimony_request" })}
+            onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}

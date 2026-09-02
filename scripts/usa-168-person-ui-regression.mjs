@@ -195,7 +195,28 @@ async function verifyGroupRoundTrip(page) {
 }
 
 async function verifyCompactReviewRequest(page) {
-  await clickFirstVisible(page.getByRole("button", { name: "Request review →", exact: true }));
+  /* The stranded "Request review" link under Fruit is gone. Feedback is now
+     requested from the FAB, which asks Quick Review or Testimony first. The
+     behaviour being protected is unchanged: the request reaches the one
+     canonical send sheet with its question preview collapsed. */
+  await page.evaluate(() => {
+    const launcher = [...document.querySelectorAll("button")]
+      .find((button) => button.getAttribute("aria-label") === "Open quick actions" && button.getBoundingClientRect().width > 0);
+    launcher?.click();
+  });
+  await delay(500);
+  await page.evaluate(() => {
+    const request = [...document.querySelectorAll("button")]
+      .find((button) => button.textContent.trim() === "Request feedback" && button.getBoundingClientRect().width > 0);
+    request?.click();
+  });
+  await delay(700);
+  await page.evaluate(() => {
+    const quickReview = [...document.querySelectorAll("button")]
+      .find((button) => button.textContent.trim().startsWith("Quick Review") && button.getBoundingClientRect().width > 0);
+    quickReview?.click();
+  });
+  await delay(700);
   const previewQuestions = page.getByText("Preview questions", { exact: true });
   await previewQuestions.waitFor({ state: "visible" });
   const detailsOpen = await previewQuestions.locator("xpath=ancestor::details").getAttribute("open");
