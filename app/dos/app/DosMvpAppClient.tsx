@@ -33190,15 +33190,23 @@ function MobileFloatingActions({
     return null;
   }
 
+  /* Anchored to the app shell, `absolute` is the viewport because the shell
+     is a full-height overflow-hidden box. Portaled to <body> it is not: the
+     body is as tall as the document, so an absolute root scrolls away and the
+     FAB strands itself mid-page with its menu running off the top. Portaled
+     callers get `fixed`, which is the viewport in both cases. */
+  const positionClassName = portalToBody ? "fixed" : "absolute";
   const rootClassName = variant === "desktop"
-    ? "absolute inset-0 z-[70] hidden pointer-events-none md:block"
-    : "absolute inset-0 z-[70] pointer-events-none md:hidden";
+    ? `${positionClassName} inset-0 z-[70] hidden pointer-events-none md:block`
+    : `${positionClassName} inset-0 z-[70] pointer-events-none md:hidden`;
   const closeClassName = variant === "desktop"
     ? "absolute inset-0 pointer-events-auto bg-transparent"
     : "absolute inset-0 pointer-events-auto bg-transparent";
   const stackClassName = variant === "desktop"
-    ? "absolute bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]"
-    : "absolute bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-4 flex w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto";
+    ? `${positionClassName} bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]`
+    /* The open menu grows upward from the button, so cap it to the space
+       above and let it scroll rather than run off the top of the screen. */
+    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-4 flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 overflow-y-auto pointer-events-auto`;
 
   const content = (
     <div className={rootClassName}>
@@ -35067,13 +35075,16 @@ function PersonDetailOverlay({
     { group: "walk", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
     { group: "walk", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
     { group: "walk", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
-    { group: "capture", icon: "fruit", label: "Add observed fruit", onClick: onLogMeetingWithFruit },
-    /* One entry, not two. Quick Review and Testimony are the same intent --
-       asking them for feedback -- and the choice belongs one level down. */
+    /* Observed Fruit is deliberately absent: Fruit should carry provenance
+       from an actual logged interaction, so its path is Log Meeting ->
+       Observed Fruit. Legacy and backend-created Fruit records are untouched;
+       this is a V2 provenance rule, not an enforcement. Edit Person is absent
+       too -- maintaining the record is administration, and it lives in the
+       header. One feedback entry, not two: Quick Review and Testimony are the
+       same intent, and the choice belongs one level down. */
     ...(lastMeeting && onRequestReview
-      ? [{ group: "capture", icon: "send" as IconName, label: "Request feedback", onClick: () => setIsFeedbackChoiceOpen(true) }]
+      ? [{ group: "feedback", icon: "send" as IconName, label: "Request feedback", onClick: () => setIsFeedbackChoiceOpen(true) }]
       : []),
-    { group: "person", icon: "settings", label: "Edit person", onClick: onEdit },
   ];
   const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
     ? lastMeeting.title.trim()
@@ -35303,9 +35314,17 @@ function PersonDetailOverlay({
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
-              {/* Every Person action lives on the FAB, so the header carries
-                  navigation only and stops competing with it. */}
-              <span aria-hidden="true" className="h-10 w-10" />
+              {/* Maintaining the record is administration, not a relationship
+                  action, so Edit sits here rather than among the things you
+                  intentionally do for someone. Secondary to the identity. */}
+              <button
+                className="flex min-h-10 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
+                onClick={onEdit}
+                type="button"
+              >
+                <Pencil className="h-[15px] w-[15px]" aria-hidden="true" strokeWidth={1.9} />
+                Edit
+              </button>
             </div>
             {/* Identity reads down the centre line -- avatar, name, relationship --
                 so the page opens on the person rather than on a row of chrome.
@@ -35345,31 +35364,36 @@ function PersonDetailOverlay({
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center justify-center gap-8 border-b border-dos-rule bg-white/70 px-4 md:mx-0 md:rounded-t-none md:px-0">
-              {([
-                { label: "Overview", value: "overview" as const },
-                { label: "Timeline", value: "history" as const },
-                { label: "Details", value: "details" as const },
-              ]).map((view) => {
-                const isActive = activeDetailTab === view.value;
+            {/* A compact segmented control rather than three underlined links
+                between two rules -- app navigation, not page links. One
+                surface, one selected state, no line above and below. */}
+            <nav aria-label={`${firstName} views`} className="flex justify-center pb-1">
+              <div className="inline-flex items-center gap-0.5 rounded-full border border-[#DCE6F8] bg-white/85 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                {([
+                  { label: "Overview", value: "overview" as const },
+                  { label: "Timeline", value: "history" as const },
+                  { label: "Details", value: "details" as const },
+                ]).map((view) => {
+                  const isActive = activeDetailTab === view.value;
 
-                return (
-                  <button
-                    aria-current={isActive ? "page" : undefined}
-                    className={`-mb-px border-b-2 pb-2.5 text-[14px] font-semibold transition-colors ${
-                      isActive ? "border-dos-blue text-dos-blue" : "border-transparent text-dos-secondary hover:text-dos-primary"
-                    }`}
-                    key={view.value}
-                    onClick={() => {
-                      setActiveDetailTab(view.value);
-                      scrollDetailToTop();
-                    }}
-                    type="button"
-                  >
-                    {view.label}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      aria-current={isActive ? "page" : undefined}
+                      className={`min-h-9 rounded-full px-4 text-[13.5px] font-bold transition-colors ${
+                        isActive ? "bg-dos-blue text-white" : "text-dos-secondary hover:bg-[#F3F6FD] hover:text-dos-primary"
+                      }`}
+                      key={view.value}
+                      onClick={() => {
+                        setActiveDetailTab(view.value);
+                        scrollDetailToTop();
+                      }}
+                      type="button"
+                    >
+                      {view.label}
+                    </button>
+                  );
+                })}
+              </div>
             </nav>
           </header>
         </>
@@ -35981,6 +36005,11 @@ function PersonDetailOverlay({
       {isFeedbackChoiceOpen && lastMeeting && onRequestReview ? (
         <Sheet onClose={() => setIsFeedbackChoiceOpen(false)} showEyebrow={false} title={`Request feedback from ${firstName}`}>
           <div className="grid gap-2">
+            {/* A request evaluates a specific conversation, so name the one it
+                will be tied to rather than attaching it silently. */}
+            <p className="mb-1 text-[13.5px] leading-[1.5] text-dos-body">
+              About your meeting on {formatDate(lastMeeting.date)}.
+            </p>
             {[
               { description: "Short feedback about your time together.", label: "Quick Review", type: "quick_review" as const },
               { description: "Their story of what God did.", label: "Testimony", type: "testimony_request" as const },

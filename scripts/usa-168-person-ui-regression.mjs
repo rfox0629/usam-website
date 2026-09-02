@@ -116,6 +116,9 @@ async function verifyPersonActions(page, width) {
     button?.click();
   });
   await delay(400);
+  /* Seven actions: things you intentionally do with or for this person.
+     Edit Person is administration and lives in the header; Observed Fruit
+     must come from a logged interaction, so it lives in Log Meeting. */
   const rankedActions = [
     "Log meeting",
     "Schedule meeting",
@@ -123,8 +126,7 @@ async function verifyPersonActions(page, width) {
     "Add prayer request",
     "Add reminder",
     "Assign journey",
-    "Add observed fruit",
-    "Edit person",
+    "Request feedback",
   ];
   const visibleActions = await page.evaluate((expected) => [...document.querySelectorAll("button")]
     .filter((button) => button.getBoundingClientRect().width > 0 && expected.includes(button.textContent.trim()))
