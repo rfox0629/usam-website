@@ -493,13 +493,11 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
   { helper: "Something else", label: "Other", value: "other" },
 ];
 
-/* What the picker offers. Discipleship is dropped -- it names ministry
-   content, not how the interaction happened, and every one-on-one here is
-   discipleship. Prayer and Group are kept for now per the product decision,
-   but see USA-168: "Prayer" as a context cannot currently distinguish
-   "we prayed together" from "I prayed for them on my own", and those are
-   different events. The recommended contract is documented there. */
-const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "other"];
+/* This field is the communication medium and nothing else. Coffee is folded
+   into In person -- where you sat is not a different channel -- and Prayer,
+   Group and Discipleship are purposes, not media. Their enum values stay
+   valid so historical meetings keep a label. */
+const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table", "phone", "zoom", "text", "other"];
 
 const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
   { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
@@ -13665,6 +13663,102 @@ function CommitmentUpdateSheet({
   );
 }
 
+/* The one Accountability field set. Log Meeting renders it inline and the
+   Person sheet wraps it, so there is a single component and a single data
+   contract: title, frequency, and a date whose meaning follows the type.
+   Person is not asked for -- both callers already know who this is about.
+   Day-of-week is derived from the start date by the API, and recurring
+   accountability needs no end date; it runs until it is completed or paused. */
+function AccountabilityFields({
+  autoFocus = false,
+  defaultFrequency = "weekly",
+  defaultStartDate,
+  defaultTitle = "",
+  namePrefix,
+}: {
+  autoFocus?: boolean;
+  defaultFrequency?: DosAccountabilityFrequency;
+  defaultStartDate?: string;
+  defaultTitle?: string;
+  namePrefix: string;
+}) {
+  const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency);
+  const isOneTime = frequency === "one_time";
+  const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
+    { label: "Weekly", value: "weekly" },
+    { label: "Every 2 weeks", value: "every_two_weeks" },
+    { label: "Monthly", value: "monthly" },
+  ];
+
+  return (
+    <>
+      <input name={`${namePrefix}_frequency`} type="hidden" value={frequency} />
+      <DosFormField label="What are you holding them accountable to?">
+        <input
+          autoFocus={autoFocus}
+          className={FieldInputClass(false)}
+          defaultValue={defaultTitle}
+          name={`${namePrefix}_title`}
+          placeholder="Read John 4-6, Quiet time with God..."
+        />
+      </DosFormField>
+      <DosFormField label="Type">
+        <div className="flex flex-wrap gap-2">
+          {[{ label: "Recurring", oneTime: false }, { label: "One-time", oneTime: true }].map((option) => {
+            const active = option.oneTime === isOneTime;
+
+            return (
+              <button
+                aria-pressed={active}
+                className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+                  active
+                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                    : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
+                }`}
+                key={option.label}
+                onClick={() => setFrequency(option.oneTime ? "one_time" : "weekly")}
+                type="button"
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </DosFormField>
+      {isOneTime ? null : (
+        <DosFormField label="Frequency">
+          <div className="flex flex-wrap gap-2">
+            {recurringOptions.map((option) => {
+              const active = frequency === option.value;
+
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+                    active
+                      ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                      : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
+                  }`}
+                  key={option.value}
+                  onClick={() => setFrequency(option.value)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </DosFormField>
+      )}
+      <DosDateInput
+        defaultValue={defaultStartDate ?? todayDateValue()}
+        label={isOneTime ? "Due" : "Start"}
+        name={`${namePrefix}_date`}
+      />
+    </>
+  );
+}
+
 function AccountabilityScheduleSheet({
   errorMessage,
   isSubmitting,
@@ -13680,62 +13774,21 @@ function AccountabilityScheduleSheet({
   person: DosAppPerson;
   schedule?: DosAppAccountabilitySchedule | null;
 }) {
-  // Frequency drives which timing fields make sense: a recurring item needs a
-  // day and start date, a one-time item needs a due date.
-  const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(schedule?.frequency ?? "weekly");
-  const isOneTime = frequency === "one_time";
-
   return (
     <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Accountability" : "Add Accountability"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
-        <DosFormSection icon="commitment" title="Accountability">
-          <DosFormField label="Person">
-            <input className={FieldInputClass(false)} readOnly value={person.name} />
-          </DosFormField>
-          <DosFormField label="Title">
-            <input autoFocus className={FieldInputClass(false)} defaultValue={schedule?.title ?? ""} name="title" required />
-          </DosFormField>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Frequency">
-              <select
-                className={FieldSelectClass(false)}
-                name="frequency"
-                onChange={(event) => setFrequency(event.target.value as DosAccountabilityFrequency)}
-                value={frequency}
-              >
-                {dosAccountabilityFrequencies.map((option) => (
-                  <option key={option} value={option}>{accountabilityFrequencyLabels[option]}</option>
-                ))}
-              </select>
-            </DosFormField>
-            {isOneTime ? null : (
-              <DosFormField label="Day">
-                <select className={FieldSelectClass(false)} defaultValue={schedule?.dayOfWeek ?? new Date().getDay()} name="day_of_week">
-                  {accountabilityDayLabels.map((label, index) => (
-                    <option key={label} value={index}>{label}</option>
-                  ))}
-                </select>
-              </DosFormField>
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {isOneTime ? null : (
-              <DosFormField label="Time">
-                <input className={FieldInputClass(false)} defaultValue={schedule?.scheduledTime?.slice(0, 5) ?? ""} name="scheduled_time" type="time" />
-              </DosFormField>
-            )}
-            <DosFormField label={isOneTime ? "Due date" : "Start date"}>
-              <input className={FieldInputClass(false)} defaultValue={schedule?.startDate ?? todayCommitmentDateKey()} name="start_date" type="date" />
-            </DosFormField>
-          </div>
-          <DosFormField label="Status">
-            <select className={FieldSelectClass(false)} defaultValue={schedule?.status ?? "active"} name="status">
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-            </select>
-          </DosFormField>
+        {/* Same fields as Log Meeting's inline Accountability, with the Person
+            shown as context because this sheet can be opened on its own. */}
+        <DosFormSection description={person.name} icon="commitment" title="Accountability">
+          <AccountabilityFields
+            autoFocus
+            defaultFrequency={schedule?.frequency ?? "weekly"}
+            defaultStartDate={schedule?.startDate ?? todayCommitmentDateKey()}
+            defaultTitle={schedule?.title ?? ""}
+            namePrefix="accountability"
+          />
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
@@ -20699,20 +20752,66 @@ function MeetingLeaderReflectionSection({
      saves its own record there. */
   const [prayerKey, setPrayerKey] = useState(0);
   const [followUpKey, setFollowUpKey] = useState(0);
+  // Accountability is captured inline like everything else here. Several items
+  // can come out of one long conversation, so the block grows on demand.
+  const [accountabilityCount, setAccountabilityCount] = useState(0);
+  const [accountabilityKey, setAccountabilityKey] = useState(0);
+  const closeAccountability = () => { setAccountabilityCount(0); setAccountabilityKey((key) => key + 1); };
   const closePrayer = () => { setIsPrayerOpen(false); setPrayerKey((key) => key + 1); };
   const closeFollowUp = () => { setIsFollowUpNeeded(false); setFollowUpKey((key) => key + 1); };
   const closeFruit = () => {
     setIsFruitOpen(false);
     selectedOutcomeTags.forEach((tag) => onToggleOutcomeTag(tag));
   };
+  const prayerFields = (
+    <div className="grid gap-3" key={`prayer-${prayerKey}`}>
+      {attendeeOptions.length > 1 ? (
+        <DosFormField label="Who is this for?">
+          <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
+            {attendeeOptions.map((person) => (
+              <option key={person.id} value={person.id}>{person.name}</option>
+            ))}
+          </select>
+        </DosFormField>
+      ) : (
+        <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
+      )}
+      <DosFormField label="What are you praying about?">
+        <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
+      </DosFormField>
+    </div>
+  );
+  const reminderFields = (
+    <div className="grid gap-3" key={`reminder-${followUpKey}`}>
+      <input name="follow_up_needed" type="hidden" value="on" />
+      <DosFormField label="What do you want to remember?">
+        <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." />
+      </DosFormField>
+      <DosDateInput
+        defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
+        label="Remind me"
+        name="follow_up_date"
+      />
+    </div>
+  );
+  const fruitFields = (
+    <div className="grid gap-3">
+      {selectedOutcomeTags.map((tag) => (
+        <input key={tag} name="observed_fruit" type="hidden" value={tag} />
+      ))}
+      <ObservedFruitMultiSelect
+        onToggle={onToggleOutcomeTag}
+        selectedOutcomeTags={selectedOutcomeTags}
+      />
+    </div>
+  );
+
   const quickActions = [
-    { active: isPrayerOpen, key: "prayer", label: "Prayer", onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)) },
-    onOpenAccountability
-      ? { active: false, key: "accountability", label: "Accountability", onClick: () => onOpenAccountability(primaryPersonId || selectedPersonIds[0] || null) }
-      : null,
+    { active: accountabilityCount > 0, key: "accountability", label: "Accountability", onClick: () => (accountabilityCount > 0 ? closeAccountability() : setAccountabilityCount(1)) },
+    { active: isPrayerOpen, key: "prayer", label: "Prayer request", onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)) },
     { active: isFollowUpNeeded, key: "reminder", label: "Reminder", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
     { active: isFruitOpen, key: "fruit", label: "Observed Fruit", onClick: () => (isFruitOpen ? closeFruit() : setIsFruitOpen(true)) },
-  ].filter((action): action is { active: boolean; key: string; label: string; onClick: () => void } => Boolean(action));
+  ];
 
   return (
     <>
@@ -20724,101 +20823,61 @@ function MeetingLeaderReflectionSection({
         {nextStepDefault ? <input name="next_step" type="hidden" value={nextStepDefault} /> : null}
       </DosFormSection>
 
-      {quickActions.length ? (
-        <div className="flex flex-wrap gap-2">
+      {/* The structured records a conversation produces are the point of
+          logging it, so they get a heading and room rather than reading as
+          optional extras. Nothing here is required -- the section exists to
+          make you consider whether the conversation produced one. */}
+      <section className="border-t border-dos-rule pt-5">
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">From this meeting</h3>
+        <div className="mt-3 grid gap-2">
           {quickActions.map((action) => (
-            <button
-              aria-pressed={action.active}
-              className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-colors ${
-                action.active
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : "border-[#DCEBFF] bg-[#F8FBFF] text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-              }`}
-              key={action.key}
-              onClick={action.onClick}
-              type="button"
-            >
-              <span aria-hidden="true" className="text-sm leading-none">{action.active ? "\u2212" : "+"}</span>
-              {action.label}
-            </button>
+            <div key={action.key}>
+              <button
+                aria-pressed={action.active}
+                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-2xl border px-4 text-[14.5px] font-bold transition-colors sm:w-auto ${
+                  action.active
+                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                    : "border-[#D6E4F7] bg-white text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                }`}
+                onClick={action.onClick}
+                type="button"
+              >
+                <span aria-hidden="true" className="text-[17px] leading-none">{action.active ? "\u2212" : "+"}</span>
+                {action.label}
+              </button>
+              {action.key === "accountability" && accountabilityCount > 0 ? (
+                <div className="mt-3 grid gap-4" key={`accountability-${accountabilityKey}`}>
+                  {Array.from({ length: accountabilityCount }, (_, index) => (
+                    <div className="grid gap-3 border-l-2 border-[#DCEBFF] pl-4" key={index}>
+                      <AccountabilityFields autoFocus={index === accountabilityCount - 1} namePrefix={`meeting_accountability_${index}`} />
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-4">
+                    <button
+                      className="text-xs font-semibold text-dos-blue transition-colors hover:text-[#1D4ED8]"
+                      onClick={() => setAccountabilityCount((count) => count + 1)}
+                      type="button"
+                    >
+                      + Add another
+                    </button>
+                    <button
+                      className="text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+                      onClick={closeAccountability}
+                      type="button"
+                    >
+                      Remove accountability
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {action.key === "prayer" && isPrayerOpen ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{prayerFields}</div> : null}
+              {action.key === "reminder" && isFollowUpNeeded ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{reminderFields}</div> : null}
+              {action.key === "fruit" && isFruitOpen ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{fruitFields}</div> : null}
+            </div>
           ))}
         </div>
-      ) : null}
+      </section>
 
-      {isFruitOpen ? (
-        <DosFormSection
-          description="Something you actually observed happen -- not something you encouraged them to do."
-          icon="fruit"
-          title="Observed Fruit"
-        >
-          {selectedOutcomeTags.map((tag) => (
-            <input key={tag} name="observed_fruit" type="hidden" value={tag} />
-          ))}
-          <ObservedFruitMultiSelect
-            onToggle={onToggleOutcomeTag}
-            selectedOutcomeTags={selectedOutcomeTags}
-          />
-          <button
-            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
-            onClick={closeFruit}
-            type="button"
-          >
-            Remove observed fruit
-          </button>
-        </DosFormSection>
-      ) : null}
-
-      {isPrayerOpen ? (
-        <DosFormSection icon="prayer" key={`prayer-${prayerKey}`} title="Prayer Request">
-          {attendeeOptions.length > 1 ? (
-            <DosFormField label="Who is this for?">
-              <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
-                {attendeeOptions.map((person) => (
-                  <option key={person.id} value={person.id}>{person.name}</option>
-                ))}
-              </select>
-            </DosFormField>
-          ) : (
-            <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
-          )}
-          <DosFormField helper="Saves a canonical Prayer request for them, linked to this meeting.">
-            <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
-          </DosFormField>
-          <button
-            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
-            onClick={closePrayer}
-            type="button"
-          >
-            Remove prayer request
-          </button>
-        </DosFormSection>
-      ) : null}
-
-      {isFollowUpNeeded ? (
-        <DosFormSection
-          description="Something you need DOS to remind you about. What they are responsible for doing is Accountability."
-          icon="arrow"
-          key={`reminder-${followUpKey}`}
-          title="Reminder"
-        >
-          <input name="follow_up_needed" type="hidden" value="on" />
-          <DosFormField label={<>What should DOS remind you about?<RequiredMark /></>}>
-            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." required />
-          </DosFormField>
-          <DosDateInput
-            defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
-            label="Due"
-            name="follow_up_date"
-          />
-          <button
-            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
-            onClick={closeFollowUp}
-            type="button"
-          >
-            Remove reminder
-          </button>
-        </DosFormSection>
-      ) : null}
     </>
   );
 }
@@ -20979,16 +21038,13 @@ const meetingFormGroupClassName = "grid gap-3 border-t border-[#EAF2FF] pt-5 fir
 const meetingFormGroupCardClassName = "grid gap-3";
 const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
 
-// Ordinary logging rounds to the nearest quarter hour. Custom still handles
-// the exact cases (2h 30m), so precision is available without being required.
+// The common cases on the surface; Custom carries 1h 15m, 2h 30m and the rest.
+// Exposing every possible duration made the row the loudest thing on the form.
 const meetingDurationOptions = [
   { label: "15m", value: "15" },
   { label: "30m", value: "30" },
   { label: "45m", value: "45" },
   { label: "1h", value: "60" },
-  { label: "1h 15m", value: "75" },
-  { label: "1h 30m", value: "90" },
-  { label: "2h", value: "120" },
   { label: "Custom", value: "custom" },
 ] as const;
 const scheduledTableDurationOptions = [
@@ -21852,16 +21908,6 @@ function ReminderFormContent({
     }
   }
 
-  function applyReminderType(event: MouseEvent<HTMLButtonElement>, value: DosAppRelationshipReminder["reminderType"]) {
-    const form = event.currentTarget.form;
-    const typeInput = form?.elements.namedItem("reminder_type") as HTMLSelectElement | null;
-
-    if (typeInput) {
-      typeInput.value = value;
-      typeInput.focus();
-    }
-  }
-
   function applyReminderRecurrence(event: MouseEvent<HTMLButtonElement>, value: DosAppRelationshipReminder["recurrence"]) {
     const form = event.currentTarget.form;
     const recurrenceInput = form?.elements.namedItem("recurrence") as HTMLSelectElement | null;
@@ -21898,36 +21944,12 @@ function ReminderFormContent({
         {isPrayerReminder ? (
           <input name="reminder_type" type="hidden" value="prayer" />
         ) : (
-          <>
-            <FormOptionSelect
-              defaultValue={resolvedReminderType}
-              label="Reminder Type"
-              name="reminder_type"
-              options={reminderTypeOptions}
-            />
-            <div>
-              <FieldLabel>Reminder Paths</FieldLabel>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {[
-                  { label: "Birthday", value: "birthday" },
-                  { label: "Anniversary", value: "anniversary" },
-                  { label: "Follow-up", value: "follow_up" },
-                  { label: "Prayer", value: "prayer" },
-                ].map((path) => (
-                  <button
-                    className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-                    key={path.value}
-                    onClick={(event) => applyReminderType(event, path.value as DosAppRelationshipReminder["reminderType"])}
-                    type="button"
-                  >
-                    {path.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
+          /* A reminder is relationship memory, not a task record. The type
+             matrix stays in the data model but is not a question worth asking
+             -- what you want to remember and when covers it. */
+          <input name="reminder_type" type="hidden" value={resolvedReminderType} />
         )}
-        <DosFormField label={isPrayerReminder ? undefined : "Title"}>
+        <DosFormField label={isPrayerReminder ? undefined : "What do you want to remember?"}>
           <input
             aria-label={isPrayerReminder ? "Prayer Request" : "Title"}
             className={FieldInputClass()}
@@ -21955,9 +21977,9 @@ function ReminderFormContent({
           </div>
         ) : null}
       </DosFormSection>
-      <DosFormSection icon="calendar" title="Date & Rhythm">
+      <DosFormSection icon="calendar" title={isPrayerReminder ? "Date & Rhythm" : "When"}>
         <DosFormGrid>
-          <DosDateInput defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} label="Date" name="reminder_date" required />
+          <DosDateInput defaultValue={(reminder?.reminderDate ?? todayDateValue()).slice(0, 10)} label={isPrayerReminder ? "Date" : "Remind me"} name="reminder_date" required />
           <FormOptionSelect
             defaultValue={defaultRecurrence}
             label="Repeat"
@@ -39602,21 +39624,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  /* The single Accountability data contract. Both the Person sheet and Log
+     Meeting's inline fields produce these names, so both persist identically. */
+  function accountabilitySchedulePayload(formData: FormData, prefix: string) {
+    const frequency = String(formData.get(`${prefix}_frequency`) ?? "weekly");
+    const date = String(formData.get(`${prefix}_date`) ?? "");
+
+    return {
+      frequency,
+      startDate: date,
+      status: "active",
+      title: String(formData.get(`${prefix}_title`) ?? "").trim(),
+    };
+  }
+
   async function handleAccountabilityScheduleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const id = String(formData.get("id") ?? "").trim();
     const result = await submitJson(
       "/api/dos/app/accountability/schedules",
+      // One contract, shared with Log Meeting's inline Accountability. Day of
+      // week is derived from the start date by the API, and status defaults to
+      // active -- neither is worth a control in the form.
       {
-        dayOfWeek: String(formData.get("day_of_week") ?? ""),
-        frequency: String(formData.get("frequency") ?? ""),
+        ...accountabilitySchedulePayload(formData, "accountability"),
         id,
         personId: String(formData.get("person_id") ?? ""),
-        scheduledTime: String(formData.get("scheduled_time") ?? ""),
-        startDate: String(formData.get("start_date") ?? ""),
-        status: String(formData.get("status") ?? ""),
-        title: String(formData.get("title") ?? ""),
       },
       id ? "PATCH" : "POST",
       false,
@@ -41203,6 +41237,44 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               setErrorMessage("Meeting saved, but the relationship change did not save. Update it from the person's Edit screen.");
             }
           }
+        }
+
+        /* Accountability captured in the meeting is a Person record, not a
+           child of the meeting, so it is written after the meeting workflow
+           rather than inside it: a failure here cannot make a saved meeting
+           look unsaved or re-run its idempotent children. Each item names
+           what failed so nothing is lost silently. */
+        const accountabilityPersonId = selectedMeetingPersonIds[0] ?? null;
+        const accountabilityFailures: string[] = [];
+
+        if (accountabilityPersonId) {
+          for (let index = 0; index < 12; index += 1) {
+            const payload = accountabilitySchedulePayload(formData, `meeting_accountability_${index}`);
+
+            if (!formData.has(`meeting_accountability_${index}_title`)) {
+              break;
+            }
+
+            if (!payload.title) {
+              continue;
+            }
+
+            const response = await fetch("/api/dos/app/accountability/schedules", {
+              body: JSON.stringify({ ...payload, personId: accountabilityPersonId, workspaceId: data.workspace.id }),
+              headers: { "Content-Type": "application/json" },
+              method: "POST",
+            });
+
+            if (!response.ok) {
+              accountabilityFailures.push(payload.title);
+            }
+          }
+        }
+
+        if (accountabilityFailures.length) {
+          setErrorMessage(`Meeting saved. These accountability items did not save and need adding from the person: ${accountabilityFailures.join(", ")}.`);
+          setIsSubmitting(false);
+          return;
         }
 
         closeForm();
