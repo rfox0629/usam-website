@@ -96,17 +96,46 @@ function rectanglesOverlap(first, second) {
 }
 
 async function verifyPersonActions(page, width) {
-  const logMeeting = page.getByRole("button", { name: "Log meeting", exact: true });
-  const moreActions = page.getByRole("button", { name: "More actions for Naomi", exact: true });
-  await logMeeting.waitFor({ state: "visible" });
-  await moreActions.waitFor({ state: "visible" });
-  const logBox = await logMeeting.boundingBox();
-  const moreBox = await moreActions.boundingBox();
+  /* Person actions now all live on the canonical DOS FAB -- the same component
+     Meetings uses -- rather than a header control plus a "+". What must not
+     regress is that the launcher is present and reachable at every width, that
+     it opens the ranked action list, and that it covers no row action once the
+     page is scrolled to the end. */
+  const launcher = page.getByRole("button", { name: "Open quick actions", exact: true });
+  const visibleLaunchers = await visibleLocators(launcher);
+  assert(visibleLaunchers.length === 1, `${width}px expected exactly one visible Person FAB, found ${visibleLaunchers.length}.`);
+  const launcherBox = await visibleLaunchers[0].boundingBox();
 
-  assert(logBox && moreBox, `${width}px Person actions did not have measurable bounds.`);
-  assert(!rectanglesOverlap(logBox, moreBox), `${width}px Log Meeting and + actions overlap.`);
-  assert(logBox.x >= 0 && logBox.x + logBox.width <= width, `${width}px Log Meeting leaves the viewport.`);
-  assert(moreBox.x >= 0 && moreBox.x + moreBox.width <= width, `${width}px + action leaves the viewport.`);
+  assert(launcherBox, `${width}px Person action launcher had no measurable bounds.`);
+  assert(Math.round(launcherBox.width) === 64, `${width}px Person FAB is ${Math.round(launcherBox.width)}px, not the canonical 64px.`);
+  assert(launcherBox.x >= 0 && launcherBox.x + launcherBox.width <= width, `${width}px Person FAB leaves the viewport.`);
+
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.getAttribute("aria-label") === "Open quick actions" && candidate.getBoundingClientRect().width > 0);
+    button?.click();
+  });
+  await delay(400);
+  const rankedActions = [
+    "Log meeting",
+    "Schedule meeting",
+    "Add accountability",
+    "Add prayer request",
+    "Add reminder",
+    "Assign journey",
+    "Add observed fruit",
+    "Edit person",
+  ];
+  const visibleActions = await page.evaluate((expected) => [...document.querySelectorAll("button")]
+    .filter((button) => button.getBoundingClientRect().width > 0 && expected.includes(button.textContent.trim()))
+    .map((button) => button.textContent.trim()), rankedActions);
+  assert.deepEqual(visibleActions, rankedActions, `${width}px Person actions are not in the agreed order.`);
+  await page.evaluate(() => {
+    const button = [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.getAttribute("aria-label") === "Close quick actions" && candidate.getBoundingClientRect().width > 0);
+    button?.click();
+  });
+  await delay(300);
 
   /* The Person action launcher is deliberately a floating + again. What must
      never regress is the behaviour the original check was protecting: the FAB

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -125,6 +125,11 @@ import {
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
 const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[100dvh] md:max-h-none md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
+/* The Person surface's own atmosphere: the DOS shell's blue and violet
+   passes, without its warm one, over an opaque base so the Field list
+   underneath cannot show through. */
+const dosPersonAtmosphereClassName = "bg-[#F8FBFF] bg-[radial-gradient(circle_at_78%_6%,rgba(219,234,254,0.95),transparent_36%),radial-gradient(circle_at_50%_58%,rgba(221,214,254,0.4),transparent_44%),linear-gradient(140deg,#FAFCFF_0%,#F5F8FF_52%,#EEF3FF_100%)]";
+
 const dosDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)]";
 const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
@@ -12767,11 +12772,11 @@ function ResourceAssignmentCard({
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-3">
         <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Follow-Up</span>
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Reminder</span>
           <span className="mt-1 block text-[#0F172A]">{resourceAssignmentFollowUpLabel(assignment)}</span>
         </span>
         <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Commitment</span>
+          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Accountability</span>
           <span className="mt-1 block text-[#0F172A]">{assignment.linkedCommitmentId ? "Linked" : "Not linked"}</span>
         </span>
         <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
@@ -12959,9 +12964,9 @@ function CommitmentsPanel({
 
   return (
     <section className="grid min-w-0 gap-3">
-      <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Commitments">
+      <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
         <div className={`grid gap-2 ${nextSchedule ? "grid-cols-2" : "grid-cols-1"}`}>
-          <CompactButton icon="commitment" onClick={onAddCommitment}>New Commitment</CompactButton>
+          <CompactButton icon="commitment" onClick={onAddCommitment}>New Accountability</CompactButton>
           {nextSchedule ? <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton> : null}
         </div>
         {activeCommitments.length ? activeCommitments.map((commitment) => (
@@ -12976,7 +12981,7 @@ function CommitmentsPanel({
             onPause={onPause}
           />
         )) : (
-          <SectionEmptyState text="Use New Commitment above to add one." title="No active commitments." />
+          <SectionEmptyState text="Use New Accountability above to add one." title="No active accountability." />
         )}
       </DetailCard>
 
@@ -13571,9 +13576,9 @@ function CommitmentFormSheet({
   const selectedPersonId = personId ?? commitment?.personId ?? people[0]?.id ?? "";
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={commitment ? "Edit Commitment" : "New Commitment"}>
+    <Sheet onClose={onClose} showEyebrow={false} title={commitment ? "Edit Accountability" : "New Accountability"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
-        <DosFormSection icon="commitment" title="Commitment">
+        <DosFormSection icon="commitment" title="Accountability">
           {!personId && !commitment ? (
             <DosFormField label="Person">
               <select className={FieldSelectClass(false)} defaultValue={selectedPersonId} name="person_id" required>
@@ -13608,7 +13613,7 @@ function CommitmentFormSheet({
         </DosFormSection>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : commitment ? "Save Commitment" : "Save Commitment"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Accountability"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -13859,7 +13864,7 @@ function LogCheckInSheet({
           </DosFormField>
         </DosFormSection>
 
-        <DosFormSection icon="commitment" title="Commitments Discussed">
+        <DosFormSection icon="commitment" title="Accountability Discussed">
           {activeCommitments.length ? activeCommitments.map((commitment) => {
             const selected = selectedCommitmentIds.includes(commitment.id);
 
@@ -13890,7 +13895,7 @@ function LogCheckInSheet({
           )}
         </DosFormSection>
 
-        <DosFormSection icon="add" title="New Commitment">
+        <DosFormSection icon="add" title="New Accountability">
           <DosFormField label="Title">
             <input className={FieldInputClass(false)} name="new_commitment_title" placeholder="Optional" />
           </DosFormField>
@@ -14040,7 +14045,7 @@ function DesktopHomeDashboard({
   const quickActionItems: Array<{ icon: IconName; label: string; onClick: () => void }> = [
     { icon: "calendar", label: "Schedule", onClick: onScheduleMeeting },
     { icon: "people", label: "Add Person", onClick: onAddPerson },
-    { icon: "commitment", label: "Commitment", onClick: onCreateCommitment },
+    { icon: "commitment", label: "Accountability", onClick: onCreateCommitment },
   ];
   const tableActivityMetrics = [
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total meetings", value: loggedMeetings.length + accountabilityCheckIns.length },
@@ -27737,7 +27742,8 @@ function MyRecordContextualFloatingActions({
         <button
           aria-expanded={isOpen}
           aria-label={isOpen ? `Close ${menuLabel}` : `Open ${menuLabel}`}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_18px_40px_rgba(37,99,235,0.32)] transition-transform active:scale-[0.97] md:h-16 md:w-16"
+          /* Same size, blue, shadow and rotate as the canonical Meetings FAB. */
+          className={`flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97] ${isOpen ? "rotate-45" : ""}`}
           onClick={onToggle}
           type="button"
         >
@@ -33152,6 +33158,8 @@ function BottomNavigation({
 }
 
 type MobileFloatingActionItem = {
+  /** Items sharing a group sit together; a divider separates the groups. */
+  group?: string;
   icon: IconName;
   label: string;
   onClick: () => void;
@@ -33205,18 +33213,22 @@ function MobileFloatingActions({
       <div className={stackClassName}>
         {isOpen ? (
           <div className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-            {items.map((item) => (
-              <button
-                className="flex min-h-11 w-full items-center gap-3 rounded-[18px] px-3 text-left text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FAFC] active:bg-[#EFF6FF]"
-                key={item.label}
-                onClick={item.onClick}
-                type="button"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
-                  <Icon name={item.icon} size={15} />
-                </span>
-                <span className="min-w-0 whitespace-nowrap">{item.label}</span>
-              </button>
+            {items.map((item, index) => (
+              <Fragment key={item.label}>
+                {index > 0 && item.group && item.group !== items[index - 1]?.group ? (
+                  <span aria-hidden="true" className="my-1.5 block h-px bg-[#EDEFF2]" />
+                ) : null}
+                <button
+                  className="flex min-h-11 w-full items-center gap-3 rounded-[18px] px-3 text-left text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FAFC] active:bg-[#EFF6FF]"
+                  onClick={item.onClick}
+                  type="button"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
+                    <Icon name={item.icon} size={15} />
+                  </span>
+                  <span className="min-w-0 whitespace-nowrap">{item.label}</span>
+                </button>
+              </Fragment>
             ))}
           </div>
         ) : null}
@@ -35046,6 +35058,19 @@ function PersonDetailOverlay({
   const lastMeetingDurationLabel = lastMeetingDurationMinutes ? formatLoggedTime(lastMeetingDurationMinutes) : "";
   // Relationship comes from canonical Person fields only — never inferred.
   const relationshipCadence = person.meetingRhythm?.trim() ?? "";
+  /* Ranked by how often the action is reached for, and grouped by what it is
+     for: the meeting, walking with them, their growth, then administration.
+     One list, rendered by both the mobile and desktop FAB. */
+  const personFabItems: MobileFloatingActionItem[] = [
+    { group: "meeting", icon: "log", label: "Log meeting", onClick: onLogMeeting },
+    { group: "meeting", icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
+    { group: "walking", icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
+    { group: "walking", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
+    { group: "walking", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
+    { group: "growth", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
+    { group: "growth", icon: "fruit", label: "Add observed fruit", onClick: onLogMeetingWithFruit },
+    { group: "admin", icon: "settings", label: "Edit person", onClick: onEdit },
+  ];
   const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
     ? lastMeeting.title.trim()
     : null;
@@ -35248,7 +35273,11 @@ function PersonDetailOverlay({
          and `md:px-10` were present, so the winning value was whichever
          Tailwind ordered last, and the full-bleed RIGHT NOW band (which offsets
          by the padding) overshot by 16px at exactly 768px. */
-      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:bg-white md:px-10 md:pb-24 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
+      /* The Person page carries the same DOS atmosphere as Home and Meetings
+         rather than a flat white sheet -- but opaque, since it overlays the
+         Field list. Blue and violet only: the shell's warm pass is left out
+         per the no-tan/cream direction. Sections sit on restrained white. */
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? `${dosPersonAtmosphereClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14` : "bg-white pb-28 md:bg-[#F8FBFF] md:px-6"}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -35274,16 +35303,9 @@ function PersonDetailOverlay({
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
-              {/* Log meeting stays visible and primary. Everything else lives
-                  behind the floating + at the bottom right, where a thumb
-                  reaches it. */}
-              <button
-                className="flex min-h-10 items-center rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
-                onClick={onLogMeeting}
-                type="button"
-              >
-                Log meeting
-              </button>
+              {/* Every Person action lives on the FAB, so the header carries
+                  navigation only and stops competing with it. */}
+              <span aria-hidden="true" className="h-10 w-10" />
             </div>
             {/* Identity reads down the centre line -- avatar, name, relationship --
                 so the page opens on the person rather than on a row of chrome.
@@ -35323,7 +35345,7 @@ function PersonDetailOverlay({
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center justify-center gap-8 border-b border-dos-rule px-4 md:mx-0 md:px-0">
+            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center justify-center gap-8 border-b border-dos-rule bg-white/70 px-4 md:mx-0 md:rounded-t-none md:px-0">
               {([
                 { label: "Overview", value: "overview" as const },
                 { label: "Timeline", value: "history" as const },
@@ -35425,7 +35447,7 @@ function PersonDetailOverlay({
                 {renderMeetingCards()}
 
                 {/* ACCOUNTABILITY — the primary active work, immediately below. */}
-                <section className="-mx-4 mt-5 border-y border-dos-rule bg-dos-band px-4 py-4 md:-mx-10 md:px-10 lg:-mx-14 lg:px-14">
+                <section className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
                   <div className="mt-1 divide-y divide-dos-rule">
                     {accountabilityTopics.map((topic) => (
@@ -35470,7 +35492,7 @@ function PersonDetailOverlay({
                     for them is not something they are responsible for doing,
                     so it reads as its own compact section. */}
                 {primaryPrayer ? (
-                  <section className="mt-6">
+                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
                     <div className="mt-1 flex items-center gap-4 py-2.5">
                       <p className="min-w-0 flex-1 text-[15px] font-semibold leading-[1.45] text-dos-body">
@@ -35485,7 +35507,7 @@ function PersonDetailOverlay({
                 {/* Groups are a membership fact, not active work. Separated by
                     structure and type rather than a new colour. */}
                 {personGroups.length ? (
-                  <section className="mt-6 border-t border-dos-rule pt-5">
+                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Groups</h3>
                     <div className="mt-1 divide-y divide-dos-rule">
                       {personGroups.map((group) => (
@@ -35504,16 +35526,16 @@ function PersonDetailOverlay({
                 ) : null}
 
                 {conceptFollowUps.length || upcomingGatherings.length ? (
-                  <section className="mt-6 lg:hidden">
+                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
                     {renderNextMeeting(false)}
                   </section>
                 ) : null}
-                <section className="mt-6 border-t border-dos-rule pt-5 lg:hidden">
+                <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
                   {renderFruit()}
                 </section>
               </div>
 
-              <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
+              <aside className="mt-4 hidden w-[292px] shrink-0 self-start rounded-2xl border border-dos-hairline bg-white px-5 py-4 lg:block xl:w-[308px]">
                 {conceptFollowUps.length || upcomingGatherings.length ? (
                   <div className="mb-6 border-b border-dos-rule pb-5">{renderNextMeeting(true)}</div>
                 ) : null}
@@ -35949,54 +35971,30 @@ function PersonDetailOverlay({
 
       </div>
       </div>
-      {/* The Person action launcher is a floating + at the bottom right --
-          thumb-reachable, present while scrolling, and clear of both the
-          bottom navigation and the safe area. The scroll container reserves
-          room for it, so it never covers the last actionable row. */}
+      {/* The canonical DOS FAB, the same component Meetings uses -- same size,
+          blue, icon, shadow and bottom-nav clearance. Ranked by reach, and
+          grouped by what the action is for: the meeting, walking with them,
+          their growth, then administration. */}
       {conceptMode ? (
-        <button
-          aria-label={`More actions for ${firstName}`}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-dos-blue text-white shadow-[0_12px_28px_rgba(36,80,200,0.34)] transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
-          onClick={() => setIsPersonActionsOpen(true)}
-          type="button"
-        >
-          <Plus className="h-6 w-6" aria-hidden="true" strokeWidth={2.2} />
-        </button>
+        <>
+        <MobileFloatingActions
+          isOpen={isPersonActionsOpen}
+          items={personFabItems}
+          onClose={() => setIsPersonActionsOpen(false)}
+          onToggle={() => setIsPersonActionsOpen((current) => !current)}
+          portalToBody
+          variant="desktop"
+        />
+        <MobileFloatingActions
+          isOpen={isPersonActionsOpen}
+          items={personFabItems}
+          onClose={() => setIsPersonActionsOpen(false)}
+          onToggle={() => setIsPersonActionsOpen((current) => !current)}
+          portalToBody
+        />
+        </>
       ) : null}
-      {conceptMode && isPersonActionsOpen ? (
-        <Sheet onClose={() => setIsPersonActionsOpen(false)} showEyebrow={false} title={`${firstName} · actions`}>
-          <div className="grid gap-1.5">
-            {/* Force-ranked by how often the action is actually reached for.
-                Log Meeting is absent on purpose -- it stays a visible primary
-                action in the header rather than being buried here. */}
-            {[
-              { icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add accountability", onClick: onAddAccountabilitySchedule },
-              { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule meeting", onClick: onScheduleMeeting },
-              { icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add prayer request", onClick: onAddPrayerRequest },
-              { icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Assign Journey", onClick: () => onAssignResource(person.id) },
-              { icon: <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add reminder", onClick: onAddReminder },
-              /* Fruit is observed in a conversation, and the only canonical
-                 writer of fruit_events today is the meeting reflection. This
-                 opens that path with Observed Fruit already expanded rather
-                 than adding a second, subtly different manual writer.
-                 Standalone Fruit and structured multiplication linkage both
-                 need the schema decision documented on USA-168. */
-              { icon: <Sprout className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add observed Fruit", onClick: onLogMeetingWithFruit },
-              { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Person", onClick: onEdit },
-            ].map((item) => (
-              <button
-                className="flex min-h-11 items-center gap-3 rounded-xl px-2.5 text-left text-[14.5px] font-semibold text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-                key={item.label}
-                onClick={() => { setIsPersonActionsOpen(false); item.onClick(); }}
-                type="button"
-              >
-                <span className="text-dos-blue">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      ) : null}
+
       {isOverflowOpen ? (
         <Sheet onClose={() => setIsOverflowOpen(false)} showEyebrow={false} title={person.name}>
           <div className="grid gap-1.5">
@@ -39688,7 +39686,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setCommitmentSheet(null);
       setCommitmentNotice({
         personId: result.schedule.personId,
-        text: "Accountability rhythm saved.",
+        text: "Accountability saved.",
         tone: "success",
       });
     }
