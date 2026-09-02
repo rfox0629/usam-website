@@ -35707,9 +35707,19 @@ function PersonDetailOverlay({
 
     return groupsByMonth;
   })();
-  // ---- Shared meaning-first model for the three founder concepts. All values
-  // derive from the same audited data pipes; only the presentation differs.
-  const conceptMode = workspace.isPreview;
+  /* Person V2 is the Person page, for every workspace.
+
+     This was `workspace.isPreview` from 741dd27, when three candidate designs
+     were shown preview-only so the founder could compare them without touching
+     production. The design was approved and locked, but the preview gate was
+     never removed -- so the authenticated route kept rendering the pre-USA-168
+     Person (Journey/Timeline/Contact tabs, large header Log/Schedule buttons,
+     "Last conversation", no FAB, white background) while every check ran
+     against /dos/app/preview and passed.
+
+     Note this is presentation only. `workspace.isPreview` still governs
+     read-only enforcement everywhere else and is deliberately untouched. */
+  const conceptMode = true;
   const firstName = person.name.split(/\s+/)[0] ?? person.name;
   const relationshipSignal = `${relationshipTypePill} · ${currentCircleLabel}`;
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { chromium } from "playwright";
@@ -226,7 +227,33 @@ async function verifyCompactReviewRequest(page) {
   await page.getByRole("button", { name: /Send (Quick Review|Review Options|Testimony Request)/ }).waitFor({ state: "visible" });
 }
 
+/* The regression this suite failed to catch: Person V2 shipped gated behind
+   `workspace.isPreview`, a leftover from the three-concept founder switcher.
+   Every check here runs against /dos/app/preview, where that flag is true, so
+   the suite passed while the authenticated production route rendered the
+   pre-USA-168 Person. Assert the gate at the source, because no amount of
+   preview-route browser QA can see this class of bug. */
+function verifyPersonV2IsNotPreviewGated() {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const match = client.match(/const conceptMode = (.+);/);
+
+  assert(match, "conceptMode must exist in DosMvpAppClient.tsx.");
+  assert.equal(
+    match[1].trim(),
+    "true",
+    `Person V2 must render for every workspace, not only preview. conceptMode is "${match?.[1]?.trim()}", which gates the approved Person behind a flag and leaves the authenticated route on the old implementation.`,
+  );
+
+  // The pre-USA-168 Person must not be reachable as a live alternative.
+  assert(
+    !client.includes("{ label: \"Journey\", value: \"overview\" }") || match[1].trim() === "true",
+    "The legacy Journey/Timeline/Contact tab set must not be reachable.",
+  );
+}
+
 async function main() {
+  verifyPersonV2IsNotPreviewGated();
+
   await waitForServer();
   const browser = await chromium.launch({ headless: true });
 
