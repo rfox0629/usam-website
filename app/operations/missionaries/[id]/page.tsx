@@ -312,12 +312,21 @@ export default async function OperationsMissionaryDetailPage({
             <OperationsPanel title="Funding">
               {funding.reliable ? (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {/*
+                    The five figures the organizational support policy requires to
+                    stay distinct, in the order they happen: the approved ministry
+                    budget, the target that has to be raised for it, what actually
+                    came in, the 10% allocation on that, and what reaches ministry.
+                  */}
+                  <FieldBlock label="Approved Ministry Budget" value={item.adminApprovedMonthlyGoalLabel} />
+                  <FieldBlock label="Fundraising Target" value={funding.fundraisingTargetLabel ?? "No approved budget"} />
+                  <FieldBlock label="Contributions Received" value={funding.recurringMonthlyLabel} />
+                  <FieldBlock label="Organizational Support (10%)" value={funding.organizationalSupportLabel} />
+                  <FieldBlock label="Net Ministry Funding" value={funding.netMinistryFundingLabel} />
                   <FieldBlock label="Proposed Need" value={item.proposedMonthlyNeedLabel} />
-                  <FieldBlock label="Approved Goal" value={item.adminApprovedMonthlyGoalLabel} />
-                  <FieldBlock label="Recurring This Month" value={funding.recurringMonthlyLabel} />
                   <FieldBlock label="One-Time Total" value={funding.oneTimeTotalLabel} />
-                  <FieldBlock label="Funded" value={funding.fundedPercent === null ? "No approved goal" : `${funding.fundedPercent}%`} />
-                  <FieldBlock label="Gap" value={funding.gapLabel ?? "No approved goal"} />
+                  <FieldBlock label="Funded" value={funding.fundedPercent === null ? "No approved budget" : `${funding.fundedPercent}% of target`} />
+                  <FieldBlock label="Gap To Target" value={funding.gapLabel ?? "No approved budget"} />
                   <FieldBlock label="Potential Excess" value={funding.excessLabel ?? "None"} />
                   <FieldBlock label="Attributed Gifts" value={`${funding.giftCount}`} />
                 </div>

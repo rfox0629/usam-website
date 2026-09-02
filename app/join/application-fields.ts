@@ -11,7 +11,15 @@ export { supportBudgetAnswerId, supportBudgetCategories } from "@/src/lib/join/a
  * preferences, no circles, no discipleship tracking and no path selection. DOS
  * activation happens after acceptance, as its own onboarding step.
  */
-export type JoinFieldKind = "long" | "money" | "short";
+export type JoinFieldKind = "list" | "long" | "money" | "short";
+
+/** One cell in a repeating answer. See field-list.ts for how rows are stored. */
+export type JoinListColumn = {
+  id: string;
+  label: string;
+  /** Sits in a smaller track, for an age or similar short value. */
+  narrow?: boolean;
+};
 
 export type JoinField = {
   /** Shown under the label when the question needs framing. */
@@ -25,6 +33,10 @@ export type JoinField = {
   required?: boolean;
   /** Only asked when the applicant said they are applying as a couple. */
   coupleOnly?: boolean;
+  /** Columns of a repeating answer. Read only when kind is "list". */
+  columns?: JoinListColumn[];
+  /** Label on the button that appends a row to a repeating answer. */
+  addLabel?: string;
 };
 
 export type JoinFieldSection = {
@@ -61,7 +73,7 @@ export const joinApplicationSections: Record<Exclude<JoinApplicationStepId, "rev
   support: [
     { id: "path", title: "Your support path", intro: "Start with your current work and whether you expect to raise monthly support." },
     { id: "budget", title: "Monthly budget", intro: "Use the worksheet to estimate household and ministry needs." },
-    { id: "picture", title: "Your support picture", intro: "Compare the budget, current coverage, proposed need, and the goal you would request." },
+    { id: "picture", title: "Your support picture", intro: "Your ministry budget, the organizational support it carries, and the target that funds it." },
     { id: "readiness", title: "Fundraising readiness", intro: "Tell us how you would begin and what support you may need." },
   ],
   profile: [
@@ -80,7 +92,19 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
     { id: "state", kind: "short", label: "State", required: true, section: "home" },
     { id: "zip", kind: "short", label: "ZIP code", section: "home" },
     { id: "maritalStatus", kind: "short", label: "Marital status", section: "home" },
-    { id: "familyMembers", kind: "long", label: "Who else is in your household?", help: "Children and their ages, and anyone else living with you.", section: "home" },
+    {
+      id: "familyMembers",
+      kind: "list",
+      label: "Who else is in your household?",
+      help: "Add each child and anyone else living with you, one person at a time.",
+      addLabel: "Add another person",
+      columns: [
+        { id: "name", label: "Name" },
+        { id: "age", label: "Age", narrow: true },
+        { id: "relationship", label: "Relationship" },
+      ],
+      section: "home",
+    },
     { id: "churchName", kind: "short", label: "What church are you part of?", required: true, section: "church" },
     { id: "churchCity", kind: "short", label: "Church city", section: "church" },
     { id: "churchState", kind: "short", label: "Church state", section: "church" },
@@ -104,7 +128,20 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
     { id: "experienceCurrentInvolvement", kind: "long", label: "What ministry are you involved in right now?", section: "background" },
     { id: "experience.training", kind: "long", label: "What training or education is relevant to this?", section: "preparation" },
     { id: "experience.gifts", kind: "long", label: "What are your gifts and strengths?", section: "preparation" },
-    { id: "references", kind: "long", label: "Who can speak to your character and ministry?", help: "Please give three people: name, relationship to you, and how to reach them.", required: true, section: "references" },
+    {
+      id: "references",
+      kind: "list",
+      label: "Who can speak to your character and ministry?",
+      help: "Please give three people.",
+      addLabel: "Add another reference",
+      columns: [
+        { id: "name", label: "Name" },
+        { id: "relationship", label: "Relationship to you" },
+        { id: "contact", label: "How to reach them" },
+      ],
+      required: true,
+      section: "references",
+    },
   ],
   mission: [
     { id: "mission.focus", kind: "long", label: "What is the ministry you envision under USA Missionaries?", required: true, section: "vision" },
@@ -122,7 +159,18 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
     { id: "profileLongNarrative", kind: "long", label: "Tell your story the way you would want supporters to read it.", section: "story" },
     { id: "missionDescriptionPublic", kind: "long", label: "Describe your ministry for people who have never met you.", section: "story" },
     { id: "prayerRequests", kind: "long", label: "What would you ask people to pray for?", section: "prayer" },
-    { id: "prayerPartners", kind: "long", label: "Who is already praying for you?", help: "Names are enough. We do not contact anyone without asking you first.", section: "prayer" },
+    {
+      id: "prayerPartners",
+      kind: "list",
+      label: "Who is already praying for you?",
+      help: "Names are enough. We do not contact anyone without asking you first.",
+      addLabel: "Add another person",
+      columns: [
+        { id: "firstName", label: "First name" },
+        { id: "lastName", label: "Last name" },
+      ],
+      section: "prayer",
+    },
   ],
   story: [
     { id: "story.testimony", kind: "long", label: "Tell us how you came to faith in Christ.", required: true, section: "faith" },
@@ -149,10 +197,15 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
  * application over two distinct people, and those two people have to survive
  * into Operations as separate identities rather than as fields on one record.
  */
+/**
+ * Declaration order is render order: the application iterates these keys. Name
+ * before contact, because asking somebody for an email address before their
+ * name is the wrong way round.
+ */
 export const identityFieldLabels = {
-  email: "Email",
   firstName: "First name",
   lastName: "Last name",
+  email: "Email",
   phone: "Phone",
 };
 

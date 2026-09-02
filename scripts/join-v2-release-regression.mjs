@@ -88,6 +88,35 @@ const dosMarkers = [
   "Discipleship Operating System",
 ];
 
+/**
+ * USA-191: what the served /join must never contain.
+ *
+ * "Discipleship Operating System" earned its place on the list above when
+ * /join literally rendered the DOS setup wizard: the product name was the
+ * cheapest reliable way to detect that screen. It is still exactly right for
+ * the route file and for confirming /dos/setup kept its identity.
+ *
+ * It is now wrong for the served page. The Welcome to the Team opening names
+ * the Discipleship Operating System as one of the works an applicant is
+ * joining, alongside Kitchen Table Gospel and Mission of Reconciliation. That
+ * is the opposite of routing an applicant into DOS onboarding, and banning the
+ * words would forbid the thing USA-191 exists to do.
+ *
+ * So the served check drops the bare product name and tests what the name
+ * stood for instead: setup chrome, DOS branding, and any link into DOS setup.
+ * Every wizard marker below is still absolutely forbidden.
+ */
+const dosSetupMarkers = dosMarkers.filter(
+  (marker) => marker !== "Discipleship Operating System",
+);
+
+/** USA-191: the works the opening must keep naming. */
+const movementNames = [
+  "Kitchen Table Gospel",
+  "Discipleship Operating System",
+  "Mission of Reconciliation",
+];
+
 console.log("USA-167 /join release gate\n");
 console.log("Phase A: static contract\n");
 
@@ -381,7 +410,7 @@ async function runServedContract() {
 
     check(plain.status === 200, `/join responds 200 (got ${plain.status})`);
 
-    const servedDosMarkers = dosMarkers.filter((marker) => plain.body.includes(marker));
+    const servedDosMarkers = dosSetupMarkers.filter((marker) => plain.body.includes(marker));
 
     check(
       servedDosMarkers.length === 0,
@@ -390,6 +419,25 @@ async function runServedContract() {
         ? `The applicant is shown: ${servedDosMarkers.join(", ")}. This is the exact screen from `
           + "the founder's mobile screenshots."
         : undefined,
+    );
+
+    // The words may appear as a work of the movement. A way in must not.
+    const setupRoutes = plain.body.match(/href=[\\"']?\/dos\/(?:setup|onboarding)/g) ?? [];
+
+    check(
+      setupRoutes.length === 0,
+      "/join offers no route into DOS setup or onboarding",
+      setupRoutes.length > 0 ? `Links found: ${setupRoutes.join(", ")}` : undefined,
+    );
+
+    // USA-191: the opening has to introduce the movement, or the Welcome to the
+    // Team experience has silently regressed back into a bare form.
+    const missingNames = movementNames.filter((name) => !plain.body.includes(name));
+
+    check(
+      missingNames.length === 0,
+      "/join opens by naming the movement the applicant is joining",
+      missingNames.length > 0 ? `Not shown: ${missingNames.join(", ")}` : undefined,
     );
 
     check(

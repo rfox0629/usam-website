@@ -14,6 +14,8 @@ import {
   isJoinPreviewTokenValid,
   JOIN_PREVIEW_COOKIE_NAME,
 } from "@/src/lib/join/preview-access";
+import { buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
+import { domainSites } from "@/src/lib/domain-sites";
 
 /**
  * USA-167: /join is the USA Missionaries application.
@@ -30,18 +32,46 @@ import {
  */
 export const dynamic = "force-dynamic";
 
+const joinDescription =
+  "Apply to serve with USA Missionaries. Tell us your story, your calling, and the ministry you believe God is asking you to begin.";
+
+/*
+ * The link preview says what the page says. A shared /join link used to unfurl
+ * under the site-wide "USA Missionaries" title; it now carries the hero's own
+ * words. Next replaces the whole openGraph block when a page declares one, so
+ * the brand image is restated here rather than inherited, or the card would
+ * unfurl with no picture.
+ */
+const joinShareTitle = "Welcome to the Team";
+const joinShareImage = buildDomainSiteSocialImage(domainSites.usam);
+
 export const metadata: Metadata = {
-  description:
-    "Apply to serve with USA Missionaries. Tell us your story, your calling, and the ministry you believe God is asking you to begin.",
+  description: joinDescription,
+  openGraph: {
+    description: joinDescription,
+    images: [joinShareImage],
+    siteName: domainSites.usam.siteName,
+    title: joinShareTitle,
+    type: "website",
+  },
   robots: {
     follow: false,
     index: false,
   },
   title: { absolute: "Apply to Become a USA Missionary" },
+  twitter: {
+    card: "summary_large_image",
+    description: joinDescription,
+    images: [joinShareImage],
+    title: joinShareTitle,
+  },
 };
 
+// The application is served on the same near-black the rest of USA Missionaries
+// uses, so the mobile browser chrome has to match it or the top of the screen
+// stays a leftover blue band above a dark page.
 export const viewport: Viewport = {
-  themeColor: "#2563EB",
+  themeColor: "#0D0D0D",
   width: "device-width",
 };
 
