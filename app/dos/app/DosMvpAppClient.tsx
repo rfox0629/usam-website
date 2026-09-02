@@ -35015,31 +35015,72 @@ function PersonDetailOverlay({
 
   // NEXT MEETING is only the real scheduled record. Canonical follow-up
   // reminders are a separate section — never generated preparation prose.
-  const renderNextMeeting = (subdued: boolean) => (
-    <>
-      <section>
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Next meeting</h3>
-        {nextMeeting ? (
-          <>
-            <div className="mt-2 flex items-baseline gap-4">
-              <p className={`min-w-0 flex-1 font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary ${subdued ? "text-[16px]" : "text-[19px]"}`}>
-                {upcomingDayLabel(nextMeeting.scheduledStartAt ?? nextMeeting.date, true)}
-              </p>
-              <PDButton onClick={() => onOpenMeeting(nextMeeting.id, person.id)} tone="quiet">View</PDButton>
-            </div>
-            {nextMeeting.title?.trim() ? (
-              <p className="mt-1 text-[14px] font-semibold text-dos-secondary">{nextMeeting.title.trim()}</p>
-            ) : null}
-          </>
+  /* LAST MEETING and NEXT MEETING are the same question asked backwards and
+     forwards, so they sit side by side as two compact cards rather than one
+     full-width section each. Each card carries only what identifies the
+     meeting -- when, what, how long -- and the whole card opens the record.
+     No generated preparation copy lives in here. */
+  const renderMeetingCards = () => {
+    const cardClass = "flex min-w-0 flex-col rounded-2xl border border-dos-hairline bg-white p-3.5 text-left transition-colors";
+    const eyebrowClass = "text-[10.5px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow";
+    const leadClass = "mt-1.5 text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
+    // Two lines rather than an ellipsis: at half-width a real meeting title
+    // ("First mentoring meeting") is unreadable truncated to one line.
+    const bodyClass = "mt-0.5 line-clamp-2 text-[13.5px] font-semibold leading-[1.35] text-dos-body";
+    const metaClass = "mt-1 text-[12.5px] font-semibold text-dos-secondary";
+    const nextStartAt = nextMeeting ? nextMeeting.scheduledStartAt ?? nextMeeting.date : null;
+    const nextTime = formatTime(nextStartAt);
+
+    return (
+      <div className="grid grid-cols-2 gap-2.5 pt-4">
+        {lastMeeting ? (
+          <button
+            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
+            onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
+            type="button"
+          >
+            <span className={eyebrowClass}>Last meeting</span>
+            <span className={leadClass}>{formatRelativeDate(lastMeeting.date)}</span>
+            <span className={bodyClass}>{lastTimeTopic || meetingActivityTitle(lastMeeting)}</span>
+            {lastMeetingDurationLabel ? <span className={metaClass}>{lastMeetingDurationLabel}</span> : null}
+          </button>
         ) : (
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className={`leading-[1.5] text-dos-body ${subdued ? "text-[14px]" : "text-[15.5px]"}`}>Nothing scheduled.</p>
-            <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+          <div className={cardClass}>
+            <span className={eyebrowClass}>Last meeting</span>
+            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
+            <span className="mt-auto pt-2.5">
+              <PDButton onClick={onLogMeeting}>Log</PDButton>
+            </span>
           </div>
         )}
-      </section>
+        {nextMeeting ? (
+          <button
+            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
+            onClick={() => onOpenMeeting(nextMeeting.id, person.id)}
+            type="button"
+          >
+            <span className={eyebrowClass}>Next meeting</span>
+            <span className={leadClass}>{formatShortDate(nextStartAt) || upcomingDayLabel(nextStartAt)}</span>
+            <span className={bodyClass}>{nextMeeting.title?.trim() || meetingActivityTitle(nextMeeting)}</span>
+            {nextTime ? <span className={metaClass}>{nextTime}</span> : null}
+          </button>
+        ) : (
+          <div className={cardClass}>
+            <span className={eyebrowClass}>Next meeting</span>
+            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
+            <span className="mt-auto pt-2.5">
+              <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderNextMeeting = (subdued: boolean) => (
+    <>
       {conceptFollowUps.length ? (
-        <section className="mt-6 border-t border-dos-rule pt-5">
+        <section>
           <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Follow-up</h3>
           <div className="mt-1 divide-y divide-dos-rule">
             {conceptFollowUps.map((followUp) => (
@@ -35052,7 +35093,7 @@ function PersonDetailOverlay({
         </section>
       ) : null}
       {upcomingGatherings.length ? (
-        <section className="mt-6 border-t border-dos-rule pt-5">
+        <section className={conceptFollowUps.length ? "mt-6 border-t border-dos-rule pt-5" : ""}>
           <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Group gathering</h3>
           <div className="mt-1 divide-y divide-dos-rule">
             {upcomingGatherings.map(({ gathering, group }) => (
@@ -35120,7 +35161,10 @@ function PersonDetailOverlay({
                 </button>
               </div>
             </div>
-            <div className="mt-1 flex items-center gap-3.5 pb-4">
+            {/* Identity reads down the centre line -- avatar, name, relationship --
+                so the page opens on the person rather than on a row of chrome.
+                Deliberately not a hero: 52px avatar and the same 25px name. */}
+            <div className="mt-1 flex flex-col items-center pb-4 text-center">
               {person.photoUrl ? (
                 <img
                   alt=""
@@ -35135,26 +35179,27 @@ function PersonDetailOverlay({
                   {initials(person.name)}
                 </span>
               )}
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">
-                  {person.name}
-                </h2>
-                {visibleCircleSuggestion ? (
-                  <button
-                    className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold leading-[1.3] text-dos-secondary"
-                    onClick={() => setCircleInsightStage("insight")}
-                    type="button"
-                    aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
-                  >
-                    {relationshipSignal}
-                    <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
-                  </button>
-                ) : (
-                  <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipSignal}</p>
-                )}
-              </div>
+              <h2 className="mt-2.5 max-w-full truncate text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">
+                {person.name}
+              </h2>
+              {visibleCircleSuggestion ? (
+                <button
+                  className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-semibold leading-[1.3] text-dos-secondary"
+                  onClick={() => setCircleInsightStage("insight")}
+                  type="button"
+                  aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
+                >
+                  {relationshipSignal}
+                  <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
+                </button>
+              ) : (
+                <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipSignal}</p>
+              )}
+              {relationshipCadence ? (
+                <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
+              ) : null}
             </div>
-            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center gap-6 border-b border-dos-rule px-4 md:mx-0 md:px-0">
+            <nav aria-label={`${firstName} views`} className="-mx-4 flex items-center justify-center gap-8 border-b border-dos-rule px-4 md:mx-0 md:px-0">
               {([
                 { label: "Overview", value: "overview" as const },
                 { label: "Timeline", value: "history" as const },
@@ -35251,40 +35296,12 @@ function PersonDetailOverlay({
           <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
             <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
               <div className="min-w-0 lg:flex-1">
-                {/* LAST MEETING — the meeting itself. The record holds the detail. */}
-                <section className="pt-5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Last meeting</h3>
-                    {lastMeeting ? <span className="text-[12.5px] font-semibold text-dos-secondary">{formatRelativeDate(lastMeeting.date)}</span> : null}
-                  </div>
-                  {lastMeeting ? (
-                    <>
-                      <div className="mt-2.5 flex items-baseline gap-4">
-                        <p className="min-w-0 flex-1 text-[19px] font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary">
-                          {lastTimeTopic || meetingActivityTitle(lastMeeting)}
-                        </p>
-                        <PDButton onClick={() => onOpenMeeting(lastMeeting.id, person.id)} tone="quiet">View</PDButton>
-                      </div>
-                      {lastMeetingDurationLabel ? (
-                        <p className="mt-1 text-[14px] font-semibold text-dos-secondary">{lastMeetingDurationLabel}</p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <p className="mt-2.5 text-[15.5px] leading-[1.62] text-dos-body">Nothing logged yet — use + to record your first meeting.</p>
-                  )}
-                </section>
+                {/* The relationship itself now reads under the name, so the two
+                    meetings lead the page as a matched pair. */}
+                {renderMeetingCards()}
 
-                {/* RELATIONSHIP — the persistent relationship that was established. */}
-                <section className="mt-6 border-t border-dos-rule pt-5">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Relationship</h3>
-                  <p className="mt-2 text-[19px] font-bold leading-[1.15] tracking-[-0.022em] text-dos-primary">{relationshipTypePill}</p>
-                  {relationshipCadence ? (
-                    <p className="mt-1 text-[14px] font-semibold text-dos-secondary">Meeting {relationshipCadence.toLowerCase()}</p>
-                  ) : null}
-                </section>
-
-                {/* ACCOUNTABILITY — the primary active work. */}
-                <section className="-mx-4 mt-6 border-y border-dos-rule bg-dos-band px-4 py-4 md:-mx-10 md:px-10 lg:-mx-14 lg:px-14">
+                {/* ACCOUNTABILITY — the primary active work, immediately below. */}
+                <section className="-mx-4 mt-5 border-y border-dos-rule bg-dos-band px-4 py-4 md:-mx-10 md:px-10 lg:-mx-14 lg:px-14">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
                   <div className="mt-1 divide-y divide-dos-rule">
                     {accountabilityTopics.map((topic) => (
@@ -35348,17 +35365,21 @@ function PersonDetailOverlay({
                   ) : null}
                 </section>
 
-                <section className="mt-6 lg:hidden">
-                  {renderNextMeeting(false)}
-                </section>
+                {conceptFollowUps.length || upcomingGatherings.length ? (
+                  <section className="mt-6 lg:hidden">
+                    {renderNextMeeting(false)}
+                  </section>
+                ) : null}
                 <section className="mt-6 border-t border-dos-rule pt-5 lg:hidden">
                   {renderFruit()}
                 </section>
               </div>
 
               <aside className="hidden w-[292px] shrink-0 border-l border-dos-rule pl-10 pt-5 lg:block xl:w-[308px]">
-                {renderNextMeeting(true)}
-                <div className="mt-6 border-t border-dos-rule pt-5">{renderFruit()}</div>
+                {conceptFollowUps.length || upcomingGatherings.length ? (
+                  <div className="mb-6 border-b border-dos-rule pb-5">{renderNextMeeting(true)}</div>
+                ) : null}
+                {renderFruit()}
               </aside>
             </div>
           </article>
