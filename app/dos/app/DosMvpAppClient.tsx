@@ -20658,6 +20658,7 @@ function MeetingLeaderReflectionSection({
   const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));
   const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);
   const [prayerPersonId, setPrayerPersonId] = useState(primaryPersonId || selectedPersonIds[0] || "");
+  const [isRelationshipOpen, setIsRelationshipOpen] = useState(false);
 
   useEffect(() => {
     setIsFollowUpNeeded(followUpNeededDefault);
@@ -20667,11 +20668,24 @@ function MeetingLeaderReflectionSection({
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
 
+  // The relationship itself can change in a meeting -- someone asks to be
+  // discipled, or a season ends. That belongs on the canonical Person record,
+  // not in meeting prose, so this writes `relationship_type` straight through
+  // to the person on save. It is offered only for a one-on-one, because a
+  // group meeting has no single relationship to move.
+  const relationshipPerson = attendeeOptions.length === 1 ? attendeeOptions[0] : null;
+  const currentRelationshipType = relationshipPerson
+    ? relationshipTypeFromModel(personRelationshipModel(relationshipPerson))
+    : null;
+
   const quickActions = [
     !isFruitOpen ? { key: "fruit", label: "Add observed fruit", onClick: () => setIsFruitOpen(true) } : null,
     !isPrayerOpen ? { key: "prayer", label: "Add prayer need", onClick: () => setIsPrayerOpen(true) } : null,
     !isFollowUpNeeded ? { key: "followUp", label: "Add follow-up", onClick: () => setIsFollowUpNeeded(true) } : null,
-    onOpenCommitment ? { key: "commitment", label: "Add commitment", onClick: () => onOpenCommitment(primaryPersonId || selectedPersonIds[0] || null) } : null,
+    onOpenCommitment ? { key: "commitment", label: "Add accountability", onClick: () => onOpenCommitment(primaryPersonId || selectedPersonIds[0] || null) } : null,
+    relationshipPerson && !isRelationshipOpen
+      ? { key: "relationship", label: "Change relationship", onClick: () => setIsRelationshipOpen(true) }
+      : null,
   ].filter((action): action is { key: string; label: string; onClick: () => void } => Boolean(action));
 
   return (
@@ -20705,6 +20719,28 @@ function MeetingLeaderReflectionSection({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {isRelationshipOpen && relationshipPerson && currentRelationshipType ? (
+        <DosFormSection icon="people" title="Relationship">
+          <DosFormField
+            helper={`Saves to ${relationshipPerson.name}'s record and updates the Relationship on their profile.`}
+            label="Where this relationship stands now"
+          >
+            <select className={FieldSelectClass(false)} defaultValue={currentRelationshipType} name="relationship_type_change">
+              {relationshipTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{`${option.label} — ${option.helper}`}</option>
+              ))}
+            </select>
+          </DosFormField>
+          <button
+            className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+            onClick={() => setIsRelationshipOpen(false)}
+            type="button"
+          >
+            Leave relationship unchanged
+          </button>
+        </DosFormSection>
       ) : null}
 
       {isFruitOpen ? (
@@ -21523,6 +21559,7 @@ function ScheduleMeetingForm({
   onSubmit,
   onTableRoleChange,
   onTogglePerson,
+  preselectedPersonId,
   selectedMeetingContext,
   selectedPersonIds,
   selectedTableRole,
@@ -21545,6 +21582,7 @@ function ScheduleMeetingForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTableRoleChange: (value: DosAppTableRole) => void;
   onTogglePerson: (personId: string) => void;
+  preselectedPersonId?: string | null;
   selectedMeetingContext: DosAppMeetingType;
   selectedPersonIds: string[];
   selectedTableRole: DosAppTableRole;
@@ -21554,6 +21592,13 @@ function ScheduleMeetingForm({
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
   const [scheduledDate, setScheduledDate] = useState(todayDateValue());
   const [syncToGoogle, setSyncToGoogle] = useState(canSyncToGoogle);
+  // Opened from a Person, the header already reads "Set a time with <name>",
+  // so a full search-and-select control asks a question that is already
+  // answered. Confirm the person instead, and keep Change one tap away.
+  const preselectedPerson = preselectedPersonId && selectedPersonIds.length === 1 && selectedPersonIds[0] === preselectedPersonId
+    ? allPeople.find((person) => person.id === preselectedPersonId) ?? null
+    : null;
+  const [isPersonPickerOpen, setIsPersonPickerOpen] = useState(false);
 
   function applySchedulePreset(event: MouseEvent<HTMLButtonElement>, offsetDays: number | null) {
     const form = event.currentTarget.form;
@@ -21575,16 +21620,29 @@ function ScheduleMeetingForm({
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
       <DosFormSection icon="people" title="Person">
-        <MeetingPeopleSelector
-          allPeople={allPeople}
-          isCreatingPerson={isCreatingPerson}
-          onCreatePerson={onCreatePerson}
-          onQueryChange={onPeopleQueryChange}
-          onToggle={onTogglePerson}
-          people={meetingPeopleOptions}
-          query={meetingPeopleQuery}
-          selectedPersonIds={selectedPersonIds}
-        />
+        {preselectedPerson && !isPersonPickerOpen ? (
+          <div className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-2.5">
+            <span className="text-[15px] font-semibold text-dos-primary">{preselectedPerson.name}</span>
+            <button
+              className="min-h-9 text-[13px] font-semibold text-dos-blue transition-colors hover:text-[#1D4ED8]"
+              onClick={() => setIsPersonPickerOpen(true)}
+              type="button"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <MeetingPeopleSelector
+            allPeople={allPeople}
+            isCreatingPerson={isCreatingPerson}
+            onCreatePerson={onCreatePerson}
+            onQueryChange={onPeopleQueryChange}
+            onToggle={onTogglePerson}
+            people={meetingPeopleOptions}
+            query={meetingPeopleQuery}
+            selectedPersonIds={selectedPersonIds}
+          />
+        )}
       </DosFormSection>
       <DosFormSection icon="calendar" title="Timing">
         <div>
@@ -40814,6 +40872,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
     const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
+    const relationshipTypeChange = String(formData.get("relationship_type_change") ?? "").trim();
     // "What did you agree to?" writes the agreed next step through the
     // reflection record, and it is the most prominent line on the Person page.
     // It was missing from this condition, so logging a meeting that filled only
@@ -40951,6 +41010,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             },
             ...current.filter((item) => item.id !== workflowIds.reflectionId),
           ]);
+        }
+
+        // Deliberately outside runMeetingWorkflow: the relationship lives on the
+        // Person, not the Meeting, so a failure here must not make the saved
+        // meeting look unsaved or force a retry of its idempotent children.
+        if (relationshipTypeChange && selectedMeetingPersonIds.length === 1) {
+          const relationshipPerson = people.find((person) => person.id === selectedMeetingPersonIds[0]) ?? null;
+          const currentRelationshipType = relationshipPerson
+            ? relationshipTypeFromModel(personRelationshipModel(relationshipPerson))
+            : null;
+
+          if (relationshipPerson && currentRelationshipType && relationshipTypeChange !== currentRelationshipType) {
+            const nextModel = relationshipModelFromRelationshipType(
+              relationshipTypeChange as RelationshipTypeValue,
+              personRelationshipModel(relationshipPerson),
+            );
+            const defaults = personFormDefaults(relationshipPerson);
+            const relationshipResponse = await fetch("/api/dos/app/people", {
+              body: JSON.stringify({
+                ...personPayloadFromForm(new FormData(), nextModel, relationshipScoreFromEngagementLevel(relationshipPerson.engagementLevel), relationshipPerson.id, defaults),
+                name: defaults.name ?? relationshipPerson.name,
+                phone: defaults.phone ?? relationshipPerson.phone,
+                workspaceId: data.workspace.id,
+              }),
+              headers: { "Content-Type": "application/json" },
+              method: "PATCH",
+            });
+
+            if (!relationshipResponse.ok) {
+              setErrorMessage("Meeting saved, but the relationship change did not save. Update it from the person's Edit screen.");
+            }
+          }
         }
 
         closeForm();
@@ -44151,6 +44242,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSubmit={handleScheduleMeetingSubmit}
             onTableRoleChange={setSelectedTableRole}
             onTogglePerson={toggleMeetingPersonId}
+            preselectedPersonId={selectedPersonId}
             selectedMeetingContext={selectedMeetingContext}
             selectedPersonIds={selectedMeetingPersonIds}
             selectedTableRole={selectedTableRole}
