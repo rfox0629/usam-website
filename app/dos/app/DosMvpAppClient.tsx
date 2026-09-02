@@ -21134,6 +21134,48 @@ function scheduledTableDurationValue(minutes: number | string | null | undefined
   return scheduledTableDurationOptions.some((option) => option.value === value) ? value : "60";
 }
 
+/* Scheduling blocks, matching how people actually book time. Custom carries
+   anything else so the list stays short. */
+const scheduledDurationChoices = [
+  { label: "30m", value: "30" },
+  { label: "45m", value: "45" },
+  { label: "1h", value: "60" },
+  { label: "1h 30m", value: "90" },
+  { label: "2h", value: "120" },
+] as const;
+
+function ScheduledDurationSelect({ defaultMinutes = "60", name }: { defaultMinutes?: number | string | null; name: string }) {
+  const normalized = String(normalizedDurationMinutes(defaultMinutes, 60));
+  const isKnown = scheduledDurationChoices.some((choice) => choice.value === normalized);
+  const [selected, setSelected] = useState(isKnown ? normalized : "custom");
+  const [customMinutes, setCustomMinutes] = useState(isKnown ? "" : normalized);
+  const resolved = selected === "custom" ? String(Number(customMinutes) || 60) : selected;
+
+  return (
+    <div className="grid gap-2">
+      <input name={name} type="hidden" value={resolved} />
+      {/* A designed DOS control, not the OS menu. */}
+      <CompactOptionSelect
+        hideLabel
+        label="Duration"
+        onChange={setSelected}
+        options={[...scheduledDurationChoices.map((choice) => ({ label: choice.label, value: choice.value })), { label: "Custom", value: "custom" }]}
+        value={selected}
+      />
+      {selected === "custom" ? (
+        <input
+          aria-label="Duration in minutes"
+          className={FieldInputClass()}
+          inputMode="numeric"
+          onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
+          placeholder="Minutes"
+          value={customMinutes}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function ScheduledTableTimingFields({
   dateDefault,
   dateName,
@@ -21155,24 +21197,23 @@ function ScheduledTableTimingFields({
 }) {
   return (
     <>
-      <DosDateInput
-        label="Date"
-        name={dateName}
-        onChange={onDateChange}
-        required
-        value={dateValue}
-        defaultValue={dateDefault}
-      />
+      {/* A date is a short value; it does not need the full width. */}
+      <div className="max-w-[15rem]">
+        <DosDateInput
+          label="Date"
+          name={dateName}
+          onChange={onDateChange}
+          required
+          value={dateValue}
+          defaultValue={dateDefault}
+        />
+      </div>
       <DosFormGrid>
-        <DosFormField label="Start Time">
+        <DosFormField label="Start time">
           <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
         </DosFormField>
         <DosFormField label="Duration">
-          <select className={FieldSelectClass()} defaultValue={scheduledTableDurationValue(durationDefault)} name={durationName}>
-            {scheduledTableDurationOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+          <ScheduledDurationSelect defaultMinutes={durationDefault} name={durationName} />
         </DosFormField>
       </DosFormGrid>
     </>
@@ -21752,12 +21793,23 @@ function ScheduleMeetingForm({
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
+      {/* Launched from a Person, who you are meeting is already settled -- so
+          this reads as identity, not as a form control to fill in. */}
       <DosFormSection icon="people" title="Person">
         {preselectedPerson && !isPersonPickerOpen ? (
-          <div className="flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-2.5">
-            <span className="text-[15px] font-semibold text-dos-primary">{preselectedPerson.name}</span>
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,#EAF0FC_0%,#D3DFF7_100%)] text-[14px] font-bold leading-none text-[#1B3EA0] ring-1 ring-[rgba(27,62,160,0.16)]"
+            >
+              {initials(preselectedPerson.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[16px] font-bold leading-[1.2] text-dos-primary">{preselectedPerson.name}</p>
+              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{relationshipTypePillLabel(preselectedPerson)}</p>
+            </div>
             <button
-              className="min-h-9 text-[13px] font-semibold text-dos-blue transition-colors hover:text-[#1D4ED8]"
+              className="min-h-9 shrink-0 text-[13px] font-semibold text-dos-blue transition-colors hover:text-[#1D4ED8]"
               onClick={() => setIsPersonPickerOpen(true)}
               type="button"
             >
@@ -21765,44 +21817,37 @@ function ScheduleMeetingForm({
             </button>
           </div>
         ) : (
-          <MeetingPeopleSelector
-            allPeople={allPeople}
-            isCreatingPerson={isCreatingPerson}
-            onCreatePerson={onCreatePerson}
-            onQueryChange={onPeopleQueryChange}
-            onToggle={onTogglePerson}
-            people={meetingPeopleOptions}
-            query={meetingPeopleQuery}
-            selectedPersonIds={selectedPersonIds}
-          />
-        )}
-      </DosFormSection>
-      <DosFormSection icon="calendar" title="Timing">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "Tomorrow", offset: 1 },
-              { label: "This Week", offset: 2 },
-              { label: "Next Week", offset: 7 },
-            ].map((preset) => (
+          <div className="grid gap-2">
+            <MeetingPeopleSelector
+              allPeople={allPeople}
+              isCreatingPerson={isCreatingPerson}
+              onCreatePerson={onCreatePerson}
+              onQueryChange={onPeopleQueryChange}
+              onToggle={onTogglePerson}
+              people={meetingPeopleOptions}
+              query={meetingPeopleQuery}
+              selectedPersonIds={selectedPersonIds}
+            />
+            {preselectedPerson ? (
               <button
-                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-                key={preset.label}
-                onClick={(event) => applySchedulePreset(event, preset.offset)}
+                className="justify-self-start text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
+                onClick={() => { onPeopleQueryChange(""); setIsPersonPickerOpen(false); }}
                 type="button"
               >
-                {preset.label}
+                Done
               </button>
-            ))}
-            <button
-              className="min-h-8 rounded-full border border-[#E2E8F0] bg-white px-3 text-[11px] font-bold text-[#64748B] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
-              onClick={(event) => applySchedulePreset(event, null)}
-              type="button"
-            >
-              Custom
-            </button>
+            ) : null}
           </div>
-        </div>
+        )}
+      </DosFormSection>
+      {/* The relationship on the Person record is canonical, so a scheduled
+          meeting inherits it rather than asking again. The value still posts
+          and historical role data is untouched. */}
+      <input name="table_role" type="hidden" value={selectedTableRole} />
+      {/* Calendar sync follows the user's own settings; connection management
+          lives in Settings, not in the middle of scheduling a meeting. */}
+      <input name="google_sync_enabled" type="hidden" value={syncToGoogle ? "on" : ""} />
+      <DosFormSection icon="calendar" title="When">
         <ScheduledTableTimingFields
           dateName="scheduled_date"
           dateValue={scheduledDate}
@@ -21813,27 +21858,10 @@ function ScheduleMeetingForm({
           timeName="scheduled_time"
         />
       </DosFormSection>
-      <DosFormSection icon="meetings" title="Meeting Context">
+      <DosFormSection icon="meetings" title="How will you connect?">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
       </DosFormSection>
-
-      <input name="google_sync_enabled" type="hidden" value={syncToGoogle ? "on" : ""} />
-      <DisclosureSection defaultOpen={false} description="Calendar sync, discipleship role, and notes." title="More Options">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isCalendarDisconnecting}
-          onDisconnect={onDisconnectCalendar}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
-        />
-        <DosFormToggleRow
-          checked={syncToGoogle}
-          description={canSyncToGoogle ? "Create a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync." : "Connect Google Calendar to sync."}
-          disabled={!canSyncToGoogle}
-          onChange={(event) => setSyncToGoogle(event.currentTarget.checked)}
-          title="Sync to Google"
-        />
-        <TableRolePicker onChange={onTableRoleChange} value={selectedTableRole} />
+      <DisclosureSection defaultOpen={false} description="Anything to carry into the meeting." title="Notes">
         <DosFormField label="Notes">
           <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} name="notes" />
         </DosFormField>
