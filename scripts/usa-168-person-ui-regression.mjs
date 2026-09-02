@@ -108,16 +108,45 @@ async function verifyPersonActions(page, width) {
   assert(logBox.x >= 0 && logBox.x + logBox.width <= width, `${width}px Log Meeting leaves the viewport.`);
   assert(moreBox.x >= 0 && moreBox.x + moreBox.width <= width, `${width}px + action leaves the viewport.`);
 
-  const layout = await page.evaluate(() => ({
-    fixedPersonActionCount: [...document.querySelectorAll("button")].filter((button) => {
-      const label = button.getAttribute("aria-label") || button.textContent || "";
-      return label.includes("actions for Naomi") && getComputedStyle(button).position === "fixed";
-    }).length,
-    viewportWidth: window.innerWidth,
-    widestDocumentWidth: document.documentElement.scrollWidth,
-  }));
+  /* The Person action launcher is deliberately a floating + again. What must
+     never regress is the behaviour the original check was protecting: the FAB
+     must not sit on top of a row action, and the page must still scroll far
+     enough that the last actionable row clears it. Assert that directly
+     instead of banning fixed positioning. */
+  const layout = await page.evaluate(async () => {
+    const scroller = [...document.querySelectorAll("*")].find((element) => (
+      element.scrollHeight > element.clientHeight + 4
+      && ["auto", "scroll"].includes(getComputedStyle(element).overflowY)
+    ));
+
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    const fab = [...document.querySelectorAll("button")].find((button) => (
+      (button.getAttribute("aria-label") || "").includes("actions for Naomi")
+      && getComputedStyle(button).position === "fixed"
+    ));
+    const fabBox = fab?.getBoundingClientRect() ?? null;
+    const rowActions = [...(scroller ?? document).querySelectorAll("button")]
+      .filter((button) => button.textContent.trim().length > 1 && button.getBoundingClientRect().height > 0)
+      .map((button) => button.getBoundingClientRect());
+    const covered = fabBox
+      ? rowActions.filter((box) => (
+        box.bottom > fabBox.top && box.top < fabBox.bottom
+        && box.right > fabBox.left && box.left < fabBox.right
+      )).length
+      : 0;
+
+    return {
+      coveredRowActions: covered,
+      viewportWidth: window.innerWidth,
+      widestDocumentWidth: document.documentElement.scrollWidth,
+    };
+  });
   assert(layout.widestDocumentWidth <= layout.viewportWidth, `${width}px Person view has horizontal overflow.`);
-  assert.equal(layout.fixedPersonActionCount, 0, `${width}px Person still has a fixed FAB that can cover row actions.`);
+  assert.equal(layout.coveredRowActions, 0, `${width}px floating + covers ${layout.coveredRowActions} row action(s).`);
 }
 
 async function verifyGroupRoundTrip(page) {

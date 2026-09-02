@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -493,8 +493,13 @@ const meetingTypeOptions: ReadonlyArray<{ helper: string; label: string; value: 
   { helper: "Something else", label: "Other", value: "other" },
 ];
 
-// What the picker offers. The list above stays complete for label lookup.
-const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table", "coffee", "phone", "zoom", "text", "other"];
+/* What the picker offers. Discipleship is dropped -- it names ministry
+   content, not how the interaction happened, and every one-on-one here is
+   discipleship. Prayer and Group are kept for now per the product decision,
+   but see USA-168: "Prayer" as a context cannot currently distinguish
+   "we prayed together" from "I prayed for them on my own", and those are
+   different events. The recommended contract is documented there. */
+const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table", "coffee", "phone", "zoom", "text", "prayer", "group", "other"];
 
 const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
   { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
@@ -20654,6 +20659,7 @@ function MeetingLeaderReflectionSection({
   notesDefault,
   onOpenAccountability,
   onToggleOutcomeTag,
+  openFruitSection = false,
   prayerNeedsDefault,
   primaryPersonId,
   selectedOutcomeTags,
@@ -20667,12 +20673,13 @@ function MeetingLeaderReflectionSection({
   nextStepDefault?: string | null;
   onOpenAccountability?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
+  openFruitSection?: boolean;
   prayerNeedsDefault?: string | null;
   primaryPersonId?: string | null;
   selectedOutcomeTags: string[];
   selectedPersonIds: string[];
 }) {
-  const [isFruitOpen, setIsFruitOpen] = useState(selectedOutcomeTags.length > 0);
+  const [isFruitOpen, setIsFruitOpen] = useState(selectedOutcomeTags.length > 0 || openFruitSection);
   const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));
   const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);
   const [prayerPersonId, setPrayerPersonId] = useState(primaryPersonId || selectedPersonIds[0] || "");
@@ -20687,7 +20694,7 @@ function MeetingLeaderReflectionSection({
 
   /* Every one of these is a real toggle. Closing a section clears the values
      it owns, so a section that was opened and thought better of cannot leave
-     a blank Prayer, Follow-up or Fruit record behind on save. Accountability
+     a blank Prayer, Reminder or Fruit record behind on save. Accountability
      is not a toggle -- it opens the canonical Add Accountability form and
      saves its own record there. */
   const [prayerKey, setPrayerKey] = useState(0);
@@ -20703,7 +20710,7 @@ function MeetingLeaderReflectionSection({
     onOpenAccountability
       ? { active: false, key: "accountability", label: "Accountability", onClick: () => onOpenAccountability(primaryPersonId || selectedPersonIds[0] || null) }
       : null,
-    { active: isFollowUpNeeded, key: "followUp", label: "Follow-up", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
+    { active: isFollowUpNeeded, key: "reminder", label: "Reminder", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
     { active: isFruitOpen, key: "fruit", label: "Observed Fruit", onClick: () => (isFruitOpen ? closeFruit() : setIsFruitOpen(true)) },
   ].filter((action): action is { active: boolean; key: string; label: string; onClick: () => void } => Boolean(action));
 
@@ -20712,7 +20719,7 @@ function MeetingLeaderReflectionSection({
       <DosFormSection icon="log" title="Meeting Notes">
         <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} tall />
         {/* "What did you agree to?" is gone -- what they agreed to is
-            Accountability, what you owe them is a Follow-up. An existing
+            Accountability, what you need to remember is a Reminder. Existing
             record's value still rides along so re-saving cannot erase it. */}
         {nextStepDefault ? <input name="next_step" type="hidden" value={nextStepDefault} /> : null}
       </DosFormSection>
@@ -20789,14 +20796,14 @@ function MeetingLeaderReflectionSection({
 
       {isFollowUpNeeded ? (
         <DosFormSection
-          description="Something you need to remember to do. What they agreed to do is Accountability."
+          description="Something you need DOS to remind you about. What they are responsible for doing is Accountability."
           icon="arrow"
-          key={`follow-up-${followUpKey}`}
-          title="Follow-up"
+          key={`reminder-${followUpKey}`}
+          title="Reminder"
         >
           <input name="follow_up_needed" type="hidden" value="on" />
-          <DosFormField label={<>What do you need to do?<RequiredMark /></>}>
-            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text Philip Friday, send the book..." required />
+          <DosFormField label={<>What should DOS remind you about?<RequiredMark /></>}>
+            <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." required />
           </DosFormField>
           <DosDateInput
             defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
@@ -20808,7 +20815,7 @@ function MeetingLeaderReflectionSection({
             onClick={closeFollowUp}
             type="button"
           >
-            Remove follow-up
+            Remove reminder
           </button>
         </DosFormSection>
       ) : null}
@@ -20916,6 +20923,7 @@ function MeetingRoleReflectionSections({
   notesDefault,
   onOpenAccountability,
   onToggleOutcomeTag,
+  openFruitSection = false,
   planningReflectionDefault,
   primaryPersonId,
   selectedOutcomeTags,
@@ -20930,6 +20938,7 @@ function MeetingRoleReflectionSections({
   notesDefault?: string | null;
   onOpenAccountability?: (personId: string | null) => void;
   onToggleOutcomeTag: (tag: string) => void;
+  openFruitSection?: boolean;
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
   primaryPersonId?: string | null;
   selectedOutcomeTags: string[];
@@ -20951,6 +20960,7 @@ function MeetingRoleReflectionSections({
           followUpNoteDefault={followUpNoteDefault}
           notesDefault={notesDefault}
           onOpenAccountability={onOpenAccountability}
+          openFruitSection={openFruitSection}
           onToggleOutcomeTag={onToggleOutcomeTag}
           prayerNeedsDefault={leaderReflectionDefault?.prayerNeeds}
           primaryPersonId={primaryPersonId}
@@ -21255,6 +21265,7 @@ function MeetingFormContent({
   onTogglePerson,
   onToggleSupportingAttendee,
   onPeopleQueryChange,
+  openFruitSection = false,
   planningReflectionDefault,
   recommendedResources,
   scheduledEndAtDefault,
@@ -21312,6 +21323,7 @@ function MeetingFormContent({
   onTogglePerson: (personId: string) => void;
   onToggleSupportingAttendee: (personId: string) => void;
   onPeopleQueryChange: (value: string) => void;
+  openFruitSection?: boolean;
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
   recommendedResources: DosRecommendedResource[];
   scheduledEndAtDefault?: string | null;
@@ -21514,6 +21526,7 @@ function MeetingFormContent({
           notesDefault={notesDefault}
           onOpenAccountability={onOpenAccountability}
           onToggleOutcomeTag={onToggleOutcomeTag ?? (() => undefined)}
+          openFruitSection={openFruitSection}
           planningReflectionDefault={planningReflectionDefault}
           primaryPersonId={selectedPersonIds[0] ?? null}
           selectedOutcomeTags={selectedOutcomeTags ?? []}
@@ -32949,7 +32962,7 @@ function FollowUpDetailCard({
   ) : null;
 
   return (
-    <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Follow-up">
+    <DetailCard icon={<Send className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Reminder">
       <FollowUpStatusRow
         action={reviewAction}
         helper={reviewDisplayHelper}
@@ -34543,6 +34556,7 @@ function PersonDetailOverlay({
   onAddCommitmentUpdate,
   onAddAccountabilitySchedule,
   onAddReminder,
+  onLogMeetingWithFruit,
   onAddPrayerRequest,
   onAssignResource,
   onCompleteCommitment,
@@ -34598,6 +34612,7 @@ function PersonDetailOverlay({
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
   onAddAccountabilitySchedule: () => void;
   onAddReminder: () => void;
+  onLogMeetingWithFruit: () => void;
   onAddPrayerRequest: () => void;
   onAssignResource: (personId: string) => void;
   onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
@@ -35147,7 +35162,7 @@ function PersonDetailOverlay({
     <>
       {conceptFollowUps.length ? (
         <section>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Follow-up</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Reminder</h3>
           <div className="mt-1 divide-y divide-dos-rule">
             {conceptFollowUps.map((followUp) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
@@ -35183,7 +35198,7 @@ function PersonDetailOverlay({
          and `md:px-10` were present, so the winning value was whichever
          Tailwind ordered last, and the full-bleed RIGHT NOW band (which offsets
          by the padding) overshot by 16px at exactly 768px. */
-      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+4rem)] md:bg-white md:px-10 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
+      className={`absolute inset-0 overflow-y-auto bg-white px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? "pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:bg-white md:px-10 md:pb-24 lg:px-14" : "pb-28 md:bg-[#F8FBFF] md:px-6"}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -35209,23 +35224,16 @@ function PersonDetailOverlay({
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
-              <div className="flex items-center gap-1">
-                <button
-                  className="flex min-h-10 items-center rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
-                  onClick={onLogMeeting}
-                  type="button"
-                >
-                  Log meeting
-                </button>
-                <button
-                  aria-label={`More actions for ${firstName}`}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-                  onClick={() => setIsPersonActionsOpen(true)}
-                  type="button"
-                >
-                  <Plus className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
-                </button>
-              </div>
+              {/* Log meeting stays visible and primary. Everything else lives
+                  behind the floating + at the bottom right, where a thumb
+                  reaches it. */}
+              <button
+                className="flex min-h-10 items-center rounded-full px-3 text-[14px] font-semibold text-dos-blue transition-colors hover:bg-[#F3F6FD]"
+                onClick={onLogMeeting}
+                type="button"
+              >
+                Log meeting
+              </button>
             </div>
             {/* Identity reads down the centre line -- avatar, name, relationship --
                 so the page opens on the person rather than on a row of chrome.
@@ -35397,31 +35405,8 @@ function PersonDetailOverlay({
                         ) : null}
                       </div>
                     ))}
-                    {primaryPrayer ? (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">Prayer</p>
-                          <p className="mt-0.5 text-[13px] font-semibold leading-[1.45] text-dos-secondary">
-                            {primaryPrayerText}
-                            {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
-                          </p>
-                        </div>
-                        <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
-                      </div>
-                    ) : null}
-                    {personGroups.map((group) => (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
-                            Group{group.leaderPersonId === person.id ? " · Leader" : ""}
-                          </p>
-                        </div>
-                        <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                      </div>
-                    ))}
-                    {!accountabilityTopics.length && !conceptJourneys.length && !primaryPrayer && !personGroups.length ? (
-                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing active yet — use + to add accountability.</p>
+                    {!accountabilityTopics.length && !conceptJourneys.length ? (
+                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet — use + to add accountability.</p>
                     ) : null}
                   </div>
                   {!accountabilityTopics.length ? (
@@ -35430,6 +35415,43 @@ function PersonDetailOverlay({
                     </button>
                   ) : null}
                 </section>
+
+                {/* Prayer is not accountability. Something we are praying about
+                    for them is not something they are responsible for doing,
+                    so it reads as its own compact section. */}
+                {primaryPrayer ? (
+                  <section className="mt-6">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
+                    <div className="mt-1 flex items-center gap-4 py-2.5">
+                      <p className="min-w-0 flex-1 text-[15px] font-semibold leading-[1.45] text-dos-body">
+                        {primaryPrayerText}
+                        {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
+                      </p>
+                      <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* Groups are a membership fact, not active work. Separated by
+                    structure and type rather than a new colour. */}
+                {personGroups.length ? (
+                  <section className="mt-6 border-t border-dos-rule pt-5">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Groups</h3>
+                    <div className="mt-1 divide-y divide-dos-rule">
+                      {personGroups.map((group) => (
+                        <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
+                            {group.leaderPersonId === person.id ? (
+                              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                            ) : null}
+                          </div>
+                          <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
 
                 {conceptFollowUps.length || upcomingGatherings.length ? (
                   <section className="mt-6 lg:hidden">
@@ -35877,15 +35899,39 @@ function PersonDetailOverlay({
 
       </div>
       </div>
+      {/* The Person action launcher is a floating + at the bottom right --
+          thumb-reachable, present while scrolling, and clear of both the
+          bottom navigation and the safe area. The scroll container reserves
+          room for it, so it never covers the last actionable row. */}
+      {conceptMode ? (
+        <button
+          aria-label={`More actions for ${firstName}`}
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-dos-blue text-white shadow-[0_12px_28px_rgba(36,80,200,0.34)] transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
+          onClick={() => setIsPersonActionsOpen(true)}
+          type="button"
+        >
+          <Plus className="h-6 w-6" aria-hidden="true" strokeWidth={2.2} />
+        </button>
+      ) : null}
       {conceptMode && isPersonActionsOpen ? (
         <Sheet onClose={() => setIsPersonActionsOpen(false)} showEyebrow={false} title={`${firstName} · actions`}>
           <div className="grid gap-1.5">
+            {/* Force-ranked by how often the action is actually reached for.
+                Log Meeting is absent on purpose -- it stays a visible primary
+                action in the header rather than being buried here. */}
             {[
+              { icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add accountability", onClick: onAddAccountabilitySchedule },
               { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Schedule meeting", onClick: onScheduleMeeting },
               { icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add prayer request", onClick: onAddPrayerRequest },
               { icon: <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Assign Journey", onClick: () => onAssignResource(person.id) },
-              { icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add accountability", onClick: onAddAccountabilitySchedule },
-              { icon: <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add follow-up", onClick: onAddReminder },
+              { icon: <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add reminder", onClick: onAddReminder },
+              /* Fruit is observed in a conversation, and the only canonical
+                 writer of fruit_events today is the meeting reflection. This
+                 opens that path with Observed Fruit already expanded rather
+                 than adding a second, subtly different manual writer.
+                 Standalone Fruit and structured multiplication linkage both
+                 need the schema decision documented on USA-168. */
+              { icon: <Sprout className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Add observed Fruit", onClick: onLogMeetingWithFruit },
               { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Person", onClick: onEdit },
             ].map((item) => (
               <button
@@ -36840,7 +36886,7 @@ function MeetingDetailOverlay({
 
             {isLoggedTableMeeting ? (
               <section className="border-b border-dos-rule py-5 lg:border-b-0">
-                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Follow-up</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Reminder</h3>
                 {tableFollowUpReminder ? (
                   <p className="mt-2 text-[15px] font-semibold leading-[1.4] text-dos-primary">
                     {tableFollowUpReminder.title || "Follow up"}
@@ -37111,6 +37157,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [prayerRequestPersonId, setPrayerRequestPersonId] = useState<string | null>(null);
+  // "Add observed Fruit" opens the canonical fruit capture with its section
+  // already expanded, rather than introducing a second manual fruit writer.
+  const [openMeetingFruitSection, setOpenMeetingFruitSection] = useState(false);
   const [commitmentNotice, setCommitmentNotice] = useState<CommitmentNotice>(null);
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
@@ -40333,7 +40382,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminder_date: reminderDate,
       reminderType: "follow_up",
       reminder_type: "follow_up",
-      title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Follow up from Table",
+      title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Reminder from meeting",
     }, existingReminder ? "PATCH" : "POST", false);
 
     return Boolean(result);
@@ -41094,7 +41143,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 recurrence: "none",
                 reminderDate,
                 reminderType: "follow_up",
-                title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Follow up from Table",
+                title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Reminder from meeting",
               });
             },
           },
@@ -43519,6 +43568,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onEditReminder={openReminderEdit}
             onEditResourceAssignment={openResourceAssignmentEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
+            onLogMeetingWithFruit={() => { setOpenMeetingFruitSection(true); openMeetingForPerson(selectedPerson.id); }}
             onLogAccountabilityCheckIn={(schedule) => openAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
             onLogResourceCheckIn={openResourceAssignmentCheckIn}
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
@@ -44324,6 +44374,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             selectedMeetingContext={selectedMeetingContext}
             selectedMinistryTeamMemberIds={selectedMinistryTeamMemberIds}
             selectedMinistryTeamPersonIds={selectedMinistryTeamPersonIds}
+            openFruitSection={openMeetingFruitSection}
             selectedOutcomeTags={selectedOutcomeTags}
             selectedPersonIds={selectedMeetingPersonIds}
             selectedSupportingAttendeeIds={selectedSupportingAttendeeIds}
