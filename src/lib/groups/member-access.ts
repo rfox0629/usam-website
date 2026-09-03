@@ -1159,6 +1159,10 @@ export async function loadGroupMemberPortalData(
       .eq("member_identity_id", identity.id)
       .eq("group_id", group.id)
       .order("channel", { ascending: true }),
+    // Exact-context scoping hides, not deletes: an assignment created before
+    // instance contexts existed carries the legacy default ('library',
+    // source_group_id null) and disappears from this Home until it is adopted
+    // into its Group via docs/usa-170-legacy-group-assignment-repair.sql.
     supabase
       .from("dos_resource_assignments")
       .select("id, resource_slug, status, start_date, due_date, completed_at, personal_message")
