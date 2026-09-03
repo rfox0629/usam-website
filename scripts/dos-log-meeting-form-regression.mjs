@@ -174,10 +174,14 @@ assert(
 // Written after the meeting workflow, never inside it, so a failure here cannot
 // make a saved meeting look unsaved or re-run its idempotent children -- and
 // any item that fails is named rather than dropped.
+/* Accountability is now written by one shared function used by both the direct
+   Log Meeting path and the Schedule-then-Log path, which previously dropped it
+   silently. Failures are still named rather than swallowed. */
 assert(
-  appClient.includes("const accountabilityFailures: string[] = [];")
-    && appClient.includes("These accountability items did not save"),
-  "Accountability failures must be surfaced by name instead of failing silently.",
+  appClient.includes("async function persistMeetingAccountability({")
+    && appClient.includes("These accountability items did not save")
+    && (appClient.match(/await persistMeetingAccountability\(\{/g) ?? []).length === 2,
+  "Both meeting paths must persist accountability through the shared writer and surface failures by name.",
 );
 
 assert(

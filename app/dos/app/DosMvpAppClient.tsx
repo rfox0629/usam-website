@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -960,8 +960,64 @@ const fruitOutcomeByKey: ReadonlyMap<string, FruitOutcomeDefinition> = new Map(f
 const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
-const meetingObservedFruitOptions = outcomeTagOptions.map((label) => ({ label, value: label }));
+/* New Observed Fruit choices, grouped so the leader's question is obvious:
+   "What fruit became evident in this interaction?"
+
+   `value` is the canonical stored value, and fruit_events.fruit_type stores the
+   display label -- so these values are exactly today's labels and no history is
+   orphaned. Removed from NEW logging: Started Discipling Others and Discipling
+   (now Accountability progress), Prayer Request (already canonical Prayer),
+   Joined Discipleship (a Journey/Group state), Felt encouraged (belongs to
+   Quick Review) and Prayer Received. Every one of those remains a historical
+   fact and still renders wherever it was recorded; it is simply no longer
+   offered for new logging. */
+const meetingObservedFruitCategories: ReadonlyArray<{ label: string; options: ReadonlyArray<{ label: string; value: string }> }> = [
+  {
+    label: "Spiritual response",
+    options: [
+      { label: "New Believers", value: "New Believers" },
+      { label: "Baptized", value: "Baptized" },
+    ],
+  },
+  {
+    label: "Restoration",
+    options: [
+      { label: "Answered Prayer", value: "Answered Prayer" },
+      { label: "Reconciliation", value: "Reconciliation" },
+      { label: "Marriage Restoration", value: "Marriage Restoration" },
+    ],
+  },
+  {
+    label: "Growth",
+    options: [
+      { label: "Testimony Shared", value: "Testimony Shared" },
+    ],
+  },
+  {
+    label: "Mission",
+    options: [
+      { label: "Gospel Conversation", value: "Gospel Conversation" },
+      { label: "Serving", value: "Serving" },
+    ],
+  },
+];
+
+const meetingObservedFruitOptions = meetingObservedFruitCategories.flatMap((category) => category.options);
+/* Two sets, deliberately different sizes.
+
+   `meetingObservedFruitValues` is what may be selected for NEW logging, so it
+   is the narrowed category list and a retired value can never be newly chosen.
+
+   `renderableObservedFruitValues` is what may be DISPLAYED, so it is every
+   value DOS has ever offered. Filtering display through the narrowed set would
+   make historical Fruit -- Prayer Received, Felt encouraged, Started Discipling
+   Others, Discipling, Prayer Request, Joined Discipleship -- silently vanish
+   from the meetings where it was recorded. Those are historical facts. */
 const meetingObservedFruitValues = new Set(meetingObservedFruitOptions.map((option) => option.value));
+const renderableObservedFruitValues = new Set<string>([
+  ...outcomeTagOptions,
+  ...meetingObservedFruitOptions.map((option) => option.value),
+]);
 
 const reminderTypeOptions = [
   { helper: "Yearly", label: "Birthday", value: "birthday" },
@@ -3220,7 +3276,8 @@ function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEve
   const latestReflection = latestLeaderReflectionForMeeting(reflections, meetingId);
 
   if (latestReflection) {
-    return latestReflection.observedFruit.filter((fruit) => meetingObservedFruitValues.has(fruit));
+    // Display, not selection: retired values must still render.
+    return latestReflection.observedFruit.filter((fruit) => renderableObservedFruitValues.has(fruit));
   }
 
   return Array.from(new Set(
@@ -21927,72 +21984,47 @@ function ObservedFruitMultiSelect({
   onToggle: (tag: string) => void;
   selectedOutcomeTags: string[];
 }) {
-  const selectedOptions = meetingObservedFruitOptions.filter((option) => selectedOutcomeTags.includes(option.value));
-  const [isOpen, setIsOpen] = useState(false);
-
+  /* The section itself is already a disclosure, so it needs neither a second
+     one inside it nor a badge restating what a closed section already says.
+     Opening it shows every choice, grouped, straight away. */
   return (
-    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div className="flex items-center justify-end">
-        <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-          {selectedOptions.length ? `${selectedOptions.length} selected` : "Optional"}
-        </span>
-      </div>
-
-      {selectedOptions.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedOptions.map((option) => (
-            <button
-              aria-label={`Remove ${option.label}`}
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-bold text-[#1D4ED8]"
-              key={option.value}
-              onClick={() => onToggle(option.value)}
-              type="button"
-            >
-              {option.label}
-              <X className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="rounded-[18px] border border-[#DCEBFF] bg-white p-2">
-        <button
-          aria-expanded={isOpen}
-          className="flex min-h-10 w-full items-center justify-between gap-3 rounded-2xl px-2.5 text-sm font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
-          onClick={() => setIsOpen((current) => !current)}
-          type="button"
-        >
-          <span>{isOpen ? "Hide outcomes" : "Select observed fruit"}</span>
-          <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden="true" strokeWidth={1.9} />
-        </button>
-        {isOpen ? (
-          <div className="mt-2 grid max-h-[42dvh] gap-1.5 overflow-y-auto pr-1">
-            {meetingObservedFruitOptions.map((option) => {
+    <div className="grid gap-4">
+      <p className="text-[14px] leading-[1.5] text-dos-body">What fruit became evident in this interaction?</p>
+      {meetingObservedFruitCategories.map((category) => (
+        <div key={category.label}>
+          <h4 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">{category.label}</h4>
+          <div className="mt-1.5 grid gap-1.5">
+            {category.options.map((option) => {
               const selected = selectedOutcomeTags.includes(option.value);
 
               return (
                 <button
                   aria-pressed={selected}
-                  className={`flex min-h-10 w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                    selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#EAF2FF] bg-[#F8FAFC] text-[#475569] hover:border-[#BFDBFE] hover:bg-white"
+                  className={`flex min-h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-[14.5px] font-semibold transition-colors ${
+                    selected
+                      ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                      : "border-dos-hairline bg-white text-dos-primary hover:border-[#C7D9F5] hover:bg-[#FAFCFF]"
                   }`}
                   key={option.value}
                   onClick={() => onToggle(option.value)}
                   type="button"
                 >
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"
-                  }`}>
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.2} />
+                  <span
+                    aria-hidden="true"
+                    className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border ${
+                      selected ? "border-[#2563EB] bg-dos-blue text-white" : "border-[#C7D9F5] bg-white"
+                    }`}
+                  >
+                    {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                   </span>
-                  <span className="min-w-0 flex-1">{option.label}</span>
+                  {option.label}
                 </button>
               );
             })}
           </div>
-        ) : null}
-      </div>
-    </section>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -40536,6 +40568,59 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  /* One structured-outcome writer for Accountability, shared by both meeting
+     entry paths. Direct Log Meeting and Schedule-then-Log used to diverge here:
+     only the direct path wrote accountability, so anything entered while
+     logging a previously scheduled meeting was silently dropped -- no record
+     and no error. Both paths now call this.
+
+     Deliberately written after the meeting itself rather than as a child of the
+     idempotent workflow: accountability belongs to the Person, not the meeting,
+     so a failure here must not make a saved meeting look unsaved or re-run its
+     children. Every item that fails is named back to the caller so nothing is
+     lost quietly, and a blank row is never written. */
+  async function persistMeetingAccountability({
+    formData,
+    personId,
+  }: {
+    formData: FormData;
+    personId: string | null;
+  }) {
+    const failures: string[] = [];
+
+    if (!personId) {
+      return failures;
+    }
+
+    for (let index = 0; index < 12; index += 1) {
+      if (!formData.has(`meeting_accountability_${index}_title`)) {
+        break;
+      }
+
+      const payload = accountabilitySchedulePayload(formData, `meeting_accountability_${index}`);
+
+      if (!payload.title) {
+        continue;
+      }
+
+      const response = await fetch("/api/dos/app/accountability/schedules", {
+        body: JSON.stringify({ ...payload, personId, workspaceId: data.workspace.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        failures.push(payload.title);
+      }
+    }
+
+    return failures;
+  }
+
+  function accountabilityFailureMessage(failures: string[]) {
+    return `Meeting saved. These accountability items did not save and need adding from the person: ${failures.join(", ")}.`;
+  }
+
   /* The single Accountability data contract. Both the Person sheet and Log
      Meeting's inline fields produce these names, so both persist identically. */
   function accountabilitySchedulePayload(formData: FormData, prefix: string) {
@@ -42156,35 +42241,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
            rather than inside it: a failure here cannot make a saved meeting
            look unsaved or re-run its idempotent children. Each item names
            what failed so nothing is lost silently. */
-        const accountabilityPersonId = selectedMeetingPersonIds[0] ?? null;
-        const accountabilityFailures: string[] = [];
-
-        if (accountabilityPersonId) {
-          for (let index = 0; index < 12; index += 1) {
-            const payload = accountabilitySchedulePayload(formData, `meeting_accountability_${index}`);
-
-            if (!formData.has(`meeting_accountability_${index}_title`)) {
-              break;
-            }
-
-            if (!payload.title) {
-              continue;
-            }
-
-            const response = await fetch("/api/dos/app/accountability/schedules", {
-              body: JSON.stringify({ ...payload, personId: accountabilityPersonId, workspaceId: data.workspace.id }),
-              headers: { "Content-Type": "application/json" },
-              method: "POST",
-            });
-
-            if (!response.ok) {
-              accountabilityFailures.push(payload.title);
-            }
-          }
-        }
+        const accountabilityFailures = await persistMeetingAccountability({
+          formData,
+          personId: selectedMeetingPersonIds[0] ?? null,
+        });
 
         if (accountabilityFailures.length) {
-          setErrorMessage(`Meeting saved. These accountability items did not save and need adding from the person: ${accountabilityFailures.join(", ")}.`);
+          setErrorMessage(accountabilityFailureMessage(accountabilityFailures));
           setIsSubmitting(false);
           return;
         }
@@ -42432,6 +42495,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         });
 
         if (!reminderSaved) {
+          return;
+        }
+
+        /* The drift this fixes: logging a previously scheduled meeting used to
+           skip accountability entirely, so anything entered was dropped without
+           a record or an error. Same writer as the direct path now. */
+        const accountabilityFailures = await persistMeetingAccountability({
+          formData,
+          personId: selectedMeetingPersonIds[0] ?? null,
+        });
+
+        if (accountabilityFailures.length) {
+          setErrorMessage(accountabilityFailureMessage(accountabilityFailures));
           return;
         }
       }

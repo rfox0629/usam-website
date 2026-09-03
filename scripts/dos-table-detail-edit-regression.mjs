@@ -61,7 +61,7 @@ assert(
     && observedFruitBlock.includes("aria-pressed={selected}")
     && observedFruitBlock.includes("onClick={() => onToggle(option.value)}")
     && observedFruitBlock.includes("type=\"button\"")
-    && observedFruitBlock.includes("selected ? \"border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]\""),
+    && observedFruitBlock.includes("border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"),
   "Observed fruit options must make the whole row a toggle control so mobile taps reliably select or deselect fruit.",
 );
 

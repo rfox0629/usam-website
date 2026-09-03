@@ -230,5 +230,148 @@ await check("A successful meeting insert is never reported as a failure", async 
   assert.equal(resolveError(null).message, "Unable to create meeting.", "A missing insert result must report the fallback.");
 });
 
+/* Production defect: Log Meeting had two entry paths that persisted structured
+   outcomes differently. handleMeetingSubmit (direct) wrote inline Accountability;
+   handleEditMeetingSubmit (Schedule, then Log that scheduled meeting) had no
+   accountability write at all, so anything entered there was silently dropped --
+   no record, no error. Both paths now share one writer. */
+await check("Both meeting entry paths persist structured outcomes through one writer", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  assert(
+    client.includes("async function persistMeetingAccountability({"),
+    "A single shared accountability writer must exist.",
+  );
+
+  const sliceHandler = (name) => {
+    const start = client.indexOf(`function ${name}(`);
+    assert(start !== -1, `${name} must exist.`);
+    const next = client.indexOf("\n  function ", start + 10);
+    return client.slice(start, next === -1 ? client.length : next);
+  };
+
+  for (const handler of ["handleMeetingSubmit", "handleEditMeetingSubmit"]) {
+    assert(
+      sliceHandler(handler).includes("await persistMeetingAccountability({"),
+      `${handler} must persist accountability through the shared writer, or accountability entered on that path is silently dropped.`,
+    );
+  }
+
+  // Neither path may quietly swallow a failed item.
+  assert(
+    (client.match(/accountabilityFailureMessage\(accountabilityFailures\)/g) ?? []).length === 2,
+    "Both paths must surface failed accountability items by name.",
+  );
+
+  // A blank inline row must never be written.
+  const writer = client.slice(client.indexOf("async function persistMeetingAccountability({"));
+  assert(
+    writer.includes("if (!payload.title) {") && writer.includes("continue;"),
+    "The shared writer must skip blank accountability rows rather than writing them.",
+  );
+});
+
+/* Multiplication progress counts DISTINCT confirmed subjects, never raw update
+   rows: several progress notes about Philip must not turn Philip into several
+   people. Subjects are keyed by DOS Person id when present, otherwise by
+   normalised name. Legacy rows carrying neither are plain progress notes and
+   are excluded entirely. */
+await check("Multiplication progress counts distinct subjects, not update rows", async () => {
+  const countDistinctSubjects = (updates) => new Set(
+    updates
+      .filter((update) => update.subject_person_id || (update.subject_person_name ?? "").trim())
+      .map((update) => update.subject_person_id
+        ? `id:${update.subject_person_id}`
+        : `name:${update.subject_person_name.trim().toLowerCase()}`),
+  ).size;
+
+  assert.equal(countDistinctSubjects([
+    { subject_person_id: "philip" },
+    { subject_person_id: "philip" },
+    { subject_person_id: "philip" },
+  ]), 1, "Repeated updates about one DOS Person must count once.");
+
+  assert.equal(countDistinctSubjects([
+    { subject_person_name: "Philip" },
+    { subject_person_name: " philip " },
+  ]), 1, "Repeated updates about one named subject must count once.");
+
+  assert.equal(countDistinctSubjects([
+    { subject_person_id: "philip" },
+    { subject_person_id: "john" },
+    { subject_person_name: "Marcus" },
+  ]), 3, "Distinct subjects must each count once.");
+
+  assert.equal(countDistinctSubjects([
+    { progress_note: "Going well" },
+    { subject_person_name: "   " },
+  ]), 0, "Progress notes with no subject must not count toward a multiplication target.");
+});
+
+/* Observed Fruit was the catch-all for every kind of discipleship activity.
+   The narrowed selector must not orphan history: fruit_events.fruit_type stores
+   the display label, so a retired value that stopped rendering would make a
+   recorded fact disappear from the meeting it belongs to. */
+await check("Retired Fruit types cannot be newly selected but still render", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const retired = ["Started Discipling Others", "Discipling", "Prayer Request", "Joined Discipleship", "Felt encouraged", "Prayer Received"];
+  const kept = ["New Believers", "Baptized", "Answered Prayer", "Reconciliation", "Marriage Restoration", "Testimony Shared", "Gospel Conversation", "Serving"];
+
+  const categoriesBlock = client.slice(
+    client.indexOf("const meetingObservedFruitCategories"),
+    client.indexOf("const meetingObservedFruitOptions ="),
+  );
+
+  for (const value of kept) {
+    assert(categoriesBlock.includes(`value: "${value}"`), `${value} must remain selectable, preserving its stored value.`);
+  }
+
+  for (const value of retired) {
+    assert(!categoriesBlock.includes(`value: "${value}"`), `${value} must not be offered as new Observed Fruit.`);
+  }
+
+  // Selection is validated against the narrowed set; display is not.
+  assert(
+    client.includes("typeof value === \"string\" && meetingObservedFruitValues.has(value)"),
+    "New submissions must be validated against the narrowed selectable set.",
+  );
+  assert(
+    client.includes("renderableObservedFruitValues.has(fruit)"),
+    "Display must use the full historical set, or retired Fruit vanishes from the meetings that recorded it.",
+  );
+  assert(
+    client.includes("...outcomeTagOptions,"),
+    "The renderable set must include every value DOS has ever offered.",
+  );
+
+  // The selector shows categorised choices directly: no inner disclosure, no badge.
+  const selector = client.slice(client.indexOf("function ObservedFruitMultiSelect({"));
+  const selectorBody = selector.slice(0, selector.indexOf("\nfunction "));
+  assert(selectorBody.includes("meetingObservedFruitCategories.map("), "The selector must render categories directly.");
+  assert(!selectorBody.includes("Hide outcomes"), "The inner disclosure must be gone.");
+  assert(!selectorBody.includes("Select observed fruit"), "The inner disclosure trigger must be gone.");
+  assert(!selectorBody.includes('"Optional"'), "The OPTIONAL badge must be gone; a closed section already says it.");
+  assert(selectorBody.includes("aria-pressed={selected}"), "Choices must be multi-select toggles.");
+});
+
+/* Semantics: none of the other three canonical concepts may become Fruit. */
+await check("Review, Testimony and Prayer never become new Fruit", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const intelligence = readFileSync(new URL("../src/lib/dos/fruit-intelligence.ts", import.meta.url), "utf8");
+
+  assert(intelligence.includes("export async function inferFruitEventsFromReview"), "The review inference helper still exists.");
+  assert(
+    !client.includes("inferFruitEventsFromReview"),
+    "Reviews and Testimonies must not be wired to generate Fruit.",
+  );
+
+  const categoriesBlock = client.slice(
+    client.indexOf("const meetingObservedFruitCategories"),
+    client.indexOf("const meetingObservedFruitOptions ="),
+  );
+  assert(!categoriesBlock.includes('value: "Prayer Request"'), "Prayer Request is canonical Prayer, not Fruit.");
+  assert(!categoriesBlock.includes('value: "Started Discipling Others"'), "Multiplication is Accountability progress, not Fruit.");
+});
+
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);
 for (const name of checks) console.log(`- ${name}`);
