@@ -37595,13 +37595,25 @@ function MeetingDetailOverlay({
           </p>
           <h2 className="mt-1.5 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{meetingHeadline}</h2>
           <p className="mt-1.5 text-[13px] font-semibold text-dos-secondary">{meetingSubline}</p>
-          {(conversationBadgeLabel || temperature || observedFruit.length) ? (
-            <p className="mt-2 flex flex-wrap gap-x-2.5 gap-y-1 text-[12.5px] font-semibold text-dos-secondary">
-              {conversationBadgeLabel ? <span>{conversationBadgeLabel}</span> : null}
-              {temperature ? <span>· {temperature}</span> : null}
-              {observedFruit.length ? <span>· {observedFruit.length} fruit</span> : null}
-            </p>
-          ) : null}
+          {/* The facts actually captured about this meeting: when, how we
+              connected, how long. Fruit count stays, but as trailing detail
+              rather than the headline metadata. */}
+          {(() => {
+            const meetingMinutes = tableDurationMinutes(meeting);
+            const facts = [
+              meetingTypeLabel(meeting.type),
+              meetingMinutes ? formatLoggedTime(meetingMinutes) : null,
+            ].filter((fact): fact is string => Boolean(fact));
+
+            return (facts.length || conversationBadgeLabel || temperature || observedFruit.length) ? (
+              <p className="mt-2 flex flex-wrap gap-x-2.5 gap-y-1 text-[12.5px] font-semibold text-dos-secondary">
+                {facts.map((fact, index) => <span key={fact}>{index === 0 ? fact : `· ${fact}`}</span>)}
+                {conversationBadgeLabel ? <span>{facts.length ? `· ${conversationBadgeLabel}` : conversationBadgeLabel}</span> : null}
+                {temperature ? <span>· {temperature}</span> : null}
+                {observedFruit.length ? <span>· {observedFruit.length} fruit</span> : null}
+              </p>
+            ) : null;
+          })()}
         </div>
 
         <div className="lg:flex lg:items-start lg:gap-x-14">
@@ -37622,15 +37634,18 @@ function MeetingDetailOverlay({
             ) : (
               <>
                 <section className="border-b border-dos-rule py-5">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What happened</h3>
+                  {/* Edit sits with the notes it edits, not adrift below them. */}
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What happened</h3>
+                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
+                      {meetingNotes ? "Edit" : "Add"}
+                    </button>
+                  </div>
                   {meetingNotes ? (
                     <p className="mt-2 whitespace-pre-line text-[15px] leading-[1.6] text-dos-body">{meetingNotes}</p>
                   ) : (
                     <p className="mt-2 text-[15px] leading-[1.5] text-dos-body">No notes captured.</p>
                   )}
-                  <button className="mt-3 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
-                    {meetingNotes ? "Edit notes" : "Add notes"}
-                  </button>
                 </section>
 
                 {(meetingAgreed || meetingPrayer) ? (
@@ -37644,14 +37659,16 @@ function MeetingDetailOverlay({
                         </p>
                       </>
                     ) : null}
+                    {/* Prayer is a canonical record, not a floating line. Same
+                        data, given the heading its meaning deserves. */}
                     {meetingPrayer ? (
-                      <p className={`flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-body ${meetingAgreed ? "mt-2.5" : ""}`}>
-                        <Heart className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
-                        <span>
-                          <span className="font-semibold text-dos-primary">Praying — </span>
-                          {meetingPrayer}
-                        </span>
-                      </p>
+                      <div className={meetingAgreed ? "mt-4" : ""}>
+                        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
+                        <p className="mt-2 flex items-start gap-2.5 text-[15px] leading-[1.5] text-dos-body">
+                          <Heart className="mt-[3px] h-[15px] w-[15px] shrink-0 text-dos-blue" aria-hidden="true" strokeWidth={1.9} />
+                          <span>{meetingPrayer}</span>
+                        </p>
+                      </div>
                     ) : null}
                   </section>
                 ) : null}
@@ -37709,30 +37726,45 @@ function MeetingDetailOverlay({
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Reminder</h3>
                 {tableFollowUpReminder ? (
                   <p className="mt-2 text-[15px] font-semibold leading-[1.4] text-dos-primary">
-                    {tableFollowUpReminder.title || "Follow up"}
+                    {tableFollowUpReminder.title || "Reminder"}
                     <span className="mt-0.5 block text-[13px] text-dos-secondary">
                       {followUpDuePhrase(nextReminderDate(tableFollowUpReminder))}
                     </span>
                   </p>
                 ) : (
-                  <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No follow-up set.</p>
+                  <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No reminder set.</p>
                 )}
-                <div className="mt-4 grid gap-2 text-[13.5px] font-semibold">
-                  <p className="text-dos-secondary">
-                    Quick Review <span className="font-semibold text-dos-primary">· {reviewDisplayTitle}</span>
-                  </p>
-                  <div className="grid gap-2 sm:flex sm:flex-wrap">
-                    {reviewIsCompleted ? null : (
-                      <PDButton onClick={reviewRequestReady ? onCopyReviewLink : onPrepareQuickReview}>
-                        {reviewRequestReady ? "Copy link" : "Request Review"}
-                      </PDButton>
-                    )}
+                {/* Feedback is one concept with two canonical kinds. Review is
+                    reported evidence, Testimony is their story -- listed as
+                    compact status rows rather than two dominant buttons, and
+                    both still route through the shared request implementations
+                    used by Person -> Request feedback. */}
+                <div className="mt-5 border-t border-dos-rule pt-4">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                  <div className="mt-2 divide-y divide-dos-rule">
+                    <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+                      <span className="min-w-0">
+                        <span className="block text-[14.5px] font-semibold leading-[1.3] text-dos-primary">Quick Review</span>
+                        <span className="mt-0.5 block text-[12.5px] font-semibold text-dos-secondary">{reviewDisplayTitle}</span>
+                      </span>
+                      {reviewIsCompleted ? null : (
+                        <PDButton onClick={reviewRequestReady ? onCopyReviewLink : onPrepareQuickReview} tone="quiet">
+                          {reviewRequestReady ? "Copy link" : "Request"}
+                        </PDButton>
+                      )}
+                    </div>
                     {canSendTestimony ? (
-                      <PDButton onClick={onPrepareTestimonyRequest}>Request Testimony</PDButton>
+                      <div className="flex items-center justify-between gap-3 py-2.5">
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-semibold leading-[1.3] text-dos-primary">Testimony</span>
+                          <span className="mt-0.5 block text-[12.5px] font-semibold text-dos-secondary">Their story of what God did</span>
+                        </span>
+                        <PDButton onClick={onPrepareTestimonyRequest} tone="quiet">Request</PDButton>
+                      </div>
                     ) : null}
                   </div>
                   {(reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage) ? (
-                    <p className="text-[13px] font-semibold text-dos-blue">
+                    <p className="mt-2 text-[13px] font-semibold text-dos-blue">
                       {reviewShareMessage || testimonyShareMessage || reviewOptionsShareMessage}
                     </p>
                   ) : null}
