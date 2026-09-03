@@ -1039,12 +1039,156 @@ await check("Completed feedback reaches Person Overview, and history still rende
 
   // Deeper destinations survive.
   assert(personDetail.includes('kind: "quick_review" as const'), "The Timeline entry stays.");
-  assert(personDetail.includes("What {firstName} reported") || personDetail.includes("What {firstName} reported"), "The reviews sheet stays.");
+  /* The sheet is now titled Feedback and split into Quick Reviews and
+     Testimonies; it is still the deeper destination it always was. */
+  assert(personDetail.includes("title={`Feedback · ${firstName}`}"), "The reviews sheet stays, as Feedback.");
 
   // Historical answers still render on Meeting Detail rather than vanishing.
   assert(client.includes("Historical answers keep rendering"), "Retired questions must still show where a review recorded them.");
   assert(client.includes("quickReviewAnswerLabel(review.feltHeard)"), "felt_heard must still render for reviews that have it.");
   assert(client.includes("quickReviewMeetAgainLabel(review)"), "would_meet_again must still render for reviews that have it.");
+});
+
+/* A feedback link is texted to one person. Its unfurl has to say what it is,
+   and must say nothing about who it is for. */
+await check("A Quick Review link previews as feedback, and names nobody", async () => {
+  const page = readFileSync(new URL("../app/dos/review/[token]/page.tsx", import.meta.url), "utf8");
+  const card = readFileSync(new URL("../app/dos/review/opengraph-image.tsx", import.meta.url), "utf8");
+
+  const metadataCodeOf = (source) => source
+    .slice(source.indexOf("export const metadata"), source.indexOf("export default async function"))
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+
+  assert(page.includes('title: "Share your feedback"'), "The preview title must say what the link is.");
+  assert(page.includes('description: "A quick review of your conversation."'), "The description must explain it in one line.");
+  assert(page.includes("openGraph: {") && page.includes("twitter: {"), "Both unfurl formats must be overridden, not inherited.");
+  assert(card.includes('title: "Share your feedback"'), "The card must carry the same words as the metadata.");
+  assert(card.includes('brand: "discipleship-operating-system"'), "DOS branding stays.");
+
+  /* Nothing identifying may reach a preview: it is rendered and cached by the
+     messaging app, outside the token that protects everything else. */
+  for (const leak of ["reviewerPersonName", "leaderName", "recipientPersonId", "meetingDate", "meetingId", "person.name"]) {
+    assert(!card.includes(leak), `The share card must not expose ${leak}.`);
+    assert(!metadataCodeOf(page).includes(leak), `Link metadata must not expose ${leak}.`);
+  }
+  /* Declaring openGraph.images at all, even as undefined, suppresses the
+     opengraph-image file convention. Asserted against code, since the comment
+     above it necessarily names the key. */
+  assert(!metadataCodeOf(page).includes("images"), "openGraph.images must stay absent so the card renders.");
+});
+
+/* The public form is DOS, not a generic web questionnaire. */
+await check("The public review form uses the DOS visual system", async () => {
+  const form = readFileSync(new URL("../app/dos/review/[token]/DosQuickReviewForm.tsx", import.meta.url), "utf8");
+
+  assert(form.includes("radial-gradient"), "It must sit on the DOS atmospheric background.");
+  assert(form.includes("bg-dos-blue") && form.includes("text-dos-primary"), "It must use DOS tokens rather than ad-hoc hexes.");
+  /* Assert the colour of the submit control, not the spacing around it: a
+     margin tweak is not a design regression. */
+  const sendButton = form.slice(form.lastIndexOf("<button"), form.lastIndexOf("</button>"));
+  assert(sendButton.includes("bg-dos-blue"), "Send must be canonical DOS blue.");
+  assert(sendButton.includes("Sending...") && sendButton.includes("Send"), "That control is the submit button.");
+  assert(!form.includes("bg-[#111111]"), "The black submit button is gone.");
+  assert(!form.includes("font.oswald") && !form.includes("font.rajdhani"), "The standalone form fonts are gone.");
+
+  // One surface divided by rules, not a stack of bordered cards.
+  assert.equal((form.match(/border-t border-dos-rule/g) ?? []).length, 4, "Questions are separated by rules, not by their own boxes.");
+  assert(!/rounded-\[20px\] border border-\[#DCEBFF\]/.test(form), "The old card-per-question treatment is gone.");
+  assert(form.includes("function RatingRow("), "The rating uses a deliberate DOS control.");
+  assert(form.includes("function ExperienceChip("), "The optional signals read as chips.");
+
+  // Nothing paler than dos-secondary carries a sentence.
+  assert(!form.includes("text-[#94A3B8]") && !form.includes("text-dos-disabled"), "No pale gray readable text.");
+});
+
+/* Fruit is what we observed. Feedback is what they reported. The Person must
+   not blur them, and neither may be shown three times. */
+await check("Fruit and Feedback are separate everywhere on the Person", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  // Fruit's Overview section carries no feedback link.
+  const fruitSection = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));
+  const fruitBody = fruitSection.slice(0, fruitSection.indexOf("\n  };"));
+  assert(!fruitBody.includes("Reviews &amp; testimonies"), "Fruit must not link to reviews and testimonies.");
+  assert(!fruitBody.includes("testimonyCount") && !fruitBody.includes("reviewCount"), "Fruit must not count what people reported.");
+  assert(fruitBody.includes("setIsPersonFruitOpen(true)"), "Fruit's own View all opens Fruit.");
+
+  // Feedback is its own section, present even when empty.
+  assert(personDetail.includes('aria-label="Feedback"'), "Feedback is its own Overview section.");
+  const feedback = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
+  const feedbackBody = feedback.slice(0, feedback.indexOf("</section>"));
+  assert(feedbackBody.includes("Nothing yet. Use Request feedback after a meeting."), "It keeps a restrained empty state.");
+  assert(feedbackBody.includes("Follow-up requested"), "A follow-up request is plainly visible.");
+  assert(feedbackBody.includes("onAddFollowUpReminder"), "And offers the canonical Reminder form.");
+
+  // The deep sheet is Feedback, and holds no Fruit.
+  const sheet = client.slice(client.indexOf("{isFruitReviewsOpen ? ("), client.indexOf("{isCircleReviewOpen && visibleCircleSuggestion ? ("));
+  assert(sheet.includes("title={`Feedback · ${firstName}`}"), "The sheet is Feedback, not Fruit and feedback.");
+  assert(sheet.includes("Quick Reviews") && sheet.includes("Testimonies"), "It lists what the person reported.");
+  assert(!sheet.includes("Fruit observed"), "It must not duplicate Fruit.");
+  assert(!sheet.includes("fruitOutcomeLabel"), "It must not render Fruit records at all.");
+
+  // Fruit gets its own destination instead.
+  assert(client.includes("title={`Fruit · ${firstName}`}"), "Fruit has its own sheet.");
+
+  // Details is Person reference information, not a third doorway.
+  assert(!personDetail.includes("Fruit &amp; reviews"), "Details must not repeat Fruit and reviews.");
+
+  // Timeline keeps them as separate chronological events.
+  assert(personDetail.includes('kind: "quick_review" as const') && personDetail.includes('kind: "fruit" as const'),
+    "Timeline keeps Quick Review and Fruit as separate events.");
+});
+
+/* Request wording, request context, and no em dashes in any of it. */
+await check("Feedback requests name the conversation, in consistent words", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const sheet = client.slice(client.indexOf("{isFruitReviewsOpen ? ("), client.indexOf("{isCircleReviewOpen && visibleCircleSuggestion ? ("));
+
+  assert(sheet.includes("For your {formatShortDate(lastMeeting.date)}"), "The request must name the conversation it attaches to.");
+  assert(sheet.includes("conversation with {person.name}"), "And who it was with.");
+  assert(/>\s*Request Review\s*</.test(sheet), "Consistent wording: Request Review.");
+  assert(/>\s*Request Testimony\s*</.test(sheet), "Consistent wording: Request Testimony.");
+  assert(!sheet.includes("Requests are tied to a specific conversation"), "The vague explanatory line is gone.");
+
+  // The FAB still opens the selector, which is a different question.
+  assert(client.includes('label: "Request feedback"'), "The FAB entry keeps its own wording, because it opens a choice.");
+
+  /* No em dashes in copy anyone reads, across everything this pass touched. */
+  const files = [
+    "../app/dos/review/[token]/DosQuickReviewForm.tsx",
+    "../app/dos/review/[token]/page.tsx",
+    "../app/dos/review/opengraph-image.tsx",
+    "../src/lib/dos/review-form-config.ts",
+  ];
+  for (const file of files) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    const copy = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    assert(!copy.includes("\u2014"), `${file} must contain no em dashes in user-facing copy.`);
+  }
+  const clientCopy = client.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  for (const line of clientCopy.split("\n")) {
+    if (line.includes("\u2014") && /dos-body|dos-primary|Feedback|Accountability|conversations yet/.test(line)) {
+      throw new Error(`Person copy still contains an em dash: ${line.trim().slice(0, 90)}`);
+    }
+  }
+});
+
+/* A link that is texted out should not stay live forever. */
+await check("New review links expire, and existing links are left alone", async () => {
+  const requests = readFileSync(new URL("../src/lib/dos/review-requests.ts", import.meta.url), "utf8");
+  const reviews = readFileSync(new URL("../src/lib/dos/reviews.ts", import.meta.url), "utf8");
+
+  assert(requests.includes("export const dosReviewLinkLifetimeDays = 30;"), "New links get a thirty day life.");
+  assert(requests.includes("expires_at: reviewLinkExpiresAt(),"), "The expiry is set when the link is created.");
+  assert(/expires_at: reviewLinkExpiresAt\(\)/.test(requests) && !/update\([\s\S]{0,200}expires_at/.test(requests),
+    "Existing links must never be back-filled or retroactively expired.");
+  assert(reviews.includes("link.expires_at && new Date(link.expires_at).getTime() < Date.now()"),
+    "Expiry enforcement stays exactly where it was.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

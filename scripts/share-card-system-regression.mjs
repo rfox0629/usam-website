@@ -125,8 +125,53 @@ const internalPrefixes = [
   "app/vision/",
 ];
 
+/* One exception, and it is narrow. A Quick Review link is deliberately texted
+   OUT of DOS to someone who is not a user, so its unfurl is the only thing
+   they see before opening it. Inheriting the generic card made every feedback
+   request unfurl as a product pitch, which tells the recipient nothing about
+   why they were sent a link.
+
+   The reason internal routes are barred is that a share card is public and
+   cached by whoever receives it, so it must not name anything internal. This
+   card is held to exactly that standard below: one generic line, no route
+   name, no Person, no leader, no meeting. */
+const publicallySharedInternalCards = new Set(["app/dos/review/opengraph-image.tsx"]);
+
 for (const path of walk("app", (candidate) => candidate.endsWith("opengraph-image.tsx"))) {
   const owner = internalPrefixes.find((prefix) => path.startsWith(prefix));
+  const key = relative(".", path);
+
+  if (publicallySharedInternalCards.has(key)) {
+    /* Comments explain why the card is anonymous and necessarily use these
+       words; assert against code. */
+    const source = readFileSync(path, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+
+    for (const identifier of [
+      "leaderName",
+      "meetingDate",
+      "meetingId",
+      "meetingType",
+      "params",
+      "person",
+      "recipient",
+      "reviewer",
+      "token",
+      "workspace",
+    ]) {
+      check(
+        !source.includes(identifier),
+        `${key} may not put ${identifier} in a public image. This card must stay anonymous.`,
+      );
+    }
+
+    check(
+      !/searchParams|async function|await /.test(source),
+      `${key} must render one fixed card, not something derived from the request.`,
+    );
+    continue;
+  }
 
   check(
     !owner,

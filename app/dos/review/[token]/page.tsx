@@ -4,11 +4,33 @@ import { DosQuickReviewForm } from "./DosQuickReviewForm";
 
 export const dynamic = "force-dynamic";
 
+/* This link arrives as a text message from someone the recipient knows, so the
+   preview has to answer "why did I get this?" in one line. Inheriting the DOS
+   app metadata made every feedback link unfurl as a product pitch.
+
+   Deliberately impersonal: no recipient name, no leader name, no meeting
+   detail. A link preview is rendered by the messaging app and cached by
+   whoever receives it, so nothing about the Person or the conversation
+   belongs in it. The identity the recipient needs is inside the page, behind
+   the token.
+
+   `openGraph.images` is deliberately absent: declaring it, even as undefined,
+   suppresses the opengraph-image file convention that draws the card. */
 export const metadata: Metadata = {
-  title: "How was your conversation?",
+  title: "Share your feedback",
+  description: "A quick review of your conversation.",
+  openGraph: {
+    description: "A quick review of your conversation.",
+    title: "Share your feedback",
+    type: "website",
+  },
   robots: {
     follow: false,
     index: false,
+  },
+  twitter: {
+    description: "A quick review of your conversation.",
+    title: "Share your feedback",
   },
 };
 

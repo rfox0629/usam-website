@@ -22487,6 +22487,7 @@ function ReminderFormContent({
   calendarConnection,
   defaultReminderType,
   defaultPersonId,
+  defaultTitle,
   errorMessage,
   householdPerson,
   isCalendarDisconnecting = false,
@@ -22502,6 +22503,8 @@ function ReminderFormContent({
   calendarConnection: DosAppCalendarConnection;
   defaultReminderType?: DosAppRelationshipReminder["reminderType"];
   defaultPersonId?: string | null;
+  /* A starting point the leader edits, never a saved decision. */
+  defaultTitle?: string;
   errorMessage?: string;
   householdPerson?: DosAppPerson | null;
   isCalendarDisconnecting?: boolean;
@@ -22581,7 +22584,7 @@ function ReminderFormContent({
           <input
             aria-label={isPrayerReminder ? "Prayer Request" : "Title"}
             className={FieldInputClass()}
-            defaultValue={reminder?.title ?? ""}
+            defaultValue={reminder?.title ?? defaultTitle ?? ""}
             name="title"
             placeholder={isPrayerReminder ? undefined : "Optional reminder title"}
             type="text"
@@ -33011,6 +33014,12 @@ function quickReviewAnswerLabel(value: string | null | undefined) {
 /* Questions Quick Review no longer asks. A review that recorded them still
    shows what it recorded; a V2 review simply has none of them and shows
    nothing rather than a row of "Not answered". */
+/* Only an explicit request counts. Historical rows whose value was inferred
+   from "would meet again" are read as written, but nothing new is inferred. */
+function reviewRequestedFollowUp(review: DosAppParticipantReview | null | undefined) {
+  return review?.wantsFollowUp === "yes" || (review?.outcomeTags ?? []).includes("Follow Up Requested");
+}
+
 function historicalReviewAnswers(review: DosAppParticipantReview): Array<[string, string]> {
   return ([
     ["Heard", quickReviewAnswerLabel(review.feltHeard), review.feltHeard],
@@ -35257,6 +35266,7 @@ function PersonDetailOverlay({
   onAddCommitmentSubject,
   onAddCommitmentUpdate,
   onAddAccountabilitySchedule,
+  onAddFollowUpReminder,
   onAddReminder,
   onLogMeetingWithFruit,
   onAddPrayerRequest,
@@ -35313,6 +35323,8 @@ function PersonDetailOverlay({
   onAddCommitmentSubject: (commitment: DosAppPersonCommitment) => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
   onAddAccountabilitySchedule: () => void;
+  /* Opens the canonical Reminder form prefilled for a requested follow-up. */
+  onAddFollowUpReminder: () => void;
   onAddReminder: () => void;
   onLogMeetingWithFruit: () => void;
   onAddPrayerRequest: () => void;
@@ -35353,6 +35365,7 @@ function PersonDetailOverlay({
   const [selectedOutcomeEntry, setSelectedOutcomeEntry] = useState<PersonOutcomeEntry | null>(null);
   const [isCircleReviewOpen, setIsCircleReviewOpen] = useState(false);
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
+  const [isPersonFruitOpen, setIsPersonFruitOpen] = useState(false);
   const [isFeedbackChoiceOpen, setIsFeedbackChoiceOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
@@ -35559,11 +35572,13 @@ function PersonDetailOverlay({
       onAddCommitmentUpdate(commitment);
     },
   }));
+  const personQuickReviewItems = personReviewItems.filter((item) => item.kind === "quick_review");
+  const personTestimonyItems = personReviewItems.filter((item) => item.kind === "testimony_review");
   /* The most recent thing this person said about meeting with us. Quick
      Review only -- a Testimony is a story they chose to tell, and it has its
      own place. */
   const latestPersonFeedback = (() => {
-    const item = personReviewItems.find((entry) => entry.kind === "quick_review");
+    const item = personQuickReviewItems[0] ?? null;
 
     if (!item) {
       return null;
@@ -35579,8 +35594,7 @@ function PersonDetailOverlay({
       /* Only an explicit request counts. Historical rows whose value was
          inferred from "would meet again" are read as written, but nothing
          new is inferred. */
-      wantsFollowUp: review?.wantsFollowUp === "yes"
-        || (review?.outcomeTags ?? []).includes("Follow Up Requested"),
+      wantsFollowUp: reviewRequestedFollowUp(review),
     };
   })();
   const personHistoryEntries: PersonHistoryEntry[] = [
@@ -35843,16 +35857,17 @@ function PersonDetailOverlay({
   // Fruit stays a quiet Overview presence with the compact review request —
   // protected Codex behavior (review-request simplification), not a tab.
   const renderFruit = () => {
+    /* Fruit only. What someone reported about us is Feedback, and it has its
+       own section: mixing them made the page read as though a review were a
+       kind of fruit. */
     const recentOutcomes = personOutcomeEntries.slice(0, 2);
-    const reportCount = evidenceCounts.reviewCount + evidenceCounts.testimonyCount;
-    const totalRecords = evidenceCounts.fruitCount + reportCount + personAssessmentResults.length;
 
     return (
       <>
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
-          {totalRecords ? (
-            <button className="text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
+          {personOutcomeEntries.length > recentOutcomes.length ? (
+            <button className="text-[13px] font-semibold text-dos-blue" onClick={() => setIsPersonFruitOpen(true)} type="button">
               View all
             </button>
           ) : null}
@@ -35873,20 +35888,6 @@ function PersonDetailOverlay({
             Nothing recorded yet. Fruit is captured when you log a meeting.
           </p>
         )}
-        {/* Always present, so what someone submitted has a findable home even
-            before anything has arrived. Reviews and testimonies are reported
-            evidence, counted separately from Fruit. */}
-        <button
-          className="mt-3 block text-left text-[13.5px] font-semibold text-dos-blue"
-          onClick={() => setIsFruitReviewsOpen(true)}
-          type="button"
-        >
-          Reviews &amp; testimonies
-          {reportCount
-            ? ` · ${evidenceCounts.reviewCount} review${evidenceCounts.reviewCount === 1 ? "" : "s"}, ${evidenceCounts.testimonyCount} testimon${evidenceCounts.testimonyCount === 1 ? "y" : "ies"}`
-            : ""} {"\u2192"}
-        </button>
-
       </>
     );
   };
@@ -36243,7 +36244,7 @@ function PersonDetailOverlay({
                       </div>
                     ))}
                     {!accountabilityTopics.length && !conceptJourneys.length ? (
-                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet — use + Add above.</p>
+                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet. Use + Add above.</p>
                     ) : null}
                   </div>
                 </section>
@@ -36270,9 +36271,10 @@ function PersonDetailOverlay({
                     arrive and never be seen. One line: how it was, what they
                     wrote, and -- unmissably -- whether they asked us to get
                     back to them. */}
-                {latestPersonFeedback ? (
-                  <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                  {latestPersonFeedback ? (
+                    <>
                     <div className="mt-1 flex items-start gap-4 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="text-[15px] font-semibold leading-[1.35] text-dos-primary">
@@ -36282,18 +36284,32 @@ function PersonDetailOverlay({
                           <p className="mt-1 line-clamp-2 text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</p>
                         ) : null}
                         {latestPersonFeedback.wantsFollowUp ? (
-                          <p className="mt-1.5 text-[13px] font-bold text-dos-blue">Follow-up requested</p>
+                          <span className="mt-1.5 flex flex-wrap items-center gap-3">
+                            <span className="text-[13px] font-bold text-dos-blue">Follow-up requested</span>
+                            {/* Opens the canonical Reminder form for this
+                                Person. Nothing is saved until the leader
+                                saves it, and no Reminder is ever created on
+                                their behalf. */}
+                            <button className="text-[13px] font-semibold text-dos-secondary underline" onClick={onAddFollowUpReminder} type="button">
+                              Add reminder
+                            </button>
+                          </span>
                         ) : null}
                       </div>
                       <PDButton onClick={() => onOpenReview(latestPersonFeedback.item)}>View</PDButton>
                     </div>
-                    {personReviewItems.length > 1 ? (
-                      <button className="mt-1 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
-                        All feedback ({personReviewItems.length})
-                      </button>
-                    ) : null}
-                  </section>
-                ) : null}
+                    <button className="mt-1 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
+                      View all
+                    </button>
+                    </>
+                  ) : (
+                    /* Restrained rather than absent, so what someone submits
+                       has a findable home before anything has arrived. */
+                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">
+                      Nothing yet. Use Request feedback after a meeting.
+                    </p>
+                  )}
+                </section>
 
                 {/* Groups are a membership fact, not active work. Separated by
                     structure and type rather than a new colour. */}
@@ -36375,7 +36391,7 @@ function PersonDetailOverlay({
                 </div>
               ) : (
                 <p className="mt-2.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">
-                  No conversations yet — Log Meeting records the first one.
+                  No conversations yet. Log Meeting records the first one.
                 </p>
               )}
             </section>
@@ -36484,7 +36500,7 @@ function PersonDetailOverlay({
                 </div>
               ) : (
                 <p className="mt-2.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">
-                  Nothing active yet — add accountability, a Journey, or prayer.
+                  Nothing active yet. Add accountability, a Journey, or prayer.
                 </p>
               )}
               {!activeResourceAssignments.length ? (
@@ -36679,10 +36695,10 @@ function PersonDetailOverlay({
               <details className="mt-3.5 group">
                 <summary className="cursor-pointer list-none text-[13px] font-semibold text-dos-blue">What these mean</summary>
                 <div className="mt-2 grid gap-1.5 text-[13.5px] leading-[1.5] text-dos-body">
-                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Relationship</span> — the kind of ministry relationship you have. You set this.</p>
-                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Circle</span> — relational proximity and stewardship (My 3 / 12 / 70 / 120). Always confirmed by you.</p>
-                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Engagement</span> — how responsive this relationship is right now. You set this.</p>
-                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Spiritual journey</span> — the stage saved on this Person record. You set this.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Relationship</span>: the kind of ministry relationship you have. You set this.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Circle</span>: relational proximity and stewardship (My 3 / 12 / 70 / 120). Always confirmed by you.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Engagement</span>: how responsive this relationship is right now. You set this.</p>
+                  <p className="text-dos-body"><span className="font-semibold text-dos-primary">Spiritual journey</span>: the stage saved on this Person record. You set this.</p>
                 </div>
               </details>
               {visibleCircleSuggestion ? (
@@ -36692,20 +36708,10 @@ function PersonDetailOverlay({
               ) : null}
             </section>
 
-            {/* Fruit & Reviews: a real destination, not a fourth tab. */}
-            <section className="mt-6 border-t border-dos-rule pt-5">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit &amp; reviews</h3>
-              <div className="mt-2 flex items-center gap-4">
-                <p className="min-w-0 flex-1 text-[14.5px] leading-[1.5] text-dos-body">
-                  {/* Count what the destination actually lists, so the summary
-                      and the sheet can never disagree. */}
-                  {evidenceCounts.fruitCount || evidenceCounts.reviewCount || evidenceCounts.testimonyCount
-                    ? `${evidenceCounts.fruitCount} fruit · ${evidenceCounts.reviewCount} review${evidenceCounts.reviewCount === 1 ? "" : "s"} · ${evidenceCounts.testimonyCount} testimon${evidenceCounts.testimonyCount === 1 ? "y" : "ies"}`
-                    : "Nothing recorded yet."}
-                </p>
-                <PDButton onClick={() => setIsFruitReviewsOpen(true)}>Open</PDButton>
-              </div>
-            </section>
+            {/* Fruit and Feedback each have a section on Overview, their own
+                destination, and their own Timeline events. A third doorway
+                here was the same content a third time; Details is Person
+                reference information. Nothing canonical is removed. */}
 
             {hasHouseholdContext ? (
               <section className="mt-6 border-t border-dos-rule pt-5">
@@ -36958,51 +36964,82 @@ function PersonDetailOverlay({
           </div>
         </Sheet>
       ) : null}
-      {isFruitReviewsOpen ? (
-        /* Fruit & Reviews — a deeper Person destination rather than a fourth
-           primary tab. Every row is a canonical record with an attributable
-           source and date, which is what sourced encouragement will read. */
+      {isPersonFruitOpen ? (
+        /* Fruit's own destination. It used to share a sheet with what people
+           reported about us, which read as though a review were a kind of
+           fruit. They are different claims from different people. */
         <Sheet
-          description="What has been observed, and what people have reported."
+          description="What has been observed in their life."
+          onClose={() => setIsPersonFruitOpen(false)}
+          showEyebrow={false}
+          title={`Fruit · ${firstName}`}
+        >
+          {personOutcomeEntries.length ? (
+            <div className="divide-y divide-dos-rule">
+              {personOutcomeEntries.map((entry) => (
+                <button className="block w-full py-2.5 text-left" key={entry.id} onClick={() => { setIsPersonFruitOpen(false); setSelectedOutcomeEntry(entry); }} type="button">
+                  <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">{fruitOutcomeLabel(entry.event)}</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{formatDate(entry.date)}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[14px] leading-[1.5] text-dos-body">Nothing recorded yet. Observed fruit is captured when you log a meeting.</p>
+          )}
+        </Sheet>
+      ) : null}
+      {isFruitReviewsOpen ? (
+        /* Feedback: what this person reported about meeting with us. Not what
+           we observed about them, which is Fruit and lives in its own sheet
+           and its own Timeline events. */
+        <Sheet
+          description={`What ${firstName} has reported.`}
           onClose={() => setIsFruitReviewsOpen(false)}
           showEyebrow={false}
-          title={`Fruit & feedback · ${firstName}`}
+          title={`Feedback · ${firstName}`}
         >
           <div className="grid gap-5">
             <section>
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit observed</h4>
-              {personOutcomeEntries.length ? (
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Quick Reviews</h4>
+              {personQuickReviewItems.length ? (
                 <div className="mt-1 divide-y divide-dos-rule">
-                  {personOutcomeEntries.map((entry) => (
-                    <button className="block w-full py-2.5 text-left" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
-                      <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">
-                        {fruitOutcomeLabel(entry.event)}
-                      </p>
-                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{formatDate(entry.date)}</p>
-                    </button>
+                  {personQuickReviewItems.map((item) => (
+                    <div className="py-2.5" key={item.id}>
+                      <button className="block w-full text-left" onClick={() => onOpenReview(item)} type="button">
+                        <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">
+                          {[item.overallRating, formatDate(item.date)].filter(Boolean).join(" · ")}
+                        </p>
+                        {item.summary ? <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-body">{item.summary}</p> : null}
+                      </button>
+                      {reviewRequestedFollowUp(item.review) ? (
+                        <div className="mt-1.5 flex items-center gap-3">
+                          <span className="text-[13px] font-bold text-dos-blue">Follow-up requested</span>
+                          <button className="text-[13px] font-semibold text-dos-secondary underline" onClick={() => { setIsFruitReviewsOpen(false); onAddFollowUpReminder(); }} type="button">
+                            Add reminder
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">Nothing recorded yet. Observed fruit is captured when you log a meeting.</p>
+                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No reviews received yet.</p>
               )}
             </section>
 
             <section className="border-t border-dos-rule pt-4">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What {firstName} reported</h4>
-              {personReviewItems.length ? (
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Testimonies</h4>
+              {personTestimonyItems.length ? (
                 <div className="mt-1 divide-y divide-dos-rule">
-                  {personReviewItems.map((item) => (
+                  {personTestimonyItems.map((item) => (
                     <button className="block w-full py-2.5 text-left" key={item.id} onClick={() => onOpenReview(item)} type="button">
-                      <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">
-                        {item.kind === "quick_review" ? "Quick Review" : "Testimony Review"}
-                      </p>
-                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{formatDate(item.date)}</p>
+                      <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">{formatDate(item.date)}</p>
                       {item.summary ? <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-body">{item.summary}</p> : null}
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No reviews received yet.</p>
+                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">No testimonies shared yet.</p>
               )}
             </section>
 
@@ -37026,8 +37063,10 @@ function PersonDetailOverlay({
               <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Ask for feedback</h4>
               {lastMeeting ? (
                 <>
+                  {/* Name the conversation being reviewed, so the leader is
+                      never guessing which one this attaches to. */}
                   <p className="mt-2 text-[13.5px] leading-[1.5] text-dos-body">
-                    Requests are tied to a specific conversation — this will use {formatDate(lastMeeting.date)}.
+                    For your {formatShortDate(lastMeeting.date)} {meetingTypeLabel(lastMeeting.type).toLowerCase()} conversation with {person.name}.
                   </p>
                   <div className="mt-2.5 grid gap-2">
                     <AppButton onClick={() => { setIsFruitReviewsOpen(false); onRequestReview?.(lastMeeting, "quick_review"); }} tone="black">
@@ -37039,7 +37078,7 @@ function PersonDetailOverlay({
                   </div>
                 </>
               ) : (
-                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">Log a meeting first — review requests are always tied to a specific conversation.</p>
+                <p className="mt-2 text-[14px] leading-[1.5] text-dos-body">Log a meeting first. Requests are always tied to a specific conversation.</p>
               )}
             </section>
           </div>
@@ -38041,6 +38080,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
   const [selectedScripture, setSelectedScripture] = useState<ScriptureQuickViewState | null>(null);
   const [newReminderType, setNewReminderType] = useState<DosAppRelationshipReminder["reminderType"]>("follow_up");
+  /* Prefilled when the leader acts on a follow-up request, so the form opens
+     saying what it is for. Nothing is written until they save. */
+  const [newReminderTitle, setNewReminderTitle] = useState("");
   const calendarConnection = useMemo(() => ({
     ...data.calendarConnection,
     ...calendarConnectionOverride,
@@ -39958,7 +40000,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
   }
 
-  function openReminderForm(personId?: string, reminderType: DosAppRelationshipReminder["reminderType"] = "follow_up") {
+  function openReminderForm(personId?: string, reminderType: DosAppRelationshipReminder["reminderType"] = "follow_up", suggestedTitle = "") {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedReminderId(null);
@@ -39966,6 +40008,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
     setFormMode("reminder");
     setNewReminderType(reminderType);
+    setNewReminderTitle(suggestedTitle);
     setSelectedMeetingPersonIds(personId ? [personId] : []);
   }
 
@@ -44734,6 +44777,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onAddCommitmentUpdate={openCommitmentUpdate}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
+            onAddFollowUpReminder={() => openReminderForm(selectedPerson.id, "follow_up", `Follow up with ${selectedPerson.name}`)}
             onAddPrayerRequest={() => openPrayerRequestForPerson(selectedPerson.id)}
             onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
@@ -45626,6 +45670,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             calendarConnection={calendarConnection}
             defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
             defaultReminderType={newReminderType}
+            defaultTitle={newReminderTitle}
             errorMessage={errorMessage}
             householdPerson={selectedReminder ? people.find((person) => person.id === selectedReminder.personId) ?? null : selectedPerson}
             isCalendarDisconnecting={isCalendarDisconnecting}

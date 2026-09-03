@@ -74,8 +74,18 @@ for (const requiredCopy of [
 for (const context of ["leaderFirstName", "meetingDate", "meetingType"]) {
   assert(form.includes(context), `Quick Review header must carry ${context}.`);
 }
-for (const leaked of ["notes", "accountability", "prayerRequest", "fruit", "circle", "relationshipScore"]) {
-  assert(!form.toLowerCase().includes(leaked.toLowerCase()), `Quick Review must not expose ${leaked} to the recipient.`);
+/* What the form may read off the review link. Anything else about the Person,
+   the meeting or the workspace stays behind the token. Checked against the
+   fields actually accessed, not against substrings of class names. */
+const linkFieldsUsed = Array.from(form.matchAll(/reviewLink\.([A-Za-z]+)/g)).map((match) => match[1]);
+for (const field of linkFieldsUsed) {
+  assert(
+    ["leaderName", "meetingDate", "meetingType", "reviewerPersonName", "token"].includes(field),
+    `Quick Review must not read reviewLink.${field}; the recipient sees only what identifies the conversation.`,
+  );
+}
+for (const leaked of ["notes", "accountability", "prayerRequest", "workspaceId", "recipientPersonId", "meetingId"]) {
+  assert(!form.includes(leaked), `Quick Review must not expose ${leaked} to the recipient.`);
 }
 
 /* The four things V2 asks about, and the wider historical set kept so stored

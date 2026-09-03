@@ -65,6 +65,12 @@ export function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export const dosReviewLinkLifetimeDays = 30;
+
+function reviewLinkExpiresAt() {
+  return new Date(Date.now() + dosReviewLinkLifetimeDays * 24 * 60 * 60 * 1000).toISOString();
+}
+
 function reviewToken() {
   return randomBytes(24).toString("base64url");
 }
@@ -292,6 +298,13 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   const token = reviewToken();
   const insertRecord = {
     created_by_user_id: input.authorization.userId,
+    /* A feedback link is texted to someone and answered within a few days or
+       not at all. Thirty days is long enough that a message answered a
+       fortnight late still works, and short enough that a forwarded link does
+       not stay live indefinitely. Applied to new links only: links already out
+       there keep the open-ended behaviour they were created with, and expiry
+       is enforced where it always was, in linkIsExpired. */
+    expires_at: reviewLinkExpiresAt(),
     meeting_id: meetingId,
     recipient_person_id: recipientPersonId,
     reviewer_person_id: recipientPersonId,
