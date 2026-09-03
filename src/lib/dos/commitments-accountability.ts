@@ -15,12 +15,18 @@ export const dosCommitmentCategories = [
   "Other",
 ] as const;
 export const dosCommitmentProgressStates = ["not_started", "in_progress", "going_well", "struggling", "completed"] as const;
+/* What a measurable Accountability's number counts. "Begin discipling 3 men"
+   counts people and needs named subjects; "Read the Bible 3 times this week"
+   counts occurrences and must never be asked who is being discipled. Null
+   means the Accountability is not measurable at all. */
+export const dosCommitmentTargetKinds = ["people", "count"] as const;
 export const dosAccountabilityFrequencies = ["weekly", "every_two_weeks", "monthly", "one_time"] as const;
 export const dosAccountabilityScheduleStatuses = ["active", "paused"] as const;
 
 export type DosCommitmentStatus = typeof dosCommitmentStatuses[number];
 export type DosCommitmentCategory = typeof dosCommitmentCategories[number];
 export type DosCommitmentProgressState = typeof dosCommitmentProgressStates[number];
+export type DosCommitmentTargetKind = typeof dosCommitmentTargetKinds[number];
 export type DosAccountabilityFrequency = typeof dosAccountabilityFrequencies[number];
 export type DosAccountabilityScheduleStatus = typeof dosAccountabilityScheduleStatuses[number];
 
@@ -34,6 +40,10 @@ export function isDosCommitmentCategory(value: string): value is DosCommitmentCa
 
 export function isDosCommitmentProgressState(value: string): value is DosCommitmentProgressState {
   return dosCommitmentProgressStates.includes(value as DosCommitmentProgressState);
+}
+
+export function isDosCommitmentTargetKind(value: string): value is DosCommitmentTargetKind {
+  return dosCommitmentTargetKinds.includes(value as DosCommitmentTargetKind);
 }
 
 export function isDosAccountabilityFrequency(value: string): value is DosAccountabilityFrequency {

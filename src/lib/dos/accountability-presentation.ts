@@ -13,7 +13,7 @@
  * formatter so this stays testable without a clock or a locale.
  */
 
-import type { DosAccountabilityFrequency } from "./commitments-accountability";
+import type { DosAccountabilityFrequency, DosCommitmentTargetKind } from "./commitments-accountability";
 
 export const accountabilityFrequencyLabels: Record<DosAccountabilityFrequency, string> = {
   every_two_weeks: "Every two weeks",
@@ -27,6 +27,15 @@ export type AccountabilityRowKind = "one_time" | "recurring";
 export type AccountabilityProgressSubject = {
   subjectPersonId?: string | null;
   subjectPersonName?: string | null;
+  subjectPersonNameResolved?: string | null;
+  updateDate?: string | null;
+};
+
+export type AccountabilityConfirmedSubject = {
+  /* Stable per subject, so several updates about Philip render one row. */
+  key: string;
+  name: string;
+  startedDate: string | null;
 };
 
 export type AccountabilityScheduleInput = {
@@ -42,6 +51,7 @@ export type AccountabilityCommitmentInput = {
   status: string;
   targetCount?: number | null;
   targetDate: string | null;
+  targetKind?: DosCommitmentTargetKind | null;
   title: string;
   updates?: ReadonlyArray<AccountabilityProgressSubject> | null;
 };
@@ -52,9 +62,18 @@ export type UnifiedAccountabilityRow = {
   isOverdue: boolean;
   kind: AccountabilityRowKind;
   meta: string;
+  /* How this row records progress. "people" needs a named subject, "count" is
+     a plain increment, and "check_in" is ordinary accountability behaving
+     exactly as it always has. */
+  progressKind: AccountabilityProgressKind;
   sourceId: string;
+  /* Only ever populated for a people target: who has been confirmed so far,
+     one row per distinct person however many updates mention them. */
+  subjects: AccountabilityConfirmedSubject[];
   title: string;
 };
+
+export type AccountabilityProgressKind = "check_in" | "count" | "people";
 
 /* Multiplication progress counts DISTINCT confirmed subjects, never raw update
    rows: three notes about Philip must not turn Philip into three people. A DOS
@@ -81,6 +100,67 @@ function isMeasurable(commitment: AccountabilityCommitmentInput) {
   return typeof commitment.targetCount === "number" && Number.isFinite(commitment.targetCount) && commitment.targetCount > 0;
 }
 
+function subjectKey(update: AccountabilityProgressSubject) {
+  if (update.subjectPersonId) {
+    return `id:${update.subjectPersonId}`;
+  }
+
+  const name = (update.subjectPersonName ?? "").trim().toLowerCase();
+
+  return name ? `name:${name}` : null;
+}
+
+/* Who has been confirmed, one row per person. Several updates about Philip are
+   one Philip, dated from the earliest of them -- when he started, not when he
+   was last mentioned. Updates naming nobody are plain progress notes and are
+   left out entirely; they belong in the record, not in this list. */
+export function accountabilityConfirmedSubjects(
+  updates: ReadonlyArray<AccountabilityProgressSubject> | null | undefined,
+): AccountabilityConfirmedSubject[] {
+  const byKey = new Map<string, AccountabilityConfirmedSubject>();
+
+  for (const update of updates ?? []) {
+    const key = subjectKey(update);
+
+    if (!key) {
+      continue;
+    }
+
+    const name = (update.subjectPersonNameResolved ?? update.subjectPersonName ?? "").trim() || "Someone";
+    const startedDate = update.updateDate ?? null;
+    const existing = byKey.get(key);
+
+    if (!existing) {
+      byKey.set(key, { key, name, startedDate });
+      continue;
+    }
+
+    if (startedDate && (!existing.startedDate || startedDate < existing.startedDate)) {
+      existing.startedDate = startedDate;
+    }
+
+    /* A later update that resolves the person's real name wins over a
+       placeholder, so a linked subject stops reading as "Someone". */
+    if (existing.name === "Someone" && name !== "Someone") {
+      existing.name = name;
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
+/* What kind of progress this Accountability records. A people target is the
+   only one that asks for a name; a generic numeric target counts occurrences
+   and must never be asked who is being discipled; everything else keeps the
+   ordinary check-in it has always had. */
+export function accountabilityProgressKind(commitment: AccountabilityCommitmentInput): AccountabilityProgressKind {
+  if (!isMeasurable(commitment)) {
+    return "check_in";
+  }
+
+  return commitment.targetKind === "people" ? "people" : "count";
+}
+
 /* "1 of 3 confirmed", and only when the user declared a number. An ordinary
    one-time goal like "Read John 4-6 by Friday" has nothing to count, so it gets
    no progress line rather than a hollow "0 of 0". A declared target does show
@@ -90,7 +170,14 @@ export function accountabilityProgressLabel(commitment: AccountabilityCommitment
     return null;
   }
 
-  return `${commitmentConfirmedSubjectCount(commitment.updates)} of ${commitment.targetCount} confirmed`;
+  /* People are "confirmed" because a person either is being discipled or is
+     not. A generic count has nothing to confirm -- three Bible readings are
+     just three -- so it reads as a plain tally. */
+  if (commitment.targetKind === "people") {
+    return `${commitmentConfirmedSubjectCount(commitment.updates)} of ${commitment.targetCount} confirmed`;
+  }
+
+  return `${(commitment.updates ?? []).length} of ${commitment.targetCount}`;
 }
 
 /* Journey follow-ups are system-generated one-time schedules. They already read
@@ -137,8 +224,10 @@ export function unifiedAccountabilityRows({
         meta: isOneTime
           ? (isOverdue ? "Overdue" : `Due ${formatDate(schedule.nextCheckIn)}`)
           : (isOverdue ? `${frequency} · Overdue` : `${frequency} · Next ${formatDate(schedule.nextCheckIn)}`),
+        progressKind: "check_in" as const,
         sortValue: schedule.nextCheckIn ? dateValue(schedule.nextCheckIn) : null,
         sourceId: schedule.id,
+        subjects: [],
         title: scheduleTitle(schedule),
       };
     });
@@ -149,6 +238,8 @@ export function unifiedAccountabilityRows({
       const progress = accountabilityProgressLabel(commitment);
       const isOverdue = Boolean(commitment.targetDate) && dateValue(commitment.targetDate) < todayValue;
 
+      const progressKind = accountabilityProgressKind(commitment);
+
       return {
         id: `commitment-${commitment.id}`,
         isOverdue,
@@ -157,8 +248,10 @@ export function unifiedAccountabilityRows({
            when it is due; one with neither says nothing extra rather than
            filling the line with "No target date". */
         meta: progress ?? (commitment.targetDate ? `Due ${formatDate(commitment.targetDate)}` : ""),
+        progressKind,
         sortValue: commitment.targetDate ? dateValue(commitment.targetDate) : null,
         sourceId: commitment.id,
+        subjects: progressKind === "people" ? accountabilityConfirmedSubjects(commitment.updates) : [],
         title: commitment.title,
       };
     });

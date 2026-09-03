@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
+import { accountabilityConfirmedSubjects, accountabilityProgressKind, accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
@@ -427,7 +427,7 @@ await check("One Accountability section holds both recurring rhythms and one-tim
 
   const rows = unifiedAccountabilityRows({
     commitments: [
-      { id: "goal", status: "active", targetCount: 3, targetDate: "2026-09-10", title: "Begin discipling 3 men", updates: [{ subjectPersonId: "philip" }, { subjectPersonId: "philip" }] },
+      { id: "goal", status: "active", targetCount: 3, targetKind: "people", targetDate: "2026-09-10", title: "Begin discipling 3 men", updates: [{ subjectPersonId: "philip" }, { subjectPersonId: "philip" }] },
       { id: "read", status: "active", targetCount: null, targetDate: "2026-09-06", title: "Read John 4-6", updates: [] },
       { id: "plain", status: "active", targetCount: null, targetDate: null, title: "Write out his testimony", updates: [] },
       { id: "done", status: "completed", targetCount: null, targetDate: "2026-09-01", title: "Finished already", updates: [] },
@@ -485,11 +485,11 @@ await check("One Accountability section holds both recurring rhythms and one-tim
 /* A measurable target counts DISTINCT confirmed subjects, and only shows when
    the user actually declared a number. */
 await check("Measurable Accountability shows real progress and never invents it", async () => {
-  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 3, targetDate: null, title: "x", updates: [] }), "0 of 3 confirmed",
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 3, targetKind: "people", targetDate: null, title: "x", updates: [] }), "0 of 3 confirmed",
     "A declared target shows at zero: that is the point of having set it.");
-  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: null, targetDate: "2026-09-06", title: "x", updates: [] }), null,
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: null, targetKind: null, targetDate: "2026-09-06", title: "x", updates: [] }), null,
     "An ordinary one-time goal gets no progress UI.");
-  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 0, targetDate: null, title: "x", updates: [] }), null,
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 0, targetKind: "people", targetDate: null, title: "x", updates: [] }), null,
     "A zero or invalid target is not a measurable goal.");
 
   // Three notes about Philip are one confirmed subject, not three.
@@ -571,6 +571,171 @@ await check("Every Person V2 Accountability entry point opens the one canonical 
   // Editing existing records keeps working through the model each one lives in.
   assert(client.includes("function openCommitmentEdit("), "Editing an existing one-time goal must still be possible.");
   assert(client.includes('title={schedule ? "Edit Accountability" : "Add Accountability"}'), "Editing an existing rhythm must still be possible.");
+});
+
+/* target_count alone cannot tell "Begin discipling 3 men" from "Read the Bible
+   3 times this week": both are the number 3. target_kind carries what the
+   number counts, chosen by the user and never inferred, and it is the only
+   thing that may summon a person picker. */
+await check("Only a people target asks who is being discipled", async () => {
+  const goal = (extra) => ({ id: "c", status: "active", targetDate: null, title: "x", updates: [], ...extra });
+
+  assert.equal(accountabilityProgressKind(goal({ targetCount: 3, targetKind: "people" })), "people",
+    "A people target records named subjects.");
+  assert.equal(accountabilityProgressKind(goal({ targetCount: 3, targetKind: "count" })), "count",
+    "\"Read the Bible 3 times this week\" must never be asked who is being discipled.");
+  assert.equal(accountabilityProgressKind(goal({ targetCount: 3, targetKind: null })), "count",
+    "A number with no declared kind stays generic rather than guessing at people.");
+  assert.equal(accountabilityProgressKind(goal({ targetCount: null, targetKind: null })), "check_in",
+    "Ordinary Accountability keeps the check-in it has always had.");
+  assert.equal(accountabilityProgressKind(goal({ targetCount: null, targetKind: "people" })), "check_in",
+    "A kind without a number counts nothing and must not add multiplication UI.");
+
+  // Ordinary goals stay completely undecorated.
+  for (const title of ["Read John 4-6", "Pray daily", "Stay sober", "Call your brother"]) {
+    const ordinary = goal({ targetCount: null, targetKind: null, title });
+    assert.equal(accountabilityProgressKind(ordinary), "check_in", `${title} must stay ordinary.`);
+    assert.equal(accountabilityProgressLabel(ordinary), null, `${title} must show no progress UI.`);
+    assert.deepEqual(accountabilityConfirmedSubjects(ordinary.updates), [], `${title} must list no subjects.`);
+  }
+
+  // The two targets read differently: people are confirmed, occurrences are tallied.
+  assert.equal(accountabilityProgressLabel(goal({ targetCount: 3, targetKind: "people", updates: [{ subjectPersonName: "Philip" }] })), "1 of 3 confirmed");
+  assert.equal(accountabilityProgressLabel(goal({ targetCount: 3, targetKind: "count", updates: [{ progressNote: "read" }] })), "1 of 3");
+});
+
+/* Philip is one man however many times he is mentioned, and he is dated from
+   when he started rather than when he was last discussed. */
+await check("Confirmed subjects list each person once, and progress never closes the goal", async () => {
+  const subjects = accountabilityConfirmedSubjects([
+    { subjectPersonName: "Marcus", updateDate: "2026-09-03" },
+    { subjectPersonName: " marcus ", updateDate: "2026-09-10" },
+    { subjectPersonId: "person-philip", subjectPersonNameResolved: "Philip", updateDate: "2026-09-05" },
+    { progressNote: "Going well" },
+  ]);
+
+  assert.deepEqual(subjects.map((subject) => subject.name), ["Marcus", "Philip"],
+    "Repeated mentions are one person; an update naming nobody is not a person at all.");
+  assert.equal(subjects[0].startedDate, "2026-09-03", "A subject is dated from when they started, not when last mentioned.");
+  assert.equal(subjects.length, commitmentConfirmedSubjectCount([
+    { subjectPersonName: "Marcus" },
+    { subjectPersonName: " marcus " },
+    { subjectPersonId: "person-philip" },
+    { progressNote: "Going well" },
+  ]), "The list and the count must never disagree about how many people are confirmed.");
+
+  // Different people count separately, all the way to the target.
+  assert.equal(commitmentConfirmedSubjectCount([
+    { subjectPersonId: "a" }, { subjectPersonId: "b" }, { subjectPersonName: "Carl" },
+  ]), 3, "Distinct people each count once.");
+
+  const rows = unifiedAccountabilityRows({
+    commitments: [{
+      id: "multiply",
+      status: "active",
+      targetCount: 3,
+      targetKind: "people",
+      targetDate: null,
+      title: "Begin discipling 3 men",
+      updates: [
+        { subjectPersonName: "Marcus", updateDate: "2026-09-03" },
+        { subjectPersonName: "marcus", updateDate: "2026-09-10" },
+      ],
+    }],
+    dateValue: (value) => (value ? Date.parse(`${value}T00:00:00Z`) : 0),
+    formatDate: (value) => value ?? "",
+    isJourneyFollowUp: () => false,
+    scheduleTitle: (schedule) => schedule.title,
+    schedules: [],
+    today: "2026-09-03",
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].meta, "1 of 3 confirmed", "Two updates about one man are one confirmed man.");
+  assert.equal(rows[0].progressKind, "people");
+  assert.deepEqual(rows[0].subjects.map((subject) => subject.name), ["Marcus"], "The Overview shows the man once, not once per note.");
+  assert.equal(rows[0].subjects.length, 1, "Progress notes must not be dumped into the Overview one row each.");
+});
+
+/* Recording that John started discipling Philip must not require a meeting to
+   have happened, must not create a Person to hold a name, must not close the
+   goal, and must not leak into Fruit or Circle. */
+await check("People progress is recorded without a Meeting, a Person record, Fruit or a Circle move", async () => {
+  const updatesRoute = readFileSync(new URL("../app/api/dos/app/commitments/updates/route.ts", import.meta.url), "utf8");
+  const commitmentsRoute = readFileSync(new URL("../app/api/dos/app/commitments/route.ts", import.meta.url), "utf8");
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  // A subject alone is a complete update; an empty one is still refused.
+  assert(
+    updatesRoute.includes("if (!progressNote && !subjectPersonId && !subjectPersonName) {"),
+    "An update must be valid with a note OR a person id OR a name, and rejected with none of them.",
+  );
+  assert(
+    !updatesRoute.includes("if (!isUuid(commitmentId) || !progressNote) {"),
+    "A progress note must no longer be mandatory: \"Philip, started Sep 3\" says enough on its own.",
+  );
+
+  // Both subject columns are actually written, and a name never becomes a Person.
+  assert(updatesRoute.includes("subject_person_id: subjectPersonId,"), "An existing DOS Person is stored by id.");
+  assert(updatesRoute.includes("subject_person_name: subjectPersonName,"), "Someone not in DOS is stored by name.");
+  for (const route of [updatesRoute, commitmentsRoute]) {
+    assert(!/missionary_field_people[\s\S]{0,120}\.insert\(/.test(route), "Recording progress must never create a placeholder Person.");
+    assert(!/fruit_events|fruit_type/.test(route), "Accountability progress must never create Fruit.");
+    assert(!/dos_relationship_scores|dos_circle_overrides/.test(route), "Accountability progress must never move a Circle.");
+  }
+
+  // The owner cannot be one of the people they are discipling.
+  assert(
+    updatesRoute.includes("subjectPersonId === String(commitmentResult.data.person_id)"),
+    "Selecting the Accountability owner must be refused at the API boundary, not merely hidden in the picker.",
+  );
+
+  // Confirming one man must not complete the whole goal.
+  const submitStart = client.indexOf("async function handleCommitmentSubjectSubmit(");
+  assert(submitStart !== -1, "The Add Person flow must exist.");
+  const submitBody = client.slice(submitStart, client.indexOf("\n  async function", submitStart + 10));
+  assert(!submitBody.includes("progressState"), "The Add Person flow must not send progressState, or the API would close the goal.");
+  assert(submitBody.includes("subjectPersonId"), "The Add Person flow must send the chosen subject.");
+  assert(
+    updatesRoute.includes('progressState === "completed"'),
+    "Completion stays an explicit state the Add Person flow never sends.",
+  );
+
+  // The picker offers everyone except the owner, and does not require creating a Person.
+  const sheetStart = client.indexOf("function CommitmentSubjectSheet({");
+  const sheetBody = client.slice(sheetStart, client.indexOf("\nfunction ", sheetStart + 10));
+  assert(sheetBody.includes("candidate.id !== commitment.personId"), "The owner must never be offered as a subject.");
+  assert(sheetBody.includes('name="subject_person_name"'), "A name-only subject must be enterable.");
+  assert(sheetBody.includes("Who are they discipling?"), "The people flow must ask who, plainly.");
+});
+
+/* The question that decides all of the above is asked once, in the one
+   canonical form, and only when there is a number to describe. */
+await check("What are you counting is asked only when a target is entered", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const fieldsStart = client.indexOf("function AccountabilityFields({");
+  const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
+
+  assert(fields.includes("What are you counting?"), "The one canonical form asks what the number counts.");
+  assert(fields.includes("{hasTargetCount ? ("), "The question appears only once a valid number is entered.");
+  assert(
+    fields.includes('const hasTargetCount = /^\\d+$/.test(targetCount.trim()) && Number(targetCount.trim()) > 0;'),
+    "Only a positive whole number counts as a target.",
+  );
+  assert(fields.includes('{ label: "People", value: "people" as const }'), "People stores the people kind.");
+  assert(fields.includes('{ label: "Times", value: "count" as const }'), "Times reads plainly but stores the generic count kind.");
+
+  // The choice travels to the commitments endpoint, and never without a number.
+  const routerStart = client.indexOf("function accountabilityRoute(");
+  const router = client.slice(routerStart, client.indexOf("\n  function ", routerStart + 10));
+  assert(router.includes("targetCount !== null && isDosCommitmentTargetKind(rawKind)"), "A kind is only stored alongside a real number.");
+  assert(router.includes("targetKind,"), "The chosen kind reaches the commitments endpoint.");
+
+  // Rows name their own action, so nobody infers that "Check in" adds a person.
+  assert(
+    client.includes('row.progressKind === "people" ? "+ Add person" : row.progressKind === "count" ? "+ Add progress" : "Check in"'),
+    "Each row must name the action it actually performs.",
+  );
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

@@ -1553,6 +1553,7 @@ function buildDosPreviewDemoData(): DosAppData {
         personId: "demo-person-philip-saco",
         status: "active",
         targetCount: 3,
+        targetKind: "people" as const,
         targetDate: daysAgoIso(-30).slice(0, 10),
         title: "Begin discipling 3 men",
         updatedAt: null,
@@ -1570,6 +1571,22 @@ function buildDosPreviewDemoData(): DosAppData {
             updateDate: daysAgoIso(2).slice(0, 10),
             workspaceId: demoWorkspaceId,
           },
+          /* A second update about the same man. He is still one confirmed
+             person, dated from when he started rather than when he was last
+             mentioned. */
+          {
+            commitmentId: "demo-commitment-philip-multiply",
+            createdAt: daysAgoIso(1),
+            createdByUserId: null,
+            id: "demo-commitment-update-philip-marcus-2",
+            personId: "demo-person-philip-saco",
+            progressNote: "Marcus is bringing a friend next week.",
+            progressState: null,
+            subjectPersonId: null,
+            subjectPersonName: "marcus",
+            updateDate: daysAgoIso(1).slice(0, 10),
+            workspaceId: demoWorkspaceId,
+          },
         ],
         workspaceId: demoWorkspaceId,
       },
@@ -1584,6 +1601,7 @@ function buildDosPreviewDemoData(): DosAppData {
         personId: "demo-person-philip-saco",
         status: "active",
         targetCount: null,
+        targetKind: null,
         targetDate: daysAgoIso(-3).slice(0, 10),
         title: "Read John 4-6",
         updatedAt: null,

@@ -35,10 +35,12 @@ import {
   isDosAccountabilityScheduleStatus,
   isDosCommitmentProgressState,
   isDosCommitmentStatus,
+  isDosCommitmentTargetKind,
   type DosAccountabilityFrequency,
   type DosAccountabilityScheduleStatus,
   type DosCommitmentProgressState,
   type DosCommitmentStatus,
+  type DosCommitmentTargetKind,
 } from "@/src/lib/dos/commitments-accountability";
 import { dosGroupsSimplifiedFeatureFlag } from "@/src/lib/dos/groups";
 import {
@@ -614,6 +616,8 @@ export type DosAppPersonCommitment = {
   status: DosCommitmentStatus;
   /** Declared goal for a measurable Accountability; null means not measurable. */
   targetCount: number | null;
+  /** What targetCount counts: people need named subjects, count does not. */
+  targetKind: DosCommitmentTargetKind | null;
   targetDate: string | null;
   title: string;
   updatedAt: string | null;
@@ -1440,6 +1444,7 @@ type CommitmentRow = {
   person_id: string;
   status: string | null;
   target_count?: number | null;
+  target_kind?: string | null;
   target_date: string | null;
   title: string;
   updated_at: string | null;
@@ -1928,6 +1933,10 @@ function mapCommitmentStatus(value: string | null | undefined): DosCommitmentSta
 
 function mapCommitmentProgressState(value: string | null | undefined): DosCommitmentProgressState | null {
   return value && isDosCommitmentProgressState(value) ? value : null;
+}
+
+function mapCommitmentTargetKind(value: string | null | undefined): DosCommitmentTargetKind | null {
+  return value && isDosCommitmentTargetKind(value) ? value : null;
 }
 
 function mapAccountabilityFrequency(value: string | null | undefined): DosAccountabilityFrequency {
@@ -3763,7 +3772,7 @@ async function loadCommitmentsForWorkspace(supabase: SupabaseAdminClient, worksp
   const emptyRows: CommitmentsLoadRows = { commitments: [], updates: [] };
   const commitmentsResult = await supabase
     .from("dos_person_commitments")
-    .select("id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, status, completed_date, created_by_user_id, created_at, updated_at")
+    .select("id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, target_kind, status, completed_date, created_by_user_id, created_at, updated_at")
     .eq("workspace_id", workspaceId)
     .order("assigned_date", { ascending: false })
     .order("updated_at", { ascending: false });
@@ -5110,6 +5119,7 @@ export async function loadDosAppData(
     personId: commitment.person_id,
     status: mapCommitmentStatus(commitment.status),
     targetCount: typeof commitment.target_count === "number" ? commitment.target_count : null,
+    targetKind: mapCommitmentTargetKind(commitment.target_kind),
     targetDate: commitment.target_date,
     title: commitment.title,
     updatedAt: commitment.updated_at,

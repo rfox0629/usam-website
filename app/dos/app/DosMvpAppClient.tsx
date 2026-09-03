@@ -89,14 +89,16 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
-import { unifiedAccountabilityRows } from "@/src/lib/dos/accountability-presentation";
+import { commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "@/src/lib/dos/accountability-presentation";
 import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
+  isDosCommitmentTargetKind,
   dosCommitmentProgressStates,
   todayDateKey as todayCommitmentDateKey,
   type DosAccountabilityFrequency,
   type DosAccountabilityScheduleStatus,
+  type DosCommitmentTargetKind,
   type DosCommitmentProgressState,
   type DosCommitmentStatus,
 } from "@/src/lib/dos/commitments-accountability";
@@ -1119,6 +1121,7 @@ type PersonDetailTab = "details" | "history" | "overview";
 type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
+  | { commitment: DosAppPersonCommitment; kind: "subject" }
   | { kind: "schedule"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | { kind: "check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | null;
@@ -14203,6 +14206,111 @@ function CommitmentFormSheet({
   );
 }
 
+/* Recording who someone has started discipling, without inventing a meeting
+   that never happened and without creating a placeholder Person to hold a
+   name. Either an existing DOS Person is chosen, or a name is typed. The
+   Accountability's owner is never offered: John cannot be one of the three men
+   John is discipling. */
+function CommitmentSubjectSheet({
+  commitment,
+  confirmedCount,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+  people,
+}: {
+  commitment: DosAppPersonCommitment;
+  confirmedCount: number;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  people: DosAppPerson[];
+}) {
+  const [query, setQuery] = useState("");
+  const [selectedPersonId, setSelectedPersonId] = useState("");
+  const selectablePeople = people.filter((candidate) => candidate.id !== commitment.personId);
+  const trimmedQuery = query.trim().toLowerCase();
+  const matches = trimmedQuery
+    ? selectablePeople.filter((candidate) => candidate.name.toLowerCase().includes(trimmedQuery)).slice(0, 6)
+    : [];
+  const selectedPerson = selectablePeople.find((candidate) => candidate.id === selectedPersonId) ?? null;
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Add Person">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="commitment_id" type="hidden" value={commitment.id} />
+        <input name="subject_person_id" type="hidden" value={selectedPerson ? selectedPerson.id : ""} />
+        <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+          <p className="text-sm font-black text-[#0F172A]">{commitment.title}</p>
+          <p className="mt-1 text-xs font-semibold text-[#64748B]">
+            {confirmedCount} of {commitment.targetCount} confirmed
+          </p>
+        </div>
+        <DosFormSection icon="people" title="Who are they discipling?">
+          {selectedPerson ? (
+            <div className="flex items-center justify-between gap-3 rounded-[20px] border border-[#BFDBFE] bg-[#EBF2FF] px-3 py-3">
+              <span className="min-w-0 text-sm font-black text-[#1D4ED8]">{selectedPerson.name}</span>
+              <button
+                className="shrink-0 text-[13px] font-bold text-[#1D4ED8] underline"
+                onClick={() => { setSelectedPersonId(""); setQuery(""); }}
+                type="button"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <>
+              <DosFormField helper="Search someone already in DOS, or just type their name below." label="Search DOS">
+                <input
+                  autoFocus
+                  className={FieldInputClass(false)}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Start typing a name..."
+                  type="text"
+                  value={query}
+                />
+              </DosFormField>
+              {matches.length ? (
+                <div className="grid gap-2">
+                  {matches.map((candidate) => (
+                    <button
+                      className="rounded-[20px] border border-[#D6E4F7] bg-white px-3 py-2.5 text-left text-sm font-bold text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                      key={candidate.id}
+                      onClick={() => setSelectedPersonId(candidate.id)}
+                      type="button"
+                    >
+                      {candidate.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {/* Someone who is not in DOS yet is recorded by name alone. No
+                  Person record is created to hold it, and the name can be
+                  linked to a real Person later without losing this history. */}
+              <DosFormField helper="Use this when they are not in DOS yet." label="Or enter a name">
+                <input className={FieldInputClass(false)} name="subject_person_name" placeholder="Philip" type="text" />
+              </DosFormField>
+            </>
+          )}
+        </DosFormSection>
+        <DosFormSection icon="log" title="Progress">
+          <DosDateInput defaultValue={todayCommitmentDateKey()} label="Started" name="date" />
+          <DosFormField helper="Optional." label="Note">
+            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="progress_note" placeholder="Meeting Tuesdays before work..." />
+          </DosFormField>
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="people" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 function CommitmentUpdateSheet({
   commitment,
   errorMessage,
@@ -14270,6 +14378,13 @@ function AccountabilityFields({
   namePrefix: string;
 }) {
   const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency);
+  /* What the number counts is asked, never inferred. "Begin discipling 3 men"
+     and "Read the Bible 3 times this week" are the same number, and only one
+     of them should ever ask who is being discipled. The question appears only
+     once a real number is there, so a goal without a target is untouched. */
+  const [targetCount, setTargetCount] = useState("");
+  const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>("people");
+  const hasTargetCount = /^\d+$/.test(targetCount.trim()) && Number(targetCount.trim()) > 0;
   const isOneTime = frequency === "one_time";
   const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
     { label: "Weekly", value: "weekly" },
@@ -14346,16 +14461,51 @@ function AccountabilityFields({
           Friday" needs no number. Filling it in turns the goal into something
           progress can be counted against, e.g. "Begin discipling 3 men". */}
       {isOneTime ? (
-        <DosFormField helper="Optional. Use when the goal is a number, like discipling 3 men." label="How many?">
-          <input
-            className={FieldInputClass(false)}
-            inputMode="numeric"
-            min="1"
-            name={`${namePrefix}_target_count`}
-            placeholder="e.g. 3"
-            type="number"
-          />
-        </DosFormField>
+        <>
+          <DosFormField helper="Optional. Use when the goal is a number, like discipling 3 men." label="How many?">
+            <input
+              className={FieldInputClass(false)}
+              inputMode="numeric"
+              min="1"
+              name={`${namePrefix}_target_count`}
+              onChange={(event) => setTargetCount(event.target.value)}
+              placeholder="e.g. 3"
+              type="number"
+              value={targetCount}
+            />
+          </DosFormField>
+          {hasTargetCount ? (
+            <>
+              <input name={`${namePrefix}_target_kind`} type="hidden" value={targetKind} />
+              <DosFormField label="What are you counting?">
+                <div className="flex flex-wrap gap-2">
+                  {/* "Times" reads plainly to a leader; the stored value stays
+                      the generic "count", because the next such goal might be
+                      chapters or miles rather than times. */}
+                  {[{ label: "People", value: "people" as const }, { label: "Times", value: "count" as const }].map((option) => {
+                    const active = targetKind === option.value;
+
+                    return (
+                      <button
+                        aria-pressed={active}
+                        className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+                          active
+                            ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+                            : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
+                        }`}
+                        key={option.value}
+                        onClick={() => setTargetKind(option.value)}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </DosFormField>
+            </>
+          ) : null}
+        </>
       ) : null}
     </>
   );
@@ -35061,6 +35211,7 @@ function PersonDetailOverlay({
   reminders,
   resourceAssignments,
   onBack,
+  onAddCommitmentSubject,
   onAddCommitmentUpdate,
   onAddAccountabilitySchedule,
   onAddReminder,
@@ -35091,6 +35242,7 @@ function PersonDetailOverlay({
   participantReviews,
   participantTestimonies,
   person,
+  personNames,
   prayerRequests,
   workspace,
 }: {
@@ -35115,6 +35267,7 @@ function PersonDetailOverlay({
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
   onBack: () => void;
+  onAddCommitmentSubject: (commitment: DosAppPersonCommitment) => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
   onAddAccountabilitySchedule: () => void;
   onAddReminder: () => void;
@@ -35145,6 +35298,9 @@ function PersonDetailOverlay({
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   person: DosAppPerson;
+  /* Names for confirmed subjects recorded by DOS Person id. A subject
+     recorded by name alone is not in here and carries its own name. */
+  personNames: Map<string, string>;
   prayerRequests: DosAppPrayerRequest[];
   workspace: DosAppWorkspace;
 }) {
@@ -35304,9 +35460,19 @@ function PersonDetailOverlay({
      rhythm records a check-in and a goal records progress. */
   const commitmentById = new Map(activeCommitments.map((commitment) => [commitment.id, commitment]));
   const scheduleById = new Map(accountabilitySchedules.map((schedule) => [schedule.id, schedule]));
+  /* Progress updates carry a subject by id or by bare name. Resolving the id
+     to a name here keeps the presenter free of the workspace's Person list,
+     and a name-only subject already carries the only name it has. */
+  const commitmentsWithNamedSubjects = activeCommitments.map((commitment) => ({
+    ...commitment,
+    updates: commitment.updates.map((update) => ({
+      ...update,
+      subjectPersonNameResolved: update.subjectPersonId ? personNames.get(update.subjectPersonId) ?? null : null,
+    })),
+  }));
   const accountabilityTopics = (commitmentsEnabled
     ? unifiedAccountabilityRows({
-      commitments: activeCommitments,
+      commitments: commitmentsWithNamedSubjects,
       dateValue: dateSortValue,
       /* "Due Sep 6" reads as a date; "Due Sep 6, 2026" reads as paperwork.
          The year only earns its place when the date is not in this one. */
@@ -35320,6 +35486,11 @@ function PersonDetailOverlay({
     })
     : []).map((row) => ({
     ...row,
+    /* One action per row, named for what it actually records. A people target
+       adds a person; a numeric target adds progress; everything else keeps the
+       check-in it has always had. Nobody has to infer that "Check in" is how
+       you record the next man someone started discipling. */
+    actionLabel: row.progressKind === "people" ? "+ Add person" : row.progressKind === "count" ? "+ Add progress" : "Check in",
     onCheckIn: () => {
       if (row.kind === "recurring") {
         const schedule = scheduleById.get(row.sourceId);
@@ -35333,9 +35504,16 @@ function PersonDetailOverlay({
 
       const commitment = commitmentById.get(row.sourceId);
 
-      if (commitment) {
-        onAddCommitmentUpdate(commitment);
+      if (!commitment) {
+        return;
       }
+
+      if (row.progressKind === "people") {
+        onAddCommitmentSubject(commitment);
+        return;
+      }
+
+      onAddCommitmentUpdate(commitment);
     },
   }));
   const personHistoryEntries: PersonHistoryEntry[] = [
@@ -35950,12 +36128,37 @@ function PersonDetailOverlay({
                   </div>
                   <div className="mt-1 divide-y divide-dos-rule">
                     {accountabilityTopics.map((topic) => (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
+                      <div className="flex items-start gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
                         <div className="min-w-0 flex-1">
                           <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
                           {topic.meta ? <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{topic.meta}</p> : null}
+                          {/* Who has been confirmed, one line each and one line
+                              per person however many updates mention them. The
+                              notes themselves stay in the record rather than
+                              filling up an Overview meant to be scanned. */}
+                          {topic.subjects.length ? (
+                            <ul className="mt-2 grid gap-1.5">
+                              {topic.subjects.map((subject) => (
+                                <li key={subject.key}>
+                                  <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
+                                  {subject.startedDate ? (
+                                    <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {/* A people goal reads down the column -- goal,
+                              progress, who so far, then the way to add the
+                              next one -- so the action stays with the list it
+                              extends rather than floating opposite the title. */}
+                          {topic.progressKind === "people" ? (
+                            <button className="mt-2 text-[13px] font-semibold text-dos-blue" onClick={topic.onCheckIn} type="button">
+                              {topic.actionLabel}
+                            </button>
+                          ) : null}
                         </div>
-                        <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
+                        {topic.progressKind === "people" ? null : <PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>}
                       </div>
                     ))}
                     {conceptJourneys.map((journey) => (
@@ -37796,6 +37999,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ...quickAddedPeople.filter((person) => !loadedPersonIds.has(person.id)),
     ];
   }, [data.people, quickAddedPeople]);
+  const personNamesById = useMemo(() => personNameById(people), [people]);
   const groups = useMemo(() => [...data.groups, ...localGroupAdditions.filter((group) => !data.groups.some((loadedGroup) => loadedGroup.id === group.id))].map((group) => {
     const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
     const loadedMemberIds = new Set(overriddenGroup.members.map((member) => member.id));
@@ -39699,6 +39903,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCommitmentSheet({ commitment, kind: "commitment", personId: commitment.personId });
   }
 
+  function openCommitmentSubject(commitment: DosAppPersonCommitment) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment, kind: "subject" });
+  }
+
   function openCommitmentUpdate(commitment: DosAppPersonCommitment) {
     setErrorMessage("");
     setCommitmentNotice(null);
@@ -40270,6 +40480,47 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
+  /* Progress against a people target: one confirmed person, recorded straight
+     onto the Accountability. Deliberately NOT sending progressState -- the API
+     completes a commitment when it receives "completed", and confirming the
+     first of three men must never close the goal. Reaching 3 of 3 does not
+     close it either; that stays an explicit decision. No Fruit is written and
+     no Circle is touched: this is Accountability progress, not evidence of
+     fruit and not a change of relationship. */
+  async function handleCommitmentSubjectSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const subjectPersonId = String(formData.get("subject_person_id") ?? "").trim();
+    const subjectPersonName = String(formData.get("subject_person_name") ?? "").trim();
+
+    if (!subjectPersonId && !subjectPersonName) {
+      setErrorMessage("Choose someone in DOS or enter their name.");
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/commitments/updates",
+      {
+        commitmentId: String(formData.get("commitment_id") ?? ""),
+        date: String(formData.get("date") ?? ""),
+        progressNote: String(formData.get("progress_note") ?? ""),
+        subjectPersonId,
+        subjectPersonName,
+      },
+      "POST",
+      false,
+    ) as { commitment?: DosAppPersonCommitment; update?: DosAppCommitmentUpdate } | null;
+
+    if (result?.update) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({
+        personId: result.commitment?.personId ?? null,
+        text: "Progress saved.",
+        tone: "success",
+      });
+    }
+  }
+
   async function setCommitmentStatus(commitment: DosAppPersonCommitment, status: DosCommitmentStatus) {
     const result = await submitJson(
       "/api/dos/app/commitments",
@@ -40362,12 +40613,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const title = String(formData.get(`${prefix}_title`) ?? "").trim();
     const rawTarget = String(formData.get(`${prefix}_target_count`) ?? "").trim();
     const targetCount = /^\d+$/.test(rawTarget) && Number(rawTarget) > 0 ? Number(rawTarget) : null;
+    /* What the number counts comes from the user's own answer. Without a
+       number there is nothing to count, so the kind is dropped rather than
+       carried along as a claim about a goal that has no target. */
+    const rawKind = String(formData.get(`${prefix}_target_kind`) ?? "").trim();
+    const targetKind = targetCount !== null && isDosCommitmentTargetKind(rawKind) ? rawKind : null;
 
     return frequency === "one_time"
       ? {
         endpoint: "/api/dos/app/commitments",
         kind: "commitment" as const,
-        payload: { targetCount, targetDate: date || null, title },
+        payload: { targetCount, targetDate: date || null, targetKind, title },
         title,
       }
       : {
@@ -44377,8 +44633,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
               reminders={data.reminders}
+              personNames={personNamesById}
               resourceAssignments={selectedPersonResourceAssignments}
             onBack={() => setSelectedPersonId(null)}
+            onAddCommitmentSubject={openCommitmentSubject}
             onAddCommitmentUpdate={openCommitmentUpdate}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
@@ -44835,6 +45093,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSubmit={handleCommitmentSubmit}
             people={people}
             personId={commitmentSheet.personId ?? commitmentSheet.commitment?.personId ?? null}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "subject" ? (
+          <CommitmentSubjectSheet
+            commitment={commitmentSheet.commitment}
+            confirmedCount={commitmentConfirmedSubjectCount(commitmentSheet.commitment.updates)}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handleCommitmentSubjectSubmit}
+            people={people}
           />
         ) : null}
 

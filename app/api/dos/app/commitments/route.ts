@@ -17,9 +17,20 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
   todayDateKey,
 } from "@/src/lib/dos/commitments-accountability-api";
+import { isDosCommitmentTargetKind } from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
-const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, status, completed_date, created_by_user_id, created_at, updated_at";
+const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, target_kind, status, completed_date, created_by_user_id, created_at, updated_at";
+
+/* What the number counts, chosen by the user and never inferred from the
+   title. Anything unrecognised is dropped rather than guessed at, which
+   leaves the Accountability non-measurable instead of wrongly asking who is
+   being discipled. */
+function asOptionalTargetKind(value: unknown) {
+  const raw = typeof value === "string" ? value.trim() : "";
+
+  return isDosCommitmentTargetKind(raw) ? raw : null;
+}
 
 function asOptionalPositiveInteger(value: unknown) {
   const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
@@ -75,6 +86,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Person not found in this workspace." }, { status: 404 });
   }
 
+  const targetCount = asOptionalPositiveInteger(firstDefined(payload.targetCount, payload.target_count));
   const { data, error } = await supabase
     .from("dos_person_commitments")
     .insert({
@@ -87,7 +99,9 @@ export async function POST(request: Request) {
       /* Optional measurable goal, e.g. 3 for "Begin discipling 3 men".
          Omitted or invalid means the commitment is simply not measurable,
          which is the norm and keeps simple goals simple. */
-      target_count: asOptionalPositiveInteger(firstDefined(payload.targetCount, payload.target_count)),
+      target_count: targetCount,
+      /* A kind without a number counts nothing, so it is not stored. */
+      target_kind: targetCount === null ? null : asOptionalTargetKind(firstDefined(payload.targetKind, payload.target_kind)),
       target_date: asNullableDateKey(firstDefined(payload.targetDate, payload.target_date)),
       title,
       workspace_id: workspaceResult.workspaceId,
