@@ -18605,16 +18605,20 @@ function DesktopPeopleIndex({
                   <CircleAvatar index={rowIndex} person={person} size="sm" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[#0F172A]">{person.name}</span>
-                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{relationshipTypePillLabel(person) || "—"}</span>
+                    <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">{relationshipTypePillLabel(person)}</span>
                   </span>
                 </button>
-                <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext) || "—"}</span>
+                <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext)}</span>
                 <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
                 <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
-                <span className="justify-self-center truncate text-center font-semibold text-[#475569]">{formatLoggedTime(tableStats.timeMinutes)}</span>
+                {/* formatLoggedTime returns an em dash for zero, which Meeting
+                    Detail turns into "Duration not logged". In a narrow column
+                    the honest zero is 0m, matching the Meetings and Stories
+                    cells beside it. The shared helper is left alone. */}
+                <span className="justify-self-center truncate text-center font-semibold text-[#475569]">{tableStats.timeMinutes ? formatLoggedTime(tableStats.timeMinutes) : "0m"}</span>
                 <span className="truncate font-black text-[#0F172A]">{storyCount} {storyCount === 1 ? "Story" : "Stories"}</span>
                 <span className="truncate font-semibold text-[#475569]">
-                  {lastTable ? formatRelativeDate(lastTable) : "—"}
+                  {lastTable ? formatRelativeDate(lastTable) : "Not yet"}
                 </span>
               </div>
             );
@@ -33850,7 +33854,10 @@ function MobileFloatingActions({
       ) : null}
       <div className={stackClassName}>
         {isOpen ? (
-          <div className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+          /* Named so the ranked action list can be asserted as a list, rather
+             than by scraping every button on the page that happens to share a
+             label with one of these actions. */
+          <div aria-label="Quick actions" className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl" role="menu">
             {items.map((item, index) => (
               <Fragment key={item.label}>
                 {index > 0 && item.group && item.group !== items[index - 1]?.group ? (

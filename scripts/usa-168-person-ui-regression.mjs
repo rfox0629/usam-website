@@ -77,10 +77,21 @@ async function openNaomi(page) {
   await page.getByRole("button", { name: "Open Preview" }).waitFor({ state: "detached", timeout: 20_000 }).catch(() => {});
   await page.getByText("Naomi Lee", { exact: true }).first().waitFor({ state: "visible", timeout: 60_000 });
 
+  /* At narrow widths Field lives behind More. The sheet animates open, so the
+     control is waited for rather than assumed to exist on the next tick: this
+     was a race that happened to pass while the bundle was smaller. */
   let fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
   if (!fieldControls.length) {
     await clickFirstVisible(page.getByText("More", { exact: true }));
+
+    /* Poll for a VISIBLE match: the desktop sidebar carries a hidden "Field"
+       at this width, so waiting on the first match waits on the wrong one. */
+    const deadline = Date.now() + 20_000;
     fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
+    while (!fieldControls.length && Date.now() < deadline) {
+      await delay(250);
+      fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
+    }
   }
   assert(fieldControls.length, "Field navigation was not available.");
   await fieldControls[0].click();
@@ -129,9 +140,19 @@ async function verifyPersonActions(page, width) {
     "Assign journey",
     "Request feedback",
   ];
-  const visibleActions = await page.evaluate((expected) => [...document.querySelectorAll("button")]
-    .filter((button) => button.getBoundingClientRect().width > 0 && expected.includes(button.textContent.trim()))
-    .map((button) => button.textContent.trim()), rankedActions);
+  /* Scoped to the menu the FAB opens. This used to scrape every visible
+     button on the page whose text matched one of the seven, so an unrelated
+     control elsewhere on the Person carrying the same label -- "Add reminder"
+     beside a requested follow-up, for instance -- silently corrupted the list.
+     Reading the menu itself asserts the thing that matters and cannot be
+     satisfied or broken by anything outside it. */
+  const visibleActions = await page.evaluate(() => {
+    const menu = [...document.querySelectorAll('[role="menu"][aria-label="Quick actions"]')]
+      .find((candidate) => candidate.getBoundingClientRect().width > 0);
+
+    return menu ? [...menu.querySelectorAll("button")].map((button) => button.textContent.trim()) : null;
+  });
+  assert(visibleActions, `${width}px Person FAB did not open its action menu.`);
   assert.deepEqual(visibleActions, rankedActions, `${width}px Person actions are not in the agreed order.`);
   await page.evaluate(() => {
     const button = [...document.querySelectorAll("button")]
