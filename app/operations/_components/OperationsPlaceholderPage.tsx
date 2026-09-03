@@ -8,6 +8,12 @@ const moduleCopy: Record<OperationsModule, {
   note: string;
   title: string;
 }> = {
+  communications: {
+    actionHref: "/operations/communications",
+    actionLabel: "Open Communications",
+    note: "Communications is available at /operations/communications.",
+    title: "Communications",
+  },
   dashboards: {
     note: "Focused operational views will land here after Home, submissions, and onboarding are validated.",
     title: "Dashboards",
