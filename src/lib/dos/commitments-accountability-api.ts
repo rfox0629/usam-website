@@ -11,6 +11,7 @@ import {
   isDosCommitmentProgressState,
   isDosCommitmentStatus,
   isDosCommitmentTargetKind,
+  isMissingCommitmentsSchema,
   normalizeDateKey,
   todayDateKey,
   type DosAccountabilityFrequency,
@@ -25,6 +26,8 @@ type SupabaseQueryError = { message?: string } | null | undefined;
 
 export type DosCommitmentsRequestPayload = Record<string, unknown>;
 export { todayDateKey };
+/* Pure enough to test on its own, and tested there: see the stabilization suite. */
+export { isMissingCommitmentsSchema };
 
 export function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -72,20 +75,6 @@ export function asOptionalWeekday(value: unknown) {
 
 export function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-export function isMissingCommitmentsSchema(error: SupabaseQueryError) {
-  const message = error?.message?.toLowerCase() ?? "";
-
-  return [
-    "dos_workspace_feature_flags",
-    "dos_person_commitments",
-    "dos_commitment_updates",
-    "dos_accountability_schedules",
-    "dos_accountability_check_ins",
-    "dos_accountability_check_in_commitments",
-  ].some((tableName) => message.includes(tableName))
-    || (message.includes("schema cache") && (message.includes("commitment") || message.includes("accountability")));
 }
 
 export function commitmentsSetupResponse() {

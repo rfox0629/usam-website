@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { accountabilityConfirmedSubjects, accountabilityProgressKind, accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
+import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountability.ts";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
@@ -717,11 +718,10 @@ await check("What are you counting is asked only when a target is entered", asyn
   const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
 
   assert(fields.includes("What are you counting?"), "The one canonical form asks what the number counts.");
-  assert(fields.includes("{hasTargetCount ? ("), "The question appears only once a valid number is entered.");
-  assert(
-    fields.includes('const hasTargetCount = /^\\d+$/.test(targetCount.trim()) && Number(targetCount.trim()) > 0;'),
-    "Only a positive whole number counts as a target.",
-  );
+  /* The gate moved from "a number has been typed" to the user's own Yes, so
+     the question is discoverable rather than hidden behind a field. Progressive
+     disclosure itself is asserted in its own check. */
+  assert(fields.includes("{isMeasurable ? ("), "The counting fields appear only after the user says there is a number.");
   assert(fields.includes('{ label: "People", value: "people" as const }'), "People stores the people kind.");
   assert(fields.includes('{ label: "Times", value: "count" as const }'), "Times reads plainly but stores the generic count kind.");
 
@@ -733,9 +733,168 @@ await check("What are you counting is asked only when a target is entered", asyn
 
   // Rows name their own action, so nobody infers that "Check in" adds a person.
   assert(
-    client.includes('row.progressKind === "people" ? "+ Add person" : row.progressKind === "count" ? "+ Add progress" : "Check in"'),
+    client.includes('row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in"'),
     "Each row must name the action it actually performs.",
   );
+});
+
+/* PRODUCTION DEFECT, 2026-09-03. Person -> Accountability -> Add person ->
+   Save answered "Commitments and accountability are not ready yet."
+
+   Two faults, one visible. The API had been relaxed so that naming who was
+   discipled is a complete update, but dos_commitment_updates still carried
+   dos_commitment_updates_note_check demanding a non-empty progress_note, so a
+   subject-only insert was refused. Postgres words that refusal as
+
+     new row for relation "dos_commitment_updates" violates check constraint
+
+   and the missing-schema matcher accepted any message merely CONTAINING one of
+   its table names -- so a rejected row was reported as an unbuilt feature, and
+   the true cause was invisible. The constraint now matches the contract, and
+   the matcher no longer claims a table is missing when the database has simply
+   refused a row. */
+await check("A refused row is never reported as an unbuilt feature", async () => {
+  const constraintViolation = {
+    message: 'new row for relation "dos_commitment_updates" violates check constraint "dos_commitment_updates_note_check"',
+  };
+  assert.equal(isMissingCommitmentsSchema(constraintViolation), false,
+    "The exact production error must reach the user as itself, not as a setup problem.");
+
+  for (const message of [
+    'null value in column "progress_note" of relation "dos_commitment_updates" violates not-null constraint',
+    'insert or update on table "dos_commitment_updates" violates foreign key constraint "dos_commitment_updates_commitment_id_fkey"',
+    'duplicate key value violates unique constraint "dos_person_commitments_pkey"',
+  ]) {
+    assert.equal(isMissingCommitmentsSchema({ message }), false, `A refused row is not missing schema: ${message}`);
+  }
+
+  // Genuinely absent schema must still be recognised, or setup guidance is lost.
+  for (const message of [
+    'relation "public.dos_person_commitments" does not exist',
+    "Could not find the 'subject_person_id' column of 'dos_commitment_updates' in the schema cache",
+    'relation "public.dos_workspace_feature_flags" does not exist',
+  ]) {
+    assert.equal(isMissingCommitmentsSchema({ message }), true, `Missing schema must still be recognised: ${message}`);
+  }
+
+  assert.equal(isMissingCommitmentsSchema({ message: 'relation "public.meeting_reflections" does not exist' }), false,
+    "Another feature's missing table is not this feature's setup problem.");
+  assert.equal(isMissingCommitmentsSchema(null), false, "No error is not a missing table.");
+
+  // The database now enforces exactly what the route enforces.
+  const migration = readFileSync(new URL("../supabase/migrations/20260903180000_usa_168_subject_only_progress_updates.sql", import.meta.url), "utf8");
+  assert(migration.includes("drop constraint if exists dos_commitment_updates_note_check"), "The note-only constraint must be gone.");
+  assert(
+    migration.includes("length(btrim(progress_note)) > 0")
+      && migration.includes("subject_person_id is not null")
+      && migration.includes("length(btrim(coalesce(subject_person_name, ''))) > 0"),
+    "The replacement must accept a note OR a DOS Person OR a name -- the same contract the route applies.",
+  );
+});
+
+/* The Add Person request the browser actually sends must match what the route
+   reads, or the write fails for a reason no test would catch. */
+await check("Add Person sends exactly what the update route reads", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/dos/app/commitments/updates/route.ts", import.meta.url), "utf8");
+
+  const submitStart = client.indexOf("async function handleCommitmentSubjectSubmit(");
+  const submit = client.slice(submitStart, client.indexOf("\n  async function", submitStart + 10));
+
+  assert(submit.includes('"/api/dos/app/commitments/updates"'), "Add Person must post to the deployed updates route.");
+
+  /* The REQUEST BODY, not merely the surrounding function -- a local variable
+     of the same name proves nothing about what is actually sent. */
+  const bodyStart = submit.indexOf('"/api/dos/app/commitments/updates",');
+  const body = submit.slice(submit.indexOf("{", bodyStart), submit.indexOf("\n      },", bodyStart));
+  assert(body.includes("commitmentId"), "The request body must be found before asserting about it.");
+
+  for (const field of ["commitmentId", "date", "progressNote", "subjectPersonId", "subjectPersonName"]) {
+    assert(new RegExp(`(^|[\\s{,])${field}\\s*[,:]`).test(body), `The request body must carry ${field}.`);
+    assert(route.includes(`payload.${field}`), `The route must read ${field} from the payload.`);
+  }
+
+  // The commitment id comes from the sheet's own hidden field, not from ambient state.
+  const sheetStart = client.indexOf("function CommitmentSubjectSheet({");
+  const sheet = client.slice(sheetStart, client.indexOf("\nfunction ", sheetStart + 10));
+  assert(sheet.includes('<input name="commitment_id" type="hidden" value={commitment.id} />'), "The sheet must carry the commitment it was opened on.");
+  assert(submit.includes('String(formData.get("commitment_id") ?? "")'), "The request must send that commitment id.");
+
+  // A name-only save carries no note, which the route and the database now both allow.
+  assert(sheet.includes('name="subject_person_name"'), "A name-only subject must be enterable.");
+  assert(!/name="progress_note"[^>]*required/.test(sheet), "The note must not be required in the markup either.");
+  assert(
+    route.includes("if (!progressNote && !subjectPersonId && !subjectPersonName) {"),
+    "A subject alone is a complete update; nothing at all is still refused.",
+  );
+
+  // Guards stay where they belong.
+  assert(route.includes("authorizeDosCommitmentsWrite()"), "Writes stay behind DOS write authorization.");
+  assert(route.includes("resolveAuthorizedCommitmentsWorkspace("), "Writes stay scoped to an authorized workspace.");
+  assert(route.includes('.eq("workspace_id", workspaceResult.workspaceId)'), "The commitment must belong to that workspace.");
+  assert(route.includes("subjectPersonId === String(commitmentResult.data.person_id)"), "The owner is refused as their own subject.");
+});
+
+/* The measurable question is asked in words, and only after One-time. */
+await check("The number question is progressive, and Recurring never sees it", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const fieldsStart = client.indexOf("function AccountabilityFields({");
+  const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
+
+  // Recurring is untouched: the whole measurable block sits behind One-time.
+  const measurableStart = fields.indexOf("Is there a number you're working toward?");
+  assert(measurableStart !== -1, "The question must be asked in plain words.");
+  assert(fields.slice(0, measurableStart).lastIndexOf("{isOneTime ? (") !== -1, "The question must only appear for One-time.");
+
+  // Default No, and the counting fields stay hidden until Yes.
+  assert(fields.includes("const [isMeasurable, setIsMeasurable] = useState(false);"), "The answer must default to No.");
+  assert(fields.includes("{isMeasurable ? ("), "How many and What are you counting appear only after Yes.");
+  const revealed = fields.slice(fields.indexOf("{isMeasurable ? ("));
+  assert(revealed.includes("How many?"), "Yes reveals How many.");
+  assert(revealed.includes("What are you counting?"), "Yes reveals what the number counts.");
+  assert(revealed.includes('{ label: "People", value: "people" as const }'), "People is offered.");
+  assert(revealed.includes('{ label: "Times", value: "count" as const }'), "Times is offered.");
+
+  /* No database words in anything the user can actually read. Identifiers and
+     form field names are not user-visible and are deliberately not checked;
+     labels, helpers, placeholders and choice text are. */
+  const visibleText = [
+    ...fields.matchAll(/(?:label|helper|placeholder)="([^"]+)"/g),
+    ...fields.matchAll(/label: "([^"]+)"/g),
+  ].map((match) => match[1]);
+  assert(visibleText.length >= 8, "The form's visible copy must actually have been found before asserting about it.");
+  for (const text of visibleText) {
+    assert(!/target_count|target_kind|commitment|schedule|subject/i.test(text), `The form must not say "${text}" to the user.`);
+  }
+});
+
+/* Section-level creation and row-level progress must not look like the same
+   action. "+ Add" in the heading makes a new Accountability; a row's action
+   works on the one that is already there. */
+await check("Creating an Accountability and progressing one look different", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+  const section = personDetail.slice(personDetail.indexOf('aria-label="Accountability"'));
+  const sectionBody = section.slice(0, section.indexOf("</section>"));
+
+  // Exactly one blue creation link, on the heading. Comments and the empty
+  // state may mention it in prose; only real controls are counted.
+  const code = sectionBody.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const blueAddControls = code.match(/text-dos-blue"[^>]*>\s*\+ Add\s*</g) ?? [];
+  assert.equal(blueAddControls.length, 1, "Exactly one blue + Add, and it belongs to the heading.");
+  assert(/onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,120}\+ Add/.test(code), "That + Add creates a new Accountability.");
+
+  // Every row action is the same outlined control, and none is a blue link.
+  assert(sectionBody.includes("<PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>"), "Row actions use the outlined control.");
+  assert(!sectionBody.includes('text-dos-blue" onClick={topic.onCheckIn}'), "A row action must never be a blue text link.");
+  assert(
+    client.includes('row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in"'),
+    "People add a person, counts add progress, ordinary accountability checks in -- and none of them wears a plus.",
+  );
+  assert(!client.includes('"+ Add person"'), "The row action must not be styled or worded as a creation link.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

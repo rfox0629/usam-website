@@ -111,3 +111,42 @@ export function nextAccountabilityCheckInDate(
 
   return keyFromDate(date);
 }
+
+/* "This feature is not set up yet" is a very specific claim, and it was being
+   made about any database error that merely mentioned one of these tables.
+   Postgres names the table in constraint violations too --
+
+     new row for relation "dos_commitment_updates" violates check constraint ...
+
+   -- so a rejected row was reported to the user as missing setup, which sent
+   the reader looking for a migration that was never the problem. A genuinely
+   absent table or column says so in words: it does not exist, it could not be
+   found, it is not in the schema cache. Anything else is a real error and must
+   reach the user as itself. */
+export function isMissingCommitmentsSchema(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  const namesCommitmentsSchema = [
+    "dos_workspace_feature_flags",
+    "dos_person_commitments",
+    "dos_commitment_updates",
+    "dos_accountability_schedules",
+    "dos_accountability_check_ins",
+    "dos_accountability_check_in_commitments",
+  ].some((tableName) => message.includes(tableName))
+    || message.includes("commitment")
+    || message.includes("accountability");
+
+  if (!namesCommitmentsSchema) {
+    return false;
+  }
+
+  // A row the database refused is not a missing table, however it is worded.
+  if (message.includes("violates") || message.includes("constraint")) {
+    return false;
+  }
+
+  return message.includes("does not exist")
+    || message.includes("could not find")
+    || message.includes("schema cache");
+}

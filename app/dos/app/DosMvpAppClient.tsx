@@ -14262,12 +14262,13 @@ function CommitmentSubjectSheet({
             </div>
           ) : (
             <>
-              <DosFormField helper="Search someone already in DOS, or just type their name below." label="Search DOS">
+              {/* Two paths, and the labels are the explanation. */}
+              <DosFormField label="Select from DOS">
                 <input
                   autoFocus
                   className={FieldInputClass(false)}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Start typing a name..."
+                  placeholder="Search people..."
                   type="text"
                   value={query}
                 />
@@ -14286,24 +14287,25 @@ function CommitmentSubjectSheet({
                   ))}
                 </div>
               ) : null}
-              {/* Someone who is not in DOS yet is recorded by name alone. No
-                  Person record is created to hold it, and the name can be
-                  linked to a real Person later without losing this history. */}
-              <DosFormField helper="Use this when they are not in DOS yet." label="Or enter a name">
-                <input className={FieldInputClass(false)} name="subject_person_name" placeholder="Philip" type="text" />
+              <p className="text-center text-[11px] font-black uppercase tracking-[0.16em] text-dos-eyebrow" style={{ fontFamily: font.rajdhani }}>or</p>
+              {/* Someone not in DOS is recorded by name alone. No Person record
+                  is created to hold it, and the name can be linked to a real
+                  Person later without losing this history. */}
+              <DosFormField label="Enter a name">
+                <input className={FieldInputClass(false)} name="subject_person_name" placeholder="Name" type="text" />
               </DosFormField>
             </>
           )}
         </DosFormSection>
-        <DosFormSection icon="log" title="Progress">
-          <DosDateInput defaultValue={todayCommitmentDateKey()} label="Started" name="date" />
-          <DosFormField helper="Optional." label="Note">
-            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="progress_note" placeholder="Meeting Tuesdays before work..." />
-          </DosFormField>
-        </DosFormSection>
+        <DosDateInput defaultValue={todayCommitmentDateKey()} label="Started" name="date" />
+        <DosFormField helper="Optional" label="Note">
+          <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="progress_note" placeholder="Meeting Tuesdays before work..." />
+        </DosFormField>
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="people" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Person"}</AppButton>
+          {/* "Add Person" is the action on this Accountability, not a new DOS
+              Person -- a name-only subject creates no Person record. */}
+          <AppButton disabled={isSubmitting} icon="people" tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Person"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
@@ -14364,6 +14366,14 @@ function CommitmentUpdateSheet({
    Person is not asked for -- both callers already know who this is about.
    Day-of-week is derived from the start date by the API, and recurring
    accountability needs no end date; it runs until it is completed or paused. */
+function AccountabilityChoiceClass(active: boolean) {
+  return `min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+    active
+      ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
+      : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
+  }`;
+}
+
 function AccountabilityFields({
   autoFocus = false,
   defaultFrequency = "weekly",
@@ -14384,7 +14394,7 @@ function AccountabilityFields({
      once a real number is there, so a goal without a target is untouched. */
   const [targetCount, setTargetCount] = useState("");
   const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>("people");
-  const hasTargetCount = /^\d+$/.test(targetCount.trim()) && Number(targetCount.trim()) > 0;
+  const [isMeasurable, setIsMeasurable] = useState(false);
   const isOneTime = frequency === "one_time";
   const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
     { label: "Weekly", value: "weekly" },
@@ -14412,11 +14422,7 @@ function AccountabilityFields({
             return (
               <button
                 aria-pressed={active}
-                className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
-                  active
-                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                    : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
-                }`}
+                className={AccountabilityChoiceClass(active)}
                 key={option.label}
                 onClick={() => setFrequency(option.oneTime ? "one_time" : "weekly")}
                 type="button"
@@ -14436,11 +14442,7 @@ function AccountabilityFields({
               return (
                 <button
                   aria-pressed={active}
-                  className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
-                    active
-                      ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                      : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
-                  }`}
+                  className={AccountabilityChoiceClass(active)}
                   key={option.value}
                   onClick={() => setFrequency(option.value)}
                   type="button"
@@ -14452,30 +14454,44 @@ function AccountabilityFields({
           </div>
         </DosFormField>
       )}
-      <DosDateInput
-        defaultValue={defaultStartDate ?? todayDateValue()}
-        label={isOneTime ? "Due" : "Start"}
-        name={`${namePrefix}_date`}
-      />
-      {/* Measurable goals only, and always optional -- "Read John 4-6 by
-          Friday" needs no number. Filling it in turns the goal into something
-          progress can be counted against, e.g. "Begin discipling 3 men". */}
+      {/* A measurable goal is asked about, not hidden behind a field nobody
+          reads. The question is plain English and answered No by default, so
+          "Read John 4-6 by Friday" is still two taps and a date. */}
       {isOneTime ? (
         <>
-          <DosFormField helper="Optional. Use when the goal is a number, like discipling 3 men." label="How many?">
-            <input
-              className={FieldInputClass(false)}
-              inputMode="numeric"
-              min="1"
-              name={`${namePrefix}_target_count`}
-              onChange={(event) => setTargetCount(event.target.value)}
-              placeholder="e.g. 3"
-              type="number"
-              value={targetCount}
-            />
+          <DosFormField label="Is there a number you're working toward?">
+            <div className="flex flex-wrap gap-2">
+              {[{ label: "No", measurable: false }, { label: "Yes", measurable: true }].map((option) => {
+                const active = option.measurable === isMeasurable;
+
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={AccountabilityChoiceClass(active)}
+                    key={option.label}
+                    onClick={() => setIsMeasurable(option.measurable)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </DosFormField>
-          {hasTargetCount ? (
+          {isMeasurable ? (
             <>
+              <DosFormField label="How many?">
+                <input
+                  className={FieldInputClass(false)}
+                  inputMode="numeric"
+                  min="1"
+                  name={`${namePrefix}_target_count`}
+                  onChange={(event) => setTargetCount(event.target.value)}
+                  placeholder="e.g. 3"
+                  type="number"
+                  value={targetCount}
+                />
+              </DosFormField>
               <input name={`${namePrefix}_target_kind`} type="hidden" value={targetKind} />
               <DosFormField label="What are you counting?">
                 <div className="flex flex-wrap gap-2">
@@ -14488,11 +14504,7 @@ function AccountabilityFields({
                     return (
                       <button
                         aria-pressed={active}
-                        className={`min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
-                          active
-                            ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                            : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
-                        }`}
+                        className={AccountabilityChoiceClass(active)}
                         key={option.value}
                         onClick={() => setTargetKind(option.value)}
                         type="button"
@@ -14507,6 +14519,11 @@ function AccountabilityFields({
           ) : null}
         </>
       ) : null}
+      <DosDateInput
+        defaultValue={defaultStartDate ?? todayDateValue()}
+        label={isOneTime ? "Due" : "Start"}
+        name={`${namePrefix}_date`}
+      />
     </>
   );
 }
@@ -35490,7 +35507,7 @@ function PersonDetailOverlay({
        adds a person; a numeric target adds progress; everything else keeps the
        check-in it has always had. Nobody has to infer that "Check in" is how
        you record the next man someone started discipling. */
-    actionLabel: row.progressKind === "people" ? "+ Add person" : row.progressKind === "count" ? "+ Add progress" : "Check in",
+    actionLabel: row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in",
     onCheckIn: () => {
       if (row.kind === "recurring") {
         const schedule = scheduleById.get(row.sourceId);
@@ -36148,17 +36165,13 @@ function PersonDetailOverlay({
                               ))}
                             </ul>
                           ) : null}
-                          {/* A people goal reads down the column -- goal,
-                              progress, who so far, then the way to add the
-                              next one -- so the action stays with the list it
-                              extends rather than floating opposite the title. */}
-                          {topic.progressKind === "people" ? (
-                            <button className="mt-2 text-[13px] font-semibold text-dos-blue" onClick={topic.onCheckIn} type="button">
-                              {topic.actionLabel}
-                            </button>
-                          ) : null}
                         </div>
-                        {topic.progressKind === "people" ? null : <PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>}
+                        {/* Every row's action is the same outlined control,
+                            whatever it records. The section heading's blue
+                            "+ Add" creates a NEW Accountability; these act on
+                            one that already exists, and the two must not read
+                            as the same kind of thing. */}
+                        <PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>
                       </div>
                     ))}
                     {conceptJourneys.map((journey) => (
