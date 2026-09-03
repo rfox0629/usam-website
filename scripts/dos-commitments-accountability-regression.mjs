@@ -107,7 +107,14 @@ assertIncludes(client, "onClick={topic.onCheckIn}", "person overview offers an a
 assertIncludes(client, 'kind: "check_in"', "accountability check-ins appear in the Person timeline");
 assertNotIncludes(client, "CommitmentsPanel", "the duplicate Accountability panel is gone");
 assertIncludes(client, "CommitmentFormSheet", "commitment creation sheet");
-assertIncludes(client, "CommitmentUpdateSheet", "progress update sheet");
+/* Person V2 replaced the generic progress-update sheet with purpose-built
+   surfaces: a check-in for an ordinary goal or rhythm, Add person for a people
+   target, Add progress for a count target. The capability is asserted by what
+   the Person now opens, not by the retired component name. */
+assertIncludes(client, "function PersonAccountabilityCheckInSheet(", "purpose-built check-in sheet");
+assertIncludes(client, "function PersonAccountabilityProgressSheet(", "purpose-built progress sheet");
+assertIncludes(client, "function CommitmentSubjectSheet(", "purpose-built add person sheet");
+assertNotIncludes(client, "CommitmentUpdateSheet", "the generic progress update sheet is gone");
 assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
 assertIncludes(client, 'type="submit"', "commitment sheets use native form submission");
 assertIncludes(client, "new FormData(event.currentTarget)", "commitment handlers read one submitted form");

@@ -547,10 +547,18 @@ await check("Every Person V2 Accountability entry point opens the one canonical 
 
   // Door 3: Log Meeting's inline Accountability, which is the same field set
   // the sheet renders -- not a second form that happens to look similar.
+  /* Three renderers now, all the same component: the Add sheet, Log Meeting
+     inline, and Edit. Editing deliberately reuses the canonical field set
+     rather than being a second form that can drift from it. */
   assert.equal(
     (client.match(/<AccountabilityFields/g) ?? []).length,
-    2,
-    "Exactly two places render Accountability fields: the sheet and Log Meeting inline.",
+    3,
+    "Add, Log Meeting and Edit all render the one canonical field set.",
+  );
+  const editSheet = client.slice(client.indexOf("function PersonAccountabilityEditSheet("));
+  assert(
+    editSheet.slice(0, editSheet.indexOf("\nfunction ")).includes("<AccountabilityFields"),
+    "Editing must not introduce a second Accountability form.",
   );
   const logMeetingSection = client.slice(client.indexOf("function MeetingLeaderReflectionSection("));
   assert(
@@ -848,7 +856,10 @@ await check("The number question is progressive, and Recurring never sees it", a
   assert(fields.slice(0, measurableStart).lastIndexOf("{isOneTime ? (") !== -1, "The question must only appear for One-time.");
 
   // Default No, and the counting fields stay hidden until Yes.
-  assert(fields.includes("const [isMeasurable, setIsMeasurable] = useState(false);"), "The answer must default to No.");
+  /* Defaults to No for a new Accountability, and to what the goal already is
+     when the same form is reused to edit one. */
+  assert(fields.includes("useState(Boolean(defaultTargetCount))"), "The answer follows the record, and a new one has no target.");
+  assert(fields.includes('defaultTargetCount = ""'), "A new Accountability starts with no number, so the question answers No.");
   assert(fields.includes("{isMeasurable ? ("), "How many and What are you counting appear only after Yes.");
   const revealed = fields.slice(fields.indexOf("{isMeasurable ? ("));
   assert(revealed.includes("How many?"), "Yes reveals How many.");
@@ -888,14 +899,16 @@ await check("Creating an Accountability and progressing one look different", asy
   assert.equal(blueAddControls.length, 1, "Exactly one blue + Add, and it belongs to the heading.");
   assert(/onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,120}\+ Add/.test(code), "That + Add creates a new Accountability.");
 
-  // Every row action is the same outlined control, and none is a blue link.
-  assert(sectionBody.includes("<PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>"), "Row actions use the outlined control.");
-  assert(!sectionBody.includes('text-dos-blue" onClick={topic.onCheckIn}'), "A row action must never be a blue text link.");
+  /* Row actions moved inside the record. The Overview row is now the doorway
+     to the Accountability itself, so the action that fits it lives in its
+     detail sheet rather than on a surface meant to be scanned. */
+  assert(sectionBody.includes("<PersonRecordRow"), "A row opens its record.");
+  assert(!sectionBody.includes("topic.actionLabel"), "The Overview no longer carries per-record actions.");
   assert(
     client.includes('row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in"'),
-    "People add a person, counts add progress, ordinary accountability checks in -- and none of them wears a plus.",
+    "People add a person, counts add progress, ordinary accountability checks in.",
   );
-  assert(!client.includes('"+ Add person"'), "The row action must not be styled or worded as a creation link.");
+  assert(!client.includes('"+ Add person"'), "A progress action must never be worded as a creation link.");
 });
 
 /* QUICK REVIEW V2. The question is "after meeting with me, what did this
@@ -1121,15 +1134,20 @@ await check("Fruit and Feedback are separate everywhere on the Person", async ()
   const fruitBody = fruitSection.slice(0, fruitSection.indexOf("\n  };"));
   assert(!fruitBody.includes("Reviews &amp; testimonies"), "Fruit must not link to reviews and testimonies.");
   assert(!fruitBody.includes("testimonyCount") && !fruitBody.includes("reviewCount"), "Fruit must not count what people reported.");
-  assert(fruitBody.includes("setIsPersonFruitOpen(true)"), "Fruit's own View all opens Fruit.");
+  /* Fruit records are now rows you open directly, so the section no longer
+     needs its own navigation action at all. */
+  assert(fruitBody.includes("<PersonRecordRow"), "A Fruit record opens itself.");
+  assert(fruitBody.includes("setSelectedOutcomeEntry(entry)"), "And opens the purpose-built Fruit detail.");
 
   // Feedback is its own section, present even when empty.
   assert(personDetail.includes('aria-label="Feedback"'), "Feedback is its own Overview section.");
   const feedback = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
   const feedbackBody = feedback.slice(0, feedback.indexOf("</section>"));
-  assert(feedbackBody.includes("Nothing yet. Use Request feedback after a meeting."), "It keeps a restrained empty state.");
+  assert(feedbackBody.includes("No feedback yet."), "It keeps a restrained empty state, worded like the others.");
   assert(feedbackBody.includes("Follow-up requested"), "A follow-up request is plainly visible.");
-  assert(feedbackBody.includes("onAddFollowUpReminder"), "And offers the canonical Reminder form.");
+  /* Add reminder moved into the record's own detail, where the rest of that
+     review's actions are. */
+  assert(client.includes("onAddFollowUpReminder"), "A requested follow-up still offers the canonical Reminder form.");
 
   // The deep sheet is Feedback, and holds no Fruit.
   const sheet = client.slice(client.indexOf("{isFruitReviewsOpen ? ("), client.indexOf("{isCircleReviewOpen && visibleCircleSuggestion ? ("));
@@ -1272,8 +1290,13 @@ await check("Person Prayer opens their requests, not the resource library", asyn
 
   assert(!personDetail.includes("primaryPrayer.onOpen ?? onOpenPrayerResources"),
     "Open must not fall through to Prayer Resources when a request has no meeting behind it.");
-  assert(personDetail.includes("<PDButton onClick={() => setIsPersonPrayerOpen(true)}>Open</PDButton>"),
-    "Open shows this Person's prayer.");
+  /* The record is now the doorway, and it opens this Person's prayer rather
+     than the resource library. */
+  const prayerSection = personDetail.slice(personDetail.indexOf('aria-label="Prayer"'));
+  const prayerSectionBody = prayerSection.slice(0, prayerSection.indexOf("</section>"));
+  assert(prayerSectionBody.includes("onOpen={() => setIsPersonPrayerOpen(true)}"), "A prayer record opens this Person's prayer.");
+  assert(/onClick=\{onAddPrayerRequest\}[\s\S]{0,140}\+ Add/.test(prayerSectionBody), "The section action creates another request.");
+  assert(!prayerSectionBody.includes("onOpenPrayerResources"), "The card must not route to the resource library.");
   assert(personDetail.includes("<PersonPrayerSheet"), "That sheet exists and is mounted.");
 
   const prayerSheet = client.slice(client.indexOf("function PersonPrayerSheet("));
@@ -1296,12 +1319,18 @@ await check("Person Overview cards carry a visible action, not an invisible one"
 
   const fruit = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));
   const fruitBody = fruit.slice(0, fruit.indexOf("\n  };"));
-  assert(fruitBody.includes("<PDButton onClick={() => setIsPersonFruitOpen(true)}>Open</PDButton>"), "Fruit has an explicit Open.");
+  /* Fruit records open themselves, so the section carries no action at all:
+     observed fruit is captured while logging a meeting, never typed in here. */
+  assert(fruitBody.includes("<PersonRecordRow"), "A Fruit record is a row you open.");
+  assert(!fruitBody.includes("+ Add"), "Fruit offers no manual creation.");
 
   const feedback = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
   const feedbackBody = feedback.slice(0, feedback.indexOf("</section>"));
-  assert(feedbackBody.includes("<PDButton onClick={() => setIsFruitReviewsOpen(true)}>View</PDButton>"), "Feedback has one explicit View.");
-  assert.equal((feedbackBody.match(/View all/g) ?? []).length, 0, "And only one navigation action on that small card.");
+  /* The record is the doorway and Request is the section action, so there is
+     no separate View button competing with either. */
+  assert(feedbackBody.includes("<PersonRecordRow"), "A feedback record opens itself.");
+  assert.equal((feedbackBody.match(/View all/g) ?? []).length, 0, "No competing navigation on that small card.");
+  assert(feedbackBody.includes("Request"), "The section action requests more feedback.");
 
   /* No em dashes anywhere a Person can read. The regex that strips a session
      prefix matches input and is not copy. */
@@ -1310,6 +1339,149 @@ await check("Person Overview cards carry a visible action, not an invisible one"
     if (line.includes("\u2014") && !line.includes(".replace(")) {
       throw new Error(`Person copy contains an em dash: ${line.trim().slice(0, 90)}`);
     }
+  }
+});
+
+/* One interaction model on the Person: the section heading creates, the record
+   opens itself, and the actions live inside the record. */
+await check("Person Overview is one interaction system: section creates, record opens", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  // Section-level actions, each semantically right for its category.
+  const section = (label) => {
+    const start = personDetail.indexOf(`aria-label="${label}"`);
+    return start === -1 ? "" : personDetail.slice(start, personDetail.indexOf("</section>", start));
+  };
+  assert(/onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,140}\+ Add/.test(section("Accountability")), "Accountability creates a new one.");
+  assert(/onClick=\{onAddPrayerRequest\}[\s\S]{0,140}\+ Add/.test(section("Prayer")), "Prayer creates a request, not a resource lookup.");
+  assert(/setIsFeedbackChoiceOpen\(true\)[\s\S]{0,140}Request/.test(section("Feedback")), "Feedback is requested through the canonical selector.");
+
+  // Fruit is observed during an interaction, so it has no create action.
+  const fruit = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));
+  const fruitBody = fruit.slice(0, fruit.indexOf("\n  };"));
+  assert(!fruitBody.includes("+ Add"), "Fruit must not offer manual creation.");
+
+  // Records are the doorway, with a visible affordance rather than hover.
+  assert(client.includes("function PersonRecordRow("), "There is one record row.");
+  const row = client.slice(client.indexOf("function PersonRecordRow("));
+  const rowBody = row.slice(0, row.indexOf("\nfunction "));
+  assert(rowBody.includes("<ChevronRight"), "A record row shows that it opens.");
+  for (const surface of ["Accountability", "Prayer", "Feedback"]) {
+    assert(section(surface).includes("<PersonRecordRow"), `${surface} records are rows you open.`);
+  }
+  assert(fruitBody.includes("<PersonRecordRow"), "Fruit records are rows you open.");
+
+  // The Overview stops carrying per-record action buttons.
+  assert(!section("Accountability").includes("topic.actionLabel"), "Row actions moved into the record.");
+
+  // Consistent, restrained empty states.
+  for (const empty of ["Nothing they are working on yet.", "No prayer requests yet.", "No feedback yet.", "No fruit recorded yet."]) {
+    assert(personDetail.includes(empty), `Empty state missing: ${empty}`);
+  }
+});
+
+/* The Accountability record itself, with the action that fits it. */
+await check("Accountability opens as a record, and can be edited", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  assert(client.includes("function PersonAccountabilityDetailSheet("), "The record has its own sheet.");
+  const detail = client.slice(client.indexOf("function PersonAccountabilityDetailSheet("));
+  const detailBody = detail.slice(0, detail.indexOf("\nfunction "));
+  assert(detailBody.includes('progressKind === "people" && onAddPerson'), "A people target adds a person.");
+  assert(detailBody.includes('progressKind === "count" && onAddProgress'), "A count target adds progress.");
+  assert(detailBody.includes('progressKind === "check_in" && onCheckIn'), "Everything else checks in.");
+  assert(detailBody.includes("Recent check-ins") && detailBody.includes("Recent progress"), "It shows what has happened.");
+
+  /* Journey follow-ups are written by DOS. Offering Edit would let someone
+     rewrite a record they did not create. */
+  assert(detailBody.includes("onEdit && !isSystemGenerated"), "System-generated records are not editable here.");
+  assert(client.includes("isSystemGenerated={Boolean(schedule && parseResourceAssignmentFollowUpScheduleTitle(schedule.title))}"),
+    "A Journey follow-up is recognised as system-generated.");
+
+  // Editing reuses the one canonical field set, prepopulated.
+  assert(client.includes("function PersonAccountabilityEditSheet("), "Editing has a sheet.");
+  const edit = client.slice(client.indexOf("function PersonAccountabilityEditSheet("));
+  const editBody = edit.slice(0, edit.indexOf("\nfunction "));
+  assert(editBody.includes("<AccountabilityFields"), "It reuses the canonical form, not a second one.");
+  assert(editBody.includes("defaultTitle={commitment.title}") && editBody.includes("defaultTargetCount="), "Values prepopulate.");
+  assert(editBody.includes("lockType"), "Editing cannot turn a goal into a rhythm, which would move it between records.");
+  assert(editBody.includes('name="commitment_id"'), "It edits the record rather than creating another.");
+
+  // Editing changes the goal, never its progress.
+  const handler = client.slice(client.indexOf("async function handlePersonAccountabilityEditSubmit("));
+  const handlerBody = handler.slice(0, handler.indexOf("\n  function "));
+  assert(handlerBody.includes('"PATCH"'), "It updates in place.");
+  for (const field of ["progressNote", "subjectPersonId", "meetings", "fruit"]) {
+    assert(!handlerBody.includes(field), `Editing must not touch ${field}.`);
+  }
+});
+
+/* Progress recorded against an existing goal cannot be reinterpreted by an
+   edit, and the route is the thing that enforces it. */
+await check("Editing a target cannot strand progress already recorded", async () => {
+  const route = readFileSync(new URL("../app/api/dos/app/commitments/route.ts", import.meta.url), "utf8");
+
+  assert(route.includes("updates.target_count = nextCount;"), "The target is editable.");
+  assert(route.includes("updates.target_kind = nextKind;"), "What it counts is editable.");
+  assert(route.includes("commitmentConfirmedSubjectCount("), "Confirmed people are counted from the stored rows, not from the form.");
+  assert(
+    route.includes("confirmedSubjects > nextCount"),
+    "A target cannot drop below the people already confirmed.",
+  );
+  assert(
+    route.includes('existingKind === "people" && nextKind !== "people" && confirmedSubjects > 0'),
+    "People progress cannot be reinterpreted as a generic count.",
+  );
+  assert(
+    route.includes("nextCount === null && confirmedSubjects > 0"),
+    "A goal with confirmed people cannot stop being measurable.",
+  );
+  assert(route.includes("Choose a target of"), "The refusal says what to do instead.");
+});
+
+/* Accountability is not a meeting. */
+await check("Person check-in is small, canonical, and writes no meeting", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  assert(client.includes("function PersonAccountabilityCheckInSheet("), "Check-in has its own sheet.");
+  const sheet = client.slice(client.indexOf("function PersonAccountabilityCheckInSheet("));
+  const sheetBody = sheet.slice(0, sheet.indexOf("\nfunction "));
+
+  /* Everything the legacy Log Check-In asked for that belongs to another
+     canonical workflow, or to Add Accountability. */
+  for (const legacy of ["Duration", "General Update", "Wins", "Struggles", "Prayer Needs", "New Accountability", "Category", "Description", "No state"]) {
+    assert(!sheetBody.includes(legacy), `Check-in must not ask for ${legacy}.`);
+  }
+  assert(sheetBody.includes("How&apos;s it going?"), "It asks the one question.");
+  /* The two states live in one const beside the sheet, so both the sheet and
+     anything else that offers them stay in step. */
+  const states = client.slice(client.indexOf("const accountabilityCheckInStates = ["));
+  const statesBody = states.slice(0, states.indexOf("] as const;"));
+  assert(statesBody.includes('label: "Going well", value: "going_well"'), "Going well maps to the stored state that means it.");
+  assert(statesBody.includes('label: "Needs attention", value: "struggling"'), "Needs attention maps to struggling, without exposing that word.");
+  /* Done finishes a one-time goal. A rhythm has no done: ending it is Pause. */
+  assert(sheetBody.includes("const canComplete = Boolean(commitment) && !schedule;"), "Done is offered only where it means something.");
+
+  // Person V2 is off the legacy sheet, which still serves the Dashboard.
+  assert(!personDetail.includes("LogCheckInSheet"), "The Person never opens the legacy form.");
+  assert(client.includes("function LogCheckInSheet("), "The legacy form stays for the Dashboard.");
+  assert(client.includes("onLogAccountabilityCheckIn={openAccountabilityCheckInForSchedule}"), "And the Dashboard still uses it.");
+
+  // Direct progress writes progress, and nothing else.
+  const handler = client.slice(client.indexOf("async function handlePersonAccountabilityCheckInSubmit("));
+  const handlerBody = handler.slice(0, handler.indexOf("\n  async function "));
+  assert(handlerBody.includes('"/api/dos/app/accountability/check-ins"'), "A rhythm records a check-in and rolls forward.");
+  assert(handlerBody.includes('"/api/dos/app/commitments/updates"'), "A goal records progress.");
+  for (const forbidden of ["/api/dos/app/meetings", "fruit", "reminders", "prayer-requests", "circles"]) {
+    assert(!handlerBody.includes(forbidden), `Checking in must not write ${forbidden}.`);
   }
 });
 

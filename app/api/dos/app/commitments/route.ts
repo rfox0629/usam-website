@@ -17,6 +17,7 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
   todayDateKey,
 } from "@/src/lib/dos/commitments-accountability-api";
+import { commitmentConfirmedSubjectCount } from "@/src/lib/dos/accountability-presentation";
 import { isDosCommitmentTargetKind } from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
@@ -157,7 +158,7 @@ export async function PATCH(request: Request) {
 
   const existingResult = await supabase
     .from("dos_person_commitments")
-    .select("id, status")
+    .select("id, status, target_count, target_kind")
     .eq("id", commitmentId)
     .eq("workspace_id", workspaceResult.workspaceId)
     .maybeSingle();
@@ -197,6 +198,67 @@ export async function PATCH(request: Request) {
 
   if (payload.targetDate !== undefined || payload.target_date !== undefined) {
     updates.target_date = asNullableDateKey(firstDefined(payload.targetDate, payload.target_date));
+  }
+
+  /* Editing the goal must never reinterpret or strand the progress already
+     recorded against it, so both target fields are validated against what is
+     actually stored rather than trusted from the form. */
+  const existingKind = typeof existingResult.data.target_kind === "string" ? existingResult.data.target_kind : null;
+  let confirmedSubjects = 0;
+
+  if (existingKind === "people") {
+    const subjectsResult = await supabase
+      .from("dos_commitment_updates")
+      .select("subject_person_id, subject_person_name")
+      .eq("commitment_id", commitmentId)
+      .eq("workspace_id", workspaceResult.workspaceId);
+
+    if (subjectsResult.error) {
+      if (isMissingCommitmentsSchema(subjectsResult.error)) {
+        return commitmentsSetupResponse();
+      }
+
+      return NextResponse.json({ error: subjectsResult.error.message }, { status: 500 });
+    }
+
+    confirmedSubjects = commitmentConfirmedSubjectCount((subjectsResult.data ?? []).map((row) => ({
+      subjectPersonId: row.subject_person_id as string | null,
+      subjectPersonName: row.subject_person_name as string | null,
+    })));
+  }
+
+  if (payload.targetKind !== undefined || payload.target_kind !== undefined) {
+    const nextKind = asOptionalTargetKind(firstDefined(payload.targetKind, payload.target_kind));
+
+    if (existingKind === "people" && nextKind !== "people" && confirmedSubjects > 0) {
+      return NextResponse.json({
+        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed. Keep counting people, or start a new Accountability.`,
+      }, { status: 400 });
+    }
+
+    updates.target_kind = nextKind;
+  }
+
+  if (payload.targetCount !== undefined || payload.target_count !== undefined) {
+    const nextCount = asOptionalPositiveInteger(firstDefined(payload.targetCount, payload.target_count));
+
+    if (nextCount !== null && confirmedSubjects > nextCount) {
+      return NextResponse.json({
+        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed. Choose a target of ${confirmedSubjects} or more.`,
+      }, { status: 400 });
+    }
+
+    if (nextCount === null && confirmedSubjects > 0) {
+      return NextResponse.json({
+        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed, so this goal still needs a number.`,
+      }, { status: 400 });
+    }
+
+    updates.target_count = nextCount;
+    /* A goal that stops being measurable stops counting anything. */
+    if (nextCount === null) {
+      updates.target_kind = null;
+    }
   }
 
   if (nextStatus) {

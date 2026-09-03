@@ -89,7 +89,16 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
-import { commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "@/src/lib/dos/accountability-presentation";
+import {
+  accountabilityConfirmedSubjects,
+  accountabilityFrequencyLabels,
+  accountabilityProgressKind,
+  accountabilityProgressLabel,
+  commitmentConfirmedSubjectCount,
+  unifiedAccountabilityRows,
+  type AccountabilityConfirmedSubject,
+  type AccountabilityProgressKind,
+} from "@/src/lib/dos/accountability-presentation";
 import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
@@ -1122,6 +1131,12 @@ type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
   | { commitment: DosAppPersonCommitment; kind: "subject" }
+  /* Person V2 only. The Dashboard keeps the legacy "check_in" sheet, which is
+     still the right surface there. */
+  | { commitment?: DosAppPersonCommitment | null; kind: "person_check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
+  | { commitment?: DosAppPersonCommitment | null; kind: "person_record"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
+  | { commitment: DosAppPersonCommitment; kind: "person_edit" }
+  | { commitment: DosAppPersonCommitment; kind: "person_progress" }
   | { kind: "schedule"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | { kind: "check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | null;
@@ -14211,6 +14226,248 @@ function CommitmentFormSheet({
    name. Either an existing DOS Person is chosen, or a name is typed. The
    Accountability's owner is never offered: John cannot be one of the three men
    John is discipling. */
+/* Person V2 Accountability progress.
+
+   "Check in" used to open the legacy Log Check-In: date, duration, general
+   update, wins, struggles, prayer needs, follow-up, an Accountability
+   Discussed picker, a progress-state select whose empty option read "No
+   state", and a form for creating a second Accountability from inside it. That
+   is a meeting write-up, and DOS already has Log Meeting. Prayer needs belong
+   to Prayer, follow-up belongs to Reminder.
+
+   Accountability answers one question: how is this going? The legacy sheet
+   stays where the Dashboard still uses it. */
+
+const accountabilityCheckInStates = [
+  { label: "Going well", value: "going_well" as const },
+  { label: "Needs attention", value: "struggling" as const },
+] as const;
+
+/* The Accountability itself, not one of the things you can do to it. Tapping a
+   record used to jump straight into a progress form, which meant there was no
+   way to look at a goal, see how it was going, or change it. */
+function PersonAccountabilityDetailSheet({
+  confirmedSubjects,
+  isSystemGenerated,
+  meta,
+  onAddPerson,
+  onAddProgress,
+  onCheckIn,
+  onClose,
+  onEdit,
+  progressKind,
+  recentProgress,
+  title,
+}: {
+  confirmedSubjects: AccountabilityConfirmedSubject[];
+  isSystemGenerated: boolean;
+  meta: string;
+  onAddPerson?: () => void;
+  onAddProgress?: () => void;
+  onCheckIn?: () => void;
+  onClose: () => void;
+  onEdit?: () => void;
+  progressKind: AccountabilityProgressKind;
+  recentProgress: Array<{ date: string | null; id: string; text: string }>;
+  title: string;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Accountability">
+      <div className="grid gap-3.5">
+        <div>
+          <p className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{title}</p>
+          {meta ? <p className="mt-0.5 text-[13.5px] font-semibold text-dos-secondary">{meta}</p> : null}
+        </div>
+
+        {progressKind === "people" && confirmedSubjects.length ? (
+          <ul className="grid gap-2 border-t border-dos-rule pt-3">
+            {confirmedSubjects.map((subject) => (
+              <li key={subject.key}>
+                <span className="block text-[15px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
+                {subject.startedDate ? (
+                  <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2 border-t border-dos-rule pt-3">
+          {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
+          {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
+          {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
+          {/* System-generated Journey follow-ups keep their own semantics and
+              are not editable as though someone had written them. */}
+          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+        </div>
+
+        {recentProgress.length ? (
+          <div className="border-t border-dos-rule pt-3">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">
+              {progressKind === "check_in" ? "Recent check-ins" : "Recent progress"}
+            </p>
+            <div className="mt-1 divide-y divide-dos-rule">
+              {recentProgress.map((entry) => (
+                <div className="py-2.5" key={entry.id}>
+                  <p className="text-[14.5px] leading-[1.45] text-dos-primary">{entry.text}</p>
+                  {entry.date ? <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">{formatShortDate(entry.date)}</p> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
+/* Editing reuses the one canonical Accountability field set, prepopulated. A
+   goal could be progressed but never changed, so a target set to the wrong
+   number stayed wrong. */
+function PersonAccountabilityEditSheet({
+  commitment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  commitment: DosAppPersonCommitment;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Edit Accountability">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <input name="commitment_id" type="hidden" value={commitment.id} />
+        <DosFormSection icon="commitment" title="Accountability">
+          <AccountabilityFields
+            defaultFrequency="one_time"
+            defaultStartDate={commitment.targetDate ?? undefined}
+            defaultTargetCount={commitment.targetCount ? String(commitment.targetCount) : ""}
+            defaultTargetKind={commitment.targetKind ?? "people"}
+            defaultTitle={commitment.title}
+            lockType
+            namePrefix="accountability"
+          />
+        </DosFormSection>
+        {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="commitment" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Accountability"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function PersonAccountabilityCheckInSheet({
+  commitment,
+  errorMessage,
+  isSubmitting,
+  meta,
+  onClose,
+  onSubmit,
+  schedule,
+  title,
+}: {
+  commitment?: DosAppPersonCommitment | null;
+  errorMessage: string;
+  isSubmitting: boolean;
+  meta: string;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  schedule?: DosAppAccountabilitySchedule | null;
+  title: string;
+}) {
+  /* Done finishes a one-time goal, which the model supports directly. A
+     recurring rhythm has no "done": finishing it would end the rhythm, which
+     is what Pause is for, so it is not offered here. */
+  const canComplete = Boolean(commitment) && !schedule;
+  const [state, setState] = useState<string>("going_well");
+  const states = canComplete
+    ? [...accountabilityCheckInStates, { label: "Done", value: "completed" as const }]
+    : accountabilityCheckInStates;
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Check in">
+      <form className="grid gap-3.5" onSubmit={onSubmit}>
+        <input name="progress_state" type="hidden" value={state} />
+        <div>
+          <p className="text-[17px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{title}</p>
+          {meta ? <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{meta}</p> : null}
+        </div>
+        <div className="border-t border-dos-rule pt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">How&apos;s it going?</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {states.map((option) => (
+              <button
+                aria-pressed={state === option.value}
+                className={AccountabilityChoiceClass(state === option.value)}
+                key={option.value}
+                onClick={() => setState(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-dos-rule pt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Note</p>
+          <VoiceTextarea className={`${FieldTextareaClass(false)} mt-1.5 min-h-[52px]`} name="note" placeholder="Optional" />
+        </div>
+        {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+/* A numeric goal that counts occurrences. One save is one occurrence, which is
+   exactly what the model stores, so there is no "how many more" field to fill
+   in wrongly. */
+function PersonAccountabilityProgressSheet({
+  commitment,
+  errorMessage,
+  isSubmitting,
+  onClose,
+  onSubmit,
+}: {
+  commitment: DosAppPersonCommitment;
+  errorMessage: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title="Add progress">
+      <form className="grid gap-3.5" onSubmit={onSubmit}>
+        <input name="commitment_id" type="hidden" value={commitment.id} />
+        <div>
+          <p className="text-[17px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{commitment.title}</p>
+          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
+            {commitment.updates.length} of {commitment.targetCount}
+          </p>
+        </div>
+        <div className="border-t border-dos-rule pt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Note</p>
+          <VoiceTextarea className={`${FieldTextareaClass(false)} mt-1.5 min-h-[52px]`} name="note" placeholder="Optional" />
+        </div>
+        {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
+        <div className="grid gap-2">
+          <AppButton disabled={isSubmitting} icon="add" tone="black" type="submit">{isSubmitting ? "Saving..." : "Add Progress"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 function CommitmentSubjectSheet({
   commitment,
   confirmedCount,
@@ -14313,59 +14570,6 @@ function CommitmentSubjectSheet({
   );
 }
 
-function CommitmentUpdateSheet({
-  commitment,
-  errorMessage,
-  isSubmitting,
-  onClose,
-  onSubmit,
-}: {
-  commitment: DosAppPersonCommitment;
-  errorMessage: string;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Add Update">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        <input name="commitment_id" type="hidden" value={commitment.id} />
-        <div className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
-          <p className="text-sm font-black text-[#0F172A]">{commitment.title}</p>
-          <p className="mt-1 text-xs font-semibold text-[#64748B]">Assigned {formatDate(commitment.assignedDate)}</p>
-        </div>
-        <DosFormSection icon="log" title="Progress">
-          <DosFormField label="Date">
-            <input className={FieldInputClass(false)} defaultValue={todayCommitmentDateKey()} name="date" type="date" />
-          </DosFormField>
-          <DosFormField label="Progress note">
-            <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="progress_note" required />
-          </DosFormField>
-          <DosFormField label="Progress state">
-            <select className={FieldSelectClass(false)} defaultValue="" name="progress_state">
-              <option value="">None</option>
-              {dosCommitmentProgressStates.map((state) => (
-                <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
-              ))}
-            </select>
-          </DosFormField>
-        </DosFormSection>
-        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
-        <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="add" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Update"}</AppButton>
-          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
-        </div>
-      </form>
-    </Sheet>
-  );
-}
-
-/* The one Accountability field set. Log Meeting renders it inline and the
-   Person sheet wraps it, so there is a single component and a single data
-   contract: title, frequency, and a date whose meaning follows the type.
-   Person is not asked for -- both callers already know who this is about.
-   Day-of-week is derived from the start date by the API, and recurring
-   accountability needs no end date; it runs until it is completed or paused. */
 function AccountabilityChoiceClass(active: boolean) {
   return `min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
     active
@@ -14378,13 +14582,21 @@ function AccountabilityFields({
   autoFocus = false,
   defaultFrequency = "weekly",
   defaultStartDate,
+  defaultTargetCount = "",
+  defaultTargetKind = "people",
   defaultTitle = "",
+  lockType = false,
   namePrefix,
 }: {
   autoFocus?: boolean;
   defaultFrequency?: DosAccountabilityFrequency;
   defaultStartDate?: string;
+  defaultTargetCount?: string;
+  defaultTargetKind?: DosCommitmentTargetKind;
   defaultTitle?: string;
+  /* Editing keeps a goal a goal. Switching an existing one-time goal to a
+     recurring rhythm would move it between two different records. */
+  lockType?: boolean;
   namePrefix: string;
 }) {
   const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency);
@@ -14392,9 +14604,9 @@ function AccountabilityFields({
      and "Read the Bible 3 times this week" are the same number, and only one
      of them should ever ask who is being discipled. The question appears only
      once a real number is there, so a goal without a target is untouched. */
-  const [targetCount, setTargetCount] = useState("");
-  const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>("people");
-  const [isMeasurable, setIsMeasurable] = useState(false);
+  const [targetCount, setTargetCount] = useState(defaultTargetCount);
+  const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>(defaultTargetKind);
+  const [isMeasurable, setIsMeasurable] = useState(Boolean(defaultTargetCount));
   const isOneTime = frequency === "one_time";
   const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
     { label: "Weekly", value: "weekly" },
@@ -14414,6 +14626,7 @@ function AccountabilityFields({
           placeholder="Read John 4-6, Quiet time with God..."
         />
       </DosFormField>
+      {lockType ? null : (
       <DosFormField label="Type">
         <div className="flex flex-wrap gap-2">
           {[{ label: "Recurring", oneTime: false }, { label: "One-time", oneTime: true }].map((option) => {
@@ -14433,6 +14646,7 @@ function AccountabilityFields({
           })}
         </div>
       </DosFormField>
+      )}
       {isOneTime ? null : (
         <DosFormField label="Frequency">
           <div className="flex flex-wrap gap-2">
@@ -14645,7 +14859,7 @@ function LogCheckInSheet({
                   <div className="mt-3 grid gap-2">
                     <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name={`commitment_note_${commitment.id}`} placeholder="Progress note" />
                     <select className={FieldSelectClass(false)} defaultValue="" name={`commitment_state_${commitment.id}`}>
-                      <option value="">No state</option>
+                      <option value="">Not set</option>
                       {dosCommitmentProgressStates.map((state) => (
                         <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
                       ))}
@@ -35218,6 +35432,30 @@ function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
 
    These three answer the question the concept is actually about. */
 
+/* SECTION -> RECORD -> ACTION. A record row opens that record; the section
+   heading creates a new one. Rows used to carry their own action button, which
+   put "Check in", "Add person" and "Add progress" on a surface meant to be
+   scanned and left no way to open the goal itself. */
+function PersonRecordRow({
+  children,
+  onOpen,
+}: {
+  children: ReactNode;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      className="flex w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
+      onClick={onOpen}
+      type="button"
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      {/* A visible affordance, because mobile has no hover. */}
+      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-dos-eyebrow" aria-hidden="true" strokeWidth={2} />
+    </button>
+  );
+}
+
 function PersonDetailLabel({ children }: { children: string }) {
   return <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{children}</p>;
 }
@@ -35408,6 +35646,8 @@ function PersonDetailOverlay({
   onBack,
   onAddCommitmentSubject,
   onAddCommitmentUpdate,
+  onCheckInCommitment,
+  onOpenAccountabilityRecord,
   onAddAccountabilitySchedule,
   onAddFollowUpReminder,
   onAddReminder,
@@ -35464,6 +35704,10 @@ function PersonDetailOverlay({
   onBack: () => void;
   onAddCommitmentSubject: (commitment: DosAppPersonCommitment) => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
+  /* An ordinary one-time goal checks in; a count target adds progress. */
+  onCheckInCommitment: (commitment: DosAppPersonCommitment) => void;
+  /* Opens the Accountability record itself, from Overview or Timeline. */
+  onOpenAccountabilityRecord: (input: { commitment: DosAppPersonCommitment | null; schedule: DosAppAccountabilitySchedule | null }) => void;
   onAddAccountabilitySchedule: () => void;
   /* Opens the canonical Reminder form prefilled for a requested follow-up. */
   onAddFollowUpReminder: () => void;
@@ -35684,11 +35928,20 @@ function PersonDetailOverlay({
     })
     : []).map((row) => ({
     ...row,
-    /* One action per row, named for what it actually records. A people target
-       adds a person; a numeric target adds progress; everything else keeps the
-       check-in it has always had. Nobody has to infer that "Check in" is how
-       you record the next man someone started discipling. */
+    /* Opening the record opens the Accountability itself. The action that
+       fits it lives inside, named for what it records: a people target adds a
+       person, a numeric target adds progress, everything else checks in. */
     actionLabel: row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in",
+    onOpen: () => {
+      const schedule = row.kind === "recurring" ? scheduleById.get(row.sourceId) ?? null : null;
+      const commitment = row.kind === "recurring" ? null : commitmentById.get(row.sourceId) ?? null;
+
+      if (!schedule && !commitment) {
+        return;
+      }
+
+      onOpenAccountabilityRecord({ commitment, schedule });
+    },
     onCheckIn: () => {
       if (row.kind === "recurring") {
         const schedule = scheduleById.get(row.sourceId);
@@ -35711,7 +35964,12 @@ function PersonDetailOverlay({
         return;
       }
 
-      onAddCommitmentUpdate(commitment);
+      if (row.progressKind === "count") {
+        onAddCommitmentUpdate(commitment);
+        return;
+      }
+
+      onCheckInCommitment(commitment);
     },
   }));
   const personQuickReviewItems = personReviewItems.filter((item) => item.kind === "quick_review");
@@ -36007,26 +36265,23 @@ function PersonDetailOverlay({
     return (
       <>
         <div className="flex items-baseline justify-between gap-3">
+          {/* No create action: observed Fruit comes from an interaction, so it
+              is captured while logging a meeting, never typed in here. */}
           <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
-          {/* Mobile has no hover, so the card cannot rely on a cursor to say
-              it opens. Same outlined control Prayer and Feedback use. */}
-          {personOutcomeEntries.length ? <PDButton onClick={() => setIsPersonFruitOpen(true)}>Open</PDButton> : null}
         </div>
         {recentOutcomes.length ? (
-          <div className="mt-2 divide-y divide-dos-rule">
+          <div className="mt-1 divide-y divide-dos-rule">
             {recentOutcomes.map((entry) => (
-              <button className="block w-full py-3 text-left first:pt-1" key={entry.id} onClick={() => setSelectedOutcomeEntry(entry)} type="button">
+              <PersonRecordRow key={entry.id} onOpen={() => setSelectedOutcomeEntry(entry)}>
                 <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
                   {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
                 </span>
-                <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatDate(entry.date)}</span>
-              </button>
+                <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatShortDate(entry.date)}</span>
+              </PersonRecordRow>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-[15px] leading-[1.6] text-dos-body">
-            Nothing recorded yet. Fruit is captured when you log a meeting.
-          </p>
+          <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
         )}
       </>
     );
@@ -36336,34 +36591,24 @@ function PersonDetailOverlay({
                   </div>
                   <div className="mt-1 divide-y divide-dos-rule">
                     {accountabilityTopics.map((topic) => (
-                      <div className="flex items-start gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
-                          {topic.meta ? <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{topic.meta}</p> : null}
-                          {/* Who has been confirmed, one line each and one line
-                              per person however many updates mention them. The
-                              notes themselves stay in the record rather than
-                              filling up an Overview meant to be scanned. */}
-                          {topic.subjects.length ? (
-                            <ul className="mt-2 grid gap-1.5">
-                              {topic.subjects.map((subject) => (
-                                <li key={subject.key}>
-                                  <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
-                                  {subject.startedDate ? (
-                                    <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                        {/* Every row's action is the same outlined control,
-                            whatever it records. The section heading's blue
-                            "+ Add" creates a NEW Accountability; these act on
-                            one that already exists, and the two must not read
-                            as the same kind of thing. */}
-                        <PDButton onClick={topic.onCheckIn}>{topic.actionLabel}</PDButton>
-                      </div>
+                      <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
+                        <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
+                        {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
+                        {/* Who has been confirmed, one line each and one line
+                            per person however many updates mention them. */}
+                        {topic.subjects.length ? (
+                          <span className="mt-2 grid gap-1.5">
+                            {topic.subjects.map((subject) => (
+                              <span className="block" key={subject.key}>
+                                <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
+                                {subject.startedDate ? (
+                                  <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
+                                ) : null}
+                              </span>
+                            ))}
+                          </span>
+                        ) : null}
+                      </PersonRecordRow>
                     ))}
                     {conceptJourneys.map((journey) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
@@ -36384,7 +36629,7 @@ function PersonDetailOverlay({
                       </div>
                     ))}
                     {!accountabilityTopics.length && !conceptJourneys.length ? (
-                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet. Use + Add above.</p>
+                      <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
                     ) : null}
                   </div>
                 </section>
@@ -36392,22 +36637,28 @@ function PersonDetailOverlay({
                 {/* Prayer is not accountability. Something we are praying about
                     for them is not something they are responsible for doing,
                     so it reads as its own compact section. */}
-                {primaryPrayer ? (
-                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
+                <section aria-label="Prayer" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
+                  <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
-                    <div className="mt-1 flex items-center gap-4 py-2.5">
-                      <p className="min-w-0 flex-1 text-[15px] font-semibold leading-[1.45] text-dos-body">
-                        {primaryPrayerText}
-                        {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
-                      </p>
-                      {/* This card summarises prayer REQUESTS, so Open shows
-                          requests. It used to fall through to the Prayer
-                          Resources browser, which is a library of prayers to
-                          send someone: a different question entirely. */}
-                      <PDButton onClick={() => setIsPersonPrayerOpen(true)}>Open</PDButton>
+                    {/* Creates another request. Never the resource library:
+                        that is something to send someone, not something they
+                        asked for. */}
+                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">
+                      + Add
+                    </button>
+                  </div>
+                  {conceptPrayerItems.length ? (
+                    <div className="mt-1 divide-y divide-dos-rule">
+                      {conceptPrayerItems.slice(0, 3).map((item) => (
+                        <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
+                          <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
+                        </PersonRecordRow>
+                      ))}
                     </div>
-                  </section>
-                ) : null}
+                  ) : (
+                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No prayer requests yet.</p>
+                  )}
+                </section>
 
                 {/* What they said about meeting with us, on the page the
                     leader actually opens. Feedback used to live only in the
@@ -36416,42 +36667,33 @@ function PersonDetailOverlay({
                     wrote, and -- unmissably -- whether they asked us to get
                     back to them. */}
                 <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                    {/* Feedback is requested, not created. */}
+                    {lastMeeting && onRequestReview ? (
+                      <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">
+                        Request
+                      </button>
+                    ) : null}
+                  </div>
                   {latestPersonFeedback ? (
-                    <>
-                    <div className="mt-1 flex items-start gap-4 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[15px] font-semibold leading-[1.35] text-dos-primary">
+                    <div className="mt-1 divide-y divide-dos-rule">
+                      <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
+                        <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
                           {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
-                        </p>
+                        </span>
                         {latestPersonFeedback.comment ? (
-                          <p className="mt-1 line-clamp-2 text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</p>
+                          <span className="mt-1 line-clamp-2 block text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</span>
                         ) : null}
                         {latestPersonFeedback.wantsFollowUp ? (
-                          <span className="mt-1.5 flex flex-wrap items-center gap-3">
-                            <span className="text-[13px] font-bold text-dos-blue">Follow-up requested</span>
-                            {/* Opens the canonical Reminder form for this
-                                Person. Nothing is saved until the leader
-                                saves it, and no Reminder is ever created on
-                                their behalf. */}
-                            <button className="text-[13px] font-semibold text-dos-secondary underline" onClick={onAddFollowUpReminder} type="button">
-                              Add reminder
-                            </button>
-                          </span>
+                          <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
                         ) : null}
-                      </div>
-                      {/* One navigation action on a small card. It opens the
-                          Feedback sheet, where every review and testimony is,
-                          rather than putting two links side by side. */}
-                      <PDButton onClick={() => setIsFruitReviewsOpen(true)}>View</PDButton>
+                      </PersonRecordRow>
                     </div>
-                    </>
                   ) : (
                     /* Restrained rather than absent, so what someone submits
                        has a findable home before anything has arrived. */
-                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">
-                      Nothing yet. Use Request feedback after a meeting.
-                    </p>
+                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
                   )}
                 </section>
 
@@ -40201,12 +40443,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCommitmentSheet({ commitment, kind: "subject" });
   }
 
-  function openCommitmentUpdate(commitment: DosAppPersonCommitment) {
-    setErrorMessage("");
-    setCommitmentNotice(null);
-    setCommitmentSheet({ commitment, kind: "update" });
-  }
-
   function openAccountabilitySchedule(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
     setErrorMessage("");
     setCommitmentNotice(null);
@@ -40235,6 +40471,151 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     openAccountabilitySchedule(targetPersonId);
+  }
+
+  /* Person V2 routes progress into its own sheets. The Dashboard keeps
+     openAccountabilityCheckIn below, which still opens the legacy form. */
+  function openPersonAccountabilityEdit(commitment: DosAppPersonCommitment) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment, kind: "person_edit" });
+  }
+
+  /* Edits the goal, never its progress. Title, due date and the target are all
+     that change; every recorded update stays exactly where it is. */
+  async function handlePersonAccountabilityEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (commitmentSheet?.kind !== "person_edit") {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const rawTarget = String(formData.get("accountability_target_count") ?? "").trim();
+    const targetCount = /^\d+$/.test(rawTarget) && Number(rawTarget) > 0 ? Number(rawTarget) : null;
+    const rawKind = String(formData.get("accountability_target_kind") ?? "").trim();
+    const date = String(formData.get("accountability_date") ?? "");
+    const result = await submitJson(
+      "/api/dos/app/commitments",
+      {
+        id: commitmentSheet.commitment.id,
+        targetCount,
+        targetDate: date || null,
+        targetKind: targetCount !== null && isDosCommitmentTargetKind(rawKind) ? rawKind : null,
+        title: String(formData.get("accountability_title") ?? "").trim(),
+      },
+      "PATCH",
+      false,
+    ) as { commitment?: DosAppPersonCommitment } | null;
+
+    if (result?.commitment) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({ personId: result.commitment.personId, text: "Accountability updated.", tone: "success" });
+    }
+  }
+
+  function openPersonAccountabilityRecord(personId: string, schedule?: DosAppAccountabilitySchedule | null, commitment?: DosAppPersonCommitment | null) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment: commitment ?? null, kind: "person_record", personId, schedule: schedule ?? null });
+  }
+
+  function openPersonAccountabilityCheckIn(personId: string, schedule?: DosAppAccountabilitySchedule | null, commitment?: DosAppPersonCommitment | null) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment: commitment ?? null, kind: "person_check_in", personId, schedule: schedule ?? null });
+  }
+
+  function openPersonAccountabilityProgress(commitment: DosAppPersonCommitment) {
+    setErrorMessage("");
+    setCommitmentNotice(null);
+    setCommitmentSheet({ commitment, kind: "person_progress" });
+  }
+
+  /* Progress on a goal is a fact about the goal, not a meeting. Nothing here
+     writes a meeting, a Fruit record or a relationship score. */
+  async function handlePersonAccountabilityCheckInSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (commitmentSheet?.kind !== "person_check_in") {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const progressState = String(formData.get("progress_state") ?? "going_well");
+    const note = String(formData.get("note") ?? "").trim();
+    const stateLabel = commitmentProgressLabels[progressState as DosCommitmentProgressState] ?? "";
+    /* Both destinations require the update to say something, and the answer
+       the leader gave is the update. Stored as prose so history reads as
+       words rather than as a stored code. */
+    const update = note ? (stateLabel ? `${stateLabel}. ${note}` : note) : stateLabel;
+
+    if (commitmentSheet.schedule) {
+      /* A rhythm records that it happened and rolls forward to its next date,
+         which is the canonical schedule behaviour. */
+      const result = await submitJson(
+        "/api/dos/app/accountability/check-ins",
+        {
+          date: todayCommitmentDateKey(),
+          generalUpdate: update,
+          personId: commitmentSheet.personId,
+          scheduleId: commitmentSheet.schedule.id,
+        },
+        "POST",
+        false,
+      ) as { checkIn?: DosAppAccountabilityCheckIn } | null;
+
+      if (result?.checkIn) {
+        setCommitmentSheet(null);
+        setCommitmentNotice({ personId: result.checkIn.personId, text: "Check-in saved.", tone: "success" });
+      }
+
+      return;
+    }
+
+    if (!commitmentSheet.commitment) {
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/commitments/updates",
+      {
+        commitmentId: commitmentSheet.commitment.id,
+        date: todayCommitmentDateKey(),
+        progressNote: update,
+        progressState,
+      },
+      "POST",
+      false,
+    ) as { update?: DosAppCommitmentUpdate } | null;
+
+    if (result?.update) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({ personId: commitmentSheet.commitment.personId, text: "Check-in saved.", tone: "success" });
+    }
+  }
+
+  async function handlePersonAccountabilityProgressSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const note = String(formData.get("note") ?? "").trim();
+    /* One save is one occurrence, which is what the count reads. Never sends
+       a completed state: adding progress is not finishing the goal. */
+    const result = await submitJson(
+      "/api/dos/app/commitments/updates",
+      {
+        commitmentId: String(formData.get("commitment_id") ?? ""),
+        date: todayCommitmentDateKey(),
+        progressNote: note || "Progress",
+      },
+      "POST",
+      false,
+    ) as { commitment?: DosAppPersonCommitment; update?: DosAppCommitmentUpdate } | null;
+
+    if (result?.update) {
+      setCommitmentSheet(null);
+      setCommitmentNotice({ personId: result.commitment?.personId ?? null, text: "Progress saved.", tone: "success" });
+    }
   }
 
   function openAccountabilityCheckIn(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
@@ -44929,7 +45310,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               resourceAssignments={selectedPersonResourceAssignments}
             onBack={() => setSelectedPersonId(null)}
             onAddCommitmentSubject={openCommitmentSubject}
-            onAddCommitmentUpdate={openCommitmentUpdate}
+            onAddCommitmentUpdate={openPersonAccountabilityProgress}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}
             onAddFollowUpReminder={() => openReminderForm(selectedPerson.id, "follow_up", `Follow up with ${selectedPerson.name}`)}
@@ -44943,7 +45324,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onEditResourceAssignment={openResourceAssignmentEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onLogMeetingWithFruit={() => { setOpenMeetingFruitSection(true); openMeetingForPerson(selectedPerson.id); }}
-            onLogAccountabilityCheckIn={(schedule) => openAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
+            onLogAccountabilityCheckIn={(schedule) => openPersonAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
+            onCheckInCommitment={(commitment) => openPersonAccountabilityCheckIn(selectedPerson.id, null, commitment)}
+            onOpenAccountabilityRecord={({ commitment, schedule }) => openPersonAccountabilityRecord(selectedPerson.id, schedule, commitment)}
             onLogResourceCheckIn={openResourceAssignmentCheckIn}
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
@@ -45400,16 +45783,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         ) : null}
 
-        {commitmentSheet?.kind === "update" ? (
-          <CommitmentUpdateSheet
-            commitment={commitmentSheet.commitment}
-            errorMessage={errorMessage}
-            isSubmitting={isSubmitting}
-            onClose={() => setCommitmentSheet(null)}
-            onSubmit={handleCommitmentUpdateSubmit}
-          />
-        ) : null}
-
         {commitmentSheet?.kind === "schedule" && people.find((person) => person.id === commitmentSheet.personId) ? (
           <AccountabilityScheduleSheet
             errorMessage={errorMessage}
@@ -45418,6 +45791,91 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSubmit={handleAccountabilityScheduleSubmit}
             person={people.find((person) => person.id === commitmentSheet.personId) as DosAppPerson}
             schedule={commitmentSheet.schedule ?? null}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "person_record" ? (() => {
+          const record = commitmentSheet;
+          const commitment = record.commitment ?? null;
+          const schedule = record.schedule ?? null;
+          const progressKind: AccountabilityProgressKind = schedule
+            ? "check_in"
+            : commitment
+              ? accountabilityProgressKind(commitment)
+              : "check_in";
+          const recentProgress = commitment
+            ? commitment.updates.slice(0, 4).map((update) => ({
+              date: update.updateDate,
+              id: update.id,
+              text: update.progressNote || update.subjectPersonName || "Progress",
+            }))
+            : data.accountabilityCheckIns
+              .filter((checkIn) => schedule && checkIn.scheduleId === schedule.id)
+              .slice(0, 4)
+              .map((checkIn) => ({ date: checkIn.checkInDate, id: checkIn.id, text: checkIn.generalUpdate }));
+
+          return (
+            <PersonAccountabilityDetailSheet
+              confirmedSubjects={commitment ? accountabilityConfirmedSubjects(commitment.updates) : []}
+              /* Journey follow-ups are written by DOS, not by a leader. */
+              isSystemGenerated={Boolean(schedule && parseResourceAssignmentFollowUpScheduleTitle(schedule.title))}
+              meta={schedule
+                ? `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(schedule.nextCheckIn)}`
+                : commitment
+                  ? accountabilityProgressLabel(commitment) ?? (commitment.targetDate ? `Due ${formatDate(commitment.targetDate)}` : "")
+                  : ""}
+              onAddPerson={commitment ? () => openCommitmentSubject(commitment) : undefined}
+              onAddProgress={commitment ? () => openPersonAccountabilityProgress(commitment) : undefined}
+              onCheckIn={() => openPersonAccountabilityCheckIn(record.personId, schedule, commitment)}
+              onClose={() => setCommitmentSheet(null)}
+              onEdit={schedule
+                ? () => openAccountabilitySchedule(record.personId, schedule)
+                : commitment
+                  ? () => openPersonAccountabilityEdit(commitment)
+                  : undefined}
+              progressKind={progressKind}
+              recentProgress={recentProgress}
+              title={schedule ? resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title) : commitment?.title ?? "Accountability"}
+            />
+          );
+        })() : null}
+
+        {commitmentSheet?.kind === "person_edit" ? (
+          <PersonAccountabilityEditSheet
+            commitment={commitmentSheet.commitment}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handlePersonAccountabilityEditSubmit}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "person_check_in" ? (
+          <PersonAccountabilityCheckInSheet
+            commitment={commitmentSheet.commitment}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            meta={commitmentSheet.schedule
+              ? `${accountabilityFrequencyLabels[commitmentSheet.schedule.frequency]} · Next ${formatDate(commitmentSheet.schedule.nextCheckIn)}`
+              : commitmentSheet.commitment?.targetDate
+                ? `Due ${formatDate(commitmentSheet.commitment.targetDate)}`
+                : ""}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handlePersonAccountabilityCheckInSubmit}
+            schedule={commitmentSheet.schedule}
+            title={commitmentSheet.schedule
+              ? resourceAssignmentFollowUpScheduleDisplayTitle(commitmentSheet.schedule.title)
+              : commitmentSheet.commitment?.title ?? "Accountability"}
+          />
+        ) : null}
+
+        {commitmentSheet?.kind === "person_progress" ? (
+          <PersonAccountabilityProgressSheet
+            commitment={commitmentSheet.commitment}
+            errorMessage={errorMessage}
+            isSubmitting={isSubmitting}
+            onClose={() => setCommitmentSheet(null)}
+            onSubmit={handlePersonAccountabilityProgressSubmit}
           />
         ) : null}
 
