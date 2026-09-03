@@ -43,6 +43,8 @@
     "test:dos-resource-assignments": "node scripts/dos-resource-assignments-regression.mjs",
     "test:dos-legacy-group-assignment": "node scripts/dos-legacy-group-assignment-regression.mjs",
     "test:dos-guided-resources": "node scripts/dos-guided-resources-regression.mjs",
+    "test:communications": "node scripts/communications-regression.mjs",
+    "test:newsletter-q3-2026": "node scripts/newsletter-q3-2026-regression.mjs",
     "test:dos-table-invitations": "node scripts/dos-table-invitations-regression.mjs",
     "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
     "test:dos-field-contact-form": "node scripts/dos-field-contact-form-regression.mjs",
