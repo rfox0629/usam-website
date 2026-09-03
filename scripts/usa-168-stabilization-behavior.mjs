@@ -1072,10 +1072,15 @@ await check("A Quick Review link previews as feedback, and names nobody", async 
     assert(!card.includes(leak), `The share card must not expose ${leak}.`);
     assert(!metadataCodeOf(page).includes(leak), `Link metadata must not expose ${leak}.`);
   }
-  /* Declaring openGraph.images at all, even as undefined, suppresses the
-     opengraph-image file convention. Asserted against code, since the comment
-     above it necessarily names the key. */
-  assert(!metadataCodeOf(page).includes("images"), "openGraph.images must stay absent so the card renders.");
+  /* The card must actually be referenced. Declaring an openGraph object at
+     all suppresses Next's file-convention injection, which shipped this route
+     once with a correct title and no picture; the first version of this check
+     asserted the opposite and let that through. It must point at the generated
+     card, and never at the generic DOS promotional image. */
+  const metadataCode = metadataCodeOf(page);
+  assert(metadataCode.includes('url: "/dos/review/opengraph-image"'), "The preview must reference the Quick Review card.");
+  assert(!/images:\s*undefined/.test(metadataCode), "images must never be undefined, which suppresses the card entirely.");
+  assert(!metadataCode.includes("share/discipleship-operating-system"), "It must not fall back to the generic DOS promotional card.");
 });
 
 /* The public form is DOS, not a generic web questionnaire. */

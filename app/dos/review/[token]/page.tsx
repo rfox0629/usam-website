@@ -14,13 +14,26 @@ export const dynamic = "force-dynamic";
    belongs in it. The identity the recipient needs is inside the page, behind
    the token.
 
-   `openGraph.images` is deliberately absent: declaring it, even as undefined,
-   suppresses the opengraph-image file convention that draws the card. */
+   The card is referenced explicitly. Next normally injects it from the
+   opengraph-image file convention, but declaring an `openGraph` object here at
+   all suppresses that injection, which shipped this route with a correct title
+   and no picture at all. Pointing at the generated route restores it and keeps
+   one card, drawn by the same renderer as every other share card.
+
+   twitter:card resolves to `summary`, the small square preview, which is the
+   restrained treatment a one-to-one feedback link wants rather than the
+   full-width banner a marketing page wants. */
 export const metadata: Metadata = {
   title: "Share your feedback",
   description: "A quick review of your conversation.",
   openGraph: {
     description: "A quick review of your conversation.",
+    images: [{
+      alt: "Share your feedback. Discipleship Operating System.",
+      height: 630,
+      url: "/dos/review/opengraph-image",
+      width: 1200,
+    }],
     title: "Share your feedback",
     type: "website",
   },
