@@ -33255,47 +33255,6 @@ function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void;
   );
 }
 
-function OutcomeDetailSheet({
-  entry,
-  meeting,
-  onClose,
-  person,
-}: {
-  entry: PersonOutcomeEntry;
-  meeting?: DosAppMeeting | null;
-  onClose: () => void;
-  person: DosAppPerson;
-}) {
-  const title = entry.event.title || entry.event.fruitType;
-  const date = entry.event.date;
-  const description = fruitNarrative(entry.event);
-  const source = entry.event.generatedBy || statusLabel(entry.event.sourceType);
-  const peopleInvolved = meeting?.participantNames.length
-    ? formatDosParticipantList(meeting.participantNames)
-    : person.name;
-
-  return (
-    <MobileBottomSheet
-      badge={<span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]"><FruitEventIcon event={entry.event} /></span>}
-      onClose={onClose}
-      subtitle={date ? formatDate(date) : "Date not recorded"}
-      title={title}
-    >
-      <div className="grid gap-3">
-        <DetailCard title="Outcome">
-          <p className="whitespace-pre-line rounded-[18px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-sm leading-6 text-[#0F172A]">{description}</p>
-        </DetailCard>
-        <DetailCard title="Details">
-          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={date ? formatDate(date) : "Not recorded" } />
-          {meeting ? <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Related Table" value={`${meetingActivityTitle(meeting)} · ${formatDate(meeting.date)}`} /> : null}
-          <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="People Involved" value={peopleInvolved} />
-          <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Source" value={source} />
-        </DetailCard>
-      </div>
-    </MobileBottomSheet>
-  );
-}
-
 function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
   const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
 
@@ -35248,6 +35207,183 @@ function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
   );
 }
 
+/* Person V2 detail surfaces.
+
+   Opening a record from a Person used to land on the shared record inspector:
+   a Summary card, a Details card repeating the Person's own name back at them,
+   "Review Type: Quick Review", a raw Source value, and an Open Table button.
+   That surface still serves the Fruit app's Reviews tab, where a reviewer is
+   looking across many people and that metadata is the point. On a Person it is
+   noise: you already know who you are looking at.
+
+   These three answer the question the concept is actually about. */
+
+function PersonDetailLabel({ children }: { children: string }) {
+  return <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{children}</p>;
+}
+
+/* What this person reported about meeting with us. */
+function PersonFeedbackDetailSheet({
+  item,
+  onAddFollowUpReminder,
+  onClose,
+}: {
+  item: SubmittedReviewListItem;
+  onAddFollowUpReminder: () => void;
+  onClose: () => void;
+}) {
+  const review = item.review ?? null;
+  const testimony = item.testimony ?? null;
+  const isQuickReview = item.kind === "quick_review";
+  /* Questions Quick Review no longer asks. A V2 review stores "skipped" for
+     them, which is not an answer and must not be shown as one. */
+  const historicalAnswers = review
+    ? historicalReviewAnswers(review).filter(([, value]) => value.toLowerCase() !== "skipped")
+    : [];
+  const experienced = review?.outcomeTags.filter((tag) => tag !== "Follow Up Requested") ?? [];
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={isQuickReview ? "Quick Review" : "Testimony"}>
+      <div className="grid gap-4">
+        <p className="text-[13px] font-semibold text-dos-secondary">{formatDate(item.date)}</p>
+
+        {isQuickReview && item.overallRating ? (
+          <p className="text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-dos-primary">{item.overallRating}</p>
+        ) : null}
+
+        {experienced.length ? (
+          <div className="border-t border-dos-rule pt-3">
+            <PersonDetailLabel>What they experienced</PersonDetailLabel>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {experienced.map((tag) => (
+                <span className="rounded-full border border-dos-hairline bg-dos-band px-3 py-1.5 text-[13px] font-semibold text-dos-body" key={tag}>{tag}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {review?.comments?.trim() ? (
+          <div className="border-t border-dos-rule pt-3">
+            <PersonDetailLabel>What they shared</PersonDetailLabel>
+            <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.5] text-dos-primary">&ldquo;{review.comments.trim()}&rdquo;</p>
+          </div>
+        ) : null}
+
+        {testimony ? (
+          <div className="border-t border-dos-rule pt-3">
+            <PersonDetailLabel>What they shared</PersonDetailLabel>
+            {testimony.story?.trim() ? <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.5] text-dos-primary">{testimony.story.trim()}</p> : null}
+            {testimony.whatChanged?.trim() ? (
+              <>
+                <p className="mt-3 text-[13px] font-bold text-dos-primary">What changed</p>
+                <p className="mt-1 whitespace-pre-line text-[15px] leading-[1.5] text-dos-body">{testimony.whatChanged.trim()}</p>
+              </>
+            ) : null}
+            {testimony.nextStep?.trim() ? (
+              <>
+                <p className="mt-3 text-[13px] font-bold text-dos-primary">Next step</p>
+                <p className="mt-1 whitespace-pre-line text-[15px] leading-[1.5] text-dos-body">{testimony.nextStep.trim()}</p>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Older reviews asked three agreement questions. Where one was
+            actually answered it still shows; a skipped one shows nothing. */}
+        {historicalAnswers.length ? (
+          <div className="border-t border-dos-rule pt-3">
+            <PersonDetailLabel>Also reported</PersonDetailLabel>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {historicalAnswers.map(([label, value]) => (
+                <span className="rounded-full border border-dos-hairline bg-white px-3 py-1.5 text-[13px] font-semibold text-dos-body" key={label}>{label}: {value}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {reviewRequestedFollowUp(review) ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dos-rule pt-3">
+            <span className="text-[14px] font-bold text-dos-blue">Follow-up requested</span>
+            <PDButton onClick={() => { onClose(); onAddFollowUpReminder(); }}>Add reminder</PDButton>
+          </div>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
+/* What was observed in this person's life. Provenance is preserved on the
+   record and is deliberately not shown: "Source: leader_review" and "Related
+   Table" describe how DOS stored the fact, not the fact. */
+function PersonFruitDetailSheet({
+  entry,
+  onClose,
+}: {
+  entry: PersonOutcomeEntry;
+  onClose: () => void;
+}) {
+  const description = fruitNarrative(entry.event);
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} title={entry.event.title || entry.event.fruitType}>
+      <div className="grid gap-3">
+        <p className="text-[13px] font-semibold text-dos-secondary">{entry.date ? formatDate(entry.date) : "Date not recorded"}</p>
+        {description ? (
+          <p className="whitespace-pre-line border-t border-dos-rule pt-3 text-[15px] leading-[1.55] text-dos-primary">{description}</p>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
+/* This person's prayer requests. The Overview card summarises requests, so its
+   Open must show requests: it used to open the Prayer Resources browser, which
+   is a library of prayers to send someone and answers a different question. */
+function PersonPrayerSheet({
+  items,
+  onAddPrayerRequest,
+  onClose,
+  onOpenPrayerResources,
+  person,
+}: {
+  items: Array<{ id: string; onOpen?: (() => void) | undefined; text: string }>;
+  onAddPrayerRequest: () => void;
+  onClose: () => void;
+  onOpenPrayerResources: () => void;
+  person: DosAppPerson;
+}) {
+  return (
+    <Sheet description={person.name} onClose={onClose} showEyebrow={false} title="Prayer">
+      <div className="grid gap-4">
+        <div>
+          <PersonDetailLabel>Prayer requests</PersonDetailLabel>
+          {items.length ? (
+            <div className="mt-1 divide-y divide-dos-rule">
+              {items.map((item) => (
+                item.onOpen ? (
+                  <button className="block w-full py-2.5 text-left" key={item.id} onClick={() => { onClose(); item.onOpen?.(); }} type="button">
+                    <span className="block text-[15px] leading-[1.5] text-dos-primary">{item.text}</span>
+                  </button>
+                ) : (
+                  <p className="py-2.5 text-[15px] leading-[1.5] text-dos-primary" key={item.id}>{item.text}</p>
+                )
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">Nothing recorded yet.</p>
+          )}
+        </div>
+        <div className="grid gap-2 border-t border-dos-rule pt-3">
+          <AppButton icon="prayer" onClick={() => { onClose(); onAddPrayerRequest(); }} tone="black">Add prayer request</AppButton>
+          {/* A separate question: something to send them, not something they
+              asked for. Secondary, and clearly its own action. */}
+          <AppButton onClick={() => { onClose(); onOpenPrayerResources(); }} tone="white">Prayer resources</AppButton>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function PersonDetailOverlay({
   accountabilityCheckInLinks,
   accountabilityCheckIns,
@@ -35291,7 +35427,6 @@ function PersonDetailOverlay({
   onMarkPrayerAnswered,
   onOpenGroup,
   onOpenPrayerResources,
-  onOpenReview,
   onOpenMeeting,
   onLogMeeting,
   onRequestReview,
@@ -35349,7 +35484,6 @@ function PersonDetailOverlay({
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenGroup: (groupId: string) => void;
   onOpenPrayerResources: () => void;
-  onOpenReview: (item: SubmittedReviewListItem) => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
   onLogMeeting: () => void;
   onRequestReview?: (meeting: DosAppMeeting, type: "quick_review" | "testimony_request") => void;
@@ -35373,6 +35507,10 @@ function PersonDetailOverlay({
   const [isCircleReviewOpen, setIsCircleReviewOpen] = useState(false);
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
   const [isPersonFruitOpen, setIsPersonFruitOpen] = useState(false);
+  const [isPersonPrayerOpen, setIsPersonPrayerOpen] = useState(false);
+  /* Feedback opens the same purpose-built sheet from Overview and Timeline, so
+     the record never has two different detail experiences. */
+  const [selectedFeedbackItem, setSelectedFeedbackItem] = useState<SubmittedReviewListItem | null>(null);
   const [isFeedbackChoiceOpen, setIsFeedbackChoiceOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [dismissedCircleSuggestion, setDismissedCircleSuggestion] = useState<string | null>(null);
@@ -35479,9 +35617,6 @@ function PersonDetailOverlay({
       type: "fruit" as const,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
-  const selectedOutcomeMeeting = selectedOutcomeEntry
-    ? meetings.find((meeting) => meeting.id === selectedOutcomeEntry.event.meetingId) ?? null
-    : null;
   const relationshipTypePill = relationshipTypePillLabel(person);
   const spiritualJourneyPill = canonicalSpiritualJourneyLabel(personRelationshipModel(person).discipleshipStage);
   const evidenceCounts = personEvidenceCounts({
@@ -35625,7 +35760,7 @@ function PersonDetailOverlay({
       description: item.summary,
       id: `history-${item.id}`,
       kind: "quick_review" as const,
-      onClick: () => onOpenReview(item),
+      onClick: () => setSelectedFeedbackItem(item),
       title: "Quick Review",
     })),
     ...personReviewItems.filter((item) => item.kind === "testimony_review").map((item) => ({
@@ -35633,7 +35768,7 @@ function PersonDetailOverlay({
       description: item.summary,
       id: `history-${item.id}`,
       kind: "testimony" as const,
-      onClick: () => onOpenReview(item),
+      onClick: () => setSelectedFeedbackItem(item),
       title: "Testimony Shared",
     })),
     ...personLoggedMeetings.map((meeting) => ({
@@ -35687,7 +35822,7 @@ function PersonDetailOverlay({
       id: `history-gathering-${gathering.id}-${attendance.id}`,
       kind: "gathering" as const,
       onClick: () => onOpenGroup(group.id),
-      title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}`,
+      title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` · ${gathering.title}` : ""}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   // User-facing model: what matters now (Journey), the relationship over
@@ -35873,11 +36008,9 @@ function PersonDetailOverlay({
       <>
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
-          {personOutcomeEntries.length > recentOutcomes.length ? (
-            <button className="text-[13px] font-semibold text-dos-blue" onClick={() => setIsPersonFruitOpen(true)} type="button">
-              View all
-            </button>
-          ) : null}
+          {/* Mobile has no hover, so the card cannot rely on a cursor to say
+              it opens. Same outlined control Prayer and Feedback use. */}
+          {personOutcomeEntries.length ? <PDButton onClick={() => setIsPersonFruitOpen(true)}>Open</PDButton> : null}
         </div>
         {recentOutcomes.length ? (
           <div className="mt-2 divide-y divide-dos-rule">
@@ -36267,7 +36400,11 @@ function PersonDetailOverlay({
                         {primaryPrayerText}
                         {additionalPrayerCount ? ` · and ${additionalPrayerCount} more` : ""}
                       </p>
-                      <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
+                      {/* This card summarises prayer REQUESTS, so Open shows
+                          requests. It used to fall through to the Prayer
+                          Resources browser, which is a library of prayers to
+                          send someone: a different question entirely. */}
+                      <PDButton onClick={() => setIsPersonPrayerOpen(true)}>Open</PDButton>
                     </div>
                   </section>
                 ) : null}
@@ -36303,11 +36440,11 @@ function PersonDetailOverlay({
                           </span>
                         ) : null}
                       </div>
-                      <PDButton onClick={() => onOpenReview(latestPersonFeedback.item)}>View</PDButton>
+                      {/* One navigation action on a small card. It opens the
+                          Feedback sheet, where every review and testimony is,
+                          rather than putting two links side by side. */}
+                      <PDButton onClick={() => setIsFruitReviewsOpen(true)}>View</PDButton>
                     </div>
-                    <button className="mt-1 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
-                      View all
-                    </button>
                     </>
                   ) : (
                     /* Restrained rather than absent, so what someone submits
@@ -36557,7 +36694,7 @@ function PersonDetailOverlay({
                   >
                     <p className="text-[11px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">Group · {formatRelativeDate(gathering.startsAt)}</p>
                     <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">
-                      {group.name}{gathering.title && gathering.title.trim() !== group.name.trim() ? ` — ${gathering.title}` : ""}
+                      {group.name}{gathering.title && gathering.title.trim() !== group.name.trim() ? ` · ${gathering.title}` : ""}
                     </p>
                   </button>
                 ))}
@@ -37012,7 +37149,7 @@ function PersonDetailOverlay({
                 <div className="mt-1 divide-y divide-dos-rule">
                   {personQuickReviewItems.map((item) => (
                     <div className="py-2.5" key={item.id}>
-                      <button className="block w-full text-left" onClick={() => onOpenReview(item)} type="button">
+                      <button className="block w-full text-left" onClick={() => { setIsFruitReviewsOpen(false); setSelectedFeedbackItem(item); }} type="button">
                         <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">
                           {[item.overallRating, formatDate(item.date)].filter(Boolean).join(" · ")}
                         </p>
@@ -37039,7 +37176,7 @@ function PersonDetailOverlay({
               {personTestimonyItems.length ? (
                 <div className="mt-1 divide-y divide-dos-rule">
                   {personTestimonyItems.map((item) => (
-                    <button className="block w-full py-2.5 text-left" key={item.id} onClick={() => onOpenReview(item)} type="button">
+                    <button className="block w-full py-2.5 text-left" key={item.id} onClick={() => { setIsFruitReviewsOpen(false); setSelectedFeedbackItem(item); }} type="button">
                       <p className="text-[15px] font-semibold leading-[1.4] text-dos-primary">{formatDate(item.date)}</p>
                       {item.summary ? <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-body">{item.summary}</p> : null}
                     </button>
@@ -37150,10 +37287,21 @@ function PersonDetailOverlay({
         </Sheet>
       ) : null}
       {selectedOutcomeEntry ? (
-        <OutcomeDetailSheet
-          entry={selectedOutcomeEntry}
-          meeting={selectedOutcomeMeeting}
-          onClose={() => setSelectedOutcomeEntry(null)}
+        <PersonFruitDetailSheet entry={selectedOutcomeEntry} onClose={() => setSelectedOutcomeEntry(null)} />
+      ) : null}
+      {selectedFeedbackItem ? (
+        <PersonFeedbackDetailSheet
+          item={selectedFeedbackItem}
+          onAddFollowUpReminder={onAddFollowUpReminder}
+          onClose={() => setSelectedFeedbackItem(null)}
+        />
+      ) : null}
+      {isPersonPrayerOpen ? (
+        <PersonPrayerSheet
+          items={conceptPrayerItems}
+          onAddPrayerRequest={onAddPrayerRequest}
+          onClose={() => setIsPersonPrayerOpen(false)}
+          onOpenPrayerResources={onOpenPrayerResources}
           person={person}
         />
       ) : null}
@@ -44806,7 +44954,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onOpenMeeting={(meetingId, recipientPersonId) => openMeetingDetail(meetingId, recipientPersonId, selectedPerson.id)}
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
-            onOpenReview={openSubmittedReview}
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}

@@ -1196,5 +1196,122 @@ await check("New review links expire, and existing links are left alone", async 
     "Expiry enforcement stays exactly where it was.");
 });
 
+/* Working from a Person, every record opens a surface designed for the concept
+   it is, never the shared record inspector. That inspector still serves the
+   Fruit app's Reviews tab, where the metadata it shows is the point. */
+await check("A Person never opens the generic record inspector", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+  const personCode = personDetail.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+  for (const inspector of ["onOpenReview", "Open Table", "Related Table", "Review Type", "Submitted By", "sourceType", "generatedBy"]) {
+    assert(!personCode.includes(inspector), `A Person must never surface ${inspector}.`);
+  }
+
+  // The Person's own sheets exist, and each answers its own question.
+  for (const sheet of ["function PersonFeedbackDetailSheet(", "function PersonFruitDetailSheet(", "function PersonPrayerSheet("]) {
+    assert(client.includes(sheet), `${sheet} must exist.`);
+  }
+
+  /* The shared inspector is left alone where it is still the right surface. */
+  assert(client.includes("function ReviewDetailSheet("), "The shared inspector stays for the Fruit app's Reviews tab.");
+  assert(client.includes("<SubmittedReviewsList items={submittedReviewItems} onOpenReview={openSubmittedReview} />"),
+    "That tab still routes to it.");
+
+  // The Person's Fruit detail no longer floats above its own card.
+  assert(!personCode.includes("MobileBottomSheet"), "Person detail surfaces use the canonical sheet, not the absolutely positioned popup.");
+  const fruitSheet = client.slice(client.indexOf("function PersonFruitDetailSheet("));
+  const fruitBody = fruitSheet.slice(0, fruitSheet.indexOf("\nfunction "));
+  assert(fruitBody.includes("<Sheet "), "Fruit detail uses the canonical DOS sheet.");
+  assert(!fruitBody.includes("Source") && !fruitBody.includes("People Involved"), "Fruit detail shows the fact, not how DOS stored it.");
+});
+
+/* Overview and Timeline must land on the same surface for the same record. */
+await check("Overview and Timeline open the same detail for the same record", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  // Feedback: the sheet's rows and both Timeline entries use one setter.
+  assert.equal(
+    (personDetail.match(/setSelectedFeedbackItem\(item\)/g) ?? []).length,
+    4,
+    "Feedback opens one surface from the sheet's reviews, its testimonies, and both Timeline entries.",
+  );
+  assert(personDetail.includes('onClick: () => setSelectedFeedbackItem(item),'), "Timeline routes into it.");
+
+  // Fruit: Overview rows, the Fruit sheet and the Timeline share one setter.
+  assert(personDetail.includes("onClick: () => setSelectedOutcomeEntry(entry)"), "Timeline Fruit opens the Person Fruit detail.");
+  assert(personDetail.includes("<PersonFruitDetailSheet entry={selectedOutcomeEntry}"), "And that is the purpose-built sheet.");
+
+  // A V2 review has no answers to the retired questions, so none are shown.
+  const feedbackSheet = client.slice(client.indexOf("function PersonFeedbackDetailSheet("));
+  const feedbackBody = feedbackSheet.slice(0, feedbackSheet.indexOf("\nfunction "));
+  assert(
+    feedbackBody.includes('historicalReviewAnswers(review).filter(([, value]) => value.toLowerCase() !== "skipped")'),
+    "Skipped is not an answer and must never render as one.",
+  );
+  assert(feedbackBody.includes("What they experienced") && feedbackBody.includes("What they shared"),
+    "It reads as what the person reported.");
+  assert(feedbackBody.includes("Follow-up requested") && feedbackBody.includes("Add reminder"),
+    "A requested follow-up stays actionable from the detail.");
+});
+
+/* The Prayer card summarises requests, so its Open must show requests. */
+await check("Person Prayer opens their requests, not the resource library", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  assert(!personDetail.includes("primaryPrayer.onOpen ?? onOpenPrayerResources"),
+    "Open must not fall through to Prayer Resources when a request has no meeting behind it.");
+  assert(personDetail.includes("<PDButton onClick={() => setIsPersonPrayerOpen(true)}>Open</PDButton>"),
+    "Open shows this Person's prayer.");
+  assert(personDetail.includes("<PersonPrayerSheet"), "That sheet exists and is mounted.");
+
+  const prayerSheet = client.slice(client.indexOf("function PersonPrayerSheet("));
+  const prayerBody = prayerSheet.slice(0, prayerSheet.indexOf("\nfunction "));
+  assert(prayerBody.includes("Prayer requests"), "Requests lead.");
+  assert(prayerBody.indexOf("Prayer requests") < prayerBody.indexOf("Prayer resources"),
+    "Requests come first; resources are the secondary action.");
+  assert(prayerBody.includes("Add prayer request"), "Adding one is available from here.");
+  assert(prayerBody.includes('tone="white"') && prayerBody.includes("onOpenPrayerResources"),
+    "Prayer Resources is retained, clearly separate and secondary.");
+});
+
+/* Every Overview card says how to open it. */
+await check("Person Overview cards carry a visible action, not an invisible one", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  const fruit = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));
+  const fruitBody = fruit.slice(0, fruit.indexOf("\n  };"));
+  assert(fruitBody.includes("<PDButton onClick={() => setIsPersonFruitOpen(true)}>Open</PDButton>"), "Fruit has an explicit Open.");
+
+  const feedback = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
+  const feedbackBody = feedback.slice(0, feedback.indexOf("</section>"));
+  assert(feedbackBody.includes("<PDButton onClick={() => setIsFruitReviewsOpen(true)}>View</PDButton>"), "Feedback has one explicit View.");
+  assert.equal((feedbackBody.match(/View all/g) ?? []).length, 0, "And only one navigation action on that small card.");
+
+  /* No em dashes anywhere a Person can read. The regex that strips a session
+     prefix matches input and is not copy. */
+  const personCopy = personDetail.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  for (const line of personCopy.split("\n")) {
+    if (line.includes("\u2014") && !line.includes(".replace(")) {
+      throw new Error(`Person copy contains an em dash: ${line.trim().slice(0, 90)}`);
+    }
+  }
+});
+
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);
 for (const name of checks) console.log(`- ${name}`);
