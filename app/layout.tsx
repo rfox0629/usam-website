@@ -12,8 +12,15 @@ import { domainSites } from "@/src/lib/domain-sites";
 // description, favicon family, manifest, and social preview. Surfaces that belong
 // to another brand (DOS under /dos, the domain sites) replace the whole block in
 // their own layout instead of patching individual pages. Pages normally override
-// only title, description, canonical, and social image.
-export const metadata: Metadata = buildDomainSiteMetadata(domainSites.usam, { canonical: null });
+// only title, description, and canonical.
+//
+// `shareImage: "file"` leaves the Open Graph and Twitter `images` keys out so the
+// card comes from `app/opengraph-image.tsx` — and so a page deeper in the tree
+// can supply its own by adding that file, with no metadata change at all.
+export const metadata: Metadata = buildDomainSiteMetadata(domainSites.usam, {
+  canonical: null,
+  shareImage: "file",
+});
 
 export const viewport: Viewport = buildDomainSiteViewport(domainSites.usam);
 

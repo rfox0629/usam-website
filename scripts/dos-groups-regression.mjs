@@ -904,14 +904,28 @@ assertIncludes(publicSingleGroupRoute, 'name="lastName"', "Public group join for
 assertIncludes(publicSingleGroupRoute, 'name="email"', "Public group join form must include Email.");
 assertIncludes(publicSingleGroupRoute, 'name="phone"', "Public group join form must include Phone.");
 assertIncludes(publicSingleGroupRoute, 'name="message"', "Public group join form must include Message.");
-assert(exists("public/images/usam/groups-share.png"), "Default Groups social share image must exist.");
+assert(exists("app/groups/opengraph-image.tsx"), "Groups directory must generate its own social card.");
+assert(exists("app/groups/[slug]/opengraph-image.tsx"), "Each group must generate a card carrying its own name.");
+assertIncludes(
+  read("app/groups/share-card.tsx"),
+  "renderShareCard",
+  "Group cards must be drawn by the site-wide share card renderer, not a second design.",
+);
 assertIncludes(publicGroupsDirectoryPage, "Groups | ${site.displayName}", "Public groups directory metadata must use the resolved public site.");
 assertIncludes(publicGroupsDirectoryPage, "Find discipleship groups connected to ${site.displayName}.", "Public groups directory metadata must describe the resolved public site.");
-assertIncludes(publicGroupsDirectoryPage, "/images/usam/groups-share.png", "Public groups directory must use the default Groups social image.");
+assertNotIncludes(
+  publicGroupsDirectoryPage,
+  "images:",
+  "Public groups directory must leave `images` out entirely so opengraph-image.tsx draws the card.",
+);
 assertIncludes(publicGroupsDirectoryPage, "summary_large_image", "Public groups directory must configure Twitter large image metadata.");
 assertIncludes(publicGroupPage, "image_url", "Public group metadata must support a group-specific public image when present.");
 assertIncludes(publicGroupPage, "groupShareImageUrl", "Public group metadata must normalize group share images.");
-assertIncludes(publicGroupPage, "/images/usam/groups-share.png", "Public group metadata must fall back to the default Groups social image.");
+assertIncludes(
+  publicGroupPage,
+  "{ openGraph: {}, twitter: {} }",
+  "A group without its own artwork must leave `images` absent so opengraph-image.tsx draws its card.",
+);
 assertIncludes(publicGroupPage, "summary_large_image", "Public group metadata must configure Twitter large image metadata.");
 assert(
   !publicGroupsDirectoryPage.includes("the-table-source") && !publicGroupPage.includes("the-table-source"),

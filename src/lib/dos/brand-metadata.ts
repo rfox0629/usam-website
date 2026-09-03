@@ -27,8 +27,12 @@ export const dosAppIcons: Metadata["icons"] = buildDomainSiteIcons(dosSite);
 export const dosAppMetadata: Metadata = buildDomainSiteMetadata(dosSite, {
   canonical: null,
   manifestPath: dosAppManifest,
-  // These routes are served from usamissionaries.org, not the DOS domain, so
-  // relative social image URLs must resolve against the host actually serving them.
+  // These are app surfaces, not the DOS front door — that is
+  // discipleshipoperatingsystem.com, which indexes normally. robots.txt has
+  // always disallowed /dos; the pages now agree with it.
+  noIndex: true,
+  // These routes are served from usamissionaries.org, not the DOS domain, so any
+  // relative URL in this metadata must resolve against the host actually serving them.
   metadataBaseOrigin: domainSites.usam.canonicalOrigin,
 });
 

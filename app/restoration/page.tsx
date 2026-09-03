@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buildDomainSiteIcons } from "@/src/lib/domain-metadata";
+import { buildDomainSiteIcons, buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHeader";
 import { PartnershipLine } from "@/components/mission-of-reconciliation/PartnershipLine";
@@ -17,6 +17,19 @@ export const metadata: Metadata = {
   alternates: { canonical: missionCanonical.restoration },
   description:
     "Begin your restoration journey with Mission of Reconciliation. Share your story confidentially so we can prayerfully consider how to come alongside you. In partnership with USA Missionaries.",
+  // Noindex, but still shared person to person, so the preview has to be Mission
+  // of Reconciliation rather than the USA Missionaries card it would inherit from
+  // the root layout. This route is served on both hosts, so it names the card
+  // explicitly instead of relying on the file convention.
+  openGraph: {
+    description:
+      "Share your story confidentially so we can prayerfully consider how to come alongside you.",
+    images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"])],
+    siteName: domainSites["mission-of-reconciliation"].siteName,
+    title: "Restoration Journey | Mission of Reconciliation",
+    type: "website",
+    url: missionCanonical.restoration,
+  },
   robots: {
     follow: false,
     index: false,

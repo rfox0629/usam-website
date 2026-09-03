@@ -6,7 +6,7 @@ import { MissionHeader } from "@/components/mission-of-reconciliation/MissionHea
 import { buildDomainSiteIcons, buildDomainSiteSocialImage } from "@/src/lib/domain-metadata";
 import { domainSites } from "@/src/lib/domain-sites";
 import { morColor, morFont } from "@/src/lib/mission-of-reconciliation/brand";
-import { missionCanonical, missionCanonicalOrigin } from "@/src/lib/mission-of-reconciliation/domain";
+import { missionCanonical } from "@/src/lib/mission-of-reconciliation/domain";
 import { getMissionPaths } from "@/src/lib/mission-of-reconciliation/request-domain";
 import { caseStudies, getCaseStudy } from "@/src/lib/mission-of-reconciliation/case-studies";
 import { CaseStudyBlock } from "../../_components/CaseStudy";
@@ -38,7 +38,7 @@ export async function generateMetadata({
     description: study.cardSummary,
     openGraph: {
       description: study.cardSummary,
-      images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"], missionCanonicalOrigin)],
+      images: [buildDomainSiteSocialImage(domainSites["mission-of-reconciliation"])],
       siteName: domainSites["mission-of-reconciliation"].siteName,
       title,
       type: "article",

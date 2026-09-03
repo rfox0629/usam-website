@@ -49,6 +49,24 @@ const nextConfig = {
 
     return redirects;
   },
+  /**
+   * Link previews are cached by every platform that has ever scraped a URL, and
+   * those caches still point at the retired photo cards. Rather than leave the
+   * old artwork on disk — or 404 an already-shared link — the old paths now
+   * serve the current card, so an old unfurl upgrades itself on re-scrape.
+   */
+  async rewrites() {
+    return [
+      { destination: "/share/usam", source: "/images/share/usam.jpg" },
+      { destination: "/share/usam", source: "/images/usam/groups-share.png" },
+      { destination: "/share/kitchen-table-gospel", source: "/images/share/kitchen-table-gospel.jpg" },
+      { destination: "/share/discipleship-operating-system", source: "/images/share/dos.png" },
+      {
+        destination: "/share/mission-of-reconciliation",
+        source: "/images/share/mission-of-reconciliation.png",
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

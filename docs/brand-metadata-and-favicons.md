@@ -1,20 +1,21 @@
 # Brand metadata and favicons
 
 How the browser and sharing identity works for USA Missionaries, the Discipleship
-Operating System (DOS), and Kitchen Table Gospel, and what to change when a brand
-detail changes.
+Operating System (DOS), Kitchen Table Gospel, and Mission of Reconciliation, and
+what to change when a brand detail changes.
 
 ## Source of truth
 
 | Concern | Owner |
 | --- | --- |
-| Titles, descriptions, canonical origins, icon paths, manifest paths, theme colors, social images | `src/lib/domain-sites.ts` |
+| Titles, descriptions, canonical origins, icon paths, manifest paths, theme colors, share-card copy | `src/lib/domain-sites.ts` |
 | Turning that config into Next `Metadata` / `Viewport` | `src/lib/domain-metadata.ts` |
 | DOS identity for DOS surfaces hosted under `usamissionaries.org` | `src/lib/dos/brand-metadata.ts` |
 | Icon and manifest artwork | `scripts/brand/brand-icons.mjs` |
+| The share card every link preview uses | `src/lib/share/share-card.tsx` |
 
-Change a brand's colors, mark, name, or share image in those four places only. No
-page should hard-code a favicon path, a manifest path, or a brand suffix.
+Change a brand's colors, mark, name, or share copy in those places only. No page
+should hard-code a favicon path, a manifest path, a brand suffix, or a share image.
 
 ## Which surface owns which brand
 
@@ -28,8 +29,8 @@ page should hard-code a favicon path, a manifest path, or a brand suffix.
 * `app/groups/[slug]/*` — tenant group sites. These name their own site, so their
   titles are absolute.
 
-Individual pages should normally override only title, description, canonical URL,
-and social image.
+Individual pages should normally override only title, description, and canonical
+URL. The share card comes from `opengraph-image.tsx`, not from page metadata.
 
 ### Two Next.js title traps
 
@@ -47,8 +48,10 @@ Both cost real debugging time, so they are worth stating plainly:
 adding `template` on top for layouts so children still get the brand suffix.
 
 A third trap: declaring `openGraph` on a page **replaces** the parent's entire
-Open Graph block, so such pages must restate the brand image via
-`buildDomainSiteSocialImage`.
+Open Graph block. That is fine for the image — the `opengraph-image.tsx` file
+convention still applies, as long as the page leaves the `images` key out — but
+every other field a page cares about (`siteName`, `type`, `url`) has to be
+restated.
 
 ## Icons
 
@@ -95,34 +98,126 @@ field, which keeps them reading as the same background-free mark.
 
 ## Social previews
 
-`node scripts/brand/build-share-images.mjs` writes an exact 1200x630 asset per
-brand to `public/images/share/`, so unfurls frame identically everywhere instead
-of each platform cropping differently. USAM and Kitchen Table crop approved
-photos; DOS, which has no approved landscape photo, uses its emblem on its own
-field.
+Every link preview on every surface is the same card, drawn by one renderer:
+
+* `src/lib/share/share-card.tsx` — the card. Warm off-white field, the page name
+  set large in Oswald, one restrained gold rule, the brand emblem small in the
+  corner, and a lot of empty space. **No photography, ever.** The card this
+  replaced was a cropped mountain landscape reused on every page; it said nothing
+  about the page it represented and read as stock art in every unfurl.
+* `src/lib/share/share-image.ts` — what an `opengraph-image.tsx` route needs, so
+  a page's card is six lines rather than a new design.
+* `public/fonts/share/oswald-*.ttf` — Oswald, vendored (OFL, license alongside)
+  because Satori cannot fetch a webfont at render time. Not a new font: it is the
+  display face the site already uses.
+
+### Adding a card to a new page
+
+Nothing, usually. Next applies a segment's `opengraph-image` to that segment and
+every segment below it, so `app/opengraph-image.tsx` is the site-wide default and
+a new page is already on-brand. Add a file only when the page's own name belongs
+on the card:
+
+```tsx
+// app/example/opengraph-image.tsx
+import { createShareImage, shareImageAlt, shareImageContentType, shareImageSize }
+  from "@/src/lib/share/share-image";
+
+const card = { eyebrow: "Section Label", subtitle: "One sentence.", title: "Example" };
+
+export const alt = shareImageAlt(card);
+export const contentType = shareImageContentType;
+export const runtime = "nodejs";
+export const size = shareImageSize;
+
+export default createShareImage(card);
+```
+
+Import the copy from wherever the page already gets it (`remnantCollection`,
+`assignmentArticle`) so the card cannot drift from the page. For a card that
+depends on the route, write the default export by hand and call `renderShareCard`
+— `app/missionaries/[slug]` and `app/guide/[slug]` do this with the person's or
+guide's own name.
+
+**The one trap, and it has bitten this repo twice: a page that declares
+`openGraph.images` — including setting it to `undefined` — suppresses the file
+convention and unfurls with no picture at all.** Leave the key out entirely.
+`app/guide/[slug]` and `app/missionaries/[slug]` spread a conditional object for
+exactly this reason.
+
+### Brand cards
+
+`/share/<brand>` renders each brand's own card — its name, its tagline, its
+`socialImage.eyebrow` — from `domainSites`, prerendered at build. `domainSites`
+points every brand's `socialImage.path` there and `buildDomainSiteSocialImage`
+makes it absolute.
+
+These are a route rather than `opengraph-image.tsx` files because the brands are
+served from their own domains. A file-convention card would be addressed under
+`/domain-sites/...` or `/mission-of-reconciliation/...`, and `middleware.ts`
+either 404s those paths or bounces them off the host. `/share/<brand>` is plain,
+always resolves on the USA Missionaries origin, and every brand host forwards it
+there. Unfurlers do not care which host an image comes from.
+
+Reach for `buildDomainSiteSocialImage` only on a surface that cannot use the file
+convention — a brand on another domain, or a route served on two hosts
+(`/restoration`). Everything on usamissionaries.org should use the file.
+
+The retired photo cards at `/images/share/*` and `/images/usam/groups-share.png`
+are gone, and `next.config.js` rewrites those paths to the current card so a link
+shared before this change upgrades itself on re-scrape instead of 404ing.
 
 ### Groups share cards
 
-Group links are the one place cards are generated per request rather than
-prebuilt, because each group needs its own name on it:
+Groups are the one place a card is composed per request rather than from a fixed
+definition, because each group needs its own name on it:
 
-* `app/groups/share-card.tsx` — the single renderer, USAM black and gold with the
-  circular emblem. Tenant sites that set `brand.primaryColor` / `brand.surfaceColor`
-  get their own colors.
+* `app/groups/share-card.tsx` — resolves the tenant site and hands the group's
+  name, rhythm, and tagline to `renderShareCard`. A tenant that sets
+  `brand.primaryColor` gets it as the accent; the field stays cream so group
+  links and page links unfurl as one family.
 * `app/groups/opengraph-image.tsx` — the directory card.
-* `app/groups/[slug]/opengraph-image.tsx` — per group: name, tagline, and rhythm.
+* `app/groups/[slug]/opengraph-image.tsx` — per group: name, tagline, rhythm.
 
-A group that publishes its own artwork (`image_url`) still wins; everything else
-falls through to the generated card. **For that fallthrough to work, the `images`
-key must be absent from `openGraph` — setting it to `undefined` still counts as
-declaring it and suppresses the file convention.** Both routes fall back to
-`APPROVED_PUBLIC_GROUPS`, the same canonical list the group page uses, so a card
-cannot disagree with the page when the database is unreachable.
+A group that publishes its own artwork (`image_url`) still wins. Both routes fall
+back to `APPROVED_PUBLIC_GROUPS`, the same canonical list the group page uses, so
+a card cannot disagree with the page when the database is unreachable.
 
-`public/images/usam/groups-share.png` is no longer referenced by any code. It is
-kept, holding a snapshot of the current directory card, only so links shared
-before this change re-scrape into current branding instead of a 404. Refresh it
-by saving `/groups/opengraph-image` over it.
+## Route inventory
+
+Which public route gets which card, as of this change. "Default" means the route
+declares no image and inherits `app/opengraph-image.tsx`.
+
+| Route | Title / description | Share card |
+| --- | --- | --- |
+| `/` | root layout (USAM) | default |
+| `/support` | page | own card |
+| `/system`, `/system/v1`, `/system/v2` | page | own card (`/system`, inherited) |
+| `/missionaries` | page | own card |
+| `/missionaries/[slug]` | per missionary | hero photo, else their name |
+| `/missionaries/[slug]/flyer` | per missionary | hero photo, else inherited |
+| `/prayer`, `/prayer/join` | page | own card (`/prayer`, inherited) |
+| `/briefing` | page | own card |
+| `/briefing/assignments/…` | article | own card |
+| `/financialfreedom` | page | own card |
+| `/join` | page | own card |
+| `/remnant` | page | own card |
+| `/guide/[slug]` | per guide | cover art, else the guide title |
+| `/groups` | resolved tenant site | generated directory card |
+| `/groups/[slug]` | per group | group artwork, else generated |
+| `/mission-of-reconciliation` (+ `/stories`, `/stories/[slug]`) | page | MOR brand card |
+| `/restoration` | page | MOR brand card |
+| `/domain-sites/kitchen-table-gospel` | brand | KTG brand card |
+| `/domain-sites/discipleship-operating-system` | brand | DOS brand card |
+| `/dos/**` | DOS brand metadata | DOS brand card |
+
+Everything else — `/admin`, `/operations`, `/vision`, `/partners`, `/login`,
+`/missionary-intake`, `/system/preview`, `/prayer/apply`, `/auth/*`,
+`/update-password`, and every token route — is `noindex` and deliberately has no
+card of its own. They inherit the generic USA Missionaries default, which names
+nothing about the page. Do not give an internal route a card carrying its own
+name: the image route is public even when the page behind it is not.
+
 
 ## Per-host serving
 
@@ -155,6 +250,18 @@ the right brand.
 * Removed hard-coded brand suffixes from page titles across the app; the layout
   template supplies them now.
 
+* Replaced every social preview with the generated card: the USAM mountain photo
+  (`/images/share/usam.jpg`, a crop of the site's hero background), the Kitchen
+  Table photo, the DOS emblem plate, and the Mission of Reconciliation plate.
+  `scripts/brand/build-share-images.mjs` generated those four files and is gone
+  with them; there is nothing left to prebuild.
+* Deleted `public/images/usam/groups-share.png`, the last of the old black-and-gold
+  campaign artwork. Both retired paths are rewritten to the current card.
+* Fixed coverless guides and photoless missionary profiles, which declared
+  `images: undefined` and so unfurled with no picture at all.
+* Added the `noindex` that `robots.txt` already implied on `/dos/**`,
+  `/system/preview`, and `/prayer/apply`.
+
 `dos.html` at the repo root is an unserved prototype still carrying the old
 "Disciple Operating System" naming and black/amber treatment. It is outside the
 served metadata surface and was left in place, but it is a candidate for deletion.
@@ -176,8 +283,9 @@ outside our control:
 * **Manifests and PWA icons.** An installed PWA keeps its existing icon and name
   until the manifest is re-fetched; reinstalling is the reliable fix.
 * **Social previews.** Facebook, LinkedIn, X, iMessage, and Slack each cache
-  unfurls per URL, typically for days. Because the share images are new paths
-  (`/images/share/*`), a *new* link unfurls correctly immediately; previously
-  shared links keep the old card until the platform re-scrapes. Use each
+  unfurls per URL, typically for days. A *new* link unfurls with the current card
+  immediately; a previously shared link keeps the old one until the platform
+  re-scrapes. The old image paths are rewritten to the current card, so even a
+  stale unfurl comes back on-brand rather than broken. Use each
   platform's debugger (for example Facebook's Sharing Debugger or LinkedIn's Post
   Inspector) to force a re-scrape of important URLs after deploy.
