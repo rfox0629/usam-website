@@ -6,6 +6,7 @@ import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountab
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
+import { dosQuickReviewExperienceOptions, dosQuickReviewFormDefinition, dosQuickReviewOutcomeOptions } from "../src/lib/dos/review-form-config.ts";
 import { submitCanonicalReview } from "../src/lib/dos/review-submission-policy.ts";
 
 const checks = [];
@@ -895,6 +896,155 @@ await check("Creating an Accountability and progressing one look different", asy
     "People add a person, counts add progress, ordinary accountability checks in -- and none of them wears a plus.",
   );
   assert(!client.includes('"+ Add person"'), "The row action must not be styled or worded as a creation link.");
+});
+
+/* QUICK REVIEW V2. The question is "after meeting with me, what did this
+   person experience?" -- three questions and one request, on one screen. */
+await check("Quick Review asks three questions and one request, and nothing it already knows", async () => {
+  const form = readFileSync(new URL("../app/dos/review/[token]/DosQuickReviewForm.tsx", import.meta.url), "utf8");
+
+  // The context a recipient needs to recognise the conversation.
+  assert(form.includes("How was your conversation with ${leaderFirstName}?"), "The header must name the leader.");
+  assert(form.includes("formatMeetingDate(reviewLink.meetingDate)"), "The header must date the conversation.");
+  assert(form.includes("You&apos;re answering as") || form.includes("You're answering as"), "The recipient must see who they are answering as.");
+  assert(form.includes("Not you?"), "The identity correction must survive.");
+  assert(form.includes("linkKnowsReviewer && !isEditingIdentity"), "A bound link must not ask for identity up front.");
+
+  // Three questions and one separated request.
+  assert(form.includes("How was it?"), "Q1 is the overall rating.");
+  assert(form.includes("Did any of this happen? (optional)"), "Q2 is optional.");
+  assert(form.includes("Anything you&apos;d like us to know? (optional)") || form.includes("Anything you'd like us to know? (optional)"), "Q3 is optional.");
+  assert(form.includes("I&apos;d like someone to follow up with me"), "The follow-up request must exist as its own control.");
+  assert(
+    form.indexOf("border-t border-[#EAF2FF]") < form.indexOf("I&apos;d like someone to follow up with me"),
+    "The request must be visually separated from the experience questions.",
+  );
+
+  // Everything the audit retired is gone from what is asked.
+  for (const retired of ["I felt heard", "I felt cared for", "I would be happy to meet again", "Last Name", "Email"]) {
+    assert(!form.includes(`label="${retired}"`) && !form.includes(`>${retired}<`), `${retired} must no longer be asked.`);
+  }
+  assert(!form.includes("submittedEmail"), "Email must not be collected; the link already knows the Person.");
+
+  // The rating is the one thing worth insisting on.
+  assert(form.includes("if (!overallRating) {"), "A review with no rating must not submit.");
+
+  // Four experience options, not ten.
+  assert.equal(dosQuickReviewExperienceOptions.length, 4, "Q2 must stay short.");
+  assert.deepEqual(dosQuickReviewExperienceOptions.map((option) => option.value), ["Closer to God", "Prayer Received", "New Believers", "Discipling"]);
+  assert(dosQuickReviewOutcomeOptions.length > dosQuickReviewExperienceOptions.length,
+    "The historical tag set must stay wider than what is offered, so stored tags still render.");
+  for (const option of dosQuickReviewExperienceOptions) {
+    assert(dosQuickReviewOutcomeOptions.some((historical) => historical.value === option.value),
+      `${option.value} must remain a recognised historical tag.`);
+  }
+
+  // The leader-facing preview must describe the form that exists.
+  const previewLabels = dosQuickReviewFormDefinition.sections.map((section) => section.label);
+  assert(previewLabels.includes("How was it?"), "The preview must match the real first question.");
+  assert(!previewLabels.includes("I felt heard"), "The preview must not advertise a question nobody is asked.");
+});
+
+/* The two derivations that put words in the recipient's mouth. */
+await check("Quick Review never claims something the recipient did not say", async () => {
+  const reviews = readFileSync(new URL("../src/lib/dos/reviews.ts", import.meta.url), "utf8");
+
+  // step_toward_jesus was written from how helpful the conversation was.
+  assert(
+    !reviews.includes("stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers) ?? answerToLegacyUnsure(conversationHelpful)"),
+    "\"Very meaningful\" must no longer be recorded as a step toward Jesus.",
+  );
+  assert(
+    !/step_toward_jesus: answerToLegacyUnsure\(/.test(reviews),
+    "step_toward_jesus must not be derived from the rating.",
+  );
+  assert(
+    reviews.includes('submission.outcomeTags?.includes("New Believers") ? "yes" : null'),
+    "Only an explicit \"I decided to follow Jesus\" may support it, and its absence means unknown rather than no.",
+  );
+
+  // wants_follow_up was written from "I would be happy to meet again".
+  assert(
+    !/wants_follow_up:[\s\S]{0,120}answerToLegacyMaybe\(submission.wouldMeetAgain\)/.test(reviews),
+    "Being glad to meet again must no longer be recorded as asking for follow-up.",
+  );
+  assert(
+    !reviews.includes("wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers) ?? answerToLegacyMaybe(wouldMeetAgain)"),
+    "The normalizer must not invent a follow-up request either.",
+  );
+  assert(reviews.includes("wants_follow_up: submission.wantsFollowUp"), "Follow-up comes from the explicit control.");
+
+  // A blank submission cannot burn a single-use link.
+  assert(reviews.includes("if (!submission.overallRating) {"), "A review answering nothing must be refused server-side.");
+
+  // Still recipient-reported, and still nothing else.
+  assert(!/fruit_events|missionary_fruit_items/.test(reviews), "Submitting a review must not create Fruit.");
+  assert(!/participant_testimonies/.test(reviews), "Submitting a review must not create a Testimony.");
+});
+
+/* Satisfaction is not discipleship depth. */
+await check("Quick Review changes no Circle placement and no relationship score", async () => {
+  const reviews = readFileSync(new URL("../src/lib/dos/reviews.ts", import.meta.url), "utf8");
+  /* Comments explain why the sentiment coupling was removed and necessarily
+     name it, so assert against code with comments stripped. */
+  const scoringSource = readFileSync(new URL("../src/lib/dos/circle-scoring.ts", import.meta.url), "utf8");
+  const scoring = scoringSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+  // Submitting does not trigger a recalculation at all.
+  assert(!reviews.includes("recalculateCircleScores"), "Submitting a Quick Review must not recalculate circle scores.");
+  assert(!reviews.includes("dos_relationship_scores"), "Submitting a Quick Review must not write a relationship score.");
+  assert(!reviews.includes("dos_circle_overrides"), "Submitting a Quick Review must not touch circle placement.");
+
+  // And review sentiment contributes nothing to the score when something else
+  // does trigger one.
+  assert(!scoring.includes("quickReviewRelationshipScore"), "Review sentiment must not feed the score breakdown.");
+  assert(!scoring.includes("quickReviewPositiveSignals"), "Felt-heard style answers must not score a relationship.");
+  assert(!scoring.includes("quickReviewGrowthSignals"), "Self-reported experience must not score discipleship depth.");
+  /* Case-insensitive: personQuickReviews is the same coupling under another
+     capitalisation, and the first version of this check missed it. */
+  assert(
+    !/discipleshipProgress:[^\n]*quickreview/i.test(scoring),
+    "Discipleship progress must not be inferred from how a conversation felt.",
+  );
+  assert(
+    !/(fruit|momentum|multiplication|meetingFrequency|timeInvested):[^\n]*quickreview/i.test(scoring),
+    "No score component may be computed from Quick Reviews.",
+  );
+
+  // A follow-up note is still surfaced, but only when actually requested.
+  const followUp = scoringSource.slice(scoringSource.indexOf("function quickReviewRequestedFollowUp("));
+  const followUpBody = followUp.slice(0, followUp.indexOf("\n}") + 2);
+  assert(followUpBody.includes('review.wants_follow_up === "yes"'), "An explicit request still counts.");
+  assert(!followUpBody.includes("would_meet_again_response"), "Being glad to meet again is not a follow-up request.");
+
+  // The timestamp of a real event is still a real event.
+  assert(reviews.includes("last_activity_at: submittedAt"), "A submitted review is still activity on that date.");
+});
+
+/* The leader has to be able to see it without digging. */
+await check("Completed feedback reaches Person Overview, and history still renders", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+
+  assert(personDetail.includes('aria-label="Feedback"'), "Person Overview must carry a Feedback section.");
+  const section = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
+  const sectionBody = section.slice(0, section.indexOf("</section>"));
+  assert(sectionBody.includes("latestPersonFeedback.overallRating"), "It must lead with how the conversation was.");
+  assert(sectionBody.includes("latestPersonFeedback.comment"), "It must show what they wrote.");
+  assert(sectionBody.includes("Follow-up requested"), "A follow-up request must be plainly visible, not a subtle badge.");
+  assert(personDetail.includes('item.kind === "quick_review"'), "Only Quick Review feeds it; a Testimony is its own thing.");
+
+  // Deeper destinations survive.
+  assert(personDetail.includes('kind: "quick_review" as const'), "The Timeline entry stays.");
+  assert(personDetail.includes("What {firstName} reported") || personDetail.includes("What {firstName} reported"), "The reviews sheet stays.");
+
+  // Historical answers still render on Meeting Detail rather than vanishing.
+  assert(client.includes("Historical answers keep rendering"), "Retired questions must still show where a review recorded them.");
+  assert(client.includes("quickReviewAnswerLabel(review.feltHeard)"), "felt_heard must still render for reviews that have it.");
+  assert(client.includes("quickReviewMeetAgainLabel(review)"), "would_meet_again must still render for reviews that have it.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

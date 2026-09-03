@@ -151,6 +151,7 @@ export async function loadDosTestimonyLink(token: string): Promise<DosReviewLink
   }
 
   return {
+    leaderName: null,
     meetingDate: String(meeting.table_date ?? ""),
     meetingId: typedLink.meeting_id,
     meetingType: String(meeting.table_type ?? ""),

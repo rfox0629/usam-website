@@ -29,6 +29,10 @@ const migrationFile = readdirSync(new URL("../supabase/migrations", import.meta.
   .find((file) => file.endsWith("_quick_review_name_rating_metadata.sql"));
 const migration = migrationFile ? read(`supabase/migrations/${migrationFile}`) : "";
 
+/* V2 is three questions and one request. Everything here was either asked at
+   a resolution the Overall rating already covers, or is something the review
+   link already knows. None of it may come back to the recipient's form --
+   they all remain renderable for reviews that recorded them. */
 for (const bannedCopy of [
   "DOS Review",
   "2 Minute Review",
@@ -39,38 +43,57 @@ for (const bannedCopy of [
   "What stood out today?",
   "What stood out during your conversation?",
   "Is there anything you'd like to share?",
-]) {
-  assert(!form.includes(bannedCopy), `Quick Review form must not include old copy: ${bannedCopy}`);
-}
-
-for (const requiredCopy of [
-  "Quick Review",
-  "Thank you for taking a minute to share your experience. Your feedback helps us care for people better.",
-  "About You",
-  "First Name",
-  "Last Name",
-  "Optional when this link already knows you.",
-  "How was your experience today?",
-  "How much do you agree?",
   "I felt heard",
   "I felt cared for",
   "This conversation was helpful",
   "I would be happy to meet again",
+  "How much do you agree?",
+  "Optional when this link already knows you.",
   "What did you experience today?",
-  "Select all that apply.",
   "Overall, how would you describe today's conversation?",
-  "Is there anything you'd like us to know? (Optional)",
-  "We'd love to hear what encouraged you, what stood out, or anything we could do better.",
-  "Submit Review",
-  "Your feedback helps us care for people better. We're grateful you took a few moments to share your experience. If you requested follow-up, someone will reach out soon.",
+]) {
+  assert(!form.includes(bannedCopy), `Quick Review form must not include retired copy: ${bannedCopy}`);
+}
+
+for (const requiredCopy of [
+  "Quick Review",
+  "How was your conversation with ${leaderFirstName}?",
+  "You&apos;re answering as",
+  "Not you?",
+  "How was it?",
+  "Did any of this happen? (optional)",
+  "Anything you&apos;d like us to know? (optional)",
+  "I&apos;d like someone to follow up with me",
+  "Send",
 ]) {
   assert(form.includes(requiredCopy) || formConfig.includes(requiredCopy), `Quick Review must include: ${requiredCopy}`);
 }
 
-for (const option of ["Yes", "Somewhat", "No"]) {
-  assert(formConfig.includes(`label: "${option}"`), `Quick Review must keep segmented answer label ${option}.`);
+/* The recipient sees who is asking and when -- and nothing else about the
+   meeting, the leader, or the workspace. */
+for (const context of ["leaderFirstName", "meetingDate", "meetingType"]) {
+  assert(form.includes(context), `Quick Review header must carry ${context}.`);
+}
+for (const leaked of ["notes", "accountability", "prayerRequest", "fruit", "circle", "relationshipScore"]) {
+  assert(!form.toLowerCase().includes(leaked.toLowerCase()), `Quick Review must not expose ${leaked} to the recipient.`);
 }
 
+/* The four things V2 asks about, and the wider historical set kept so stored
+   tags never become unrenderable. */
+for (const [label, value] of [
+  ["I felt closer to God", "Closer to God"],
+  ["Someone prayed with me", "Prayer Received"],
+  ["I decided to follow Jesus", "New Believers"],
+  ["I want to keep growing", "Discipling"],
+]) {
+  assert(formConfig.includes(`{ label: "${label}", value: "${value}" }`), `Quick Review V2 option missing: ${label}.`);
+}
+
+for (const option of ["Yes", "Somewhat", "No"]) {
+  assert(formConfig.includes(`label: "${option}"`), `Historical segmented answer label ${option} must stay renderable.`);
+}
+
+/* The retired ten-option selector stays in the config as history. */
 for (const [label, value] of [
   ["I experienced encouragement", "Felt encouraged"],
   ["I experienced hope", "Hope"],
@@ -139,9 +162,21 @@ assert(
   reviews.includes(".from(\"missionary_field_people\")") && reviews.includes("last_activity_at"),
   "Quick Review submit path must update the contact activity timestamp.",
 );
+/* Reversed deliberately. Recipient satisfaction is not evidence about the
+   depth of a relationship, so it no longer scores one. An explicit request to
+   be contacted is still surfaced, because that is an actual fact. */
+const circleScoringCode = circleScoring.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 assert(
-  circleScoring.includes("quickReviewPositiveSignals") && circleScoring.includes("quickReviewRequestedFollowUp"),
-  "Circle Engine must consume Quick Reviews as relationship/follow-up inputs.",
+  !circleScoringCode.includes("quickReviewPositiveSignals") && !circleScoringCode.includes("quickReviewGrowthSignals"),
+  "Circle Engine must not score a relationship from how a conversation felt.",
+);
+assert(
+  circleScoring.includes("quickReviewRequestedFollowUp"),
+  "Circle Engine must still surface an explicit follow-up request.",
+);
+assert(
+  !reviews.includes("recalculateCircleScores"),
+  "Submitting a Quick Review must not recalculate circle scores.",
 );
 assert(
   circleScoring.includes("fruit: clampScore(personFruit.length * 50)"),

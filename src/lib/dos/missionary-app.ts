@@ -294,6 +294,8 @@ export type DosAppParticipantReview = {
   submittedFirstName: string | null;
   submittedLastName: string | null;
   submittedName: string | null;
+  /* Set only when the recipient explicitly asked to be contacted. */
+  wantsFollowUp: string | null;
   wouldMeetAgain: boolean | null;
   wouldMeetAgainResponse: string | null;
 };
@@ -1775,6 +1777,7 @@ type LeaderReflectionRow = {
 type ParticipantReviewRow = {
   comments: string | null;
   conversation_helpful: string | null;
+  wants_follow_up?: string | null;
   felt_cared_for: string | null;
   felt_heard: string | null;
   id: string;
@@ -1794,6 +1797,7 @@ type ParticipantReviewRow = {
 
 type CanonicalMeetingReviewRow = {
   conversation_helpful: string | null;
+  wants_follow_up?: string | null;
   created_at: string | null;
   felt_cared_for: string | null;
   felt_heard_response: string | null;
@@ -3942,7 +3946,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("dos_meeting_reviews")
-        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
+        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, wants_follow_up, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
         .in("meeting_id", meetingIds)
         .in("review_type", [...dosExperienceReviewTypes])
         .order("created_at", { ascending: false })
@@ -4020,6 +4024,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     submitted_first_name: review.submitted_first_name ?? null,
     submitted_last_name: review.submitted_last_name ?? null,
     submitted_name: review.submitted_name ?? null,
+    wants_follow_up: review.wants_follow_up ?? null,
     would_meet_again: review.would_meet_again_response === "yes"
       ? true
       : review.would_meet_again_response === "no"
@@ -4994,6 +4999,7 @@ export async function loadDosAppData(
     submittedFirstName: review.submitted_first_name ?? null,
     submittedLastName: review.submitted_last_name ?? null,
     submittedName: review.submitted_name ?? null,
+    wantsFollowUp: review.wants_follow_up ?? null,
     wouldMeetAgain: review.would_meet_again,
     wouldMeetAgainResponse: review.would_meet_again_response ?? null,
   }));

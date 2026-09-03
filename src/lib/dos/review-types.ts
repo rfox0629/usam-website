@@ -29,6 +29,10 @@ export type DosQuickReviewOverallRating = typeof dosQuickReviewOverallRatings[nu
 
 export type DosReviewLinkState =
   | {
+      /* The minimum a recipient needs to know what they are reviewing: who
+         asked, and when the conversation was. Nothing else about the meeting
+         crosses the token boundary. */
+      leaderName: string | null;
       meetingDate: string | null;
       meetingId: string;
       meetingType: string | null;

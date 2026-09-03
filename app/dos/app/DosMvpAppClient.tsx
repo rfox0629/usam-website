@@ -33008,6 +33008,19 @@ function quickReviewAnswerLabel(value: string | null | undefined) {
   }
 }
 
+/* Questions Quick Review no longer asks. A review that recorded them still
+   shows what it recorded; a V2 review simply has none of them and shows
+   nothing rather than a row of "Not answered". */
+function historicalReviewAnswers(review: DosAppParticipantReview): Array<[string, string]> {
+  return ([
+    ["Heard", quickReviewAnswerLabel(review.feltHeard), review.feltHeard],
+    ["Cared for", quickReviewAnswerLabel(review.feltCaredFor), review.feltCaredFor],
+    ["Meet again", quickReviewMeetAgainLabel(review), review.wouldMeetAgainResponse],
+  ] as Array<[string, string, string | null]>)
+    .filter(([, , value]) => Boolean(value))
+    .map(([label, text]) => [label, text]);
+}
+
 function quickReviewMeetAgainLabel(review: DosAppParticipantReview) {
   if (review.wouldMeetAgainResponse) {
     return quickReviewAnswerLabel(review.wouldMeetAgainResponse);
@@ -33050,15 +33063,28 @@ function ParticipantReviewRow({ review }: { review: DosAppParticipantReview }) {
           <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">{formatDate(review.submittedAt)}</span>
         </div>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#0F172A]">{review.comments || "Participant review submitted."}</p>
+        {/* Overall first, then the request if there was one. Heard / Cared For
+            / Helpful / Meet Again were four ways of asking the same thing and
+            read as noise; they are no longer collected, and where a historical
+            review carries them they are shown below rather than as a row of
+            near-identical badges. */}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {overallRating ? (
             <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-semibold text-[#1D4ED8]">Overall: {overallRating}</span>
           ) : null}
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Heard: {quickReviewAnswerLabel(review.feltHeard)}</span>
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Cared For: {quickReviewAnswerLabel(review.feltCaredFor)}</span>
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Helpful: {quickReviewAnswerLabel(review.conversationHelpful)}</span>
-          <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]">Meet Again: {quickReviewMeetAgainLabel(review)}</span>
+          {review.wantsFollowUp === "yes" || review.outcomeTags.includes("Follow Up Requested") ? (
+            <span className="rounded-full border border-[#2563EB] bg-[#2563EB] px-2.5 py-1 text-[10px] font-bold text-white">Follow-up requested</span>
+          ) : null}
         </div>
+        {/* Historical answers keep rendering: a review that recorded them
+            still shows what it recorded. */}
+        {historicalReviewAnswers(review).length ? (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {historicalReviewAnswers(review).map(([label, text]) => (
+              <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={label}>{label}: {text}</span>
+            ))}
+          </div>
+        ) : null}
         {review.outcomeTags.length ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {review.outcomeTags.map((tag) => (
@@ -35533,6 +35559,30 @@ function PersonDetailOverlay({
       onAddCommitmentUpdate(commitment);
     },
   }));
+  /* The most recent thing this person said about meeting with us. Quick
+     Review only -- a Testimony is a story they chose to tell, and it has its
+     own place. */
+  const latestPersonFeedback = (() => {
+    const item = personReviewItems.find((entry) => entry.kind === "quick_review");
+
+    if (!item) {
+      return null;
+    }
+
+    const review = item.review ?? null;
+
+    return {
+      comment: review?.comments?.trim() || "",
+      date: item.date,
+      item,
+      overallRating: item.overallRating || "",
+      /* Only an explicit request counts. Historical rows whose value was
+         inferred from "would meet again" are read as written, but nothing
+         new is inferred. */
+      wantsFollowUp: review?.wantsFollowUp === "yes"
+        || (review?.outcomeTags ?? []).includes("Follow Up Requested"),
+    };
+  })();
   const personHistoryEntries: PersonHistoryEntry[] = [
     ...personAssessmentResults.map((result) => ({
       date: result.completedAt,
@@ -36211,6 +36261,37 @@ function PersonDetailOverlay({
                       </p>
                       <PDButton onClick={primaryPrayer.onOpen ?? onOpenPrayerResources}>Open</PDButton>
                     </div>
+                  </section>
+                ) : null}
+
+                {/* What they said about meeting with us, on the page the
+                    leader actually opens. Feedback used to live only in the
+                    Timeline and a nested sheet, so a requested review could
+                    arrive and never be seen. One line: how it was, what they
+                    wrote, and -- unmissably -- whether they asked us to get
+                    back to them. */}
+                {latestPersonFeedback ? (
+                  <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
+                    <div className="mt-1 flex items-start gap-4 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-semibold leading-[1.35] text-dos-primary">
+                          {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
+                        </p>
+                        {latestPersonFeedback.comment ? (
+                          <p className="mt-1 line-clamp-2 text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</p>
+                        ) : null}
+                        {latestPersonFeedback.wantsFollowUp ? (
+                          <p className="mt-1.5 text-[13px] font-bold text-dos-blue">Follow-up requested</p>
+                        ) : null}
+                      </div>
+                      <PDButton onClick={() => onOpenReview(latestPersonFeedback.item)}>View</PDButton>
+                    </div>
+                    {personReviewItems.length > 1 ? (
+                      <button className="mt-1 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFruitReviewsOpen(true)} type="button">
+                        All feedback ({personReviewItems.length})
+                      </button>
+                    ) : null}
                   </section>
                 ) : null}
 

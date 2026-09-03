@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
-import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { normalizeDosQuickReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
 import { submitCanonicalReview } from "@/src/lib/dos/review-submission-policy";
 import {
@@ -166,13 +165,19 @@ export function normalizeQuickReviewSubmission(value: unknown): DosQuickReviewSu
     overallRating: normalizedChoice(payload.overallRating, dosQuickReviewOverallRatings),
     outcomeTags: normalizeDosQuickReviewOutcomeTags(payload.outcomeTags),
     sharePermission,
-    stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers) ?? answerToLegacyUnsure(conversationHelpful),
+    /* NOT derived from how helpful the conversation was. "Very meaningful" is
+       not the same claim as "I took a step toward Jesus", and recording it as
+       one put words in the recipient's mouth. Only an explicit answer counts;
+       otherwise it stays unknown. */
+    stepTowardJesus: normalizedChoice(payload.stepTowardJesus, dosReviewStepAnswers),
     submittedEmail: asString(payload.submittedEmail).slice(0, 160) || null,
     submittedFirstName: submittedFirstName || null,
     submittedLastName: submittedLastName || null,
     stoodOut: asString(payload.stoodOut).slice(0, 1200) || null,
     submittedName: submittedName.slice(0, 120) || null,
-    wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers) ?? answerToLegacyMaybe(wouldMeetAgain),
+    /* NOT derived from "I would be happy to meet again". Being glad to meet
+       again is not asking to be contacted. Only the explicit request counts. */
+    wantsFollowUp: normalizedChoice(payload.wantsFollowUp, dosReviewFollowUpAnswers),
     wouldMeetAgain,
   };
 }
@@ -214,7 +219,7 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
   const supabase = createSupabaseAdminClient();
   const { data: link, error: linkError } = await supabase
     .from("dos_review_links")
-    .select("id, token, workspace_id, meeting_id, reviewer_person_id, recipient_person_id, review_type, status, expires_at, opened_at, submitted_at, used_at")
+    .select("id, token, workspace_id, meeting_id, reviewer_person_id, recipient_person_id, sender_person_id, review_type, status, expires_at, opened_at, submitted_at, used_at")
     .eq("token", token)
     .in("review_type", [...dosExperienceReviewTypes])
     .maybeSingle();
@@ -236,7 +241,8 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
   await markReviewLinkOpened(typedLink);
 
   const recipientPersonId = typedLink.recipient_person_id ?? typedLink.reviewer_person_id;
-  const [{ data: workspace }, { data: meeting }, { data: reviewerPerson }] = await Promise.all([
+  const senderPersonId = (typedLink as { sender_person_id?: string | null }).sender_person_id ?? null;
+  const [{ data: workspace }, { data: meeting }, { data: reviewerPerson }, { data: sender }] = await Promise.all([
     supabase
       .from("missionary_households")
       .select("display_name, id")
@@ -254,6 +260,15 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
         .eq("id", recipientPersonId)
         .maybeSingle()
       : Promise.resolve({ data: null }),
+    /* Who is asking. Only their display name crosses the token boundary --
+       never their email, their notes, or anything else about the workspace. */
+    senderPersonId
+      ? supabase
+        .from("missionary_team_members")
+        .select("id, display_name")
+        .eq("id", senderPersonId)
+        .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   if (!workspace || !meeting) {
@@ -263,6 +278,11 @@ export async function loadDosReviewLink(token: string): Promise<DosReviewLinkSta
   const typedMeeting = meeting as MeetingRow;
 
   return {
+    /* Who is asking and when. The minimum a recipient needs to recognise the
+       conversation; nothing private about the meeting travels with it. */
+    leaderName: (sender && "display_name" in sender ? String(sender.display_name ?? "").trim() : "")
+      || String(workspace.display_name ?? "").trim()
+      || null,
     meetingDate: typedMeeting.table_date,
     meetingId: typedLink.meeting_id,
     meetingType: typedMeeting.table_type,
@@ -340,6 +360,7 @@ export async function loadDosReviewOptionsLink(token: string): Promise<DosReview
   const typedMeeting = meeting as MeetingRow;
 
   return {
+    leaderName: null,
     meetingDate: typedMeeting.table_date,
     meetingId: typedLink.meeting_id,
     meetingType: typedMeeting.table_type,
@@ -363,6 +384,13 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
 
   if (!isValidReviewToken(token)) {
     return { error: "Review link not found.", status: 404 as const };
+  }
+
+  /* A review that answers nothing is not feedback. The rating is the one
+     question worth insisting on -- everything else is optional -- and a
+     single-use link must not be burned on an empty submission. */
+  if (!submission.overallRating) {
+    return { error: "Choose how the conversation was before submitting.", status: 400 as const };
   }
 
   const supabase = createSupabaseAdminClient();
@@ -421,13 +449,22 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
     reviewer_person_id: recipientPersonId,
     share_permission: "private",
     status: "submitted",
-    step_toward_jesus: answerToLegacyUnsure(submission.conversationHelpful),
+    /* Written only when the recipient actually says so. "I decided to follow
+       Jesus" is a stronger claim than "a step toward Jesus", so it supports
+       this field rather than overstating it -- but its absence means unknown,
+       never "no". */
+    step_toward_jesus: submission.stepTowardJesus
+      ?? (submission.outcomeTags?.includes("New Believers") ? "yes" : null),
     submitted_email: submission.submittedEmail,
     submitted_first_name: submission.submittedFirstName,
     submitted_last_name: submission.submittedLastName,
     stood_out: submission.stoodOut,
     submitted_name: submission.submittedName,
-    wants_follow_up: submission.outcomeTags?.includes("Follow Up Requested") ? "yes" : answerToLegacyMaybe(submission.wouldMeetAgain),
+    /* One source: the explicit "I'd like someone to follow up with me"
+       control. The legacy tag still counts, because older links wrote the
+       same request that way. */
+    wants_follow_up: submission.wantsFollowUp
+      ?? (submission.outcomeTags?.includes("Follow Up Requested") ? "yes" : null),
     would_meet_again_response: answerForParticipantReview(submission.wouldMeetAgain),
     workspace_id: typedLink.workspace_id,
   };
@@ -541,9 +578,13 @@ export async function submitDosQuickReview(token: string, submission: DosQuickRe
       .eq("status", "submitted"),
   ]);
 
-  await recalculateCircleScores(typedLink.workspace_id).catch((scoreError) => {
-    console.warn("[DOS circles] Unable to recalculate after quick review submit", scoreError);
-  });
+  /* Deliberately NOT recalculating circle scores here. A Quick Review is how
+     the recipient felt about a conversation; it is not evidence about the
+     depth of the relationship, and rating a conversation highly must not move
+     any internal score. Circles are still recalculated by the activities that
+     genuinely describe the relationship -- meetings, reflections, fruit,
+     people changes. The Person's last_activity_at above is a plain timestamp
+     of something that really happened, not a judgement. */
 
   return { id: String(review.id), ok: true as const };
 }

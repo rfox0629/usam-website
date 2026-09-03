@@ -8,6 +8,20 @@ export const dosReviewOutcomeOptions = [
   { label: "Answered Prayer", value: "Answered Prayer" },
 ] as const;
 
+/* What Quick Review V2 offers. Four things a person can actually notice in
+   themselves after a conversation. The ten-option list below is kept as the
+   historical set -- reviews already submitted still render every tag they
+   carry -- but it is no longer what anyone is asked. */
+export const dosQuickReviewExperienceOptions = [
+  { label: "I felt closer to God", value: "Closer to God" },
+  { label: "Someone prayed with me", value: "Prayer Received" },
+  { label: "I decided to follow Jesus", value: "New Believers" },
+  { label: "I want to keep growing", value: "Discipling" },
+] as const;
+
+/* Historical: every tag Quick Review has ever written. Kept so a stored tag
+   never becomes unrenderable, and so the legacy "Follow Up Requested" value
+   still validates on the way in. Not offered as a new choice. */
 export const dosQuickReviewOutcomeOptions = [
   { label: "I experienced encouragement", value: "Felt encouraged" },
   { label: "I experienced hope", value: "Hope" },
@@ -27,6 +41,9 @@ export const dosReviewSharePermissionOptions = [
   { label: "No, keep it private", value: "private" },
 ] as const;
 
+/* Historical. Quick Review no longer asks agree/disagree questions, but
+   reviews already submitted carry these values and must keep rendering with
+   the words they were answered in. */
 export const dosQuickReviewAnswerOptions = [
   { label: "Yes", value: "yes" },
   { label: "Somewhat", value: "somewhat" },
@@ -55,67 +72,31 @@ export const dosReviewOptionChoices = [
 ] as const;
 
 export const dosQuickReviewFormDefinition = {
-  description: "Thank you for taking a minute to share your experience. Your feedback helps us care for people better.",
+  description: "Three questions. It takes about fifteen seconds.",
   title: "Quick Review",
   sections: [
     {
-      fieldType: "text",
-      label: "First Name",
-      type: "field",
-    },
-    {
-      fieldType: "text",
-      label: "Last Name",
-      type: "field",
-    },
-    {
-      fieldType: "email",
-      helper: "Optional when this link already knows you.",
-      label: "Email",
-      type: "field",
-    },
-    {
-      choiceType: "segmented",
-      label: "I felt heard",
-      options: dosQuickReviewAnswerOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
-      choiceType: "segmented",
-      label: "I felt cared for",
-      options: dosQuickReviewAnswerOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
-      choiceType: "segmented",
-      label: "This conversation was helpful",
-      options: dosQuickReviewAnswerOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
-      choiceType: "segmented",
-      label: "I would be happy to meet again",
-      options: dosQuickReviewAnswerOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
-      choiceType: "checkbox",
-      helper: "Select all that apply.",
-      label: "What did you experience today?",
-      options: dosQuickReviewOutcomeOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
       choiceType: "radio",
-      label: "Overall, how would you describe today's conversation?",
+      label: "How was it?",
       options: dosQuickReviewOverallRatingOptions.map((option) => option.label),
       type: "choice",
     },
     {
+      choiceType: "checkbox",
+      label: "Did any of this happen? (optional)",
+      options: dosQuickReviewExperienceOptions.map((option) => option.label),
+      type: "choice",
+    },
+    {
       fieldType: "textarea",
-      helper: "We'd love to hear what encouraged you, what stood out, or anything we could do better.",
-      label: "Is there anything you'd like us to know? (Optional)",
+      label: "Anything you'd like us to know? (optional)",
       type: "field",
+    },
+    {
+      choiceType: "checkbox",
+      label: "Follow-up",
+      options: ["I'd like someone to follow up with me"],
+      type: "choice",
     },
   ],
 } as const;
@@ -177,6 +158,7 @@ export const dosTestimonyReviewFormDefinition = {
 
 export type DosReviewOutcomeValue = typeof dosReviewOutcomeOptions[number]["value"];
 export type DosQuickReviewOutcomeValue = typeof dosQuickReviewOutcomeOptions[number]["value"];
+export type DosQuickReviewExperienceValue = typeof dosQuickReviewExperienceOptions[number]["value"];
 export type DosReviewOptionChoice = typeof dosReviewOptionChoices[number]["value"];
 export type DosReviewSharePermissionValue = typeof dosReviewSharePermissionOptions[number]["value"];
 export type DosQuickReviewOverallRatingValue = typeof dosQuickReviewOverallRatingOptions[number]["value"];

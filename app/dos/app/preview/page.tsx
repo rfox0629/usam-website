@@ -822,6 +822,7 @@ function buildDosPreviewDemoData(): DosAppData {
       submittedFirstName: "Tim",
       submittedLastName: "Tran",
       submittedName: "Tim Tran",
+      wantsFollowUp: null,
       wouldMeetAgain: true,
       wouldMeetAgainResponse: "yes",
     },
@@ -841,6 +842,9 @@ function buildDosPreviewDemoData(): DosAppData {
       submittedFirstName: "Naomi",
       submittedLastName: "Lee",
       submittedName: "Naomi Lee",
+      /* She asked to be contacted -- the one thing that must be impossible to
+         miss on the Person. */
+      wantsFollowUp: "yes",
       wouldMeetAgain: true,
       wouldMeetAgainResponse: "yes",
     },

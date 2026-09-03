@@ -1,31 +1,52 @@
 "use client";
 
 import { useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import {
-  dosQuickReviewAnswerOptions,
-  dosQuickReviewFormDefinition,
+  dosQuickReviewExperienceOptions,
   dosQuickReviewOverallRatingOptions,
-  dosQuickReviewOutcomeOptions,
 } from "@/src/lib/dos/review-form-config";
-import type { DosQuickReviewAnswer, DosQuickReviewOverallRating, DosReviewLinkState } from "@/src/lib/dos/review-types";
+import type { DosQuickReviewOverallRating, DosReviewLinkState } from "@/src/lib/dos/review-types";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 type ReadyReviewLink = Extract<DosReviewLinkState, { status: "ready" }>;
 
-type QuickReviewDraft = {
-  conversationHelpful: DosQuickReviewAnswer | null;
-  feltCaredFor: DosQuickReviewAnswer | null;
-  feltHeard: DosQuickReviewAnswer | null;
-  overallRating: DosQuickReviewOverallRating | null;
-  outcomeTags: string[];
-  submittedEmail: string;
-  submittedFirstName: string;
-  submittedLastName: string;
-  stoodOut: string;
-  wouldMeetAgain: DosQuickReviewAnswer | null;
+const meetingTypeLabels: Record<string, string> = {
+  call: "Phone call",
+  coffee: "Coffee",
+  kitchen_table: "Kitchen table",
+  meal: "Meal",
+  ministry_event: "Ministry event",
+  outreach: "Outreach",
+  phone: "Phone call",
+  video: "Video call",
+  zoom: "Video call",
 };
+
+function firstNameOf(value: string | null) {
+  return (value ?? "").trim().split(/\s+/).filter(Boolean)[0] ?? "";
+}
+
+function formatMeetingDate(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(`${value.slice(0, 10)}T12:00:00Z`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", timeZone: "UTC" }).format(parsed);
+}
+
+function meetingTypeLabel(value: string | null) {
+  const key = (value ?? "").trim().toLowerCase();
+
+  return meetingTypeLabels[key] ?? "";
+}
 
 function splitKnownName(value: string | null) {
   const parts = (value ?? "").trim().split(/\s+/).filter(Boolean);
@@ -38,183 +59,58 @@ function splitKnownName(value: string | null) {
     return { firstName: parts[0], lastName: "" };
   }
 
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
-  };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function buildInitialDraft(reviewLink: ReadyReviewLink): QuickReviewDraft {
-  const knownName = splitKnownName(reviewLink.reviewerPersonName);
-
-  return {
-    conversationHelpful: null,
-    feltCaredFor: null,
-    feltHeard: null,
-    overallRating: null,
-    outcomeTags: [],
-    submittedEmail: reviewLink.reviewerPersonEmail ?? "",
-    submittedFirstName: knownName.firstName,
-    submittedLastName: knownName.lastName,
-    stoodOut: "",
-    wouldMeetAgain: null,
-  };
-}
-
-function FieldLabel({ children }: { children: ReactNode }) {
+function ChoiceRow({
+  children,
+  onClick,
+  selected,
+  shape = "radio",
+}: {
+  children: string;
+  onClick: () => void;
+  selected: boolean;
+  shape?: "checkbox" | "radio";
+}) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+    <button
+      aria-pressed={selected}
+      className={`flex min-h-10 w-full items-center gap-2.5 rounded-xl border px-3 text-left text-[13.5px] font-semibold leading-[1.25] transition-colors ${
+        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-white text-[#334155]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span
+        aria-hidden="true"
+        className={`flex h-[15px] w-[15px] shrink-0 items-center justify-center border ${shape === "radio" ? "rounded-full" : "rounded-[4px]"} ${
+          selected ? "border-[#2563EB] bg-[#2563EB]" : "border-[#93C5FD] bg-white"
+        }`}
+      >
+        {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+      </span>
       {children}
-    </span>
+    </button>
   );
 }
 
-function SectionCard({ children, helper, title }: { children: ReactNode; helper?: string; title: string }) {
+function QuestionLabel({ children }: { children: string }) {
   return (
-    <section className="rounded-[20px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_28px_rgba(37,99,235,0.05)]">
-      <h2 className="text-[15px] font-bold leading-5 text-[#0F172A]">{title}</h2>
-      {helper ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{helper}</p> : null}
-      <div className="mt-3 grid gap-3">{children}</div>
-    </section>
-  );
-}
-
-function TextField({
-  autoComplete,
-  helper,
-  label,
-  onChange,
-  type = "text",
-  value,
-}: {
-  autoComplete?: string;
-  helper?: string;
-  label: string;
-  onChange: (value: string) => void;
-  type?: "email" | "text";
-  value: string;
-}) {
-  return (
-    <label className="block">
-      <FieldLabel>{label}</FieldLabel>
-      <input
-        className="mt-1.5 min-h-11 w-full rounded-2xl border border-[#BFDBFE] bg-[#F8FBFF] px-3 text-sm text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-        autoComplete={autoComplete}
-        onChange={(event) => onChange(event.target.value)}
-        type={type}
-        value={value}
-      />
-      {helper ? <span className="mt-1.5 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
-    </label>
-  );
-}
-
-function SegmentedQuestion({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: DosQuickReviewAnswer) => void;
-  value: DosQuickReviewAnswer | null;
-}) {
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-semibold leading-5 text-[#0F172A]">{label}</p>
-      <div className="grid grid-cols-3 rounded-2xl border border-[#BFDBFE] bg-[#F8FBFF] p-1">
-        {dosQuickReviewAnswerOptions.map((option) => {
-          const active = value === option.value;
-
-          return (
-            <button
-              aria-pressed={active}
-              className={`min-h-9 rounded-xl px-2 text-xs font-bold transition-colors ${
-                active ? "bg-[#2563EB] text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)]" : "text-[#475569] hover:bg-white"
-              }`}
-              key={option.value}
-              onClick={() => onChange(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function OverallRatingQuestion({
-  onChange,
-  value,
-}: {
-  onChange: (value: DosQuickReviewOverallRating) => void;
-  value: DosQuickReviewOverallRating | null;
-}) {
-  return (
-    <div className="grid gap-2">
-      <p className="text-sm font-semibold leading-5 text-[#0F172A]">Overall, how would you describe today's conversation?</p>
-      <div className="grid gap-1.5">
-        {dosQuickReviewOverallRatingOptions.map((option) => {
-          const active = value === option.value;
-
-          return (
-            <button
-              aria-pressed={active}
-              className={`flex min-h-10 items-center gap-2 rounded-2xl border px-3 text-left text-xs font-bold leading-4 transition-colors ${
-                active ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-[#F8FBFF] text-[#475569]"
-              }`}
-              key={option.value}
-              onClick={() => onChange(option.value)}
-              type="button"
-            >
-              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${active ? "border-[#2563EB] bg-[#2563EB]" : "border-[#93C5FD] bg-white"}`} aria-hidden="true">
-                {active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
-              </span>
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function OutcomeQuestion({
-  onToggle,
-  value,
-}: {
-  onToggle: (value: string) => void;
-  value: string[];
-}) {
-  return (
-    <div className="grid gap-1.5">
-      {dosQuickReviewOutcomeOptions.map((option) => {
-        const active = value.includes(option.value);
-
-        return (
-          <button
-            aria-pressed={active}
-            className={`flex min-h-10 items-center gap-2 rounded-2xl border px-3 text-left text-xs font-bold leading-4 transition-colors ${
-              active ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#DCEBFF] bg-[#F8FBFF] text-[#475569]"
-            }`}
-            key={option.value}
-            onClick={() => onToggle(option.value)}
-            type="button"
-          >
-            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border ${active ? "border-[#2563EB] bg-[#2563EB]" : "border-[#93C5FD] bg-white"}`} aria-hidden="true">
-              {active ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
-            </span>
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
+    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+      {children}
+    </p>
   );
 }
 
 export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink }) {
-  const [draft, setDraft] = useState<QuickReviewDraft>(() => buildInitialDraft(reviewLink));
+  const knownName = splitKnownName(reviewLink.reviewerPersonName);
+  const [overallRating, setOverallRating] = useState<DosQuickReviewOverallRating | null>(null);
+  const [outcomeTags, setOutcomeTags] = useState<string[]>([]);
+  const [stoodOut, setStoodOut] = useState("");
+  const [wantsFollowUp, setWantsFollowUp] = useState(false);
+  const [submittedFirstName, setSubmittedFirstName] = useState(knownName.firstName);
+  const [submittedLastName, setSubmittedLastName] = useState(knownName.lastName);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -223,46 +119,51 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
   const linkKnowsReviewer = Boolean(reviewLink.reviewerPersonName?.trim());
   const [isEditingIdentity, setIsEditingIdentity] = useState(false);
 
-  function updateDraft(patch: Partial<QuickReviewDraft>) {
-    setDraft((currentDraft) => ({ ...currentDraft, ...patch }));
-  }
+  const leaderFirstName = firstNameOf(reviewLink.leaderName);
+  const meetingDate = formatMeetingDate(reviewLink.meetingDate);
+  const meetingType = meetingTypeLabel(reviewLink.meetingType);
+  const recipientName = [submittedFirstName, submittedLastName].filter(Boolean).join(" ");
 
   function toggleOutcomeTag(value: string) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      outcomeTags: currentDraft.outcomeTags.includes(value)
-        ? currentDraft.outcomeTags.filter((tag) => tag !== value)
-        : [...currentDraft.outcomeTags, value],
-    }));
+    setOutcomeTags((current) => (
+      current.includes(value) ? current.filter((tag) => tag !== value) : [...current, value]
+    ));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!overallRating) {
+      setErrorMessage("Choose how the conversation was.");
+      return;
+    }
+
     setErrorMessage("");
     setIsSubmitting(true);
 
     try {
-      const submittedName = [draft.submittedFirstName, draft.submittedLastName].map((value) => value.trim()).filter(Boolean).join(" ");
-      /* The five-point Overall answer and the old "this conversation was
-         helpful" agreement are the same question at different resolutions,
-         so the coarser one is derived rather than asked twice. Keeping it
-         populated preserves the `encouraged` signal it feeds downstream. */
-      const conversationHelpful = draft.overallRating
-        ? draft.overallRating === "not_very_helpful"
-          ? "no"
-          : draft.overallRating === "somewhat_helpful"
-            ? "somewhat"
-            : "yes"
-        : null;
+      /* The five-point answer and the old agree/disagree "this conversation
+         was helpful" are the same question at different resolutions, so the
+         coarser one is derived rather than asked twice. Nothing else is
+         inferred: what is not asked is sent as null. */
+      const conversationHelpful = overallRating === "not_very_helpful"
+        ? "no"
+        : overallRating === "somewhat_helpful"
+          ? "somewhat"
+          : "yes";
       const response = await fetch(`/api/dos/reviews/${reviewLink.token}`, {
         body: JSON.stringify({
-          ...draft,
           conversationHelpful,
-          submittedName,
+          outcomeTags,
+          overallRating,
+          stoodOut,
+          submittedFirstName,
+          submittedLastName,
+          submittedName: [submittedFirstName, submittedLastName].map((value) => value.trim()).filter(Boolean).join(" "),
+          /* The explicit request, and the only thing that may set it. */
+          wantsFollowUp: wantsFollowUp ? "yes" : null,
         }),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         method: "POST",
       });
       const result = await response.json().catch(() => ({})) as { error?: string };
@@ -281,13 +182,15 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
 
   if (submitted) {
     return (
-      <main className="min-h-screen bg-[#F8FBFF] px-4 py-8 text-[#0F172A]">
+      <main className="min-h-screen bg-[#F8FBFF] px-4 py-10 text-[#0F172A]">
         <section className="mx-auto max-w-md rounded-[24px] border border-[#DCEBFF] bg-white p-5 text-center shadow-[0_24px_70px_rgba(37,99,235,0.10)]">
           <h1 className="text-[34px] font-bold leading-none text-[#0F172A]" style={{ fontFamily: font.oswald }}>
             Thank you.
           </h1>
           <p className="mt-3 text-sm leading-6 text-[#475569]">
-            Your feedback helps us care for people better. We're grateful you took a few moments to share your experience. If you requested follow-up, someone will reach out soon.
+            {wantsFollowUp
+              ? `Thanks for sharing. ${leaderFirstName || "Someone"} will reach out to you soon.`
+              : "Thanks for sharing. It helps us care for people better."}
           </p>
         </section>
       </main>
@@ -295,84 +198,91 @@ export function DosQuickReviewForm({ reviewLink }: { reviewLink: ReadyReviewLink
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FBFF] px-4 py-5 text-[#0F172A]">
-      <form className="mx-auto grid max-w-md gap-3" onSubmit={handleSubmit}>
-        <header className="rounded-[24px] border border-[#DCEBFF] bg-white px-4 py-4 shadow-[0_18px_48px_rgba(37,99,235,0.08)]">
-          <h1 className="text-[36px] font-bold leading-none text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            {dosQuickReviewFormDefinition.title}
+    <main className="min-h-screen bg-[#F8FBFF] px-4 py-3 text-[#0F172A]">
+      {/* One card, one screen. Each question is a labelled block rather than
+          its own bordered panel, so the whole thing reads as a single small
+          moment instead of a survey with chapters. */}
+      <form className="mx-auto grid max-w-md gap-3 rounded-[22px] border border-[#DCEBFF] bg-white px-4 py-3.5 shadow-[0_18px_48px_rgba(37,99,235,0.08)]" onSubmit={handleSubmit}>
+        <header>
+          <h1 className="text-[24px] font-bold leading-[1.08] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+            {leaderFirstName ? `How was your conversation with ${leaderFirstName}?` : "How was your conversation?"}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[#475569]">{dosQuickReviewFormDefinition.description}</p>
+          <p className="mt-1 text-[12.5px] leading-[1.35] text-[#64748B]">
+            {[meetingDate, meetingType].filter(Boolean).join(" · ")}
+          </p>
+          {/* Identity is already bound to the link. Showing it beats asking
+              for it, and "Not you?" is the escape when we got it wrong. */}
+          {linkKnowsReviewer && !isEditingIdentity ? (
+            <p className="mt-0.5 text-[12.5px] leading-[1.35] text-[#64748B]">
+              You&apos;re answering as <span className="font-bold text-[#0F172A]">{recipientName}</span>
+              {" · "}
+              <button className="font-bold text-[#2563EB]" onClick={() => setIsEditingIdentity(true)} type="button">Not you?</button>
+            </p>
+          ) : (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <input
+                aria-label="First name"
+                className="min-h-10 w-full rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] px-3 text-[13.5px] outline-none focus:border-[#2563EB]"
+                autoComplete="given-name"
+                onChange={(event) => setSubmittedFirstName(event.target.value)}
+                placeholder="First name"
+                value={submittedFirstName}
+              />
+              <input
+                aria-label="Last name"
+                className="min-h-10 w-full rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] px-3 text-[13.5px] outline-none focus:border-[#2563EB]"
+                autoComplete="family-name"
+                onChange={(event) => setSubmittedLastName(event.target.value)}
+                placeholder="Last name"
+                value={submittedLastName}
+              />
+            </div>
+          )}
         </header>
 
-        {/* When the link already identifies who it was sent to, re-typing a
-            name and email is pure friction on a form we want completed. Show
-            who it is and let them correct it if we got it wrong. Links that
-            genuinely do not know the recipient still ask. */}
-        {linkKnowsReviewer && !isEditingIdentity ? (
-          <SectionCard title="About You">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-[#0F172A]">{[draft.submittedFirstName, draft.submittedLastName].filter(Boolean).join(" ")}</p>
-                {draft.submittedEmail ? <p className="mt-0.5 truncate text-xs font-semibold text-[#475569]">{draft.submittedEmail}</p> : null}
-              </div>
-              <button
-                className="shrink-0 text-xs font-bold text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
-                onClick={() => setIsEditingIdentity(true)}
-                type="button"
-              >
-                Not you?
-              </button>
-            </div>
-          </SectionCard>
-        ) : (
-          <SectionCard title="About You">
-            <div className="grid gap-2.5">
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <TextField autoComplete="given-name" label="First Name" onChange={(value) => updateDraft({ submittedFirstName: value })} value={draft.submittedFirstName} />
-                <TextField autoComplete="family-name" label="Last Name" onChange={(value) => updateDraft({ submittedLastName: value })} value={draft.submittedLastName} />
-              </div>
-              <TextField autoComplete="email" helper="Optional when this link already knows you." label="Email" onChange={(value) => updateDraft({ submittedEmail: value })} type="email" value={draft.submittedEmail} />
-            </div>
-          </SectionCard>
-        )}
+        <div className="grid gap-1.5">
+          <QuestionLabel>How was it?</QuestionLabel>
+          {dosQuickReviewOverallRatingOptions.map((option) => (
+            <ChoiceRow key={option.value} onClick={() => setOverallRating(option.value)} selected={overallRating === option.value}>
+              {option.label}
+            </ChoiceRow>
+          ))}
+        </div>
 
-        <SectionCard helper="How much do you agree?" title="How was your experience today?">
-          <SegmentedQuestion label="I felt heard" onChange={(value) => updateDraft({ feltHeard: value })} value={draft.feltHeard} />
-          <SegmentedQuestion label="I felt cared for" onChange={(value) => updateDraft({ feltCaredFor: value })} value={draft.feltCaredFor} />
-          <SegmentedQuestion label="I would be happy to meet again" onChange={(value) => updateDraft({ wouldMeetAgain: value })} value={draft.wouldMeetAgain} />
-        </SectionCard>
+        <div className="grid gap-1.5">
+          <QuestionLabel>Did any of this happen? (optional)</QuestionLabel>
+          {dosQuickReviewExperienceOptions.map((option) => (
+            <ChoiceRow key={option.value} onClick={() => toggleOutcomeTag(option.value)} selected={outcomeTags.includes(option.value)} shape="checkbox">
+              {option.label}
+            </ChoiceRow>
+          ))}
+        </div>
 
-        <SectionCard helper="Select all that apply." title="What did you experience today?">
-          <OutcomeQuestion onToggle={toggleOutcomeTag} value={draft.outcomeTags} />
-        </SectionCard>
-
-        {/* This asks helpfulness on a five-point scale, which is strictly
-            richer than the agree/disagree "This conversation was helpful"
-            that used to sit above it. Asking both was the same question
-            twice, so the agreement one is gone and this one stays.
-            `conversation_helpful` is still written -- derived from this
-            answer rather than asked again -- because it also feeds the
-            `encouraged` flag downstream. Same question, one answer. */}
-        <SectionCard title="Overall">
-          <OverallRatingQuestion onChange={(value) => updateDraft({ overallRating: value })} value={draft.overallRating} />
-        </SectionCard>
-
-        <SectionCard helper="We'd love to hear what encouraged you, what stood out, or anything we could do better." title="Is there anything you'd like us to know? (Optional)">
+        <div className="grid gap-1.5">
+          <QuestionLabel>Anything you&apos;d like us to know? (optional)</QuestionLabel>
           <textarea
-            className="min-h-20 w-full resize-none rounded-2xl border border-[#BFDBFE] bg-[#F8FBFF] px-3 py-3 text-sm leading-6 text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#2563EB]"
-            onChange={(event) => updateDraft({ stoodOut: event.target.value })}
+            className="min-h-[52px] w-full resize-none rounded-xl border border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2.5 text-[13.5px] leading-5 outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+            onChange={(event) => setStoodOut(event.target.value)}
             placeholder="Optional"
-            value={draft.stoodOut}
+            value={stoodOut}
           />
-        </SectionCard>
+        </div>
 
-        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+        {/* An action request, not an experience. It sits apart from the
+            questions above because answering it asks someone to do something. */}
+        <div className="border-t border-[#EAF2FF] pt-3">
+          <ChoiceRow onClick={() => setWantsFollowUp((current) => !current)} selected={wantsFollowUp} shape="checkbox">
+            I&apos;d like someone to follow up with me
+          </ChoiceRow>
+        </div>
+
+        {errorMessage ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{errorMessage}</p> : null}
         <button
-          className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-[#111111] px-4 text-[15px] font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[46px] w-full items-center justify-center rounded-full bg-[#111111] px-4 text-[15px] font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? "Submitting..." : "Submit Review"}
+          {isSubmitting ? "Sending..." : "Send"}
         </button>
       </form>
     </main>

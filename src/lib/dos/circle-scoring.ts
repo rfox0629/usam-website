@@ -272,41 +272,21 @@ function personEngagementLevel(person: { engagement_level?: string | null; engag
   return person.engagement_level ?? person.engagementLevel ?? null;
 }
 
-function quickReviewAnswerScore(value: string | null | undefined) {
-  if (value === "yes") {
-    return 1;
-  }
-
-  if (value === "somewhat") {
-    return 0.5;
-  }
-
-  return 0;
-}
-
-function quickReviewPositiveSignals(review: QuickReviewRow) {
-  return quickReviewAnswerScore(review.felt_heard_response)
-    + quickReviewAnswerScore(review.felt_cared_for)
-    + quickReviewAnswerScore(review.conversation_helpful)
-    + quickReviewAnswerScore(review.would_meet_again_response);
-}
-
+/* A Quick Review says how a conversation felt to the person we met. It is not
+   evidence about the depth of the relationship, so it deliberately contributes
+   NOTHING to any score. Rating a conversation "life-changing" used to raise
+   discipleshipProgress through quickReviewRelationshipScore, which turned
+   satisfaction into discipleship depth; that is gone. What remains is the plain
+   fact that a review arrived on a date, which is ordinary activity, and a
+   readable note when someone actually asked to be contacted. */
 function quickReviewRequestedFollowUp(review: QuickReviewRow) {
   const tags = review.outcome_tags ?? [];
 
+  /* Only an explicit request. Being glad to meet again is not asking to be
+     contacted, and treating it as one flagged every happy review. */
   return tags.includes("Follow Up Requested")
     || review.wants_follow_up === "yes"
-    || review.wants_follow_up === "maybe"
-    || review.would_meet_again_response === "yes"
-    || review.would_meet_again_response === "somewhat";
-}
-
-function quickReviewGrowthSignals(review: QuickReviewRow) {
-  const tags = review.outcome_tags ?? [];
-
-  return Number(tags.includes("Discipling"))
-    + Number(tags.includes("New Believers"))
-    + Number(tags.includes("Reconciliation"));
+    || review.wants_follow_up === "maybe";
 }
 
 function isAutomaticCircleEligible(
@@ -693,12 +673,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     const personQuickReviews = quickReviews
       .filter((review) => review.status !== "archived")
       .filter((review) => review.reviewer_person_id === person.id || (review.meeting_id && personMeetings.some((meeting) => meeting.id === review.meeting_id)));
-    const positiveQuickReviewSignals = personQuickReviews.reduce((sum, review) => sum + quickReviewPositiveSignals(review), 0);
-    const quickReviewGrowthSignalCount = personQuickReviews.reduce((sum, review) => sum + quickReviewGrowthSignals(review), 0);
     const quickReviewFollowUpRequested = personQuickReviews.some(quickReviewRequestedFollowUp);
-    const quickReviewRelationshipScore = personQuickReviews.length
-      ? personQuickReviews.length * 14 + positiveQuickReviewSignals * 8 + quickReviewGrowthSignalCount * 12
-      : 0;
     const allActivityDates = [
       person.last_activity_at,
       person.updated_at,
@@ -731,7 +706,7 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
     const followUpNeeded = personConnections.some((connection) => Boolean(connection.follow_up_needed?.trim()));
     const daysSinceLastActivity = dayDiff(latestDate(...allActivityDates));
     const breakdown = {
-      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, quickReviewRelationshipScore, engagementContribution)),
+      discipleshipProgress: clampScore(Math.max(readinessScore, completedFlows * 30, personReviews.length * 25, engagementContribution)),
       fruit: clampScore(personFruit.length * 50),
       meetingFrequency: clampScore(recentMeetings.length * 25 + recentConnections.length * 15),
       momentum: clampScore(daysSinceLastActivity <= 7 ? 100 : daysSinceLastActivity <= 14 ? 70 : daysSinceLastActivity <= 30 ? 35 : 0),
@@ -745,7 +720,6 @@ export async function recalculateCircleScores(workspaceId: string): Promise<DosC
       completedFlows ? `Completed ${completedFlows} discipleship ${completedFlows === 1 ? "flow" : "flows"}` : "",
       personFruit.length ? `${personFruit.length} approved fruit ${personFruit.length === 1 ? "review" : "reviews"}` : "",
       personQuickReviews.length ? `${personQuickReviews.length} Quick ${personQuickReviews.length === 1 ? "Review" : "Reviews"} received` : "",
-      positiveQuickReviewSignals ? "Recipient feedback shows relationship health" : "",
       engagementScore > 0 ? `Engagement marked ${relationshipScoreLabel(engagementScore)}` : "",
       multiplicationSignals ? "Shows multiplication or discipling activity" : "",
     ].filter(Boolean);
