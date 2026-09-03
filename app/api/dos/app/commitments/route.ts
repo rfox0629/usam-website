@@ -19,7 +19,13 @@ import {
 } from "@/src/lib/dos/commitments-accountability-api";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
-const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, status, completed_date, created_by_user_id, created_at, updated_at";
+const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, status, completed_date, created_by_user_id, created_at, updated_at";
+
+function asOptionalPositiveInteger(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
 
 export async function POST(request: Request) {
   const authResult = await authorizeDosCommitmentsWrite();
@@ -78,6 +84,10 @@ export async function POST(request: Request) {
       description: asNullableString(payload.description),
       person_id: person.id,
       status: "active",
+      /* Optional measurable goal, e.g. 3 for "Begin discipling 3 men".
+         Omitted or invalid means the commitment is simply not measurable,
+         which is the norm and keeps simple goals simple. */
+      target_count: asOptionalPositiveInteger(firstDefined(payload.targetCount, payload.target_count)),
       target_date: asNullableDateKey(firstDefined(payload.targetDate, payload.target_date)),
       title,
       workspace_id: workspaceResult.workspaceId,

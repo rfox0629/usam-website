@@ -17,7 +17,7 @@ import {
 } from "@/src/lib/dos/commitments-accountability-api";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
-const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, status, completed_date, created_by_user_id, created_at, updated_at";
+const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, status, completed_date, created_by_user_id, created_at, updated_at";
 const updateSelect = "id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, created_by_user_id, created_at";
 
 export async function POST(request: Request) {

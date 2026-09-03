@@ -164,11 +164,15 @@ assert(
   "Log Meeting accountability must be captured inline against the meeting's person.",
 );
 
-// The inline items are written through the canonical accountability contract.
+/* Inline items persist through the shared router, which sends a Recurring
+   Accountability to the schedules API and a One-time one to commitments --
+   the same decision the Person sheet makes, so the destination depends on the
+   user's choice rather than the screen. */
 assert(
-  appClient.includes("accountabilitySchedulePayload(formData, `meeting_accountability_${index}`)")
-    && appClient.includes('await fetch("/api/dos/app/accountability/schedules"'),
-  "Inline accountability must persist through the canonical accountability schedules API.",
+  appClient.includes("accountabilityRoute(formData, `meeting_accountability_${index}`)")
+    && appClient.includes('endpoint: "/api/dos/app/accountability/schedules"')
+    && appClient.includes('endpoint: "/api/dos/app/commitments"'),
+  "Inline accountability must persist through the shared routing contract.",
 );
 
 // Written after the meeting workflow, never inside it, so a failure here cannot

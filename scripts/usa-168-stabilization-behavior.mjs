@@ -266,7 +266,7 @@ await check("Both meeting entry paths persist structured outcomes through one wr
   // A blank inline row must never be written.
   const writer = client.slice(client.indexOf("async function persistMeetingAccountability({"));
   assert(
-    writer.includes("if (!payload.title) {") && writer.includes("continue;"),
+    writer.includes("if (!route.title) {") && writer.includes("continue;"),
     "The shared writer must skip blank accountability rows rather than writing them.",
   );
 });
@@ -371,6 +371,49 @@ await check("Review, Testimony and Prayer never become new Fruit", async () => {
   );
   assert(!categoriesBlock.includes('value: "Prayer Request"'), "Prayer Request is canonical Prayer, not Fruit.");
   assert(!categoriesBlock.includes('value: "Started Discipling Others"'), "Multiplication is Accountability progress, not Fruit.");
+});
+
+/* One user-facing Accountability concept, two canonical destinations chosen by
+   what the user picked rather than which screen they used:
+     Recurring -> dos_accountability_schedules (a rhythm)
+     One-time  -> dos_person_commitments (a goal, the only side carrying a
+                  target and progress updates)
+   Both entry points -- Person FAB and Log Meeting -- and both meeting paths
+   must route identically, or the same choice would persist to different tables
+   depending on where it was made. */
+await check("Accountability routes by type, identically from every entry point", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  assert(client.includes("function accountabilityRoute(formData: FormData, prefix: string)"), "A single routing decision must exist.");
+
+  const router = client.slice(client.indexOf("function accountabilityRoute("));
+  const routerBody = router.slice(0, router.indexOf("\n  function "));
+
+  assert(routerBody.includes('frequency === "one_time"'), "Routing must key off the user's Recurring/One-time choice.");
+  assert(routerBody.includes('endpoint: "/api/dos/app/commitments"'), "One-time Accountability must become a commitment.");
+  assert(routerBody.includes('endpoint: "/api/dos/app/accountability/schedules"'), "Recurring Accountability must stay a schedule.");
+
+  // Both the Person sheet and the shared meeting writer consult the router.
+  for (const caller of ["handleAccountabilityScheduleSubmit", "persistMeetingAccountability"]) {
+    const start = client.indexOf(caller);
+    assert(start !== -1, `${caller} must exist.`);
+    const body = client.slice(start, start + 2600);
+    assert(
+      body.includes("accountabilityRoute(formData,"),
+      `${caller} must route by type, or the same choice lands in different tables depending on the entry point.`,
+    );
+  }
+
+  // A measurable target is optional and never invented.
+  assert(routerBody.includes("targetCount"), "A measurable target must be carried when supplied.");
+  assert(
+    routerBody.includes('/^\\d+$/.test(rawTarget) && Number(rawTarget) > 0'),
+    "Only a positive whole number counts as a target; anything else stays null so simple goals stay simple.",
+  );
+
+  // Blank titles are skipped rather than written on either destination.
+  const writer = client.slice(client.indexOf("async function persistMeetingAccountability({"));
+  assert(writer.includes("if (!route.title) {"), "A blank Accountability row must never be written to either table.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

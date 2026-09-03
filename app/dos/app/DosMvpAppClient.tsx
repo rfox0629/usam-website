@@ -14656,6 +14656,21 @@ function AccountabilityFields({
         label={isOneTime ? "Due" : "Start"}
         name={`${namePrefix}_date`}
       />
+      {/* Measurable goals only, and always optional -- "Read John 4-6 by
+          Friday" needs no number. Filling it in turns the goal into something
+          progress can be counted against, e.g. "Begin discipling 3 men". */}
+      {isOneTime ? (
+        <DosFormField helper="Optional. Use when the goal is a number, like discipling 3 men." label="How many?">
+          <input
+            className={FieldInputClass(false)}
+            inputMode="numeric"
+            min="1"
+            name={`${namePrefix}_target_count`}
+            placeholder="e.g. 3"
+            type="number"
+          />
+        </DosFormField>
+      ) : null}
     </>
   );
 }
@@ -40597,20 +40612,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         break;
       }
 
-      const payload = accountabilitySchedulePayload(formData, `meeting_accountability_${index}`);
+      const route = accountabilityRoute(formData, `meeting_accountability_${index}`);
 
-      if (!payload.title) {
+      if (!route.title) {
         continue;
       }
 
-      const response = await fetch("/api/dos/app/accountability/schedules", {
-        body: JSON.stringify({ ...payload, personId, workspaceId: data.workspace.id }),
+      const response = await fetch(route.endpoint, {
+        body: JSON.stringify({ ...route.payload, personId, workspaceId: data.workspace.id }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
 
       if (!response.ok) {
-        failures.push(payload.title);
+        failures.push(route.title);
       }
     }
 
@@ -40622,7 +40637,40 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   /* The single Accountability data contract. Both the Person sheet and Log
-     Meeting's inline fields produce these names, so both persist identically. */
+     Meeting's inline fields produce these names, so both persist identically.
+
+     One user-facing concept, two canonical destinations, decided by what the
+     user chose rather than by which screen they were on:
+
+       Recurring  -> a rhythm, dos_accountability_schedules
+       One-time   -> a goal, dos_person_commitments, which is the only side
+                     that carries a target and progress updates
+
+     The user never sees this split; they add Accountability and pick Recurring
+     or One-time. A measurable target is optional, so "Read John 4-6 by Friday"
+     stays exactly as simple as it is today. */
+  function accountabilityRoute(formData: FormData, prefix: string) {
+    const frequency = String(formData.get(`${prefix}_frequency`) ?? "weekly");
+    const date = String(formData.get(`${prefix}_date`) ?? "");
+    const title = String(formData.get(`${prefix}_title`) ?? "").trim();
+    const rawTarget = String(formData.get(`${prefix}_target_count`) ?? "").trim();
+    const targetCount = /^\d+$/.test(rawTarget) && Number(rawTarget) > 0 ? Number(rawTarget) : null;
+
+    return frequency === "one_time"
+      ? {
+        endpoint: "/api/dos/app/commitments",
+        kind: "commitment" as const,
+        payload: { targetCount, targetDate: date || null, title },
+        title,
+      }
+      : {
+        endpoint: "/api/dos/app/accountability/schedules",
+        kind: "schedule" as const,
+        payload: { frequency, startDate: date, status: "active", title },
+        title,
+      };
+  }
+
   function accountabilitySchedulePayload(formData: FormData, prefix: string) {
     const frequency = String(formData.get(`${prefix}_frequency`) ?? "weekly");
     const date = String(formData.get(`${prefix}_date`) ?? "");
@@ -40639,24 +40687,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const id = String(formData.get("id") ?? "").trim();
+    const personId = String(formData.get("person_id") ?? "");
+    /* Same routing the Log Meeting path uses, so where an Accountability lands
+       depends on what the user chose, never on which screen they opened.
+       Editing an existing schedule stays a schedule. */
+    const route = accountabilityRoute(formData, "accountability");
+    const useCommitment = route.kind === "commitment" && !id;
     const result = await submitJson(
-      "/api/dos/app/accountability/schedules",
-      // One contract, shared with Log Meeting's inline Accountability. Day of
-      // week is derived from the start date by the API, and status defaults to
-      // active -- neither is worth a control in the form.
-      {
-        ...accountabilitySchedulePayload(formData, "accountability"),
-        id,
-        personId: String(formData.get("person_id") ?? ""),
-      },
+      useCommitment ? route.endpoint : "/api/dos/app/accountability/schedules",
+      useCommitment
+        ? { ...route.payload, personId }
+        : {
+          // Day of week is derived from the start date by the API and status
+          // defaults to active -- neither is worth a control in the form.
+          ...accountabilitySchedulePayload(formData, "accountability"),
+          id,
+          personId,
+        },
       id ? "PATCH" : "POST",
       false,
-    ) as { schedule?: DosAppAccountabilitySchedule } | null;
+    ) as { commitment?: DosAppPersonCommitment; schedule?: DosAppAccountabilitySchedule } | null;
 
-    if (result?.schedule) {
+    if (result?.schedule || result?.commitment) {
       setCommitmentSheet(null);
       setCommitmentNotice({
-        personId: result.schedule.personId,
+        personId: result.schedule?.personId ?? result.commitment?.personId ?? personId,
         text: "Accountability saved.",
         tone: "success",
       });
