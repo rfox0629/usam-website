@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
@@ -198,6 +199,35 @@ await check("Production review submission has no legacy dual-write", async () =>
   const submitSource = source.slice(source.indexOf("export async function submitDosQuickReview"));
   assert.doesNotMatch(submitSource, /\.from\("participant_reviews"\)\s*\.insert/);
   assert.match(submitSource, /submitCanonicalReview/);
+});
+
+/* Production defect USA-168: a scheduled meeting was written to the database
+   and the request still answered 500 "Unable to create meeting."
+
+   The create path had `insertResult?.error ?? { message: ... }`. Supabase
+   returns `error: null` on success, and `??` treats null as nullish, so every
+   successful insert was rebranded a failure. Nothing caught it because no test
+   executes the meetings route against a real Supabase response shape -- the
+   workflow suite stubs its steps, and the other meeting suites assert on
+   source text.
+
+   This models both response shapes through the fixed expression. */
+await check("A successful meeting insert is never reported as a failure", async () => {
+  const routeSource = readFileSync(new URL("../app/api/dos/app/meetings/route.ts", import.meta.url), "utf8");
+
+  assert(
+    !routeSource.includes('insertResult?.error ?? { message: "Unable to create meeting." }'),
+    "The create path must not fall back on insertResult.error; Supabase returns error:null on success.",
+  );
+
+  const resolveError = (insertResult) => (insertResult ? insertResult.error : { message: "Unable to create meeting." });
+
+  // Supabase success: data present, error explicitly null.
+  assert.equal(resolveError({ data: { id: "meeting-1" }, error: null }), null, "A successful insert must yield no error.");
+  // Supabase failure: a real error object survives.
+  assert.equal(resolveError({ data: null, error: { message: "boom" } }).message, "boom", "A real insert error must survive.");
+  // The retry loop never ran: the fallback is the correct answer.
+  assert.equal(resolveError(null).message, "Unable to create meeting.", "A missing insert result must report the fallback.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

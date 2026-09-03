@@ -1281,7 +1281,14 @@ export async function POST(request: Request) {
   }
 
   let data: { id: unknown } | null = insertResult?.data ?? null;
-  let error: { code?: string; message: string } | null = insertResult?.error ?? { message: "Unable to create meeting." };
+  /* `??` must key off insertResult itself, never insertResult.error. Supabase
+     returns `error: null` on success, so `insertResult?.error ?? fallback`
+     substituted the fallback for every successful insert -- the row was
+     written and the request still answered 500 "Unable to create meeting."
+     Only a missing insertResult (the retry loop never ran) is a real failure. */
+  let error: { code?: string; message: string } | null = insertResult
+    ? insertResult.error
+    : { message: "Unable to create meeting." };
 
   if (error && idempotencyKey && isUniqueViolation(error)) {
     const existingResult = await supabase
