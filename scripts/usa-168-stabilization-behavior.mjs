@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
@@ -414,6 +415,162 @@ await check("Accountability routes by type, identically from every entry point",
   // Blank titles are skipped rather than written on either destination.
   const writer = client.slice(client.indexOf("async function persistMeetingAccountability({"));
   assert(writer.includes("if (!route.title) {"), "A blank Accountability row must never be written to either table.");
+});
+
+/* The user experiences ONE Accountability system. Storage is split by what they
+   picked -- Recurring becomes a schedule, One-time becomes a commitment -- but
+   the Person shows a single section holding both, ordered by what is due
+   soonest, with no "commitment" or "schedule" vocabulary reaching the screen. */
+await check("One Accountability section holds both recurring rhythms and one-time goals", async () => {
+  const formatDate = (value) => value ?? "No date";
+  const dateValue = (value) => (value ? Date.parse(`${value}T00:00:00Z`) : 0);
+
+  const rows = unifiedAccountabilityRows({
+    commitments: [
+      { id: "goal", status: "active", targetCount: 3, targetDate: "2026-09-10", title: "Begin discipling 3 men", updates: [{ subjectPersonId: "philip" }, { subjectPersonId: "philip" }] },
+      { id: "read", status: "active", targetCount: null, targetDate: "2026-09-06", title: "Read John 4-6", updates: [] },
+      { id: "plain", status: "active", targetCount: null, targetDate: null, title: "Write out his testimony", updates: [] },
+      { id: "done", status: "completed", targetCount: null, targetDate: "2026-09-01", title: "Finished already", updates: [] },
+    ],
+    dateValue,
+    formatDate,
+    isJourneyFollowUp: (schedule) => schedule.title.startsWith("Growth follow-up due"),
+    scheduleTitle: (schedule) => schedule.title,
+    schedules: [
+      { frequency: "weekly", id: "rhythm", nextCheckIn: "2026-09-04", status: "active", title: "Pray daily" },
+      { frequency: "monthly", id: "late", nextCheckIn: "2026-08-20", status: "active", title: "Serve monthly" },
+      /* Written here before routing by type existed. Left in place, read as
+         the one-time goal it always was. */
+      { frequency: "one_time", id: "legacy", nextCheckIn: "2026-09-08", status: "active", title: "Finish the workbook" },
+      { frequency: "one_time", id: "journey", nextCheckIn: "2026-09-05", status: "active", title: "Growth follow-up due [resource-assignment:abc:midpoint]" },
+      { frequency: "weekly", id: "paused", nextCheckIn: "2026-09-02", status: "paused", title: "Paused rhythm" },
+    ],
+    today: "2026-09-03",
+  });
+
+  // Both models reach the one list; neither is filtered out by the other's rules.
+  assert.deepEqual(rows.map((row) => row.title), [
+    "Serve monthly",
+    "Pray daily",
+    "Read John 4-6",
+    "Finish the workbook",
+    "Begin discipling 3 men",
+    "Write out his testimony",
+  ], "Everything active from both models appears once, soonest first, undated last.");
+
+  assert.deepEqual(rows.map((row) => row.kind), ["recurring", "recurring", "one_time", "one_time", "one_time", "one_time"]);
+
+  // Each row carries the metadata its own kind actually has.
+  const metaByTitle = new Map(rows.map((row) => [row.title, row.meta]));
+  assert.equal(metaByTitle.get("Pray daily"), "Weekly · Next 2026-09-04", "A rhythm reads as its cadence and next date.");
+  assert.equal(metaByTitle.get("Serve monthly"), "Monthly · Overdue", "A missed rhythm must not still advertise a date that has passed.");
+  assert.equal(metaByTitle.get("Read John 4-6"), "Due 2026-09-06", "An ordinary one-time goal reads as its due date.");
+  // Two updates, both about Philip: one confirmed subject, not two.
+  assert.equal(metaByTitle.get("Begin discipling 3 men"), "1 of 3 confirmed", "A measurable goal reads as its progress, counted by distinct subject.");
+  assert.equal(metaByTitle.get("Write out his testimony"), "", "A goal with neither date nor target says nothing rather than 'No target date'.");
+  assert.equal(metaByTitle.get("Finish the workbook"), "Due 2026-09-08",
+    "A one-time row written before routing existed still reads as a deadline, and is not migrated to say so.");
+
+  // Journey follow-ups stay Journeys: they are system-generated and are not
+  // user-authored Accountability, so they are excluded, never reinterpreted.
+  assert(!rows.some((row) => row.title.includes("resource-assignment")), "Journey follow-up schedules must not surface as Accountability.");
+  assert(!rows.some((row) => row.sourceId === "journey"), "Journey follow-up schedules must not be reinterpreted as user commitments.");
+
+  // Storage words never travel with the row.
+  for (const row of rows) {
+    assert(!/commitment|schedule/i.test(`${row.title} ${row.meta}`), `Row "${row.title}" must not expose storage vocabulary.`);
+  }
+});
+
+/* A measurable target counts DISTINCT confirmed subjects, and only shows when
+   the user actually declared a number. */
+await check("Measurable Accountability shows real progress and never invents it", async () => {
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 3, targetDate: null, title: "x", updates: [] }), "0 of 3 confirmed",
+    "A declared target shows at zero: that is the point of having set it.");
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: null, targetDate: "2026-09-06", title: "x", updates: [] }), null,
+    "An ordinary one-time goal gets no progress UI.");
+  assert.equal(accountabilityProgressLabel({ id: "a", status: "active", targetCount: 0, targetDate: null, title: "x", updates: [] }), null,
+    "A zero or invalid target is not a measurable goal.");
+
+  // Three notes about Philip are one confirmed subject, not three.
+  assert.equal(commitmentConfirmedSubjectCount([
+    { subjectPersonId: "philip" },
+    { subjectPersonId: "philip" },
+    { subjectPersonName: " Philip " },
+  ]), 2, "A DOS Person and a bare name are different keys; repeats within each collapse.");
+  assert.equal(commitmentConfirmedSubjectCount([{ subjectPersonName: "Philip" }, { subjectPersonName: " philip " }]), 1,
+    "Repeated updates about one named subject count once.");
+  assert.equal(commitmentConfirmedSubjectCount([{ progressNote: "Going well" }, { subjectPersonName: "   " }]), 0,
+    "Progress notes with no subject count toward nothing.");
+  assert.equal(commitmentConfirmedSubjectCount(null), 0, "A commitment with no updates counts zero, not NaN.");
+});
+
+/* Three doors into Accountability, one form behind all of them, and no fourth
+   door left over from before the unification. */
+await check("Every Person V2 Accountability entry point opens the one canonical form", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personDetail = client.slice(
+    client.indexOf("function PersonDetailOverlay({"),
+    client.indexOf("\nfunction ReviewActionButton({"),
+  );
+  assert(personDetail.length > 1000, "The Person V2 component must be found before asserting anything about it.");
+
+  // Exactly one Accountability section on the Person.
+  assert.equal(
+    (personDetail.match(/aria-label="Accountability"/g) ?? []).length,
+    1,
+    "The Person must render one Accountability section, not one per underlying model.",
+  );
+  assert(personDetail.includes("unifiedAccountabilityRows({"), "That section must be built from both models by the one presenter.");
+
+  // Door 1: the section's own restrained add, available whether or not the
+  // section already has rows.
+  const section = personDetail.slice(personDetail.indexOf('aria-label="Accountability"'));
+  const sectionHead = section.slice(0, section.indexOf("</section>"));
+  assert(sectionHead.includes("+ Add"), "The section must offer + Add.");
+  assert(
+    /onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,120}\+ Add/.test(sectionHead),
+    "The section's + Add must open the canonical Accountability form.",
+  );
+  assert(
+    !sectionHead.includes("{!accountabilityTopics.length ? ("),
+    "+ Add must not be conditional on the section being empty.",
+  );
+
+  // Door 2: the Person FAB.
+  assert(
+    personDetail.includes('label: "Add accountability", onClick: onAddAccountabilitySchedule'),
+    "The Person FAB must open the same canonical form.",
+  );
+
+  // Door 3: Log Meeting's inline Accountability, which is the same field set
+  // the sheet renders -- not a second form that happens to look similar.
+  assert.equal(
+    (client.match(/<AccountabilityFields/g) ?? []).length,
+    2,
+    "Exactly two places render Accountability fields: the sheet and Log Meeting inline.",
+  );
+  const logMeetingSection = client.slice(client.indexOf("function MeetingLeaderReflectionSection("));
+  assert(
+    logMeetingSection.slice(0, logMeetingSection.indexOf("\nfunction ")).includes("<AccountabilityFields"),
+    "Log Meeting must use the canonical Accountability fields inline.",
+  );
+  const scheduleSheet = client.slice(client.indexOf("function AccountabilityScheduleSheet({"));
+  assert(
+    scheduleSheet.slice(0, scheduleSheet.indexOf("\nfunction ")).includes("<AccountabilityFields"),
+    "The Accountability sheet must use the same canonical fields.",
+  );
+
+  // And no fourth door: Person V2 must not reach the legacy creation sheet.
+  // Word-bounded: onAddCommitmentUpdate is progress on an existing goal, which stays.
+  assert(!/\bonAddCommitment\b/.test(personDetail), "Person V2 must not carry a second Accountability creation action.");
+  assert(!personDetail.includes("openCommitmentCreate"), "Person V2 must not open the legacy creation sheet.");
+  assert(!client.includes("function CommitmentsPanel("), "The duplicate Accountability panel must be gone.");
+  assert(!client.includes("function PersonAccountabilitySummaryCard("), "The second Accountability card must be gone.");
+
+  // Editing existing records keeps working through the model each one lives in.
+  assert(client.includes("function openCommitmentEdit("), "Editing an existing one-time goal must still be possible.");
+  assert(client.includes('title={schedule ? "Edit Accountability" : "Add Accountability"}'), "Editing an existing rhythm must still be possible.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

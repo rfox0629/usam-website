@@ -89,6 +89,7 @@ import {
 } from "@/src/lib/dos/relationship-model";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
+import { unifiedAccountabilityRows } from "@/src/lib/dos/accountability-presentation";
 import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
@@ -13010,18 +13011,6 @@ const commitmentProgressLabels: Record<DosCommitmentProgressState, string> = {
   struggling: "Struggling",
 };
 
-const accountabilityFrequencyLabels: Record<DosAccountabilityFrequency, string> = {
-  every_two_weeks: "Every two weeks",
-  monthly: "Monthly",
-  one_time: "One-time date",
-  weekly: "Weekly",
-};
-
-const accountabilityStatusLabels: Record<DosAccountabilityScheduleStatus, string> = {
-  active: "Active",
-  paused: "Paused",
-};
-
 const resourceAssignmentStatusLabels: Record<DosResourceAssignmentStatus, string> = {
   completed: "Completed",
   in_progress: "In Progress",
@@ -13036,8 +13025,6 @@ const resourceAssignmentFollowUpCadenceLabels: Record<DosResourceAssignmentFollo
   weekly: "Weekly leader reminder",
 };
 
-const accountabilityDayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
 function accountabilityScheduleDisplayTitle(schedule: DosAppAccountabilitySchedule) {
   return resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title);
 }
@@ -13046,24 +13033,6 @@ function resourceAssignmentForFollowUpSchedule(schedule: DosAppAccountabilitySch
   const marker = parseResourceAssignmentFollowUpScheduleTitle(schedule.title);
 
   return marker ? assignments.find((assignment) => assignment.id === marker.assignmentId) ?? null : null;
-}
-
-function commitmentLatestUpdate(commitment: DosAppPersonCommitment) {
-  return commitment.updates[0] ?? null;
-}
-
-function commitmentLastDiscussedAt(
-  commitment: DosAppPersonCommitment,
-  checkIns: DosAppAccountabilityCheckIn[],
-  links: DosAppAccountabilityCheckInCommitment[],
-) {
-  const checkInById = new Map(checkIns.map((checkIn) => [checkIn.id, checkIn]));
-
-  return links
-    .filter((link) => link.commitmentId === commitment.id)
-    .map((link) => checkInById.get(link.checkInId)?.checkInDate ?? null)
-    .filter((date): date is string => Boolean(date))
-    .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
 }
 
 function commitmentDueLabel(commitment: DosAppPersonCommitment) {
@@ -13319,247 +13288,6 @@ function ResourceAssignmentCard({
   );
 }
 
-function commitmentStatusTone(status: DosCommitmentStatus) {
-  if (status === "completed") {
-    return "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D]";
-  }
-
-  if (status === "paused") {
-    return "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]";
-  }
-
-  if (status === "cancelled") {
-    return "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]";
-  }
-
-  return "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
-}
-
-function CommitmentStatusPill({ status }: { status: DosCommitmentStatus }) {
-  return (
-    <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-[0.12em] ${commitmentStatusTone(status)}`} style={{ fontFamily: font.rajdhani }}>
-      {commitmentStatusLabels[status]}
-    </span>
-  );
-}
-
-function CommitmentCard({
-  checkIns,
-  commitment,
-  links,
-  onAddUpdate,
-  onComplete,
-  onEdit,
-  onPause,
-}: {
-  checkIns: DosAppAccountabilityCheckIn[];
-  commitment: DosAppPersonCommitment;
-  links: DosAppAccountabilityCheckInCommitment[];
-  onAddUpdate: (commitment: DosAppPersonCommitment) => void;
-  onComplete: (commitment: DosAppPersonCommitment) => void;
-  onEdit: (commitment: DosAppPersonCommitment) => void;
-  onPause: (commitment: DosAppPersonCommitment) => void;
-}) {
-  const latestUpdate = commitmentLatestUpdate(commitment);
-  const lastDiscussedAt = commitmentLastDiscussedAt(commitment, checkIns, links);
-
-  return (
-    <article className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.045)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h4 className="text-base font-black leading-5 text-[#0F172A]">{commitment.title}</h4>
-          {commitment.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#475569]">{commitment.description}</p> : null}
-        </div>
-        <CommitmentStatusPill status={commitment.status} />
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-4">
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Assigned</span>
-          <span className="mt-1 block text-[#0F172A]">{formatDate(commitment.assignedDate)}</span>
-        </span>
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Due</span>
-          <span className="mt-1 block text-[#0F172A]">{commitmentDueLabel(commitment)}</span>
-        </span>
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Age</span>
-          <span className="mt-1 block text-[#0F172A]">{formatRelativeDate(commitment.assignedDate)}</span>
-        </span>
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Discussed</span>
-          <span className="mt-1 block text-[#0F172A]">{lastDiscussedAt ? formatRelativeDate(lastDiscussedAt) : "Not yet"}</span>
-        </span>
-      </div>
-
-      {commitment.category || latestUpdate ? (
-        <div className="mt-3 grid gap-2">
-          {commitment.category ? (
-            <span className="w-fit rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-xs font-bold text-[#1D4ED8]">{commitment.category}</span>
-          ) : null}
-          {latestUpdate ? (
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                Latest update {formatDate(latestUpdate.updateDate)}
-              </p>
-              <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{latestUpdate.progressNote}</p>
-              {latestUpdate.progressState ? <p className="mt-1 text-xs font-bold text-[#2563EB]">{commitmentProgressLabels[latestUpdate.progressState]}</p> : null}
-            </div>
-          ) : (
-            <p className="rounded-[18px] bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-[#64748B]">No progress update yet.</p>
-          )}
-        </div>
-      ) : null}
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[#64748B] sm:grid-cols-3">
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Created By</span>
-          <span className="mt-1 block text-[#0F172A]">{commitment.createdByUserId ? "DOS user" : "Unknown"}</span>
-        </span>
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Workspace</span>
-          <span className="mt-1 block text-[#0F172A]">This workspace</span>
-        </span>
-        <span className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-          <span className="block text-[9px] font-black uppercase tracking-[0.13em]" style={{ fontFamily: font.rajdhani }}>Completed</span>
-          <span className="mt-1 block text-[#0F172A]">{commitment.completedDate ? formatDate(commitment.completedDate) : "Not completed"}</span>
-        </span>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <CompactButton icon="add" onClick={() => onAddUpdate(commitment)}>Add Update</CompactButton>
-        <CompactButton icon="commitment" onClick={() => onComplete(commitment)}>Complete</CompactButton>
-        <CompactButton icon="bell" onClick={() => onPause(commitment)}>{commitment.status === "paused" ? "Activate" : "Pause"}</CompactButton>
-        <CompactButton icon="settings" onClick={() => onEdit(commitment)}>Edit</CompactButton>
-      </div>
-    </article>
-  );
-}
-
-function CommitmentsPanel({
-  checkIns,
-  commitments,
-  links,
-  onAddCommitment,
-  onAddSchedule,
-  onAddUpdate,
-  onComplete,
-  onEdit,
-  onLogCheckIn,
-  onPause,
-  schedules,
-}: {
-  checkIns: DosAppAccountabilityCheckIn[];
-  commitments: DosAppPersonCommitment[];
-  links: DosAppAccountabilityCheckInCommitment[];
-  onAddCommitment: () => void;
-  onAddSchedule: () => void;
-  onAddUpdate: (commitment: DosAppPersonCommitment) => void;
-  onComplete: (commitment: DosAppPersonCommitment) => void;
-  onEdit: (commitment: DosAppPersonCommitment) => void;
-  onLogCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
-  onPause: (commitment: DosAppPersonCommitment) => void;
-  schedules: DosAppAccountabilitySchedule[];
-}) {
-  const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
-  const historicalCommitments = commitments.filter((commitment) => commitment.status === "completed" || commitment.status === "cancelled");
-  const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
-  const pausedSchedules = schedules.filter((schedule) => schedule.status === "paused");
-  const nextSchedule = activeSchedules[0] ?? null;
-  const hasHistory = Boolean(historicalCommitments.length || pausedSchedules.length);
-
-  return (
-    <section className="grid min-w-0 gap-3">
-      <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
-        <div className={`grid gap-2 ${nextSchedule ? "grid-cols-2" : "grid-cols-1"}`}>
-          <CompactButton icon="commitment" onClick={onAddCommitment}>New Accountability</CompactButton>
-          {nextSchedule ? <CompactButton icon="log" onClick={() => onLogCheckIn(nextSchedule)}>Log Check-In</CompactButton> : null}
-        </div>
-        {activeCommitments.length ? activeCommitments.map((commitment) => (
-          <CommitmentCard
-            checkIns={checkIns}
-            commitment={commitment}
-            key={commitment.id}
-            links={links}
-            onAddUpdate={onAddUpdate}
-            onComplete={onComplete}
-            onEdit={onEdit}
-            onPause={onPause}
-          />
-        )) : (
-          <SectionEmptyState text="Use New Accountability above to add one." title="No active accountability." />
-        )}
-      </DetailCard>
-
-      <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
-        <div className="grid gap-2">
-          <CompactButton icon="calendar" onClick={onAddSchedule}>Add Accountability</CompactButton>
-          {activeSchedules.length ? activeSchedules.map((schedule) => (
-            <button
-              className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-              key={schedule.id}
-              onClick={() => onLogCheckIn(schedule)}
-              type="button"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-[#0F172A]">{accountabilityScheduleDisplayTitle(schedule)}</span>
-                <span className="mt-1 block text-xs font-semibold text-[#64748B]">
-                  {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""} · Next {formatDate(schedule.nextCheckIn)}
-                </span>
-              </span>
-              <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {accountabilityStatusLabels[schedule.status]}
-              </span>
-            </button>
-          )) : (
-            <SectionEmptyState action={<CompactButton icon="calendar" onClick={onAddSchedule}>Add Rhythm</CompactButton>} title="No check-in rhythm yet." />
-          )}
-        </div>
-      </DetailCard>
-
-      {hasHistory ? (
-        <details className="rounded-[24px] border border-[#E2E8F0] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            History ({historicalCommitments.length + pausedSchedules.length})
-          </summary>
-          <div className="mt-3 grid gap-2">
-            {historicalCommitments.map((commitment) => (
-              <CommitmentCard
-                checkIns={checkIns}
-                commitment={commitment}
-                key={commitment.id}
-                links={links}
-                onAddUpdate={onAddUpdate}
-                onComplete={onComplete}
-                onEdit={onEdit}
-                onPause={onPause}
-              />
-            ))}
-            {pausedSchedules.map((schedule) => (
-              <button
-                className="flex min-w-0 items-center justify-between gap-3 rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 text-left transition-colors hover:border-[#BFDBFE]"
-                key={schedule.id}
-                onClick={() => onLogCheckIn(schedule)}
-                type="button"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-[#334155]">{accountabilityScheduleDisplayTitle(schedule)}</span>
-                  <span className="mt-1 block text-xs font-semibold text-[#64748B]">
-                    {accountabilityFrequencyLabels[schedule.frequency]}{typeof schedule.dayOfWeek === "number" ? ` · ${accountabilityDayLabels[schedule.dayOfWeek]}` : ""}
-                  </span>
-                </span>
-                <span className="shrink-0 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  {accountabilityStatusLabels[schedule.status]}
-                </span>
-              </button>
-            ))}
-          </div>
-        </details>
-      ) : null}
-    </section>
-  );
-}
-
 function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[], resourceAssignments: DosAppResourceAssignment[] = []) {
   const personById = new Map(people.map((person) => [person.id, person]));
   const today = todayCommitmentDateKey();
@@ -13752,48 +13480,6 @@ function ResourceAssignmentsDashboardCard({
         )}
       </div>
     </DesktopPanel>
-  );
-}
-
-function PersonAccountabilitySummaryCard({
-  checkIns,
-  commitments,
-  onLogCheckIn,
-  onViewCommitments,
-  schedules,
-}: {
-  checkIns: DosAppAccountabilityCheckIn[];
-  commitments: DosAppPersonCommitment[];
-  onLogCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
-  onViewCommitments: () => void;
-  schedules: DosAppAccountabilitySchedule[];
-}) {
-  const activeCommitments = commitments.filter((commitment) => commitment.status === "active");
-  const nextCheckIn = schedules.filter((schedule) => schedule.status === "active")[0] ?? null;
-  const lastCheckIn = checkIns[0] ?? null;
-
-  return (
-    <DetailCard icon={<ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Accountability">
-      <div className="grid grid-cols-3 gap-2">
-        <FruitSummaryCard icon={<ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active" value={String(activeCommitments.length)} />
-        <FruitSummaryCard icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Next" value={nextCheckIn ? formatDate(nextCheckIn.nextCheckIn) : "None"} />
-        <FruitSummaryCard icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Last" value={lastCheckIn ? formatRelativeDate(lastCheckIn.checkInDate) : "None"} />
-      </div>
-      {activeCommitments.length ? (
-        <div className="grid gap-2">
-          {activeCommitments.slice(0, 3).map((commitment) => (
-            <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={commitment.id}>
-              <p className="truncate text-sm font-black text-[#0F172A]">{commitment.title}</p>
-              <p className="mt-1 text-xs font-semibold text-[#64748B]">Assigned {formatRelativeDate(commitment.assignedDate)} · {commitmentDueLabel(commitment)}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      <div className="grid grid-cols-2 gap-2">
-        <CompactButton icon="commitment" onClick={onViewCommitments}>View Commitments</CompactButton>
-        <CompactButton icon="log" onClick={() => onLogCheckIn(nextCheckIn)}>Log Check-In</CompactButton>
-      </div>
-    </DetailCard>
   );
 }
 
@@ -35375,7 +35061,6 @@ function PersonDetailOverlay({
   reminders,
   resourceAssignments,
   onBack,
-  onAddCommitment,
   onAddCommitmentUpdate,
   onAddAccountabilitySchedule,
   onAddReminder,
@@ -35430,7 +35115,6 @@ function PersonDetailOverlay({
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
   onBack: () => void;
-  onAddCommitment: () => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
   onAddAccountabilitySchedule: () => void;
   onAddReminder: () => void;
@@ -35610,30 +35294,50 @@ function PersonDetailOverlay({
   // commitment (linkedCommitmentId) so the Journey itself stays checked-in-on — but showing
   // those in Accountability duplicates the Current Journeys row for the same assignment.
   // They remain fully visible/manageable in History and the deeper accountability tools.
-  const activeAccountabilitySchedules = accountabilitySchedules
-    .filter((schedule) => schedule.status === "active")
-    .filter((schedule) => !parseResourceAssignmentFollowUpScheduleTitle(schedule.title));
   const activeCommitments = commitments
     .filter((commitment) => commitment.status === "active")
     .filter((commitment) => !allResourceAssignments.some((assignment) => assignment.linkedCommitmentId === commitment.id));
-  const accountabilityTopics = commitmentsEnabled
-    ? [
-      ...activeAccountabilitySchedules.map((schedule) => ({
-        id: `schedule-${schedule.id}`,
-        isOverdue: dateSortValue(schedule.nextCheckIn) < dateSortValue(todayCommitmentDateKey()),
-        meta: `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(schedule.nextCheckIn)}`,
-        onCheckIn: () => onLogAccountabilityCheckIn(schedule),
-        title: accountabilityScheduleDisplayTitle(schedule),
-      })),
-      ...activeCommitments.map((commitment) => ({
-        id: `commitment-${commitment.id}`,
-        isOverdue: false,
-        meta: commitmentDueLabel(commitment),
-        onCheckIn: () => onAddCommitmentUpdate(commitment),
-        title: commitment.title,
-      })),
-    ]
-    : [];
+  /* One Accountability list. Recurring rhythms live in schedules and one-time
+     goals live in commitments, but that is storage: here they are simply the
+     things this person is working on, ordered by what is due soonest. The
+     check-in action is the only place the two models still differ, because a
+     rhythm records a check-in and a goal records progress. */
+  const commitmentById = new Map(activeCommitments.map((commitment) => [commitment.id, commitment]));
+  const scheduleById = new Map(accountabilitySchedules.map((schedule) => [schedule.id, schedule]));
+  const accountabilityTopics = (commitmentsEnabled
+    ? unifiedAccountabilityRows({
+      commitments: activeCommitments,
+      dateValue: dateSortValue,
+      /* "Due Sep 6" reads as a date; "Due Sep 6, 2026" reads as paperwork.
+         The year only earns its place when the date is not in this one. */
+      formatDate: (value: string | null) => (
+        new Date().getFullYear() === parseDisplayDate(value)?.getFullYear() ? formatShortDate(value) : formatDate(value)
+      ),
+      isJourneyFollowUp: (schedule) => Boolean(parseResourceAssignmentFollowUpScheduleTitle(schedule.title)),
+      scheduleTitle: (schedule) => resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title),
+      schedules: accountabilitySchedules,
+      today: todayCommitmentDateKey(),
+    })
+    : []).map((row) => ({
+    ...row,
+    onCheckIn: () => {
+      if (row.kind === "recurring") {
+        const schedule = scheduleById.get(row.sourceId);
+
+        if (schedule) {
+          onLogAccountabilityCheckIn(schedule);
+        }
+
+        return;
+      }
+
+      const commitment = commitmentById.get(row.sourceId);
+
+      if (commitment) {
+        onAddCommitmentUpdate(commitment);
+      }
+    },
+  }));
   const personHistoryEntries: PersonHistoryEntry[] = [
     ...personAssessmentResults.map((result) => ({
       date: result.completedAt,
@@ -35863,7 +35567,6 @@ function PersonDetailOverlay({
   const primaryPrayer = conceptPrayerItems[0] ?? null;
   const primaryPrayerText = primaryPrayer ? relationalCopy(primaryPrayer.text, firstName) : "";
   const additionalPrayerCount = Math.max(0, conceptPrayerItems.length - 1);
-  const shortTopicMeta = (value: string) => value.replace("Next ", "").replace(/, \d{4}/, "");
   function scrollDetailToTop() {
     requestAnimationFrame(() => {
       const scrollContainer = detailScrollRef.current;
@@ -36233,15 +35936,24 @@ function PersonDetailOverlay({
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
 
-                {/* ACCOUNTABILITY — the primary active work, immediately below. */}
-                <section className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
+                {/* ACCOUNTABILITY — the primary active work, immediately below.
+                    One section for everything this person is working on, whether
+                    it is a rhythm or a one-time goal. Add sits on the heading so
+                    it is reachable whether or not there is anything here yet, and
+                    opens the same canonical form as the FAB and Log Meeting. */}
+                <section aria-label="Accountability" className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
+                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">
+                      + Add
+                    </button>
+                  </div>
                   <div className="mt-1 divide-y divide-dos-rule">
                     {accountabilityTopics.map((topic) => (
                       <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={topic.id}>
                         <div className="min-w-0 flex-1">
                           <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shortTopicMeta(topic.meta)}</p>
+                          {topic.meta ? <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{topic.meta}</p> : null}
                         </div>
                         <PDButton onClick={topic.onCheckIn}>Check in</PDButton>
                       </div>
@@ -36265,14 +35977,9 @@ function PersonDetailOverlay({
                       </div>
                     ))}
                     {!accountabilityTopics.length && !conceptJourneys.length ? (
-                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet — use + to add accountability.</p>
+                      <p className="py-1 text-[15px] leading-[1.5] text-dos-body">Nothing they are working on yet — use + Add above.</p>
                     ) : null}
                   </div>
-                  {!accountabilityTopics.length ? (
-                    <button className="mt-3 text-[13.5px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">
-                      + Add accountability
-                    </button>
-                  ) : null}
                 </section>
 
                 {/* Prayer is not accountability. Something we are praying about
@@ -44672,7 +44379,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               reminders={data.reminders}
               resourceAssignments={selectedPersonResourceAssignments}
             onBack={() => setSelectedPersonId(null)}
-            onAddCommitment={() => openCommitmentCreate(selectedPerson.id)}
             onAddCommitmentUpdate={openCommitmentUpdate}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
             onAddReminder={() => openReminderForm(selectedPerson.id)}

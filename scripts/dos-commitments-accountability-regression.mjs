@@ -90,7 +90,13 @@ assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick ac
 
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard accountability card");
 assertIncludes(client, '<AccountabilityDashboardCard', "dashboard renders accountability card");
-assertIncludes(client, "PersonAccountabilitySummaryCard", "person overview accountability summary");
+/* USA-168 replaced the Person's two separate Accountability cards -- a
+   commitments summary and a schedules card, both titled "Accountability" --
+   with a single section fed by one presenter. The capability is asserted by
+   what the Person now renders, not by the retired component names. */
+assertIncludes(client, 'aria-label="Accountability"', "person overview has one Accountability section");
+assertIncludes(client, "unifiedAccountabilityRows({", "person overview builds that section from both models");
+assertNotIncludes(client, "PersonAccountabilitySummaryCard", "the second Accountability card is gone");
 // USA-168 consolidated the Person's six tabs into Overview / Timeline /
 // Details, so there is no standalone Commitments tab any more. The capability
 // must survive the consolidation: active accountability appears in Overview's
@@ -99,7 +105,7 @@ assertIncludes(client, "PersonAccountabilitySummaryCard", "person overview accou
 assertIncludes(client, "accountabilityTopics.map", "person overview lists active accountability");
 assertIncludes(client, "onClick={topic.onCheckIn}", "person overview offers an accountability check-in");
 assertIncludes(client, 'kind: "check_in"', "accountability check-ins appear in the Person timeline");
-assertIncludes(client, "CommitmentsPanel", "person commitments panel");
+assertNotIncludes(client, "CommitmentsPanel", "the duplicate Accountability panel is gone");
 assertIncludes(client, "CommitmentFormSheet", "commitment creation sheet");
 assertIncludes(client, "CommitmentUpdateSheet", "progress update sheet");
 assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
