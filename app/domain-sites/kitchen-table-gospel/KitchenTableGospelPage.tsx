@@ -156,17 +156,43 @@ function CTAButton({
   );
 }
 
-const tableIntentOptions = ["Join a table", "Host a table", "Get trained", "Partner with the movement"] as const;
+const tableGroupOptions = ["Just me", "My spouse and me", "A few friends", "A church or ministry group", "I'm not sure yet"] as const;
+type TableIntent = "Schedule a table" | "Host a table" | "Lead a table" | "Partner with the movement";
+
+const tableIntentContent: Record<TableIntent, { description: string; eyebrow: string; title: string }> = {
+  "Schedule a table": {
+    description: "Want to experience Kitchen Table Gospel? Share a few details below. A real person from our team will reach out to hear what you are looking for and arrange a time to meet.",
+    eyebrow: "Experience Kitchen Table Gospel",
+    title: "Schedule a Table",
+  },
+  "Host a table": {
+    description: "Interested in opening your home or another welcoming space? Share a few details and someone from our team will personally reach out.",
+    eyebrow: "Open Your Table",
+    title: "Host a Table",
+  },
+  "Lead a table": {
+    description: "Interested in learning how to guide others through Kitchen Table Gospel? Share a few details and someone from our team will personally reach out.",
+    eyebrow: "Help Others Follow Jesus",
+    title: "Lead a Table",
+  },
+  "Partner with the movement": {
+    description: "Interested in helping table-based discipleship reach more people and communities? Share a few details and someone from our team will personally reach out.",
+    eyebrow: "Help Tables Multiply",
+    title: "Partner With Us",
+  },
+};
 
 // Submits through the same public form pipeline every other USAM lead form uses
 // (/api/form-submissions -> Supabase form_submissions -> the support team's admin
 // inbox at /admin/support-team). formType stays "general" so this ships without a
 // schema change; payload.source distinguishes Kitchen Table Gospel submissions.
-function JoinTheTableModal({
+function TableInterestModal({
   children,
+  intent = "Schedule a table",
   variant = "primary",
 }: {
   children: React.ReactNode;
+  intent?: TableIntent;
   variant?: "primary" | "secondary";
 }) {
   const pathname = usePathname();
@@ -175,6 +201,8 @@ function JoinTheTableModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<"error" | "idle" | "success">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const content = tableIntentContent[intent];
+  const isScheduleRequest = intent === "Schedule a table";
 
   useEffect(() => {
     setIsMounted(true);
@@ -225,7 +253,7 @@ function JoinTheTableModal({
     const phone = getString(formData, "phone");
     const city = getString(formData, "city");
     const state = getString(formData, "state");
-    const intent = getString(formData, "intent");
+    const group = getString(formData, "group");
     const message = getString(formData, "message");
     const sourcePage = typeof window === "undefined"
       ? pathname || "/"
@@ -242,6 +270,7 @@ function JoinTheTableModal({
           city,
           email,
           first_name: firstName,
+          group,
           intent,
           last_name: lastName,
           message,
@@ -274,15 +303,15 @@ function JoinTheTableModal({
     >
       <div className="flex min-h-full items-start justify-center py-4 md:items-center md:py-8">
         <div
-          aria-labelledby="join-the-table-title"
+          aria-labelledby="table-interest-title"
           aria-modal="true"
-          className="relative w-full"
+          className="relative mx-auto w-full max-w-[760px]"
           onMouseDown={(event) => event.stopPropagation()}
           role="dialog"
         >
           <PublicFormShell size="standard">
             <button
-              aria-label="Close join the table form"
+              aria-label={`Close ${content.title.toLowerCase()} form`}
               className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-stone-300 bg-white text-xl leading-none text-stone-700 shadow-sm transition-colors hover:border-[#378ADD] hover:text-stone-950"
               onClick={() => setIsOpen(false)}
               type="button"
@@ -292,14 +321,14 @@ function JoinTheTableModal({
 
             <div className="space-y-4">
               <PublicFormHeader
-                description="Tell us a little about yourself and how you want to be part of Kitchen Table Gospel. A real person from our team will follow up, not an automated reply."
-                eyebrow="Join the Table"
-                title={<span id="join-the-table-title">Pull Up a Chair</span>}
+                description={content.description}
+                eyebrow={content.eyebrow}
+                title={<span id="table-interest-title">{content.title}</span>}
               />
 
               {status === "success" ? (
                 <PublicFormMessage>
-                  Thank you. Someone from our team will reach out soon to help you take the next step.
+                  Your request has been received. Someone from our team will personally reach out soon.
                 </PublicFormMessage>
               ) : (
                 <form className="space-y-4" onSubmit={handleSubmit}>
@@ -324,17 +353,19 @@ function JoinTheTableModal({
                     </PublicFormGrid>
                   </PublicFormSection>
 
-                  <PublicFormSection title="How do you want to be involved?">
-                    <PublicSelect defaultValue="" label="I want to" name="intent" required>
-                      <option value="">Select one</option>
-                      {tableIntentOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </PublicSelect>
+                  <PublicFormSection title={isScheduleRequest ? "Your Table" : "Your Interest"}>
+                    {isScheduleRequest ? (
+                      <PublicSelect defaultValue="" label="Who would be joining you?" name="group" required>
+                        <option value="">Select one</option>
+                        {tableGroupOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </PublicSelect>
+                    ) : null}
                     <div className="mt-4">
-                      <PublicTextarea label="Anything you want us to know? (optional)" name="message" rows={3} />
+                      <PublicTextarea label="Anything you would like us to know? (optional)" name="message" rows={3} />
                     </div>
                   </PublicFormSection>
 
@@ -344,10 +375,13 @@ function JoinTheTableModal({
                     </PublicFormMessage>
                   ) : null}
 
-                  <PublicFormSection title="Submit">
+                  <PublicFormSection title="Request">
                     <PublicSubmitButton disabled={isSubmitting}>
-                      {isSubmitting ? "Submitting..." : "Submit"}
+                      {isSubmitting ? "Sending request..." : isScheduleRequest ? "Request a Table" : "Send Request"}
                     </PublicSubmitButton>
+                    <p className="mt-3 text-center text-xs leading-relaxed text-stone-600">
+                      Your information will only be used so our team can follow up about your request.
+                    </p>
                   </PublicFormSection>
                 </form>
               )}
@@ -376,7 +410,7 @@ function JoinTheTableModal({
 }
 
 // Single identity/return path to USA Missionaries (the subtitle link) and a single
-// primary action (Join the Table). No section nav, no second USA Missionaries link,
+// primary action (Schedule a Table). No section nav, no second USA Missionaries link,
 // and no separate mobile menu: the same compact header works at every breakpoint.
 function Header() {
   return (
@@ -397,7 +431,7 @@ function Header() {
           </span>
         </div>
 
-        <JoinTheTableModal>Join the Table</JoinTheTableModal>
+        <TableInterestModal>Schedule a Table</TableInterestModal>
       </div>
     </header>
   );
@@ -628,23 +662,20 @@ export function KitchenTableGospelPage() {
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-16 px-6 py-16 md:grid-cols-2 md:items-center md:px-10">
           <div>
             <Reveal>
-              <Eyebrow>An initiative of USA Missionaries</Eyebrow>
-            </Reveal>
-            <Reveal delay={100}>
               <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-stone-100 sm:text-5xl md:text-6xl" style={{ fontFamily: font.oswald }}>
                 Discipleship Doesn&apos;t Start on a Stage.
                 <br />
                 It Starts at a Table.
               </h1>
             </Reveal>
-            <Reveal delay={220}>
+            <Reveal delay={120}>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-stone-400 md:text-lg">
                 Jesus turned kitchens and dining rooms into classrooms, confession booths, and launching pads. Kitchen
                 Table Gospel exists to help believers do what he did: learn, obey, and teach the commands of Jesus
                 around a real table, with real people.
               </p>
             </Reveal>
-            <Reveal delay={340}>
+            <Reveal delay={240}>
               <p
                 className="mt-8 text-[11px] font-semibold uppercase leading-loose tracking-[0.22em] text-stone-500"
                 style={{ fontFamily: font.rajdhani }}
@@ -654,10 +685,10 @@ export function KitchenTableGospelPage() {
                 <span style={{ color: ktg.accentSoft }}>MATTHEW 28:19&ndash;20</span>
               </p>
             </Reveal>
-            <Reveal delay={440}>
+            <Reveal delay={360}>
               <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                <CTAButton href="#pattern">See the Pattern of Jesus</CTAButton>
-                <JoinTheTableModal variant="secondary">Join the Table</JoinTheTableModal>
+                <TableInterestModal>Schedule a Table</TableInterestModal>
+                <CTAButton href="#pattern" variant="secondary">See How It Works</CTAButton>
               </div>
             </Reveal>
           </div>
@@ -877,6 +908,34 @@ export function KitchenTableGospelPage() {
       </section>
 
       {/* FINAL CTA */}
+      <section className="border-y px-6 py-20 md:px-10 md:py-24" style={{ borderColor: ktg.panelBorder, background: ktg.bgAlt }}>
+        <div className="mx-auto max-w-5xl">
+          <Reveal>
+            <SectionHeading eyebrow="Other Ways to Take Part" headline="Already Know What Comes Next?">
+              <p>Experience a table first, or connect with us directly about helping tables grow and multiply.</p>
+            </SectionHeading>
+          </Reveal>
+
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {([
+              { body: "Open your home or another welcoming space and gather people around a real table.", intent: "Host a table" as const, title: "Host a Table" },
+              { body: "Learn how to guide others through Kitchen Table Gospel and help them obey Jesus.", intent: "Lead a table" as const, title: "Lead a Table" },
+              { body: "Help table-based discipleship reach more people, churches, and communities.", intent: "Partner with the movement" as const, title: "Partner With Us" },
+            ]).map((path, index) => (
+              <Reveal delay={index * 100} key={path.intent}>
+                <div className="flex h-full flex-col border p-7" style={{ borderColor: ktg.panelBorder, background: ktg.bg }}>
+                  <h3 className="text-2xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>{path.title}</h3>
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-stone-400">{path.body}</p>
+                  <div className="mt-7">
+                    <TableInterestModal intent={path.intent} variant="secondary">{path.title}</TableInterestModal>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="join" className="px-6 py-28 md:px-10 md:py-36">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
@@ -884,21 +943,21 @@ export function KitchenTableGospelPage() {
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-10 text-4xl font-bold tracking-tight text-stone-100 md:text-6xl" style={{ fontFamily: font.oswald }}>
-              PULL UP A CHAIR.
+              EXPERIENCE IT AT A TABLE.
             </h2>
           </Reveal>
           <Reveal delay={220}>
             <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-stone-400 md:text-lg">
-              Join a table, host one in your home, get trained to lead one, or partner with this work. There is a
-              seat for you.
+              Interested in experiencing Kitchen Table Gospel? Tell us where you are located, and someone from our
+              team will reach out to arrange a time to meet with you.
             </p>
           </Reveal>
           <Reveal delay={340}>
             <div className="mt-10 flex justify-center">
-              <JoinTheTableModal>
+              <TableInterestModal>
                 <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-                Join the Table
-              </JoinTheTableModal>
+                Schedule a Table
+              </TableInterestModal>
             </div>
           </Reveal>
         </div>
@@ -917,7 +976,7 @@ export function KitchenTableGospelPage() {
               </Link>
             </p>
           </div>
-          <JoinTheTableModal variant="secondary">Join the Table</JoinTheTableModal>
+          <TableInterestModal variant="secondary">Schedule a Table</TableInterestModal>
         </div>
       </footer>
     </main>
