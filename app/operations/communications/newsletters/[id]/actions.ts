@@ -7,7 +7,7 @@ import { canManageOperationsModule, getOperationsAuthorization } from "@/src/lib
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 import { TEST_SEND_RECIPIENT } from "@/src/lib/communications/config";
 import { sendNewsletterEmail } from "@/src/lib/communications/resend";
-import { renderNewsletterEmail } from "@/src/lib/communications/newsletter-template";
+import { PLACEHOLDER_MANAGE_TOKEN, renderNewsletter } from "@/src/lib/communications/render";
 import {
   communicationsSenderStatus,
   evaluateSendReadiness,
@@ -62,10 +62,10 @@ export async function sendNewsletterTestAction(formData: FormData) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const rendered = renderNewsletterEmail({
+  const rendered = renderNewsletter({
     // A test render uses a placeholder manage token; it is never a real
     // subscriber's token, so a forwarded test cannot unsubscribe anyone.
-    manageToken: "test-preview",
+    manageToken: PLACEHOLDER_MANAGE_TOKEN,
     newsletter: {
       body_markdown: detail.bodyMarkdown,
       cta_label: detail.newsletter.ctaLabel,

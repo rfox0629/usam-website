@@ -68,7 +68,8 @@
     "start": "next start",
     "test:mission-domain-routing": "node scripts/mission-domain-routing-regression.mjs",
     "test:preparation": "node --experimental-strip-types --import ./scripts/ts-loader.mjs scripts/restoration-preparation-regression.mjs",
-    "test:share-cards": "node scripts/share-card-system-regression.mjs"
+    "test:share-cards": "node scripts/share-card-system-regression.mjs",
+    "test:communications-public-routes": "node scripts/communications-public-routes-regression.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

@@ -16,7 +16,12 @@ export function septemberNewsletter({
   imageBase: string;
   postalAddress?: string | null;
 }): EditorialNewsletter {
-  const img = (file: string) => `${imageBase}/images/vision/${file}`;
+  // Email-specific derivatives, not the site originals. The website serves
+  // /images/vision at full camera resolution (3.4 MB for one of these), which
+  // is fine over broadband and far too heavy for an inbox. These are 1200px
+  // wide -- 2x the 600px email shell, so they stay sharp on retina -- and the
+  // originals are untouched.
+  const img = (file: string) => `${imageBase}/images/email/september-2026/${file}`;
 
   return {
     closing: {

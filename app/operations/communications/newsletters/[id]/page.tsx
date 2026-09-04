@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { canAccessOperationsModule, canManageOperationsModule, getOperationsAuthorization } from "@/src/lib/operations/auth";
-import { renderNewsletterEmail } from "@/src/lib/communications/newsletter-template";
+import { PLACEHOLDER_MANAGE_TOKEN, renderNewsletter } from "@/src/lib/communications/render";
 import {
   communicationsSenderStatus,
   evaluateSendReadiness,
@@ -88,8 +88,8 @@ export default async function OperationsNewsletterDetailPage({
   });
 
   // Exactly what Resend receives — same renderer, same inputs.
-  const rendered = renderNewsletterEmail({
-    manageToken: "preview",
+  const rendered = renderNewsletter({
+    manageToken: PLACEHOLDER_MANAGE_TOKEN,
     newsletter: {
       body_markdown: detail.bodyMarkdown,
       cta_label: newsletter.ctaLabel,

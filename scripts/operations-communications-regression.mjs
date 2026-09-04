@@ -127,8 +127,10 @@ check("no duplicate communication tables are created", () => {
 check("the preview renders the same HTML the send uses", () => {
   const page = read("app", "operations", "communications", "newsletters", "[id]", "page.tsx");
   const actions = read("app", "operations", "communications", "newsletters", "[id]", "actions.ts");
-  assert.match(page, /renderNewsletterEmail/);
-  assert.match(actions, /renderNewsletterEmail/);
+  // Both go through src/lib/communications/render.ts, which picks the locked
+  // editorial issue for September and the generic template for anything else.
+  assert.match(page, /renderNewsletter\(/);
+  assert.match(actions, /renderNewsletter\(/);
   // Preview is sandboxed so newsletter HTML cannot script the Operations page.
   assert.match(page, /sandbox=""/);
   for (const tab of [/desktop/, /mobile/, /Plain Text/]) {
