@@ -35,14 +35,38 @@ export function FieldTextareaClass(spaced = true) {
 export function DosFormSection({
   children,
   description,
+  hint,
   icon,
   title,
+  variant = "section",
 }: {
   children: ReactNode;
   description?: string;
+  /** Right-aligned hint next to the title, e.g. "optional" or "15-minute steps" (label variant). */
+  hint?: string;
   icon: IconName;
   title: string;
+  /**
+   * `section` is the original icon-tile section (unchanged default). `label` is
+   * the canonical form grammar (spec §3 Field): a sentence-case 13.5/600 label
+   * with an optional hint, no icon tile, one helper line. Screens opt in one
+   * at a time; the title string is unchanged so regression anchors hold.
+   */
+  variant?: "label" | "section";
 }) {
+  if (variant === "label") {
+    return (
+      <section className="grid gap-2 border-t border-dos-line pt-5 first:border-t-0 first:pt-0">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-dos-label text-dos-secondary">{title}</span>
+          {hint ? <span className="shrink-0 text-dos-meta text-dos-secondary">{hint}</span> : null}
+        </div>
+        {description ? <p className="text-dos-meta text-dos-secondary">{description}</p> : null}
+        <div className="grid gap-3">{children}</div>
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0">
       <div className="grid gap-2">
@@ -66,15 +90,18 @@ export function DosFormField({
   className = "",
   helper,
   label,
+  labelVariant = "caps",
 }: {
   children: ReactNode;
   className?: string;
   helper?: string;
   label?: ReactNode;
+  /** `caps` is the original tracked-caps FieldLabel (default). `sentence` is the spec §3 13.5/600 sentence-case label; screens opt in one at a time. */
+  labelVariant?: "caps" | "sentence";
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
-      {label ? <FieldLabel>{label}</FieldLabel> : null}
+      {label ? (labelVariant === "sentence" ? <span className="text-dos-label text-dos-secondary">{label}</span> : <FieldLabel>{label}</FieldLabel>) : null}
       {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
       {children}
     </label>

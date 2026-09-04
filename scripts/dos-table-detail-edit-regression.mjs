@@ -21,9 +21,21 @@ const editMeetingBlockStart = appClient.indexOf('{formMode === "editMeeting"');
 const editMeetingBlockEnd = appClient.indexOf('{formMode === "meetingNotes"', editMeetingBlockStart);
 const editMeetingBlock = appClient.slice(editMeetingBlockStart, editMeetingBlockEnd);
 
+/* USA-216 (spec §5.3, V10 "Duration 15-minute steps"): the preset pills and
+   the custom hours/minutes pair became one 15-minute stepper with no ceiling.
+   The guarantee this assertion carried -- Edit Table can set any duration, not
+   only a preset -- still holds through the stepper; sub-15-minute precision is
+   an intentional, recorded delta. The posted field is unchanged. */
+const durationSelectorStart = appClient.indexOf("function MeetingDurationSelector({");
+const durationSelectorBlock = appClient.slice(durationSelectorStart, appClient.indexOf("\nfunction ", durationSelectorStart + 1));
+
 assert(
-  appClient.includes("function MeetingDurationSelector({") && appClient.includes("customTotalMinutes") && appClient.includes(">Hours</span>") && appClient.includes(">Minutes</span>"),
-  "Edit Table duration selector must support custom hours and minutes.",
+  durationSelectorStart >= 0
+    && durationSelectorBlock.includes('name="meeting_duration_minutes"')
+    && durationSelectorBlock.includes("step={15}")
+    && !durationSelectorBlock.includes("max=")
+    && durationSelectorBlock.includes("setDurationMinutes"),
+  "Edit Table duration selector must support any duration through the 15-minute stepper with no ceiling.",
 );
 
 assert(

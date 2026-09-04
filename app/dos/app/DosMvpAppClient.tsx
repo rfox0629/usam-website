@@ -25,6 +25,8 @@ import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
+import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
+import { Button } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -21025,7 +21027,7 @@ function MeetingLeaderReflectionSection({
   const prayerFields = (
     <div className="grid gap-3" key={`prayer-${prayerKey}`}>
       {attendeeOptions.length > 1 ? (
-        <DosFormField label="Who is this for?">
+        <DosFormField label="Who is this for?" labelVariant="sentence">
           <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
             {attendeeOptions.map((person) => (
               <option key={person.id} value={person.id}>{person.name}</option>
@@ -21035,7 +21037,7 @@ function MeetingLeaderReflectionSection({
       ) : (
         <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
       )}
-      <DosFormField label="What are you praying about?">
+      <DosFormField label="What are you praying about?" labelVariant="sentence">
         <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
       </DosFormField>
     </div>
@@ -21043,7 +21045,7 @@ function MeetingLeaderReflectionSection({
   const reminderFields = (
     <div className="grid gap-3" key={`reminder-${followUpKey}`}>
       <input name="follow_up_needed" type="hidden" value="on" />
-      <DosFormField label="What do you want to remember?">
+      <DosFormField label="What do you want to remember?" labelVariant="sentence">
         <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." />
       </DosFormField>
       <DosDateInput
@@ -21074,7 +21076,7 @@ function MeetingLeaderReflectionSection({
 
   return (
     <>
-      <DosFormSection icon="log" title="Meeting Notes">
+      <DosFormSection icon="log" title="Meeting Notes" variant="label">
         <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} tall />
         {/* "What did you agree to?" is gone -- what they agreed to is
             Accountability, what you need to remember is a Reminder. Existing
@@ -21087,16 +21089,16 @@ function MeetingLeaderReflectionSection({
           optional extras. Nothing here is required -- the section exists to
           make you consider whether the conversation produced one. */}
       <section className="border-t border-dos-rule pt-5">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">From this meeting</h3>
+        <h3 className="text-dos-eyebrow uppercase text-dos-eyebrowSection">From this meeting</h3>
         <div className="mt-3 grid gap-2">
           {quickActions.map((action) => (
             <div key={action.key}>
               <button
                 aria-pressed={action.active}
-                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-2xl border px-4 text-[14.5px] font-bold transition-colors sm:w-auto ${
+                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-dos-3 border px-4 text-dos-label transition-colors sm:w-auto ${
                   action.active
-                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                    : "border-[#D6E4F7] bg-white text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                    ? "border-dos-blue bg-dos-blue50 text-dos-blueText"
+                    : "border-dos-line bg-white text-dos-blueText hover:border-dos-blue100 hover:bg-dos-blue50"
                 }`}
                 onClick={action.onClick}
                 type="button"
@@ -21299,13 +21301,6 @@ const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
 
 // The common cases on the surface; Custom carries 1h 15m, 2h 30m and the rest.
 // Exposing every possible duration made the row the loudest thing on the form.
-const meetingDurationOptions = [
-  { label: "15m", value: "15" },
-  { label: "30m", value: "30" },
-  { label: "45m", value: "45" },
-  { label: "1h", value: "60" },
-  { label: "Custom", value: "custom" },
-] as const;
 const scheduledTableDurationOptions = [
   { label: "30 min", value: "30" },
   { label: "45 min", value: "45" },
@@ -21314,75 +21309,32 @@ const scheduledTableDurationOptions = [
   { label: "2 hours", value: "120" },
 ] as const;
 
-type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
 function MeetingDurationSelector({
   defaultMinutes = 30,
 }: {
   defaultMinutes?: number | string | null;
 }) {
-  const normalizedDefault = normalizedDurationMinutes(defaultMinutes, 30);
-  const defaultOption = meetingDurationOptions.some((option) => option.value === String(normalizedDefault))
-    ? String(normalizedDefault) as MeetingDurationOptionValue
-    : "custom";
-  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>(defaultOption);
-  const [customHours, setCustomHours] = useState(String(Math.floor(normalizedDefault / 60)));
-  const [customMinutes, setCustomMinutes] = useState(String(normalizedDefault % 60));
-  const customTotalMinutes = (Number(customHours) || 0) * 60 + (Number(customMinutes) || 0);
-  const durationMinutes = selectedDuration === "custom" ? String(customTotalMinutes > 0 ? customTotalMinutes : normalizedDefault) : selectedDuration;
+  /* USA-216 (spec §5.3): a 15-minute stepper with no ceiling replaces the
+     preset pills and the custom hours/minutes pair. The posted field and its
+     default are unchanged; an existing meeting keeps its exact minutes and
+     steps from there, so no saved duration is ever rounded. */
+  const [durationMinutes, setDurationMinutes] = useState(normalizedDurationMinutes(defaultMinutes, 30));
 
   return (
     <fieldset className="grid gap-2">
       <legend className="sr-only">Duration</legend>
-      <input name="meeting_duration_minutes" type="hidden" value={durationMinutes} />
-      <div className="flex flex-wrap gap-2">
-        {meetingDurationOptions.map((option) => (
-          <label className="cursor-pointer" key={option.value}>
-            <input
-              checked={selectedDuration === option.value}
-              className="peer sr-only"
-              name="meeting_duration_choice"
-              onChange={() => setSelectedDuration(option.value)}
-              type="radio"
-              value={option.value}
-            />
-            <span className="flex min-h-10 items-center justify-center rounded-full border border-[#D6E4F7] bg-white px-3 text-xs font-bold text-[#475569] transition-colors peer-checked:border-[#2563EB] peer-checked:bg-[#EBF2FF] peer-checked:text-[#1D4ED8] max-[350px]:min-h-9 max-[350px]:px-2.5">
-              {option.label}
-            </span>
-          </label>
-        ))}
-      </div>
-      {selectedDuration === "custom" ? (
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <label className="grid gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Hours</span>
-            <input
-              autoFocus
-              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-              inputMode="numeric"
-              max="10"
-              min="0"
-              onChange={(event) => setCustomHours(event.target.value.replace(/\D/g, "").slice(0, 2))}
-              placeholder="0"
-              type="number"
-              value={customHours}
-            />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Minutes</span>
-            <input
-              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-              inputMode="numeric"
-              max="59"
-              min="0"
-              onChange={(event) => setCustomMinutes(String(Math.min(59, Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0)))}
-              placeholder="30"
-              type="number"
-              value={customMinutes}
-            />
-          </label>
-        </div>
-      ) : null}
+      <Stepper
+        decrementLabel="15 minutes less"
+        format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
+        incrementLabel="15 minutes more"
+        label="Duration"
+        min={15}
+        name="meeting_duration_minutes"
+        onChange={setDurationMinutes}
+        step={15}
+        value={durationMinutes}
+      />
     </fieldset>
   );
 }
@@ -21698,34 +21650,26 @@ function MeetingFormContent({
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
   const compactPeopleSelector = attendingPeople.length && !isAddingPerson ? (
-    <div className="flex flex-wrap items-center gap-2">
+    <ChipGroup label="Participants">
       {attendingPeople.map((person) => (
-        <span
-          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#D6E4F7] bg-white pl-3.5 pr-2 text-[14px] font-semibold text-dos-primary"
+        <Chip
           key={person.id}
+          onRemove={attendingPeople.length > 1 ? () => onTogglePerson(person.id) : undefined}
+          removeLabel={`Remove ${person.name}`}
+          selected
         >
           {person.name}
-          {attendingPeople.length > 1 ? (
-            <button
-              aria-label={`Remove ${person.name}`}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-[#F1F5F9] hover:text-dos-primary"
-              onClick={() => onTogglePerson(person.id)}
-              type="button"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-            </button>
-          ) : null}
-        </span>
+        </Chip>
       ))}
       <button
-        className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-dashed border-[#C7D9F5] px-3.5 text-[13.5px] font-semibold text-dos-blue transition-colors hover:bg-[#F6F9FE]"
+        className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dashed border-dos-blue100 px-3.5 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50"
         onClick={() => setIsAddingPerson(true)}
         type="button"
       >
         <span aria-hidden="true">+</span>
         Add person
       </button>
-    </div>
+    </ChipGroup>
   ) : (
     <div className="grid gap-2">
       {peopleSelector}
@@ -21779,7 +21723,7 @@ function MeetingFormContent({
 
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"}>
+      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"} variant="label">
         {showScheduledTiming ? (
           <ScheduledTableTimingFields
             dateDefault={scheduledDateDefault}
@@ -21797,7 +21741,7 @@ function MeetingFormContent({
           </div>
         )}
       </DosFormSection>
-      <DosFormSection icon="people" title="Who was there?">
+      <DosFormSection icon="people" title="Who was there?" variant="label">
         {compactPeopleSelector}
       </DosFormSection>
       {/* A Person meeting is my relationship with them; it does not need me to
@@ -21812,7 +21756,7 @@ function MeetingFormContent({
         summary={morePeopleSummary}
         title="More people"
       >
-        <DosFormField label="Ministry Team">
+        <DosFormField label="Ministry Team" labelVariant="sentence">
           <MinistryTeamSelector
             allPeople={allPeople}
             householdMembers={householdMembers}
@@ -21825,7 +21769,7 @@ function MeetingFormContent({
             selectedPersonIds={selectedMinistryTeamPersonIds}
           />
         </DosFormField>
-        <DosFormField label="Supporting Attendees">
+        <DosFormField label="Supporting Attendees" labelVariant="sentence">
           <SupportingAttendeeSelector
             allPeople={allPeople}
             disabledPersonIds={selectedPersonIds}
@@ -21840,11 +21784,11 @@ function MeetingFormContent({
         </DosFormField>
       </DisclosureSection>
       {showDurationField && durationSelector ? (
-        <DosFormSection icon="meetings" title="Duration">
+        <DosFormSection hint="15-minute steps" icon="meetings" title="Duration" variant="label">
           {durationSelector}
         </DosFormSection>
       ) : null}
-      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"}>
+      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
         {meetingContextPicker}
       </DosFormSection>
       {showRoleReflectionFields ? (
@@ -21865,14 +21809,14 @@ function MeetingFormContent({
           tableRole={selectedTableRole}
         />
       ) : (
-        <DosFormSection icon="log" title="Notes">
+        <DosFormSection icon="log" title="Notes" variant="label">
           <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
       {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
     </form>
   );
@@ -45689,7 +45633,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
-            buttonText="Log Meeting"
+            buttonText="Log meeting"
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
@@ -45802,7 +45746,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             <MeetingFormContent
               allPeople={people}
               allowConversationFlows={data.workspace.isUsamWorkspace}
-              buttonText={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Save Meeting"}
+              buttonText={isLoggingSelectedScheduledMeeting ? "Log meeting" : "Save meeting"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
               durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
