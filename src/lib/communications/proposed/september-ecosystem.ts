@@ -125,6 +125,7 @@ export type ProposedContent = {
   closing: { body: string; heading: string; signoff: string };
   covering: string;
   dosBody: string;
+  dosCtaLabel: string;
   edition: string;
   fieldLabel: string;
   frameworkSummary: string;
@@ -135,7 +136,8 @@ export type ProposedContent = {
   slug: string;
   subject: string;
   tables: string;
-  team: { body: string; heading: string };
+  /** Null until a real announcement exists. The section is omitted entirely. */
+  team: { body: string; heading: string } | null;
   website: { body: string; heading: string };
 };
 
@@ -170,11 +172,13 @@ export function renderProposedNewsletter({
       @media only screen and (max-width:620px) {
         .wrap { width:100% !important; }
         .pad { padding-left:22px !important; padding-right:22px !important; }
-        .h1 { font-size:34px !important; }
+        .h1 { font-size:32px !important; line-height:0.96 !important; }
         .h2 { font-size:25px !important; }
         .h3 { font-size:21px !important; }
         .statement { font-size:22px !important; }
-        .mast { font-size:11px !important; letter-spacing:0.28em !important; }
+        .mast { font-size:11px !important; letter-spacing:0.2em !important; padding-left:10px !important; }
+        .mark { width:64px !important; }
+        .edition { font-size:9px !important; letter-spacing:0.14em !important; }
       }
     </style>
   </head>
@@ -191,11 +195,11 @@ export function renderProposedNewsletter({
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                   <tr>
                     <td align="left" valign="middle" style="padding:0;">
-                      <img src="${esc(mark("usam-mark.png"))}" alt="USA Missionaries" width="46" style="display:inline-block;width:46px;height:auto;border:0;vertical-align:middle;" />
-                      <span class="mast" style="display:inline-block;padding-left:12px;font-family:${HEAD};font-size:13px;font-weight:500;letter-spacing:0.34em;text-transform:uppercase;color:${usam.white};vertical-align:middle;">USA Missionaries</span>
+                      <img src="${esc(mark("usam-mark.png"))}" alt="USA Missionaries" width="76" class="mark" style="display:inline-block;width:76px;height:auto;border:0;vertical-align:middle;" />
+                      <span class="mast" style="display:inline-block;padding-left:14px;font-family:${HEAD};font-size:15px;font-weight:500;letter-spacing:0.32em;text-transform:uppercase;color:${usam.white};vertical-align:middle;">USA Missionaries</span>
                     </td>
                     <td align="right" valign="middle" style="padding:0;">
-                      <span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${usam.gold};">${esc(content.edition)}</span>
+                      <span class="edition" style="font-family:${LABEL};font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#8E7838;">${esc(content.edition)}</span>
                     </td>
                   </tr>
                 </table>
@@ -205,9 +209,9 @@ export function renderProposedNewsletter({
 
             <!-- Hero -->
             <tr>
-              <td class="pad" style="padding:44px 32px 40px;background:${usam.black};">
+              <td class="pad" style="padding:34px 32px 32px;background:${usam.black};">
                 ${label(content.fieldLabel, usam.gold)}
-                <h1 class="h1" style="margin:0 0 20px;font-family:${HEAD};font-size:48px;line-height:0.98;font-weight:700;letter-spacing:0.005em;text-transform:uppercase;color:${usam.white};">${esc(content.hero.title).replace(/\n/g, "<br />")}</h1>
+                <h1 class="h1" style="margin:0 0 20px;font-family:${HEAD};font-size:44px;line-height:0.94;font-weight:700;letter-spacing:0.005em;text-transform:uppercase;color:${usam.white};">${esc(content.hero.title).replace(/\n/g, "<br />")}</h1>
                 <p style="margin:0;font-family:${BODY};font-size:16px;line-height:1.7;color:${usam.body};">${esc(content.hero.subhead)}</p>
               </td>
             </tr>
@@ -215,7 +219,7 @@ export function renderProposedNewsletter({
 
             <!-- Personal opening. Stays on the black field, wider measure, warmer. -->
             <tr>
-              <td class="pad" style="padding:36px 32px 34px;background:${usam.black};">
+              <td class="pad" style="padding:30px 32px 26px;background:${usam.black};">
                 <p style="margin:0 0 18px;font-family:${BODY};font-size:16px;line-height:1.78;color:${usam.white};">Hi ${esc(recipientFirstName)},</p>
                 ${copy(content.intro, usam.body, 16)}
               </td>
@@ -223,9 +227,9 @@ export function renderProposedNewsletter({
 
             <!-- 01 / 02 / 03 — the centrepiece -->
             <tr>
-              <td class="pad" style="padding:0 32px 30px;background:${usam.black};">
+              <td class="pad" style="padding:0 32px 20px;background:${usam.black};">
                 ${rule()}
-                <div style="height:38px;line-height:38px;font-size:0;">&nbsp;</div>
+                <div style="height:30px;line-height:30px;font-size:0;">&nbsp;</div>
                 ${label("The Ecosystem", usam.gold)}
                 ${headline("So, what exactly is\nUSA Missionaries?", 30)}
                 <p style="margin:0;font-family:${BODY};font-size:15px;line-height:1.78;color:${usam.meta};">${esc(content.frameworkSummary)}</p>
@@ -234,7 +238,7 @@ export function renderProposedNewsletter({
 
             <!-- 01 USA MISSIONARIES — the parent layer, core USAM system -->
             <tr>
-              <td class="pad" style="padding:0 32px 34px;background:${usam.black};">
+              <td class="pad" style="padding:0 32px 28px;background:${usam.black};">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                   <tr>
                     <td style="border-left:2px solid ${usam.gold};padding:2px 0 2px 20px;">
@@ -251,7 +255,7 @@ export function renderProposedNewsletter({
             <!-- 02 KITCHEN TABLE GOSPEL — its own warm ground and identity -->
             <tr><td style="padding:0;background:${ktg.accent};font-size:0;line-height:0;height:3px;">&nbsp;</td></tr>
             <tr>
-              <td class="pad" style="padding:34px 32px 26px;background:${ktg.ground};">
+              <td class="pad" style="padding:28px 32px 22px;background:${ktg.ground};">
                 ${indexLabel("02", "The Model", ktg.accent, "#8E7E6C")}
                 <img src="${esc(mark("ktg-mark.png"))}" alt="Kitchen Table Gospel" width="38" style="display:block;width:38px;height:auto;border:0;margin:0 0 14px;" />
                 <h3 class="h3" style="margin:0 0 16px;font-family:${HEAD};font-size:24px;line-height:1.08;font-weight:700;letter-spacing:-0.01em;text-transform:uppercase;color:${usam.white};">Kitchen Table Gospel</h3>
@@ -260,7 +264,7 @@ export function renderProposedNewsletter({
             </tr>
             ${plate(photo("kitchen-table-01.jpg"), "Four friends gathered around a wooden table with an open Bible and the USA Missionaries vision binder.", "Kitchen Table Gospel // Minnesota", "#8E7E6C", ktg.ground)}
             <tr>
-              <td class="pad" style="padding:22px 32px 34px;background:${ktg.ground};">
+              <td class="pad" style="padding:18px 32px 28px;background:${ktg.ground};">
                 ${copy(content.tables, ktg.body)}
                 <p style="margin:0 0 20px;font-family:${HEAD};font-size:15px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:${ktg.cream};">Gather. Learn. Confess. Encourage. Multiply.</p>
                 ${cta("Explore Kitchen Table Gospel", "https://kitchentablegospel.org", ktg.cream, ktg.ground)}
@@ -270,26 +274,21 @@ export function renderProposedNewsletter({
             <!-- 03 DISCIPLESHIP OPERATING SYSTEM — cool ground, its own blue -->
             <tr><td style="padding:0;background:${dos.accent};font-size:0;line-height:0;height:3px;">&nbsp;</td></tr>
             <tr>
-              <td class="pad" style="padding:34px 32px 34px;background:${dos.ground};">
+              <td class="pad" style="padding:28px 32px 30px;background:${dos.ground};">
                 ${indexLabel("03", "The Tool", dos.accent, "#6C8095")}
                 <img src="${esc(mark("dos-mark.png"))}" alt="Discipleship Operating System" width="38" style="display:block;width:38px;height:auto;border:0;margin:0 0 14px;" />
                 <h3 class="h3" style="margin:0 0 16px;font-family:${HEAD};font-size:24px;line-height:1.08;font-weight:700;letter-spacing:-0.01em;text-transform:uppercase;color:${usam.white};">Discipleship Operating System</h3>
                 ${copy(content.dosBody, dos.body)}
                 <div style="height:6px;line-height:6px;font-size:0;">&nbsp;</div>
-                ${cta("Explore the Operating System", "https://discipleshipoperatingsystem.com", dos.cta, usam.white)}
+                ${cta(content.dosCtaLabel, "https://discipleshipoperatingsystem.com", dos.cta, usam.white)}
               </td>
             </tr>
 
-            <!-- The relationship between the three. The strongest moment. -->
+            <!-- Conclusion of the ecosystem sequence. The three branded sections
+                 above already carry the hierarchy, so this states the point once
+                 rather than repeating the ladder as a legend. -->
             <tr>
-              <td class="pad" style="padding:40px 32px 42px;background:${usam.lift};">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                  <tr><td style="padding:0 0 12px;"><span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${usam.gold};">The Covering</span><span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;color:#4A4A4A;"> &nbsp;&darr;</span></td></tr>
-                  <tr><td style="padding:0 0 12px;"><span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${ktg.accent};">The Model</span><span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;color:#4A4A4A;"> &nbsp;&darr;</span></td></tr>
-                  <tr><td style="padding:0 0 26px;"><span style="font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${dos.accent};">The Tool</span></td></tr>
-                </table>
-                ${rule("#2C2C2C")}
-                <div style="height:24px;line-height:24px;font-size:0;">&nbsp;</div>
+              <td class="pad" style="padding:34px 32px 36px;background:${usam.lift};">
                 <p style="margin:0 0 10px;font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${usam.gold};">One Mission</p>
                 <p class="statement" style="margin:0;font-family:${HEAD};font-size:28px;line-height:1.14;font-weight:700;letter-spacing:0.01em;text-transform:uppercase;color:${usam.white};">Make disciples who<br />make disciples.</p>
               </td>
@@ -297,7 +296,7 @@ export function renderProposedNewsletter({
 
             <!-- Website -->
             <tr>
-              <td class="pad" style="padding:42px 32px 26px;background:${usam.black};">
+              <td class="pad" style="padding:34px 32px 22px;background:${usam.black};">
                 ${label("System Update // Website", usam.gold)}
                 ${headline("The mission is\nbecoming clearer.", 30)}
                 ${copy(content.website.body)}
@@ -305,7 +304,7 @@ export function renderProposedNewsletter({
             </tr>
             ${plate(mark("usam-website.jpg"), "The rebuilt USA Missionaries website, showing the headline The Mission Is Active.", "usamissionaries.org // Rebuilt 2026")}
             <tr>
-              <td class="pad" style="padding:22px 32px 42px;background:${usam.black};">
+              <td class="pad" style="padding:18px 32px 34px;background:${usam.black};">
                 ${cta("Explore USA Missionaries", "https://usamissionaries.org", usam.gold, usam.black)}
               </td>
             </tr>
@@ -314,7 +313,7 @@ export function renderProposedNewsletter({
             <tr>
               <td class="pad" style="padding:0 32px 26px;background:${usam.black};">
                 ${rule()}
-                <div style="height:38px;line-height:38px;font-size:0;">&nbsp;</div>
+                <div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>
                 ${label("Field Report // Minnesota", usam.gold)}
                 ${headline("Men are\ngathering.", 30)}
                 ${copy(content.mens.body)}
@@ -322,7 +321,7 @@ export function renderProposedNewsletter({
             </tr>
             ${plate(photo("group-prayer-01.jpg"), "Six men from the USA Missionaries men's discipleship group standing together outside, one holding a Bible.", "Men's discipleship // Two groups meeting weekly")}
             <tr>
-              <td class="pad" style="padding:22px 32px 40px;background:${usam.black};">
+              <td class="pad" style="padding:18px 32px 32px;background:${usam.black};">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                   <tr>
                     <td style="border-left:2px solid ${usam.gold};padding:2px 0 2px 18px;">
@@ -333,18 +332,20 @@ export function renderProposedNewsletter({
               </td>
             </tr>
 
-            <!-- Team growth. Designed while the content is still pending. -->
+            <!-- Team growth. Rendered only when a real announcement exists;
+                 placeholder copy is never shipped. -->
+            ${content.team ? `
             <tr>
-              <td class="pad" style="padding:38px 32px 40px;background:${usam.lift};">
+              <td class="pad" style="padding:32px 32px 34px;background:${usam.lift};">
                 ${label("Deployment Update", usam.gold)}
-                ${headline("The team\nis growing.", 30)}
+                ${headline(content.team.heading, 30)}
                 ${copy(content.team.body, usam.meta)}
               </td>
-            </tr>
+            </tr>` : ""}
 
             <!-- Closing -->
             <tr>
-              <td class="pad" style="padding:40px 32px 36px;background:${usam.black};">
+              <td class="pad" style="padding:34px 32px 30px;background:${usam.black};">
                 ${headline(content.closing.heading, 26)}
                 ${copy(content.closing.body)}
                 <div style="height:10px;line-height:10px;font-size:0;">&nbsp;</div>
@@ -357,10 +358,10 @@ export function renderProposedNewsletter({
 
             <!-- Footer -->
             <tr>
-              <td class="pad" style="padding:30px 32px 40px;background:#080808;border-top:1px solid ${usam.hairline};">
+              <td class="pad" style="padding:26px 32px 34px;background:#080808;border-top:1px solid ${usam.hairline};">
                 <img src="${esc(mark("usam-mark.png"))}" alt="USA Missionaries" width="40" style="display:block;width:40px;height:auto;border:0;margin:0 0 14px;" />
-                <p style="margin:0 0 16px;font-family:${BODY};font-size:12px;line-height:1.7;color:#7C7C7C;">You are receiving this because you partner with USA Missionaries.</p>
-                ${postalAddress ? `<p style="margin:0 0 16px;font-family:${BODY};font-size:12px;line-height:1.7;color:#7C7C7C;">${esc(postalAddress)}</p>` : ""}
+                <p style="margin:0 0 16px;font-family:${BODY};font-size:12px;line-height:1.75;color:#9A9A9A;">You are receiving this because you partner with USA Missionaries.</p>
+                ${postalAddress ? `<p style="margin:0 0 16px;font-family:${BODY};font-size:12px;line-height:1.75;color:#9A9A9A;">${esc(postalAddress)}</p>` : ""}
                 <p style="margin:0;font-family:${LABEL};font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;">
                   <a href="${esc(links.archiveUrl)}" style="color:${usam.gold};text-decoration:none;">Read online</a>
                   <span style="color:#3A3A3A;"> &nbsp;/&nbsp; </span>
@@ -402,9 +403,8 @@ export function renderProposedNewsletter({
     "",
     "03 / THE TOOL — DISCIPLESHIP OPERATING SYSTEM",
     paras(content.dosBody).join("\n\n"),
-    "Explore the Operating System: https://discipleshipoperatingsystem.com",
+    `${content.dosCtaLabel}: https://discipleshipoperatingsystem.com`,
     divider,
-    "THE COVERING. THE MODEL. THE TOOL.",
     "ONE MISSION: MAKE DISCIPLES WHO MAKE DISCIPLES.",
     divider,
     "SYSTEM UPDATE // WEBSITE",
@@ -417,9 +417,7 @@ export function renderProposedNewsletter({
     paras(content.mens.body).join("\n\n"),
     content.mens.teaser,
     divider,
-    "DEPLOYMENT UPDATE — THE TEAM IS GROWING.",
-    paras(content.team.body).join("\n\n"),
-    divider,
+    ...(content.team ? ["DEPLOYMENT UPDATE", content.team.heading, paras(content.team.body).join("\n\n"), divider] : []),
     content.closing.heading,
     paras(content.closing.body).join("\n\n"),
     "",
