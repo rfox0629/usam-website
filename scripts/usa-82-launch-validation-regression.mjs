@@ -102,10 +102,10 @@ const dosMarkers = [
 ];
 const ktgMarkers = [
   "Kitchen Table Gospel",
-  "An initiative of USA Missionaries",
+  "USA Missionaries",
   "Discipleship Doesn't Start on a Stage.",
-  "Join the Table",
-  "Pull Up a Chair",
+  "Schedule a Table",
+  "Experience It at a Table",
 ];
 
 assert.equal(manifest.issueId, "USA-82", "Manifest must identify the USA-82 launch.");
@@ -154,7 +154,7 @@ assert.equal(systemCanonical.safeResolution, "serves-v3", "/system must explicit
 assertIncludes(systemRoute, 'export { default } from "./SystemPage";', "/system must render the shared SystemPage.");
 
 assertExpectedContent(dos, dosMarkers);
-assertExpectedContentDoesNotInclude(dos, [...legacyMarkers, ...riverMarkers, "Join the Table"]);
+assertExpectedContentDoesNotInclude(dos, [...legacyMarkers, ...riverMarkers, "Schedule a Table"]);
 assert.equal(dos.host, "discipleshipoperatingsystem.com", "DOS must validate on its production domain.");
 assert.equal(dos.path, "/", "DOS public domain must validate the root path.");
 assert.equal(dos.directPreviewPath, "/domain-sites/discipleship-operating-system", "DOS preview must use the hostname-aware route target.");
@@ -173,7 +173,7 @@ assert.equal(ktg.path, "/", "KTG public domain must validate the root path.");
 assert.equal(ktg.directPreviewPath, "/domain-sites/kitchen-table-gospel", "KTG preview must use the hostname-aware route target.");
 assert.equal(ktg.rendersExperience, "kitchen-table-gospel", "KTG route must identify its own experience.");
 assertIncludes(ktgDomainRoute, "requireDomainRoute(site.key)", "KTG domain route must stay hostname-aware.");
-assertIncludes(ktgPage, 'source: "kitchen_table_gospel"', "KTG Join the Table flow must stay wired.");
+assertIncludes(ktgPage, 'source: "kitchen_table_gospel"', "KTG Schedule a Table flow must stay wired.");
 for (const marker of ktgMarkers) {
   assertIncludes(ktgPage, marker, `KTG page source must contain KTG marker: ${marker}.`);
 }
