@@ -2071,5 +2071,95 @@ await check("Hiding engagement on the dashboard is visibility only", async () =>
   assert(!/engagementLevel\s*=/.test(label), "Nothing here assigns engagement.");
 });
 
+
+await check("The People table drops the Engagement column rather than blanking a cell", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const strip = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  const withCol = client.match(/const desktopPeopleGridWithEngagement = "([^"]+)"/);
+  const withoutCol = client.match(/const desktopPeopleGridWithoutEngagement = "([^"]+)"/);
+
+  assert(withCol && withoutCol, "Both layouts are declared in one place.");
+
+  /* Each layout declares both breakpoints, and both are real templates. */
+  const columnsOf = (value, prefix) => {
+    const match = value.match(new RegExp(`${prefix}grid-cols-\\[([^\\]]+)\\]`));
+
+    assert(match, `${prefix || "base "}variant must be declared.`);
+
+    return match[1].split("_");
+  };
+
+  const baseOn = columnsOf(withCol[1], "");
+  const xlOn = columnsOf(withCol[1], "xl:");
+  const baseOff = columnsOf(withoutCol[1], "");
+  const xlOff = columnsOf(withoutCol[1], "xl:");
+
+  /* On keeps exactly the seven columns the table has always had. */
+  assert.equal(baseOn.length, 7, "On: seven columns at the base breakpoint.");
+  assert.equal(xlOn.length, 7, "On: seven columns at xl.");
+
+  /* Off has six: the column is removed, not hidden, so nothing leaves a gap. */
+  assert.equal(baseOff.length, 6, "Off: six columns at the base breakpoint, not seven with a blank.");
+  assert.equal(xlOff.length, 6, "Off: six columns at xl.");
+
+  /* And it is the Engagement column (index 2) that goes, with every other
+     column keeping its exact width. */
+  assert.deepEqual(baseOff, baseOn.filter((_, index) => index !== 2), "Off drops only the third column at base.");
+  assert.deepEqual(xlOff, xlOn.filter((_, index) => index !== 2), "Off drops only the third column at xl.");
+
+  /* Header and rows share one template, so they cannot drift apart. */
+  const table = strip(client.slice(client.indexOf("function DesktopPeopleIndex("), client.indexOf("function DesktopPeopleIndex(") + 5200));
+  const templateUses = table.match(/desktopPeopleGridClass\(engagementLevelsEnabled\)/g) ?? [];
+
+  assert.equal(templateUses.length, 2, "The header and the body row both read the same layout helper.");
+  assert(
+    !/grid-cols-\[/.test(table),
+    "No hardcoded column template may survive inside the table; both come from the helper.",
+  );
+
+  /* Both the header cell and the value cell are gated. */
+  assert(
+    /\{engagementLevelsEnabled \? \([\s\S]{0,200}?Engagement<\/span>/.test(table),
+    "The Engagement Level header renders only when the feature is on.",
+  );
+  assert(
+    /\{engagementLevelsEnabled \? \([\s\S]{0,200}?engagementLevelTableLabel\(person\)/.test(table),
+    "The Engagement value cell renders only when the feature is on.",
+  );
+  assert(!/Not rated|--|n\/a/i.test(table), "Off shows no placeholder in place of the column.");
+
+  /* Wired to the one canonical derivation, not a second one. */
+  assert(
+    client.includes("<DesktopPeopleIndex") && /engagementLevelsEnabled=\{engagementLevelsEnabled\}/.test(client),
+    "The table receives the workspace's actual setting.",
+  );
+  const derivations = client.match(/const engagementLevelsEnabled = [^;]+;/g) ?? [];
+  assert.equal(derivations.length, 1, "Still exactly one place decides whether Engagement Levels are on.");
+  assert(derivations[0].includes("data.featureFlags.engagementLevels"), "And it is the canonical feature flag.");
+});
+
+await check("Hiding the People table column loads and writes nothing", async () => {
+  const loader = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  assert(
+    !/featureFlags\.engagementLevels\s*\?/.test(loader),
+    "The People table fix must not start gating engagement data loading.",
+  );
+  assert(
+    loader.includes("engagementLevel: person.engagement_level"),
+    "Every person still carries their stored engagement to the client.",
+  );
+
+  /* The table renders the value; it never assigns one. */
+  const table = client.slice(client.indexOf("function DesktopPeopleIndex("), client.indexOf("function DesktopPeopleIndex(") + 5200);
+  assert(!/engagementLevel\s*=[^=]/.test(table), "The table assigns no engagement value.");
+  for (const forbidden of ["fetch(", "submitJson", "/api/dos/app/people"]) {
+    assert(!table.includes(forbidden), `A layout change must not ${forbidden}.`);
+  }
+});
+
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);
 for (const name of checks) console.log(`- ${name}`);

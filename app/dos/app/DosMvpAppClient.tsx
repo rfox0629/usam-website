@@ -18859,8 +18859,29 @@ function DesktopInvitePanel({
   );
 }
 
+/* The People table's column layout, in one place.
+ *
+ * The header row and every body row must use the identical template or the
+ * columns stop lining up, so they read it from here rather than each carrying
+ * its own copy of a seven-column string.
+ *
+ * Engagement Level is a real column, not a cell to blank out: with the
+ * Advanced Feature off it is removed from the template entirely, so the space
+ * is redistributed across the remaining columns instead of leaving a gap. Both
+ * breakpoints have their own variant, and both drop the same column.
+ *
+ *   Person | Relationship Context | [Engagement Level] | Meetings | Time Logged | Stories | Last Meeting
+ */
+const desktopPeopleGridWithEngagement = "grid-cols-[minmax(160px,1.8fr)_minmax(82px,0.75fr)_minmax(74px,0.7fr)_50px_64px_64px_76px] xl:grid-cols-[minmax(220px,1.7fr)_132px_112px_66px_96px_84px_104px]";
+const desktopPeopleGridWithoutEngagement = "grid-cols-[minmax(160px,1.8fr)_minmax(82px,0.75fr)_50px_64px_64px_76px] xl:grid-cols-[minmax(220px,1.7fr)_132px_66px_96px_84px_104px]";
+
+function desktopPeopleGridClass(showEngagement: boolean) {
+  return showEngagement ? desktopPeopleGridWithEngagement : desktopPeopleGridWithoutEngagement;
+}
+
 function DesktopPeopleIndex({
   empty,
+  engagementLevelsEnabled,
   items,
   latestMeetingDateByPersonId,
   onOpenPerson,
@@ -18869,6 +18890,8 @@ function DesktopPeopleIndex({
   storyCountByPersonId,
 }: {
   empty: string;
+  /* The Engagement Levels Advanced Feature, from the one canonical derivation. */
+  engagementLevelsEnabled: boolean;
   items: CircleListItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
   onOpenPerson: (personId: string) => void;
@@ -18887,16 +18910,18 @@ function DesktopPeopleIndex({
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] lg:block">
       <div className="w-full min-w-0">
-        <div className="grid grid-cols-[minmax(160px,1.8fr)_minmax(82px,0.75fr)_minmax(74px,0.7fr)_50px_64px_64px_76px] items-center gap-2 border-b border-[#EFF6FF] bg-[#F8FBFF] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] xl:grid-cols-[minmax(220px,1.7fr)_132px_112px_66px_96px_84px_104px] xl:gap-3 xl:px-4" style={{ fontFamily: font.rajdhani }}>
+        <div className={`grid ${desktopPeopleGridClass(engagementLevelsEnabled)} items-center gap-2 border-b border-[#EFF6FF] bg-[#F8FBFF] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] xl:gap-3 xl:px-4`} style={{ fontFamily: font.rajdhani }}>
           <span>Person</span>
           <span className="leading-[0.82rem]">
             <span className="block">Relationship</span>
             <span className="block">Context</span>
           </span>
-          <span className="leading-[0.82rem]">
-            <span className="block">Engagement</span>
-            <span className="block">Level</span>
-          </span>
+          {engagementLevelsEnabled ? (
+            <span className="leading-[0.82rem]">
+              <span className="block">Engagement</span>
+              <span className="block">Level</span>
+            </span>
+          ) : null}
           <span>Meetings</span>
           <span className="justify-self-center text-center leading-[0.82rem]">
             <span className="block">Time</span>
@@ -18919,7 +18944,7 @@ function DesktopPeopleIndex({
 
             return (
               <div
-                className="grid grid-cols-[minmax(160px,1.8fr)_minmax(82px,0.75fr)_minmax(74px,0.7fr)_50px_64px_64px_76px] items-center gap-2 px-3 py-3 text-xs transition-colors hover:bg-[#F8FBFF] xl:grid-cols-[minmax(220px,1.7fr)_132px_112px_66px_96px_84px_104px] xl:gap-3 xl:px-4"
+                className={`grid ${desktopPeopleGridClass(engagementLevelsEnabled)} items-center gap-2 px-3 py-3 text-xs transition-colors hover:bg-[#F8FBFF] xl:gap-3 xl:px-4`}
                 key={person.id}
               >
                 <button className="flex min-w-0 items-center gap-3 text-left" onClick={() => onOpenPerson(person.id)} type="button">
@@ -18930,7 +18955,9 @@ function DesktopPeopleIndex({
                   </span>
                 </button>
                 <span className="truncate text-[#475569]">{relationshipContextLabel(relationshipModel.relationshipContext)}</span>
-                <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
+                {engagementLevelsEnabled ? (
+                  <span className="truncate font-semibold text-[#334155]">{engagementLevelTableLabel(person)}</span>
+                ) : null}
                 <span className="font-black text-[#0F172A]">{tableStats.meetings}</span>
                 {/* formatLoggedTime returns an em dash for zero, which Meeting
                     Detail turns into "Duration not logged". In a narrow column
@@ -44631,6 +44658,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       </div>
                       <DesktopPeopleIndex
                         empty={peopleCircleContent.empty}
+                        engagementLevelsEnabled={engagementLevelsEnabled}
                         items={visibleCirclePeople}
                         latestMeetingDateByPersonId={latestMeetingDateByPersonId}
                         onOpenPerson={openPersonDetail}
