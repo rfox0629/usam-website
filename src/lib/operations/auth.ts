@@ -9,6 +9,7 @@ export const operationsModules = [
   "people",
   "finance",
   "documents",
+  "communications",
   "organizations",
   "dashboards",
   "system",
@@ -74,6 +75,7 @@ function grantsForRole(role: OperationsRole): OperationsGrant[] {
       grant("missionaries"),
       grant("people", false),
       grant("documents", false),
+      grant("communications", false),
       grant("dashboards", false),
     ];
   }
