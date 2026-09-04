@@ -9,6 +9,7 @@ import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidence
 import { canonicalRelationshipModel, relationshipModelFromFields, relationshipModelSummary } from "../src/lib/dos/relationship-model.ts";
 import { dosAdvancedFeatureEnabled, dosAdvancedFeatures } from "../src/lib/dos/advanced-features.ts";
 import { personIsMultiplying } from "../src/lib/dos/accountability-presentation.ts";
+import { backdropMayDismiss, exitAfterSaveNeedsConfirmation, exitNeedsConfirmation, formIsDirty, swipeMayDismiss } from "../src/lib/dos/unsaved-work.ts";
 import { dosQuickReviewExperienceOptions, dosQuickReviewFormDefinition, dosQuickReviewOutcomeOptions } from "../src/lib/dos/review-form-config.ts";
 import { submitCanonicalReview } from "../src/lib/dos/review-submission-policy.ts";
 
@@ -2159,6 +2160,157 @@ await check("Hiding the People table column loads and writes nothing", async () 
   for (const forbidden of ["fetch(", "submitJson", "/api/dos/app/people"]) {
     assert(!table.includes(forbidden), `A layout change must not ${forbidden}.`);
   }
+});
+
+
+/* ---------------------------------------------------------------------------
+   An accidental tap must never destroy meaningful user-entered work.
+--------------------------------------------------------------------------- */
+
+await check("A backdrop can close what you are reading and never what you are typing", async () => {
+  assert.equal(backdropMayDismiss("inspection"), true, "Reading a record: the backdrop closes it, as it always has.");
+  assert.equal(backdropMayDismiss("editable"), false, "Holding user input: the backdrop is not a control.");
+  assert.equal(swipeMayDismiss("inspection"), true, "A read-only sheet may be swiped away.");
+  assert.equal(swipeMayDismiss("editable"), false, "A swipe while scrolling a form must not discard it.");
+
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
+
+  /* The rule is applied at the one place every sheet's backdrop is built, so
+     it cannot be forgotten by an individual caller. */
+  assert(
+    sheet.includes("onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}"),
+    "Sheet's backdrop consults the surface kind rather than always closing.",
+  );
+  assert(
+    !/onMouseDown=\{onClose\}/.test(sheet),
+    "No unconditional backdrop dismissal may survive in Sheet.",
+  );
+  /* Default stays inspection so the read-only sheets are untouched. */
+  assert(/kind = "inspection"/.test(sheet), "Sheets are read-only by default; only a form opts into protection.");
+});
+
+await check("A dirty form confirms before leaving, and a clean one does not", async () => {
+  assert.equal(exitNeedsConfirmation({ isDirty: true, kind: "editable" }), true, "Dirty: confirm.");
+  assert.equal(exitNeedsConfirmation({ isDirty: false, kind: "editable" }), false, "Clean: leave silently.");
+  assert.equal(
+    exitNeedsConfirmation({ isDirty: true, kind: "inspection" }),
+    false,
+    "A record you were only reading never asks, however long you looked at it.",
+  );
+
+  /* Save contract: a save that worked has nothing left to protect. */
+  assert.equal(exitAfterSaveNeedsConfirmation(true), false, "A successful save leaves without a warning.");
+  assert.equal(exitAfterSaveNeedsConfirmation(false), true, "A failed save has persisted nothing, so the work still matters.");
+});
+
+await check("Dirtiness means real entered work, not any keystroke", async () => {
+  const opened = { name: "Naomi", notes: "", role: "not_active" };
+
+  assert.equal(formIsDirty(opened, opened), false, "Untouched is clean.");
+  assert.equal(formIsDirty(opened, { ...opened, notes: "Met for coffee" }), true, "Typed notes are work.");
+  assert.equal(formIsDirty(opened, { ...opened, role: "discipling_them" }), true, "A changed selection is work.");
+
+  /* Typing and deleting again leaves nothing to lose, so it must not prompt --
+     a confirmation people see for no reason is a confirmation they learn to
+     dismiss. */
+  assert.equal(formIsDirty(opened, { ...opened, notes: "   " }), false, "Whitespace alone is not work.");
+  assert.equal(formIsDirty(opened, { ...opened, name: " Naomi " }), false, "Re-typing the same value is not a change.");
+
+  /* Controlled forms rebuild their objects every keystroke, so equal-by-value
+     must not read as dirty or every form would prompt forever. */
+  assert.equal(
+    formIsDirty({ children: ["A", "B"] }, { children: ["A", "B"] }),
+    false,
+    "Equal nested values are clean despite being different objects.",
+  );
+  assert.equal(formIsDirty({ children: ["A"] }, { children: ["A", "B"] }), true, "An added child is work.");
+});
+
+await check("Add and Edit Person are the same protected task screen", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const addBlock = client.slice(client.indexOf('{formMode === "person" ? ('), client.indexOf('{formMode === "editPerson"'));
+  const editBlock = client.slice(client.indexOf('{formMode === "editPerson"'), client.indexOf('{formMode === "meeting" ? ('));
+
+  /* Edit Person used to be a Sheet, so its backdrop destroyed a half-finished
+     edit. Both are now dedicated screens with a real Back. */
+  assert(addBlock.includes("<DosWorkflowPage"), "Add Person is a task screen.");
+  assert(editBlock.includes("<DosWorkflowPage"), "Edit Person is a task screen, not a dismissible overlay.");
+  assert(!editBlock.includes("<Sheet"), "Edit Person must not be a Sheet.");
+
+  /* Both route their exit through the guard, and both report dirtiness. */
+  for (const [name, block] of [["Add", addBlock], ["Edit", editBlock]]) {
+    assert(block.includes("onClose={personFormGuard.requestExit}"), `${name} Person's Back is guarded.`);
+    assert(block.includes("onDirtyChange={setIsPersonFormDirty}"), `${name} Person reports unsaved work.`);
+  }
+
+  /* One guard, not one per form. */
+  /* One definition, and today one call site. The point is that a second
+     workflow adopts THIS guard rather than writing its own dirty-state code. */
+  const definitions = client.match(/function useUnsavedWorkGuard\(/g) ?? [];
+  assert.equal(definitions.length, 1, "There is a single unsaved-work guard implementation, not one per form.");
+  const dialogs = client.match(/function DiscardChangesDialog\(/g) ?? [];
+  assert.equal(dialogs.length, 1, "And a single discard confirmation.");
+
+  /* Every exit clears the flag in one place, so a successful save cannot leave
+     a stale dirty state that warns on the next unrelated form. */
+  const closeForm = client.slice(client.indexOf("function closeForm() {"), client.indexOf("function closeForm() {") + 700);
+  assert(closeForm.includes("setIsPersonFormDirty(false)"), "closeForm clears the flag for save, discard and clean exit alike.");
+});
+
+await check("Keep editing is the safe default and does not rebuild the form", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const guard = client.slice(client.indexOf("function useUnsavedWorkGuard("), client.indexOf("function useUnsavedWorkGuard(") + 1600);
+  const dialog = client.slice(client.indexOf("function DiscardChangesDialog("), client.indexOf("function useUnsavedWorkGuard("));
+
+  /* Keep editing only stops asking. The form was never unmounted, so typed
+     values, selections and scroll position are all still there -- which is why
+     the guard intercepts the exit rather than saving and restoring state. */
+  assert(
+    /onKeepEditing=\{\(\) => setIsConfirming\(false\)\}/.test(guard),
+    "Keep editing dismisses the dialog and nothing else: no reset, no reload.",
+  );
+  assert(!/onExit\(\)/.test(guard.slice(guard.indexOf("onKeepEditing"))), "Keep editing must never exit.");
+
+  /* Escape and the dialog's own backdrop choose the safe option. */
+  assert(/event.key === "Escape"[\s\S]{0,80}onKeepEditing\(\)/.test(dialog), "Escape keeps editing.");
+  assert(/onMouseDown=\{onKeepEditing\}/.test(dialog), "The dialog's backdrop keeps editing rather than discarding.");
+
+  /* Discard is the only thing that throws work away. */
+  assert(/onDiscard=\{\(\) => \{[\s\S]{0,120}onExit\(\)/.test(guard), "Only Discard exits with unsaved changes.");
+});
+
+await check("The FAB belongs to the app shell, not to a content container", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const fab = client.slice(client.indexOf("function MobileFloatingActions("), client.indexOf("function DesktopNavigation("));
+
+  /* The old condition portaled only the desktop variant, so the mobile FAB
+     asked for `fixed` and then rendered inside whatever overlay mounted it --
+     anchoring to that container instead of the viewport. */
+  assert(
+    /if \(portalToBody\) \{/.test(fab),
+    "Both variants portal to the body, so neither can anchor to a content container.",
+  );
+  assert(
+    !/portalToBody && variant === "desktop"/.test(fab),
+    "The desktop-only portal condition was the positioning defect and must not return.",
+  );
+
+  /* One diameter and one inset, declared once each. */
+  assert(/h-16 w-16 items-center justify-center rounded-full/.test(fab), "One circular button, one diameter.");
+  const insets = fab.match(/right-\d+/g) ?? [];
+  assert(insets.length > 0, "The inset is declared in the component, not by callers.");
+  assert(!/right-\[\d+px\]/.test(fab), "No screenshot-specific magic offset.");
+
+  /* Nothing square behind the circle: the button is the only thing with a
+     shadow, and its container carries no background or radius. */
+  const stack = fab.slice(fab.indexOf("const stackClassName"), fab.indexOf("const content"));
+  assert(!/bg-\[|bg-white|shadow-\[/.test(stack), "The FAB stack has no background or shadow of its own.");
+
+  /* Sheets sit above it, so an open sheet is never competed with. */
+  assert(/z-\[70\]/.test(fab), "The FAB sits below the sheet layer.");
+  const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
+  assert(/z-\[1000\]/.test(sheet), "A sheet renders above the FAB, so the FAB stays behind its backdrop.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

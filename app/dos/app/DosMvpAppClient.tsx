@@ -20,6 +20,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import { dosAdvancedFeatures, type DosAdvancedFeatureKey } from "@/src/lib/dos/advanced-features";
+import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -15965,9 +15966,143 @@ function DosWorkflowPage({
   );
 }
 
+/* The one confirmation DOS uses when leaving unfinished work.
+ *
+ * Keep editing is first, is the filled button, and is what Escape and the
+ * backdrop do -- because the safe choice should be the easy one, and because
+ * this dialog exists to catch accidents. Discard is a plain text button: it is
+ * the destructive path and should take a deliberate press.
+ *
+ * It renders above everything, including the sheet that raised it, at a z-index
+ * above Sheet's own 1000. */
+function DiscardChangesDialog({
+  onDiscard,
+  onKeepEditing,
+}: {
+  onDiscard: () => void;
+  onKeepEditing: () => void;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        onKeepEditing();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onKeepEditing]);
+
+  const content = (
+    <div
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-[#0F172A]/35 px-5 backdrop-blur-sm"
+      onMouseDown={onKeepEditing}
+      role="presentation"
+    >
+      <div
+        aria-modal="true"
+        className="w-full max-w-[340px] rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_26px_90px_rgba(15,23,42,0.22)]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{discardConfirmationCopy.title}</h2>
+        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">{discardConfirmationCopy.description}</p>
+        <div className="mt-5 grid gap-2">
+          <button
+            className="flex min-h-11 w-full items-center justify-center rounded-full bg-dos-blue px-4 text-[14.5px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+            onClick={onKeepEditing}
+            type="button"
+          >
+            {discardConfirmationCopy.cancel}
+          </button>
+          <button
+            className="flex min-h-11 w-full items-center justify-center rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
+            onClick={onDiscard}
+            type="button"
+          >
+            {discardConfirmationCopy.confirm}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return isMounted ? createPortal(content, document.body) : null;
+}
+
+/* The single unsaved-work guard for DOS.
+ *
+ * A workflow tells it whether it is dirty; it hands back the close handler to
+ * wire to X, Back and Cancel, plus the dialog to render. One implementation
+ * rather than one per form, so a new workflow gets the protection by using it
+ * rather than by remembering to reimplement it.
+ *
+ * Keep editing simply stops asking: the form was never unmounted, so every
+ * typed character, selection and scroll position is still exactly where the
+ * user left it. That is the point of guarding the exit rather than saving a
+ * copy of the state and restoring it. */
+function useUnsavedWorkGuard({
+  isDirty,
+  onExit,
+}: {
+  isDirty: boolean;
+  onExit: () => void;
+}) {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const requestExit = () => {
+    if (exitNeedsConfirmation({ isDirty, kind: "editable" })) {
+      setIsConfirming(true);
+      return;
+    }
+
+    onExit();
+  };
+
+  /* Used after a successful save: the work is persisted, so there is nothing
+     left to protect and the caller leaves without a prompt. */
+  const exitWithoutGuard = () => {
+    setIsConfirming(false);
+    onExit();
+  };
+
+  const confirmation = isConfirming ? (
+    <DiscardChangesDialog
+      onDiscard={() => {
+        setIsConfirming(false);
+        onExit();
+      }}
+      onKeepEditing={() => setIsConfirming(false)}
+    />
+  ) : null;
+
+  return { confirmation, exitWithoutGuard, isConfirming, requestExit };
+}
+
+/* A Sheet declares what it is, and its dismissal rules follow.
+ *
+ *   kind="inspection" (the default) is a record you are reading. The backdrop
+ *   closes it, exactly as every sheet always has, because closing costs
+ *   nothing.
+ *
+ *   kind="editable" holds user input. The backdrop still dims and blurs, but
+ *   stops being a way to lose work; X and Escape route through onClose, which
+ *   the caller guards.
+ *
+ * The default is deliberately the old behaviour, so the 60 read-only sheets
+ * are unchanged and only a surface that says it holds work gets the new
+ * protection. */
 function Sheet({
   children,
   description,
+  kind = "inspection",
   onClose,
   showEyebrow = false,
   showHeader = true,
@@ -15976,6 +16111,7 @@ function Sheet({
 }: {
   children: ReactNode;
   description?: string;
+  kind?: DosSurfaceKind;
   onClose: () => void;
   showEyebrow?: boolean;
   showHeader?: boolean;
@@ -15988,12 +16124,34 @@ function Sheet({
     setIsMounted(true);
   }, []);
 
+  /* Escape is a deliberate exit, so it is allowed -- but through onClose, which
+     an editable caller has guarded, rather than straight past the guard. */
+  useEffect(() => {
+    /* globalThis.KeyboardEvent because this file imports React KeyboardEvent. */
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
     : "max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
 
   const content = (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto overflow-x-hidden bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18" onMouseDown={onClose} role="presentation">
+    <div
+      className="fixed inset-0 z-[1000] overflow-y-auto overflow-x-hidden bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18"
+      /* The whole point. An editable sheet's backdrop is inert: no handler at
+         all, so a stray thumb on the blurred area does nothing rather than
+         destroying a half-finished form. */
+      onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}
+      role="presentation"
+    >
       <div className="flex min-h-full min-w-0 items-end justify-center md:items-center">
         <div
           aria-modal="true"
@@ -27562,6 +27720,7 @@ function PersonFormContent({
   errorMessage,
   isSubmitting,
   nameDefault,
+  onDirtyChange,
   onOpenExistingPerson,
   onRelationshipChange,
   onDelete,
@@ -27580,6 +27739,9 @@ function PersonFormContent({
   errorMessage: string;
   isSubmitting: boolean;
   nameDefault?: string | null;
+  /* Reports whether the user has entered anything worth protecting, so the
+     screen wrapping this form can guard the exit. */
+  onDirtyChange?: (isDirty: boolean) => void;
   onOpenExistingPerson?: (person: DosAppPerson) => void;
   onRelationshipChange: (value: DosRelationshipModel) => void;
   onDelete?: () => void;
@@ -27622,6 +27784,43 @@ function PersonFormContent({
   }, [additionalDefaults?.childrenNames, additionalDefaults?.spouseName]);
 
   const composedName = joinNameParts(nameDraft.firstName, nameDraft.lastName);
+
+  /* What the form opened with, captured once. Everything the user can change
+     that is not a plain uncontrolled input lives here; comparing against it
+     means typing a name and deleting it again leaves the form clean, so the
+     discard confirmation stays rare enough to mean something. */
+  const initialFormValues = useMemo(() => ({
+    childrenNames: householdDraftChildrenNames(householdDraftFromDefaults(additionalDefaults)),
+    discipleshipStage: relationshipModel.discipleshipStage,
+    firstName: splitNameParts(nameDefault).firstName,
+    lastName: splitNameParts(nameDefault).lastName,
+    personRole: additionalDefaults?.fieldVisibility ?? "primary",
+    phone: phoneDigitsOnly(phoneDefault),
+    relationshipContext: relationshipModel.relationshipContext,
+    relationshipType: relationshipModel.relationshipType,
+    roleInMyLife: relationshipModel.roleInMyLife,
+    score: scoreValue,
+    spouseName: householdDraftSpouseName(householdDraftFromDefaults(additionalDefaults)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [additionalDefaults, nameDefault, phoneDefault]);
+
+  const isDirty = formIsDirty(initialFormValues, {
+    childrenNames: householdDraftChildrenNames(householdDraft),
+    discipleshipStage: relationshipModel.discipleshipStage,
+    firstName: nameDraft.firstName,
+    lastName: nameDraft.lastName,
+    personRole,
+    phone: phoneDraft,
+    relationshipContext: relationshipModel.relationshipContext,
+    relationshipType: relationshipModel.relationshipType,
+    roleInMyLife: relationshipModel.roleInMyLife,
+    score: scoreValue,
+    spouseName: householdDraftSpouseName(householdDraft),
+  });
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   function runDuplicateCheck(emailValue: string) {
     if (isEditMode || duplicateDismissed || !people?.length) {
@@ -34187,7 +34386,20 @@ function MobileFloatingActions({
     </div>
   );
 
-  if (portalToBody && variant === "desktop") {
+  /* The FAB belongs to the app shell, not to whatever content container it was
+     rendered from.
+     
+     This used to portal only the desktop variant, so the mobile FAB on a
+     Person asked for `fixed` positioning and then rendered inside the Person
+     overlay anyway. `position: fixed` is only viewport-relative while no
+     ancestor establishes a containing block, and an overlay carrying a
+     transform, filter or backdrop-filter does exactly that -- which is why the
+     Person FAB sat at a different right inset from the one on Meetings.
+     
+     Portaling both variants to <body> removes the ancestor question entirely:
+     there is nothing above it to anchor to but the viewport, so one right
+     inset holds on every surface. */
+  if (portalToBody) {
     return isMounted ? createPortal(content, document.body) : null;
   }
 
@@ -39394,6 +39606,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function closeForm() {
+    /* Every exit passes through here -- a successful save, a confirmed
+       discard, or a clean Back -- so this is the one place the unsaved-work
+       flag can be cleared without a path being missed. A save that succeeded
+       has persisted the work, so leaving must not warn. */
+    setIsPersonFormDirty(false);
     meetingWorkflowIdsRef.current = null;
     setErrorMessage("");
     setFormMode(null);
@@ -41702,6 +41919,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   /* Writes one feature-flag row and refreshes. It touches no Person, so there
      is deliberately no optimistic edit of people state here: the only thing
      that changed is what this workspace can see. */
+  /* The Person task screens' unsaved-work guard. Closing goes through
+     requestExit, which leaves silently on a clean form and raises the discard
+     confirmation on a dirty one. The form is never unmounted while confirming,
+     so Keep editing returns the user to exactly what they had typed. */
+  const [isPersonFormDirty, setIsPersonFormDirty] = useState(false);
+  const personFormGuard = useUnsavedWorkGuard({
+    isDirty: isPersonFormDirty,
+    onExit: () => {
+      setIsPersonFormDirty(false);
+      closeForm();
+    },
+  });
+
   async function toggleAdvancedFeature(feature: DosAdvancedFeatureKey, enabled: boolean) {
     await submitJson("/api/dos/app/advanced-features", { enabled, feature }, "PATCH", false);
   }
@@ -46338,10 +46568,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         </Sheet>
       ) : null}
 
+      {/* Add and Edit Person are the same meaningful form and are now the same
+          kind of surface: a dedicated task screen with a real Back, not a
+          dismissible overlay. Edit used to be a Sheet, so a tap on the blurred
+          backdrop destroyed a half-finished edit -- the exact failure this
+          pass exists to remove. Both route Back through the unsaved-work
+          guard. */}
       {formMode === "person" ? (
-        <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
+        <DosWorkflowPage onClose={personFormGuard.requestExit} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
             buttonText="Add Person"
+            onDirtyChange={setIsPersonFormDirty}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onOpenExistingPerson={(person) => {
@@ -46361,10 +46598,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title="Edit Person">
+        <DosWorkflowPage onClose={personFormGuard.requestExit} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
             buttonText="Save Person"
+            onDirtyChange={setIsPersonFormDirty}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
@@ -46379,8 +46617,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             showEngagement={engagementLevelsEnabled}
             submittingText="Saving..."
           />
-        </Sheet>
+        </DosWorkflowPage>
       ) : null}
+
+      {personFormGuard.confirmation}
 
       {formMode === "meeting" ? (
         <DosWorkflowPage onClose={closeForm} subtitle={logWorkflowSubtitle} title="Log Meeting">
