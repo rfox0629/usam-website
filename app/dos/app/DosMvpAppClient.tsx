@@ -4541,6 +4541,7 @@ function DosDateInput({
   maxYear = new Date().getFullYear() + 25,
   minYear = 1900,
   name,
+  labelVariant = "caps",
   onChange,
   required = false,
   value,
@@ -4549,6 +4550,8 @@ function DosDateInput({
   autoComplete?: string;
   defaultValue?: string | null;
   label?: ReactNode;
+  /** `caps` keeps the tracked-caps FieldLabel; `sentence` is the spec §3 label grammar (USA-217). */
+  labelVariant?: "caps" | "sentence";
   maxYear?: number;
   minYear?: number;
   name: string;
@@ -4649,7 +4652,7 @@ function DosDateInput({
 
   return (
     <div className="min-w-0">
-      {label ? <FieldLabel>{label}</FieldLabel> : null}
+      {label ? (labelVariant === "sentence" ? <span className="text-dos-label text-dos-secondary">{label}</span> : <FieldLabel>{label}</FieldLabel>) : null}
       <input name={name} readOnly type="hidden" value={isoValue} />
       <div className={`relative ${label ? "mt-2" : ""}`}>
         <input
@@ -21039,6 +21042,7 @@ function MeetingLeaderReflectionSection({
       <DosDateInput
         defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
         label="Remind me"
+        labelVariant="sentence"
         name="follow_up_date"
       />
     </div>
@@ -21389,6 +21393,7 @@ function ScheduledTableTimingFields({
       <div className="max-w-[15rem]">
         <DosDateInput
           label="Date"
+          labelVariant="sentence"
           name={dateName}
           onChange={onDateChange}
           required
@@ -26595,7 +26600,7 @@ function PersonChoiceField({
 }) {
   return (
     <fieldset className="grid gap-2">
-      <legend className="text-[11px] font-bold uppercase tracking-[0.12em] text-dos-eyebrow">{label}</legend>
+      <legend className="text-dos-label text-dos-secondary">{label}</legend>
       {hint ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">{hint}</p> : null}
       {/* The selected value travels with the form as a plain field, so the
           submit path does not depend on this component's internals. */}
@@ -26879,14 +26884,14 @@ function PersonFormContent({
       <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
       <DosFormSection icon="people" title="Person" variant="label">
         <DosFormGrid>
-          <DosFormField label={<>First Name<RequiredMark /></>}>
+          <DosFormField labelVariant="sentence" label={<>First Name<RequiredMark /></>}>
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
           </DosFormField>
-          <DosFormField label="Last Name">
+          <DosFormField labelVariant="sentence" label="Last Name">
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosFormField label={<>Mobile Phone<RequiredMark /></>}>
+        <DosFormField labelVariant="sentence" label={<>Mobile Phone<RequiredMark /></>}>
           <input
             className={FieldInputClass()}
             inputMode="tel"
@@ -26901,7 +26906,7 @@ function PersonFormContent({
             value={formatPhoneNumber(phoneDraft)}
           />
         </DosFormField>
-        <DosFormField label="Email">
+        <DosFormField labelVariant="sentence" label="Email">
           <input
             className={FieldInputClass()}
             defaultValue={additionalDefaults?.email}
@@ -26985,17 +26990,17 @@ function PersonFormContent({
 
       <DisclosureSection defaultOpen={isEditMode || hasHouseholdDetails(additionalDefaults ?? {})} description="Spouse and children, kept selectable for tables." title="Household & Family">
         <DosFormGrid>
-          <DosFormField label="Spouse First Name">
+          <DosFormField labelVariant="sentence" label="Spouse First Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
           </DosFormField>
-          <DosFormField label="Spouse Last Name">
+          <DosFormField labelVariant="sentence" label="Spouse Last Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" name="anniversary_date" />
+        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" labelVariant="sentence" name="anniversary_date" />
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <FieldLabel>Children</FieldLabel>
+            <span className="text-dos-label text-dos-secondary">Children</span>
             <button
               className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
               onClick={addChildDraft}
@@ -27008,10 +27013,10 @@ function PersonFormContent({
             {householdDraft.children.map((child, index) => (
               <div className="grid gap-2 rounded-[18px] border border-[#E2E8F0] bg-white p-2" key={child.id}>
                 <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
-                  <DosFormField label="Child First Name">
+                  <DosFormField labelVariant="sentence" label="Child First Name">
                     <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
                   </DosFormField>
-                  <DosFormField label="Child Last Name">
+                  <DosFormField labelVariant="sentence" label="Child Last Name">
                     <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
                   </DosFormField>
                   <button
@@ -27030,29 +27035,29 @@ function PersonFormContent({
       </DisclosureSection>
 
       <DisclosureSection defaultOpen={isEditMode || hasAddressData} description="Address, church, birthday, and other details." title="Address & Details">
-        <DosFormField label="Home Address">
+        <DosFormField labelVariant="sentence" label="Home Address">
           <input className={FieldInputClass()} defaultValue={additionalDefaults?.homeAddress} name="home_address" placeholder="Street address" />
         </DosFormField>
         <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
-          <DosFormField label="City">
+          <DosFormField labelVariant="sentence" label="City">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.city} name="city" />
           </DosFormField>
-          <DosFormField label="State">
+          <DosFormField labelVariant="sentence" label="State">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.state} maxLength={2} name="state" />
           </DosFormField>
-          <DosFormField label="ZIP">
+          <DosFormField labelVariant="sentence" label="ZIP">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.zip} inputMode="numeric" name="zip" />
           </DosFormField>
         </div>
         <DosFormGrid>
-          <DosFormField label="Church">
+          <DosFormField labelVariant="sentence" label="Church">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.church} name="church" placeholder="Church / community" />
           </DosFormField>
-          <DosFormField label="Occupation">
+          <DosFormField labelVariant="sentence" label="Occupation">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.occupation} name="occupation" placeholder="What do they do?" />
           </DosFormField>
         </DosFormGrid>
-        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
+        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" labelVariant="sentence" maxYear={new Date().getFullYear()} name="birthday" />
       </DisclosureSection>
 
       {/* Creating a person is the one moment where a birthday or a surgery date
