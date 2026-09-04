@@ -72,6 +72,12 @@ check(
   "The share card must stay typographic. No photography, no image fields.",
 );
 check(shareCard.includes("#FCFAF6"), "The share card must keep the warm off-white field.");
+for (const color of ["#160F0A", "#378ADD", "#9CC7EF", "#F3E4CC"]) {
+  check(
+    shareCard.includes(color),
+    `The Kitchen Table Gospel share card must keep its ${color} brand color.`,
+  );
+}
 
 // --- the site-wide default ---------------------------------------------------
 
