@@ -1,0 +1,296 @@
+# Database Ownership Manifest — Supabase project usam-website (dbupuphezeqkiolprrlg)
+#
+# STATIC ANALYSIS ONLY. Derived from migration DDL and code references at
+# commit b90dbc72183a plus a read-only list_migrations call. No database was
+# mutated, no migration was run, no history was repaired.
+#
+# Logical ownership != physical location. Every table below lives in ONE Supabase
+# project today and that is not proposed to change.
+
+version: 1
+generated: '2026-07-28'
+evidence_commit: b90dbc72183a
+supabase_project: usam-website
+supabase_ref: dbupuphezeqkiolprrlg
+supabase_status: ACTIVE_HEALTHY
+local_migration_files: 125
+remote_applied_migrations: 70
+distinct_tables_in_ddl: 102
+
+evidence_method: >-
+  Tables extracted from `CREATE TABLE` statements across supabase/migrations/**.
+  Consumers counted by grepping table-name literals within each domain's path
+  patterns. RLS presence is only asserted where a migration filename or body
+  makes it explicit; absence of a note is NOT evidence of absent RLS.
+
+# --------------------------------------------------------------------------
+# Position statement — deliberate, and not a consequence of workspace layout
+# --------------------------------------------------------------------------
+position:
+  one_shared_project_remains_appropriate: true
+  rationale: >-
+    Application workspaces do not require database separation. Eight objects form
+    a shared identity and organization core consumed by every domain; splitting
+    them would fork auth.users and profiles and force cross-database identity sync
+    on every login, household lookup, and prayer/support join.
+  shared_identity_must_not_be_duplicated: true
+  enforcement_order:
+    - 1. ownership documentation (this file)
+    - 2. naming conventions (the dos_* prefix already namespaces 48 tables)
+    - 3. RLS policies as the real runtime boundary
+    - 4. optional API boundary — only when a second engineer owns a domain independently
+    - 5. physical database separation — a LATER decision, not an immediate requirement
+  do_not: >-
+    Do not recommend separate databases merely because applications become
+    separate workspaces. These are independent decisions.
+
+# --------------------------------------------------------------------------
+# Shared core — the actual coupling
+# --------------------------------------------------------------------------
+shared_identity:
+  - object: auth.users
+    type: table
+    managed_by: supabase-auth
+    primary_logical_owner: shared-identity
+    shared_consumers: [dos-app, organization-platform, usam-public-web, shared-platform]
+    extraction_sensitivity: critical
+    api_boundary_recommendation: never-split
+    notes: Supabase-managed. Forking this is not viable.
+
+  - object: profiles
+    type: table
+    primary_logical_owner: shared-identity
+    current_consumers: {dos-app: 8, transitional-or-unclear: 4, usam-public-web: 1}
+    shared_consumers: [dos-app, organization-platform, usam-public-web]
+    extraction_sensitivity: critical
+    api_boundary_recommendation: never-split
+    rls_present: true
+
+  - object: admin_users
+    type: table
+    primary_logical_owner: shared-identity
+    current_consumers: {transitional-or-unclear: 3}
+    extraction_sensitivity: high
+    migration_file: 20260501201146_create_admin_users_allowlist.sql
+    local_migration_version: '20260501201146'
+    remote_version: '20260501203837'
+    version_drift: true
+    api_boundary_recommendation: keep-shared
+    notes: >-
+      Global allowlist. The single-organization auth model that contradicts the
+      multi-organization data model.
+
+shared_organization:
+  - object: organizations
+    type: table
+    primary_logical_owner: organization-platform
+    current_consumers: {dos-app: 9, transitional-or-unclear: 9, usam-public-web: 2}
+    shared_consumers: [dos-app, organization-platform, usam-public-web]
+    extraction_sensitivity: critical
+    api_boundary_recommendation: contract-required
+
+  - object: organization_memberships
+    type: table
+    primary_logical_owner: organization-platform
+    current_consumers: {dos-app: 2, transitional-or-unclear: 2, usam-public-web: 1}
+    extraction_sensitivity: critical
+    api_boundary_recommendation: contract-required
+
+  - object: people
+    type: table
+    primary_logical_owner: organization-platform
+    current_consumers: {dos-app: 7, transitional-or-unclear: 2}
+    extraction_sensitivity: high
+    api_boundary_recommendation: contract-required
+
+  - object: person_roles
+    type: table
+    primary_logical_owner: organization-platform
+    current_consumers: {dos-app: 2}
+    extraction_sensitivity: high
+    api_boundary_recommendation: contract-required
+    notes: Exists but is not the enforcement path for admin access today.
+
+  - object: missionary_households
+    type: table
+    primary_logical_owner: usam-public-web
+    current_consumers: {transitional-or-unclear: 12, usam-public-web: 9, dos-app: 8}
+    shared_consumers: [dos-app, organization-platform, usam-public-web]
+    extraction_sensitivity: critical
+    api_boundary_recommendation: contract-required
+    notes: >-
+      MOST COUPLED TABLE IN THE SYSTEM. DOS treats households as the unit of
+      discipleship, the website as the unit of support, admin manages both.
+
+# --------------------------------------------------------------------------
+# Domain-owned groups (summarised — 102 tables total)
+# --------------------------------------------------------------------------
+domain_owned:
+  - group: dos
+    primary_logical_owner: dos-app
+    object_count: 48
+    representative_objects:
+      - dos_groups
+      - dos_group_members
+      - dos_group_member_access_tokens
+      - dos_user_records
+      - dos_assessment_results
+      - dos_relationship_scores
+      - dos_review_links
+      - dos_table_invitations
+      - dos_person_commitments
+      - meetings
+      - meeting_people
+      - fruit_events
+      - participant_testimonies
+      - discipleship_relationships
+      - ministry_events
+      - connected_calendars
+      - visibility_rules
+      - collectives
+      - networks
+    extraction_sensitivity: low
+    api_boundary_recommendation: none-needed
+    notes: >-
+      Prefix-namespaced and cleanly owned. dos_groups is read by the public
+      /groups routes (6 files) but those routes are also dos-app.
+
+  - group: public-web
+    primary_logical_owner: usam-public-web
+    object_count: 25
+    representative_objects:
+      - missionary_profiles
+      - missionary_people
+      - missionary_field_people
+      - missionary_team_members
+      - support_commitments
+      - major_gift_inquiries
+      - financial_freedom_inquiries
+      - form_submissions
+      - prayer_requests
+      - prayer_partners
+      - partners_documents
+      - system_access_codes
+      - usam_missionary_applications
+      - public_sites
+    extraction_sensitivity: low
+    api_boundary_recommendation: none-needed
+    notes: >-
+      prayer_requests is consumed by three domains (dos 2, admin 7, public 4)
+      and is the one exception in this group.
+
+  - group: organization-platform
+    primary_logical_owner: organization-platform
+    object_count: 3
+    representative_objects: [organizations, organization_memberships, person_roles]
+    extraction_sensitivity: critical
+    api_boundary_recommendation: contract-required
+    notes: Listed under shared_organization above; repeated here for completeness.
+
+  - group: communications
+    primary_logical_owner: organization-platform
+    object_count: 1
+    representative_objects: [communications_resend_subscribers]
+    extraction_sensitivity: low
+    remote_only: true
+    notes: >-
+      Applied remotely 2026-07-28 with NO corresponding local migration file.
+      See drift appendix.
+
+# --------------------------------------------------------------------------
+# External or unknown — flagged, not guessed
+# --------------------------------------------------------------------------
+external_or_unknown:
+  - object: aligned_insights_inquiries
+    type: table
+    primary_logical_owner: UNKNOWN
+    classification: external-or-unknown
+    severity: HIGH
+    migration_file: null
+    local_migration_version: null
+    remote_version: '20260514190043'
+    remote_only: true
+    extraction_sensitivity: unknown
+    notes: >-
+      ⚠️ Remote migration `create_aligned_insights_inquiries` exists in the USAM
+      PRODUCTION database with no local migration file. Aligned Insights
+      (alignedinsights.tech, rfox0629/alignedinsights-website) is recorded in
+      repository-registry.json v2 as "held - out of scope" with UNCONFIRMED
+      ownership, and maps to no approved Application label. This is a tenancy
+      question, not merely drift. Ownership must be established before any
+      schema-boundary work. Do not assume it is USAM-owned.
+
+  - object: pco_giving_records
+    type: table
+    primary_logical_owner: transitional-or-unclear
+    classification: external-integration
+    extraction_sensitivity: medium
+    notes: Planning Center integration. Related open finding: pco_people RLS.
+
+  - object: pco_giving_sync_runs
+    type: table
+    primary_logical_owner: transitional-or-unclear
+    classification: external-integration
+    extraction_sensitivity: medium
+
+# --------------------------------------------------------------------------
+# Drift appendix — USA-100 evidence. READ-ONLY. No remediation proposed here.
+# --------------------------------------------------------------------------
+drift_appendix:
+  issue: USA-100
+  status: open
+  remediation_authorized: false
+  summary: >-
+    Drift is version-level, not merely count-level. 125 local migration files
+    versus 70 applied remote migrations, AND identically-named migrations carry
+    different version timestamps. Because versions differ for the same logical
+    migration, `supabase db push` cannot converge without history repair, and
+    `supabase db pull` would generate a snapshot disagreeing with 125 local files.
+
+  version_mismatches:
+    - name: missionary_profiles_foundation
+      local_version: '20260501164602'
+      remote_version: '20260501185143'
+    - name: create_admin_users_allowlist
+      local_version: '20260501201146'
+      remote_version: '20260501203837'
+    - name: create_financial_freedom_inquiries
+      local_version: '20260501202545'
+      remote_version: '20260501203857'
+    - name: optimize_admin_rls_policies
+      local_version: '20260501203951'
+      remote_version: '20260501204036'
+
+  remote_only_migrations:
+    - name: communications_resend_subscribers
+      remote_version: '20260728035152'
+      concern: applied out-of-band; no local file
+    - name: create_aligned_insights_inquiries
+      remote_version: '20260514190043'
+      concern: cross-tenant table with unconfirmed ownership
+
+  distinction:
+    logical_ownership: >-
+      Which application conceptually owns the data. Documented above.
+    physical_database_location: >-
+      One Supabase project (dbupuphezeqkiolprrlg) for everything. Unchanged.
+    migration_history_ownership: >-
+      Currently ambiguous — this IS the USA-100 defect. The remote
+      supabase_migrations table and the local directory disagree on both
+      membership and versioning.
+    runtime_access: >-
+      All domains via the same 87-LOC src/lib/supabase client. RLS is the only
+      runtime enforcement boundary that exists today.
+
+  gates:
+    - USA-100 must be resolved before database-sensitive application movement.
+    - >-
+      USA-86 backup readiness must be verified — a tested pg_dump restore plus
+      storage export — before any migration-history repair. Backup readiness is
+      NOT assumed.
+
+limitations:
+  - Table ownership derived from migration DDL and grep-based consumer counts, not from live information_schema queries.
+  - RLS policies, triggers, storage buckets and edge functions were NOT enumerated; that requires live queries beyond the read-only scope taken.
+  - Consumer counts are file counts containing a table-name literal, which over-counts comments and under-counts dynamic query construction.
+  - The 102-table figure counts CREATE TABLE statements; tables created then dropped across migrations may inflate it.
