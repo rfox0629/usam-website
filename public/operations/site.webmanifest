@@ -1,0 +1,29 @@
+{
+  "background_color": "#F4F7FB",
+  "display": "standalone",
+  "icons": [
+    {
+      "purpose": "any",
+      "sizes": "192x192",
+      "src": "/favicons/usam/icon-192.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "/favicons/usam/icon-512.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/favicons/usam/icon-maskable-512.png",
+      "type": "image/png"
+    }
+  ],
+  "name": "USA Missionaries Operations",
+  "scope": "/operations",
+  "short_name": "Operations",
+  "start_url": "/operations",
+  "theme_color": "#D8A932"
+}
