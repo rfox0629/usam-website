@@ -2,7 +2,7 @@
 // Public Communications routes, rescued from USA-47, plus the September issue's
 // send-safety and locked-design contract.
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -166,6 +166,26 @@ await check("the September email renders its real links, and fails closed on the
   const withAddress = build(address);
   assert.ok(withAddress.html.includes(address), "a supplied postal address must render");
   assert.ok(!withoutAddress.html.includes("Somewhere"), "no address may be invented when none is supplied");
+});
+
+check("every newsletter image is within an email payload budget", () => {
+  const september = read("src", "lib", "communications", "september-2026.ts");
+  // Email images are dedicated derivatives, never the site's full-resolution
+  // originals under /images/vision.
+  assert.match(september, /images\/email\/september-2026/);
+  assert.doesNotMatch(september.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, ""), /images\/vision/);
+
+  const files = [...september.matchAll(/img\("([^"]+)"\)/g)].map((match) => match[1]);
+  assert.ok(files.length > 0, "the issue must reference at least one image");
+
+  let total = 0;
+  for (const file of files) {
+    const full = path.join(root, "public", "images", "email", "september-2026", file);
+    const { size } = statSync(full);
+    total += size;
+    assert.ok(size <= 260 * 1024, `${file} is ${Math.round(size / 1024)}KB, over the 260KB per-image budget`);
+  }
+  assert.ok(total <= 600 * 1024, `total image payload ${Math.round(total / 1024)}KB exceeds 600KB`);
 });
 
 const failed = results.filter((entry) => !entry.ok);
