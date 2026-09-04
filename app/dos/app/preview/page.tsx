@@ -16,6 +16,7 @@ import {
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
+import { PrimitivesGallery } from "./PrimitivesGallery";
 
 export const dynamic = "force-dynamic";
 
@@ -2063,7 +2064,7 @@ function buildDosPreviewDemoData(): DosAppData {
 export default async function DosAppPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string; workspace?: string }>;
+  searchParams: Promise<{ demo?: string; gallery?: string; workspace?: string }>;
 }) {
   if (!isDemoPreviewRouteEnabled) {
     redirect("/dos");
@@ -2073,6 +2074,12 @@ export default async function DosAppPreviewPage({
 
   if (params.demo !== demoAccessToken) {
     return <LockedPreviewScreen />;
+  }
+
+  // USA-215: the shared primitives in isolation, behind the same token, for
+  // visual regression and review. Synthetic content only.
+  if (params.gallery === "primitives") {
+    return <PrimitivesGallery />;
   }
 
   return <DosMvpAppClient data={buildDosPreviewDemoData()} />;
