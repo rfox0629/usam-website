@@ -2232,30 +2232,82 @@ await check("Add and Edit Person are the same protected task screen", async () =
   const addBlock = client.slice(client.indexOf('{formMode === "person" ? ('), client.indexOf('{formMode === "editPerson"'));
   const editBlock = client.slice(client.indexOf('{formMode === "editPerson"'), client.indexOf('{formMode === "meeting" ? ('));
 
-  /* Edit Person used to be a Sheet, so its backdrop destroyed a half-finished
-     edit. Both are now dedicated screens with a real Back. */
   assert(addBlock.includes("<DosWorkflowPage"), "Add Person is a task screen.");
   assert(editBlock.includes("<DosWorkflowPage"), "Edit Person is a task screen, not a dismissible overlay.");
   assert(!editBlock.includes("<Sheet"), "Edit Person must not be a Sheet.");
+});
 
-  /* Both route their exit through the guard, and both report dirtiness. */
-  for (const [name, block] of [["Add", addBlock], ["Edit", editBlock]]) {
-    assert(block.includes("onClose={personFormGuard.requestExit}"), `${name} Person's Back is guarded.`);
-    assert(block.includes("onDirtyChange={setIsPersonFormDirty}"), `${name} Person reports unsaved work.`);
+await check("Every task screen is guarded by the primitive, not by per-form wiring", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const page = client.slice(client.indexOf("function DosWorkflowPage("), client.indexOf("function Sheet({"));
+
+  /* The guard lives in the screen itself, so Log Meeting, Schedule Meeting and
+     both Person screens are protected by being task screens rather than by
+     each remembering to wire something. */
+  assert(page.includes("useUnsavedWorkGuard({"), "The task-screen primitive owns the guard.");
+  assert(page.includes("onClick={requestClose}"), "Back routes through the guard.");
+  assert(page.includes("{guard.confirmation}"), "The screen renders the discard confirmation.");
+  assert(!/onClick=\{onClose\}/.test(page), "No exit may bypass the guard.");
+
+  /* All four task screens, therefore all four protected. */
+  const mounts = client.match(/<DosWorkflowPage[\s\S]{0,200}?title="([^"]+)"/g) ?? [];
+  assert(mounts.length >= 4, `Expected the four task screens, found ${mounts.length}.`);
+  for (const expected of ["Add Person", "Edit Person", "Log Meeting", "Schedule Meeting"]) {
+    assert(
+      client.includes(`<DosWorkflowPage`) && client.includes(`title="${expected}"`) || client.includes(`title={logWorkflowSubtitle}`),
+      `${expected} should be a guarded task screen.`,
+    );
+  }
+});
+
+await check("Every editable sheet declares itself, and the primitive protects it", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
+
+  assert(sheet.includes("useUnsavedWorkGuard({"), "Sheet owns the guard for editable surfaces.");
+  assert(sheet.includes("onClick={requestClose}"), "The X routes through the guard.");
+  assert(/event.key === "Escape"[\s\S]{0,120}requestClose\(\)/.test(sheet), "Escape routes through the guard.");
+  assert(sheet.includes("{guard.confirmation}"), "The sheet renders the discard confirmation.");
+
+  /* Dirtiness is read from the live surface, so a sheet is protected by saying
+     what it is rather than by reporting its own state. */
+  assert(sheet.includes("readSurfaceValues(panelRef.current)"), "Dirtiness comes from the rendered controls.");
+
+  /* Every form that collects input says so. This list is the completion
+     criterion: a new editable sheet added without kind="editable" fails here. */
+  const editableTitles = [
+    "Edit Journey", "New Group", "Resource Check-In", "Check in", "Add progress",
+    "Log Check-In", "Add Prayer Partner", "Add Prayer Request", "Edit Prayer Request",
+    "Log Prayer", "Import Contacts",
+  ];
+
+  for (const title of editableTitles) {
+    const line = client.split("\n").find((row) => row.includes("<Sheet ") && row.includes(`title="${title}"`));
+
+    assert(line, `Expected an editable sheet titled ${title}.`);
+    assert(line.includes('kind="editable"'), `${title} collects input and must declare kind="editable".`);
   }
 
-  /* One guard, not one per form. */
-  /* One definition, and today one call site. The point is that a second
-     workflow adopts THIS guard rather than writing its own dirty-state code. */
-  const definitions = client.match(/function useUnsavedWorkGuard\(/g) ?? [];
-  assert.equal(definitions.length, 1, "There is a single unsaved-work guard implementation, not one per form.");
-  const dialogs = client.match(/function DiscardChangesDialog\(/g) ?? [];
-  assert.equal(dialogs.length, 1, "And a single discard confirmation.");
+  /* The Accountability, gathering, reminder and meeting sheets carry computed
+     titles, so they are checked by their surrounding expression instead. */
+  for (const marker of ['"Edit Accountability" : "New Accountability"', '"Edit Accountability" : "Add Accountability"', '"Log Meeting" : "Edit Meeting"', '"Edit Reminder"']) {
+    const line = client.split("\n").find((row) => row.includes("<Sheet ") && row.includes(marker));
 
-  /* Every exit clears the flag in one place, so a successful save cannot leave
-     a stale dirty state that warns on the next unrelated form. */
-  const closeForm = client.slice(client.indexOf("function closeForm() {"), client.indexOf("function closeForm() {") + 700);
-  assert(closeForm.includes("setIsPersonFormDirty(false)"), "closeForm clears the flag for save, discard and clean exit alike.");
+    assert(line, `Expected an editable sheet for ${marker}.`);
+    assert(line.includes('kind="editable"'), `The sheet for ${marker} must declare kind="editable".`);
+  }
+});
+
+await check("The second sheet primitive cannot become a loophole", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const legacy = client.slice(client.indexOf("function MobileBottomSheet("), client.indexOf("function MobileBottomSheet(") + 2600);
+
+  assert(legacy.includes("kind?: DosSurfaceKind"), "MobileBottomSheet takes the same contract as Sheet.");
+  assert(
+    legacy.includes("onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}"),
+    "Its backdrop obeys the same rule rather than always closing.",
+  );
+  assert(/kind = "inspection"/.test(legacy), "Its two read-only previews keep backdrop dismissal.");
 });
 
 await check("Keep editing is the safe default and does not rebuild the form", async () => {

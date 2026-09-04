@@ -9143,7 +9143,7 @@ function GroupJourneyEditSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Edit Journey">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Edit Journey">
       <form className="grid min-w-0 gap-4 overflow-x-hidden" onSubmit={handleSubmit}>
         <DosFormSection icon="library" title={row.resource.title}>
           <div className="grid min-w-0 gap-3 min-[380px]:grid-cols-2">
@@ -11546,7 +11546,7 @@ function GroupInviteSheet({
   }
 
   return (
-    <Sheet description="Add someone from Field or create a guest record. Messaging is not sent from this action." onClose={onClose} showEyebrow={false} title={`Add to ${group.name}`}>
+    <Sheet kind="editable" description="Add someone from Field or create a guest record. Messaging is not sent from this action." onClose={onClose} showEyebrow={false} title={`Add to ${group.name}`}>
       <div className="space-y-4">
         {message ? (
           <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
@@ -11797,7 +11797,7 @@ function GroupCreateSheet({
   }
 
   return (
-    <Sheet description="Create a group from an approved USA Missionaries template." onClose={onClose} title="New Group" size="wide">
+    <Sheet kind="editable" description="Create a group from an approved USA Missionaries template." onClose={onClose} title="New Group" size="wide">
       <form className="grid max-h-[calc(100dvh-8rem)] gap-4 overflow-y-auto px-1 pb-2 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]" onSubmit={handleSubmit}>
         <div className="grid gap-4">
           {message ? (
@@ -12095,7 +12095,7 @@ function GroupSettingsSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showHeader={false} size="wide" title={`Edit ${group.name}`}>
+    <Sheet kind="editable" onClose={onClose} showHeader={false} size="wide" title={`Edit ${group.name}`}>
       <form className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 flex-col overflow-hidden" onSubmit={handleSubmit}>
         <header className="shrink-0 border-b border-[#EAF2FF] px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -12341,7 +12341,7 @@ function GroupGatheringFormSheet({
   }
 
   return (
-    <Sheet onClose={onClose} title={gathering ? (isOccurrenceOverride ? "Edit this gathering" : "Edit Gathering") : "Add One-off Gathering"}>
+    <Sheet kind="editable" onClose={onClose} title={gathering ? (isOccurrenceOverride ? "Edit this gathering" : "Edit Gathering") : "Add One-off Gathering"}>
       <div className="grid gap-4">
         {message ? (
           <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
@@ -14129,7 +14129,7 @@ function ResourceAssignmentFormSheet({
   }, [assignment?.id, initialStartDate, resource.slug]);
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={assignment ? "Edit Journey" : "Assign Journey"}>
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={assignment ? "Edit Journey" : "Assign Journey"}>
       <form className="grid min-w-0 gap-4 overflow-x-hidden" onSubmit={onSubmit}>
         <input name="assignment_context" type="hidden" value={context} />
         <input name="due_date" type="hidden" value="" />
@@ -14206,7 +14206,7 @@ function ResourceAssignmentCheckInSheet({
   const resource = resourceAssignmentResource(assignment);
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Resource Check-In">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Resource Check-In">
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="assignment_id" type="hidden" value={assignment.id} />
         <DosFormSection icon="log" title={resource?.title ?? "Assigned Resource"}>
@@ -14267,7 +14267,7 @@ function CommitmentFormSheet({
   const selectedPersonId = personId ?? commitment?.personId ?? people[0]?.id ?? "";
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={commitment ? "Edit Accountability" : "New Accountability"}>
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={commitment ? "Edit Accountability" : "New Accountability"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         <DosFormSection icon="commitment" title="Accountability">
           {!personId && !commitment ? (
@@ -14429,7 +14429,7 @@ function PersonAccountabilityEditSheet({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Edit Accountability">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Edit Accountability">
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="commitment_id" type="hidden" value={commitment.id} />
         <DosFormSection icon="commitment" title="Accountability">
@@ -14482,7 +14482,7 @@ function PersonAccountabilityCheckInSheet({
     : accountabilityCheckInStates;
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Check in">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Check in">
       <form className="grid gap-3.5" onSubmit={onSubmit}>
         <input name="progress_state" type="hidden" value={state} />
         <div>
@@ -14536,7 +14536,7 @@ function PersonAccountabilityProgressSheet({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Add progress">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Add progress">
       <form className="grid gap-3.5" onSubmit={onSubmit}>
         <input name="commitment_id" type="hidden" value={commitment.id} />
         <div>
@@ -14599,7 +14599,7 @@ function CommitmentSubjectSheet({
   const selectedPerson = selectablePeople.find((candidate) => candidate.id === selectedPersonId) ?? null;
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Add Person">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Add Person">
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="commitment_id" type="hidden" value={commitment.id} />
         <input name="subject_person_id" type="hidden" value={selectedPerson ? selectedPerson.id : ""} />
@@ -14862,7 +14862,7 @@ function AccountabilityScheduleSheet({
   schedule?: DosAppAccountabilitySchedule | null;
 }) {
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={schedule ? "Edit Accountability" : "Add Accountability"}>
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={schedule ? "Edit Accountability" : "Add Accountability"}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
@@ -14914,7 +14914,7 @@ function LogCheckInSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Log Check-In">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Log Check-In">
       <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="schedule_id" type="hidden" value={schedule.id} /> : null}
@@ -15934,6 +15934,12 @@ function TaskCard({
  * clears the mobile safe area. Collection/browse surfaces may still use
  * cards — detail and work surfaces become the page.
  */
+/* A dedicated task screen: the user has navigated into a real workflow.
+ *
+ * Every one of these holds meaningful input, so the guard is not optional here
+ * the way it is on a Sheet -- Back always asks before discarding work. It uses
+ * the same DOM snapshot as Sheet, so there is one dirty-state implementation
+ * for the whole application rather than one per form. */
 function DosWorkflowPage({
   children,
   onClose,
@@ -15945,14 +15951,29 @@ function DosWorkflowPage({
   subtitle?: string;
   title: string;
 }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
+  const guard = useUnsavedWorkGuard({
+    getIsDirty: () => formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)),
+    onExit: onClose,
+  });
+
+  useEffect(() => {
+    if (initialValuesRef.current === null) {
+      initialValuesRef.current = readSurfaceValues(bodyRef.current);
+    }
+  }, []);
+
+  const requestClose = guard.requestExit;
+
   return (
     <div className="fixed inset-0 z-[120] overflow-y-auto bg-white [scrollbar-width:none] md:left-[232px] xl:left-[260px]">
-      <div className="mx-auto w-full max-w-[620px] px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 md:px-8 md:pb-16 md:pt-10">
+      <div className="mx-auto w-full max-w-[620px] px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 md:px-8 md:pb-16 md:pt-10" ref={bodyRef}>
         <header>
           <button
             aria-label="Back"
             className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-            onClick={onClose}
+            onClick={requestClose}
             type="button"
           >
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
@@ -15962,6 +15983,7 @@ function DosWorkflowPage({
         </header>
         <div className="mt-6">{children}</div>
       </div>
+      {guard.confirmation}
     </div>
   );
 }
@@ -16049,16 +16071,19 @@ function DiscardChangesDialog({
  * user left it. That is the point of guarding the exit rather than saving a
  * copy of the state and restoring it. */
 function useUnsavedWorkGuard({
-  isDirty,
+  getIsDirty,
   onExit,
 }: {
-  isDirty: boolean;
+  /* A getter rather than a value: dirtiness is read from the live surface at
+     the moment the user tries to leave, so nothing has to be recomputed on
+     every keystroke to keep a boolean current. */
+  getIsDirty: () => boolean;
   onExit: () => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
 
   const requestExit = () => {
-    if (exitNeedsConfirmation({ isDirty, kind: "editable" })) {
+    if (exitNeedsConfirmation({ isDirty: getIsDirty(), kind: "editable" })) {
       setIsConfirming(true);
       return;
     }
@@ -16084,6 +16109,39 @@ function useUnsavedWorkGuard({
   ) : null;
 
   return { confirmation, exitWithoutGuard, isConfirming, requestExit };
+}
+
+/* What has the user actually put into this surface?
+ *
+ * Read from the rendered controls rather than from each form's own state,
+ * because there are twenty editable sheets with twenty different state shapes
+ * and asking each to report dirtiness separately is how a form gets forgotten.
+ * One reader here means a sheet is protected by saying what it is, not by
+ * remembering to wire anything.
+ *
+ * Covers the three ways DOS collects an answer: typed fields, native selects
+ * and checkboxes, and the pressed-state button groups the DOS pickers use. */
+function readSurfaceValues(root: HTMLElement | null) {
+  if (!root) {
+    return {};
+  }
+
+  const values: Record<string, unknown> = {};
+
+  root.querySelectorAll("input, textarea, select").forEach((node, index) => {
+    const field = node as HTMLInputElement;
+    const key = field.name || `${field.tagName}:${index}`;
+
+    values[key] = field.type === "checkbox" || field.type === "radio" ? field.checked : field.value;
+  });
+
+  /* The DOS pickers are buttons carrying aria-pressed, not inputs, so a
+     changed relationship or context would otherwise read as clean. */
+  root.querySelectorAll("[aria-pressed]").forEach((node, index) => {
+    values[`pressed:${index}`] = node.getAttribute("aria-pressed");
+  });
+
+  return values;
 }
 
 /* A Sheet declares what it is, and its dismissal rules follow.
@@ -16119,25 +16177,45 @@ function Sheet({
   title: string;
 }) {
   const [isMounted, setIsMounted] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
+  const guard = useUnsavedWorkGuard({
+    getIsDirty: () => kind === "editable" && formIsDirty(initialValuesRef.current, readSurfaceValues(panelRef.current)),
+    onExit: onClose,
+  });
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  /* Escape is a deliberate exit, so it is allowed -- but through onClose, which
-     an editable caller has guarded, rather than straight past the guard. */
+  /* Snapshot what the sheet opened with, once it has rendered. Everything the
+     user does afterwards is measured against this, so typing a word and
+     deleting it again leaves the sheet clean. */
+  useEffect(() => {
+    if (isMounted && kind === "editable" && initialValuesRef.current === null) {
+      initialValuesRef.current = readSurfaceValues(panelRef.current);
+    }
+  }, [isMounted, kind]);
+
+  /* Every deliberate exit -- X, Escape, and whatever the caller wires to
+     onClose -- comes through here. A clean sheet closes silently; a sheet
+     holding work asks first. Keep editing only dismisses the dialog, so the
+     sheet is never unmounted and every entered value survives. */
+  const requestClose = guard.requestExit;
+
   useEffect(() => {
     /* globalThis.KeyboardEvent because this file imports React KeyboardEvent. */
     function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
-        onClose();
+        requestClose();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, onClose]);
 
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
@@ -16157,6 +16235,7 @@ function Sheet({
           aria-modal="true"
           className={`max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] min-w-0 border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
           onMouseDown={(event) => event.stopPropagation()}
+          ref={panelRef}
           role="dialog"
         >
           {showHeader ? (
@@ -16173,7 +16252,7 @@ function Sheet({
                 <button
                   aria-label="Close"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-xl leading-none text-[#0F172A]"
-                  onClick={onClose}
+                  onClick={requestClose}
                   type="button"
                 >
                   &times;
@@ -16184,16 +16263,22 @@ function Sheet({
           ) : children}
         </div>
       </div>
+      {guard.confirmation}
     </div>
   );
 
   return isMounted ? createPortal(content, document.body) : null;
 }
 
+/* The legacy sheet primitive, kept for two read-only previews. It takes the
+   same kind contract as Sheet so that if anything editable is ever put in one,
+   its backdrop stops being a way to lose work -- rather than this quietly
+   becoming a second door around the safety rule. */
 function MobileBottomSheet({
   badge,
   children,
   footer,
+  kind = "inspection",
   onClose,
   subtitle,
   title,
@@ -16201,6 +16286,7 @@ function MobileBottomSheet({
   badge?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  kind?: DosSurfaceKind;
   onClose: () => void;
   subtitle?: string;
   title: string;
@@ -16208,7 +16294,7 @@ function MobileBottomSheet({
   return (
     <div
       className="absolute inset-0 z-[80] flex items-end bg-[#0F172A]/20 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] backdrop-blur-[3px]"
-      onMouseDown={onClose}
+      onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}
       role="presentation"
     >
       <section
@@ -25659,7 +25745,7 @@ function AddPrayerPartnerSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Add Prayer Partner">
       <form className="space-y-5" onSubmit={handleSubmit}>
         <DosFormSection icon="people" title="Person">
           <p className="text-xs font-medium leading-5 text-[#64748B]">Prayer-only contacts stay hidden from Field unless added there.</p>
@@ -25795,7 +25881,7 @@ function AddPrayerRequestSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Add Prayer Request">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Add Prayer Request">
       <form className="space-y-5" onSubmit={handleSubmit}>
         <DosFormSection icon="prayer" title="Prayer Request">
           <DosFormGrid>
@@ -26122,7 +26208,7 @@ function PrayerRequestDetailSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Edit Prayer Request">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Edit Prayer Request">
       <form className="space-y-5" onSubmit={handleSubmit}>
         <DosFormSection icon="prayer" title="Request">
           <DosFormGrid>
@@ -26545,7 +26631,7 @@ function LogPrayerSheet({
   }
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Log Prayer">
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Log Prayer">
       <form className="space-y-3" onSubmit={handleSubmit}>
         {prayerRows.length ? (
           <>
@@ -27469,7 +27555,7 @@ function PeopleImportSheet({
   }
 
   return (
-    <Sheet description="Upload a CSV to add people to your field." onClose={onClose} title="Import Contacts">
+    <Sheet kind="editable" description="Upload a CSV to add people to your field." onClose={onClose} title="Import Contacts">
       <div className="space-y-4">
         <label className="block rounded-[22px] border border-dashed border-[#BFDBFE] bg-white p-4">
           <FieldLabel>CSV File</FieldLabel>
@@ -27720,7 +27806,6 @@ function PersonFormContent({
   errorMessage,
   isSubmitting,
   nameDefault,
-  onDirtyChange,
   onOpenExistingPerson,
   onRelationshipChange,
   onDelete,
@@ -27739,9 +27824,6 @@ function PersonFormContent({
   errorMessage: string;
   isSubmitting: boolean;
   nameDefault?: string | null;
-  /* Reports whether the user has entered anything worth protecting, so the
-     screen wrapping this form can guard the exit. */
-  onDirtyChange?: (isDirty: boolean) => void;
   onOpenExistingPerson?: (person: DosAppPerson) => void;
   onRelationshipChange: (value: DosRelationshipModel) => void;
   onDelete?: () => void;
@@ -27785,42 +27867,6 @@ function PersonFormContent({
 
   const composedName = joinNameParts(nameDraft.firstName, nameDraft.lastName);
 
-  /* What the form opened with, captured once. Everything the user can change
-     that is not a plain uncontrolled input lives here; comparing against it
-     means typing a name and deleting it again leaves the form clean, so the
-     discard confirmation stays rare enough to mean something. */
-  const initialFormValues = useMemo(() => ({
-    childrenNames: householdDraftChildrenNames(householdDraftFromDefaults(additionalDefaults)),
-    discipleshipStage: relationshipModel.discipleshipStage,
-    firstName: splitNameParts(nameDefault).firstName,
-    lastName: splitNameParts(nameDefault).lastName,
-    personRole: additionalDefaults?.fieldVisibility ?? "primary",
-    phone: phoneDigitsOnly(phoneDefault),
-    relationshipContext: relationshipModel.relationshipContext,
-    relationshipType: relationshipModel.relationshipType,
-    roleInMyLife: relationshipModel.roleInMyLife,
-    score: scoreValue,
-    spouseName: householdDraftSpouseName(householdDraftFromDefaults(additionalDefaults)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [additionalDefaults, nameDefault, phoneDefault]);
-
-  const isDirty = formIsDirty(initialFormValues, {
-    childrenNames: householdDraftChildrenNames(householdDraft),
-    discipleshipStage: relationshipModel.discipleshipStage,
-    firstName: nameDraft.firstName,
-    lastName: nameDraft.lastName,
-    personRole,
-    phone: phoneDraft,
-    relationshipContext: relationshipModel.relationshipContext,
-    relationshipType: relationshipModel.relationshipType,
-    roleInMyLife: relationshipModel.roleInMyLife,
-    score: scoreValue,
-    spouseName: householdDraftSpouseName(householdDraft),
-  });
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
 
   function runDuplicateCheck(emailValue: string) {
     if (isEditMode || duplicateDismissed || !people?.length) {
@@ -38089,7 +38135,7 @@ function MeetingNotesEditorSheet({
   const hasNotes = Boolean(defaultValue?.trim());
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={hasNotes ? "Edit Notes" : "Add Notes"}>
       <form className="space-y-5" onSubmit={onSubmit}>
         <DosFormSection icon="log" title="Notes">
           <DosFormField>
@@ -39606,11 +39652,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function closeForm() {
-    /* Every exit passes through here -- a successful save, a confirmed
-       discard, or a clean Back -- so this is the one place the unsaved-work
-       flag can be cleared without a path being missed. A save that succeeded
-       has persisted the work, so leaving must not warn. */
-    setIsPersonFormDirty(false);
     meetingWorkflowIdsRef.current = null;
     setErrorMessage("");
     setFormMode(null);
@@ -41919,19 +41960,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   /* Writes one feature-flag row and refreshes. It touches no Person, so there
      is deliberately no optimistic edit of people state here: the only thing
      that changed is what this workspace can see. */
-  /* The Person task screens' unsaved-work guard. Closing goes through
-     requestExit, which leaves silently on a clean form and raises the discard
-     confirmation on a dirty one. The form is never unmounted while confirming,
-     so Keep editing returns the user to exactly what they had typed. */
-  const [isPersonFormDirty, setIsPersonFormDirty] = useState(false);
-  const personFormGuard = useUnsavedWorkGuard({
-    isDirty: isPersonFormDirty,
-    onExit: () => {
-      setIsPersonFormDirty(false);
-      closeForm();
-    },
-  });
-
   async function toggleAdvancedFeature(feature: DosAdvancedFeatureKey, enabled: boolean) {
     await submitJson("/api/dos/app/advanced-features", { enabled, feature }, "PATCH", false);
   }
@@ -46575,10 +46603,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           pass exists to remove. Both route Back through the unsaved-work
           guard. */}
       {formMode === "person" ? (
-        <DosWorkflowPage onClose={personFormGuard.requestExit} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
+        <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
             buttonText="Add Person"
-            onDirtyChange={setIsPersonFormDirty}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onOpenExistingPerson={(person) => {
@@ -46598,11 +46625,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
-        <DosWorkflowPage onClose={personFormGuard.requestExit} title="Edit Person">
+        <DosWorkflowPage onClose={closeForm} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
             buttonText="Save Person"
-            onDirtyChange={setIsPersonFormDirty}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
@@ -46619,8 +46645,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           />
         </DosWorkflowPage>
       ) : null}
-
-      {personFormGuard.confirmation}
 
       {formMode === "meeting" ? (
         <DosWorkflowPage onClose={closeForm} subtitle={logWorkflowSubtitle} title="Log Meeting">
@@ -46707,7 +46731,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "reminder" ? (
-        <Sheet onClose={closeForm} showEyebrow={false} title={selectedReminder ? (selectedReminder.reminderType === "prayer" ? "Edit Prayer Request" : "Edit Reminder") : (newReminderType === "prayer" ? "Add Prayer Request" : "Add Reminder")}>
+        <Sheet kind="editable" onClose={closeForm} showEyebrow={false} title={selectedReminder ? (selectedReminder.reminderType === "prayer" ? "Edit Prayer Request" : "Edit Reminder") : (newReminderType === "prayer" ? "Add Prayer Request" : "Add Reminder")}>
           <ReminderFormContent
             calendarConnection={calendarConnection}
             defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
@@ -46735,7 +46759,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         const followUpReminderDefault = tableFollowUpReminderForMeeting(data.reminders, selectedMeeting.id);
 
         return (
-        <Sheet onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Edit Meeting"}>
+        <Sheet kind="editable" onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Edit Meeting"}>
           <div className="space-y-3">
             <MeetingFormContent
               allPeople={people}
