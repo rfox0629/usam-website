@@ -210,7 +210,7 @@ assert.deepEqual(
 assert.equal(ktg.host, "kitchentablegospel.org", "KTG should track the KTG hostname");
 assert.equal(ktg.targetPath, "/domain-sites/kitchen-table-gospel", "KTG protected preview should verify the direct domain route");
 assert.deepEqual(
-  markerContentResult("Kitchen Table Gospel An initiative of USA Missionaries Discipleship Doesn't Start on a Stage. Join the Table Pull Up a Chair", ktg),
+  markerContentResult("Kitchen Table Gospel USA Missionaries Discipleship Doesn't Start on a Stage. Schedule a Table Experience It at a Table", ktg),
   { missingMarkers: [], presentForbiddenMarkers: [] },
   "KTG should pass with KTG-specific markers",
 );
