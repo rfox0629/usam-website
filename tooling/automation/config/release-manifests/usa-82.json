@@ -90,7 +90,7 @@
       ],
       "forbiddenMarkers": [
         "Kitchen Table Gospel",
-        "Join the Table",
+        "Schedule a Table",
         "INFRASTRUCTURE IS BEING BUILT",
         "RIVER OF MINISTRIES"
       ]
@@ -110,7 +110,7 @@
         "Never lose a person or a moment that matters.",
         "Request Information",
         "Kitchen Table Gospel",
-        "Join the Table"
+        "Schedule a Table"
       ]
     },
     {
@@ -122,10 +122,10 @@
       "rendersExperience": "kitchen-table-gospel",
       "expectedMarkers": [
         "Kitchen Table Gospel",
-        "An initiative of USA Missionaries",
+        "USA Missionaries",
         "Discipleship Doesn't Start on a Stage.",
-        "Join the Table",
-        "Pull Up a Chair"
+        "Schedule a Table",
+        "Experience It at a Table"
       ],
       "forbiddenMarkers": [
         "Discipleship Operating System",

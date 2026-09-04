@@ -83,7 +83,7 @@
       ],
       "forbiddenContent": [
         "Kitchen Table Gospel",
-        "Join the Table",
+        "Schedule a Table",
         "INFRASTRUCTURE IS BEING BUILT",
         "RIVER OF MINISTRIES"
       ]
@@ -96,10 +96,10 @@
       "rendersExperience": "kitchen-table-gospel",
       "expectedContent": [
         "Kitchen Table Gospel",
-        "An initiative of USA Missionaries",
+        "USA Missionaries",
         "Discipleship Doesn't Start on a Stage.",
-        "Join the Table",
-        "Pull Up a Chair"
+        "Schedule a Table",
+        "Experience It at a Table"
       ],
       "forbiddenContent": [
         "Discipleship Operating System",
