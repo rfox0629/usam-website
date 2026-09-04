@@ -6,6 +6,8 @@
     "dev": "next dev",
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/ci-smoke.mjs",
+    "test:operations-communications": "node scripts/operations-communications-regression.mjs",
+    "communications:import": "node scripts/communications-audience-import.mjs",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",
     "build": "next build",
     "test:dos-assessment-results": "node scripts/dos-assessment-results-regression.mjs",

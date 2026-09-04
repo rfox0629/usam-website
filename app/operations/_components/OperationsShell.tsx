@@ -6,6 +6,7 @@ import {
   Building2,
   ChevronDown,
   ClipboardList,
+  Mail,
   FileText,
   FolderClosed,
   Landmark,
@@ -26,6 +27,7 @@ import { operationsPrimaryNav, operationsSystemNav, type OperationsNavItem } fro
 import { OperationsActionLink, operationsFont } from "./OperationsUI";
 
 const moduleIcons: Record<OperationsModule, LucideIcon> = {
+  communications: Mail,
   dashboards: BarChart3,
   documents: FolderClosed,
   finance: Landmark,
