@@ -12999,8 +12999,17 @@ function dashboardEngagementScoreLabel(person: DosAppPerson) {
   return relationshipScoreLabel(relationshipScoreFromEngagementLevel(person.engagementLevel));
 }
 
-function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson) {
-  return `${dashboardDiscipleshipRelationshipLabel(person)} · ${dashboardEngagementScoreLabel(person)}`;
+/* Top Time Investments printed "Discipling · +3" for everyone, which put the
+   engagement framework on the Basic dashboard even for a workspace that has
+   never turned it on. Off, the row says what the relationship is and stops
+   there rather than padding the line with a placeholder.
+
+   Visibility only: the person's engagement_level is still loaded and still
+   stored, and this reads it rather than deciding it. */
+function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson, showEngagement: boolean) {
+  const relationship = dashboardDiscipleshipRelationshipLabel(person);
+
+  return showEngagement ? `${relationship} · ${dashboardEngagementScoreLabel(person)}` : relationship;
 }
 
 function DashboardAlignmentRow({
@@ -15003,6 +15012,7 @@ function DesktopHomeDashboard({
   accountabilityCheckIns,
   accountabilitySchedules,
   commitmentsEnabled,
+  engagementLevelsEnabled,
   fruitEvents,
   fruitItems,
   loggedMeetings,
@@ -15040,6 +15050,9 @@ function DesktopHomeDashboard({
   accountabilityCheckIns: DosAppAccountabilityCheckIn[];
   accountabilitySchedules: DosAppAccountabilitySchedule[];
   commitmentsEnabled: boolean;
+  /* The Engagement Levels Advanced Feature, resolved from the workspace's
+     feature flags by the same helper every other surface uses. */
+  engagementLevelsEnabled: boolean;
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
   loggedMeetings: DosAppMeeting[];
@@ -15273,7 +15286,7 @@ function DesktopHomeDashboard({
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold sm:h-7 sm:w-7 sm:text-[10px] ${avatarTone(index)}`}>{initials(item.person.name)}</span>
                   <span className="min-w-0">
                     <span className="block whitespace-normal break-words text-sm font-black leading-4 text-[#0F172A] sm:text-base sm:leading-5">{item.person.name}</span>
-                    <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">{dashboardTimeInvestmentRelationshipLine(item.person)}</span>
+                    <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">{dashboardTimeInvestmentRelationshipLine(item.person, engagementLevelsEnabled)}</span>
                   </span>
                   <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{item.stats.meetings}</span>
                   <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDashboardDuration(item.stats.timeMinutes)}</span>
@@ -35716,6 +35729,7 @@ function PersonDetailOverlay({
   circleScore,
   commitments,
   commitmentsEnabled,
+  engagementLevelsEnabled,
   allResourceAssignments,
   fruitEvents,
   fruitItems,
@@ -35774,6 +35788,7 @@ function PersonDetailOverlay({
   circleScore?: DosRelationshipScore | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
+  engagementLevelsEnabled: boolean;
   allResourceAssignments: DosAppResourceAssignment[];
   fruitEvents: DosAppFruitEvent[];
   fruitItems: DosAppFruit[];
@@ -37164,10 +37179,15 @@ function PersonDetailOverlay({
                   <dt className="text-[12.5px] font-semibold text-dos-secondary">Circle</dt>
                   <dd className="mt-0.5 text-[16px] font-bold leading-[1.3] text-dos-primary">{currentCircleLabel}</dd>
                 </div>
-                <div>
-                  <dt className="text-[12.5px] font-semibold text-dos-secondary">Engagement</dt>
-                  <dd className="mt-0.5 text-[16px] font-bold leading-[1.3] text-dos-primary">{engagementOverviewLabel}</dd>
-                </div>
+                {/* Engagement is an Advanced Feature. A workspace that has not
+                    turned it on does not get a cell explaining a framework it
+                    is not using; the remaining three still read as a set. */}
+                {engagementLevelsEnabled ? (
+                  <div>
+                    <dt className="text-[12.5px] font-semibold text-dos-secondary">Engagement</dt>
+                    <dd className="mt-0.5 text-[16px] font-bold leading-[1.3] text-dos-primary">{engagementOverviewLabel}</dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt className="text-[12.5px] font-semibold text-dos-secondary">Spiritual journey</dt>
                   <dd className="mt-0.5 text-[16px] font-bold leading-[1.3] text-dos-primary">{spiritualJourneyPill}</dd>
@@ -44490,6 +44510,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 accountabilityCheckIns={data.accountabilityCheckIns}
                 accountabilitySchedules={data.accountabilitySchedules}
                 commitmentsEnabled={commitmentsEnabled}
+                engagementLevelsEnabled={engagementLevelsEnabled}
                 fruitEvents={data.fruitEvents}
                 fruitItems={data.fruit}
                 loggedMeetings={ministryLoggedMeetings}
@@ -45436,6 +45457,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               assessmentResults={data.assessmentResults}
               commitments={selectedPersonCommitments}
               commitmentsEnabled={commitmentsEnabled}
+              engagementLevelsEnabled={engagementLevelsEnabled}
               fruitEvents={data.fruitEvents}
               fruitItems={data.fruit}
               groups={groups}

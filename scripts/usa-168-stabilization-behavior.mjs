@@ -1997,5 +1997,79 @@ await check("Edit Person no longer creates reminders, and Save outranks Delete",
   );
 });
 
+
+await check("Basic DOS surfaces do not leak engagement values when the feature is off", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const strip = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  /* The desktop dashboard's Top Time Investments row. Off it must say the
+     relationship and stop, rather than "Discipling · +3" or a placeholder. */
+  const line = strip(client.slice(
+    client.indexOf("function dashboardTimeInvestmentRelationshipLine("),
+    client.indexOf("function DashboardAlignmentRow("),
+  ));
+
+  assert(
+    /function dashboardTimeInvestmentRelationshipLine\(person: DosAppPerson, showEngagement: boolean\)/.test(line),
+    "The dashboard line takes the advanced-feature state rather than assuming it.",
+  );
+  assert(
+    /showEngagement \? [^:]*dashboardEngagementScoreLabel\(person\)[^:]*: relationship/.test(line),
+    "Off yields the relationship alone; on keeps the existing engagement display.",
+  );
+  /* Off must not substitute "Not rated" or any other filler. */
+  assert(!/Not rated|Unknown|--/.test(line), "Off shows nothing extra, not a placeholder.");
+
+  /* It is wired to the real flag at the call site, not to a local default. */
+  assert(
+    client.includes("dashboardTimeInvestmentRelationshipLine(item.person, engagementLevelsEnabled)"),
+    "The dashboard row passes the workspace's actual setting.",
+  );
+  assert(
+    client.includes("engagementLevelsEnabled={engagementLevelsEnabled}"),
+    "The setting is threaded from app state rather than re-derived ad hoc.",
+  );
+
+  /* One canonical source for that boolean, everywhere. */
+  const derivations = client.match(/const engagementLevelsEnabled = [^;]+;/g) ?? [];
+  assert.equal(derivations.length, 1, "Exactly one place decides whether Engagement Levels are on.");
+  assert(
+    derivations[0].includes("data.featureFlags.engagementLevels"),
+    "And it reads the workspace feature flag, not a name or a heuristic.",
+  );
+
+  /* The Person Overview's Relationship card must not carry an Engagement cell
+     for a workspace that never turned the framework on. */
+  const overlay = strip(client.slice(client.indexOf("function PersonDetailOverlay(")));
+  const engagementCell = overlay.indexOf("Engagement</dt>");
+
+  assert(engagementCell > 0, "The Person Overview still has an Engagement cell to gate.");
+  assert(
+    overlay.slice(Math.max(0, engagementCell - 300), engagementCell).includes("engagementLevelsEnabled ? ("),
+    "The Person Overview Engagement cell renders only when the feature is on.",
+  );
+});
+
+await check("Hiding engagement on the dashboard is visibility only", async () => {
+  const loader = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+
+  /* Same contract as every other Advanced Feature: the flag never gates a load. */
+  assert(
+    !/featureFlags\.engagementLevels\s*\?/.test(loader),
+    "The dashboard fix must not start gating engagement data loading.",
+  );
+  assert(
+    loader.includes("engagementLevel: person.engagement_level"),
+    "Every person still carries their stored engagement to the client.",
+  );
+
+  /* And the label function still reads the stored value rather than deciding it. */
+  const label = client.slice(client.indexOf("function dashboardEngagementScoreLabel("), client.indexOf("function dashboardTimeInvestmentRelationshipLine("));
+  assert(label.includes("person.engagementLevel"), "The score is read from the person, unchanged.");
+  assert(!/engagementLevel\s*=/.test(label), "Nothing here assigns engagement.");
+});
+
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);
 for (const name of checks) console.log(`- ${name}`);
