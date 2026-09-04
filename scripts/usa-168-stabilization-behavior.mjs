@@ -2364,7 +2364,8 @@ await check("The FAB belongs to the app shell, not to a content container", asyn
   assert(!/bg-\[|bg-white|shadow-\[/.test(stack), "The FAB stack has no background or shadow of its own.");
 
   /* Sheets sit above it, so an open sheet is never competed with. */
-  assert(/z-\[70\]/.test(fab), "The FAB sits below the sheet layer.");
+  // USA-214: the FAB moved onto the documented z ladder (`z-dos-fab` = 25, beneath the nav at 30, above in-content overlays at 20); a sheet is still far above it.
+  assert(/z-dos-fab/.test(fab), "The FAB sits below the sheet layer.");
   const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
   const sheet = surfaces.slice(surfaces.indexOf("function Sheet({"), surfaces.indexOf("function MobileBottomSheet("));
   assert(/z-\[1000\]/.test(sheet), "A sheet renders above the FAB, so the FAB stays behind its backdrop.");

@@ -86,11 +86,14 @@ module.exports = {
         "dos-nav-clearance": "calc(env(safe-area-inset-bottom) + 100px)",
       },
       zIndex: {
+        // Ladder (spec §4.3): content 0 · sticky 10 · in-content detail
+        // overlays 20 · FAB 25 · nav 30 · popovers 40 · bottom sheets 80 ·
+        // task screens 120 · full sheets 1000 · dialog 1100.
         "dos-sticky": "10",
-        "dos-fab": "10",
+        "dos-overlay": "20",
+        "dos-fab": "25",
         "dos-nav": "30",
         "dos-popover": "40",
-        "dos-overlay": "50",
         "dos-bottom-sheet": "80",
         "dos-task": "120",
         "dos-sheet": "1000",

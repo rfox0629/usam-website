@@ -33346,8 +33346,8 @@ function BottomNavigation({
   onSelect: (tab: ActiveTab) => void;
 }) {
   return (
-    <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
-      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-white/75 bg-white/62 p-1.5 shadow-[0_24px_55px_rgba(148,163,184,0.22)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/58">
+    <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-dos-nav px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
+      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-dos-line bg-white p-1.5 shadow-dos-float">
         {mobileTabs.map((tab) => {
           const selected = activeTab === tab.value || (tab.value === "more" && activeTab === "people");
 
@@ -33355,7 +33355,7 @@ function BottomNavigation({
           <button
             aria-current={selected ? "page" : undefined}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
-              selected ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]" : "text-[#94A3B8]"
+              selected ? "bg-dos-blue50 text-dos-blueText" : "text-dos-secondary"
             }`}
             key={tab.value}
             onClick={() => onSelect(tab.value)}
@@ -33411,8 +33411,8 @@ function MobileFloatingActions({
      callers get `fixed`, which is the viewport in both cases. */
   const positionClassName = portalToBody ? "fixed" : "absolute";
   const rootClassName = variant === "desktop"
-    ? `${positionClassName} inset-0 z-[70] hidden pointer-events-none md:block`
-    : `${positionClassName} inset-0 z-[70] pointer-events-none md:hidden`;
+    ? `${positionClassName} inset-0 z-dos-fab hidden pointer-events-none md:block`
+    : `${positionClassName} inset-0 z-dos-fab pointer-events-none md:hidden`;
   const closeClassName = variant === "desktop"
     ? "absolute inset-0 pointer-events-auto bg-transparent"
     : "absolute inset-0 pointer-events-auto bg-transparent";
@@ -33767,7 +33767,7 @@ function CirclesDetailOverlay({
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-6 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -37402,7 +37402,7 @@ function MeetingDetailOverlay({
 
   if (showPostMeetingFollowUp && isLoggedTableMeeting && roleAllowsFruitReviews) {
     return (
-      <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
+      <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -37492,7 +37492,7 @@ function MeetingDetailOverlay({
     .join(" · ");
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
       <div className="mx-auto w-full max-w-[880px]">
         {/* Chrome: back to the person, deeper actions behind the overflow. */}
         <header className="-mx-1 flex items-center justify-between">
@@ -43792,7 +43792,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           profileName={profileName}
           workspaceName={workspaceName}
         />
-        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 ${activeTab === "more" ? "pb-40" : "pb-28"}`}>
+        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 pb-dos-nav-clearance`}>
           {activeTab === "home" ? (
             <header className="relative md:hidden">
               <div className="min-w-0 pr-16">

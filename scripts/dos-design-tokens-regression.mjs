@@ -108,7 +108,8 @@ for (const needle of [
   '"dos-float":',
   '"dos-nav-clearance": "calc(env(safe-area-inset-bottom) + 100px)"',
   '"dos-nav": "30"',
-  '"dos-fab": "10"',
+  '"dos-overlay": "20"',
+  '"dos-fab": "25"',
   '"dos-sheet": "1000"',
   '"dos-dialog": "1100"',
 ]) {
