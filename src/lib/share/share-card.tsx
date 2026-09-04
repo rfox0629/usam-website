@@ -14,11 +14,11 @@ import { domainSites, type DomainSiteKey } from "@/src/lib/domain-sites";
  *
  * The system, deliberately:
  *
- *   - warm off-white field, no photography of any kind. The card that prompted
+ *   - a brand-owned field, no photography of any kind. The card that prompted
  *     this was a cropped mountain landscape, which said nothing about the page
  *     and looked like stock art in every unfurl.
  *   - the page name is the only thing set large. Everything else is support.
- *   - one restrained gold accent: the top edge rule and the footer rule.
+ *   - one restrained brand accent: the top edge rule and the footer rule.
  *   - the brand emblem small in the corner. Branding, not billboard.
  *   - generous margins; the card should look under-filled rather than packed.
  */
@@ -43,8 +43,21 @@ const palette = {
  * else shares USAM gold — the point of the system is that these read as one
  * family, not four unrelated cards.
  */
-const brandAccent: Partial<Record<DomainSiteKey, { accent: string; eyebrow: string }>> = {
-  "discipleship-operating-system": { accent: "#2563EB", eyebrow: "#1D4ED8" },
+type ShareCardPalette = { [Key in keyof typeof palette]: string };
+
+const brandPalette: Partial<Record<DomainSiteKey, ShareCardPalette>> = {
+  "discipleship-operating-system": {
+    ...palette,
+    accent: "#2563EB",
+    eyebrow: "#1D4ED8",
+  },
+  "kitchen-table-gospel": {
+    accent: "#378ADD",
+    eyebrow: "#9CC7EF",
+    ink: "#F3E4CC",
+    muted: "#C8B9A6",
+    surface: "#160F0A",
+  },
 };
 
 export type ShareCardInput = {
@@ -143,9 +156,9 @@ export async function renderShareCard({
   title,
 }: ShareCardInput) {
   const site = domainSites[brand];
-  const brandColors = brandAccent[brand];
-  const accent = accentOverride?.trim() || brandColors?.accent || palette.accent;
-  const eyebrowColor = accentOverride?.trim() || brandColors?.eyebrow || palette.eyebrow;
+  const colors = brandPalette[brand] || palette;
+  const accent = accentOverride?.trim() || colors.accent;
+  const eyebrowColor = accentOverride?.trim() || colors.eyebrow;
   const [fonts, emblem] = await Promise.all([
     loadFonts(),
     inlineEmblem(emblemPath || site.icon512Path),
@@ -161,7 +174,7 @@ export async function renderShareCard({
     (
       <div
         style={{
-          backgroundColor: palette.surface,
+          backgroundColor: colors.surface,
           display: "flex",
           flexDirection: "column",
           fontFamily: "Oswald",
@@ -190,7 +203,7 @@ export async function renderShareCard({
           {headerLabel ? (
             <span
               style={{
-                color: palette.muted,
+                color: colors.muted,
                 fontSize: 25,
                 fontWeight: 600,
                 letterSpacing: "0.2em",
@@ -220,7 +233,7 @@ export async function renderShareCard({
 
           <span
             style={{
-              color: palette.ink,
+              color: colors.ink,
               fontSize: titleFontSize(cardTitle),
               fontWeight: 600,
               letterSpacing: "-0.005em",
@@ -233,7 +246,7 @@ export async function renderShareCard({
           {subtitle ? (
             <span
               style={{
-                color: palette.muted,
+                color: colors.muted,
                 fontSize: 34,
                 fontWeight: 500,
                 lineHeight: 1.34,
@@ -251,7 +264,7 @@ export async function renderShareCard({
             <span style={{ backgroundColor: accent, display: "flex", height: 4, width: 72 }} />
             <span
               style={{
-                color: palette.muted,
+                color: colors.muted,
                 fontSize: 24,
                 fontWeight: 500,
                 letterSpacing: "0.14em",
