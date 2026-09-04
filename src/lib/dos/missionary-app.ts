@@ -2723,7 +2723,13 @@ function sortMeetingRows(rows: MeetingRow[]) {
 }
 
 async function loadPeopleForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
-  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, discipleship_relationship, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
+  /* discipleship_relationship is deliberately absent: the migration that would
+     have added it was never applied, so no environment has the column. Naming it
+     here made every Person read fail the missing-column check and drop into the
+     compatibility ladder below, whose first rung silently returns rows without
+     relationship_context, role_in_my_life or discipleship_stage -- fields the
+     write path does persist. Do not re-add it to this select. */
+  const personSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const relationshipCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, field_visibility, spouse_name, children_names, household_notes, last_activity_at, created_at, updated_at";
   const householdCompatiblePersonSelect = "id, name, phone, email, church, notes, status, relationship_type, relationship_context, role_in_my_life, discipleship_stage, engagement_level, field_visibility, last_activity_at, created_at, updated_at";
   const legacyPersonSelect = "id, name, phone, email, church, notes, status, relationship_type, engagement_level, last_activity_at, created_at, updated_at";

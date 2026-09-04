@@ -6,6 +6,7 @@ import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountab
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
+import { relationshipModelFromFields } from "../src/lib/dos/relationship-model.ts";
 import { dosQuickReviewExperienceOptions, dosQuickReviewFormDefinition, dosQuickReviewOutcomeOptions } from "../src/lib/dos/review-form-config.ts";
 import { submitCanonicalReview } from "../src/lib/dos/review-submission-policy.ts";
 
@@ -1567,6 +1568,141 @@ await check("A target cannot be edited below the progress already recorded", asy
   assert(route.includes("nextCount === null && recordedProgress > 0"), "A goal with progress cannot stop being measurable.");
   /* Raising the target is always allowed: 3 -> 4 leaves every update alone. */
   assert(!/delete\(\)/.test(route), "Editing never deletes progress.");
+});
+
+
+/* ---------------------------------------------------------------------------
+   The Person read contract.
+
+   missionary_field_people has never had a discipleship_relationship column: the
+   migration that would have added it (20260702194002_dos_table_discipleship_roles)
+   is in the repo but was never applied to any environment. While the primary
+   Person select named that column, every Person read failed with PostgREST's
+   missing-column error and fell to the first compatibility rung, which returns
+   rows WITHOUT relationship_context, role_in_my_life or discipleship_stage.
+
+   Those fields are written on every save, so the app was persisting them and
+   then reading them back as absent. Absent does not mean "default": the model
+   builder re-derives them from relationship_type, which is a display summary
+   string, so a stored "other" came back as "friend" and a stored
+   "discipling_them" came back as "not_active". 73 of 117 production rows loaded
+   a different model than the one stored.
+
+   These checks exist so that select cannot quietly acquire an unbacked column
+   again.
+--------------------------------------------------------------------------- */
+
+/* The columns missionary_field_people actually has in production, from
+   information_schema on 2026-09-04. A select naming anything outside this set
+   is what triggers the fallback. */
+const productionPersonColumns = new Set([
+  "id", "household_id", "name", "phone", "email", "church", "relationship_type",
+  "engagement_level", "notes", "status", "source", "created_by", "last_activity_at",
+  "created_at", "updated_at", "workspace_id", "spouse_name", "children_names",
+  "household_notes", "field_visibility", "relationship_context", "role_in_my_life",
+  "discipleship_stage",
+]);
+
+function personSelectColumns(source, constantName) {
+  const match = source.match(new RegExp(`const ${constantName} = "([^"]+)"`));
+  assert(match, `${constantName} must be a single string literal this check can read.`);
+
+  return match[1].split(",").map((column) => column.trim());
+}
+
+await check("The Person loader only requests columns production actually has", async () => {
+  const source = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8");
+  const primary = personSelectColumns(source, "personSelect");
+
+  /* The specific column that caused this. Naming it again reintroduces the bug
+     wholesale, so it gets its own assertion with its own message. */
+  assert(
+    !primary.includes("discipleship_relationship"),
+    "personSelect must not request discipleship_relationship: no environment has that column, and requesting it drops every Person read into the compatibility fallback.",
+  );
+
+  /* The general rule, so the next unbacked column is caught too. */
+  const unbacked = primary.filter((column) => !productionPersonColumns.has(column));
+  assert.deepEqual(unbacked, [], `personSelect requests columns that do not exist in production: ${unbacked.join(", ")}`);
+
+  /* And the fields this fix exists to recover are actually asked for. */
+  for (const column of ["relationship_context", "role_in_my_life", "discipleship_stage"]) {
+    assert(primary.includes(column), `personSelect must request ${column}; it is written on every save and must be read back.`);
+  }
+});
+
+await check("The compatibility fallback still drops the relationship fields, so the primary select must never fail", async () => {
+  const source = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8");
+  const firstFallback = personSelectColumns(source, "relationshipCompatiblePersonSelect");
+
+  /* This is not a bug in the fallback: it is a rung for environments that
+     genuinely lack the relationship model. The bug was reaching it. This check
+     pins WHY the primary select matters, so anyone who breaks the primary
+     select sees what it costs. */
+  for (const column of ["relationship_context", "role_in_my_life", "discipleship_stage"]) {
+    assert(
+      !firstFallback.includes(column),
+      `relationshipCompatiblePersonSelect is the rung reached on a missing column and is expected to omit ${column}. If that changed, this whole check needs rewriting rather than relaxing.`,
+    );
+  }
+});
+
+/* The behavioral half: dropping those columns does not yield defaults, it
+   yields different values re-derived from a display string. These are the real
+   production shapes of the protected profiles, read on 2026-09-04. */
+await check("Dropping the relationship columns changes what a Person means", async () => {
+  const storedRows = [
+    { context: "church", expectFallbackRole: "not_active", name: "Philip John Suaco", role: "discipling_them", type: "Discipling · Church · Exploring" },
+    { context: "other", expectFallbackContext: "friend", name: "Ryan Fox", role: "not_active", type: "Discipling · Friend · Exploring" },
+    { context: "other", expectFallbackContext: "friend", expectFallbackRole: "mentoring_me", name: "Dirk Bond", role: "not_active", type: "Mentor · Friend · Exploring" },
+    { context: "family", expectFallbackContext: "other", name: "Brooke Fox", role: "not_active", type: "new" },
+    { context: "other", expectFallbackRole: "not_active", name: "USA168 Release Test", role: "discipling_them", type: "Discipling · Other · Exploring" },
+  ];
+
+  for (const row of storedRows) {
+    const loaded = relationshipModelFromFields({
+      discipleshipStage: "not_started",
+      relationshipContext: row.context,
+      relationshipType: row.type,
+      roleInMyLife: row.role,
+      status: "new",
+    });
+
+    /* What the fixed select produces: exactly what is stored, untouched. */
+    assert.equal(loaded.relationshipContext, row.context, `${row.name} must load the stored relationship_context.`);
+    assert.equal(loaded.roleInMyLife, row.role, `${row.name} must load the stored role_in_my_life.`);
+    assert.equal(loaded.discipleshipStage, "not_started", `${row.name} must load the stored discipleship_stage.`);
+
+    /* What the fallback produced, and why this is a data-integrity bug rather
+       than a display one: these values are wrong, not merely empty. */
+    const dropped = relationshipModelFromFields({
+      discipleshipStage: undefined,
+      relationshipContext: undefined,
+      relationshipType: row.type,
+      roleInMyLife: undefined,
+      status: "new",
+    });
+
+    assert.notDeepEqual(dropped, loaded, `${row.name} must not load identically with and without the relationship columns, or this check proves nothing.`);
+    assert.equal(dropped.relationshipContext, row.expectFallbackContext ?? row.context, `${row.name} fallback context drifted from the recorded behavior.`);
+    assert.equal(dropped.roleInMyLife, row.expectFallbackRole ?? row.role, `${row.name} fallback role drifted from the recorded behavior.`);
+  }
+});
+
+await check("Edit Person seeds from the loaded Person rather than substituting defaults", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const seed = client.match(/function personRelationshipModel\(person: DosAppPerson\): DosRelationshipModel \{[\s\S]*?\n\}/);
+
+  assert(seed, "personRelationshipModel is the seam Edit Person seeds from.");
+
+  /* A passthrough, field for field. If any of these ever gains a `??` default,
+     Edit Person starts writing that default over the stored value on save. */
+  const body = seed[0].replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  assert(/discipleshipStage:\s*person\.discipleshipStage\s*,/.test(body), "Stage is seeded from the person, with no default.");
+  assert(/relationshipContext:\s*person\.relationshipContext\s*,/.test(body), "Context is seeded from the person, with no default.");
+  assert(/roleInMyLife:\s*person\.roleInMyLife\s*,/.test(body), "Role is seeded from the person, with no default.");
+  assert(!/\?\?/.test(body), "A default here would be written back over the stored value on the next save.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);
