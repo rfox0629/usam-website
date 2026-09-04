@@ -17,7 +17,7 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
   todayDateKey,
 } from "@/src/lib/dos/commitments-accountability-api";
-import { commitmentConfirmedSubjectCount } from "@/src/lib/dos/accountability-presentation";
+import { accountabilityCountProgress, commitmentConfirmedSubjectCount } from "@/src/lib/dos/accountability-presentation";
 import { isDosCommitmentTargetKind } from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
@@ -204,35 +204,49 @@ export async function PATCH(request: Request) {
      recorded against it, so both target fields are validated against what is
      actually stored rather than trusted from the form. */
   const existingKind = typeof existingResult.data.target_kind === "string" ? existingResult.data.target_kind : null;
-  let confirmedSubjects = 0;
+  let recordedProgress = 0;
 
-  if (existingKind === "people") {
-    const subjectsResult = await supabase
+  if (existingKind === "people" || existingKind === "count") {
+    const updatesResult = await supabase
       .from("dos_commitment_updates")
-      .select("subject_person_id, subject_person_name")
+      .select("progress_amount, subject_person_id, subject_person_name")
       .eq("commitment_id", commitmentId)
       .eq("workspace_id", workspaceResult.workspaceId);
 
-    if (subjectsResult.error) {
-      if (isMissingCommitmentsSchema(subjectsResult.error)) {
+    if (updatesResult.error) {
+      if (isMissingCommitmentsSchema(updatesResult.error)) {
         return commitmentsSetupResponse();
       }
 
-      return NextResponse.json({ error: subjectsResult.error.message }, { status: 500 });
+      return NextResponse.json({ error: updatesResult.error.message }, { status: 500 });
     }
 
-    confirmedSubjects = commitmentConfirmedSubjectCount((subjectsResult.data ?? []).map((row) => ({
+    const rows = (updatesResult.data ?? []).map((row) => ({
+      progressAmount: typeof row.progress_amount === "number" ? row.progress_amount : null,
       subjectPersonId: row.subject_person_id as string | null,
       subjectPersonName: row.subject_person_name as string | null,
-    })));
+    }));
+
+    /* Each kind is measured its own way, and neither borrows the other's rule:
+       people are distinct subjects, a count is the sum of what was entered. */
+    recordedProgress = existingKind === "people"
+      ? commitmentConfirmedSubjectCount(rows)
+      : accountabilityCountProgress(rows);
   }
+
+  const progressNoun = existingKind === "people"
+    ? `${recordedProgress} ${recordedProgress === 1 ? "person is" : "people are"} already confirmed`
+    : `${recordedProgress} ${recordedProgress === 1 ? "is" : "are"} already recorded`;
 
   if (payload.targetKind !== undefined || payload.target_kind !== undefined) {
     const nextKind = asOptionalTargetKind(firstDefined(payload.targetKind, payload.target_kind));
 
-    if (existingKind === "people" && nextKind !== "people" && confirmedSubjects > 0) {
+    /* Progress already recorded means one thing under the kind it was
+       recorded against. Reinterpreting it as the other kind would silently
+       change what those updates claim. */
+    if (existingKind && nextKind !== existingKind && recordedProgress > 0) {
       return NextResponse.json({
-        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed. Keep counting people, or start a new Accountability.`,
+        error: `${progressNoun}. Keep counting the same thing, or start a new Accountability.`,
       }, { status: 400 });
     }
 
@@ -242,15 +256,15 @@ export async function PATCH(request: Request) {
   if (payload.targetCount !== undefined || payload.target_count !== undefined) {
     const nextCount = asOptionalPositiveInteger(firstDefined(payload.targetCount, payload.target_count));
 
-    if (nextCount !== null && confirmedSubjects > nextCount) {
+    if (nextCount !== null && recordedProgress > nextCount) {
       return NextResponse.json({
-        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed. Choose a target of ${confirmedSubjects} or more.`,
+        error: `${progressNoun}. Choose a target of ${recordedProgress} or more.`,
       }, { status: 400 });
     }
 
-    if (nextCount === null && confirmedSubjects > 0) {
+    if (nextCount === null && recordedProgress > 0) {
       return NextResponse.json({
-        error: `${confirmedSubjects} ${confirmedSubjects === 1 ? "person is" : "people are"} already confirmed, so this goal still needs a number.`,
+        error: `${progressNoun}, so this goal still needs a number.`,
       }, { status: 400 });
     }
 

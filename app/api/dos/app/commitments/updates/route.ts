@@ -18,7 +18,7 @@ import {
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, target_kind, status, completed_date, created_by_user_id, created_at, updated_at";
-const updateSelect = "id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, subject_person_id, subject_person_name, created_by_user_id, created_at";
+const updateSelect = "id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, progress_amount, subject_person_id, subject_person_name, created_by_user_id, created_at";
 
 export async function POST(request: Request) {
   const authResult = await authorizeDosCommitmentsWrite();
@@ -56,7 +56,18 @@ export async function POST(request: Request) {
      says plenty on its own -- "Philip, started Sep 3" is a complete fact --
      so a note is no longer required alongside it. What is still rejected is
      an update that says nothing at all. */
-  if (!progressNote && !subjectPersonId && !subjectPersonName) {
+  /* An amount is what the leader typed, so it is validated rather than
+     coerced: a zero or a negative is a mistake worth saying out loud, and
+     silently turning it into 1 would record something nobody entered. */
+  const rawAmount = firstDefined(payload.progressAmount, payload.progress_amount);
+  const hasAmount = rawAmount !== undefined && rawAmount !== null && String(rawAmount).trim() !== "";
+  const parsedAmount = hasAmount ? Number(String(rawAmount).trim()) : null;
+
+  if (hasAmount && (!Number.isInteger(parsedAmount) || (parsedAmount as number) <= 0)) {
+    return NextResponse.json({ error: "Progress must be a whole number greater than zero." }, { status: 400 });
+  }
+
+  if (!progressNote && !subjectPersonId && !subjectPersonName && !hasAmount) {
     return NextResponse.json({ error: "Add a progress note or name who this is about." }, { status: 400 });
   }
 
@@ -107,6 +118,7 @@ export async function POST(request: Request) {
          not in DOS is recorded by name alone -- no placeholder Person is ever
          created to hold a name, and the name can be linked to a real Person
          later by setting subject_person_id on this same row. */
+      progress_amount: parsedAmount,
       subject_person_id: subjectPersonId,
       subject_person_name: subjectPersonName,
       update_date: asDateKey(firstDefined(payload.date, payload.updateDate, payload.update_date)),
@@ -123,7 +135,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  const nextCommitmentResult = progressState === "completed"
+  /* A count target that reaches its number is finished, through the same
+     completion the model already has: status completed with a completed_date.
+     No second status system.
+
+     Progress is allowed to pass the target. Reading four times against a goal
+     of three really happened, and refusing or clamping it would discard a
+     true fact to make a number tidy. It reads as "4 of 3", completed. */
+  let reachedCountTarget = false;
+
+  if (
+    hasAmount
+    && commitmentResult.data.target_kind === "count"
+    && typeof commitmentResult.data.target_count === "number"
+    && commitmentResult.data.status !== "completed"
+  ) {
+    const priorResult = await supabase
+      .from("dos_commitment_updates")
+      .select("progress_amount")
+      .eq("commitment_id", commitmentId)
+      .eq("workspace_id", workspaceResult.workspaceId);
+
+    if (priorResult.error) {
+      if (isMissingCommitmentsSchema(priorResult.error)) {
+        return commitmentsSetupResponse();
+      }
+
+      return NextResponse.json({ error: priorResult.error.message }, { status: 500 });
+    }
+
+    const total = (priorResult.data ?? []).reduce((sum, row) => {
+      const amount = row.progress_amount;
+
+      return sum + (typeof amount === "number" && amount > 0 ? amount : 1);
+    }, 0);
+
+    reachedCountTarget = total >= commitmentResult.data.target_count;
+  }
+
+  const nextCommitmentResult = progressState === "completed" || reachedCountTarget
     ? await supabase
       .from("dos_person_commitments")
       .update({ completed_date: todayDateKey(), status: "completed" })

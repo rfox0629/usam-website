@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { accountabilityConfirmedSubjects, accountabilityProgressKind, accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
+import { accountabilityConfirmedSubjects, accountabilityCountProgress, accountabilityProgressKind, accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
 import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountability.ts";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
@@ -676,9 +676,11 @@ await check("People progress is recorded without a Meeting, a Person record, Fru
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
 
   // A subject alone is a complete update; an empty one is still refused.
+  /* A fourth way to say something was added later: an explicit progress
+     amount. An update carrying none of the four is still refused. */
   assert(
-    updatesRoute.includes("if (!progressNote && !subjectPersonId && !subjectPersonName) {"),
-    "An update must be valid with a note OR a person id OR a name, and rejected with none of them.",
+    updatesRoute.includes("if (!progressNote && !subjectPersonId && !subjectPersonName && !hasAmount) {"),
+    "An update must carry a note, a person, a name or an amount, and is rejected with none of them.",
   );
   assert(
     !updatesRoute.includes("if (!isUuid(commitmentId) || !progressNote) {"),
@@ -833,7 +835,7 @@ await check("Add Person sends exactly what the update route reads", async () => 
   assert(sheet.includes('name="subject_person_name"'), "A name-only subject must be enterable.");
   assert(!/name="progress_note"[^>]*required/.test(sheet), "The note must not be required in the markup either.");
   assert(
-    route.includes("if (!progressNote && !subjectPersonId && !subjectPersonName) {"),
+    route.includes("if (!progressNote && !subjectPersonId && !subjectPersonName && !hasAmount) {"),
     "A subject alone is a complete update; nothing at all is still refused.",
   );
 
@@ -1428,17 +1430,15 @@ await check("Editing a target cannot strand progress already recorded", async ()
   assert(route.includes("updates.target_count = nextCount;"), "The target is editable.");
   assert(route.includes("updates.target_kind = nextKind;"), "What it counts is editable.");
   assert(route.includes("commitmentConfirmedSubjectCount("), "Confirmed people are counted from the stored rows, not from the form.");
+  /* The same guards now cover both kinds, measured each by its own rule. */
+  assert(route.includes("recordedProgress > nextCount"), "A target cannot drop below the progress already recorded.");
   assert(
-    route.includes("confirmedSubjects > nextCount"),
-    "A target cannot drop below the people already confirmed.",
+    route.includes("existingKind && nextKind !== existingKind && recordedProgress > 0"),
+    "Recorded progress cannot be reinterpreted as the other kind of measurement.",
   );
   assert(
-    route.includes('existingKind === "people" && nextKind !== "people" && confirmedSubjects > 0'),
-    "People progress cannot be reinterpreted as a generic count.",
-  );
-  assert(
-    route.includes("nextCount === null && confirmedSubjects > 0"),
-    "A goal with confirmed people cannot stop being measurable.",
+    route.includes("nextCount === null && recordedProgress > 0"),
+    "A goal with recorded progress cannot stop being measurable.",
   );
   assert(route.includes("Choose a target of"), "The refusal says what to do instead.");
 });
@@ -1483,6 +1483,90 @@ await check("Person check-in is small, canonical, and writes no meeting", async 
   for (const forbidden of ["/api/dos/app/meetings", "fruit", "reminders", "prayer-requests", "circles"]) {
     assert(!handlerBody.includes(forbidden), `Checking in must not write ${forbidden}.`);
   }
+});
+
+/* A count target counts what the leader entered, not how many rows happen to
+   exist. Reading twice in one sitting is two. */
+await check("Count progress is the sum of what was entered, never the row count", async () => {
+  // Adding 2 moves the total by 2.
+  assert.equal(accountabilityCountProgress([{ progressAmount: 2 }]), 2, "Adding 2 is 2, not 1.");
+  assert.equal(accountabilityCountProgress([{ progressAmount: 2 }, { progressAmount: 3 }]), 5, "Several updates sum.");
+  assert.equal(accountabilityCountProgress([]), 0, "Nothing recorded is zero.");
+  assert.equal(accountabilityCountProgress(null), 0, "No updates at all is zero.");
+
+  /* Rows written before the column existed carry null and count as one, which
+     is what they have always meant. Compatibility only. */
+  assert.equal(accountabilityCountProgress([{ progressNote: "read" }, { progressNote: "read" }]), 2,
+    "Historical rows still count as one each.");
+  assert.equal(accountabilityCountProgress([{ progressAmount: 4 }, { progressNote: "read" }]), 5,
+    "Explicit and historical rows add up together.");
+
+  // The label reads the sum, so 2 + 3 against a target of 5 is finished.
+  const goal = (updates) => ({ id: "g", status: "active", targetCount: 5, targetKind: "count", targetDate: null, title: "Read Scripture", updates });
+  assert.equal(accountabilityProgressLabel(goal([{ progressAmount: 1 }])), "1 of 5");
+  assert.equal(accountabilityProgressLabel(goal([{ progressAmount: 1 }, { progressAmount: 2 }])), "3 of 5",
+    "Existing 1 plus an added 2 reads 3 of 5.");
+
+  /* People are counted a completely different way and must not borrow this
+     one: two updates about Philip are one Philip, whatever amount they carry. */
+  const people = { id: "p", status: "active", targetCount: 3, targetKind: "people", targetDate: null, title: "Disciple 3", updates: [
+    { progressAmount: 5, subjectPersonName: "Philip" },
+    { progressAmount: 5, subjectPersonName: "philip" },
+  ] };
+  assert.equal(accountabilityProgressLabel(people), "1 of 3 confirmed", "People counting ignores progress amounts entirely.");
+});
+
+/* The number is entered, validated, and written. */
+await check("Add progress writes an explicit amount, and refuses a non-number", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/dos/app/commitments/updates/route.ts", import.meta.url), "utf8");
+
+  const sheet = client.slice(client.indexOf("function PersonAccountabilityProgressSheet("));
+  const sheetBody = sheet.slice(0, sheet.indexOf("\nfunction "));
+  assert(sheetBody.includes("How many more?"), "The sheet asks how many.");
+  assert(sheetBody.includes('name="progress_amount"'), "And carries it on the form.");
+  assert(sheetBody.includes("accountabilityCountProgress(commitment.updates)"), "It shows the explicit total, not a row count.");
+
+  const handler = client.slice(client.indexOf("async function handlePersonAccountabilityProgressSubmit("));
+  const handlerBody = handler.slice(0, handler.indexOf("\n  function "));
+  assert(handlerBody.includes("progressAmount: Number(rawAmount)"), "The amount is sent explicitly.");
+  assert(handlerBody.includes('!/^\\d+$/.test(rawAmount) || Number(rawAmount) <= 0'), "Zero and negatives are refused, not corrected.");
+  assert(!handlerBody.includes("progressState"), "Adding progress never declares the goal complete.");
+
+  // The route is the authority, and refuses the same things.
+  assert(route.includes("Progress must be a whole number greater than zero."), "The route refuses a bad amount.");
+  assert(route.includes("!Number.isInteger(parsedAmount) || (parsedAmount as number) <= 0"), "Zero, negatives and fractions are all refused.");
+  assert(route.includes("progress_amount: parsedAmount,"), "And writes what was entered.");
+  assert(route.includes("!progressNote && !subjectPersonId && !subjectPersonName && !hasAmount"),
+    "An update carrying nothing at all is still refused.");
+
+  /* Reaching the number finishes the goal through the completion the model
+     already has, and passing it is preserved rather than clamped. */
+  assert(route.includes("reachedCountTarget = total >= commitmentResult.data.target_count;"), "Reaching the target completes it.");
+  assert(route.includes('progressState === "completed" || reachedCountTarget'), "Through the existing completion, not a second status system.");
+  assert(!/Math\.min\(/.test(route), "An entered amount is never clamped to the target.");
+
+  // Progress is progress. It writes nothing else.
+  for (const forbidden of ["/api/dos/app/meetings", "fruit_events", "dos_relationship_scores", "relationship_reminders"]) {
+    assert(!route.includes(forbidden), `Adding progress must not write ${forbidden}.`);
+  }
+});
+
+/* An edit may not strand or reinterpret progress of either kind. */
+await check("A target cannot be edited below the progress already recorded", async () => {
+  const route = readFileSync(new URL("../app/api/dos/app/commitments/route.ts", import.meta.url), "utf8");
+
+  assert(route.includes("accountabilityCountProgress(rows)"), "Count progress is measured by the same rule that displays it.");
+  assert(route.includes("commitmentConfirmedSubjectCount(rows)"), "People progress keeps counting distinct subjects.");
+  assert(route.includes("recordedProgress > nextCount"), "A target below what is recorded is refused.");
+  assert(route.includes("Choose a target of ${recordedProgress} or more."), "The refusal says what to choose instead.");
+  assert(
+    route.includes("existingKind && nextKind !== existingKind && recordedProgress > 0"),
+    "Recorded progress cannot be reinterpreted as the other kind of measurement.",
+  );
+  assert(route.includes("nextCount === null && recordedProgress > 0"), "A goal with progress cannot stop being measurable.");
+  /* Raising the target is always allowed: 3 -> 4 leaves every update alone. */
+  assert(!/delete\(\)/.test(route), "Editing never deletes progress.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

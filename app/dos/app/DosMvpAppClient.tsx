@@ -91,6 +91,7 @@ import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
   accountabilityConfirmedSubjects,
+  accountabilityCountProgress,
   accountabilityFrequencyLabels,
   accountabilityProgressKind,
   accountabilityProgressLabel,
@@ -14451,8 +14452,21 @@ function PersonAccountabilityProgressSheet({
         <div>
           <p className="text-[17px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{commitment.title}</p>
           <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
-            {commitment.updates.length} of {commitment.targetCount}
+            {accountabilityCountProgress(commitment.updates)} of {commitment.targetCount}
           </p>
+        </div>
+        {/* What actually happened, entered rather than assumed. Reading twice
+            in one sitting is two, not one update repeated. */}
+        <div className="border-t border-dos-rule pt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">How many more?</p>
+          <input
+            className={`${FieldInputClass(false)} mt-1.5`}
+            defaultValue="1"
+            inputMode="numeric"
+            min="1"
+            name="progress_amount"
+            type="number"
+          />
         </div>
         <div className="border-t border-dos-rule pt-3">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Note</p>
@@ -40599,13 +40613,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const note = String(formData.get("note") ?? "").trim();
-    /* One save is one occurrence, which is what the count reads. Never sends
-       a completed state: adding progress is not finishing the goal. */
+    const rawAmount = String(formData.get("progress_amount") ?? "").trim();
+
+    /* Refused rather than corrected: a zero or a minus is a typo worth
+       saying out loud, and quietly turning it into 1 would record something
+       the leader never entered. */
+    if (!/^\d+$/.test(rawAmount) || Number(rawAmount) <= 0) {
+      setErrorMessage("Enter a whole number greater than zero.");
+      return;
+    }
+
+    /* Never sends a completed state: the route decides completion from the
+       total, so adding progress is not the same as declaring the goal done. */
     const result = await submitJson(
       "/api/dos/app/commitments/updates",
       {
         commitmentId: String(formData.get("commitment_id") ?? ""),
         date: todayCommitmentDateKey(),
+        progressAmount: Number(rawAmount),
         progressNote: note || "Progress",
       },
       "POST",

@@ -25,6 +25,9 @@ export const accountabilityFrequencyLabels: Record<DosAccountabilityFrequency, s
 export type AccountabilityRowKind = "one_time" | "recurring";
 
 export type AccountabilityProgressSubject = {
+  /* How much this update recorded against a count target. Null on rows
+     written before the column existed; see accountabilityCountProgress. */
+  progressAmount?: number | null;
   subjectPersonId?: string | null;
   subjectPersonName?: string | null;
   subjectPersonNameResolved?: string | null;
@@ -94,6 +97,21 @@ export function commitmentConfirmedSubjectCount(updates: ReadonlyArray<Accountab
       })
       .filter((key): key is string => key !== null),
   ).size;
+}
+
+/* A count target's progress is what the leader entered, added up. Rows written
+   before progress_amount existed carry null and count as one, which is what
+   they have always meant; that fallback is compatibility for those rows only,
+   not the contract. Everything the V2 flow writes carries an explicit number.
+
+   People targets never come here: a person is confirmed or not, and confirming
+   Philip twice is still one Philip. */
+export function accountabilityCountProgress(updates: ReadonlyArray<AccountabilityProgressSubject> | null | undefined) {
+  return (updates ?? []).reduce((total, update) => {
+    const amount = update.progressAmount;
+
+    return total + (typeof amount === "number" && Number.isFinite(amount) && amount > 0 ? amount : 1);
+  }, 0);
 }
 
 function isMeasurable(commitment: AccountabilityCommitmentInput) {
@@ -177,7 +195,7 @@ export function accountabilityProgressLabel(commitment: AccountabilityCommitment
     return `${commitmentConfirmedSubjectCount(commitment.updates)} of ${commitment.targetCount} confirmed`;
   }
 
-  return `${(commitment.updates ?? []).length} of ${commitment.targetCount}`;
+  return `${accountabilityCountProgress(commitment.updates)} of ${commitment.targetCount}`;
 }
 
 /* Journey follow-ups are system-generated one-time schedules. They already read

@@ -598,6 +598,8 @@ export type DosAppCommitmentUpdate = {
   personId: string;
   progressNote: string;
   progressState: DosCommitmentProgressState | null;
+  /* How much this update recorded against a count target. */
+  progressAmount: number | null;
   /* Who this progress entry is about, when it is about a person at all.
      Distinct subjects are what a measurable target counts. */
   subjectPersonId: string | null;
@@ -1461,6 +1463,7 @@ type CommitmentUpdateRow = {
   person_id: string;
   progress_note: string;
   progress_state: string | null;
+  progress_amount?: number | null;
   subject_person_id?: string | null;
   subject_person_name?: string | null;
   update_date: string;
@@ -3796,7 +3799,7 @@ async function loadCommitmentsForWorkspace(supabase: SupabaseAdminClient, worksp
 
   const updatesResult = await supabase
     .from("dos_commitment_updates")
-    .select("id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, subject_person_id, subject_person_name, created_by_user_id, created_at")
+    .select("id, workspace_id, commitment_id, person_id, update_date, progress_note, progress_state, progress_amount, subject_person_id, subject_person_name, created_by_user_id, created_at")
     .in("commitment_id", commitmentIds)
     .order("update_date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -5137,6 +5140,7 @@ export async function loadDosAppData(
       personId: update.person_id,
       progressNote: update.progress_note,
       progressState: mapCommitmentProgressState(update.progress_state),
+      progressAmount: typeof update.progress_amount === "number" ? update.progress_amount : null,
       subjectPersonId: update.subject_person_id ?? null,
       subjectPersonName: update.subject_person_name ?? null,
       updateDate: update.update_date,
