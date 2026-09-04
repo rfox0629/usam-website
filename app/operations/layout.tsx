@@ -6,7 +6,14 @@ import { OperationsBlocked } from "./_components/OperationsShell";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  applicationName: "USA Missionaries Operations",
   title: "Operations | USA Missionaries",
+  manifest: "/operations/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "USAM Operations",
+  },
   robots: {
     follow: false,
     index: false,

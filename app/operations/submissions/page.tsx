@@ -35,9 +35,24 @@ function toneForStatus(status: string): OperationsTone {
   return "muted";
 }
 
+function isKitchenTableGospelSubmission(submission: OperationsSubmissionListItem) {
+  return submission.type === "general"
+    && submission.detail.startsWith("Kitchen Table Gospel");
+}
+
+function sourceLabelForSubmission(submission: OperationsSubmissionListItem) {
+  return isKitchenTableGospelSubmission(submission)
+    ? "Kitchen Table Gospel"
+    : submission.sourceLabel;
+}
+
 function toneForSource(submission: OperationsSubmissionListItem): OperationsTone {
   if (submission.isSensitive) {
     return "red";
+  }
+
+  if (isKitchenTableGospelSubmission(submission)) {
+    return "blue";
   }
 
   if (submission.sourceGroupLabel === "Missionary Application") {
@@ -149,7 +164,7 @@ export default async function OperationsSubmissionsPage({
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <OperationsBadge tone={toneForSource(submission)}>
-                          {submission.sourceLabel}
+                          {sourceLabelForSubmission(submission)}
                         </OperationsBadge>
                         {submission.isSensitive ? <OperationsBadge tone="red">Restricted</OperationsBadge> : null}
                       </div>

@@ -78,6 +78,7 @@ export const config = {
 };
 
 const alternateDomainPassthroughPaths = new Set(["/robots.txt", "/sitemap.xml"]);
+const alternateDomainApiPassthroughPaths = new Set(["/api/form-submissions"]);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -170,6 +171,16 @@ export async function middleware(request: NextRequest) {
         },
       });
     }
+  }
+
+  // Public forms on alternate domains must post to the same app origin. Do not
+  // redirect these API requests to usamissionaries.org or browsers will treat the
+  // redirected POST as a cross-origin request and fail before Operations receives it.
+  if (
+    alternateDomainSite
+    && alternateDomainApiPassthroughPaths.has(pathname)
+  ) {
+    return NextResponse.next();
   }
 
   if (alternateDomainSite && !request.headers.get(domainRouteHeader) && !alternateDomainPassthroughPaths.has(pathname)) {
