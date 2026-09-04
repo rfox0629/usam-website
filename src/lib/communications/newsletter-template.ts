@@ -4,6 +4,12 @@ import type { CommunicationNewsletter, CommunicationSubscriber } from "./types";
 type RenderNewsletterEmailInput = {
   manageToken: string;
   newsletter: CommunicationNewsletter;
+  /**
+   * CAN-SPAM requires a physical mailing address on commercial email. It is
+   * passed in rather than hard-coded, and nothing is rendered when it is
+   * absent: an invented address would be worse than a visibly missing one.
+   */
+  postalAddress?: string | null;
   subscriber: CommunicationSubscriber;
 };
 
@@ -58,15 +64,29 @@ export function normalizeNewsletterSections(value: unknown) {
       const section = item as Record<string, unknown>;
       const heading = typeof section.heading === "string" ? section.heading.trim() : "";
       const body = typeof section.body === "string" ? section.body.trim() : "";
+      const image = section.image && typeof section.image === "object"
+        ? section.image as Record<string, unknown>
+        : null;
+      const imageUrl = typeof image?.url === "string" ? image.url.trim() : "";
+      const imageAlt = typeof image?.alt === "string" ? image.alt.trim() : "";
 
-      return heading && body ? { body, heading } : null;
+      if (!heading || !body) {
+        return null;
+      }
+
+      // An image is only carried through when it has both a URL and real alt
+      // text; a photograph with no description is dropped rather than shipped.
+      return imageUrl && imageAlt
+        ? { body, heading, image: { alt: imageAlt, url: imageUrl } }
+        : { body, heading };
     })
-    .filter((item): item is { body: string; heading: string } => Boolean(item));
+    .filter((item): item is { body: string; heading: string; image?: { alt: string; url: string } } => Boolean(item));
 }
 
 export function renderNewsletterEmail({
   manageToken,
   newsletter,
+  postalAddress,
   subscriber,
 }: RenderNewsletterEmailInput) {
   const siteUrl = getConfiguredSiteUrl();
@@ -81,6 +101,9 @@ export function renderNewsletterEmail({
       <td style="padding:22px 0;border-top:1px solid #e7e5e4;">
         <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#0c0a09;">${escapeHtml(section.heading)}</h2>
         ${paragraphHtml(section.body)}
+        ${section.image ? `
+        <img src="${escapeHtml(section.image.url)}" alt="${escapeHtml(section.image.alt)}" width="632" style="display:block;width:100%;max-width:632px;height:auto;border:0;border-radius:6px;margin:4px 0 6px;" />
+        ` : ""}
       </td>
     </tr>
   `).join("");
@@ -128,6 +151,7 @@ export function renderNewsletterEmail({
                 <p style="margin:0 0 10px;color:#57534e;font-size:13px;line-height:1.6;">
                   You are receiving this because you subscribed to USA Missionaries updates.
                 </p>
+                ${postalAddress ? `<p style="margin:0 0 10px;color:#78716c;font-size:12px;line-height:1.6;">${escapeHtml(postalAddress)}</p>` : ""}
                 <p style="margin:0;color:#78716c;font-size:12px;line-height:1.7;">
                   <a href="${escapeHtml(archiveUrl)}" style="color:#8a6a1f;">Read online</a>
                   &nbsp;|&nbsp;
@@ -155,6 +179,7 @@ export function renderNewsletterEmail({
     sectionText,
     newsletter.cta_label && newsletter.cta_url ? `${newsletter.cta_label}: ${newsletter.cta_url}` : "",
     "",
+    postalAddress ?? "",
     `Read online: ${archiveUrl}`,
     `Manage preferences: ${preferencesUrl}`,
     `Unsubscribe: ${unsubscribeUrl}`,

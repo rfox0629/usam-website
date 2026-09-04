@@ -1,6 +1,8 @@
 export type CommunicationNewsletterSection = {
   body: string;
   heading: string;
+  /** Optional photograph. Dropped unless it has both a URL and alt text. */
+  image?: { alt: string; url: string };
 };
 
 export type CommunicationNewsletter = {

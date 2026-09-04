@@ -92,7 +92,7 @@ export type NewsletterRecord = {
   lastTestSentAt: string | null;
   plannedSendAt: string | null;
   preheader: string | null;
-  sections: { body: string; heading: string }[];
+  sections: { body: string; heading: string; image?: { alt: string; url: string } }[];
   sentAt: string | null;
   slug: string;
   status: string;
@@ -121,10 +121,19 @@ function normalizeSections(value: unknown) {
       const section = item as Record<string, unknown>;
       const heading = typeof section.heading === "string" ? section.heading.trim() : "";
       const body = typeof section.body === "string" ? section.body.trim() : "";
+      const image = section.image && typeof section.image === "object"
+        ? section.image as Record<string, unknown>
+        : null;
+      const url = typeof image?.url === "string" ? image.url.trim() : "";
+      const alt = typeof image?.alt === "string" ? image.alt.trim() : "";
 
-      return heading && body ? { body, heading } : null;
+      if (!heading || !body) {
+        return null;
+      }
+
+      return url && alt ? { body, heading, image: { alt, url } } : { body, heading };
     })
-    .filter((item): item is { body: string; heading: string } => Boolean(item));
+    .filter((item): item is { body: string; heading: string; image?: { alt: string; url: string } } => Boolean(item));
 }
 
 export function canAccessCommunications(authorization: OperationsAuthorization) {
