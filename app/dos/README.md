@@ -92,9 +92,9 @@ Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/
 - Canonical DOS data helper: `src/lib/dos/missionary-app.ts`.
 - Canonical workspace identity: `missionary_households.id`, resolved from the workspace slug.
 - Canonical activity tables: `missionary_field_people`, `missionary_tables`, `missionary_connection_logs`, `missionary_fruit_items`, and shared workspace tables used by Missionary Workspace.
-- Keep DOS-specific UI under `app/dos/app`.
-- Shared production UI lives in `app/dos/app/DosMvpAppClient.tsx`; make DOS app UI fixes there first.
-- `/dos/app/preview` is deprecated and redirects to `/dos`; do not promote or link the old preview URL.
+- Keep DOS-specific UI under `app/dos/app`; shared DOS primitives (tokens, sheets, form fields, controls, navigation) live under `src/components/dos/` and are adopted by `app/dos/app/DosMvpAppClient.tsx` incrementally. Do not add new one-off primitives inside the client file.
+- The canonical DOS UI and behavior specification is `docs/dos-ui-refresh/phase-3/dos-ui-canonical-spec.md`; it takes precedence over this README for visual and interaction rules, and over `AGENTS.md` for `app/dos/**`.
+- `/dos/app/preview?demo=<token>` is a synthetic smoke/screenshot route (no database) gated by `DOS_PREVIEW_TOKEN` unless `DOS_DISABLE_DEMO_PREVIEW=true`; do not promote or link it as an entry point. Its production exposure is an open decision (D3 in the Phase 1 audit).
 - The live DOS workspace flow is the source of truth for product testing and deployment checks.
 - Do not import Command Center shells, admin navigation, profile management tools, or analytics panels into the mobile DOS route.
 - Shared backend/data helpers are allowed when they remain UI-neutral.
