@@ -20665,25 +20665,13 @@ function MeetingPeopleSelector({
   return (
     <div className="grid gap-2">
       {selectedPeople.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedPeople.map((person, index) => (
-            <button
-              aria-label={`Remove ${person.name} ${removeLabel}`}
-              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
-              key={person.id}
-              onClick={() => onToggle(person.id)}
-              type="button"
-            >
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
-                {initials(person.name)}
-              </span>
-              <span className="max-w-[9rem] truncate">{person.name}</span>
-              <span className="ml-0.5 text-[13px] leading-none text-[#1D4ED8]" aria-hidden="true">
-                &times;
-              </span>
-            </button>
+        <ChipGroup label="Selected people">
+          {selectedPeople.map((person) => (
+            <Chip key={person.id} onRemove={() => onToggle(person.id)} removeLabel={`Remove ${person.name} ${removeLabel}`} selected>
+              {person.name}
+            </Chip>
           ))}
-        </div>
+        </ChipGroup>
       ) : null}
 
       <div className="relative">
@@ -21356,34 +21344,23 @@ const scheduledDurationChoices = [
 ] as const;
 
 function ScheduledDurationSelect({ defaultMinutes = "60", name }: { defaultMinutes?: number | string | null; name: string }) {
-  const normalized = String(normalizedDurationMinutes(defaultMinutes, 60));
-  const isKnown = scheduledDurationChoices.some((choice) => choice.value === normalized);
-  const [selected, setSelected] = useState(isKnown ? normalized : "custom");
-  const [customMinutes, setCustomMinutes] = useState(isKnown ? "" : normalized);
-  const resolved = selected === "custom" ? String(Number(customMinutes) || 60) : selected;
+  /* USA-217 (spec §5.4): the same 15-minute stepper as Log Meeting replaces
+     the preset menu and its custom-minutes input. Same hidden field, same
+     default (60); an existing scheduled duration keeps its exact minutes. */
+  const [durationMinutes, setDurationMinutes] = useState(normalizedDurationMinutes(defaultMinutes, 60));
 
   return (
-    <div className="grid gap-2">
-      <input name={name} type="hidden" value={resolved} />
-      {/* A designed DOS control, not the OS menu. */}
-      <CompactOptionSelect
-        hideLabel
-        label="Duration"
-        onChange={setSelected}
-        options={[...scheduledDurationChoices.map((choice) => ({ label: choice.label, value: choice.value })), { label: "Custom", value: "custom" }]}
-        value={selected}
-      />
-      {selected === "custom" ? (
-        <input
-          aria-label="Duration in minutes"
-          className={FieldInputClass()}
-          inputMode="numeric"
-          onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
-          placeholder="Minutes"
-          value={customMinutes}
-        />
-      ) : null}
-    </div>
+    <Stepper
+      decrementLabel="15 minutes less"
+      format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
+      incrementLabel="15 minutes more"
+      label="Duration"
+      min={15}
+      name={name}
+      onChange={setDurationMinutes}
+      step={15}
+      value={durationMinutes}
+    />
   );
 }
 
@@ -21420,10 +21397,10 @@ function ScheduledTableTimingFields({
         />
       </div>
       <DosFormGrid>
-        <DosFormField label="Start time">
+        <DosFormField label="Start time" labelVariant="sentence">
           <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
         </DosFormField>
-        <DosFormField label="Duration">
+        <DosFormField label="Duration" labelVariant="sentence">
           <ScheduledDurationSelect defaultMinutes={durationDefault} name={durationName} />
         </DosFormField>
       </DosFormGrid>
@@ -21973,7 +21950,7 @@ function ScheduleMeetingForm({
     <form className="space-y-4" onSubmit={onSubmit}>
       {/* Launched from a Person, who you are meeting is already settled -- so
           this reads as identity, not as a form control to fill in. */}
-      <DosFormSection icon="people" title="Person">
+      <DosFormSection icon="people" title="Person" variant="label">
         {preselectedPerson && !isPersonPickerOpen ? (
           <div className="flex items-center gap-3">
             <span
@@ -22025,7 +22002,7 @@ function ScheduleMeetingForm({
       {/* Calendar sync follows the user's own settings; connection management
           lives in Settings, not in the middle of scheduling a meeting. */}
       <input name="google_sync_enabled" type="hidden" value={syncToGoogle ? "on" : ""} />
-      <DosFormSection icon="calendar" title="When">
+      <DosFormSection icon="calendar" title="When" variant="label">
         <ScheduledTableTimingFields
           dateName="scheduled_date"
           dateValue={scheduledDate}
@@ -22036,7 +22013,7 @@ function ScheduleMeetingForm({
           timeName="scheduled_time"
         />
       </DosFormSection>
-      <DosFormSection icon="meetings" title="How will you connect?">
+      <DosFormSection icon="meetings" title="How will you connect?" variant="label">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
       </DosFormSection>
       <DisclosureSection defaultOpen={false} description="Anything to carry into the meeting." title="Notes">
@@ -22047,7 +22024,7 @@ function ScheduleMeetingForm({
 
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Meeting"}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? "Scheduling..." : "Schedule"}</Button>
         <button
           className="min-h-9 text-center text-sm font-semibold text-[#2563EB] transition-colors hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSubmitting}
@@ -26900,7 +26877,7 @@ function PersonFormContent({
       <input name="phone" type="hidden" value={phoneDraft} />
       <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
       <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
-      <DosFormSection icon="people" title="Person">
+      <DosFormSection icon="people" title="Person" variant="label">
         <DosFormGrid>
           <DosFormField label={<>First Name<RequiredMark /></>}>
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
@@ -26975,7 +26952,7 @@ function PersonFormContent({
           Engagement Levels are an Advanced Feature and are absent unless the
           workspace turned them on. Absent means not rendered -- every stored
           engagement value is loaded, kept, and submitted back unchanged. */}
-      <DosFormSection icon="people" title="Relationship">
+      <DosFormSection icon="people" title="Relationship" variant="label">
         <PersonChoiceField
           label="Your relationship with them"
           name="relationship_type_value"
@@ -27111,7 +27088,7 @@ function PersonFormContent({
       ) : null}
 
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
     </form>
   );
@@ -45587,7 +45564,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "person" ? (
         <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
-            buttonText="Add Person"
+            buttonText="Add person"
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onOpenExistingPerson={(person) => {
@@ -45610,7 +45587,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <DosWorkflowPage onClose={closeForm} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
-            buttonText="Save Person"
+            buttonText="Save person"
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
