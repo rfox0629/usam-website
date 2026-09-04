@@ -291,3 +291,36 @@ export function unifiedAccountabilityRows({
     })
     .map(({ sortValue: _sortValue, ...row }) => row);
 }
+
+/* Is this person multiplying?
+ *
+ * Multiplying means people are actually being discipled BY them, and the only
+ * thing in the product that records that is a people-target Accountability with
+ * confirmed subjects. So the rule is exactly one sentence:
+ *
+ *   at least one distinct confirmed subject on a people target.
+ *
+ * Everything else is explicitly not evidence. A goal that says "Begin
+ * discipling 3 people" with nobody confirmed is an intention, not a fruit, and
+ * showing Multiplying for it would be the product congratulating someone for
+ * typing a sentence. Likewise a title containing the word "multiply", a high
+ * engagement score, a Circle, a relationship summary string, and anything a
+ * model might infer from prose: none of them are evidence that a real person is
+ * being discipled.
+ *
+ * Distinctness comes from accountabilityConfirmedSubjects, so three updates
+ * about Philip are one Philip, and a count target ("Read Scripture 3 times")
+ * can never contribute -- it has no subjects at all.
+ *
+ * This is derived on read. Nothing here writes a flag, creates Fruit, moves a
+ * Circle, or touches engagement, and it is not editable by hand: the way to
+ * make it true is to confirm someone.
+ */
+export function personIsMultiplying(
+  commitments: ReadonlyArray<AccountabilityCommitmentInput> | null | undefined,
+) {
+  return (commitments ?? []).some((commitment) => (
+    accountabilityProgressKind(commitment) === "people"
+    && accountabilityConfirmedSubjects(commitment.updates).length > 0
+  ));
+}

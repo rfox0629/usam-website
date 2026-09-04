@@ -19,6 +19,7 @@ import {
   type DosRecommendedResource,
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
+import { dosAdvancedFeatures, type DosAdvancedFeatureKey } from "@/src/lib/dos/advanced-features";
 import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -77,7 +78,6 @@ import {
   relationshipContextLabel,
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
-  normalizeRelationshipType,
   relationshipScoreFromEngagementLevel,
   relationshipScoreLabel,
   relationshipTypeFromModel,
@@ -91,6 +91,7 @@ import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
   accountabilityConfirmedSubjects,
+  personIsMultiplying,
   accountabilityCountProgress,
   accountabilityFrequencyLabels,
   accountabilityProgressKind,
@@ -552,10 +553,21 @@ const supportingAttendeeSubRoleOptions: ReadonlyArray<{ label: string; value: Do
   { label: "Child present", value: "child_present" },
 ];
 
-const fieldVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppFieldVisibility }> = [
-  { label: "Primary Field Contact", value: "primary" },
-  { label: "Secondary / Household Participant", value: "secondary" },
-  { label: "Hidden from Field", value: "hidden" },
+/* Person role, in the words someone would actually use.
+ *
+ * The stored values are unchanged -- primary / secondary / hidden are exactly
+ * what they always were, and nothing is remapped or rewritten. Only the labels
+ * change, because "Primary Field Contact" and "Hidden from Field" ask a Basic
+ * DOS user to know what "Field" means before they can answer.
+ *
+ * "Household Member" is not a euphemism for secondary: it is what secondary
+ * already means. syncHouseholdMembersAsPeople writes exactly this value when a
+ * spouse or child is created from a household, so the label describes the rows
+ * that are actually in there. */
+const personRoleOptions: ReadonlyArray<{ description: string; label: string; value: DosAppFieldVisibility }> = [
+  { description: "Someone you are personally investing in.", label: "Primary Contact", value: "primary" },
+  { description: "Part of a household you know, not a separate relationship.", label: "Household Member", value: "secondary" },
+  { description: "Kept on file, out of your everyday lists.", label: "Hidden", value: "hidden" },
 ];
 
 const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: DosAppDiscipleshipRelationship | "" }> = [
@@ -3489,10 +3501,14 @@ function phoneActionHref(action: "sms" | "tel", value: string | null | undefined
   return `${action}:${digits || normalizeText(value)}`;
 }
 
+/* Straight from the structured fields the loader resolved. person.relationshipType
+   is the stored display summary and is deliberately not consulted: parsing it
+   is how a stored "other" came back as "friend". No defaults here either --
+   a default would be written back over the stored value on the next save. */
 function personRelationshipModel(person: DosAppPerson): DosRelationshipModel {
   return {
     discipleshipStage: person.discipleshipStage,
-    relationshipType: normalizeRelationshipType(person.relationshipType, person.roleInMyLife, person.status),
+    relationshipType: person.relationshipTypeValue,
     relationshipContext: person.relationshipContext,
     roleInMyLife: person.roleInMyLife,
   };
@@ -7164,6 +7180,68 @@ function householdStatusLabel(value: string | null | undefined) {
     default:
       return "Pending";
   }
+}
+
+/* Settings > Advanced Features.
+ *
+ * One row per capability, each independently switchable, rather than a single
+ * "Advanced Mode". Basic DOS is the default: a workspace that has never opened
+ * this screen has every row off, and turning one on says nothing about any
+ * other.
+ *
+ * The copy under each row says what turning it ON does, and the note under the
+ * list says what turning it OFF does not do, because "Off" on a feature that
+ * has years of recorded values behind it is the sentence people need
+ * reassurance about.
+ */
+function AdvancedFeaturesPanel({
+  enabledByKey,
+  isSubmitting,
+  onToggle,
+}: {
+  enabledByKey: Record<DosAdvancedFeatureKey, boolean>;
+  isSubmitting: boolean;
+  onToggle: (key: DosAdvancedFeatureKey, enabled: boolean) => void;
+}) {
+  return (
+    <section className="mx-auto mt-4 max-w-[1100px]">
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Advanced Features</h2>
+      <div className="mt-3 overflow-hidden rounded-[18px] border border-dos-hairline bg-white">
+        {dosAdvancedFeatures.map((feature, index) => {
+          const enabled = enabledByKey[feature.key] === true;
+
+          return (
+            <div
+              className={`flex items-start justify-between gap-4 p-4 ${index ? "border-t border-dos-rule" : ""}`}
+              key={feature.key}
+            >
+              <div className="min-w-0">
+                <p className="text-[15px] font-bold leading-[1.3] text-dos-primary">{feature.title}</p>
+                <p className="mt-1 text-[13px] leading-[1.5] text-dos-secondary">{feature.description}</p>
+              </div>
+              <button
+                aria-label={`${feature.title}: ${enabled ? "On" : "Off"}`}
+                aria-pressed={enabled}
+                className={`inline-flex h-9 min-w-[74px] shrink-0 items-center justify-center rounded-full border px-4 text-[13px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  enabled
+                    ? "border-dos-blue bg-dos-blue text-white"
+                    : "border-dos-hairline bg-white text-dos-secondary hover:border-[#BFDBFE]"
+                }`}
+                disabled={isSubmitting}
+                onClick={() => onToggle(feature.key, !enabled)}
+                type="button"
+              >
+                {enabled ? "On" : "Off"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[12.5px] leading-[1.5] text-dos-secondary">
+        Turning a feature off hides it. Everything already recorded is kept exactly as it is, and turning the feature back on shows those same values again.
+      </p>
+    </section>
+  );
 }
 
 function DesktopSettingsProfileView({
@@ -11897,6 +11975,7 @@ function GroupSettingsSheet({
           phone: "",
           relationshipContext: "other",
           relationshipType: null,
+        relationshipTypeValue: "new",
           roleInMyLife: "not_active",
           status: "new",
           updatedAt: null,
@@ -11920,6 +11999,7 @@ function GroupSettingsSheet({
         phone: "",
         relationshipContext: "other",
         relationshipType: null,
+        relationshipTypeValue: "new",
         roleInMyLife: "not_active",
         status: "new",
         updatedAt: null,
@@ -27240,118 +27320,70 @@ function PeopleImportSheet({
   );
 }
 
-function RelationshipTypePicker({
-  onChange,
+/* One interaction for every choice on the Person form.
+ *
+ * The form used to ask four questions four different ways: a dropdown, a row
+ * of visible buttons, a dropdown that expanded into a button grid, and another
+ * dropdown. Nothing about the questions justified the difference, so the
+ * variety read as accident rather than intent.
+ *
+ * Now every choice is the same thing: the options are visible, one is
+ * selected, tapping another selects it. No disclosure, no hidden state, no
+ * scroll-inside-a-scroll on mobile, and the answer is readable without
+ * touching anything. Nine context options wrap onto three lines and that is
+ * fine -- seeing them is the point.
+ */
+function PersonChoiceField({
+  columns = 2,
+  hint,
+  label,
+  name,
+  onSelect,
+  options,
   value,
 }: {
-  onChange: (value: DosRelationshipModel) => void;
-  value: DosRelationshipModel;
+  columns?: 1 | 2;
+  hint?: string;
+  label: string;
+  name: string;
+  onSelect: (value: string) => void;
+  options: ReadonlyArray<{ description?: string; helper?: string; label: string; value: string }>;
+  value: string;
 }) {
-  const selectedValue = relationshipTypeFromModel(value);
-
   return (
-    <fieldset>
-      <legend className="sr-only">Relationship Type</legend>
-      <div className="grid grid-cols-2 gap-2">
-        {relationshipTypeOptions.map((option) => {
-          const selected = selectedValue === option.value;
+    <fieldset className="grid gap-2">
+      <legend className="text-[11px] font-bold uppercase tracking-[0.12em] text-dos-eyebrow">{label}</legend>
+      {hint ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">{hint}</p> : null}
+      {/* The selected value travels with the form as a plain field, so the
+          submit path does not depend on this component's internals. */}
+      <input name={name} type="hidden" value={value} />
+      <div className={`grid gap-2 ${columns === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        {options.map((option) => {
+          const selected = value === option.value;
+          const detail = option.description ?? option.helper ?? "";
 
           return (
-            <label
-              className={`relative flex min-h-12 cursor-pointer items-center rounded-2xl border px-3 py-2 transition-colors ${
+            <button
+              aria-pressed={selected}
+              className={`flex min-h-[44px] flex-col justify-center rounded-2xl border px-3 py-2 text-left transition-colors ${
                 selected
-                  ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_8px_20px_rgba(37,99,235,0.08)]"
-                  : "border-[#E2E8F0] bg-white hover:border-[#BFDBFE]"
+                  ? "border-dos-blue bg-[#EBF2FF]"
+                  : "border-dos-hairline bg-white hover:border-[#BFDBFE]"
               }`}
               key={option.value}
+              onClick={() => onSelect(option.value)}
+              type="button"
             >
-              <input
-                checked={selected}
-                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                name="relationship_type"
-                onChange={() => onChange(relationshipModelFromRelationshipType(option.value as RelationshipTypeValue, value))}
-                required
-                type="radio"
-                value={option.value}
-              />
-              <span className="pr-6 text-[13px] font-bold leading-tight text-[#0F172A]">{option.label}</span>
-              <span
-                className={`absolute right-3 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
-                  selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
-                }`}
-                aria-hidden="true"
-              >
-                {selected ? <span className="h-2 w-2 rounded-full bg-[#2563EB]" /> : null}
+              <span className={`text-[13.5px] font-bold leading-tight ${selected ? "text-dos-blue" : "text-dos-primary"}`}>
+                {option.label}
               </span>
-            </label>
+              {detail ? (
+                <span className="mt-0.5 text-[11.5px] font-semibold leading-[1.35] text-dos-secondary">{detail}</span>
+              ) : null}
+            </button>
           );
         })}
       </div>
-    </fieldset>
-  );
-}
-
-function RelationshipContextPicker({
-  onChange,
-  value,
-}: {
-  onChange: (value: DosRelationshipModel) => void;
-  value: DosRelationshipModel;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = relationshipContextOptions.find((option) => option.value === value.relationshipContext) ?? relationshipContextOptions[relationshipContextOptions.length - 1];
-
-  return (
-    <fieldset className="overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white">
-      <legend className="sr-only">Relationship Context</legend>
-      <button
-        aria-expanded={isOpen}
-        className="flex min-h-[56px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FAFC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/25"
-        onClick={() => setIsOpen((current) => !current)}
-        type="button"
-      >
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-bold text-[#0F172A]">{selectedOption.label}</span>
-        </span>
-        <ChevronRight
-          className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
-          aria-hidden="true"
-          strokeWidth={1.9}
-        />
-      </button>
-      {isOpen ? (
-        <div className="grid grid-cols-2 gap-2 border-t border-[#E2E8F0] bg-[#F8FAFC] p-2">
-          {relationshipContextOptions.map((option) => {
-            const selected = value.relationshipContext === option.value;
-
-            return (
-              <button
-                className={`relative flex min-h-10 items-center justify-between gap-2 rounded-2xl border px-3 text-left text-xs font-bold transition-colors ${
-                  selected
-                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                    : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#BFDBFE]"
-                }`}
-                key={option.value}
-                onClick={() => {
-                  onChange({ ...value, relationshipContext: option.value });
-                  setIsOpen(false);
-                }}
-                type="button"
-              >
-                <span className="min-w-0 truncate">{option.label}</span>
-                <span
-                  className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                    selected ? "border-[#2563EB] bg-white" : "border-[#CBD5E1] bg-white"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {selected ? <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" /> : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
     </fieldset>
   );
 }
@@ -27500,6 +27532,7 @@ function PersonFormContent({
   relationshipModel,
   scoreValue,
   showDetailsToggle = true,
+  showEngagement,
   submittingText,
 }: {
   additionalDefaults?: PersonFormDefaults;
@@ -27517,6 +27550,9 @@ function PersonFormContent({
   relationshipModel: DosRelationshipModel;
   scoreValue: RelationshipScoreValue;
   showDetailsToggle?: boolean;
+  /* The Engagement Levels Advanced Feature. False hides the control; it never
+     changes what is loaded or what is submitted. */
+  showEngagement: boolean;
   submittingText: string;
 }) {
   const isEditMode = !showDetailsToggle;
@@ -27525,6 +27561,8 @@ function PersonFormContent({
   const [householdDraft, setHouseholdDraft] = useState<PersonHouseholdDraft>(() => householdDraftFromDefaults(additionalDefaults));
   const [duplicateMatch, setDuplicateMatch] = useState<DosAppPerson | null>(null);
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
+  /* Seeded from what is stored, with no default substituted for a real value. */
+  const [personRole, setPersonRole] = useState<string>(() => additionalDefaults?.fieldVisibility ?? "primary");
   const emailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27534,6 +27572,10 @@ function PersonFormContent({
   useEffect(() => {
     setPhoneDraft(phoneDigitsOnly(phoneDefault));
   }, [phoneDefault]);
+
+  useEffect(() => {
+    setPersonRole(additionalDefaults?.fieldVisibility ?? "primary");
+  }, [additionalDefaults?.fieldVisibility]);
 
   useEffect(() => {
     setHouseholdDraft(householdDraftFromDefaults(additionalDefaults));
@@ -27575,11 +27617,6 @@ function PersonFormContent({
     });
   };
 
-  const hasRelationshipData = Boolean(
-    additionalDefaults?.discipleshipRelationship
-    || (additionalDefaults?.fieldVisibility && additionalDefaults.fieldVisibility !== "primary")
-    || scoreValue !== 0,
-  );
   const hasAddressData = Boolean(
     additionalDefaults?.homeAddress
     || additionalDefaults?.city
@@ -27637,7 +27674,7 @@ function PersonFormContent({
         <div className="flex items-start gap-3 rounded-[18px] border border-[#FDE68A] bg-[#FFFBEB] p-3">
           <div className="min-w-0 flex-1 text-sm leading-5 text-[#92400E]">
             <p className="font-bold">This looks like an existing contact</p>
-            <p className="mt-0.5">{duplicateMatch.name} is already in your Field list.</p>
+            <p className="mt-0.5">{duplicateMatch.name} is already in your People list.</p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             {onOpenExistingPerson ? (
@@ -27660,29 +27697,47 @@ function PersonFormContent({
         </div>
       ) : null}
 
-      <DisclosureSection defaultOpen={isEditMode || hasRelationshipData} description="Type, context, and how engaged they are." title="Relationship & Ministry">
-        <FormOptionSelect
-          defaultValue={additionalDefaults?.fieldVisibility ?? "primary"}
-          label="Discipleship Role Visibility"
+      {/* The three questions a Person actually answers: who they are to you,
+          how you know them, and how they should show up in your lists.
+
+          Discipleship Relationship used to sit here as a fifth taxonomy. It
+          had no column in any database, so it was collected and discarded on
+          every save. It is gone rather than replaced: the four choices above
+          already say what kind of relationship this is.
+
+          Engagement Levels are an Advanced Feature and are absent unless the
+          workspace turned them on. Absent means not rendered -- every stored
+          engagement value is loaded, kept, and submitted back unchanged. */}
+      <DosFormSection icon="people" title="Relationship">
+        <PersonChoiceField
+          label="Your relationship with them"
+          name="relationship_type_value"
+          onSelect={(next) => onRelationshipChange(relationshipModelFromRelationshipType(next as RelationshipTypeValue, relationshipModel))}
+          options={relationshipTypeOptions}
+          value={relationshipTypeFromModel(relationshipModel)}
+        />
+        <PersonChoiceField
+          label="How do you know them?"
+          name="relationship_context"
+          onSelect={(next) => onRelationshipChange({ ...relationshipModel, relationshipContext: next as RelationshipContextValue })}
+          options={relationshipContextOptions}
+          value={relationshipModel.relationshipContext}
+        />
+        <PersonChoiceField
+          columns={1}
+          label="Person role"
           name="field_visibility"
-          options={fieldVisibilityOptions}
+          onSelect={setPersonRole}
+          options={personRoleOptions}
+          value={personRole}
         />
-        <DosFormField label="Relationship Type">
-          <RelationshipTypePicker onChange={onRelationshipChange} value={relationshipModel} />
-        </DosFormField>
-        <DosFormField label="Relationship Context">
-          <RelationshipContextPicker onChange={onRelationshipChange} value={relationshipModel} />
-        </DosFormField>
-        <FormOptionSelect
-          defaultValue={additionalDefaults?.discipleshipRelationship ?? ""}
-          label="Discipleship Relationship"
-          name="discipleship_relationship"
-          options={discipleshipRelationshipOptions}
-        />
-        <DosFormField label="Engagement Level">
+      </DosFormSection>
+
+      {showEngagement ? (
+        <DisclosureSection defaultOpen={isEditMode} description="Advanced: the -3 to +3 engagement framework." title="Engagement Level">
           <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
-        </DosFormField>
-      </DisclosureSection>
+        </DisclosureSection>
+      ) : null}
 
       <DisclosureSection defaultOpen={isEditMode || hasHouseholdDetails(additionalDefaults ?? {})} description="Spouse and children, kept selectable for tables." title="Household & Family">
         <DosFormGrid>
@@ -27756,25 +27811,40 @@ function PersonFormContent({
         <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
       </DisclosureSection>
 
-      <ImportantDatesReminderSection />
+      {/* Creating a person is the one moment where a birthday or a surgery date
+          is in hand, so the shortcut stays there. Editing a person is not: an
+          existing person's reminders live in their own list and are reached
+          from the Person, and offering a blank "Add a reminder" here made Edit
+          quietly a second, lossier way to create one. */}
+      {isEditMode ? null : <ImportantDatesReminderSection />}
 
       <DisclosureSection defaultOpen={isEditMode && Boolean(additionalDefaults?.notes)} title="Notes">
         <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={additionalDefaults?.notes} name="notes" />
       </DisclosureSection>
 
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
-        {onDelete ? (
+      {/* Delete used to sit inside the sticky footer, directly under Save, in a
+          red filled block that followed the screen. Save is what someone came
+          to do; delete is a rare, destructive exception. It now scrolls with
+          the form, sits below everything else behind a rule, and is a quiet
+          text button rather than a second filled bar competing for the thumb.
+          The confirmation flow it triggers is unchanged. */}
+      {onDelete ? (
+        <div className="mt-2 border-t border-dos-rule pt-4">
           <button
-            className="mt-1 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="text-[13.5px] font-semibold text-[#B42318] underline underline-offset-2 transition-colors hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
             onClick={onDelete}
             type="button"
           >
-            Delete Person
+            Delete this person
           </button>
-        ) : null}
+          <p className="mt-1 text-[12px] leading-[1.45] text-dos-secondary">This cannot be undone.</p>
+        </div>
+      ) : null}
+
+      <StickyFormFooter>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
       </StickyFormFooter>
     </form>
   );
@@ -36145,7 +36215,18 @@ function PersonDetailOverlay({
      read-only enforcement everywhere else and is deliberately untouched. */
   const conceptMode = true;
   const firstName = person.name.split(/\s+/)[0] ?? person.name;
-  const relationshipSignal = `${relationshipTypePill} · ${currentCircleLabel}`;
+  /* Relationship, plus movement when there is real movement to report.
+     "Discipling" on its own, or "Discipling · Multiplying" once at least one
+     distinct person has actually been confirmed as being discipled by them.
+
+     Circle used to sit here. It is a stewardship decision rather than a fact
+     about this person, it is already stated plainly two sections down, and
+     pairing it with the relationship type made the line read as a category
+     rather than a description. Nothing replaces it when there is no
+     Multiplying: a line that says less is better than one padded with a
+     fallback label. */
+  const isMultiplying = personIsMultiplying(commitments);
+  const relationshipSignal = isMultiplying ? `${relationshipTypePill} · Multiplying` : relationshipTypePill;
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
   const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
   const conceptPrayerItems = [
@@ -36431,7 +36512,7 @@ function PersonDetailOverlay({
                   }
                 }}
                 type="button"
-                aria-label={activeDetailTab === "overview" ? "Back to field" : `Back to ${firstName}`}
+                aria-label={activeDetailTab === "overview" ? "Back to people" : `Back to ${firstName}`}
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
               </button>
@@ -36521,7 +36602,7 @@ function PersonDetailOverlay({
       ) : (
         <>
       <header className="flex items-center justify-between gap-3">
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to field">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to people">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
         </button>
         <button className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#0F172A]" onClick={onEdit} type="button">
@@ -38340,6 +38421,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
   const commitmentsEnabled = data.featureFlags.commitmentsAccountability === true;
+  /* Advanced Feature: controls whether the engagement framework is SHOWN. Every
+     person's stored engagement_level is loaded either way and is submitted back
+     untouched when the control is hidden. */
+  const engagementLevelsEnabled = data.featureFlags.engagementLevels === true;
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
@@ -39741,6 +39826,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       phone: person.phone,
       relationshipContext: "other",
       relationshipType: "new",
+      relationshipTypeValue: "new",
       roleInMyLife: "not_active",
       status: "new",
       updatedAt: createdAt,
@@ -41531,15 +41617,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         : fallbackValue
     );
 
+    /* With Engagement Levels off, engagementScore is omitted entirely rather
+       than sent at its seeded value. The update route only writes
+       engagement_level when the payload carries it, so omitting it leaves the
+       stored value exactly as it was -- including the rows that store null,
+       which a round-tripped "0" would have quietly overwritten. Hiding a
+       control must not be a way to write through it. */
+    const engagementFields = engagementLevelsEnabled
+      ? { engagementScore: relationshipScoreLabel(relationshipScore) }
+      : {};
+
     return {
+      ...engagementFields,
       birthday: formString("birthday", fallback.birthday ?? ""),
       childrenNames: formString("children_names", fallback.childrenNames ?? ""),
       church: formString("church", fallback.church ?? ""),
-      discipleshipRelationship: formString("discipleship_relationship", fallback.discipleshipRelationship ?? ""),
       discipleshipStage: relationshipModel.discipleshipStage,
       city: formString("city", fallback.city ?? ""),
       email: formString("email", fallback.email ?? ""),
-      engagementScore: relationshipScoreLabel(relationshipScore),
       fieldVisibility: normalizeFieldVisibility(formData.get("field_visibility"), fallback.fieldVisibility ?? "primary"),
       homeAddress: formString("home_address", fallback.homeAddress ?? ""),
       householdNotes: formString("household_notes", fallback.householdNotes ?? ""),
@@ -41555,6 +41650,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       state: formString("state", fallback.state ?? ""),
       zip: formString("zip", fallback.zip ?? ""),
     };
+  }
+
+  /* Writes one feature-flag row and refreshes. It touches no Person, so there
+     is deliberately no optimistic edit of people state here: the only thing
+     that changed is what this workspace can see. */
+  async function toggleAdvancedFeature(feature: DosAdvancedFeatureKey, enabled: boolean) {
+    await submitJson("/api/dos/app/advanced-features", { enabled, feature }, "PATCH", false);
   }
 
   async function submitJson(endpoint: string, payload: Record<string, unknown>, method: "DELETE" | "PATCH" | "POST" = "POST", closeAfterSave = true) {
@@ -42626,6 +42728,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             phone: "",
             relationshipContext: "other",
             relationshipType: "new",
+          relationshipTypeValue: "new",
             roleInMyLife: "not_active",
             status: "new",
             updatedAt: createdAt,
@@ -42645,6 +42748,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           phone: "",
           relationshipContext: "other",
           relationshipType: "new",
+          relationshipTypeValue: "new",
           roleInMyLife: "not_active",
           workspaceId: data.workspace.id,
         }),
@@ -42676,6 +42780,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           phone: "",
           relationshipContext: "other",
           relationshipType: "new",
+          relationshipTypeValue: "new",
           roleInMyLife: "not_active",
           status: "new",
           updatedAt: createdAt,
@@ -44668,6 +44773,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   />
                 ) : null}
 
+                {activeMoreAppView === "settings" ? (
+                  <AdvancedFeaturesPanel
+                    enabledByKey={{ engagementLevels: engagementLevelsEnabled }}
+                    isSubmitting={isSubmitting}
+                    onToggle={toggleAdvancedFeature}
+                  />
+                ) : null}
+
                 {activeMoreAppView === "my_record" ? (
                   <MyRecordWorkspace
                     errorMessage={errorMessage}
@@ -46191,6 +46304,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             people={people}
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}
+            showEngagement={engagementLevelsEnabled}
             submittingText="Saving..."
           />
         </DosWorkflowPage>
@@ -46212,6 +46326,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}
             showDetailsToggle={false}
+            showEngagement={engagementLevelsEnabled}
             submittingText="Saving..."
           />
         </Sheet>

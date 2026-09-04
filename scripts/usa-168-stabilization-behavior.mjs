@@ -6,7 +6,9 @@ import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountab
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
-import { relationshipModelFromFields } from "../src/lib/dos/relationship-model.ts";
+import { canonicalRelationshipModel, relationshipModelFromFields, relationshipModelSummary } from "../src/lib/dos/relationship-model.ts";
+import { dosAdvancedFeatureEnabled, dosAdvancedFeatures } from "../src/lib/dos/advanced-features.ts";
+import { personIsMultiplying } from "../src/lib/dos/accountability-presentation.ts";
 import { dosQuickReviewExperienceOptions, dosQuickReviewFormDefinition, dosQuickReviewOutcomeOptions } from "../src/lib/dos/review-form-config.ts";
 import { submitCanonicalReview } from "../src/lib/dos/review-submission-policy.ts";
 
@@ -1703,6 +1705,296 @@ await check("Edit Person seeds from the loaded Person rather than substituting d
   assert(/relationshipContext:\s*person\.relationshipContext\s*,/.test(body), "Context is seeded from the person, with no default.");
   assert(/roleInMyLife:\s*person\.roleInMyLife\s*,/.test(body), "Role is seeded from the person, with no default.");
   assert(!/\?\?/.test(body), "A default here would be written back over the stored value on the next save.");
+});
+
+
+/* ---------------------------------------------------------------------------
+   Person Form Simplification + Advanced Features.
+--------------------------------------------------------------------------- */
+
+function personFormSource() {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const start = client.indexOf("function PersonFormContent({");
+
+  assert(start > 0, "PersonFormContent is the Add/Edit Person form.");
+
+  const end = client.indexOf("\nfunction ", start + 10);
+  /* Comments are stripped so an assertion cannot be satisfied by prose
+     explaining the very thing it is meant to forbid. */
+  return client.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+}
+
+await check("Canonical relationship state is read from the structured fields, never from the summary string", async () => {
+  /* relationship_type in the database is "Discipling · Church · Exploring".
+     Feeding that back in must not be able to set context or role. */
+  const fromSummaryOnly = canonicalRelationshipModel({
+    relationshipType: "Discipling · Church · Exploring",
+  });
+
+  assert.equal(fromSummaryOnly.relationshipContext, "other", "A summary string must not set context.");
+  assert.equal(fromSummaryOnly.roleInMyLife, "not_active", "A summary string must not set role.");
+  assert.equal(fromSummaryOnly.discipleshipStage, "not_started", "A summary string must not set stage.");
+
+  /* The structured values are taken exactly as stored. */
+  const stored = canonicalRelationshipModel({
+    discipleshipStage: "not_started",
+    relationshipContext: "church",
+    roleInMyLife: "discipling_them",
+  });
+
+  assert.equal(stored.relationshipContext, "church");
+  assert.equal(stored.roleInMyLife, "discipling_them");
+  /* Type has no column, so it is derived -- from role and stage, which do. */
+  assert.equal(stored.relationshipType, "discipling", "Type comes from the structured role, not from prose.");
+
+  /* And the summary is generated FROM the model, so it stays downstream. */
+  assert.equal(relationshipModelSummary(stored), "Discipling · Church · Exploring");
+});
+
+await check("The Person loader and the Person write path both stop parsing relationship_type", async () => {
+  const loader = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const route = readFileSync(new URL("../app/api/dos/app/people/route.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  const loaderCall = loader.slice(loader.indexOf("canonicalRelationshipModel({"), loader.indexOf("canonicalRelationshipModel({") + 300);
+
+  assert(loader.includes("canonicalRelationshipModel({"), "The loader resolves the model canonically.");
+  assert(
+    !/canonicalRelationshipModel\(\{[^}]*relationshipType:\s*person\.relationship_type/.test(loader),
+    "The loader must not feed the stored summary string back into the model.",
+  );
+  assert(loaderCall.includes("person.relationship_context"), "It reads the structured context column.");
+  assert(loaderCall.includes("person.role_in_my_life"), "It reads the structured role column.");
+
+  assert(route.includes("canonicalRelationshipModel({"), "The write path validates structured values.");
+  assert(
+    route.indexOf("relationship_type: relationshipModelSummary(model)") > route.indexOf("canonicalRelationshipModel({"),
+    "The summary must be generated after the model, never used to build it.",
+  );
+
+  /* The client must not rebuild the model from the summary either. */
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const seed = client.slice(client.indexOf("function personRelationshipModel("), client.indexOf("function personRelationshipModel(") + 400);
+
+  assert(seed.includes("relationshipType: person.relationshipTypeValue"), "Edit Person seeds from the canonical value.");
+  assert(!seed.includes("normalizeRelationshipType"), "Edit Person must not re-derive the type from the summary string.");
+});
+
+await check("The Basic Person form asks three questions and hides the advanced ones", async () => {
+  const form = personFormSource();
+
+  /* Present: the questions Basic DOS is for. */
+  assert(form.includes('label="Your relationship with them"'), "Relationship type is asked.");
+  assert(form.includes('label="How do you know them?"'), "Context is asked, in those words.");
+  assert(form.includes('label="Person role"'), "Person role is asked.");
+  assert(form.includes("options={relationshipTypeOptions}"), "The four relationship choices remain available.");
+  assert(form.includes("options={relationshipContextOptions}"), "The nine context values remain available.");
+  assert(form.includes("options={personRoleOptions}"), "Person role remains available.");
+
+  /* Absent: the control with no column behind it. */
+  assert(!form.includes("discipleship_relationship"), "Discipleship Relationship is gone from the Basic form.");
+  assert(!form.includes("discipleshipRelationshipOptions"), "And so is its option list.");
+
+  /* Absent unless the workspace turned it on. */
+  assert(form.includes("showEngagement ? ("), "Engagement is behind the Advanced Feature flag.");
+  assert(
+    form.indexOf("RelationshipScorePicker") > form.indexOf("showEngagement ? ("),
+    "The engagement control renders only inside that gate.",
+  );
+
+  /* No internal vocabulary anywhere a person can read it. Component and prop
+     identifiers are removed first, so this looks at copy rather than at
+     DosFormField and FieldInputClass. */
+  const copyOnly = form
+    .replace(/\b(?:Dos)?Form(?:Field|Grid|Section)\b/g, "")
+    .replace(/\bField(?:InputClass|TextareaClass|Label|set|Visibility)\b/g, "")
+    .replace(/\bfield(?:_visibility|Visibility)\b/g, "")
+    .replace(/<\/?fieldset[^>]*>/g, "");
+  const jargon = copyOnly.match(/\b[Ff]ield\b/g) ?? [];
+  assert.deepEqual(jargon, [], `Basic DOS must not show internal Field vocabulary (${jargon.length} occurrence(s)).`);
+});
+
+await check("Person role keeps the stored values and only changes the words", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const options = client.slice(client.indexOf("const personRoleOptions"), client.indexOf("const personRoleOptions") + 700);
+
+  assert(/label: "Primary Contact", value: "primary"/.test(options), "primary reads as Primary Contact.");
+  assert(/label: "Household Member", value: "secondary"/.test(options), "secondary reads as Household Member.");
+  assert(/label: "Hidden", value: "hidden"/.test(options), "hidden reads as Hidden.");
+  assert(!/Primary Field Contact|Hidden from Field/.test(options), "The old Field wording is gone.");
+});
+
+await check("An Advanced Feature is off by default, per feature, and per workspace", async () => {
+  /* A workspace with no flag rows at all is a Basic workspace. */
+  assert.equal(dosAdvancedFeatureEnabled([], "engagementLevels"), false, "Default is off.");
+  assert.equal(dosAdvancedFeatureEnabled(null, "engagementLevels"), false, "No rows at all is off.");
+
+  /* Another feature being on says nothing about this one. */
+  assert.equal(
+    dosAdvancedFeatureEnabled([{ enabled: true, flag_key: "dos_commitments_accountability" }], "engagementLevels"),
+    false,
+    "This is not a single Advanced Mode switch.",
+  );
+
+  assert.equal(
+    dosAdvancedFeatureEnabled([{ enabled: true, flag_key: "dos_engagement_levels" }], "engagementLevels"),
+    true,
+    "On when this workspace turned this feature on.",
+  );
+  assert.equal(
+    dosAdvancedFeatureEnabled([{ enabled: false, flag_key: "dos_engagement_levels" }], "engagementLevels"),
+    false,
+    "A row that says false is off.",
+  );
+
+  /* No workspace, person or name is hardcoded anywhere in the definition. */
+  const source = readFileSync(new URL("../src/lib/dos/advanced-features.ts", import.meta.url), "utf8");
+  for (const name of ["Ryan", "Dirk", "Brooke", "Fox", "fox_family"]) {
+    assert(!source.includes(name), `Advanced features must not name ${name}: entitlement is per workspace flag, not per person.`);
+  }
+  assert(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(source), "No workspace UUID may be hardcoded.");
+});
+
+await check("Turning Engagement Levels off changes visibility and never touches stored engagement", async () => {
+  const loader = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  /* The commitments flag genuinely gates loading. The engagement flag must
+     not: the values have to survive being hidden, and be there again when it
+     is switched back on. */
+  assert(
+    /commitmentRows = featureFlags\.commitmentsAccountability \?/.test(loader),
+    "Baseline: the commitments flag does gate its rows, which is why this check exists.",
+  );
+  assert(
+    !/featureFlags\.engagementLevels\s*\?/.test(loader),
+    "The engagement flag must never gate a data load: hiding is not deleting.",
+  );
+  assert(
+    loader.includes("engagementLevel: person.engagement_level"),
+    "Every person's stored engagement is loaded whether the feature is on or off.",
+  );
+
+  /* And the form must not write through a hidden control. */
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const payload = client.slice(client.indexOf("function personPayloadFromForm("), client.indexOf("function personPayloadFromForm(") + 1800)
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+  assert(
+    payload.includes("engagementLevelsEnabled") && payload.includes("engagementScore:"),
+    "engagementScore is sent only when the feature is on.",
+  );
+  assert(
+    /engagementFields\s*=\s*engagementLevelsEnabled\s*\?/.test(payload),
+    "With the feature off the field is omitted rather than round-tripped, so a stored null stays null.",
+  );
+
+  /* The update route only writes the column when the payload carries it. */
+  const route = readFileSync(new URL("../app/api/dos/app/people/route.ts", import.meta.url), "utf8");
+  assert(
+    route.includes("if (includeDefaultScore || payload.engagementScore !== undefined)"),
+    "engagement_level is written only when the payload supplies it.",
+  );
+
+  /* The toggle route touches feature flags and nothing else. */
+  const toggle = readFileSync(new URL("../app/api/dos/app/advanced-features/route.ts", import.meta.url), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  assert(toggle.includes("dos_workspace_feature_flags"), "The toggle writes a feature flag.");
+  for (const forbidden of ["missionary_field_people", "engagement_level", "dos_relationship_scores", "delete()"]) {
+    assert(!toggle.includes(forbidden), `Toggling a feature must not touch ${forbidden}.`);
+  }
+});
+
+await check("Multiplying requires a confirmed person, and counts each person once", async () => {
+  const peopleGoal = (updates) => ([{
+    id: "c1", status: "active", targetCount: 3, targetDate: null, targetKind: "people", title: "Begin discipling 3 people", updates,
+  }]);
+
+  /* A goal on its own is an intention, not fruit. */
+  assert.equal(personIsMultiplying(peopleGoal([])), false, "A goal with nobody confirmed is not Multiplying.");
+  assert.equal(personIsMultiplying([]), false, "No goals at all is not Multiplying.");
+  assert.equal(personIsMultiplying(null), false, "No data is not Multiplying.");
+
+  /* An update that names nobody is a progress note, not a person. */
+  assert.equal(
+    personIsMultiplying(peopleGoal([{ progressAmount: null, subjectPersonId: null, subjectPersonName: null }])),
+    false,
+    "A note naming nobody confirms nobody.",
+  );
+
+  /* One confirmed person is enough. */
+  assert.equal(
+    personIsMultiplying(peopleGoal([{ subjectPersonName: "Marcus", updateDate: "2026-09-01" }])),
+    true,
+    "One distinct confirmed person is Multiplying.",
+  );
+
+  /* Two updates about Marcus are still one Marcus. */
+  const twice = peopleGoal([
+    { subjectPersonName: "Marcus", updateDate: "2026-09-01" },
+    { subjectPersonName: " marcus ", updateDate: "2026-09-03" },
+  ]);
+  assert.equal(personIsMultiplying(twice), true);
+  assert.equal(
+    accountabilityConfirmedSubjects(twice[0].updates).length,
+    1,
+    "Duplicate updates about one person must not inflate the evidence.",
+  );
+
+  /* A count target has no subjects and can never make someone Multiplying,
+     however large the number. */
+  assert.equal(
+    personIsMultiplying([{ id: "c2", status: "active", targetCount: 50, targetDate: null, targetKind: "count", title: "Read Scripture 50 times", updates: [{ progressAmount: 50 }] }]),
+    false,
+    "A count target is not multiplication.",
+  );
+
+  /* And none of the things that are not evidence. */
+  const titleOnly = [{ id: "c3", status: "active", targetCount: null, targetDate: null, targetKind: null, title: "Multiplying disciples who multiply", updates: [] }];
+  assert.equal(personIsMultiplying(titleOnly), false, "A title is not evidence.");
+});
+
+await check("Multiplying is derived on read, and writes nothing", async () => {
+  const source = readFileSync(new URL("../src/lib/dos/accountability-presentation.ts", import.meta.url), "utf8");
+  const fn = source.slice(source.indexOf("export function personIsMultiplying("));
+
+  assert(fn.includes("accountabilityConfirmedSubjects(commitment.updates).length > 0"), "The rule is confirmed subjects.");
+  assert(!/engagement/i.test(fn), "Engagement is not evidence.");
+  assert(!/circle/i.test(fn), "Circle is not evidence.");
+  assert(!/relationship_type|relationshipType/.test(fn), "The summary string is not evidence.");
+
+  /* It is a pure presenter: this module has no client, no fetch, no write. */
+  for (const forbidden of ["supabase", "fetch(", "insert(", "update(", "fruit_events"]) {
+    assert(!source.includes(forbidden), `Multiplying must not ${forbidden}: it is derived display, not a record.`);
+  }
+
+  /* Nothing stores it on the Person either. */
+  const app = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8");
+  assert(!/is_multiplying|isMultiplying:/.test(app), "No Person-level multiplying flag is written.");
+});
+
+await check("Edit Person no longer creates reminders, and Save outranks Delete", async () => {
+  const form = personFormSource();
+
+  /* The reminder shortcut belongs to creating a person, not editing one. */
+  assert(
+    form.includes("{isEditMode ? null : <ImportantDatesReminderSection />}"),
+    "Add a reminder must not render inside Edit Person.",
+  );
+
+  /* Save is the sticky action, alone. */
+  const footer = form.slice(form.indexOf("<StickyFormFooter>"));
+  assert(footer.includes('type="submit"'), "Save is the sticky action.");
+  assert(!footer.includes("onDelete"), "Delete must not share the sticky footer with Save.");
+
+  /* Delete still exists, still confirms, and is visibly secondary. */
+  assert(form.includes("Delete this person"), "Delete is still available.");
+  assert(form.includes("onClick={onDelete}"), "It still runs the existing delete flow.");
+  assert(
+    form.indexOf("Delete this person") < form.indexOf("<StickyFormFooter>"),
+    "Delete sits above the footer, scrolling with the form rather than following the thumb.",
+  );
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

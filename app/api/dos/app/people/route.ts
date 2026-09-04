@@ -5,7 +5,7 @@ import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { syncHouseholdMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
-import { relationshipModelFromFields, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
+import { canonicalRelationshipModel, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type PersonPayload = {
@@ -136,7 +136,11 @@ function personRecordCandidates(record: Record<string, unknown>) {
 }
 
 function relationshipFieldsFromPayload(payload: PersonPayload, includeDefaultScore = false) {
-  const model = relationshipModelFromFields({
+  /* Validate the structured values the form actually set, and nothing else.
+     relationship_type is written LAST, generated from the validated model, so
+     the summary string is always downstream of the truth and never an input to
+     it. Never reverse this order. */
+  const model = canonicalRelationshipModel({
     discipleshipStage: asString(payload.discipleshipStage),
     relationshipContext: asString(payload.relationshipContext),
     relationshipType: asString(payload.relationshipType),

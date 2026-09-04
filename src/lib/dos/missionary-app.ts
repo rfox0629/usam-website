@@ -13,12 +13,14 @@ import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleS
 import {
   normalizeRelationshipType,
   relationshipModelCounts,
-  relationshipModelFromFields,
+  canonicalRelationshipModel,
   type DiscipleshipStageValue,
   type DosRelationshipModelCounts,
   type RelationshipContextValue,
+  type RelationshipTypeValue,
   type RoleInMyLifeValue,
 } from "@/src/lib/dos/relationship-model";
+import { dosAdvancedFeatureEnabled } from "@/src/lib/dos/advanced-features";
 import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { ensureDosViewerPerson, syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
@@ -189,7 +191,13 @@ export type DosAppPerson = {
   notes: string | null;
   phone: string;
   relationshipContext: RelationshipContextValue;
+  /* The stored display summary ("Discipling · Church · Exploring"). Kept for
+     search and for legacy surfaces. NEVER parse it to recover state: use
+     relationshipTypeValue and the structured fields beside it. */
   relationshipType: string | null;
+  /* The canonical four-value type, resolved server-side from the structured
+     columns so no client has to reconstruct it from the summary string. */
+  relationshipTypeValue: RelationshipTypeValue;
   roleInMyLife: RoleInMyLifeValue;
   spouseName?: string | null;
   status: string;
@@ -587,6 +595,9 @@ export type DosAppRelationshipReminder = {
 
 export type DosAppFeatureFlags = {
   commitmentsAccountability: boolean;
+  /* An Advanced Feature: visibility only. Unlike the flags above it must never
+     gate a data load -- see src/lib/dos/advanced-features.ts. */
+  engagementLevels: boolean;
   groupsSimplifiedV2: boolean;
 };
 
@@ -4429,6 +4440,7 @@ export async function loadDosAppData(
   const featureFlagRows = (featureFlagsResult.data ?? []) as WorkspaceFeatureFlagRow[];
   const featureFlags: DosAppFeatureFlags = {
     commitmentsAccountability: featureFlagRows.some((flag) => flag.flag_key === dosCommitmentsFeatureFlag && flag.enabled === true),
+    engagementLevels: dosAdvancedFeatureEnabled(featureFlagRows, "engagementLevels"),
     groupsSimplifiedV2: featureFlagRows.some((flag) => flag.flag_key === dosGroupsSimplifiedFeatureFlag && flag.enabled === true),
   };
   const commitmentRows = featureFlags.commitmentsAccountability ? commitmentsResult.data.commitments : [];
@@ -4602,13 +4614,15 @@ export async function loadDosAppData(
   });
 
   const people = ((peopleResult.data ?? []) as FieldPersonRow[]).map((person) => {
-    const relationshipModel = relationshipModelFromFields({
+    /* The structured columns only. person.relationship_type is a display
+       summary and is deliberately not passed: deriving state from it is what
+       turned a stored "other" into "friend" while those columns were being
+       dropped by the loader. Engagement is likewise not an input to
+       discipleship stage -- the two are separate dimensions. */
+    const relationshipModel = canonicalRelationshipModel({
       discipleshipStage: person.discipleship_stage,
-      engagementLevel: person.engagement_level,
       relationshipContext: person.relationship_context,
-      relationshipType: person.relationship_type,
       roleInMyLife: person.role_in_my_life,
-      status: person.status,
     });
 
     return {
@@ -4629,6 +4643,7 @@ export async function loadDosAppData(
       rawDiscipleshipStage: person.discipleship_stage,
       relationshipContext: relationshipModel.relationshipContext,
       relationshipType: person.relationship_type,
+      relationshipTypeValue: relationshipModel.relationshipType,
       roleInMyLife: relationshipModel.roleInMyLife,
       spouseName: person.spouse_name ?? null,
       status: person.status ?? "new",
@@ -5062,11 +5077,9 @@ export async function loadDosAppData(
       ?? linkedPerson?.email
       ?? partner.email
       ?? "Prayer Partner";
-    const linkedRelationshipModel = relationshipModelFromFields({
+    const linkedRelationshipModel = canonicalRelationshipModel({
       relationshipContext: linkedPerson?.relationship_context,
-      relationshipType: linkedPerson?.relationship_type,
       roleInMyLife: linkedPerson?.role_in_my_life,
-      status: linkedPerson?.status,
     });
 
     return {
