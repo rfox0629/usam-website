@@ -47,7 +47,8 @@ Values are reconciled: V10 supplies the value where it defines one; USA-168 toke
 | `dos.ink` (alias `dos.primary`) | `#0B1220` | titles, names, committed statements, active labels | `#0F172A` ×459, `#0F1520` | 17.9:1 |
 | `dos.body` | `#3D4654` | body copy, excerpts | `#475569` ×103 | 9.6:1 |
 | `dos.secondary` (alias `dos.ink2`) | `#5A6473` | dates, counts, metadata, helper text, lede — **the floor for readable text** | `#64748B` ×431, **`#94A3B8` ×133** | 5.8:1 |
-| `dos.eyebrow` | `#2251E8` for section eyebrows (V10: eyebrows are blue); `#5A6473` for grey sub-eyebrows inside a section (Person "Right now") | `#6B7686`, tracked-caps labels | 5.2:1 |
+| `dos.eyebrowSection` | `#2251E8` — section eyebrows on refreshed screens (V10: eyebrows are blue) | tracked-caps labels, `#6B7686` section eyebrows | 5.2:1 |
+| `dos.eyebrow` | `#6B7686` — grey sub-eyebrows inside a section (Person "Right now") and every eyebrow not yet refreshed; the existing `text-dos-eyebrow` utility keeps this value so no screen changes until it is refreshed | — | 4.6:1 |
 | `dos.disabled` | `#9AA3B2` | genuinely disabled UI only; never readable content | `#B4BBC5`, `#CBD5E1` | — |
 | `dos.blue` | `#2251E8` | primary actions, active pills, progress, links | `#2563EB` ×328, `#1D4ED8` ×271, `#2450C8` | 5.2:1 (white on blue 4.9:1 at ≥15px/600) |
 | `dos.blueText` | `#1E3FB8` | blue text on light tints where 4.5:1 is needed at small sizes | — | 7.0:1 |
