@@ -86,6 +86,12 @@ export async function POST(request: Request) {
   const email = asString(body.email).toLowerCase();
   const firstName = asString(body.firstName);
   const lastName = asString(body.lastName);
+  const payload = asPayload(body.payload);
+  const payloadSource = asString(payload.source);
+  const submittedSourcePage = asNullableString(body.sourcePage);
+  const sourcePage = payloadSource === "kitchen_table_gospel"
+    ? `Kitchen Table Gospel${submittedSourcePage ? ` · ${submittedSourcePage}` : ""}`
+    : submittedSourcePage;
 
   if (asString(body.website)) {
     return NextResponse.json({ id: null, ok: true, spam: true });
@@ -106,10 +112,10 @@ export async function POST(request: Request) {
     formType,
     lastName,
     message: asNullableString(body.message),
-    payload: asPayload(body.payload),
+    payload,
     phone: asNullableString(body.phone),
     priority: getPriority(body.priority),
-    sourcePage: asNullableString(body.sourcePage),
+    sourcePage,
   });
 
   if (error) {
