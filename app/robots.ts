@@ -26,6 +26,8 @@ const privateRouteDisallowList = [
   "/prayer/apply",
   "/review",
   "/review/",
+  "/system-v2",
+  "/system-v2/",
   "/system/preview",
   "/system/preview/",
   "/testimony",
