@@ -1,0 +1,10 @@
+# DOS application — agent instructions (scoped to `app/dos/**`)
+
+This file applies to `app/dos/**`, `app/api/dos/**`, `src/components/dos/**`, `components/dos/**`, and `src/lib/dos/**`. It exists so that Claude, Codex, and any other agent finds the DOS UI rules without reading the whole repository.
+
+1. **The canonical UI and behavior specification is `docs/dos-ui-refresh/phase-3/dos-ui-canonical-spec.md`.** Its §0 states precedence: the Linear project and issue first, the spec second, the V10 reference third, `app/dos/README.md` fourth. The root `AGENTS.md` still governs the website and admin; its DOS-specific statements listed in `docs/dos-ui-refresh/phase-1/01-instruction-and-markdown-inventory.md` §3 are superseded for these paths (decision D1 pending confirmation of the wording).
+2. **Product rules that hold on every screen** are the spec's §1 (B1–B14): Home and Dashboard unchanged; three-tab navigation with the production icons and the "More" label; Person is the canonical record; circle placement is human-confirmed; circle / engagement / relationship / fruit stay separate; Fruit has no "+ Add"; editable surfaces never lose entered work; nothing is removed to simplify; timezone behavior unchanged; data contracts frozen; copy preserved except spec §6; desktop layout structure kept.
+3. **Build with the shared primitives** under `src/components/dos/` (`ui/`, `forms/`, `overlays/`, `Icon.tsx`) and the tokens in `tailwind.config.js` (`colors.dos`, `fontSize.dos-*`, `z-dos-*`) — never new hex values, never a new one-off control.
+4. **Verify before review:** `npm run typecheck`, `npm run test:dos` (the DOS regression aggregate, also in CI), `npm run build`, and `npm run test:dos:visual` (byte-for-byte baselines under `docs/dos-ui-refresh/visual-baseline/`; re-record only for an intentional change and say so in the PR). Screenshots at 390×844 @2x and 1440×900 go with every UI PR.
+5. **Unresolved product decisions** (spec §9, D1–D12 and PL-1…PL-10) are never guessed: production behavior stands until Ryan decides.
+6. Superseded direction lives under `docs/archive/dos-ui-refresh-superseded/`; it is history, not instruction.

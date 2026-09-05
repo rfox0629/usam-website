@@ -115,3 +115,8 @@ Check these before starting or resuming work:
 8. Required tests, preview, screenshot, and PR evidence are present before Founder Review.
 9. Backup, migration, auth, RLS, payments, and production deployment gates are green before high-risk work.
 10. Old folders are treated as preservation targets until USA-139 evidence proves their contents are already merged, already pushed, generated/cache only, or explicitly cleared by the founder.
+
+## DOS application UI rules (added 2026-09-04, DOS UI refresh Phase 7)
+
+Work under `app/dos/**`, `app/api/dos/**`, `src/components/dos/**`, `components/dos/**`, or `src/lib/dos/**` starts from the scoped `app/dos/AGENTS.md`, which points to the canonical UI and behavior specification at `docs/dos-ui-refresh/phase-3/dos-ui-canonical-spec.md` and the verification commands (`npm run typecheck`, `npm run test:dos`, `npm run build`, `npm run test:dos:visual`). Superseded DOS direction is archived under `docs/archive/dos-ui-refresh-superseded/`.
+
