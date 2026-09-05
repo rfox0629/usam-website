@@ -11,6 +11,7 @@ export function PageHeader({
   action,
   backLabel = "Back",
   lede,
+  mobileOnlyBack = false,
   onBack,
   title,
 }: {
@@ -18,6 +19,8 @@ export function PageHeader({
   backLabel?: string;
   /** One line under the title, in the secondary color. */
   lede?: string;
+  /** Show the back control below `md` only: desktop reaches the screen from the sidebar. */
+  mobileOnlyBack?: boolean;
   onBack?: () => void;
   title: string;
 }) {
@@ -28,7 +31,7 @@ export function PageHeader({
           {onBack ? (
             <button
               aria-label={backLabel}
-              className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+              className={`-ml-2.5 flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${mobileOnlyBack ? "md:hidden" : ""}`}
               onClick={onBack}
               type="button"
             >
@@ -37,7 +40,7 @@ export function PageHeader({
           ) : (
             <span />
           )}
-          {action ? <div className="shrink-0">{action}</div> : null}
+          {action ? <div className="ml-auto shrink-0">{action}</div> : null}
         </div>
       ) : null}
       <h1 className="mt-1 text-dos-display text-dos-primary">{title}</h1>

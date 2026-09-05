@@ -52,6 +52,7 @@ const scenes = [
   { name: "home", viewport: "mobile", go: async (page) => {} },
   { name: "meetings", viewport: "mobile", go: async (page) => clickButton(page, "Meetings") },
   { name: "more", viewport: "mobile", go: async (page) => clickButton(page, "More") },
+  { name: "my-record", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /My Record/, false); } },
   { name: "meetings-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, "Meetings"); await clickTab(page, "Timeline"); } },
   {
     name: "person-record",

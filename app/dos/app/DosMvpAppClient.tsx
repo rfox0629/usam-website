@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
+import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -27697,38 +27697,6 @@ function myRecordAssessmentLibraryItems({
   return [...seedItems, ...externalItems, ...builtInItems, ...futureItems];
 }
 
-function MyRecordTabBar({
-  onChange,
-  tabs,
-  value,
-}: {
-  onChange: (tab: MyRecordTab) => void;
-  tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>>;
-  value: MyRecordTab;
-}) {
-  return (
-    <div className="-mx-1 overflow-hidden pb-1 md:mx-0">
-      <div className="grid w-full grid-cols-5 gap-0.5 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] p-1 shadow-inner shadow-white/70 md:gap-1">
-        {tabs.map((tab) => (
-          <button
-            aria-pressed={value === tab.value}
-            className={`min-h-8 min-w-0 rounded-full px-1 text-[10px] font-bold leading-none transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 md:px-4 md:text-xs ${
-              value === tab.value
-                ? "bg-white text-[#0F172A] shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
-                : "text-[#64748B] hover:text-[#0F172A]"
-            }`}
-            key={tab.value}
-            onClick={() => onChange(tab.value)}
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function MyRecordMetricCard({
   icon,
   label,
@@ -30489,35 +30457,6 @@ function MyRecordSnapshotTile({
   );
 }
 
-function MyRecordAtAGlanceCard({
-  detail,
-  icon,
-  kind,
-  label,
-  value,
-}: {
-  detail: string;
-  icon: ReactNode;
-  kind: MyRecordRecordKind;
-  label: string;
-  value: string;
-}) {
-  const visual = myRecordRecordVisual(kind);
-
-  return (
-    <article className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white p-2 shadow-[0_10px_24px_rgba(37,99,235,0.035)]">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px] ring-1 ${visual.iconClassName}`}>
-        {icon}
-      </span>
-      <span className="mt-1.5 block min-w-0">
-        <span className="block truncate text-[21px] font-black leading-none tracking-[-0.02em] text-[#0F172A]">{value}</span>
-        <span className="mt-0.5 block text-[10px] font-black uppercase leading-3 tracking-[0.08em] text-[#0F172A]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold leading-3 text-[#64748B]">{detail}</span>
-      </span>
-    </article>
-  );
-}
-
 function MyRecordActionButton({
   children,
   onClick,
@@ -32163,9 +32102,7 @@ function MyRecordWorkspace({
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
   const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
-  const latestJournal = record.journalEntries[0] ?? null;
   const latestPrayer = record.prayerLogs[0] ?? null;
-  const latestEncounter = encounters[0] ?? null;
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
@@ -32175,19 +32112,48 @@ function MyRecordWorkspace({
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
   const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
   const namesById = useMemo(() => personNameById(people), [people]);
-  const todayKey = todayDateValue();
-  const { end: weekEnd, start: weekStart } = currentWeekRange();
-  const encountersToday = encounters.filter((encounter) => isTodayDate(encounter.date)).length;
-  const reflectionEntriesToday = myRecordJournalReflectionCount(record.journalEntries.filter((entry) => isTodayDate(entry.date)));
-  const prayerEncountersToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length
-    + record.journalEntries.filter((entry) => isTodayDate(entry.date) && myRecordJournalHasPrayerTag(entry)).length;
-  const encounterMinutesThisWeek = record.journalEntries
-    .filter((entry) => isDateWithinRange(entry.date, weekStart, weekEnd))
-    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
-  const prayerMinutesThisWeek = record.prayerLogs
-    .filter((log) => isDateWithinRange(log.prayedAt, weekStart, weekEnd))
-    .reduce((sum, log) => sum + log.minutesSpent, 0);
-  const timeWithGodThisWeek = encounterMinutesThisWeek + prayerMinutesThisWeek;
+  /* CURRENT (spec §5.8, D10): exactly what production already treats as
+     active. Resources assigned to me that are not completed, and assessments
+     still in draft. No new aggregate; hidden when empty. */
+  const includeRyanSeedsForCurrent = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const draftAssessments = useMemo(
+    () => myRecordAssessmentLibraryItems({ includeRyanSeeds: includeRyanSeedsForCurrent, record }).filter((item) => item.status === "draft"),
+    [includeRyanSeedsForCurrent, record],
+  );
+  const currentItems: Array<{ id: string; onOpen: () => void; secondary: string; title: string }> = [
+    ...resourceAssignments
+      .filter((assignment) => assignment.status !== "completed")
+      .map((assignment) => {
+        const resource = resourceAssignmentResource(assignment);
+
+        return {
+          id: `assignment-${assignment.id}`,
+          onOpen: () => {
+            if (resource && isGuidedResource(resource)) {
+              onOpenGuidedResource(resource, assignment.personId, assignment.id);
+              return;
+            }
+
+            onEditResourceAssignment(assignment);
+          },
+          secondary: [resourceAssignmentTypeLabel(assignment), assignment.status === "paused" ? "Paused" : resourceAssignmentDueLabel(assignment)].filter(Boolean).join(" · "),
+          title: resourceAssignmentTitle(assignment),
+        };
+      }),
+    ...draftAssessments.map((item) => ({
+      id: `assessment-${item.id}`,
+      onOpen: () => {
+        if (item.kind === "external" && item.result && "assessmentName" in item.result) {
+          openMyRecordSheet({ assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" });
+          return;
+        }
+
+        onTabChange("growth");
+      },
+      secondary: "Assessment · In progress",
+      title: item.name,
+    })),
+  ];
 
   useEffect(() => {
     setIsMyRecordFabOpen(false);
@@ -32380,28 +32346,27 @@ function MyRecordWorkspace({
 
   return (
     <div className="relative space-y-3 pb-[calc(env(safe-area-inset-bottom)+9rem)] md:space-y-4 md:pb-24">
-      <header className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 md:flex md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="min-w-0 truncate text-[28px] font-black leading-none tracking-[-0.035em] text-[#0F172A] md:text-[32px]" style={{ fontFamily: font.oswald }}>
-            My Record
-          </h1>
-          <div className="mt-2 md:hidden">
-            <MoreBackButton onClick={onBack} />
-          </div>
-        </div>
-        <div className="shrink-0 pt-0.5 md:pt-0">
+      {/* Canonical PageHeader (spec §3, §6): the "← More" pill becomes the
+          header's back control and the Share button becomes the Private chip.
+          The chip still opens the same sharing panel, so nothing about
+          sharing scope changes; Share Settings copy lives in that panel. */}
+      <PageHeader
+        action={(
           <button
             aria-expanded={isShareSettingsOpen}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
             onClick={() => setIsShareSettingsOpen((current) => !current)}
             type="button"
           >
-            <Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            <span className="hidden sm:inline">Share Settings</span>
-            <span className="sm:hidden">Share</span>
+            <Lock aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+            Private
           </button>
-        </div>
-      </header>
+        )}
+        backLabel="Back to More"
+        mobileOnlyBack
+        onBack={onBack}
+        title="My Record"
+      />
       {isShareSettingsOpen ? (
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
           <div className="flex min-w-0 items-start gap-3">
@@ -32422,24 +32387,31 @@ function MyRecordWorkspace({
           </div>
         </section>
       ) : null}
-      <MyRecordTabBar onChange={onTabChange} tabs={myRecordTabs} value={activeMyRecordTab} />
+      <PillRail edgeInset={4} label="My Record sections" onChange={onTabChange} options={myRecordTabs} value={activeMyRecordTab} />
 
       {activeMyRecordTab === "overview" ? (
+        /* Overview = Current + Recent + a single view-all action (spec §5.8).
+           The daily KPI cards were retired by USA-220. */
         <div className="space-y-4 pb-36 md:pb-6">
-          <section className="grid gap-3">
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <SectionHeading title="Today at a Glance" />
-              <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
-            </div>
-            <div className="grid min-w-0 grid-cols-2 gap-2 min-[900px]:grid-cols-4">
-              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "None yet"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Encounters" value={`${encountersToday}`} />
-              <MyRecordAtAGlanceCard detail={prayerEncountersToday ? "Today" : "None today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="prayer" label="Prayer" value={`${prayerEncountersToday}`} />
-              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "None yet"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="reflection" label="Reflection" value={`${reflectionEntriesToday}`} />
-              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time" value={formatRecordDuration(timeWithGodThisWeek)} />
-            </div>
-          </section>
-          <section className="grid gap-2">
-            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
+          {currentItems.length ? (
+            <section aria-label="Current">
+              <Eyebrow count={currentItems.length}>Current</Eyebrow>
+              <div className="rounded-dos-2 border border-dos-line bg-white px-4">
+                {currentItems.map((item) => (
+                  <Row
+                    chevron
+                    key={item.id}
+                    leading={<IconTile><BookOpen aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.9} /></IconTile>}
+                    onClick={item.onOpen}
+                    primary={item.title}
+                    secondary={item.secondary}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          <section aria-label="Recent">
+            <Eyebrow action={<button className="text-dos-label text-dos-blue" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>}>Recent</Eyebrow>
             {timeline.length ? (
               <div className="grid gap-1.5">
                 {timeline.slice(0, 3).map((item) => (
