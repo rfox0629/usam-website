@@ -154,7 +154,20 @@ async function main() {
 
       await page.goto(url, { waitUntil: "networkidle" });
       await scene.go(page);
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(500);
+      /* Settle: a tab switch can leave a transient vertical scroll behind
+         (observed once in ~20 runs of the Timeline scene); every scene is
+         photographed from the top of its scroll container so the baseline
+         compares layout, not scroll timing. */
+      await page.evaluate(() => {
+        document.querySelectorAll("*").forEach((element) => {
+          if (element.scrollTop > 0) {
+            element.scrollTop = 0;
+          }
+        });
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(200);
 
       const fileName = `${scene.viewport}--${scene.name}.png`;
       const actual = await page.screenshot({ fullPage: false });

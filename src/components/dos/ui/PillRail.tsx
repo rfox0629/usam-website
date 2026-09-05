@@ -35,10 +35,27 @@ export function PillRail<T extends string>({
      whatever ground the page has. */
   const [hasOverflow, setHasOverflow] = useState(false);
 
+  /* Keep the selected pill fully visible by scrolling the rail itself,
+     horizontally only. The browser's scroll-into-view helper also scrolls
+     ancestors vertically, which moved the page when a tab was switched
+     (found by the Phase 8 visual run). */
   useEffect(() => {
-    const active = railRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    const rail = railRef.current;
+    const active = rail?.querySelector<HTMLElement>('[aria-selected="true"]');
 
-    active?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (!rail || !active) {
+      return;
+    }
+
+    const railRect = rail.getBoundingClientRect();
+    const pillRect = active.getBoundingClientRect();
+    const inset = 16;
+
+    if (pillRect.left < railRect.left + inset) {
+      rail.scrollBy({ left: pillRect.left - railRect.left - inset });
+    } else if (pillRect.right > railRect.right - inset) {
+      rail.scrollBy({ left: pillRect.right - railRect.right + inset });
+    }
   }, [value]);
 
   useEffect(() => {

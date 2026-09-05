@@ -4705,7 +4705,7 @@ function DosDateInput({
         <button
           aria-expanded={isPickerOpen}
           aria-label={`Choose ${ariaLabel ?? (typeof label === "string" ? label : "date")}`}
-          className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
+          className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
           onClick={() => setIsPickerOpen((current) => !current)}
           type="button"
         >
@@ -7875,7 +7875,7 @@ function GroupDetailWorkspaceV2({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton label="Back" onClick={onBack} />} title="Groups" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
         <div className="grid gap-3 p-3.5 sm:grid-cols-[224px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
@@ -9420,7 +9420,7 @@ function GroupDetailWorkspace({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton label="Back" onClick={onBack} />} title="Groups" />
       <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
         <div className="grid min-w-0 gap-3 p-4 text-center md:gap-4 md:p-5 md:text-left xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
@@ -32267,12 +32267,14 @@ function MyRecordWorkspace({
         action={(
           <button
             aria-expanded={isShareSettingsOpen}
-            className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+            className="group inline-flex h-11 items-center focus:outline-none"
             onClick={() => setIsShareSettingsOpen((current) => !current)}
             type="button"
           >
-            <Lock aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+              <Lock aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
             Private
+            </span>
           </button>
         )}
         backLabel="Back to More"
@@ -32324,7 +32326,7 @@ function MyRecordWorkspace({
             </section>
           ) : null}
           <section aria-label="Recent">
-            <Eyebrow action={<button className="text-dos-label text-dos-blue" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>}>Recent</Eyebrow>
+            <Eyebrow action={<button className="-my-3 flex min-h-11 items-center text-dos-label text-dos-blue" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>}>Recent</Eyebrow>
             {timeline.length ? (
               <div className="grid gap-1.5">
                 {timeline.slice(0, 3).map((item) => (
@@ -33633,7 +33635,7 @@ function FieldPersonRow({
     <div className="flex min-h-[60px] items-center gap-2 border-t border-dos-line py-2 first:border-t-0">
       <button
         aria-label={`Open ${person.name}`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-dos-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-dos-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
         onClick={onOpen}
         type="button"
       >
@@ -34629,8 +34631,8 @@ function PDButton({
   // navigation, which the book-study benchmark renders as a link rather than
   // a fourth pill stacked down the right edge.
   const className = tone === "quiet"
-    ? "inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1 whitespace-nowrap text-[13.5px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
-    : `inline-flex min-h-[34px] min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
+    ? "inline-flex min-h-11 shrink-0 items-center justify-center gap-1 whitespace-nowrap text-[13.5px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
+    : `inline-flex min-h-11 min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
       tone === "solid"
         ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
         : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
@@ -34870,7 +34872,7 @@ function PersonRecordRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
+      className="flex min-h-11 w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
       onClick={onOpen}
       type="button"
     >
@@ -35186,7 +35188,7 @@ function PersonDetailOverlay({
   const cappedRows = <T,>(key: string, rows: T[]) => (expandedRightNow[key] ? rows : rows.slice(0, rightNowCap));
   const renderViewAll = (key: string, total: number, onOpen?: () => void) => (total > rightNowCap && !expandedRightNow[key] ? (
     <button
-      className="mt-1 min-h-[34px] text-[13px] font-semibold text-dos-blue"
+      className="flex min-h-11 items-center text-[13px] font-semibold text-dos-blue"
       onClick={onOpen ?? (() => setExpandedRightNow((current) => ({ ...current, [key]: true })))}
       type="button"
     >
@@ -35862,7 +35864,7 @@ function PersonDetailOverlay({
           <header>
             <div className="-mx-4 flex items-center justify-between px-2 md:mx-0 md:px-0">
               <button
-                className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
                 onClick={() => {
                   if (activeDetailTab === "overview") {
                     onBack();
@@ -35880,7 +35882,7 @@ function PersonDetailOverlay({
                   action, so Edit sits here rather than among the things you
                   intentionally do for someone. Secondary to the identity. */}
               <button
-                className="flex min-h-10 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
+                className="flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
                 onClick={onEdit}
                 type="button"
               >
@@ -36055,7 +36057,7 @@ function PersonDetailOverlay({
                       the FAB and Log Meeting. */}
                   <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
                     <Eyebrow
-                      action={<button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
                       tone="sub"
                     >
                       Accountability
@@ -36096,7 +36098,7 @@ function PersonDetailOverlay({
                         that is something to send someone, not something they
                         asked for. */}
                     <Eyebrow
-                      action={<button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
                       tone="sub"
                     >
                       Prayer
@@ -36128,7 +36130,7 @@ function PersonDetailOverlay({
                     {/* Feedback is requested, not created. */}
                     <Eyebrow
                       action={lastMeeting && onRequestReview ? (
-                        <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
+                        <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
                       ) : undefined}
                       tone="sub"
                     >
@@ -37520,7 +37522,7 @@ function MeetingDetailOverlay({
         {/* Chrome: back to the person, deeper actions behind the overflow. */}
         <header className="-mx-1 flex items-center justify-between">
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
             onClick={onBack}
             type="button"
             aria-label="Back"
@@ -37528,7 +37530,7 @@ function MeetingDetailOverlay({
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
           </button>
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
             onClick={() => setIsMeetingActionsOpen(true)}
             type="button"
             aria-label="Meeting options"
@@ -37585,7 +37587,7 @@ function MeetingDetailOverlay({
                   {/* Edit sits with the notes it edits, not adrift below them. */}
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What happened</h3>
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
+                    <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
                       {meetingNotes ? "Edit" : "Add"}
                     </button>
                   </div>
@@ -43947,12 +43949,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <PageHeader
                     action={(
                       <button
-                        className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                        className="group inline-flex h-11 items-center focus:outline-none"
                         onClick={() => openMoreApp("settings")}
                         type="button"
                       >
-                        <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                        <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+                          <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
                         Settings
+                        </span>
                       </button>
                     )}
                     title="Field"
@@ -44314,12 +44318,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <PageHeader
                         action={(
                           <button
-                            className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                            className="group inline-flex h-11 items-center focus:outline-none"
                             onClick={() => openMoreApp("settings")}
                             type="button"
                           >
-                            <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                            <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+                              <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
                             Settings
+                            </span>
                           </button>
                         )}
                         backLabel="Back to More"

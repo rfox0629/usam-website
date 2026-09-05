@@ -60,7 +60,8 @@ assert(header.includes("text-dos-eyebrow uppercase"), "Eyebrows are the only upp
 assert(rail.includes('role="tablist"') && rail.includes('role="tab"') && rail.includes("aria-selected={selected}"), "PillRail is a tablist.");
 assert(rail.includes("flex h-11 shrink-0") && rail.includes("flex h-9 items-center rounded-dos-3 border px-[15px] text-dos-label"), "44px hit area around a 36px, 15px-padded pill.");
 assert(rail.includes('selected ? "border-dos-blue bg-dos-blue text-white"'), "The active pill is filled blue with white text.");
-assert(rail.includes("overflow-x-auto") && rail.includes("scrollIntoView"), "Native horizontal scroll; the selected pill scrolls into view.");
+/* USA-233: the rail scrolls itself horizontally (`scrollBy`) instead of `scrollIntoView`, which also scrolled ancestors vertically. */
+assert(rail.includes("overflow-x-auto") && rail.includes("rail.scrollBy({ left:") && !rail.includes("scrollIntoView"), "Native horizontal scroll; the selected pill scrolls into view without moving the page.");
 assert(rail.includes("bg-gradient-to-l from-white to-transparent"), "Right-edge fade.");
 assert(!rail.includes("truncate\"") || rail.indexOf("function Segmented") < rail.indexOf('truncate"'), "Pill labels never truncate.");
 assert(rail.includes("bg-dos-surface2 p-1") && rail.includes("aria-pressed={selected}"), "Segmented: surface-2 track, 4px padding, pressed state.");

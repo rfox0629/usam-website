@@ -50,7 +50,7 @@ export function DosWorkflowPage({
         <header>
           <button
             aria-label="Back"
-            className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
             onClick={requestClose}
             type="button"
           >

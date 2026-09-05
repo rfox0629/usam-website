@@ -210,7 +210,10 @@ async function verifyGroupRoundTrip(page) {
   await groupRow.getByRole("button", { name: "View", exact: true }).click();
   await page.getByRole("heading", { name: "Thursday Women's Study", exact: true }).waitFor({ state: "visible", timeout: 20_000 });
 
-  const moreButtons = await visibleLocators(page.getByRole("button", { name: "More", exact: true }));
+  /* USA-229 retired the "← More" pill: the group's back control is now the
+     canonical back arrow, labelled "Back". The bottom-nav "More" tab keeps
+     its name and must not be picked here. */
+  const moreButtons = await visibleLocators(page.getByRole("button", { name: /^Back/ }));
   assert(moreButtons.length, "Group back control was not visible.");
   const withBoxes = await Promise.all(moreButtons.map(async (button) => ({ button, box: await button.boundingBox() })));
   withBoxes.sort((first, second) => (first.box?.y ?? Infinity) - (second.box?.y ?? Infinity));

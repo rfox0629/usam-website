@@ -59,6 +59,8 @@ All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on t
 | P-7 | Desktop has no More launcher screen. | PageHeader "More" is mobile only. | §5.7 |
 | P-8 | Spec named a My Record Settings control that does not exist. | None rendered. | §5.8 |
 | P-9 | The visual suite drifted on the Dashboard at a UTC day boundary (demo due-date buckets). | Drift rule recorded; freezing the demo clock is a Phase 7 candidate. | §8 |
+| P-10 (Phase 8) | The first accessibility sweep found refreshed controls under the 44px hit area (header chips, eyebrow text actions, Field rows, Person `PDButton`, overlay back arrows, task-screen back, date-picker button). | All raised to 44px in USA-233 without visual change beyond the taller Person buttons; the sweep script is kept as tooling. | §3, §8 |
+| P-11 (Phase 8) | The PillRail's scroll-into-view could scroll the page on tab change; the visual suite could capture a transient scroll. | Rail scrolls itself horizontally only; the suite resets scroll before each capture. | §3 PillRail |
 
 **Retired regression assertions (deliberate, recorded in their PRs):** `dos-field-contact-form` (USA-217, rewritten to the shipped USA-168 form); `dos-my-record` KPI-card assertions (USA-220, replaced by Current + Recent assertions).
 
