@@ -13,7 +13,7 @@ Linear project + issue → [phase-3/dos-ui-canonical-spec.md](./phase-3/dos-ui-c
 | 3 — Canonical specification + decision log | [phase-3/](./phase-3/dos-ui-canonical-spec.md), [decision log](./phase-3/decision-log.md) | Published |
 | 4 — Shared UI foundation | [phase-4/](./phase-4/README.md) | Published (PRs #82–#86) |
 | 5 — Representative pilot | [phase-5/](./phase-5/README.md) | Published (PRs #87–#93); spec v1.1 corrections in the decision log §D |
-| 6 — Remaining screen batches | phase-6/ | — |
+| 6 — Remaining screen batches | [phase-6/](./phase-6/README.md) | Published (PRs #94–#98) |
 | 7 — Cleanup & documentation | phase-7/ | — |
 | 8 — Verification & release | phase-8/ | — |
 
