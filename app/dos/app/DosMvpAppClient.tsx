@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
+import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -7309,29 +7309,30 @@ type DosAppCatalogSection = {
 };
 
 function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
+  /* Apps tile (canonical spec §5.7): 104px tall, 12px padding, a 30px icon
+     circle, the name on one line, one description line, and a 20px status
+     pill capped at 100px. Shared by the mobile launcher and the desktop
+     More views, so both keep their production items, order and routing. */
   return (
     <button
-      className="flex min-h-[112px] min-w-0 flex-col justify-between rounded-[22px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF]"
+      className="flex min-h-[104px] min-w-0 flex-col justify-between rounded-dos-2 border border-dos-line bg-white p-3 text-left transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
       data-dos-app-card={item.label}
       onClick={item.onClick}
       type="button"
     >
-      <span className="flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+      <span className="flex items-start justify-between gap-2">
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-dos-blue50 text-dos-blue">
           {item.icon}
         </span>
-        <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-          {item.status}
-        </span>
+        <StatusPill>{item.status}</StatusPill>
       </span>
-      <span className="mt-3 min-w-0">
-        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]">{item.label}</span>
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{item.description}</span>
+      <span className="mt-2 min-w-0">
+        <span className="block truncate text-[15px] font-semibold leading-5 text-dos-primary">{item.label}</span>
+        <span className="mt-0.5 block truncate text-[12.5px] leading-[18px] text-dos-secondary">{item.description}</span>
       </span>
     </button>
   );
 }
-
 function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
   return (
     <DesktopPanel eyebrow="More" title="Available Tools">
@@ -7341,24 +7342,6 @@ function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
         ))}
       </div>
     </DesktopPanel>
-  );
-}
-
-function AppsCatalogSection({ section }: { section: DosAppCatalogSection }) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          {section.label}
-        </h2>
-        <p className="mt-1 text-xs leading-5 text-[#64748B]">{section.description}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {section.items.map((item) => (
-          <DesktopMoreAppCard item={item} key={item.label} />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -15238,34 +15221,6 @@ function DesktopOrganizationsView({
   );
 }
 
-
-function MoreAppTile({
-  description,
-  icon,
-  label,
-  onClick,
-}: {
-  description: string;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="flex min-h-[108px] min-w-0 flex-col items-start justify-between rounded-[26px] border border-[#EAF2FF] bg-white p-4 text-left shadow-[0_16px_38px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99]"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-        {icon}
-      </span>
-      <span className="mt-3 min-w-0">
-        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{label}</span>
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{description}</span>
-      </span>
-    </button>
-  );
-}
 
 function organizationConnectionStatusLabel(connection: DosAppOrganizationConnection) {
   if (connection.type === "usam") {
@@ -44120,6 +44075,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === null || activeMoreAppView === "apps" ? (
                   <>
                     <div className="space-y-4 md:hidden">
+                      {/* The launcher gets the canonical page header (spec §5.7).
+                          The label stays "More" until D2 is decided (B2). */}
+                      <PageHeader title="More" />
                       {isAppsSearchOpen ? (
                         <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
                           <div className="relative">
