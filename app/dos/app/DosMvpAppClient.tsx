@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
+import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -16028,38 +16028,6 @@ const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 70", value: "seventy" },
   { label: "My 120", value: "my_120" },
 ];
-
-function PeopleCircleTabs({
-  onChange,
-  value,
-}: {
-  onChange: (value: PeopleCircleView) => void;
-  value: PeopleCircleView;
-}) {
-  return (
-    <div className="grid grid-cols-5 gap-1 rounded-full border border-[#DCEBFF] bg-white p-1 shadow-[0_8px_22px_rgba(37,99,235,0.05)]">
-      {peopleCircleTabs.map((option) => {
-        const selected = value === option.value;
-
-        return (
-          <button
-            aria-pressed={selected}
-            className={`min-h-9 rounded-full px-1.5 text-[11px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:text-[10px] ${
-              selected
-                ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]"
-                : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-            }`}
-            key={option.value}
-            onClick={() => onChange(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function DesktopSectionSearch({
   ariaLabel,
@@ -33646,6 +33614,97 @@ function CircleLayerList({
   );
 }
 
+/* Field list (canonical spec §5.11): A–Z rows on one white surface. Each row
+   opens the person; the Log meeting shortcut stays as its own control (B8), so
+   a row is a group of two buttons rather than one nested button. The shared
+   CircleLayerList is untouched because Home's circle sheets render it. */
+function FieldPersonRow({
+  circleLabel,
+  lastMeetingDate,
+  onLogMeeting,
+  onOpen,
+  person,
+}: {
+  circleLabel: string | null;
+  lastMeetingDate: string | null;
+  onLogMeeting?: () => void;
+  onOpen: () => void;
+  person: DosAppPerson;
+}) {
+  const needsFollowUp = person.status === "follow_up";
+  const activity = needsFollowUp
+    ? "Follow up today"
+    : lastMeetingDate
+      ? `Met ${formatRelativeDate(lastMeetingDate).toLowerCase()}`
+      : "No meeting yet";
+  const secondary = [relationshipTypePillLabel(person), circleLabel, activity].filter(Boolean).join(" · ");
+
+  return (
+    <div className="flex min-h-[60px] items-center gap-2 border-t border-dos-line py-2 first:border-t-0">
+      <button
+        aria-label={`Open ${person.name}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-dos-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar imageUrl={person.photoUrl} name={person.name} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.name}</span>
+          <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{secondary}</span>
+        </span>
+      </button>
+      {onLogMeeting ? (
+        <button
+          aria-label={`Log meeting with ${person.name}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-dos-3 text-dos-blue transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <CalendarDays aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.9} />
+        </button>
+      ) : null}
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+    </div>
+  );
+}
+
+function FieldPeopleList({
+  circleKeyByPersonId,
+  empty,
+  items,
+  latestMeetingDateByPersonId,
+  onLogMeeting,
+  onOpenPerson,
+}: {
+  circleKeyByPersonId: Map<string, string>;
+  empty: string;
+  items: CircleListItem[];
+  latestMeetingDateByPersonId: Map<string, string | null>;
+  onLogMeeting?: (personId: string) => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  return (
+    <div className="rounded-dos-2 border border-dos-line bg-white px-4">
+      {items.length ? items.map(({ person }) => {
+        const circleKey = circleKeyByPersonId.get(person.id);
+
+        return (
+          <FieldPersonRow
+            circleLabel={circleKey ? circleDisplayName(circleKey) : null}
+            key={person.id}
+            lastMeetingDate={latestMeetingDateByPersonId.get(person.id) ?? null}
+            onLogMeeting={onLogMeeting ? () => onLogMeeting(person.id) : undefined}
+            onOpen={() => onOpenPerson(person.id)}
+            person={person}
+          />
+        );
+      }) : (
+        <p className="py-4 text-dos-body text-dos-secondary">{empty}</p>
+      )}
+    </div>
+  );
+}
+
 function CircleLayerSheet({
   activeCircle,
   circleGroups,
@@ -38171,6 +38230,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
+  /* Which circle each person is in, read from the same layer groups the tabs
+     use (B4: shown, never inferred). Unplaced people have no entry. */
+  const fieldCircleKeyByPersonId = useMemo(() => {
+    const byPerson = new Map<string, string>();
+
+    (["three", "twelve", "seventy", "my120"] as const).forEach((layer) => {
+      circlePeopleByLayer[layer].forEach(({ person }) => {
+        if (!byPerson.has(person.id)) {
+          byPerson.set(person.id, layer === "my120" ? "my_120" : layer);
+        }
+      });
+    });
+
+    return byPerson;
+  }, [circlePeopleByLayer]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
 
@@ -43880,21 +43954,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div className="space-y-4">
-                <header className="flex min-w-0 items-center justify-between gap-3 md:hidden">
-                  <div className="min-w-0">
-                    <h1 className="truncate text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                      Field
-                    </h1>
-                  </div>
-                  <button
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                    onClick={() => openMoreApp("settings")}
-                    type="button"
-                  >
-                    <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                    Settings
-                  </button>
-                </header>
+                {/* Canonical PageHeader (spec §5.11). Field is reached from More
+                    and from Home's circle target; the bottom nav is the way back,
+                    as in production, so no back control is added. */}
+                <div className="md:hidden">
+                  <PageHeader
+                    action={(
+                      <button
+                        className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                        onClick={() => openMoreApp("settings")}
+                        type="button"
+                      >
+                        <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                        Settings
+                      </button>
+                    )}
+                    title="Field"
+                  />
+                </div>
                 <div className="hidden md:block">
                   <TabHero
                     icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -43910,31 +43987,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search by name, phone, relationship, or context"
                   query={peopleQuery}
                 />
-                <MobileSectionSearch
-                  alwaysVisible
-                  ariaLabel="Search field"
-                  isOpen={isPeopleSearchOpen}
-                  onChange={setPeopleQuery}
-                  onToggle={() => undefined}
-                  placeholder="Search people"
-                  query={peopleQuery}
-                />
+                <div className="md:hidden">
+                  <SearchField label="Search field" onChange={setPeopleQuery} placeholder="Search people" value={peopleQuery} />
+                </div>
                 {secondaryFieldPeopleCount ? (
+                  /* Household and secondary people stay hidden behind a Show row
+                     (production behavior, spec §5.11). */
                   <button
                     aria-pressed={showSecondaryFieldPeople}
-                    className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors sm:w-fit ${
-                      showSecondaryFieldPeople
-                        ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                        : "border-[#D6E4F7] bg-white text-[#475569] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue sm:w-fit sm:gap-4 ${
+                      showSecondaryFieldPeople ? "border-dos-blue text-dos-blueText" : "border-dos-line text-dos-primary hover:border-dos-blue100"
                     }`}
                     onClick={() => setShowSecondaryFieldPeople((current) => !current)}
                     type="button"
                   >
-                    {showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-[#2563EB] ring-1 ring-[#BFDBFE]">{secondaryFieldPeopleCount}</span>
+                    <span>{showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary</span>
+                    <StatusPill tone={showSecondaryFieldPeople ? "blue" : "grey"}>{secondaryFieldPeopleCount}</StatusPill>
                   </button>
                 ) : null}
-                <PeopleCircleTabs onChange={setPeopleCircleView} value={peopleCircleView} />
+                <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
@@ -43948,13 +44019,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   {visibleCirclePeople.length ? (
                     <>
                       <div className="lg:hidden">
-                        <CircleLayerList
+                        <FieldPeopleList
+                          circleKeyByPersonId={fieldCircleKeyByPersonId}
                           empty={peopleCircleContent.empty}
                           items={visibleCirclePeople}
                           latestMeetingDateByPersonId={latestMeetingDateByPersonId}
                           onLogMeeting={openMeetingForPerson}
                           onOpenPerson={openPersonDetail}
-                          startIndex={peopleCircleContent.startIndex}
                         />
                       </div>
                       <DesktopPeopleIndex
@@ -43969,11 +44040,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       />
                     </>
                   ) : fieldListPeople.length ? (
-                    <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching field results." : `No one in ${circleDisplayName(peopleCircleView)}.`} />
+                    <DosEmptyState>{peopleQuery.trim() ? `No matching field results. Try a different search inside ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}`}</DosEmptyState>
                   ) : people.length ? (
-                    <EmptyState text={secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty} title="No primary field contacts." />
+                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty}`}</DosEmptyState>
                   ) : (
-                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No field added yet." />
+                    <DosEmptyState action={<Button onClick={() => openForm("person")} variant="tinted">Add Person</Button>}>Start by adding someone you are walking with.</DosEmptyState>
                   )}
                 </div>
               </div>
