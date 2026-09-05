@@ -24498,38 +24498,37 @@ function PrayerRequestListRow({
     ? request.answerTestimony?.trim() || request.request
     : prayerRequestListStatusLine(request);
   const rightLabel = variant === "answered" && request.answeredAt ? formatShortDate(request.answeredAt) : "";
-  const iconToneClass = variant === "answered"
-    ? "bg-[#F0FDF4] text-emerald-600 ring-emerald-200"
-    : isPrayerRequestHighPriority(request)
-      ? "bg-[#EBF2FF] text-[#1D4ED8] ring-[#93C5FD]"
-      : "bg-[#EBF2FF] text-[#2563EB] ring-[#BFDBFE]";
+  const personName = prayerRequestPersonName(request, personById);
 
+  /* Row grammar (spec §5.10): initials when a person is linked, a neutral tile
+     otherwise; title, then context; status stays subtle text. */
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ${iconToneClass}`}>
-        {variant === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-      </span>
+      {personName ? (
+        <Avatar name={personName} size="sm" />
+      ) : (
+        <IconTile size="sm">
+          {variant === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+        </IconTile>
+      )}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{request.title}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">{context}</span>
+        <span className="block text-dos-body font-semibold leading-5 text-dos-primary">{request.title}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{context}</span>
         {statusLine ? (
-          <span className={`mt-0.5 block truncate text-xs leading-5 ${variant === "answered" ? "font-semibold text-emerald-700" : "font-bold text-[#1D4ED8]"}`}>
-            {statusLine}
-          </span>
+          <span className="mt-0.5 block truncate text-dos-meta font-semibold text-dos-secondary">{statusLine}</span>
         ) : null}
       </span>
-      <span className="mt-1 flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#64748B]">
+      <span className="mt-1 flex shrink-0 items-center gap-1.5 text-dos-meta text-dos-secondary">
         {rightLabel ? <span>{rightLabel}</span> : null}
-        <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+        <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
       </span>
     </button>
   );
 }
-
 function PrayerDetailListRow({
   detail,
   onClick,
@@ -24539,22 +24538,19 @@ function PrayerDetailListRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
+      {detail.personName ? <Avatar name={detail.personName} size="sm" /> : <IconTile size="sm"><Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /></IconTile>}
       <span className="min-w-0 flex-1">
-        <span className="block line-clamp-2 text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{detail.request}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">{detail.personName}</span>
+        <span className="block line-clamp-2 text-dos-body font-semibold leading-5 text-dos-primary">{detail.request}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{detail.personName}</span>
       </span>
-      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={2} />
     </button>
   );
 }
-
 function PrayerPartnerListRow({
   onClick,
   partner,
@@ -24564,23 +24560,20 @@ function PrayerPartnerListRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
+      <Avatar name={partner.name} size="sm" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{partner.name}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">Prayer Partner</span>
-        {partner.lastContacted ? <span className="mt-0.5 block truncate text-xs font-semibold leading-5 text-[#64748B]">{partner.lastContacted}</span> : null}
+        <span className="block text-dos-body font-semibold leading-5 text-dos-primary">{partner.name}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">Prayer Partner</span>
+        {partner.lastContacted ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{partner.lastContacted}</span> : null}
       </span>
-      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={2} />
     </button>
   );
 }
-
 const prayerDesktopGrid = "minmax(0,1.7fr) minmax(0,1.25fr) minmax(0,0.55fr) minmax(0,0.85fr) minmax(0,0.75fr) minmax(0,0.65fr)";
 const prayerTeamDesktopGrid = "minmax(0,1.45fr) minmax(0,0.75fr) minmax(0,0.95fr) minmax(0,1fr)";
 const answeredPrayerDesktopGrid = "minmax(0,1.55fr) minmax(0,1.05fr) minmax(0,0.75fr) minmax(0,1.25fr) minmax(0,0.75fr)";
@@ -25790,6 +25783,7 @@ function MobilePrayerPanel({
   emptyText,
   emptyTitle,
   hasRows,
+  summary = "",
 }: {
   action?: ReactNode;
   children: ReactNode;
@@ -25797,22 +25791,17 @@ function MobilePrayerPanel({
   emptyText: string;
   emptyTitle: string;
   hasRows: boolean;
+  /** One quiet line under the eyebrow, e.g. "4 open" (spec §5.10). */
+  summary?: string;
 }) {
   return (
-    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          {eyebrow}
-        </h2>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </div>
-      <div className="mt-3">
-        {hasRows ? children : <EmptyState text={emptyText} title={emptyTitle} />}
-      </div>
+    <section>
+      <Eyebrow action={action}>{eyebrow}</Eyebrow>
+      {summary ? <p className="-mt-1 mb-2 text-dos-meta text-dos-secondary">{summary}</p> : null}
+      {hasRows ? children : <DosEmptyState>{`${emptyTitle} ${emptyText}`}</DosEmptyState>}
     </section>
   );
 }
-
 function MobilePrayerWorkspace({
   groups,
   householdMembers,
@@ -25919,7 +25908,7 @@ function MobilePrayerWorkspace({
 
   return (
     <div className="space-y-3 md:hidden">
-      <SegmentedTabs onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
+      <PillRail edgeInset={4} label="Prayer sections" onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
 
       {tab === "prayers" ? (
         <MobilePrayerPanel
@@ -25928,8 +25917,9 @@ function MobilePrayerWorkspace({
           emptyTitle={hubEmptyCopy.title}
           eyebrow="Prayers"
           hasRows={hasPrayRows}
+          summary={hasPrayRows ? `${visiblePrayRequests.length + visibleLegacyPrayRows.length} open` : ""}
         >
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visiblePrayRequests.map((request) => (
               <PrayerRequestListRow
                 groupById={groupById}
@@ -25949,7 +25939,7 @@ function MobilePrayerWorkspace({
 
       {tab === "prayer_team" ? (
         <MobilePrayerPanel emptyText={hubEmptyCopy.text} emptyTitle={hubEmptyCopy.title} eyebrow="Prayer Team" hasRows={hasPrayerTeamRows}>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visiblePrayerPartners.map((partner) => (
               <PrayerPartnerListRow key={partner.id} onClick={() => onOpenPrayerPartner(partner)} partner={partner} />
             ))}
@@ -25959,7 +25949,7 @@ function MobilePrayerWorkspace({
 
       {tab === "answered" ? (
         <MobilePrayerPanel emptyText={hubEmptyCopy.text} emptyTitle={hubEmptyCopy.title} eyebrow="Answered" hasRows={hasAnsweredRows}>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visibleAnsweredRequests.map((request) => (
               <PrayerRequestListRow
                 groupById={groupById}
@@ -30948,8 +30938,8 @@ function MyRecordWalkWithGodPanel({
               aria-pressed={filter === item.value}
               className={`min-h-7 shrink-0 rounded-full border px-2.5 text-[11px] font-bold ${
                 filter === item.value
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : "border-[#EAF2FF] bg-white text-[#64748B]"
+                  ? "border-dos-blue bg-dos-blue50 text-dos-blueText"
+                  : "border-dos-line bg-white text-dos-secondary"
               }`}
               key={item.value}
               onClick={() => setFilter(item.value)}
@@ -31170,8 +31160,8 @@ function MyRecordGrowthPanel({
           />
         )}
         {completedAssignments.length ? (
-          <details className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2">
-            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          <details className="rounded-dos-1 border border-dos-line bg-white px-3 py-2">
+            <summary className="cursor-pointer text-dos-eyebrow uppercase text-dos-secondary">
               Completed Resources ({completedAssignments.length})
             </summary>
             <div className="mt-2 grid gap-1.5">
@@ -44323,22 +44313,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "prayer" ? (
                   <>
-                    <header className="flex min-h-10 min-w-0 items-center justify-between gap-3 md:hidden">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <MoreBackButton onClick={() => setMoreAppView(null)} />
-                        <h1 className="truncate text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                          Prayer
-                        </h1>
-                      </div>
-                      <button
-                        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                        onClick={() => openMoreApp("settings")}
-                        type="button"
-                      >
-                        <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                        Settings
-                      </button>
-                    </header>
+                    {/* Canonical PageHeader (spec §5.10): back to More, title, Settings. */}
+                    <div className="md:hidden">
+                      <PageHeader
+                        action={(
+                          <button
+                            className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                            onClick={() => openMoreApp("settings")}
+                            type="button"
+                          >
+                            <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                            Settings
+                          </button>
+                        )}
+                        backLabel="Back to More"
+                        mobileOnlyBack
+                        onBack={() => setMoreAppView(null)}
+                        title="Prayer"
+                      />
+                    </div>
                     <div className="hidden md:block">
                       <TabHero
                         icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
