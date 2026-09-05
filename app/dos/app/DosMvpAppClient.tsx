@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Button, EmptyState as DosEmptyState, Eyebrow, IconTile, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
+import { Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -1145,6 +1145,13 @@ type GroupActivityItem = {
   title: string;
 };
 type PersonDetailTab = "details" | "history" | "overview";
+/* Person Record views (spec §5.6). Internal values stay stable so the
+   `?person=&tab=` deep links keep working. */
+const personDetailViewOptions: ReadonlyArray<PillRailOption<PersonDetailTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Timeline", value: "history" },
+  { label: "Details", value: "details" },
+];
 type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
@@ -35200,6 +35207,20 @@ function PersonDetailOverlay({
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
   const [isPersonFruitOpen, setIsPersonFruitOpen] = useState(false);
   const [isPersonPrayerOpen, setIsPersonPrayerOpen] = useState(false);
+  /* RIGHT NOW lists cap at three (spec §5.6); "View all N" reveals the rest
+     in place, or opens the record surface where one already exists. */
+  const [expandedRightNow, setExpandedRightNow] = useState<Record<string, boolean>>({});
+  const rightNowCap = 3;
+  const cappedRows = <T,>(key: string, rows: T[]) => (expandedRightNow[key] ? rows : rows.slice(0, rightNowCap));
+  const renderViewAll = (key: string, total: number, onOpen?: () => void) => (total > rightNowCap && !expandedRightNow[key] ? (
+    <button
+      className="mt-1 min-h-[34px] text-[13px] font-semibold text-dos-blue"
+      onClick={onOpen ?? (() => setExpandedRightNow((current) => ({ ...current, [key]: true })))}
+      type="button"
+    >
+      View all {total}
+    </button>
+  ) : null);
   /* Feedback opens the same purpose-built sheet from Overview and Timeline, so
      the record never has two different detail experiences. */
   const [selectedFeedbackItem, setSelectedFeedbackItem] = useState<SubmittedReviewListItem | null>(null);
@@ -35591,6 +35612,12 @@ function PersonDetailOverlay({
      fallback label. */
   const isMultiplying = personIsMultiplying(commitments);
   const relationshipSignal = isMultiplying ? `${relationshipTypePill} · Multiplying` : relationshipTypePill;
+  const relationshipLine = `${relationshipSignal} · ${currentCircleLabel}`;
+  const openPrayerCount = activePersonPrayerRequests.length + activePrayerReminders.length;
+  const answeredPrayerCount = answeredPersonPrayerRequests.length + answeredPrayerReminders.length;
+  const prayerCountLine = openPrayerCount + answeredPrayerCount > 0
+    ? `${openPrayerCount} open${answeredPrayerCount ? ` · ${answeredPrayerCount} answered` : ""}`
+    : "";
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
   const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
   const conceptPrayerItems = [
@@ -35719,17 +35746,15 @@ function PersonDetailOverlay({
     /* Fruit only. What someone reported about us is Feedback, and it has its
        own section: mixing them made the page read as though a review were a
        kind of fruit. */
-    const recentOutcomes = personOutcomeEntries.slice(0, 2);
+    const recentOutcomes = cappedRows("fruit", personOutcomeEntries);
 
     return (
       <>
-        <div className="flex items-baseline justify-between gap-3">
-          {/* No create action: observed Fruit comes from an interaction, so it
-              is captured while logging a meeting, never typed in here. */}
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
-        </div>
+        {/* No create action: observed Fruit comes from an interaction, so it
+            is captured while logging a meeting, never typed in here. */}
+        <Eyebrow tone="sub">Fruit</Eyebrow>
         {recentOutcomes.length ? (
-          <div className="mt-1 divide-y divide-dos-rule">
+          <div className="divide-y divide-dos-rule">
             {recentOutcomes.map((entry) => (
               <PersonRecordRow key={entry.id} onOpen={() => setSelectedOutcomeEntry(entry)}>
                 <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
@@ -35740,8 +35765,9 @@ function PersonDetailOverlay({
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
+          <p className="text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
         )}
+        {renderViewAll("fruit", personOutcomeEntries.length)}
       </>
     );
   };
@@ -35754,57 +35780,55 @@ function PersonDetailOverlay({
      meeting -- when, what, how long -- and the whole card opens the record.
      No generated preparation copy lives in here. */
   const renderMeetingCards = () => {
-    const cardClass = "flex min-w-0 flex-col rounded-2xl border border-dos-hairline bg-white p-3.5 text-left transition-colors";
-    const eyebrowClass = "text-[10.5px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow";
-    const leadClass = "mt-1.5 text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
+    const eyebrowClass = "text-dos-eyebrow uppercase";
+    const leadClass = "mt-1.5 block text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
     // Two lines rather than an ellipsis: at half-width a real meeting title
     // ("First mentoring meeting") is unreadable truncated to one line.
-    const bodyClass = "mt-0.5 line-clamp-2 text-[13.5px] font-semibold leading-[1.35] text-dos-body";
-    const metaClass = "mt-1 text-[12.5px] font-semibold text-dos-secondary";
+    const bodyClass = "mt-0.5 line-clamp-2 block text-[13.5px] font-semibold leading-[1.35] text-dos-body";
+    const metaClass = "mt-1 block truncate text-dos-meta text-dos-secondary";
+    const chevron = <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />;
     const nextStartAt = nextMeeting ? nextMeeting.scheduledStartAt ?? nextMeeting.date : null;
     const nextTime = formatTime(nextStartAt);
 
     return (
       <div className="grid grid-cols-2 gap-2.5 pt-4">
         {lastMeeting ? (
-          <button
-            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
-            onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
-            type="button"
-          >
-            <span className={eyebrowClass}>Last meeting</span>
+          <Card onClick={() => onOpenMeeting(lastMeeting.id, person.id)}>
+            <span className="flex items-start justify-between gap-2">
+              <span className={eyebrowClass}>Last meeting</span>
+              {chevron}
+            </span>
             <span className={leadClass}>{formatRelativeDate(lastMeeting.date)}</span>
             <span className={bodyClass}>{lastTimeTopic || meetingActivityTitle(lastMeeting)}</span>
             {lastMeetingDurationLabel ? <span className={metaClass}>{lastMeetingDurationLabel}</span> : null}
-          </button>
+          </Card>
         ) : (
-          <div className={cardClass}>
+          <Card>
             <span className={eyebrowClass}>Last meeting</span>
-            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
-            <span className="mt-auto pt-2.5">
+            <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
+            <span className="mt-2.5 block">
               <PDButton onClick={onLogMeeting}>Log</PDButton>
             </span>
-          </div>
+          </Card>
         )}
         {nextMeeting ? (
-          <button
-            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
-            onClick={() => onOpenMeeting(nextMeeting.id, person.id)}
-            type="button"
-          >
-            <span className={eyebrowClass}>Next meeting</span>
+          <Card onClick={() => onOpenMeeting(nextMeeting.id, person.id)}>
+            <span className="flex items-start justify-between gap-2">
+              <span className={eyebrowClass}>Next meeting</span>
+              {chevron}
+            </span>
             <span className={leadClass}>{formatShortDate(nextStartAt) || upcomingDayLabel(nextStartAt)}</span>
             <span className={bodyClass}>{nextMeeting.title?.trim() || meetingActivityTitle(nextMeeting)}</span>
             {nextTime ? <span className={metaClass}>{nextTime}</span> : null}
-          </button>
+          </Card>
         ) : (
-          <div className={cardClass}>
+          <Card>
             <span className={eyebrowClass}>Next meeting</span>
-            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
-            <span className="mt-auto pt-2.5">
+            <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
+            <span className="mt-2.5 block">
               <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
             </span>
-          </div>
+          </Card>
         )}
       </div>
     );
@@ -35814,7 +35838,7 @@ function PersonDetailOverlay({
     <>
       {conceptFollowUps.length ? (
         <section>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Reminder</h3>
+          <Eyebrow tone="sub">Reminder</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {conceptFollowUps.map((followUp) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
@@ -35827,7 +35851,7 @@ function PersonDetailOverlay({
       ) : null}
       {upcomingGatherings.length ? (
         <section className={conceptFollowUps.length ? "mt-6 border-t border-dos-rule pt-5" : ""}>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Group gathering</h3>
+          <Eyebrow tone="sub">Group gathering</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {upcomingGatherings.map(({ gathering, group }) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
@@ -35920,47 +35944,30 @@ function PersonDetailOverlay({
                   type="button"
                   aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
                 >
-                  {relationshipSignal}
+                  {relationshipLine}
                   <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
                 </button>
               ) : (
-                <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipSignal}</p>
+                <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipLine}</p>
               )}
               {relationshipCadence ? (
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            {/* A compact segmented control rather than three underlined links
-                between two rules -- app navigation, not page links. One
-                surface, one selected state, no line above and below. */}
-            <nav aria-label={`${firstName} views`} className="flex justify-center pb-1">
-              <div className="inline-flex items-center gap-0.5 rounded-full border border-[#DCE6F8] bg-white/85 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                {([
-                  { label: "Overview", value: "overview" as const },
-                  { label: "Timeline", value: "history" as const },
-                  { label: "Details", value: "details" as const },
-                ]).map((view) => {
-                  const isActive = activeDetailTab === view.value;
-
-                  return (
-                    <button
-                      aria-current={isActive ? "page" : undefined}
-                      className={`min-h-9 rounded-full px-4 text-[13.5px] font-bold transition-colors ${
-                        isActive ? "bg-dos-blue text-white" : "text-dos-secondary hover:bg-[#F3F6FD] hover:text-dos-primary"
-                      }`}
-                      key={view.value}
-                      onClick={() => {
-                        setActiveDetailTab(view.value);
-                        scrollDetailToTop();
-                      }}
-                      type="button"
-                    >
-                      {view.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
+            {/* The canonical PillRail (spec §3, §5.6): the same rail as
+                Meetings and My Record. */}
+            <div className="pb-1">
+              <PillRail
+                edgeInset={4}
+                label={`${firstName} views`}
+                onChange={(view) => {
+                  setActiveDetailTab(view);
+                  scrollDetailToTop();
+                }}
+                options={personDetailViewOptions}
+                value={activeDetailTab}
+              />
+            </div>
           </header>
         </>
       ) : (
@@ -36036,155 +36043,173 @@ function PersonDetailOverlay({
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
 
-                {/* ACCOUNTABILITY — the primary active work, immediately below.
-                    One section for everything this person is working on, whether
-                    it is a rhythm or a one-time goal. Add sits on the heading so
-                    it is reachable whether or not there is anything here yet, and
-                    opens the same canonical form as the FAB and Log Meeting. */}
-                <section aria-label="Accountability" className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">
-                      + Add
-                    </button>
-                  </div>
-                  <div className="mt-1 divide-y divide-dos-rule">
-                    {accountabilityTopics.map((topic) => (
-                      <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
-                        <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
-                        {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
-                        {/* Who has been confirmed, one line each and one line
-                            per person however many updates mention them. */}
-                        {topic.subjects.length ? (
-                          <span className="mt-2 grid gap-1.5">
-                            {topic.subjects.map((subject) => (
-                              <span className="block" key={subject.key}>
-                                <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
-                                {subject.startedDate ? (
-                                  <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
-                                ) : null}
-                              </span>
-                            ))}
-                          </span>
-                        ) : null}
-                      </PersonRecordRow>
-                    ))}
-                    {conceptJourneys.map((journey) => (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
-                          {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
-                              <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
-                            </span>
-                          ) : null}
-                        </div>
-                        {journey.isInAppJourney && journey.resource ? (
-                          <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                        ) : journey.resource ? (
-                          <PDButton href={journey.resource.path}>Open</PDButton>
-                        ) : null}
-                      </div>
-                    ))}
-                    {!accountabilityTopics.length && !conceptJourneys.length ? (
-                      <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
-                    ) : null}
-                  </div>
-                </section>
-
-                {/* Prayer is not accountability. Something we are praying about
-                    for them is not something they are responsible for doing,
-                    so it reads as its own compact section. */}
-                <section aria-label="Prayer" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
-                    {/* Creates another request. Never the resource library:
-                        that is something to send someone, not something they
-                        asked for. */}
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">
-                      + Add
-                    </button>
-                  </div>
-                  {conceptPrayerItems.length ? (
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      {conceptPrayerItems.slice(0, 3).map((item) => (
-                        <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
-                          <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
-                        </PersonRecordRow>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No prayer requests yet.</p>
-                  )}
-                </section>
-
-                {/* What they said about meeting with us, on the page the
-                    leader actually opens. Feedback used to live only in the
-                    Timeline and a nested sheet, so a requested review could
-                    arrive and never be seen. One line: how it was, what they
-                    wrote, and -- unmissably -- whether they asked us to get
-                    back to them. */}
-                <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
-                    {/* Feedback is requested, not created. */}
-                    {lastMeeting && onRequestReview ? (
-                      <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">
-                        Request
-                      </button>
-                    ) : null}
-                  </div>
-                  {latestPersonFeedback ? (
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
-                        <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
-                          {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
-                        </span>
-                        {latestPersonFeedback.comment ? (
-                          <span className="mt-1 line-clamp-2 block text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</span>
-                        ) : null}
-                        {latestPersonFeedback.wantsFollowUp ? (
-                          <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
-                        ) : null}
-                      </PersonRecordRow>
-                    </div>
-                  ) : (
-                    /* Restrained rather than absent, so what someone submits
-                       has a findable home before anything has arrived. */
-                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
-                  )}
-                </section>
-
-                {/* Groups are a membership fact, not active work. Separated by
-                    structure and type rather than a new colour. */}
-                {personGroups.length ? (
-                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Groups</h3>
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      {personGroups.map((group) => (
-                        <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                            {group.leaderPersonId === person.id ? (
-                              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                {/* RIGHT NOW (spec §5.6): one white surface, a blue section
+                    eyebrow, then grey sub-eyebrows for Journey, Accountability,
+                    Prayer, Fruit, Feedback and Groups, separated by hairlines.
+                    Every record is a row you open; lists cap at three. */}
+                <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4">
+                  <Eyebrow>Right now</Eyebrow>
+                  {conceptJourneys.length ? (
+                    <section aria-label="Journey" className="border-b border-dos-rule py-3 last:border-b-0">
+                      <Eyebrow tone="sub">Journey</Eyebrow>
+                      <div className="divide-y divide-dos-rule">
+                        {conceptJourneys.map((journey) => (
+                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
+                              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
+                              {journey.completion && journey.completion.total > 0 ? (
+                                <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
+                                  <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
+                                </span>
+                              ) : null}
+                            </div>
+                            {/* Continue is the one filled action on the page. */}
+                            {journey.isInAppJourney && journey.resource ? (
+                              <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                            ) : journey.resource ? (
+                              <PDButton href={journey.resource.path}>Open</PDButton>
                             ) : null}
                           </div>
-                          <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
 
-                {conceptFollowUps.length || upcomingGatherings.length ? (
-                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
-                    {renderNextMeeting(false)}
+                  {/* ACCOUNTABILITY: one section for everything this person is
+                      working on, whether a rhythm or a one-time goal. Add sits
+                      on the heading so it is reachable whether or not there is
+                      anything here yet, and opens the same canonical form as
+                      the FAB and Log Meeting. */}
+                  <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
+                    <Eyebrow
+                      action={<button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
+                      tone="sub"
+                    >
+                      Accountability
+                    </Eyebrow>
+                    <div className="divide-y divide-dos-rule">
+                      {cappedRows("accountability", accountabilityTopics).map((topic) => (
+                        <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
+                          <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
+                          {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
+                          {/* Who has been confirmed, one line each and one line
+                              per person however many updates mention them. */}
+                          {topic.subjects.length ? (
+                            <span className="mt-2 grid gap-1.5">
+                              {topic.subjects.map((subject) => (
+                                <span className="block" key={subject.key}>
+                                  <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
+                                  {subject.startedDate ? (
+                                    <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
+                                  ) : null}
+                                </span>
+                              ))}
+                            </span>
+                          ) : null}
+                        </PersonRecordRow>
+                      ))}
+                      {accountabilityTopics.length ? null : (
+                        <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
+                      )}
+                    </div>
+                    {renderViewAll("accountability", accountabilityTopics.length)}
                   </section>
-                ) : null}
-                <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
-                  {renderFruit()}
-                </section>
+
+                  {/* Prayer is not accountability. Something we are praying about
+                      for them is not something they are responsible for doing,
+                      so it reads as its own compact section. */}
+                  <section aria-label="Prayer" className="border-b border-dos-rule py-3 last:border-b-0">
+                    {/* + Add creates another request. Never the resource library:
+                        that is something to send someone, not something they
+                        asked for. */}
+                    <Eyebrow
+                      action={<button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
+                      tone="sub"
+                    >
+                      Prayer
+                    </Eyebrow>
+                    {prayerCountLine ? <p className="mb-1 text-dos-meta text-dos-secondary">{prayerCountLine}</p> : null}
+                    {conceptPrayerItems.length ? (
+                      <div className="divide-y divide-dos-rule">
+                        {cappedRows("prayer", conceptPrayerItems).map((item) => (
+                          <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
+                            <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
+                          </PersonRecordRow>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No prayer requests yet.</p>
+                    )}
+                    {renderViewAll("prayer", conceptPrayerItems.length, () => setIsPersonPrayerOpen(true))}
+                  </section>
+
+                  <section aria-label="Fruit" className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
+                    {renderFruit()}
+                  </section>
+
+                  {/* What they said about meeting with us, on the page the
+                      leader actually opens. One line: how it was, what they
+                      wrote, and, unmissably, whether they asked us to get back
+                      to them. The label stays "Feedback" (spec §9 PL-7). */}
+                  <section aria-label="Feedback" className="border-b border-dos-rule py-3 last:border-b-0">
+                    {/* Feedback is requested, not created. */}
+                    <Eyebrow
+                      action={lastMeeting && onRequestReview ? (
+                        <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
+                      ) : undefined}
+                      tone="sub"
+                    >
+                      Feedback
+                    </Eyebrow>
+                    {latestPersonFeedback ? (
+                      <div className="divide-y divide-dos-rule">
+                        <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
+                          <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
+                            {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
+                          </span>
+                          {latestPersonFeedback.comment ? (
+                            <span className="mt-1 line-clamp-2 block text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</span>
+                          ) : null}
+                          {latestPersonFeedback.wantsFollowUp ? (
+                            <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
+                          ) : null}
+                        </PersonRecordRow>
+                      </div>
+                    ) : (
+                      /* Restrained rather than absent, so what someone submits
+                         has a findable home before anything has arrived. */
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
+                    )}
+                  </section>
+
+                  {/* Groups are a membership fact, not active work. Separated by
+                      structure and type rather than a new colour. */}
+                  {personGroups.length ? (
+                    <section aria-label="Groups" className="border-b border-dos-rule py-3 last:border-b-0">
+                      <Eyebrow tone="sub">Groups</Eyebrow>
+                      <div className="divide-y divide-dos-rule">
+                        {personGroups.map((group) => (
+                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
+                              {group.leaderPersonId === person.id ? (
+                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                              ) : null}
+                            </div>
+                            <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {conceptFollowUps.length || upcomingGatherings.length ? (
+                    <section className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
+                      {renderNextMeeting(false)}
+                    </section>
+                  ) : null}
+                </div>
               </div>
 
               <aside className="mt-4 hidden w-[292px] shrink-0 self-start rounded-2xl border border-dos-hairline bg-white px-5 py-4 lg:block xl:w-[308px]">
