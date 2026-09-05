@@ -1,21 +1,22 @@
 # USA-231 — Release decision, rollback plan, and post-release watch list
 
 ## Recommendation
-**Ready for founder review; not deployed.** The stack (#78 → #100) is verified end to end on the top branch: typecheck, the 40-script DOS aggregate, the repository's join/preparation/email/release scripts, the production build, the CI smoke test, 16/16 byte-for-byte visual baselines, the accessibility/responsive/overflow sweep, and a rollback rehearsal. No API, migration, RLS, auth, or flag changed. Release is Ryan's call per repository policy; the sequencing below assumes the stack is merged in order.
+**Approved in principle by Ryan on 2026-09-05 with one sequencing change: the initial visual-refresh release excludes PR #100 (deletions).** The release stack (#78 → #99, then #101) is verified end to end on its top branch after #101 was rebased onto #99: typecheck, the 40-script DOS aggregate, the repository's join/preparation/email/release scripts, the production build, the CI smoke test, 16/16 byte-for-byte visual baselines, the accessibility/responsive/overflow sweep, and a rollback rehearsal. No API, migration, RLS, auth, or flag changed. Release is Ryan's call per repository policy; the sequencing below assumes the stack is merged in order.
 
-## What ships (23 PRs, in merge order)
+## What ships (23 PRs, in merge order; #100 excluded)
 | Phase | PRs | Nature |
 | --- | --- | --- |
 | 0–3 | #78 #79 #80 #81 | Docs only (baseline, audit, inventory, canonical spec v1.0) |
 | 4 | #82 #83 #84 #85 #86 | Tokens; pure moves of overlays/forms/controls; opaque nav + z ladder; regression coverage in CI |
 | 5 | #87 #88 #89 #90 #91 #92 #93 | Pilots: Log/Edit Meeting, Schedule + Person, Calendar/Timeline, Person Record, My Record, Apps launcher; gate + spec v1.1 |
 | 6 | #94 #95 #96 #97 #98 | Field, Prayer + My Record panels, shared controls (all More sub-views), Library, evidence |
-| 7 | #99 #100 | Archive + manifest (docs); deletions (**draft, founder approval required**) |
-| 8 | #101 | Verification reports (docs) |
+| 7 | #99 | Archive + manifest (docs only) |
+| 8 | #101 | Verification reports and the Phase 8 hit-area / suite fixes (rebased onto #99) |
+| — | #100 | **Excluded from this release.** Stays open as a separate draft cleanup release; reconsidered after the refresh has been stable in production for 72 hours. Not merged, not closed |
 
 ## Deploy sequencing
-1. Merge in stack order (#78 first). Each PR is independent in intent but stacked in git; merging out of order would need rebases.
-2. `#100` may be left unmerged without affecting anything above it in the report (it removes only unreferenced code); if it is merged, it goes last among code PRs.
+1. Merge in stack order: #78 → #79 → … → #99, then #101 (its base is #99). Each PR is independent in intent but stacked in git; merging out of order would need rebases.
+2. `#100` is **not part of this release**: it stays open as a draft on its own branch (`ryan/usa-234-deletions`, based on #99) and will need a rebase onto `main` after the release before it is reconsidered.
 3. Vercel builds `main` automatically; production promotion follows the project's normal flow. No environment variable, migration, or Supabase change is needed.
 4. After promotion, the visual baselines apply only to macOS-arm64 runners; CI on Linux skips them by design (USA-215) until Linux baselines are recorded deliberately.
 

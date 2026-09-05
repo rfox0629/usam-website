@@ -1,6 +1,6 @@
 # USA-232 — Full functional, data-safety, and permission regression
 
-Run on branch `ryan/usa-199-phase-8-verification` (the top of the stack, commit after #100) on 2026-09-04/05. Every command below is the repository's own; nothing was skipped or weakened. Results are in the table; pre-existing failures are separated from refresh regressions.
+Run on branch `ryan/usa-199-phase-8-verification` (the top of the release stack; rebased onto #99 on 2026-09-05 so that PR #100's deletions are outside the release, and every suite re-run after the rebase) on 2026-09-04/05. Every command below is the repository's own; nothing was skipped or weakened. Results are in the table; pre-existing failures are separated from refresh regressions.
 
 ## Suite results
 | Check | Command | Result |
@@ -13,7 +13,7 @@ Run on branch `ryan/usa-199-phase-8-verification` (the top of the stack, commit 
 | Production build | `npm run build` | ✓ |
 | /join application and resume routing | `npm run test:join-v2-release` | ✓ |
 | CI smoke (Playwright against the production build) | `npm run smoke` | ✓ |
-| Visual baselines (16 scenes, byte-for-byte) | `npm run test:dos:visual` | ✓ 16/16, **three consecutive passes** after the Phase 8 fixes (three baselines re-recorded deliberately for the 44px hit-area fixes: Person Record, My Record, Log Meeting) |
+| Visual baselines (16 scenes, byte-for-byte) | `npm run test:dos:visual` | ✓ 16/16, **three consecutive passes** after the Phase 8 fixes (three baselines re-recorded deliberately for the 44px hit-area fixes: Person Record, My Record, Log Meeting). After the rebase onto #99 the local calendar day had rolled over (Sep 4 → Sep 5): eight date-relative scenes differed only in date strings ("Friday, September 4" → "Saturday, September 5", "4 days ago" → "5 days ago", the Today cell, due buckets) — the recorded P-9 drift, confirmed pixel by pixel — and were re-recorded, then verified twice more |
 | Accessibility / responsive / overflow (USA-233) | `node scripts/dos-a11y-responsive-verification.mjs` | see [usa-233](./usa-233-accessibility-responsive-visual.md) |
 | Lint | — | the repository has no lint or formatter configuration (Phase 1 §3); typecheck and the string-anchored scripts are the enforcement |
 | Person UI (Playwright, protected UI test) | `npm run test:usa-168-person-ui` | ✓ at 390×844, 768×1024 and 1440×900 (its locator for the group back control updated to the canonical back arrow; see USA-233) |

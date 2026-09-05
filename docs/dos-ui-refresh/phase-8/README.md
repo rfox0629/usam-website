@@ -1,6 +1,6 @@
 # DOS UI System Audit & Visual Refresh — Phase 8: verification and release readiness
 
-Linear: USA-199 (phase) · USA-232 functional, data-safety and permission regression · USA-233 accessibility, responsive, overflow and visual verification · USA-231 release decision, rollback plan and watch list. One docs PR (#101) stacked on #100; nothing deployed.
+Linear: USA-199 (phase) · USA-232 functional, data-safety and permission regression · USA-233 accessibility, responsive, overflow and visual verification · USA-231 release decision, rollback plan and watch list. One PR (#101) stacked on #99 — the release stack excludes PR #100 (deletions), which stays open as a separate draft cleanup release; nothing deployed.
 
 | Issue | Evidence |
 | --- | --- |
@@ -9,7 +9,7 @@ Linear: USA-199 (phase) · USA-232 functional, data-safety and permission regres
 | USA-231 | [usa-231-release-decision.md](./usa-231-release-decision.md) — recommendation, PR list in merge order, deploy sequencing, rehearsed rollback, intentionally unchanged areas, known limitations, deferred decisions, watch list |
 
 ## Gate check (USA-199: "No release recommendation until functional, data-safety, accessibility, and visual evidence are complete")
-All four evidence sets are complete and linked above. The recommendation is "ready for founder review; not deployed" — the release itself is Ryan's decision per repository policy, and the deletion PR (#100) additionally needs explicit approval.
+All four evidence sets are complete and linked above. Ryan approved the release in principle on 2026-09-05 with #100 excluded; the revised stack was re-verified after rebasing #101 onto #99. Merge and production promotion remain Ryan's actions.
 
 ## New tooling
 `scripts/dos-a11y-responsive-verification.mjs` (run with `node`, after `npm run build`) regenerates the USA-233 report; it fails only on horizontal overflow or a translucent nav, and lists sub-44px controls for follow-up.
