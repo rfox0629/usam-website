@@ -84,7 +84,7 @@ const filesToScan = [
   "app/dos/setup/DosSetupClient.tsx",
   "app/dos/testimony/[token]/DosTestimonyForm.tsx",
   "app/guide/[slug]/page.tsx",
-  "src/components/dos/WorkspaceV2Shell.tsx",
+  /* src/components/dos/WorkspaceV2Shell.tsx was deleted in USA-234 (zero importers). */
 ];
 
 const lowContrastClassPattern = /text-(?:slate|gray)-(?:300|400)|opacity-(?:40|50)/;

@@ -594,26 +594,6 @@ const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: Dos
    is not a DOS default -- which quietly attributed every logged conversation to
    a team. Kept for callers that genuinely want a workspace default; Log Meeting
    no longer uses it. */
-function defaultMinistryTeamMemberIdsForWorkspace(data: Pick<DosAppData, "householdMembers" | "workspace">) {
-  const activeMembers = data.householdMembers.filter((member) => !["archived", "inactive"].includes(member.status.toLowerCase()));
-  const workspaceLabel = `${data.workspace.slug} ${data.workspace.displayName}`.toLowerCase();
-
-  if (workspaceLabel.includes("ryan") || workspaceLabel.includes("brooke") || workspaceLabel.includes("fox")) {
-    const foxMembers = activeMembers.filter((member) => /(^|\s)(ryan|brooke)(\s|$)/i.test(member.displayName));
-
-    if (foxMembers.length) {
-      return foxMembers.map((member) => member.id);
-    }
-  }
-
-  const responsibleMembers = activeMembers.filter((member) => {
-    const label = `${member.relationship ?? ""} ${member.roleTitle ?? ""}`.toLowerCase();
-
-    return member.linked || label.includes("missionary") || label.includes("leader") || label.includes("spouse") || label.includes("primary");
-  });
-
-  return (responsibleMembers.length ? responsibleMembers : activeMembers.slice(0, 1)).map((member) => member.id);
-}
 
 type InvitationCoHostCandidate = {
   displayName: string;
@@ -1431,7 +1411,6 @@ type PeopleImportResult = {
   skippedCount: number;
 };
 
-
 const displayCalendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function parseDisplayCalendarDateParts(value: string | null | undefined) {
@@ -1746,16 +1725,6 @@ function formatRelativeDate(value: string | null) {
   return `${daysAgo} days ago`;
 }
 
-function isWithinLastDays(value: string | null | undefined, days: number) {
-  const date = value ? parseDisplayDate(value) : null;
-
-  if (!date) {
-    return false;
-  }
-
-  return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
-}
-
 function currentWeekRange(referenceDate = new Date()) {
   const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
   const day = start.getDay();
@@ -1796,10 +1765,6 @@ function groupUpcomingGatherings(group: DosAppGroup) {
 }
 
 function nextGroupGathering(group: DosAppGroup) {
-  return groupUpcomingGatherings(group)[0] ?? null;
-}
-
-function nextUpcomingGroupGathering(group: DosAppGroup) {
   return groupUpcomingGatherings(group)[0] ?? null;
 }
 
@@ -2629,10 +2594,6 @@ function normalizeTableRole(value: FormDataEntryValue | string | null | undefine
   return tableRoleOptions.some((option) => option.value === nextValue) ? nextValue as DosAppTableRole : "ministering";
 }
 
-function tableRoleDisplayLabel(value: DosAppTableRole) {
-  return tableRoleOptions.find((option) => option.value === value)?.label ?? "Ministering";
-}
-
 function tableRoleIncludesMinistering(value: DosAppTableRole) {
   return value === "ministering" || value === "mutual_discipleship";
 }
@@ -3180,22 +3141,6 @@ function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEve
   ));
 }
 
-function reviewStatusLabel(value: DosAppReviewStatus) {
-  return {
-    approved: "Approved",
-    not_sent: "Not Sent",
-    pending: "Ready",
-    private: "Private",
-    submitted: "Review received",
-  }[value];
-}
-
-function reviewStatusClass(value: DosAppReviewStatus) {
-  return value === "not_sent"
-    ? "border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]"
-    : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
-}
-
 function fruitNarrative(event: DosAppFruitEvent) {
   if (event.description) {
     return event.description;
@@ -3218,18 +3163,6 @@ function fruitNarrative(event: DosAppFruitEvent) {
   }
 
   return "Recorded as structured Fruit.";
-}
-
-function fruitMultiplicationLabel(value: PersonDetailFruitSummary["multiplicationStatus"]) {
-  if (value === "Not yet") {
-    return "None Yet";
-  }
-
-  if (value === "Started") {
-    return "Discipling Others";
-  }
-
-  return value;
 }
 
 const observableFruitOutcomeKeywords = [
@@ -3556,11 +3489,6 @@ function openAddressInMaps(address: string) {
   window.location.href = preferredMapsHrefForAddress(address);
 }
 
-function handleAddressMapClick(event: MouseEvent<HTMLAnchorElement>, address: string) {
-  event.preventDefault();
-  openAddressInMaps(address);
-}
-
 function statusLabel(value: string | null | undefined) {
   const status = normalizeText(value).replaceAll("_", " ");
 
@@ -3659,34 +3587,6 @@ type PersonTableStats = {
   timeMinutes: number;
 };
 
-function circleLayerLabelForPerson(personId: string, circleGroups: CircleLayerGroups) {
-  if (circleGroups.three.some((item) => item.person.id === personId)) {
-    return "My 3";
-  }
-
-  if (circleGroups.twelve.some((item) => item.person.id === personId)) {
-    return "My 12";
-  }
-
-  if (circleGroups.seventy.some((item) => item.person.id === personId)) {
-    return "My 70";
-  }
-
-  if (circleGroups.my120.some((item) => item.person.id === personId)) {
-    return "My 120";
-  }
-
-  return "Field";
-}
-
-function lastActivityLine(person: DosAppPerson) {
-  return person.lastActivityAt ? `Last interaction · ${formatDate(person.lastActivityAt.slice(0, 10))}` : "No meetings yet";
-}
-
-function recentActivityLine(person: DosAppPerson) {
-  return `${relationshipStatusLabel(person)} · ${formatRelativeDate(person.lastActivityAt)}`;
-}
-
 function initials(name: string) {
   const parts = name.split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? "D";
@@ -3776,10 +3676,6 @@ function meetingParticipantNames(meeting: DosAppMeeting, people: DosAppPerson[])
     participantNames: meeting.participantNames,
     people,
   });
-}
-
-function meetingPeople(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  return formatDosParticipantList(meetingParticipantNames(meeting, people));
 }
 
 function meetingPeopleTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -4158,15 +4054,6 @@ function buildUpcomingTimelineItems({
   return [...meetingItems, ...reminderItems, ...profileBirthdayItems].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
 }
 
-function groupedUpcomingTimelineItems(items: UpcomingTimelineItem[]) {
-  return upcomingTimelineGroupOrder
-    .map((group) => ({
-      group,
-      items: items.filter((item) => item.group === group),
-    }))
-    .filter((group) => group.items.length);
-}
-
 function nextStepTitle(item: UpcomingTimelineItem) {
   if (item.meeting) {
     return item.personName ? `Meet with ${item.personName}` : item.title;
@@ -4235,16 +4122,6 @@ function upcomingDashboardLabel(item: UpcomingTimelineItem, displayDate = item.d
   const time = item.meeting?.scheduledStartAt ? formatTime(item.meeting.scheduledStartAt) : "";
 
   return [upcomingTimingLabel(displayDate, Boolean(item.meeting?.scheduledStartAt)), time].filter(Boolean).join(" · ");
-}
-
-function meetingTestimonyRecipientTitle(meeting: DosAppMeeting, people: DosAppPerson[]) {
-  const fieldPersonIds = Array.from(new Set(meeting.fieldPersonIds.filter(Boolean)));
-
-  if (fieldPersonIds.length !== 1) {
-    return "";
-  }
-
-  return people.find((person) => person.id === fieldPersonIds[0])?.name ?? "";
 }
 
 function canSendMeetingTestimonyRequest(meeting: DosAppMeeting, people: DosAppPerson[]) {
@@ -4506,7 +4383,6 @@ function analyzePeopleImportRows(rows: PeopleImportRow[], existingPeople: DosApp
   return { duplicateRows, invalidRows, readyRows };
 }
 
-
 function MeetingActionRow({
   onLogMeeting,
   onScheduleMeeting,
@@ -4536,7 +4412,6 @@ function MeetingActionRow({
   );
 }
 
-
 function EmptyState({
   action,
   text,
@@ -4554,7 +4429,6 @@ function EmptyState({
     </div>
   );
 }
-
 
 const dateInputMonthLabels = Array.from({ length: 12 }, (_, index) => (
   new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date(2026, index, 1))
@@ -4824,44 +4698,6 @@ function DosFormToggleRow({
   );
 }
 
-function StatTile({
-  label,
-  onClick,
-  value,
-}: {
-  label: string;
-  onClick?: () => void;
-  value: number | string;
-}) {
-  const className = "rounded-xl bg-[#F1F5F9] px-3 py-3.5 text-center";
-  const interactiveClassName = `${className} cursor-pointer transition-colors hover:bg-[#EBF2FF] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/35`;
-  const valueClassName = typeof value === "number"
-    ? "text-[21px] font-bold leading-none text-[#0F172A]"
-    : "text-[13px] font-bold leading-tight text-[#0F172A]";
-  const content = (
-    <>
-      <p className={valueClassName}>{value}</p>
-      <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </p>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button className={interactiveClassName} onClick={onClick} type="button">
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className={className}>
-      {content}
-    </div>
-  );
-}
-
 type PersonOutcomeEntry = {
   date: string | null;
   event: DosAppFruitEvent;
@@ -4892,93 +4728,6 @@ const personAssessmentResultPlaceholders: ReadonlyArray<{ href?: string; title: 
   { title: "Spiritual Assessment" },
 ];
 
-function ActivityFilterCard({
-  active,
-  helper,
-  icon,
-  label,
-  onClick,
-  value,
-}: {
-  active?: boolean;
-  helper?: string;
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  value: number;
-}) {
-  const className = `min-w-0 overflow-hidden rounded-[18px] border px-2.5 py-3 text-left transition-all max-[350px]:rounded-[16px] max-[350px]:px-2 ${
-    active
-      ? "border-[#2563EB] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_14px_30px_rgba(37,99,235,0.26)]"
-      : "border-[#E2E8F0] bg-white text-[#0F172A] shadow-[0_8px_22px_rgba(37,99,235,0.045)]"
-  }`;
-  const content = (
-    <>
-      <span className="flex items-center justify-between gap-1.5">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${active ? "bg-white/18 text-white ring-1 ring-white/30" : "bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]"} max-[350px]:h-7 max-[350px]:w-7`}>
-          {icon}
-        </span>
-        <span className={`text-[24px] font-bold leading-none max-[350px]:text-[21px] ${active ? "text-white" : "text-[#0F172A]"}`}>{value}</span>
-      </span>
-      <span className={`mt-3 block truncate text-[8px] font-bold uppercase tracking-[0.1em] max-[350px]:tracking-[0.06em] ${active ? "text-white/82" : "text-[#64748B]"}`} style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </span>
-      {helper ? <span className={`mt-0.5 line-clamp-2 block text-[10px] font-semibold leading-3 ${active ? "text-white/72" : "text-[#94A3B8]"}`}>{helper}</span> : null}
-    </>
-  );
-
-  if (!onClick) {
-    return (
-      <div className={className}>
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      aria-pressed={active}
-      className={`${className} active:scale-[0.98] hover:border-[#BFDBFE] hover:bg-[#F8FAFC]`}
-      onClick={onClick}
-      type="button"
-    >
-      {content}
-    </button>
-  );
-}
-
-function FruitSummaryCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  const isShortValue = value.length <= 3;
-
-  return (
-    <div className="flex min-h-[108px] min-w-0 flex-col items-center justify-between rounded-[18px] border border-[#E2E8F0] bg-white px-2 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[104px] max-[350px]:rounded-[16px] max-[350px]:px-1.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
-        {icon}
-      </span>
-      <span className="mt-2 flex min-h-[34px] w-full min-w-0 items-center justify-center px-0.5">
-        <span className={`max-w-full whitespace-normal text-center font-bold text-[#0F172A] ${
-          isShortValue
-            ? "text-[24px] leading-none max-[350px]:text-[21px]"
-            : "text-[12px] leading-[0.95rem] max-[350px]:text-[10.5px] max-[350px]:leading-[0.85rem]"
-        }`}>
-          {value}
-        </span>
-      </span>
-      <span className="mt-2 block w-full text-center text-[8px] font-bold uppercase leading-3 tracking-[0.08em] text-[#64748B] max-[350px]:tracking-[0.04em]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-[#F1F5F9] px-3 py-3.5">
@@ -4989,111 +4738,6 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-function PersonSummaryTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  const isShortValue = value.length <= 3;
-
-  return (
-    <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-left shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:rounded-[16px] max-[350px]:px-2">
-      <span className="flex items-center justify-between gap-1.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
-          {icon}
-        </span>
-        <span className={`min-w-0 text-right font-bold text-[#0F172A] ${isShortValue ? "text-[24px] leading-none max-[350px]:text-[21px]" : "line-clamp-2 text-[12px] leading-4 max-[350px]:text-[10px] max-[350px]:leading-[0.85rem]"}`}>
-          {value}
-        </span>
-      </span>
-      <span className="mt-3 block truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function SnapshotMetricTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-h-[104px] min-w-0 flex-col items-center justify-between overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[96px] max-[350px]:rounded-[16px] max-[350px]:px-1.5 max-[350px]:py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
-        {icon}
-      </span>
-      <span className="mt-2 flex min-h-[30px] min-w-0 items-center justify-center max-[350px]:mt-1.5 max-[350px]:min-h-[28px]">
-        <span className="line-clamp-2 min-w-0 break-words text-[12px] font-bold leading-4 text-[#0F172A] max-[350px]:text-[10px] max-[350px]:leading-[0.85rem]">
-          {value}
-        </span>
-      </span>
-      <span className="mt-2 block w-full truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:mt-1.5 max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function EngagementSnapshotTile({
-  label,
-  score,
-}: {
-  label: string;
-  score: string;
-}) {
-  return (
-    <div className="flex min-h-[104px] min-w-0 flex-col items-center justify-between overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-white px-2.5 py-3 text-center shadow-[0_8px_22px_rgba(37,99,235,0.045)] max-[350px]:min-h-[96px] max-[350px]:rounded-[16px] max-[350px]:px-1.5 max-[350px]:py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE] max-[350px]:h-7 max-[350px]:w-7">
-        <Droplet className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
-      <span className="mt-2 flex min-h-[30px] min-w-0 items-center justify-center gap-1 max-[350px]:mt-1.5 max-[350px]:min-h-[28px] max-[350px]:gap-0.5">
-        <span className="shrink-0 text-[16px] font-bold leading-none text-[#0F172A] max-[350px]:text-[14px]">{score}</span>
-        <span className="line-clamp-1 min-w-0 text-[9px] font-bold leading-none text-[#64748B] max-[350px]:text-[7.5px]">
-          {label}
-        </span>
-      </span>
-      <span className="mt-2 block w-full truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[#64748B] max-[350px]:mt-1.5 max-[350px]:tracking-[0.06em]" style={{ fontFamily: font.rajdhani }}>
-        Engagement
-      </span>
-    </div>
-  );
-}
-
-function DetailResultTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-h-[78px] min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-[18px] border border-[#D7F3DD] bg-white px-3 py-3 shadow-[0_8px_22px_rgba(22,163,74,0.05)] max-[350px]:gap-1.5 max-[350px]:rounded-[16px] max-[350px]:px-2">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#BBF7D0] max-[350px]:h-8 max-[350px]:w-8">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block break-words text-[8px] font-bold uppercase leading-3 tracking-[0.13em] text-[#94A3B8] max-[350px]:text-[7px] max-[350px]:leading-[0.8rem] max-[350px]:tracking-[0.08em]" style={{ fontFamily: font.rajdhani }}>
-          {label}
-        </span>
-        <span className="mt-1 line-clamp-2 block break-words text-[13px] font-bold leading-[1.15] text-[#15803D] max-[350px]:text-[12px]">{value}</span>
-      </span>
-    </div>
-  );
-}
-
-
 
 function TabHero({
   action,
@@ -6288,77 +5932,6 @@ function LeaderJourneyProgressSheet({
   );
 }
 
-function FeaturedTeachingCard({
-  description,
-  href,
-  title,
-}: {
-  description: string;
-  href: string;
-  title: string;
-}) {
-  return (
-    <article className="overflow-hidden rounded-[28px] border border-[#EAF2FF] bg-white shadow-[0_18px_48px_rgba(37,99,235,0.07)]">
-      <div className="relative p-4 pb-3">
-        <div className="min-w-0">
-          <span className="inline-flex rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-            Start here
-          </span>
-          <h3 className="mt-3 text-lg font-black leading-tight tracking-[-0.025em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{title}</h3>
-          <p className="mt-1 text-xs font-medium leading-4 text-[#64748B]">{description}</p>
-        </div>
-        <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB] shadow-[inset_0_0_0_1px_#DCEBFF]">
-          <BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        </div>
-      </div>
-      <div className="border-t border-[#EFF6FF] bg-white p-3">
-        <a
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-[11px] font-bold text-white transition-colors hover:brightness-[0.98]"
-          href={href}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-          Open Teaching
-        </a>
-      </div>
-    </article>
-  );
-}
-
-function TableTeachingRow({
-  description,
-  href,
-  title,
-}: {
-  description: string;
-  href: string;
-  title: string;
-}) {
-  const shortDescription = title === "Four Questions" ? "Honesty, help, surrender, and obedience." : description;
-
-  return (
-    <a
-      className="flex min-h-[72px] items-center gap-2.5 rounded-[22px] border border-[#EAF2FF] bg-white px-3 py-2.5 shadow-[0_12px_30px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE]"
-      href={href}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#EBF2FF] text-[#1D4ED8]">
-        <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-tight text-[#0F172A]">{title}</span>
-        <span className="mt-1 block line-clamp-2 text-xs leading-4 text-[#64748B]">{shortDescription}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-        Open
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-      </span>
-    </a>
-  );
-}
-
 function FollowUpGuideRow({
   description,
   href,
@@ -6386,23 +5959,6 @@ function FollowUpGuideRow({
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
     </a>
-  );
-}
-
-function FollowUpGuideList() {
-  return (
-    <article className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-      <div className="divide-y divide-[#EBF2FF]">
-        {dosFollowUpGuideResources.map((guide) => (
-          <FollowUpGuideRow
-            description={guide.description}
-            href={guide.href}
-            key={guide.href}
-            title={guide.title}
-          />
-        ))}
-      </div>
-    </article>
   );
 }
 
@@ -6603,55 +6159,6 @@ function OrganizationStatusCard({
           </div>
         ) : null}
       </div>
-    </section>
-  );
-}
-
-function UsamStatusHomeCard({
-  application,
-  onViewStatus,
-}: {
-  application: DosAppData["usamApplication"];
-  onViewStatus: () => void;
-}) {
-  const isApproved = application.status === "approved" || application.status === "active";
-  const isMoreInfo = application.status === "more_info_requested";
-  const isDeclined = application.status === "declined" || application.status === "rejected";
-  const title = isApproved
-    ? "USA Missionaries application approved"
-    : isMoreInfo
-      ? "USA Missionaries needs more information"
-      : isDeclined
-        ? "USA Missionaries application reviewed"
-        : "USA Missionaries application pending";
-  const description = isApproved
-    ? "Your missionary profile and support setup are being activated."
-    : isMoreInfo
-      ? "Ryan or the USA Missionaries team will follow up with next steps."
-      : isDeclined
-        ? "Contact USA Missionaries if you have questions about next steps."
-        : "You can begin using DOS while your application is being reviewed.";
-
-  return (
-    <section className="rounded-[26px] border border-[#E2E8F0] bg-[#F8FAFC] p-4 shadow-[0_12px_32px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white text-[#64748B] ring-1 ring-[#E2E8F0]">
-          <Briefcase className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.9} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black leading-tight text-[#0F172A]">{title}</p>
-          <p className="mt-1 text-xs leading-5 text-[#64748B]">
-            {description}
-          </p>
-        </div>
-      </div>
-      <button
-        className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-xs font-bold text-[#475569] transition-colors hover:border-[#BFDBFE]"
-        onClick={onViewStatus}
-        type="button"
-      >
-        View application status
-      </button>
     </section>
   );
 }
@@ -7118,175 +6625,6 @@ function DesktopQuickActionButton({
   );
 }
 
-function DesktopUpcomingMeetingsCard({
-  meetings,
-  onOpenMeeting,
-  onScheduleMeeting,
-  people,
-}: {
-  meetings: DosAppMeeting[];
-  onOpenMeeting: (meetingId: string) => void;
-  onScheduleMeeting: () => void;
-  people: DosAppPerson[];
-}) {
-  return (
-    <DesktopPanel eyebrow="Meetings" title="Upcoming Meetings">
-      <div className="grid gap-2">
-        {meetings.length ? meetings.map((meeting) => (
-          <button
-            className="flex min-w-0 items-center gap-3 rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
-            key={meeting.id}
-            onClick={() => onOpenMeeting(meeting.id)}
-            type="button"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-              <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-[#0F172A]">{meetingDisplayTitle(meeting, people)}</span>
-              <span className="mt-1 block truncate text-xs text-[#64748B]">{formatMeetingTimeRange(meeting)}</span>
-            </span>
-            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {meetingSyncLabel(meeting)}
-            </span>
-          </button>
-        )) : (
-          <div className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">
-            No meetings scheduled yet.
-          </div>
-        )}
-      </div>
-      <button
-        className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-        onClick={onScheduleMeeting}
-        type="button"
-      >
-        <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        Schedule Meeting
-      </button>
-    </DesktopPanel>
-  );
-}
-
-function DesktopNextStepsPanel({
-  items,
-  onEditReminder,
-  onLogMeetingForPerson,
-  onOpenMeeting,
-  onOpenPerson,
-  onScheduleForPerson,
-}: {
-  items: UpcomingTimelineItem[];
-  onEditReminder: (reminderId: string) => void;
-  onLogMeetingForPerson: (personId: string) => void;
-  onOpenMeeting: (meetingId: string) => void;
-  onOpenPerson: (personId: string) => void;
-  onScheduleForPerson: (personId?: string | string[]) => void;
-}) {
-  const primaryPersonId = items.find((item) => item.personId)?.personId ?? null;
-
-  return (
-    <DesktopPanel eyebrow="Next" title="Next Steps">
-      <div className="grid gap-2">
-        {items.length ? items.slice(0, 4).map((item) => (
-          <button
-            className="flex min-w-0 items-center gap-3 rounded-[18px] bg-[#F8FAFC] px-3 py-2.5 text-left transition-colors hover:bg-[#EBF2FF]"
-            key={item.id}
-            onClick={() => {
-              if (item.meeting) {
-                onOpenMeeting(item.meeting.id);
-              } else if (item.reminder) {
-                onEditReminder(item.reminder.id);
-              }
-            }}
-            type="button"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-              <TimelineIcon icon={item.icon} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-[#0F172A]">{nextStepTitle(item)}</span>
-              <span className="mt-1 block truncate text-xs text-[#64748B]">{item.label}</span>
-            </span>
-          </button>
-        )) : (
-          <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">
-            No next steps queued. Ask the Lord who to encourage next.
-          </p>
-        )}
-      </div>
-
-      {primaryPersonId ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <DesktopQuickActionButton icon="people" onClick={() => onOpenPerson(primaryPersonId)}>View person</DesktopQuickActionButton>
-          <DesktopQuickActionButton icon="log" onClick={() => onLogMeetingForPerson(primaryPersonId)}>Log Meeting</DesktopQuickActionButton>
-          <DesktopQuickActionButton icon="calendar" onClick={() => onScheduleForPerson(primaryPersonId)}>Schedule Meeting</DesktopQuickActionButton>
-        </div>
-      ) : (
-        <button
-          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-          onClick={() => onScheduleForPerson()}
-          type="button"
-        >
-          <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          Schedule Meeting
-        </button>
-      )}
-    </DesktopPanel>
-  );
-}
-
-function DesktopCirclePanel({
-  circleGroups,
-  onSelectCircle,
-  onViewCircles,
-}: {
-  circleGroups: CircleLayerGroups;
-  onSelectCircle: (circle: CircleFocusView) => void;
-  onViewCircles: () => void;
-}) {
-  const my3Count = circleGroups.three.length;
-  const my12Count = circleGroups.twelve.length;
-  const my70Count = circleGroups.seventy.length;
-  const my120Count = circleGroups.my120.length;
-
-  return (
-    <DesktopPanel eyebrow="Circle" title="Your Circle">
-      <div className="flex justify-center overflow-hidden">
-        <div className="-my-6 scale-[0.78] xl:scale-[0.82]">
-          <CircleTarget
-            my12Count={my12Count}
-            my120Count={my120Count}
-            my3Count={my3Count}
-            my70Count={my70Count}
-            onSelectCircle={onSelectCircle}
-          />
-        </div>
-      </div>
-      <button
-        className="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_28px_rgba(37,99,235,0.20)] transition-colors hover:brightness-[0.98]"
-        onClick={onViewCircles}
-        type="button"
-      >
-        See who's inside
-      </button>
-      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-        {[
-          ["3", my3Count],
-          ["12", my12Count],
-          ["70", my70Count],
-          ["120", my120Count],
-        ].map(([label, value]) => (
-          <div className="rounded-2xl bg-[#F8FAFC] px-2 py-2" key={label}>
-            <p className="text-sm font-black text-[#0F172A]">{value}</p>
-            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>My {label}</p>
-          </div>
-        ))}
-      </div>
-    </DesktopPanel>
-  );
-}
-
 type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
 const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
 const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
@@ -7331,17 +6669,6 @@ function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
         <span className="mt-0.5 block truncate text-[12.5px] leading-[18px] text-dos-secondary">{item.description}</span>
       </span>
     </button>
-  );
-}
-function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
-  return (
-    <DesktopPanel eyebrow="More" title="Available Tools">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {apps.map((item) => (
-          <DesktopMoreAppCard item={item} key={item.label} />
-        ))}
-      </div>
-    </DesktopPanel>
   );
 }
 
@@ -10423,22 +9750,6 @@ function GroupActivityTimeline({ items }: { items: GroupActivityItem[] }) {
   );
 }
 
-function groupOverviewRhythms(group: DosAppGroup) {
-  if (group.type === "running") {
-    return [
-      { body: "Build endurance in body and spirit.", title: "Run Together" },
-      { body: "Lift one another up in every mile.", title: "Pray Together" },
-      { body: "Pursue righteousness, faith, love, and peace.", title: "Pursue Together" },
-    ];
-  }
-
-  return [
-    { body: "Keep a steady weekly rhythm of Scripture and accountability.", title: "Gather Together" },
-    { body: "Carry one another's needs before the Lord.", title: "Pray Together" },
-    { body: "Encourage obedience, community, and Christlike growth.", title: "Pursue Together" },
-  ];
-}
-
 function groupJoinRequestName(request: GroupJoinRequest) {
   return [request.firstName, request.lastName].map((part) => part.trim()).filter(Boolean).join(" ").trim() || "Group request";
 }
@@ -12355,86 +11666,12 @@ function GroupSettingsTab({ group, onEdit }: { group: DosAppGroup; onEdit: () =>
   );
 }
 
-function DesktopRecentActivityPanel({
-  latestFruitActivity,
-  latestMeeting,
-  latestPrayerActivity,
-  onOpenFruit,
-  onOpenMeeting,
-  onOpenMeetings,
-  people,
-}: {
-  latestFruitActivity: { label: string } | null;
-  latestMeeting: DosAppMeeting | undefined;
-  latestPrayerActivity: { label: string; meetingId: string } | null;
-  onOpenFruit: () => void;
-  onOpenMeeting: (meetingId: string) => void;
-  onOpenMeetings: () => void;
-  people: DosAppPerson[];
-}) {
-  return (
-    <DesktopPanel eyebrow="Activity" title="Recent Activity / Fruit">
-      <div className="grid gap-2 md:grid-cols-3">
-        {latestMeeting ? (
-          <RecentActivityRow icon="log" onClick={onOpenMeetings} title="Latest meeting">
-            {meetingDisplayTitle(latestMeeting, people)} · {meetingActivityTitle(latestMeeting)} · {formatRelativeDate(latestMeeting.date)}
-          </RecentActivityRow>
-        ) : null}
-        {latestPrayerActivity ? (
-          <RecentActivityRow icon="bell" onClick={() => onOpenMeeting(latestPrayerActivity.meetingId)} title="Latest prayer">
-            {latestPrayerActivity.label}
-          </RecentActivityRow>
-        ) : null}
-        {latestFruitActivity ? (
-          <RecentActivityRow icon="fruit" onClick={onOpenFruit} title="Latest fruit">
-            {latestFruitActivity.label}
-          </RecentActivityRow>
-        ) : null}
-        {!latestMeeting && !latestPrayerActivity && !latestFruitActivity ? (
-          <p className="rounded-[20px] bg-[#F8FAFC] px-4 py-4 text-sm text-[#64748B]">Log a meeting to begin your activity rhythm.</p>
-        ) : null}
-      </div>
-    </DesktopPanel>
-  );
-}
-
-function currentMonthRange(referenceDate = new Date()) {
-  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
-  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0, 23, 59, 59, 999);
-
-  return { end, start };
-}
-
-function monthKey(value: string | null | undefined) {
-  const date = value ? parseDisplayDate(value) : null;
-  const parts = date ? displayDateParts(date) : null;
-
-  return parts ? `${parts.year}-${String(parts.month).padStart(2, "0")}` : null;
-}
-
 function formatDashboardDuration(minutes: number) {
   if (!minutes) {
     return "0h";
   }
 
   return formatLoggedTime(minutes);
-}
-
-function dashboardTrendMonths(count = 12) {
-  const nowParts = displayDateParts(new Date());
-  const nowMonthIndex = nowParts ? nowParts.month - 1 : new Date().getMonth();
-  const nowYear = nowParts ? nowParts.year : new Date().getFullYear();
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.UTC(nowYear, nowMonthIndex - (count - 1 - index), 1));
-    const month = date.getUTCMonth() + 1;
-    const key = `${date.getUTCFullYear()}-${String(month).padStart(2, "0")}`;
-
-    return {
-      key,
-      label: shortMonthNames[month - 1] ?? "",
-    };
-  });
 }
 
 type DashboardFruitItem = {
@@ -15221,7 +14458,6 @@ function DesktopOrganizationsView({
   );
 }
 
-
 function organizationConnectionStatusLabel(connection: DosAppOrganizationConnection) {
   if (connection.type === "usam") {
     return usamStatusLabel(connection.status as DosAppData["usamApplication"]["status"]);
@@ -15446,93 +14682,6 @@ function UsamApplicationSheet({
     </Sheet>
   );
 }
-
-function TaskCard({
-  action,
-  children,
-  icon,
-  title,
-}: {
-  action: ReactNode;
-  children: ReactNode;
-  icon?: IconName;
-  title: string;
-}) {
-  return (
-    <article className="flex min-h-[72px] items-center justify-between gap-4 rounded-[18px] border border-[#E2E8F0] bg-white px-4 py-3.5">
-      <div className="flex min-w-0 items-center gap-3">
-        {icon ? (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#0F172A]">
-            <Icon name={icon} size={16} />
-          </div>
-        ) : null}
-        <div className="min-w-0">
-          <p className="font-semibold leading-tight text-[#0F172A]">{title}</p>
-          <div className="mt-1 text-xs leading-5 text-[#64748B]">{children}</div>
-        </div>
-      </div>
-      {action}
-    </article>
-  );
-}
-
-/**
- * Canonical DOS workflow page.
- *
- * Add Person, Schedule Meeting and Log Meeting are full-page workflows, not
- * modal cards: white primary surface, one strong title, obvious back, a
- * comfortable capped form width on desktop, and a sticky primary action that
- * clears the mobile safe area. Collection/browse surfaces may still use
- * cards — detail and work surfaces become the page.
- */
-
-function ActionList({ children }: { children: ReactNode }) {
-  return (
-    <div className="overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_14px_40px_rgba(37,99,235,0.045)]">
-      {children}
-    </div>
-  );
-}
-
-function ActionListRow({
-  children,
-  href,
-  icon,
-  isLast = false,
-  onClick,
-}: {
-  children: ReactNode;
-  href?: string;
-  icon: ReactNode;
-  isLast?: boolean;
-  onClick?: () => void;
-}) {
-  const className = `flex min-h-[54px] w-full items-center gap-3 bg-white px-4 text-left text-sm font-semibold text-[#0F172A] transition-colors hover:bg-[#FFFFFF] ${
-    isLast ? "" : "border-b border-[#E2E8F0]"
-  }`;
-  const content = (
-    <>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#1D4ED8]">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-    </>
-  );
-
-  if (href) {
-    return (
-      <a className={className} href={href}>
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <button className={className} onClick={onClick} type="button">
-      {content}
-    </button>
-  );
-}
-
 
 function ProfileSheetFrame({
   children,
@@ -16534,21 +15683,6 @@ function googleCalendarConnectHref(workspaceId: string, workspaceSlug: string) {
   return `/api/dos/app/calendar/google/connect?workspaceId=${encodeURIComponent(workspaceId)}&next=${encodeURIComponent(`/dos/${workspaceSlug}`)}`;
 }
 
-function createDefaultAvailabilitySettings(): AvailabilitySettings {
-  return {
-    bookingRules: { ...defaultAvailabilitySettings.bookingRules },
-    calendarRules: { ...defaultAvailabilitySettings.calendarRules },
-    meetingTypes: defaultAvailabilitySettings.meetingTypes.map((type) => ({ ...type })),
-    preferredDays: [...defaultAvailabilitySettings.preferredDays],
-    preferredTimes: [...defaultAvailabilitySettings.preferredTimes],
-    timezone: defaultAvailabilitySettings.timezone,
-    weeklySchedule: defaultAvailabilitySettings.weeklySchedule.map((day) => ({
-      ...day,
-      windows: day.windows.map((window) => ({ ...window })),
-    })),
-  };
-}
-
 function formatAvailabilityTime(value: string) {
   const [rawHour, rawMinute = "00"] = value.split(":");
   const hour = Number(rawHour);
@@ -16594,394 +15728,6 @@ function availabilityWindowLabel(window: AvailabilityTimeWindow) {
 
 function availabilityDayShortLabel(dayId: string) {
   return availabilityDayOptions.find((day) => day.id === dayId)?.shortLabel ?? dayId;
-}
-
-function availabilityWeeklySummary(settings: AvailabilitySettings) {
-  const availableDays = settings.weeklySchedule.filter((day) => day.available);
-
-  if (!availableDays.length) {
-    return "No available days selected";
-  }
-
-  const firstWindow = availableDays.flatMap((day) => day.windows).at(0);
-  const daySummary = availableDays.length === 7
-    ? "Every day"
-    : availableDays.map((day) => availabilityDayShortLabel(day.id)).join(", ");
-
-  return firstWindow ? `${daySummary} · ${availabilityWindowLabel(firstWindow)}` : daySummary;
-}
-
-function availabilityMeetingTypesSummary(settings: AvailabilitySettings) {
-  const enabledTypes = settings.meetingTypes.filter((type) => type.enabled);
-
-  return enabledTypes.length
-    ? enabledTypes.slice(0, 3).map((type) => type.label).join(", ") + (enabledTypes.length > 3 ? ` +${enabledTypes.length - 3}` : "")
-    : "No meeting types enabled";
-}
-
-function availabilityConnectionSummary(connection: DosAppCalendarConnection, sourceCount: number) {
-  if (calendarConnectionNeedsReconnect(connection)) {
-    return "Reconnect needed";
-  }
-
-  if (calendarConnectionIsHealthy(connection)) {
-    return `${sourceCount} source${sourceCount === 1 ? "" : "s"} connected`;
-  }
-
-  return connection.googleConfigured ? "Ready to connect" : "Google setup needed";
-}
-
-function AvailabilityActionCard({
-  children,
-  icon,
-  onClick,
-  summary,
-  title,
-}: {
-  children?: ReactNode;
-  icon: ReactNode;
-  onClick: () => void;
-  summary: string;
-  title: string;
-}) {
-  return (
-    <button
-      className="group grid min-h-[148px] content-between gap-3 rounded-[22px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_10px_24px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="flex min-w-0 items-start justify-between gap-3">
-        <span className="flex min-w-0 items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-            {icon}
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-black leading-5 text-[#0F172A]">{title}</span>
-            <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">{summary}</span>
-          </span>
-        </span>
-        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-hover:translate-x-0.5" aria-hidden="true" strokeWidth={1.9} />
-      </span>
-      {children ? <span className="block min-w-0">{children}</span> : null}
-    </button>
-  );
-}
-
-function AvailabilityChipRow({ items }: { items: string[] }) {
-  return (
-    <span className="flex min-w-0 flex-wrap gap-1.5">
-      {items.map((item) => (
-        <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]" key={item}>
-          {item}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function AvailabilityEditSheet({
-  activeSection,
-  calendarConnection,
-  isDisconnecting,
-  onClose,
-  onDisconnectCalendar,
-  settings,
-  setSettings,
-  sourceCount,
-  workspaceId,
-  workspaceSlug,
-}: {
-  activeSection: AvailabilityEditSection;
-  calendarConnection: DosAppCalendarConnection;
-  isDisconnecting: boolean;
-  onClose: () => void;
-  onDisconnectCalendar: () => void;
-  settings: AvailabilitySettings;
-  setSettings: (updater: (current: AvailabilitySettings) => AvailabilitySettings) => void;
-  sourceCount: number;
-  workspaceId: string;
-  workspaceSlug: string;
-}) {
-  const titleBySection: Record<AvailabilityEditSection, string> = {
-    booking: "Booking Rules",
-    calendar: "Connected Calendar",
-    meeting_types: "Meeting Types",
-    preferred_times: "Preferred Times",
-    weekly_schedule: "Weekly Schedule",
-  };
-
-  function updateDay(dayId: string, updater: (day: AvailabilityDaySetting) => AvailabilityDaySetting) {
-    setSettings((current) => ({
-      ...current,
-      weeklySchedule: current.weeklySchedule.map((day) => day.id === dayId ? updater(day) : day),
-    }));
-  }
-
-  function togglePreferredTime(value: string) {
-    setSettings((current) => {
-      const selected = current.preferredTimes.includes(value);
-
-      return {
-        ...current,
-        preferredTimes: selected
-          ? current.preferredTimes.filter((time) => time !== value)
-          : [...current.preferredTimes, value],
-      };
-    });
-  }
-
-  function togglePreferredDay(value: string) {
-    setSettings((current) => {
-      const selected = current.preferredDays.includes(value);
-
-      return {
-        ...current,
-        preferredDays: selected
-          ? current.preferredDays.filter((day) => day !== value)
-          : [...current.preferredDays, value],
-      };
-    });
-  }
-
-  function updateMeetingType(typeId: string, updater: (type: AvailabilityMeetingTypeSetting) => AvailabilityMeetingTypeSetting) {
-    setSettings((current) => ({
-      ...current,
-      meetingTypes: current.meetingTypes.map((type) => type.id === typeId ? updater(type) : type),
-    }));
-  }
-
-  return (
-    <Sheet
-      description="Changes update this screen for now and will be saved once availability saving is connected."
-      onClose={onClose}
-      title={titleBySection[activeSection]}
-    >
-      <div className="grid gap-4">
-        {activeSection === "weekly_schedule" ? (
-          <div className="grid gap-3">
-            {settings.weeklySchedule.map((day) => (
-              <section className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={day.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <button
-                    aria-pressed={day.available}
-                    className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-bold ${
-                      day.available
-                        ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]"
-                        : "border-[#E2E8F0] bg-white text-[#64748B]"
-                    }`}
-                    onClick={() => updateDay(day.id, (currentDay) => ({ ...currentDay, available: !currentDay.available }))}
-                    type="button"
-                  >
-                    {day.available ? "Available" : "Unavailable"}
-                  </button>
-                  <h3 className="min-w-0 flex-1 text-right text-sm font-black text-[#0F172A]">{day.label}</h3>
-                </div>
-                {day.available ? (
-                  <div className="mt-3 grid gap-2">
-                    {day.windows.map((window) => (
-                      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2" key={window.id}>
-                        <label className="min-w-0">
-                          <FieldLabel>Start</FieldLabel>
-                          <input
-                            className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`}
-                            onChange={(event) => updateDay(day.id, (currentDay) => ({
-                              ...currentDay,
-                              windows: currentDay.windows.map((currentWindow) => currentWindow.id === window.id ? { ...currentWindow, start: event.target.value } : currentWindow),
-                            }))}
-                            type="time"
-                            value={window.start}
-                          />
-                        </label>
-                        <label className="min-w-0">
-                          <FieldLabel>End</FieldLabel>
-                          <input
-                            className={`${FieldInputClass()} min-h-10 rounded-[14px] px-3 text-sm`}
-                            onChange={(event) => updateDay(day.id, (currentDay) => ({
-                              ...currentDay,
-                              windows: currentDay.windows.map((currentWindow) => currentWindow.id === window.id ? { ...currentWindow, end: event.target.value } : currentWindow),
-                            }))}
-                            type="time"
-                            value={window.end}
-                          />
-                        </label>
-                        <button
-                          aria-label={`Remove ${day.label} window`}
-                          className="mb-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B]"
-                          onClick={() => updateDay(day.id, (currentDay) => ({ ...currentDay, windows: currentDay.windows.filter((currentWindow) => currentWindow.id !== window.id) }))}
-                          type="button"
-                        >
-                          <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8]"
-                      onClick={() => updateDay(day.id, (currentDay) => ({
-                        ...currentDay,
-                        windows: [...currentDay.windows, { end: "21:00", id: `${day.id}-${Date.now()}`, start: "18:00" }],
-                      }))}
-                      type="button"
-                    >
-                      Add Time Window
-                    </button>
-                  </div>
-                ) : null}
-              </section>
-            ))}
-          </div>
-        ) : null}
-
-        {activeSection === "preferred_times" ? (
-          <div className="grid gap-4">
-            <section className="grid gap-2">
-              <h3 className="text-sm font-black text-[#0F172A]">Preferred Times</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {availabilityPreferredTimeOptions.map((time) => {
-                  const selected = settings.preferredTimes.includes(time);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-11 rounded-full border px-2 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
-                      }`}
-                      key={time}
-                      onClick={() => togglePreferredTime(time)}
-                      type="button"
-                    >
-                      {time}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-            <section className="grid gap-2">
-              <h3 className="text-sm font-black text-[#0F172A]">Preferred Days</h3>
-              <div className="grid grid-cols-4 gap-2">
-                {availabilityDayOptions.map((day) => {
-                  const selected = settings.preferredDays.includes(day.id);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-10 rounded-full border px-2 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#64748B]"
-                      }`}
-                      key={day.id}
-                      onClick={() => togglePreferredDay(day.id)}
-                      type="button"
-                    >
-                      {day.shortLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        ) : null}
-
-        {activeSection === "meeting_types" ? (
-          <div className="grid gap-3">
-            {settings.meetingTypes.map((type) => (
-              <section className="grid gap-3 rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={type.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <button
-                    aria-pressed={type.enabled}
-                    className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-bold ${
-                      type.enabled ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]" : "border-[#E2E8F0] bg-white text-[#64748B]"
-                    }`}
-                    onClick={() => updateMeetingType(type.id, (currentType) => ({ ...currentType, enabled: !currentType.enabled }))}
-                    type="button"
-                  >
-                    {type.enabled ? "Enabled" : "Off"}
-                  </button>
-                  <h3 className="min-w-0 flex-1 text-right text-sm font-black text-[#0F172A]">{type.label}</h3>
-                </div>
-                <label className="block">
-                  <FieldLabel>Duration</FieldLabel>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
-                      min={15}
-                      onChange={(event) => updateMeetingType(type.id, (currentType) => ({ ...currentType, duration: Math.max(15, Number(event.target.value) || 15) }))}
-                      step={15}
-                      type="number"
-                      value={type.duration}
-                    />
-                    <span className="shrink-0 text-xs font-bold text-[#64748B]">min</span>
-                  </div>
-                </label>
-              </section>
-            ))}
-          </div>
-        ) : null}
-
-        {activeSection === "booking" ? (
-          <div className="grid gap-3">
-            {[
-              { key: "bufferMinutes" as const, label: "Buffer time", suffix: "min" },
-              { key: "maxPerDay" as const, label: "Max meetings per day", suffix: "per day" },
-              { key: "maxPerWeek" as const, label: "Max meetings per week", suffix: "per week" },
-            ].map((setting) => (
-              <label className="block rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={setting.key}>
-                <FieldLabel>{setting.label}</FieldLabel>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    className={`${FieldInputClass(false)} min-h-10 rounded-[14px] px-3 text-sm`}
-                    min={setting.key === "bufferMinutes" ? 0 : 1}
-                    onChange={(event) => setSettings((current) => ({
-                      ...current,
-                      bookingRules: {
-                        ...current.bookingRules,
-                        [setting.key]: Math.max(setting.key === "bufferMinutes" ? 0 : 1, Number(event.target.value) || 0),
-                      },
-                    }))}
-                    type="number"
-                    value={settings.bookingRules[setting.key]}
-                  />
-                  <span className="shrink-0 text-xs font-bold text-[#64748B]">{setting.suffix}</span>
-                </div>
-              </label>
-            ))}
-          </div>
-        ) : null}
-
-        {activeSection === "calendar" ? (
-          <div className="grid gap-3">
-            <CalendarConnectionCard
-              calendarConnection={calendarConnection}
-              isDisconnecting={isDisconnecting}
-              onDisconnect={calendarConnection.connected ? onDisconnectCalendar : undefined}
-              workspaceId={workspaceId}
-              workspaceSlug={workspaceSlug}
-            />
-            <section className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-black text-[#0F172A]">Calendar Sources</h3>
-                <span className="rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{sourceCount} connected</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">Google events can inform availability. Busy-time conflict checks come in a later scheduling pass.</p>
-            </section>
-            <section className="rounded-[20px] border border-[#EAF2FF] bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-black text-[#0F172A]">Team Calendar</h3>
-                <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Planned</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">Spouse and team availability hooks are reserved for shared household booking.</p>
-            </section>
-          </div>
-        ) : null}
-
-        <button
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-sm font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
-          onClick={onClose}
-          type="button"
-        >
-          Done
-        </button>
-      </div>
-    </Sheet>
-  );
 }
 
 function invitationStatusLabel(status: InviteCard["status"]) {
@@ -18451,10 +17197,6 @@ function circleDisplayName(circle: string) {
   }
 }
 
-function scoreLabel(value: number) {
-  return `${Math.round(value)}`;
-}
-
 type CircleListItem = { person: DosAppPerson };
 type CirclePersonItem = CircleListItem & { score: DosRelationshipScore };
 type CircleLayerGroups = {
@@ -18988,80 +17730,6 @@ function WeekStatTile({
   );
 }
 
-function MeetingCard({
-  meeting,
-  onClick,
-  people,
-}: {
-  meeting: DosAppMeeting;
-  onClick: () => void;
-  people: DosAppPerson[];
-}) {
-  const avatarNames = meetingAvatarNames(meeting, people);
-  const participantTitle = meetingParticipantTitle(meeting, people);
-  const hasPeople = Boolean(participantTitle);
-  const context = meetingActivityTitle(meeting);
-  const isScheduled = meeting.meetingStatus === "scheduled";
-  const summary = meeting.notes?.trim();
-  const title = meetingDisplayTitle(meeting, people);
-  const statusLabel = isScheduled ? "Scheduled" : "Logged";
-  const metadata = isScheduled
-    ? `Scheduled • ${formatMeetingTimeRange(meeting)}`
-    : hasPeople ? `${context} • ${formatDate(meeting.date)}` : formatDate(meeting.date);
-
-  return (
-    <button className="group w-full max-w-[calc(100vw-32px)] rounded-[24px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_14px_34px_rgba(37,99,235,0.045)] transition-all hover:border-[#BFDBFE] hover:shadow-[0_18px_40px_rgba(37,99,235,0.08)] md:max-w-none md:rounded-[20px] md:p-3 md:shadow-[0_10px_28px_rgba(37,99,235,0.04)]" onClick={onClick} type="button">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex shrink-0 items-center">
-          {avatarNames.length ? (
-            <div className="flex -space-x-2">
-              {avatarNames.map((name, index) => (
-                <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold shadow-sm ${avatarTone(index)}`}
-                  key={`${meeting.id}-${name}`}
-                >
-                  {initials(name)}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EFF6FF] text-[#2563EB] shadow-sm">
-              <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold leading-5 text-[#0F172A]">{title}</p>
-              <p className="mt-1 truncate text-xs leading-5 text-[#64748B]">{metadata}</p>
-            </div>
-            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#94A3B8] transition-colors group-hover:text-[#2563EB]" aria-hidden="true" strokeWidth={1.8} />
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {context}
-            </span>
-            <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {statusLabel}
-            </span>
-          </div>
-          {summary ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-5 text-[#334155] md:text-[13px]">{summary}</p>
-          ) : (
-            <p className="mt-2 text-sm leading-5 text-[#94A3B8] md:text-[13px]">{isScheduled ? "No prep notes yet" : "No reflection yet"}</p>
-          )}
-          {isScheduled && meeting.googleSyncEnabled ? (
-            <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">
-              {meeting.googleSyncStatus === "synced" ? "Google synced" : meeting.googleSyncStatus === "failed" ? "Google failed" : "Google pending"}
-            </span>
-          ) : null}
-        </div>
-      </div>
-    </button>
-  );
-}
-
 function calendarItemTone(kind: MeetingCalendarItemKind) {
   switch (kind) {
     case "google":
@@ -19180,18 +17848,6 @@ function calendarItemPersonLabel(item: MeetingCalendarItem) {
   }
 
   return "No person linked";
-}
-
-function calendarItemDateTimeLabel(item: MeetingCalendarItem) {
-  if (item.meeting) {
-    return formatMeetingTimeRange(item.meeting);
-  }
-
-  if (item.externalEvent) {
-    return formatExternalCalendarEventTimeRange(item.externalEvent);
-  }
-
-  return formatDateTime(item.date);
 }
 
 function calendarItemTimeLabel(item: MeetingCalendarItem) {
@@ -20328,7 +18984,6 @@ function GoogleCalendarEventDetailSheet({
   );
 }
 
-
 function MeetingContextPicker({
   onChange,
   value,
@@ -20403,150 +19058,6 @@ function conversationFlowPreviewPrompts(flow: NonNullable<ReturnType<typeof getC
     .flatMap((section) => section.questions)
     .map((question) => question.prompt ?? question.label)
     .slice(0, 3);
-}
-
-function ConversationFlowExperience({
-  flowKey,
-  onResponseChange,
-  onToggleFollowUpAction,
-  recommendedResources,
-  responses,
-}: {
-  flowKey: DosConversationFlowKey;
-  onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
-  onToggleFollowUpAction: (actionId: string) => void;
-  recommendedResources: DosRecommendedResource[];
-  responses: DosConversationResponses;
-}) {
-  const flow = getConversationFlowDefinition(flowKey);
-  const temperature = flowKey === "kitchen_table_gospel"
-    ? relationshipWithJesusTemperature(responseAsNumber(responses.relationshipWithJesus))
-    : null;
-  const selectedFollowUpActions = responseAsStringArray(responses.followUpActions);
-
-  if (!flow) {
-    return null;
-  }
-
-  const guideResource = dosTableTeachingResources.find((resource) => resource.title === flow.title) ?? null;
-  const previewPrompts = conversationFlowPreviewPrompts(flow);
-
-  return (
-    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-              Conversation Flow
-            </p>
-            <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{flow.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.description}</p>
-          </div>
-          {temperature ? (
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {temperature}
-            </span>
-          ) : null}
-        </div>
-
-        {previewPrompts.length ? (
-          <div className="mt-3 grid gap-1.5">
-            {previewPrompts.map((prompt, index) => (
-              <div className="flex gap-2 rounded-2xl border border-[#EAF2FF] bg-white p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[10px] font-black text-[#1D4ED8]">
-                  {index + 1}
-                </span>
-                <span>{prompt}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {guideResource || recommendedResources.length ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {guideResource ? (
-              <a
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
-                href={guideResource.href}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                Open guide
-              </a>
-            ) : null}
-            {recommendedResources.slice(0, 3).map((resource) => (
-              <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A]" key={resource.id}>
-                {resource.title}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <details className="group rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[#0F172A] [&::-webkit-details-marker]:hidden">
-          <span>Capture guided responses</span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
-        </summary>
-        <div className="mt-3 grid gap-3">
-          {flow.sections.map((section) => (
-            <div className="grid gap-2" key={section.id}>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  {section.title}
-                </p>
-                {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
-              </div>
-              {section.questions.map((question) => (
-                <ConversationQuestionCard
-                  key={question.id}
-                  onResponseChange={onResponseChange}
-                  question={question}
-                  value={responses[question.id]}
-                />
-              ))}
-            </div>
-          ))}
-
-          {flow.closingPrompt || flow.gospelInvitation ? (
-            <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                Gospel Invitation
-              </p>
-              {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
-              {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
-            </div>
-          ) : null}
-
-          {flow.followUpActions?.length ? (
-            <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
-              <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {flow.followUpActions.map((action) => {
-                  const selected = selectedFollowUpActions.includes(action.id);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                      }`}
-                      key={action.id}
-                      onClick={() => onToggleFollowUpAction(action.id)}
-                      type="button"
-                    >
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </details>
-    </section>
-  );
 }
 
 function ConversationQuestionCard({
@@ -21331,7 +19842,6 @@ const scheduledTableDurationOptions = [
   { label: "2 hours", value: "120" },
 ] as const;
 
-
 function MeetingDurationSelector({
   defaultMinutes = 30,
 }: {
@@ -21359,12 +19869,6 @@ function MeetingDurationSelector({
       />
     </fieldset>
   );
-}
-
-function scheduledTableDurationValue(minutes: number | string | null | undefined) {
-  const value = String(minutes ?? "60");
-
-  return scheduledTableDurationOptions.some((option) => option.value === value) ? value : "60";
 }
 
 /* Scheduling blocks, matching how people actually book time. Custom carries
@@ -22263,53 +20767,6 @@ function ReminderFormContent({
   );
 }
 
-function ReminderRow({
-  onClick,
-  person,
-  reminder,
-}: {
-  onClick?: () => void;
-  person?: DosAppPerson | null;
-  reminder: DosAppRelationshipReminder;
-}) {
-  const syncLabel = reminderSyncLabel(reminder);
-  const content = (
-    <>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        {reminder.reminderType === "birthday" ? (
-          <Cake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        ) : (
-          <Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold leading-5 text-[#0F172A]">{reminderDisplayTitle(reminder, person)}</span>
-        <span className="mt-1 block text-xs leading-5 text-[#64748B]">
-          {reminderTypeLabel(reminder.reminderType)} · {formatDate(nextReminderDate(reminder))}
-          {reminder.recurrence !== "none" ? ` · ${reminder.recurrence}` : ""}
-        </span>
-        {reminderVisibleNotes(reminder.notes) ? <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#0F172A]">{reminderVisibleNotes(reminder.notes)}</span> : null}
-        {syncLabel ? <span className="mt-2 inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]">{syncLabel}</span> : null}
-      </span>
-      {onClick ? <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]" onClick={onClick} type="button">
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
-      {content}
-    </div>
-  );
-}
-
 function TimelineIcon({ icon }: { icon: UpcomingTimelineIcon }) {
   const className = "h-4 w-4";
 
@@ -22385,105 +20842,6 @@ function UpcomingTimelineRow({
         </span>
       </span>
       <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />
-    </button>
-  );
-}
-
-function NextStepsCard({
-  items,
-  onOpenAll,
-}: {
-  items: UpcomingTimelineItem[];
-  onOpenAll: () => void;
-}) {
-  const visibleItems = items.slice(0, 3);
-  const hiddenCount = Math.max(items.length - visibleItems.length, 0);
-
-  return (
-    <button
-      aria-label="Open all upcoming items"
-      className="block w-full rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_14px_32px_rgba(37,99,235,0.07)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.995]"
-      onClick={onOpenAll}
-      type="button"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          Upcoming
-        </h2>
-        <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{items.length}</span>
-      </div>
-
-      <div className="mt-3 grid gap-2">
-        {visibleItems.length ? visibleItems.map((item) => (
-          <div
-            className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left"
-            key={item.id}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-              <TimelineIcon icon={item.icon} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[#0F172A]">{nextStepTitle(item)}</span>
-              <span className="mt-0.5 block truncate text-xs text-[#64748B]">{item.label}</span>
-            </span>
-          </div>
-        )) : (
-          <p className="rounded-2xl bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#64748B]">
-            No next steps queued. Ask the Lord who to encourage next.
-          </p>
-        )}
-        {hiddenCount ? (
-          <p className="px-3 pt-1 text-xs font-semibold text-[#2563EB]">{hiddenCount} more upcoming</p>
-        ) : null}
-      </div>
-    </button>
-  );
-}
-
-function HomeActivityCard({
-  items,
-  onOpenAll,
-}: {
-  items: HomeActivityItem[];
-  onOpenAll: () => void;
-}) {
-  const visibleItems = items.slice(0, 3);
-  const hiddenCount = Math.max(items.length - visibleItems.length, 0);
-
-  return (
-    <button
-      aria-label="Open all activity"
-      className="block w-full rounded-[24px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_14px_32px_rgba(37,99,235,0.07)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.995]"
-      onClick={onOpenAll}
-      type="button"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          Activity
-        </h2>
-        <span className="rounded-full border border-[#DCEBFF] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">{items.length}</span>
-      </div>
-
-      <div className="mt-3 grid gap-2">
-        {visibleItems.length ? visibleItems.map((item) => (
-          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-[#F8FAFC] px-3 py-2.5 text-left" key={item.id}>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-              <Icon name={item.icon} size={14} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-[#0F172A]">{item.title}</span>
-              <span className="mt-0.5 block truncate text-xs text-[#64748B]">{item.label}</span>
-            </span>
-          </div>
-        )) : (
-          <p className="rounded-2xl bg-[#F8FAFC] px-3 py-3 text-sm leading-6 text-[#64748B]">
-            Log a meeting to begin your activity rhythm.
-          </p>
-        )}
-        {hiddenCount ? (
-          <p className="px-3 pt-1 text-xs font-semibold text-[#2563EB]">{hiddenCount} more activity items</p>
-        ) : null}
-      </div>
     </button>
   );
 }
@@ -23317,16 +21675,6 @@ function prayerFrequencyLabel(value: DosAppRelationshipReminder["recurrence"]) {
   }
 }
 
-function latestPrayerDateForPerson(prayerLogs: DosAppPrayerLog[], personId: string | null | undefined) {
-  if (!personId) {
-    return null;
-  }
-
-  return prayerLogs
-    .filter((log) => log.fieldPersonId === personId)
-    .sort((first, second) => dateSortValue(second.prayedAt) - dateSortValue(first.prayedAt))[0]?.prayedAt ?? null;
-}
-
 function DesktopPrayerActionButton({
   children,
   disabled = false,
@@ -23357,23 +21705,6 @@ function DesktopPrayerStatusPill({ children }: { children: ReactNode }) {
   );
 }
 
-function DesktopPrayerTableRow({
-  children,
-  gridTemplateColumns,
-}: {
-  children: ReactNode;
-  gridTemplateColumns: string;
-}) {
-  return (
-    <div
-      className="grid items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-[#F8FBFF]"
-      style={{ gridTemplateColumns }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function DesktopPrayerTableButtonRow({
   ariaLabel,
   children,
@@ -23395,24 +21726,6 @@ function DesktopPrayerTableButtonRow({
     >
       {children}
     </button>
-  );
-}
-
-function DesktopPrayerEmptyTableState({
-  action,
-  text,
-  title,
-}: {
-  action?: ReactNode;
-  text: string;
-  title: string;
-}) {
-  return (
-    <div className="px-4 py-8 text-center">
-      <p className="text-sm font-black text-[#0F172A]">{title}</p>
-      <p className="mx-auto mt-1 max-w-xl text-sm leading-6 text-[#64748B]">{text}</p>
-      {action ? <div className="mt-4">{action}</div> : null}
-    </div>
   );
 }
 
@@ -23444,21 +21757,6 @@ function DesktopPrayerTable({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function DesktopPrayerActionGroup({
-  onAnswered,
-  onPrayNow,
-}: {
-  onAnswered: () => void;
-  onPrayNow: () => void;
-}) {
-  return (
-    <div className="flex justify-end gap-2">
-      <DesktopPrayerActionButton onClick={onPrayNow}>Pray Now</DesktopPrayerActionButton>
-      <DesktopPrayerActionButton onClick={onAnswered}>Answered</DesktopPrayerActionButton>
     </div>
   );
 }
@@ -23711,23 +22009,6 @@ function prayerRequestSharedWith(request: Pick<DosAppPrayerRequest, "personTags"
   return prayerRequestVisibilityDisplay(request.visibility);
 }
 
-function mapDosPrayerRequestToLocal(request: DosAppPrayerRequest): LocalPrayerRequest {
-  return {
-    action: "View",
-    answered: request.answeredAt ? formatDate(request.answeredAt) : "—",
-    category: request.category ?? "Other",
-    created: formatDate(request.createdAt),
-    id: request.id,
-    personTags: request.personTags,
-    request: request.request,
-    sharedWith: prayerRequestSharedWith(request),
-    status: prayerRequestStatusDisplay(request.status),
-    title: request.title,
-    view: request.status === "answered" ? "answered" : "praying",
-    visibility: request.visibility,
-  };
-}
-
 function isPrayerRequestActive(request: DosAppPrayerRequest) {
   return request.status !== "answered" && request.status !== "archived";
 }
@@ -23789,41 +22070,6 @@ function prayerRequestPeopleLabel(request: DosAppPrayerRequest, personById: Map<
   const remainingCount = people.length - 2;
 
   return remainingCount > 0 ? `${visibleNames} +${remainingCount}` : visibleNames;
-}
-
-function prayerRequestListContext({
-  groupById,
-  meetingById,
-  personById,
-  request,
-}: {
-  groupById: Map<string, DosAppGroup>;
-  meetingById: Map<string, DosAppMeeting>;
-  personById: Map<string, DosAppPerson>;
-  request: DosAppPrayerRequest;
-}) {
-  const groupName = request.groupId ? groupById.get(request.groupId)?.name ?? "Group" : "";
-  const peopleLabel = prayerRequestPeopleLabel(request, personById);
-
-  if (groupName && peopleLabel) {
-    return `${groupName} · ${peopleLabel}`;
-  }
-
-  if (groupName) {
-    return groupName;
-  }
-
-  if (peopleLabel) {
-    return peopleLabel;
-  }
-
-  if (request.meetingId) {
-    const meeting = meetingById.get(request.meetingId);
-
-    return meeting ? meetingActivityTitle(meeting) : "Linked meeting";
-  }
-
-  return request.category ?? "Prayer request";
 }
 
 function prayerRequestColumnContext({
@@ -26851,7 +25097,6 @@ function PersonFormContent({
 
   const composedName = joinNameParts(nameDraft.firstName, nameDraft.lastName);
 
-
   function runDuplicateCheck(emailValue: string) {
     if (isEditMode || duplicateDismissed || !people?.length) {
       return;
@@ -27707,47 +25952,6 @@ function MyRecordEntryActions({
       {onNew ? <button className="inline-flex min-h-8 items-center rounded-full bg-[#2563EB] px-3 text-xs font-bold text-white" onClick={onNew} type="button">+ New</button> : null}
       {canDelete && onDelete ? <button className="inline-flex min-h-8 items-center rounded-full border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700" onClick={onDelete} type="button">Delete</button> : null}
     </div>
-  );
-}
-
-function MyRecordSummaryCard({
-  date,
-  emptyText = "Nothing logged yet.",
-  icon,
-  onEdit,
-  onNew,
-  onView,
-  preview,
-  title,
-  value,
-}: {
-  date?: string | null;
-  emptyText?: string;
-  icon: ReactNode;
-  onEdit?: () => void;
-  onNew: () => void;
-  onView?: () => void;
-  preview?: string | null;
-  title: string;
-  value?: string | null;
-}) {
-  const hasEntry = Boolean(value || preview || date);
-
-  return (
-    <article className="min-w-0 rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_28px_rgba(37,99,235,0.04)]">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{title}</p>
-          <p className="mt-2 truncate text-base font-black text-[#0F172A]">{value || "No entry yet"}</p>
-          <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-[#475569]">{hasEntry ? preview || "No preview yet." : emptyText}</p>
-          {date ? <p className="mt-3 text-xs font-bold text-[#64748B]">{formatDate(date)}</p> : null}
-        </div>
-      </div>
-      <MyRecordEntryActions onEdit={hasEntry ? onEdit : undefined} onNew={onNew} onView={hasEntry ? onView : undefined} />
-    </article>
   );
 }
 
@@ -30305,51 +28509,6 @@ function MyRecordPropheticOverviewCard({
   );
 }
 
-function MyRecordFaithfulnessCard({
-  ebenezers,
-  onAdd,
-  onViewAll,
-}: {
-  ebenezers: MyRecordEbenezer[];
-  onAdd: () => void;
-  onViewAll: () => void;
-}) {
-  return (
-    <MyRecordOverviewCard
-      action={ebenezers.length ? (
-        <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">
-          View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-        </button>
-      ) : null}
-      className="min-h-[220px]"
-      icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-      title="God's Faithfulness"
-    >
-      <p className="text-sm leading-6 text-[#0F172A]">Cultivate an attitude of gratitude by remembering God's faithfulness.</p>
-      {ebenezers.length ? (
-        <div className="mt-5 grid gap-3">
-          <p className="text-xs font-black text-[#15803D]">Recent Ebenezers</p>
-          {ebenezers.slice(0, 3).map((item) => (
-            <div className="flex min-w-0 items-center gap-3" key={item.id}>
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#15803D]" aria-hidden="true" strokeWidth={2} />
-              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[#0F172A]">{item.title}</p>
-              <p className="shrink-0 text-xs font-semibold text-[#64748B]">{formatDate(item.date)}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-5">
-          <SectionEmptyState
-            action={<CompactButton icon="add" onClick={onAdd}>Add Ebenezer</CompactButton>}
-            text="No Ebenezers recorded yet."
-            title="God's Faithfulness"
-          />
-        </div>
-      )}
-    </MyRecordOverviewCard>
-  );
-}
-
 function MyRecordSnapshotTile({
   icon,
   label,
@@ -30697,10 +28856,6 @@ function myRecordTagEquals(tag: string, expected: string) {
 
 function myRecordJournalHasPrayerTag(entry: DosAppUserJournalEntry) {
   return entry.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
-}
-
-function myRecordJournalReflectionCount(entries: DosAppUserJournalEntry[]) {
-  return entries.filter((entry) => Boolean(entry.notes?.trim() || entry.lordHighlight?.trim() || entry.prayerResponse?.trim())).length;
 }
 
 function buildMyRecordEncounterTags(entry: DosAppUserJournalEntry) {
@@ -32475,70 +30630,6 @@ function FruitEventIcon({ event }: { event: DosAppFruitEvent }) {
   return <Flame className={iconClass} aria-hidden="true" strokeWidth={1.8} />;
 }
 
-function FruitEventRow({ event, onClick }: { event: DosAppFruitEvent; onClick?: () => void }) {
-  const content = (
-    <div className="flex gap-3">
-      <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]">
-        <FruitEventIcon event={event} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-base font-bold leading-6 text-[#0F172A]">{event.title || event.fruitType}</h3>
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B]">{formatDate(event.date)}</p>
-        <p className="mt-1 text-sm leading-6 text-[#64748B]">{fruitNarrative(event)}</p>
-      </div>
-      {onClick ? <ChevronRight className="mt-3 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} /> : null}
-    </div>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        className="relative w-full min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 text-left shadow-[0_8px_22px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF] active:scale-[0.99]"
-        onClick={onClick}
-        type="button"
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
-      {content}
-    </article>
-  );
-}
-
-function LeaderReflectionRow({ reflection }: { reflection: DosAppLeaderReflection }) {
-  return (
-    <article className="flex min-w-0 gap-3 rounded-[20px] border border-[#DCEBFF] bg-[#F8FAFC] p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.04)]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        <StickyNote className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 text-sm font-bold leading-5 text-[#0F172A]">{reflection.whatHappened || reflection.privateNotes || "Leader Reflection"}</p>
-          {reflection.followUpNeeded ? (
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              Follow Up
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-1 text-xs text-[#64748B]">{formatDate(reflection.createdAt)}</p>
-        {reflection.prayerNeeds ? <p className="mt-2 text-sm leading-6 text-[#0F172A]">Prayer: {reflection.prayerNeeds}</p> : null}
-        {reflection.nextStep ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#0F172A]">Next Steps: {reflection.nextStep}</p> : null}
-        {reflection.observedFruit.length ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {reflection.observedFruit.map((fruit) => (
-              <span className="rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748B]" key={fruit}>{fruit}</span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
 function quickReviewAnswerLabel(value: string | null | undefined) {
   switch (value) {
     case "yes":
@@ -32794,162 +30885,8 @@ function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void;
   );
 }
 
-function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
-  const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
-
-  if (!flow) {
-    return null;
-  }
-
-  const selectedActions = responseAsStringArray(meeting.conversationResponses.followUpActions);
-  const selectedActionLabels = (flow.followUpActions ?? [])
-    .filter((action) => selectedActions.includes(action.id))
-    .map((action) => action.label);
-
-  return (
-    <DetailCard title={flow.title}>
-      {flow.sections.map((section) => (
-        <div className="grid gap-2" key={section.id}>
-          {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {section.title}
-            </p>
-          ) : null}
-          {section.questions.map((question) => (
-            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={question.id}>
-              <p className="text-sm leading-5 text-[#0F172A]">{question.label}</p>
-              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#64748B]">
-                {questionResponseLabel(question, meeting.conversationResponses[question.id])}
-              </span>
-            </div>
-          ))}
-        </div>
-      ))}
-      {selectedActionLabels.length ? (
-        <div className="rounded-2xl bg-[#F1F5F9] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            Follow-up
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {selectedActionLabels.map((label) => (
-              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]" key={label}>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </DetailCard>
-  );
-}
-
 function supportingAttendeeSubRoleLabel(value: DosSupportingAttendeeSubRole | null) {
   return supportingAttendeeSubRoleOptions.find((option) => option.value === value)?.label ?? null;
-}
-
-function EventPeopleRoleGroup({
-  people,
-  title,
-  tone = "blue",
-}: {
-  people: Array<{ displayName: string; id: string; supportingSubRole?: DosSupportingAttendeeSubRole | null }>;
-  title: string;
-  tone?: "amber" | "blue" | "slate";
-}) {
-  if (!people.length) {
-    return null;
-  }
-
-  const toneClassName = tone === "amber"
-    ? "border-[#F2C94C] bg-[#FFFBEB] text-[#92400E]"
-    : tone === "slate"
-      ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#475569]"
-      : "border-[#BFDBFE] bg-[#EBF2FF] text-[#1D4ED8]";
-
-  return (
-    <div className="grid gap-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{title}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {people.map((person) => {
-          const subRoleLabel = supportingAttendeeSubRoleLabel(person.supportingSubRole ?? null);
-
-          return (
-            <span className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-xs font-bold ${toneClassName}`} key={person.id}>
-              <span className="truncate">{person.displayName}</span>
-              {subRoleLabel ? <span className="ml-1 shrink-0 opacity-75">· {subRoleLabel}</span> : null}
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function MeetingPeopleDetailCard({ meeting, people }: { meeting: DosAppMeeting; people: DosAppPerson[] }) {
-  const fallbackParticipants = resolveDosMeetingParticipantNames({
-    fieldPersonIds: meeting.fieldPersonIds,
-    participantNames: meeting.participantNames,
-    people,
-  }).map((name, index) => ({
-    displayName: name,
-    id: `${meeting.id}-participant-${index}-${name}`,
-  }));
-  const participants = meeting.participants.length
-    ? meeting.participants.map((participant) => ({
-      displayName: participant.displayName,
-      id: participant.id,
-      personId: participant.fieldPersonId,
-    }))
-    : fallbackParticipants.map((participant) => ({ ...participant, personId: null }));
-  const rowsById = new Map<string, { displayName: string; id: string; roles: string[] }>();
-  const addRow = (id: string, displayName: string, role: string) => {
-    const existingRow = rowsById.get(id);
-
-    if (existingRow) {
-      if (!existingRow.roles.includes(role)) {
-        existingRow.roles.push(role);
-      }
-
-      return;
-    }
-
-    rowsById.set(id, { displayName, id, roles: [role] });
-  };
-
-  meeting.ministryTeam.forEach((person) => {
-    addRow(person.fieldPersonId ?? person.teamMemberId ?? person.userId ?? person.id, person.displayName, "Ministry Team");
-  });
-  participants.forEach((person) => {
-    addRow(person.personId ?? person.id, person.displayName, "Participant");
-  });
-  meeting.supportingAttendees.forEach((person) => {
-    const subRoleLabel = supportingAttendeeSubRoleLabel(person.supportingSubRole ?? null);
-    addRow(person.fieldPersonId ?? person.id, person.displayName, subRoleLabel ? `Support: ${subRoleLabel}` : "Support");
-  });
-
-  if (meeting.recorder) {
-    addRow(meeting.recorder.userId ?? meeting.recorder.teamMemberId ?? meeting.recorder.id, meeting.recorder.displayName, "Recorder");
-  }
-  const rows = Array.from(rowsById.values());
-
-  if (!rows.length) {
-    return null;
-  }
-
-  return (
-    <DetailCard title="Who was there">
-      <div className="grid gap-2">
-        {rows.map((row) => (
-          <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5" key={row.id}>
-            <span className="min-w-0 truncate text-sm font-bold text-[#0F172A]">{row.displayName}</span>
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold text-[#1D4ED8]">
-              {row.roles.join(" / ")}
-            </span>
-          </div>
-        ))}
-      </div>
-    </DetailCard>
-  );
 }
 
 function DetailRow({
@@ -32995,29 +30932,6 @@ function DetailRow({
     <div className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A]">
       {content}
     </div>
-  );
-}
-
-function TableDetailSummaryCard({ meeting }: { meeting: DosAppMeeting }) {
-  const durationMinutes = optionalDurationMinutesFromDateRange(meeting.scheduledStartAt, meeting.scheduledEndAt);
-  const statusLabel = meeting.meetingStatus === "scheduled" ? "Scheduled" : meeting.meetingStatus === "canceled" ? "Canceled" : "Logged";
-  const roleLabel = tableRoleOptions.find((option) => option.value === meeting.tableRole)?.label ?? "Ministering";
-  const flowLabel = meeting.meetingStatus === "scheduled"
-    ? statusLabel
-    : meeting.conversationFlowKey !== "none"
-      ? conversationFlowLabel(meeting.conversationFlowKey)
-      : null;
-
-  return (
-    <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Summary">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Date" value={meeting.meetingStatus === "scheduled" ? formatMeetingTimeRange(meeting) : formatDate(meeting.date)} />
-        <DetailRow icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Type" value={meetingActivityTitle(meeting)} />
-        <DetailRow icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Duration" value={formatDurationLabel(durationMinutes)} />
-        <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Role" value={roleLabel} />
-        {flowLabel ? <DetailRow icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={meeting.meetingStatus === "scheduled" ? "Status" : "Conversation Flow"} value={flowLabel} /> : null}
-      </div>
-    </DetailCard>
   );
 }
 
@@ -33520,43 +31434,6 @@ function DesktopNavigation({
   );
 }
 
-function ContactActionRow({
-  actions,
-  icon,
-  label,
-  primaryHref,
-  value,
-}: {
-  actions?: Array<{ href: string; label: string }>;
-  icon: ReactNode;
-  label: string;
-  primaryHref: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#0F172A]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8] ring-1 ring-[#BFDBFE]">{icon}</span>
-      <a className="min-w-0 flex-1 transition-colors hover:text-[#1D4ED8]" href={primaryHref}>
-        <span className="block text-[10px] font-bold uppercase tracking-[0.13em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-0.5 block truncate leading-5 text-[#0F172A]">{value}</span>
-      </a>
-      {actions?.length ? (
-        <span className="flex shrink-0 gap-1.5 max-[350px]:gap-1">
-          {actions.map((action) => (
-            <a
-              className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE] max-[350px]:px-2.5"
-              href={action.href}
-              key={action.label}
-            >
-              {action.label}
-            </a>
-          ))}
-        </span>
-      ) : <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.8} />}
-    </div>
-  );
-}
-
 function CircleLayerList({
   empty,
   hiddenCount = 0,
@@ -33873,18 +31750,6 @@ function PrayerRequestCard({
         </div>
       ) : null}
     </article>
-  );
-}
-
-function AnsweredPrayerCard({
-  answeredAt,
-  reminder,
-}: {
-  answeredAt: string;
-  reminder: DosAppRelationshipReminder;
-}) {
-  return (
-    <PrayerRequestCard answered reminder={{ ...reminder, reminderDate: answeredAt }} />
   );
 }
 
@@ -34563,35 +32428,6 @@ function PDSectionHeading({
   );
 }
 
-function PDSection({
-  action,
-  children,
-  title,
-}: {
-  action?: ReactNode;
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="grid gap-2.5">
-      <PDSectionHeading action={action} title={title} />
-      {children}
-    </section>
-  );
-}
-
-function PDList({ children }: { children: ReactNode }) {
-  return (
-    <div className="divide-y divide-[#EDEFF2] overflow-hidden rounded-[16px] border border-dos-rule bg-white">
-      {children}
-    </div>
-  );
-}
-
-function PDEmptyRow({ text }: { text: string }) {
-  return <p className="px-4 py-3.5 text-[13.5px] leading-[1.5] text-dos-eyebrow">{text}</p>;
-}
-
 function PDPill({
   children,
   tone = "blue",
@@ -34827,23 +32663,6 @@ function relationalExcerpt(text: string | null | undefined, firstName: string, m
     .map((sentence) => relationalCopy(sentence, firstName))
     .join(" ")
     .trim();
-}
-
-function HistoryRow({ entry }: { entry: PersonHistoryEntry }) {
-  return (
-    <PDRow
-      description={(
-        <>
-          <span className="mr-1.5 text-[10px] font-bold uppercase tracking-[0.09em] text-dos-eyebrow">{historyEntryKindLabel(entry.kind)}</span>
-          {entry.description}
-        </>
-      )}
-      icon={historyEntryIcon(entry.kind)}
-      meta={formatDate(entry.date)}
-      onClick={entry.onClick}
-      title={entry.title}
-    />
-  );
 }
 
 /* Person V2 detail surfaces.
@@ -37227,88 +35046,6 @@ function MeetingNotesEditorSheet({
 
 function ReflectionDetailValue({ value }: { value: string }) {
   return <span className="whitespace-pre-line">{value}</span>;
-}
-
-function GrowthReflectionDetailCard({ meeting }: { meeting: DosAppMeeting }) {
-  const reflection = meeting.growthReflection;
-
-  if (!meetingHasGrowthReflection(meeting)) {
-    return null;
-  }
-
-  return (
-    <DetailCard icon={<BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Growth Reflection">
-      {reflection.whatGodTaught ? (
-        <DetailRow
-          icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="What God Taught"
-          value={<ReflectionDetailValue value={reflection.whatGodTaught} />}
-        />
-      ) : null}
-      {reflection.scriptures ? (
-        <DetailRow
-          icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Scriptures"
-          value={<ReflectionDetailValue value={reflection.scriptures} />}
-        />
-      ) : null}
-      {reflection.actionStep ? (
-        <DetailRow
-          icon={<ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Action"
-          value={<ReflectionDetailValue value={reflection.actionStep} />}
-        />
-      ) : null}
-      {reflection.mentorAssignment ? (
-        <DetailRow
-          icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Assignment"
-          value={<ReflectionDetailValue value={reflection.mentorAssignment} />}
-        />
-      ) : null}
-      {reflection.followUpNeeded ? (
-        <DetailRow
-          icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Follow-Up"
-          value="Needed"
-        />
-      ) : null}
-    </DetailCard>
-  );
-}
-
-function PlanningReflectionDetailCard({ meeting }: { meeting: DosAppMeeting }) {
-  const reflection = meeting.planningReflection;
-
-  if (!meetingHasPlanningReflection(meeting)) {
-    return null;
-  }
-
-  return (
-    <DetailCard icon={<CalendarDays className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />} title="Planning Notes">
-      {reflection.decisions ? (
-        <DetailRow
-          icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Decisions"
-          value={<ReflectionDetailValue value={reflection.decisions} />}
-        />
-      ) : null}
-      {reflection.actionItems ? (
-        <DetailRow
-          icon={<ArrowRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Action Items"
-          value={<ReflectionDetailValue value={reflection.actionItems} />}
-        />
-      ) : null}
-      {reflection.followUp ? (
-        <DetailRow
-          icon={<Bell className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />}
-          label="Follow-Up"
-          value={<ReflectionDetailValue value={reflection.followUp} />}
-        />
-      ) : null}
-    </DetailCard>
-  );
 }
 
 function MeetingDetailOverlay({
