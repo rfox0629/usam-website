@@ -19,7 +19,7 @@ Docs and evidence only (no further code beyond USA-229 and USA-225). The batch's
 - `dos-groups` ✓, `dos-legacy-group-assignment` ✓, `dos-group-member-portal` ✓, `dos-participant-preview-parity` ✓, `dos-guided-resources` ✓, `dos-resource-assignments` ✓ — all inside `npm run test:dos`, green on every Phase 6 PR.
 
 ## Screenshots
-`./screenshots/usa-228/` — mobile journey overview (top / end) opened from a Person's Continue, and the Group detail end (USA-229 header and eyebrows applied). Groups list and detail top captures are in `../screenshots/usa-229/`.
+`./screenshots/usa-228/` — the leader journey progress sheet (top / end) opened from a Person's Continue (the participant-facing `GuidedJourneyUi` sits behind "Preview Participant View" and is untouched), and the Group detail end (USA-229 header and eyebrows applied). Groups list and detail top captures are in `../screenshots/usa-229/`.
 
 ## Rollback
 Nothing to roll back beyond USA-229 / USA-225.
