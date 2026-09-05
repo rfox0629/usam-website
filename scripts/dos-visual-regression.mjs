@@ -35,12 +35,15 @@ const viewports = {
   desktop: { width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 };
 
-async function clickButton(page, name, exact = true) {
-  const locator = page.getByRole("button", { name, exact }).first();
+async function clickRole(page, role, name, exact = true) {
+  const locator = page.getByRole(role, { name, exact }).first();
 
   await locator.waitFor({ state: "visible", timeout: 8_000 });
   await locator.click();
 }
+
+const clickButton = (page, name, exact = true) => clickRole(page, "button", name, exact);
+const clickTab = (page, name) => clickRole(page, "tab", name);
 
 /* Each scene: which viewport, how to reach it. Keep this list short and
    representative; the goal is to catch an accidental change to a shared
@@ -49,6 +52,7 @@ const scenes = [
   { name: "home", viewport: "mobile", go: async (page) => {} },
   { name: "meetings", viewport: "mobile", go: async (page) => clickButton(page, "Meetings") },
   { name: "more", viewport: "mobile", go: async (page) => clickButton(page, "More") },
+  { name: "meetings-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, "Meetings"); await clickTab(page, "Timeline"); } },
   {
     name: "person-record",
     viewport: "mobile",

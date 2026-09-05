@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Button } from "@/src/components/dos/ui";
+import { Button, EmptyState as DosEmptyState, Eyebrow, IconTile, PillRail, Row, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -1607,6 +1607,27 @@ function formatShortDate(value: string | null | undefined) {
     timeZone: displayTimeZoneForValue(value),
   }).format(date);
 }
+
+/* USA-218 timeline "when" line: `Wed, Sep 2`, in the DOS display time zone. */
+function formatWeekdayShortDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return "No date";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: displayTimeZoneForValue(value),
+    weekday: "short",
+  }).format(date);
+}
+
+const meetingsViewOptions: ReadonlyArray<PillRailOption<"calendar" | "timeline">> = [
+  { label: "Calendar", value: "calendar" },
+  { label: "Timeline", value: "timeline" },
+];
 
 function formatTime(value: string | null) {
   const date = parseDisplayDate(value);
@@ -16181,6 +16202,79 @@ function MobileSectionSearch({
   );
 }
 
+/* USA-218 (spec §5.2): logged meetings only, reverse-chronological, month
+   groups with a count in the eyebrow, search shared with the calendar, no
+   filters and no status pills (everything here is logged by definition).
+   Every row opens the meeting record. */
+function MeetingsTimeline({
+  groups,
+  onOpenMeeting,
+  people,
+}: {
+  groups: Array<{ key: string; label: string; meetings: DosAppMeeting[] }>;
+  onOpenMeeting: (meetingId: string) => void;
+  people: DosAppPerson[];
+}) {
+  if (!groups.length) {
+    return <DosEmptyState>Logged meetings will appear here after conversations are complete.</DosEmptyState>;
+  }
+
+  return (
+    <section aria-label="Meetings timeline" className="min-w-0">
+      {groups.map((group) => (
+        <div key={group.key}>
+          <Eyebrow count={`${group.meetings.length} logged`}>{group.label}</Eyebrow>
+          {group.meetings.map((meeting) => {
+            const duration = formatLoggedTime(tableDurationMinutes(meeting));
+            const time = formatTime(meeting.date);
+            const meta = [meetingActivityTitle(meeting), duration === "—" ? null : duration].filter(Boolean).join(" · ");
+
+            return (
+              <Row
+                chevron
+                key={meeting.id}
+                leading={<IconTile><Icon name="meetings" size={18} /></IconTile>}
+                onClick={() => onOpenMeeting(meeting.id)}
+                primary={`${formatWeekdayShortDate(meeting.date)}${time ? ` · ${time}` : ""}`}
+                secondary={`${meetingDisplayTitle(meeting, people)} · ${meta}`}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/* USA-218 (spec §5.1): the one-line colour key beneath the grid, listing only
+   the kinds present in the visible items, with the tones the dots already use. */
+function calendarKindLabel(kind: MeetingCalendarItemKind) {
+  return { anniversary: "Anniversary", birthday: "Birthday", follow_up: "Reminder", google: "Google Calendar", meeting: "Meeting", prayer: "Prayer" }[kind];
+}
+
+function CalendarKey({ items }: { items: MeetingCalendarItem[] }) {
+  const kinds = Array.from(new Set(items.map((item) => item.kind)));
+
+  if (!kinds.length) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Calendar key" className="flex flex-wrap gap-x-4 gap-y-1 border-t border-dos-line px-3 py-2.5">
+      {kinds.map((kind) => {
+        const tone = calendarItemTone(kind);
+
+        return (
+          <span className="inline-flex items-center gap-1.5 text-dos-meta text-dos-secondary" key={kind}>
+            <span aria-hidden="true" className={`h-2 w-2 rounded-dos-3 ${tone.dot}`} />
+            {calendarKindLabel(kind)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function RecentlyLoggedMeetings({
   meetings,
   onOpenMeeting,
@@ -19823,6 +19917,7 @@ function MeetingCalendarView({
   people,
   recentlyCompletedMeetings,
   savingCalendarSourceId,
+  showRecentlyLogged = true,
   selectedDateKey,
   viewMode,
   onViewModeChange,
@@ -19855,6 +19950,8 @@ function MeetingCalendarView({
   people: DosAppPerson[];
   recentlyCompletedMeetings: DosAppMeeting[];
   savingCalendarSourceId: string | null;
+  /** USA-218: the calendar view shows nothing beneath the grid but its key; history lives in the Timeline. */
+  showRecentlyLogged?: boolean;
   selectedDateKey: string;
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
@@ -20214,6 +20311,7 @@ function MeetingCalendarView({
             </div>
           </div>
         )}
+	        <CalendarKey items={filteredItems} />
 	        {isDayAgendaOpen ? (
 	          <CalendarDayAgenda
 	            date={selectedDate}
@@ -20229,11 +20327,13 @@ function MeetingCalendarView({
 	        ) : null}
 	      </div>
 
-      <RecentlyLoggedMeetings
-        meetings={recentlyCompletedMeetings}
-        onOpenMeeting={onOpenMeeting}
-        people={people}
-      />
+      {showRecentlyLogged ? (
+        <RecentlyLoggedMeetings
+          meetings={recentlyCompletedMeetings}
+          onOpenMeeting={onOpenMeeting}
+          people={people}
+        />
+      ) : null}
     </section>
   );
 }
@@ -37701,6 +37801,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [libraryResourceView, setLibraryResourceView] = useState<LibraryResourceViewState>(null);
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
+  /* USA-218 (spec §5.1/5.2): Calendar and Timeline are mutually exclusive views. */
+  const [meetingsView, setMeetingsView] = useState<"calendar" | "timeline">("calendar");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
@@ -38293,6 +38395,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))
       .slice(0, 4)
   ), [loggedMeetings, people, tableQuery]);
+  /* USA-218 (spec §5.2): the Timeline is every logged meeting -- never a
+     scheduled or unlogged one -- newest first, filtered by the same search as
+     the calendar, grouped by month with a count. */
+  const meetingsTimelineGroups = useMemo(() => {
+    const logged = filteredTables(loggedMeetings, people, tableQuery)
+      .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
+    const groups: Array<{ key: string; label: string; meetings: DosAppMeeting[] }> = [];
+
+    for (const meeting of logged) {
+      const parsed = parseDisplayDate(meeting.date);
+      const key = parsed ? `${parsed.getFullYear()}-${parsed.getMonth()}` : "undated";
+      const label = parsed
+        ? new Intl.DateTimeFormat("en-US", { month: "long", timeZone: displayTimeZoneForValue(meeting.date), year: "numeric" }).format(parsed)
+        : "Undated";
+      const group = groups[groups.length - 1];
+
+      if (group && group.key === key) {
+        group.meetings.push(meeting);
+      } else {
+        groups.push({ key, label, meetings: [meeting] });
+      }
+    }
+
+    return groups;
+  }, [loggedMeetings, people, tableQuery]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = ministryLoggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -43933,6 +44060,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search meetings, people, or context"
                   query={tableQuery}
                 />
+                <PillRail
+                  edgeInset={4}
+                  label="Meetings view"
+                  onChange={setMeetingsView}
+                  options={meetingsViewOptions}
+                  value={meetingsView}
+                />
                 <MobileSectionSearch
                   alwaysVisible
                   ariaLabel="Search meetings"
@@ -43942,7 +44076,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search meetings"
                   query={tableQuery}
                 />
-                <div className="min-w-0 max-w-full">
+                {meetingsView === "timeline" ? (
+                  <MeetingsTimeline groups={meetingsTimelineGroups} onOpenMeeting={openMeetingDetail} people={people} />
+                ) : null}
+                <div className={`min-w-0 max-w-full ${meetingsView === "timeline" ? "hidden" : ""}`}>
                   <MeetingCalendarView
                     calendarConnection={calendarConnection}
                     calendarDisplaySettings={calendarDisplaySettings}
@@ -43971,6 +44108,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     recentlyCompletedMeetings={recentlyCompletedMeetings}
                     savingCalendarSourceId={savingCalendarSourceId}
                     selectedDateKey={selectedMeetingsCalendarDate}
+                    showRecentlyLogged={false}
                     viewMode={meetingCalendarViewMode}
                     onViewModeChange={setMeetingCalendarViewMode}
                     workspaceId={data.workspace.id}

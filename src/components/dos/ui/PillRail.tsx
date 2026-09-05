@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type PillRailOption<T extends string> = { label: string; value: T };
 
@@ -15,11 +15,14 @@ export type PillRailOption<T extends string> = { label: string; value: T };
  * 36px visual) and the rail is a `tablist`.
  */
 export function PillRail<T extends string>({
+  edgeInset = 5,
   label,
   onChange,
   options,
   value,
 }: {
+  /** The page's horizontal padding the rail bleeds into so pills scroll edge to edge: 5 (20px, spec pages) or 4 (16px, the current app container). */
+  edgeInset?: 4 | 5;
   /** Accessible name for the rail, e.g. "My Record sections". */
   label: string;
   onChange: (value: T) => void;
@@ -27,6 +30,10 @@ export function PillRail<T extends string>({
   value: T;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
+  /* The right-edge fade only means something when the rail actually scrolls;
+     on a short rail (two or three pills) it would paint a white strip over
+     whatever ground the page has. */
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   useEffect(() => {
     const active = railRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -34,11 +41,33 @@ export function PillRail<T extends string>({
     active?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [value]);
 
+  useEffect(() => {
+    const rail = railRef.current;
+
+    if (!rail) {
+      return undefined;
+    }
+
+    const measure = () => setHasOverflow(rail.scrollWidth > rail.clientWidth + 1);
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(rail);
+
+    return () => observer.disconnect();
+  }, [options.length]);
+
   return (
-    <div className="relative -mx-5">
+    <div className={`relative ${edgeInset === 4 ? "-mx-4" : "-mx-5"}`}>
       <div
         aria-label={label}
-        className="flex gap-1.5 overflow-x-auto px-5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={`flex gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${edgeInset === 4 ? "px-4" : "px-5"}`}
         ref={railRef}
         role="tablist"
       >
@@ -66,7 +95,7 @@ export function PillRail<T extends string>({
           );
         })}
       </div>
-      <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent" />
+      {hasOverflow ? <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent" /> : null}
     </div>
   );
 }
