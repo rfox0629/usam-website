@@ -5504,12 +5504,12 @@ function CatalogResourceRow({
         <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
           {canAssignResource ? (
             <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 bg-dos-blue px-3.5 text-dos-label text-white transition-colors hover:bg-dos-blueText"
               onClick={() => onAssign?.(resource)}
               type="button"
             >
               <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
+              Assign to someone
             </button>
           ) : null}
           {onOpenGuidedResource ? (
@@ -5637,12 +5637,12 @@ function CatalogResourceRow({
         <div className="mt-3 flex flex-wrap gap-2 pl-12">
           {canAssignResource ? (
             <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 bg-dos-blue px-3.5 text-dos-label text-white transition-colors hover:bg-dos-blueText"
               onClick={() => onAssign?.(resource)}
               type="button"
             >
               <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
+              Assign to someone
             </button>
           ) : null}
           <a
@@ -34147,16 +34147,15 @@ function LibraryResourceBackButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      aria-label={`Back to ${label}`}
+      className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
       onClick={onClick}
       type="button"
     >
-      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-      {label}
+      <ArrowLeft aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
     </button>
   );
 }
-
 function LibraryResourceShell({
   action,
   backLabel,
@@ -34179,19 +34178,16 @@ function LibraryResourceShell({
   return (
     <div className="grid gap-4">
       <LibraryResourceBackButton label={backLabel} onClick={onBack} />
-      <header className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.055)] md:p-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
-            {icon}
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {typeLabel}
-            </span>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-[#0F172A] md:text-3xl">{title}</h1>
-            <p className="mt-2 text-sm leading-6 text-[#475569]">{description}</p>
-            {action ? <div className="mt-3">{action}</div> : null}
-          </div>
+      {/* Resource header (spec §5.9): blue eyebrow for the type, the display
+          title, the description in ink, then the primary action. The type
+          colour lives only in the icon tile. */}
+      <header className="flex min-w-0 items-start gap-3">
+        <IconTile>{icon}</IconTile>
+        <div className="min-w-0 flex-1">
+          <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{typeLabel}</p>
+          <h1 className="mt-1.5 text-dos-display text-dos-primary">{title}</h1>
+          <p className="mt-2 text-dos-body text-dos-primary">{description}</p>
+          {action ? <div className="mt-3">{action}</div> : null}
         </div>
       </header>
       {children}
@@ -34212,23 +34208,23 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
           const sectionDescription = "description" in section ? section.description : null;
 
           return (
-            <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.id}>
-              <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
-              {sectionDescription ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{sectionDescription}</p> : null}
+            <section className="rounded-dos-2 border border-dos-line bg-white p-4" key={section.id}>
+              <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
+              {sectionDescription ? <p className="mt-1 text-dos-body text-dos-secondary">{sectionDescription}</p> : null}
               <div className="mt-4 grid gap-3">
                 {section.questions.map((question, index) => {
                   const prompt = "prompt" in question ? question.prompt : null;
                   const scriptureRefs = "scriptureRefs" in question ? question.scriptureRefs : null;
 
                   return (
-                    <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={question.id}>
+                    <article className="rounded-dos-1 border border-dos-line bg-dos-surface2 p-3" key={question.id}>
                       <div className="flex min-w-0 gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-xs font-black text-[#1D4ED8]">{index + 1}</span>
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-dos-blue50 text-dos-pill text-dos-blueText">{index + 1}</span>
                         <div className="min-w-0">
-                          <h3 className="text-sm font-black leading-6 text-[#0F172A]">{question.label}</h3>
-                          {prompt ? <p className="mt-1 text-sm leading-6 text-[#475569]">{prompt}</p> : null}
+                          <h3 className="text-dos-body font-semibold text-dos-primary">{question.label}</h3>
+                          {prompt ? <p className="mt-1 text-dos-body text-dos-body">{prompt}</p> : null}
                           {scriptureRefs?.length ? (
-                            <p className="mt-2 text-xs font-bold leading-5 text-[#1D4ED8]">{scriptureRefs.join(" · ")}</p>
+                            <p className="mt-2 text-dos-meta font-semibold text-dos-blueText">{scriptureRefs.join(" · ")}</p>
                           ) : null}
                         </div>
                       </div>
@@ -34240,7 +34236,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
           );
         })}
         {gospelInvitation ? (
-          <section className="rounded-[24px] border border-[#DCEBFF] bg-[#EBF2FF] p-4 text-sm font-bold leading-6 text-[#0F172A]">
+          <section className="rounded-dos-2 border border-dos-line bg-white p-4 text-dos-body font-semibold text-dos-primary">
             {gospelInvitation}
           </section>
         ) : null}
@@ -34251,21 +34247,21 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
   return (
     <div className="grid gap-3">
       {resource.content?.body ? (
-        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-7 text-[#0F172A] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <section className="rounded-dos-2 border border-dos-line bg-white p-4 text-dos-body leading-7 text-dos-primary">
           {resource.content.body}
         </section>
       ) : null}
       {sections.length ? sections.map((section) => (
-        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.title}>
-          <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
-          {section.body ? <p className="mt-2 text-sm leading-7 text-[#475569]">{section.body}</p> : null}
-          {section.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{section.scriptureReferences.join(" · ")}</p> : null}
+        <section className="rounded-dos-2 border border-dos-line bg-white p-4" key={section.title}>
+          <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
+          {section.body ? <p className="mt-2 text-dos-body leading-7 text-dos-body">{section.body}</p> : null}
+          {section.scriptureReferences?.length ? <p className="mt-2 text-dos-meta font-semibold text-dos-blueText">{section.scriptureReferences.join(" · ")}</p> : null}
           {section.items?.length ? (
             <div className="mt-3 grid gap-2">
               {section.items.map((item) => (
                 <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item.title}>
                   <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
-                  {item.body ? <p className="mt-1 text-sm leading-6 text-[#475569]">{item.body}</p> : null}
+                  {item.body ? <p className="mt-1 text-dos-body text-dos-body">{item.body}</p> : null}
                   {item.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{item.scriptureReferences.join(" · ")}</p> : null}
                 </article>
               ))}
@@ -34478,7 +34474,7 @@ function LibraryCatalogResourcePage({
   const { IconComponent } = catalogResourceIcon(resource.icon);
   const pdfHref = resource.downloadPath ?? (resource.path.endsWith(".pdf") ? resource.path : null);
   const action = pdfHref && resource.type !== "assessment" ? (
-    <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" download href={pdfHref}>
+    <a className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100" download href={pdfHref}>
       <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
       Download PDF
     </a>

@@ -56,6 +56,7 @@ const scenes = [
   { name: "groups", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Groups/, false); } },
   { name: "fruit", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Fruit/, false); } },
   { name: "library", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); } },
+  { name: "library-resource", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); await page.getByText("Kitchen Table Gospel", { exact: true }).first().click(); } },
   { name: "prayer", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Prayer/, false); } },
   { name: "my-record", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /My Record/, false); } },
   { name: "meetings-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, "Meetings"); await clickTab(page, "Timeline"); } },
