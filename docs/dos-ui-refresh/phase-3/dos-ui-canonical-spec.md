@@ -1,6 +1,6 @@
 # DOS UI and behavior specification (canonical)
 
-**Status:** v1.0 — published 2026-09-04 for Phase 3 (USA-196 / USA-207). Consolidates already-approved direction (Linear project description, V10 reference on USA-219) with verified production behavior (Phases 0–2). It introduces no new product decisions; everything not already approved is listed in §9 as unresolved.
+**Status:** v1.1 — published 2026-09-04 for Phase 3 (USA-196 / USA-207); v1.1 corrections from the Phase 5 pilot review (USA-224) are marked *[v1.1]* inline and listed in `decision-log.md` §D. Consolidates already-approved direction (Linear project description, V10 reference on USA-219) with verified production behavior (Phases 0–2). It introduces no new product decisions; everything not already approved is listed in §9 as unresolved.
 **Scope:** the authenticated DOS application (`/dos/[slug]`, rendered by `app/dos/app/DosMvpAppClient.tsx`) on mobile and desktop. Portal, setup, onboarding, public token forms, the public group portal, `/admin`, and the marketing sites receive tokens only where they already share components.
 **Governing principle:** simple at the surface, powerful underneath.
 
@@ -100,7 +100,7 @@ Home keeps its existing wash (`#EAF2FF` → white → peach) and the `#2563EB` v
 | **PageHeader** | Back (when pushed) · title `text-dos-display` · optional trailing control (Settings, Edit, View). Replaces the "← More" pill on My Record, Prayer, Library (V10 "standard header"). Home keeps its hero. | `TabHero`, `TabPageHeader`, `MoreBackButton` |
 | **Eyebrow** | `text-dos-eyebrow` in `dos.blue`, optional right-aligned count or action; grey variant for sub-groups. Never a bordered card. | ad-hoc |
 | **Button** | 48px, `r3`, 15/600. Variants: `primary` (blue fill, white text), `tinted` (blue-50 fill, blue text; also the "tinted until valid" sticky state), `secondary` (white, hairline), `text` (blue text), `danger-text` (red text, never filled). Renames `AppButton` tones (`black` → `primary`). | `AppButton`, `CompactButton` |
-| **PillRail** | Scrollable pill tab rail: 36px pills, 15px padding, 6px gap, 13.5/600 ink on white with hairline; active = blue fill, white text; native horizontal scroll, no arrows, right-edge fade, selected pill scrolls into view, offset retained on return; 44px hit area; `role=tablist`. Used by My Record, Field circles, Prayer tabs, Person tabs, Meetings Calendar/Timeline. | `MyRecordTabBar`, `PeopleCircleTabs`, `SegmentedTabs` |
+| **PillRail** | Scrollable pill tab rail: 36px pills, 15px padding, 6px gap, 13.5/600 ink on white with hairline; active = blue fill, white text; native horizontal scroll, no arrows, right-edge fade **only while the rail overflows** *[v1.1: a short rail painted a white strip over tinted grounds]*, selected pill scrolls into view, offset retained on return; 44px hit area; `role=tablist`; `edgeInset` 4 or 5 matches the container padding. Used by My Record, Field circles, Prayer tabs, Person tabs, Meetings Calendar/Timeline. | `src/components/dos/ui/PillRail.tsx` (adopted by Meetings, Person, My Record in Phase 5); legacy `PeopleCircleTabs`, `SegmentedTabs` until Phase 6 |
 | **Segmented** | For 2–3 exclusive views inside content (month/week): `surface-2` track, 4px padding, `r3`. | `SegmentedTabs` |
 | **Chip** | 36px, `r3`, hairline, 13.5/600; selected = blue-50 fill + blue border; removable variant with ✕; truncates at ~190px with count in the helper. | duration pills, attendee search |
 | **Field** | 48px (44 paired), `r1`, hairline, 15px text; label above (`text-dos-label`, ink-2), optional "optional" hint right-aligned, helper line below (`text-dos-meta`); required = red asterisk after the label; error = red border + 2px `redBg` ring + helper replaced by a red instruction. Focus = 2px blue ring. | `DosFormField`, `FieldLabel` |
@@ -140,9 +140,9 @@ Home keeps its existing wash (`#EAF2FF` → white → peach) and the `#2563EB` v
 Each pattern names the route/component it changes and the behavior it must preserve. Anything marked *(unresolved: …)* keeps production behavior until §9 is answered.
 
 ### 5.1 Meetings — Calendar (USA-218) · `MeetingCalendarView`, `activeTab=meetings`
-- PageHeader "Meetings" + PillRail **Calendar | Timeline** (new); search stays on Timeline only *(unresolved: whether search also stays on Calendar; production has it on the calendar screen)*.
+- PageHeader "Meetings" + PillRail **Calendar | Timeline** (new); the search field is shared by both views *[v1.1: implemented that way in USA-218; production had it on the calendar screen]* *(unresolved: whether search should leave Calendar)*.
 - Needs logging: compact rows with inline **Log**; whole section (eyebrow included) removed when empty; then the month title moves up.
-- Month grid: 52px cells, 15px numerals, 5px dots (logged grey, needs-logging amber, scheduled blue), prev/next; **nothing below the grid except the one-line colour key**. Recently Logged moves to Timeline. Month/week Segmented stays as today's "View" control *(unresolved: keep or drop week view; V10 draws month only — keep)*.
+- Month grid: 52px cells, 15px numerals, 5px dots (logged grey, needs-logging amber, scheduled blue), prev/next; **nothing below the grid except the one-line colour key** (the key lists only the kinds present: Meeting, Reminder, Prayer, Google Calendar, Birthday, Anniversary *[v1.1]*). Recently Logged moves to Timeline. Month/week Segmented stays as today's "View" control *(unresolved: keep or drop week view; V10 draws month only — keep)*.
 - Tap a day → BottomSheet with weekday/date, prev/next-day, ✕; rows use Row with status pill; needs-logging rows carry Log; "Schedule on <date>" button *(unresolved: empty-day sheet; date pre-fill — recommended yes)*.
 - Extended FAB "Schedule". Google calendar sources, add-to-DOS, meeting detail overlay, options, notes unchanged.
 
@@ -165,16 +165,16 @@ Each pattern names the route/component it changes and the behavior it must prese
 - Retire the stale `dos-field-contact-form` assertion in this PR and replace it with one matching this layout (S7).
 
 ### 5.6 Person Record — Overview (USA-222) · `PersonDetailOverlay`
-- Header: back, Edit; centred avatar, name, `Relationship · My N · set by you`; PillRail Overview | Timeline | Details.
-- Two cards: **Last meeting** (date · context · duration · one metadata line, chevron → logged meeting) and **Upcoming** (date · time · context · place, chevron → scheduled meeting; when empty shows a Schedule button inside the card — V10 recommended; *unresolved only if Ryan prefers hiding*). No "Last Time" section.
-- Eyebrow **Right now**, then grey sub-eyebrows: Journey (Continue as the one filled action), Accountability (+ Add), Prayer ("N open · M answered", + Add), Fruit (no + Add), Follow-up (Quick review status, Testimony request) *(unresolved: "Follow-up" vs production "Feedback" label — keep "Feedback" until decided)*. Lists cap at 3 with "View all N". Every row opens its record.
+- Header: back, Edit; centred avatar, name, `Relationship · My N` *[v1.1: "set by you" is not approved copy and has no data distinction, so it is not rendered]*; PillRail Overview | Timeline | Details.
+- Two cards: **Last meeting** (date · context · duration · one metadata line, chevron → logged meeting) and **Next meeting** *[v1.1: production label kept; V10 called it "Upcoming" and §6 approves no rename — PL-7]* (date · time · context, chevron → scheduled meeting; when empty shows a Schedule button inside the card — V10 recommended; *unresolved only if Ryan prefers hiding*; a place line waits on a displayed place field). No "Last Time" section.
+- Eyebrow **Right now** on one white surface *[v1.1: the person page keeps its atmosphere ground, so the band is a single surface with hairline-separated groups, never nested cards]*, then grey sub-eyebrows: Journey (Continue as the one filled action; hidden when empty), Accountability (+ Add), Prayer ("N open · M answered" when counts exist, + Add), Fruit (no + Add), Feedback (Request) *(unresolved: "Follow-up" vs production "Feedback" label — keep "Feedback" until decided)*, then Groups and the mobile-only Reminder / Group gathering groups *[v1.1: production content kept, B8]*. Lists cap at 3 with "View all N" (in place, or the existing record surface where one exists). Every row opens its record.
 - Timeline and Details tabs: tokens and Row only; structure unchanged.
 
 ### 5.7 Apps / More launcher (USA-223) · `AppsCatalogSection`, `activeMoreAppView=apps`
-- PageHeader "More" (label per B2). Real scroll container with 134px clearance. Two-column tiles 104px tall, 12px padding, 30px icon circle, name 15/600 single line with ellipsis, one 12.5px description line truncated, 20px count/status pill capped at 100px. Group headings and production order unchanged. **The "+" FAB is kept** (production shortcut menu) until D12 is decided.
+- PageHeader "More" (label per B2), mobile only *[v1.1: desktop has no launcher screen; the sidebar is the launcher and the More grid mounts only on the mobile tab]*. Real scroll container with 134px clearance. Two-column tiles 104px tall, 12px padding, 30px icon circle, name 15/600 single line with ellipsis, one 12.5px description line truncated, 20px count/status pill capped at 100px. Group headings and production order unchanged. **The "+" FAB is kept** (production shortcut menu) until D12 is decided.
 
 ### 5.8 My Record (USA-220) · `MyRecordWorkspace`
-- PageHeader "My Record" with 🔒 Private chip *(replaces the Share button visually; sharing scope and per-entry sharing unchanged)* and Settings; PillRail Overview | Walk | Growth | Purpose | Faithfulness (treatment A).
+- PageHeader "My Record" with 🔒 Private chip *(replaces the Share button visually; the chip opens the same sharing panel; sharing scope and per-entry sharing unchanged)* *[v1.1: no Settings control — none exists in production and none is invented]*; PillRail Overview | Walk | Growth | Purpose | Faithfulness (treatment A).
 - **Overview = Current + Recent entries + one View all.** "Today at a glance", stats, Explore, and bottom arrows are removed. *(D10: the "Current" rule. Until answered, Current shows exactly the items production already treats as active — in-progress assessments and active self-assigned resources/journeys where the data exists — or is hidden when empty. No new aggregate is invented.)*
 - Walk: headed groups Time with God (Log now, latest 3, "All N entries"), Scripture *(unresolved storage — show derived passages from recent entries as today's data allows, else omit)*, Prayer (Log prayer time), Reflections (Write). FAB "Time with God".
 - Growth: Active (journey / assessment with Continue), Mentors (+ Add), Mentor meetings (next or Schedule, last two), Assessments, Books (+ Add). FAB opens a three-row BottomSheet (Mentor meeting, Assessment result, Book) *(list must match existing add flows)*.
@@ -222,7 +222,7 @@ Home (mobile), Dashboard (desktop), bottom navigation (structure, icons, label),
 - No horizontal page scroll at 320, 375, 390, 430, 768, 1024, 1440; tables scroll inside their own container.
 - Safe areas per §4.5; keyboard-open: focused field scrolls above the sticky primary.
 - `prefers-reduced-motion`: no tab-settle translation or sheet slide.
-- Screenshots at 390×844 @2x and 1440×900 (plus 320 for the pill rail) are part of every PR.
+- Screenshots at 390×844 @2x and 1440×900 (plus 320 for the pill rail) are part of every PR. *[v1.1]* The visual baseline suite is clock-sensitive for date-relative demo rows (recorded in USA-218); until the demo clock is frozen (Phase 7 candidate), a dashboard-only diff whose pixels are due-date buckets is drift, not a regression, and is re-recorded with that note.
 
 ## 9. Unresolved product decisions (do not guess; production behavior stands)
 

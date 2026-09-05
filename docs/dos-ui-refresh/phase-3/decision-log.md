@@ -43,3 +43,24 @@ Presented for Ryan's review. The specification consolidates approved direction a
 ## C. Gate statement
 
 The specification only consolidates already-approved direction and verified existing behavior, records its sources and precedence (§0), and lists every unresolved decision (§9). Under the project's autonomous-execution instruction, the Phase 3 gate is therefore satisfied on publication, and Phase 4 (shared foundation) proceeds. Any answer above that changes data meaning, navigation, or an approved workflow will be applied as a spec revision (v1.1) before the affected Phase 5/6 issue starts.
+
+## D. Pilot review (USA-224) — corrections applied as spec v1.1
+
+All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on the v1.0 spec. The findings below are the only places the spec needed correcting; each is marked *[v1.1]* in the spec.
+
+| # | Finding | Correction | Where |
+| --- | --- | --- | --- |
+| P-1 | The PillRail's right-edge fade painted a white strip on short rails over tinted grounds. | Fade renders only while the rail overflows; `edgeInset` documented. | §3 PillRail |
+| P-2 | V10 shows search on the Timeline only; production had it on the calendar, and B8 forbids removing it. | Search is shared by both Meetings views; leaving Calendar stays unresolved (PL-6). | §5.1 |
+| P-3 | The calendar key would list six kinds even when absent. | Key lists only the kinds present. | §5.1 |
+| P-4 | "set by you" on the Person header is not approved copy and has no data distinction. | Line reads `Relationship · My N`. | §5.6 |
+| P-5 | "Upcoming" card label is a rename §6 does not approve. | "Next meeting" kept; recorded under PL-7. | §5.6 |
+| P-6 | "Eyebrow never a bordered card" conflicted with the Person page's atmosphere ground. | The Right now band is one white surface with hairline groups; never nested cards. Groups / Reminder / Group gathering kept as further groups (B8). | §5.6 |
+| P-7 | Desktop has no More launcher screen. | PageHeader "More" is mobile only. | §5.7 |
+| P-8 | Spec named a My Record Settings control that does not exist. | None rendered. | §5.8 |
+| P-9 | The visual suite drifted on the Dashboard at a UTC day boundary (demo due-date buckets). | Drift rule recorded; freezing the demo clock is a Phase 7 candidate. | §8 |
+
+**Retired regression assertions (deliberate, recorded in their PRs):** `dos-field-contact-form` (USA-217, rewritten to the shipped USA-168 form); `dos-my-record` KPI-card assertions (USA-220, replaced by Current + Recent assertions).
+
+**Gate statement (USA-193).** Previews exist for every pilot PR; workflows were exercised on the demo route and are unchanged in data and handlers; the corrections above are applied before USA-225. Ryan's review of the previews remains a Founder Review checkpoint on each issue; under the autonomous-execution instruction Phase 6 proceeds on stacked branches.
+
