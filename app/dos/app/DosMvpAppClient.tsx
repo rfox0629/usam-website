@@ -7875,7 +7875,7 @@ function GroupDetailWorkspaceV2({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Groups" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
         <div className="grid gap-3 p-3.5 sm:grid-cols-[224px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
@@ -9420,7 +9420,7 @@ function GroupDetailWorkspace({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Groups" />
       <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
         <div className="grid min-w-0 gap-3 p-4 text-center md:gap-4 md:p-5 md:text-left xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
@@ -15185,7 +15185,7 @@ function DesktopOrganizationsView({
 }) {
   return (
     <div className="hidden md:block">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Organizations" />
+      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Organizations" />
       <div className="mt-4">
         <TabHero
           icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -44408,9 +44408,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "fruit" ? (
                   <>
-                    <div className="flex min-h-9 items-center">
-                      <MoreBackButton onClick={() => setMoreAppView(null)} />
+                    <div className="md:hidden">
+                      <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Fruit" />
                     </div>
+                    <div className="hidden md:block">
                     <TabHero
                       icon={<Icon name="fruit" size={20} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44418,6 +44419,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       subtitle="Activity, visible outcomes, and fruit forms."
                       title="Recognize the fruit."
                     />
+                    </div>
                     <SegmentedTabs onChange={setFruitView} options={fruitViewTabs} value={fruitView} />
 
                     {fruitView === "activity" ? (
@@ -44561,9 +44563,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     )
                   ) : (
                     <>
-                      <div className="flex min-h-9 items-center">
-                        <MoreBackButton onClick={() => setMoreAppView(null)} />
+                      <div className="md:hidden">
+                        <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Library" />
                       </div>
+                      <div className="hidden md:block">
                       <TabHero
                         icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                         onScriptureClick={openScriptureQuickView}
@@ -44571,6 +44574,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         subtitle="Resources for conversations, follow up, and discipleship."
                         title="Grow in truth."
                       />
+                      </div>
                       <div className="space-y-6">
                         <LibrarySection title="Table Teachings">
                           <CatalogResourceList
@@ -44640,7 +44644,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === "in_season" ? (
                   <>
                     {/* TODO: Later rename the internal in_season app key after migration/route plan. */}
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
                     <TabHero
                       icon={<Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44658,7 +44662,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "missionary_profile" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
                     <TabHero
                       icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44687,7 +44691,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "prayer_team" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
                     <TabHero
                       icon={<HeartHandshake className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44705,7 +44709,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "support_team" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
                     <TabHero
                       icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44723,7 +44727,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "stewardship" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
                     <TabHero
                       icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44738,7 +44742,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {/* TODO: Fold Table Flow into Table later as Guided Flow templates. */}
                 {activeMoreAppView === "table_flow" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
                     <TabHero
                       icon={<GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44752,7 +44756,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "reports" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
                     <TabHero
                       icon={<Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -44770,7 +44774,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === "organizations" ? (
                   <>
                     <div className="space-y-5 md:hidden">
-                      <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
+                      <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
                       <TabHero
                         icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                         onScriptureClick={openScriptureQuickView}

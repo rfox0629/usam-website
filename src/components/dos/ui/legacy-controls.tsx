@@ -58,7 +58,7 @@ export function CompactButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE] max-[350px]:px-2 max-[350px]:text-[11px]"
+      className="inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue max-[350px]:px-2"
       onClick={onClick}
       type="button"
     >
@@ -70,17 +70,27 @@ export function CompactButton({
 
 export function TabPageHeader({
   action,
+  back,
   title,
 }: {
+  /** Trailing control (right-aligned in the control row). */
   action?: ReactNode;
+  /** The back control (left of the control row), usually <MoreBackButton />. */
+  back?: ReactNode;
   title: string;
 }) {
+  /* USA-229: the canonical PageHeader grammar (spec §3): a 44px control row
+     with the back control on the left and any trailing control on the right,
+     then the title in the display size. */
   return (
-    <header className="flex min-h-10 items-center justify-between gap-3">
-      <h1 className="text-[18px] font-black uppercase tracking-[0.12em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-        {title}
-      </h1>
-      {action ? <div className="shrink-0">{action}</div> : null}
+    <header className="pt-2">
+      {back || action ? (
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          {back ?? <span />}
+          {action ? <div className="ml-auto shrink-0">{action}</div> : null}
+        </div>
+      ) : null}
+      <h1 className={`text-dos-display text-dos-primary ${back || action ? "mt-1" : ""}`}>{title}</h1>
     </header>
   );
 }
@@ -92,25 +102,26 @@ export function SectionHeading({
   action?: ReactNode;
   title: string;
 }) {
+  /* USA-229: the canonical section eyebrow (spec §3 Eyebrow, blue). */
   return (
-    <div className="mb-3 flex items-center justify-between gap-4">
-      <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-        {title}
-      </h2>
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <h2 className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{title}</h2>
       {action}
     </div>
   );
 }
 
-export function MoreBackButton({ onClick }: { onClick: () => void }) {
+export function MoreBackButton({ label = "Back to More", onClick }: { label?: string; onClick: () => void }) {
+  /* USA-229: the "← More" pill is retired (spec §10); this is the canonical
+     44px back control. */
   return (
     <button
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      aria-label={label}
+      className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
       onClick={onClick}
       type="button"
     >
-      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-      More
+      <ArrowLeft aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
     </button>
   );
 }
