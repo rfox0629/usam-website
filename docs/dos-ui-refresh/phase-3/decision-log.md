@@ -65,4 +65,3 @@ All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on t
 **Retired regression assertions (deliberate, recorded in their PRs):** `dos-field-contact-form` (USA-217, rewritten to the shipped USA-168 form); `dos-my-record` KPI-card assertions (USA-220, replaced by Current + Recent assertions).
 
 **Gate statement (USA-193).** Previews exist for every pilot PR; workflows were exercised on the demo route and are unchanged in data and handlers; the corrections above are applied before USA-225. Ryan's review of the previews remains a Founder Review checkpoint on each issue; under the autonomous-execution instruction Phase 6 proceeds on stacked branches.
-
