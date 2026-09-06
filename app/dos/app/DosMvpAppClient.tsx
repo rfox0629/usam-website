@@ -14266,12 +14266,59 @@ function CommitmentSubjectSheet({
 }
 
 function AccountabilityChoiceClass(active: boolean) {
-  return `min-h-10 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+  return `min-h-11 rounded-full border px-4 text-[13px] font-bold transition-colors ${
     active
       ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
       : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
   }`;
 }
+
+type AccountabilityTrackingMode = "regular" | "number" | "complete";
+type AccountabilityCategory = "scripture" | "prayer" | "discipleship" | "relationships" | "health" | "other";
+
+type AccountabilitySuggestion = {
+  label: string;
+  targetKind?: DosCommitmentTargetKind;
+  trackingMode: AccountabilityTrackingMode;
+};
+
+const accountabilityCategories: ReadonlyArray<{ label: string; value: AccountabilityCategory }> = [
+  { label: "Scripture", value: "scripture" },
+  { label: "Prayer", value: "prayer" },
+  { label: "Discipleship", value: "discipleship" },
+  { label: "Relationships", value: "relationships" },
+  { label: "Health", value: "health" },
+  { label: "Other", value: "other" },
+];
+
+const accountabilitySuggestions: Record<AccountabilityCategory, ReadonlyArray<AccountabilitySuggestion>> = {
+  scripture: [
+    { label: "Read Scripture regularly", trackingMode: "regular" },
+    { label: "Complete a reading plan", trackingMode: "complete" },
+    { label: "Read a number of chapters", targetKind: "count", trackingMode: "number" },
+  ],
+  prayer: [
+    { label: "Pray regularly", trackingMode: "regular" },
+    { label: "Pray with someone regularly", trackingMode: "regular" },
+    { label: "Complete a prayer commitment", trackingMode: "complete" },
+  ],
+  discipleship: [
+    { label: "Meet with someone regularly", trackingMode: "regular" },
+    { label: "Disciple a number of people", targetKind: "people", trackingMode: "number" },
+    { label: "Complete a discipleship resource", trackingMode: "complete" },
+  ],
+  relationships: [
+    { label: "Connect with someone regularly", trackingMode: "regular" },
+    { label: "Have an important conversation", trackingMode: "complete" },
+    { label: "Follow up with someone", trackingMode: "complete" },
+  ],
+  health: [
+    { label: "Build a healthy rhythm", trackingMode: "regular" },
+    { label: "Reach a health goal", targetKind: "count", trackingMode: "number" },
+    { label: "Complete a health appointment", trackingMode: "complete" },
+  ],
+  other: [],
+};
 
 function AccountabilityFields({
   autoFocus = false,
@@ -14295,54 +14342,127 @@ function AccountabilityFields({
   namePrefix: string;
 }) {
   const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency);
-  /* What the number counts is asked, never inferred. "Begin discipling 3 men"
-     and "Read the Bible 3 times this week" are the same number, and only one
-     of them should ever ask who is being discipled. The question appears only
-     once a real number is there, so a goal without a target is untouched. */
+  const [title, setTitle] = useState(defaultTitle);
   const [targetCount, setTargetCount] = useState(defaultTargetCount);
   const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>(defaultTargetKind);
-  const [isMeasurable, setIsMeasurable] = useState(Boolean(defaultTargetCount));
-  const isOneTime = frequency === "one_time";
+  const [selectedCategory, setSelectedCategory] = useState<AccountabilityCategory | null>(null);
+  const [trackingMode, setTrackingMode] = useState<AccountabilityTrackingMode>(() => (
+    defaultFrequency !== "one_time" ? "regular" : defaultTargetCount ? "number" : "complete"
+  ));
   const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
     { label: "Weekly", value: "weekly" },
     { label: "Every 2 weeks", value: "every_two_weeks" },
     { label: "Monthly", value: "monthly" },
   ];
+  const trackingOptions: ReadonlyArray<{ description: string; label: string; value: AccountabilityTrackingMode }> = [
+    { description: "Weekly, every 2 weeks, or monthly", label: "Check in regularly", value: "regular" },
+    { description: "Track people or times toward a goal", label: "Reach a number", value: "number" },
+    { description: "Finish something by a due date", label: "Complete once", value: "complete" },
+  ];
+
+  function chooseTrackingMode(nextMode: AccountabilityTrackingMode) {
+    setTrackingMode(nextMode);
+    setFrequency(nextMode === "regular" ? (frequency === "one_time" ? "weekly" : frequency) : "one_time");
+  }
+
+  function chooseSuggestion(suggestion: AccountabilitySuggestion) {
+    setTitle(suggestion.label);
+    if (suggestion.targetKind) {
+      setTargetKind(suggestion.targetKind);
+    }
+    chooseTrackingMode(suggestion.trackingMode);
+  }
+
+  const suggestions = selectedCategory ? accountabilitySuggestions[selectedCategory] : [];
 
   return (
     <>
       <input name={`${namePrefix}_frequency`} type="hidden" value={frequency} />
-      <DosFormField label="What are you holding them accountable to?">
+      {lockType ? null : (
+        <DosFormField helper="Choose one for helpful examples, or write your own goal." label="Start with an area">
+          <div className="mt-2 flex flex-wrap gap-2">
+            {accountabilityCategories.map((category) => {
+              const active = selectedCategory === category.value;
+
+              return (
+                <button
+                  aria-pressed={active}
+                  className={AccountabilityChoiceClass(active)}
+                  key={category.value}
+                  onClick={() => setSelectedCategory(category.value)}
+                  type="button"
+                >
+                  {category.label}
+                </button>
+              );
+            })}
+          </div>
+        </DosFormField>
+      )}
+      {!lockType && suggestions.length ? (
+        <DosFormField label="Suggested goals">
+          <div className="mt-2 grid gap-2">
+            {suggestions.map((suggestion) => {
+              const active = title === suggestion.label && trackingMode === suggestion.trackingMode;
+
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`min-h-11 rounded-[18px] border px-4 py-2.5 text-left text-[13.5px] font-semibold transition-colors ${
+                    active
+                      ? "border-dos-blue bg-dos-selected text-dos-blue-deep"
+                      : "border-dos-line bg-white text-dos-primary hover:border-dos-blue-soft hover:bg-dos-band"
+                  }`}
+                  key={suggestion.label}
+                  onClick={() => chooseSuggestion(suggestion)}
+                  type="button"
+                >
+                  {suggestion.label}
+                </button>
+              );
+            })}
+          </div>
+        </DosFormField>
+      ) : null}
+      <DosFormField label="What are they working toward?">
         <input
           autoFocus={autoFocus}
           className={FieldInputClass(false)}
-          defaultValue={defaultTitle}
           name={`${namePrefix}_title`}
-          placeholder="Read John 4-6, Quiet time with God..."
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Write a clear goal..."
+          value={title}
         />
       </DosFormField>
       {lockType ? null : (
-      <DosFormField label="Type">
-        <div className="flex flex-wrap gap-2">
-          {[{ label: "Recurring", oneTime: false }, { label: "One-time", oneTime: true }].map((option) => {
-            const active = option.oneTime === isOneTime;
+      <DosFormField label="How will you track it?">
+        <div className="mt-2 grid gap-2">
+          {trackingOptions.map((option) => {
+            const active = option.value === trackingMode;
 
             return (
               <button
                 aria-pressed={active}
-                className={AccountabilityChoiceClass(active)}
-                key={option.label}
-                onClick={() => setFrequency(option.oneTime ? "one_time" : "weekly")}
+                className={`flex min-h-[52px] items-center justify-between gap-3 rounded-[18px] border px-4 py-2.5 text-left transition-colors ${
+                  active
+                    ? "border-dos-blue bg-dos-selected text-dos-blue-deep"
+                    : "border-dos-line bg-white text-dos-primary hover:border-dos-blue-soft hover:bg-dos-band"
+                }`}
+                key={option.value}
+                onClick={() => chooseTrackingMode(option.value)}
                 type="button"
               >
-                {option.label}
+                <span className="text-[13.5px] font-bold">{option.label}</span>
+                <span className={`text-right text-[11.5px] font-medium ${active ? "text-dos-blue-deep" : "text-dos-secondary"}`}>
+                  {option.description}
+                </span>
               </button>
             );
           })}
         </div>
       </DosFormField>
       )}
-      {isOneTime ? null : (
+      {trackingMode === "regular" ? (
         <DosFormField label="Frequency">
           <div className="flex flex-wrap gap-2">
             {recurringOptions.map((option) => {
@@ -14362,23 +14482,33 @@ function AccountabilityFields({
             })}
           </div>
         </DosFormField>
-      )}
-      {/* A measurable goal is asked about, not hidden behind a field nobody
-          reads. The question is plain English and answered No by default, so
-          "Read John 4-6 by Friday" is still two taps and a date. */}
-      {isOneTime ? (
+      ) : null}
+      {trackingMode === "number" ? (
         <>
-          <DosFormField label="Is there a number you're working toward?">
-            <div className="flex flex-wrap gap-2">
-              {[{ label: "No", measurable: false }, { label: "Yes", measurable: true }].map((option) => {
-                const active = option.measurable === isMeasurable;
+          <DosFormField label="Target">
+            <input
+              className={FieldInputClass(false)}
+              inputMode="numeric"
+              min="1"
+              name={`${namePrefix}_target_count`}
+              onChange={(event) => setTargetCount(event.target.value)}
+              placeholder="e.g. 3"
+              type="number"
+              value={targetCount}
+            />
+          </DosFormField>
+          <input name={`${namePrefix}_target_kind`} type="hidden" value={targetKind} />
+          <DosFormField label="Count">
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[{ label: "People", value: "people" as const }, { label: "Times", value: "count" as const }].map((option) => {
+                const active = targetKind === option.value;
 
                 return (
                   <button
                     aria-pressed={active}
                     className={AccountabilityChoiceClass(active)}
-                    key={option.label}
-                    onClick={() => setIsMeasurable(option.measurable)}
+                    key={option.value}
+                    onClick={() => setTargetKind(option.value)}
                     type="button"
                   >
                     {option.label}
@@ -14387,50 +14517,11 @@ function AccountabilityFields({
               })}
             </div>
           </DosFormField>
-          {isMeasurable ? (
-            <>
-              <DosFormField label="How many?">
-                <input
-                  className={FieldInputClass(false)}
-                  inputMode="numeric"
-                  min="1"
-                  name={`${namePrefix}_target_count`}
-                  onChange={(event) => setTargetCount(event.target.value)}
-                  placeholder="e.g. 3"
-                  type="number"
-                  value={targetCount}
-                />
-              </DosFormField>
-              <input name={`${namePrefix}_target_kind`} type="hidden" value={targetKind} />
-              <DosFormField label="What are you counting?">
-                <div className="flex flex-wrap gap-2">
-                  {/* "Times" reads plainly to a leader; the stored value stays
-                      the generic "count", because the next such goal might be
-                      chapters or miles rather than times. */}
-                  {[{ label: "People", value: "people" as const }, { label: "Times", value: "count" as const }].map((option) => {
-                    const active = targetKind === option.value;
-
-                    return (
-                      <button
-                        aria-pressed={active}
-                        className={AccountabilityChoiceClass(active)}
-                        key={option.value}
-                        onClick={() => setTargetKind(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </DosFormField>
-            </>
-          ) : null}
         </>
       ) : null}
       <DosDateInput
         defaultValue={defaultStartDate ?? todayDateValue()}
-        label={isOneTime ? "Due" : "Start"}
+        label={trackingMode === "regular" ? "Start" : "Due"}
         name={`${namePrefix}_date`}
       />
     </>
@@ -14457,20 +14548,20 @@ function AccountabilityScheduleSheet({
       <form className="grid gap-4" onSubmit={onSubmit}>
         <input name="person_id" type="hidden" value={person.id} />
         {schedule ? <input name="id" type="hidden" value={schedule.id} /> : null}
-        {/* Same fields as Log Meeting's inline Accountability, with the Person
-            shown as context because this sheet can be opened on its own. */}
-        <DosFormSection description={person.name} icon="commitment" title="Accountability">
-          <AccountabilityFields
-            autoFocus
-            defaultFrequency={schedule?.frequency ?? "weekly"}
-            defaultStartDate={schedule?.startDate ?? todayCommitmentDateKey()}
-            defaultTitle={schedule?.title ?? ""}
-            namePrefix="accountability"
-          />
-        </DosFormSection>
+        <div className="flex min-h-11 items-center justify-between gap-3 rounded-[18px] border border-dos-line bg-dos-band px-4 py-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-dos-secondary">For</span>
+          <span className="min-w-0 truncate text-[13.5px] font-semibold text-dos-primary">{person.name}</span>
+        </div>
+        <AccountabilityFields
+          defaultFrequency={schedule?.frequency ?? "weekly"}
+          defaultStartDate={schedule?.startDate ?? todayCommitmentDateKey()}
+          defaultTitle={schedule?.title ?? ""}
+          lockType={Boolean(schedule)}
+          namePrefix="accountability"
+        />
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Accountability"}</AppButton>
+          <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save"}</AppButton>
           <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
         </div>
       </form>
