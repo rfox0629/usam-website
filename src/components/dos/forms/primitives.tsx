@@ -152,7 +152,7 @@ export function Stepper({
   const canDecrement = value - step >= min;
 
   return (
-    <div className="inline-flex h-12 items-center rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
+    <div className="flex h-12 w-full items-center rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
       {name ? <input name={name} type="hidden" value={value} /> : null}
       <button
         aria-label={decrementLabel}
@@ -163,7 +163,7 @@ export function Stepper({
       >
         <Minus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
       </button>
-      <span aria-live="polite" className="min-w-[4.5rem] text-center text-dos-body font-semibold text-dos-primary">
+      <span aria-live="polite" className="min-w-0 flex-1 text-center text-dos-body font-semibold text-dos-primary">
         {display}
       </span>
       <button

@@ -51,8 +51,8 @@ export function PageHeader({
 
 /**
  * Section eyebrow: the only uppercase text in DOS. `section` is blue and
- * introduces a page section; `sub` is grey and groups rows inside a section
- * (Person "Right now"). An optional count sits on the right, or an action.
+ * introduces a page section; `sub` is grey and groups rows inside a true
+ * nested section. An optional count sits on the right, or an action.
  */
 export function Eyebrow({
   action,
