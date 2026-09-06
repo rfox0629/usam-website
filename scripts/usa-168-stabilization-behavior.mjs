@@ -725,18 +725,17 @@ await check("People progress is recorded without a Meeting, a Person record, Fru
   assert(sheetBody.includes("Who are they discipling?"), "The people flow must ask who, plainly.");
 });
 
-/* The question that decides all of the above is asked once, in the one
-   canonical form, and only when there is a number to describe. */
-await check("What are you counting is asked only when a target is entered", async () => {
+/* A number goal still records whether progress means people or a generic
+   count, but the form asks directly instead of sending the user through a
+   Yes/No gate about implementation details. */
+await check("A number goal records its unit without an extra Yes or No gate", async () => {
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
   const fieldsStart = client.indexOf("function AccountabilityFields({");
   const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
 
-  assert(fields.includes("What are you counting?"), "The one canonical form asks what the number counts.");
-  /* The gate moved from "a number has been typed" to the user's own Yes, so
-     the question is discoverable rather than hidden behind a field. Progressive
-     disclosure itself is asserted in its own check. */
-  assert(fields.includes("{isMeasurable ? ("), "The counting fields appear only after the user says there is a number.");
+  assert(fields.includes('label="Count"'), "The one canonical form names the unit plainly.");
+  assert(!fields.includes("Is there a number you're working toward?"), "The old Yes/No number gate must stay removed.");
+  assert(fields.includes('trackingMode === "number"'), "Target and unit fields appear only for a number goal.");
   assert(fields.includes('{ label: "People", value: "people" as const }'), "People stores the people kind.");
   assert(fields.includes('{ label: "Times", value: "count" as const }'), "Times reads plainly but stores the generic count kind.");
 
@@ -850,28 +849,24 @@ await check("Add Person sends exactly what the update route reads", async () => 
   assert(route.includes("subjectPersonId === String(commitmentResult.data.person_id)"), "The owner is refused as their own subject.");
 });
 
-/* The measurable question is asked in words, and only after One-time. */
-await check("The number question is progressive, and Recurring never sees it", async () => {
+/* The user picks the way progress works in words they already understand.
+   That one choice reveals only the fields the selected goal needs. */
+await check("Natural tracking choices progressively reveal only relevant fields", async () => {
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
   const fieldsStart = client.indexOf("function AccountabilityFields({");
   const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
 
-  // Recurring is untouched: the whole measurable block sits behind One-time.
-  const measurableStart = fields.indexOf("Is there a number you're working toward?");
-  assert(measurableStart !== -1, "The question must be asked in plain words.");
-  assert(fields.slice(0, measurableStart).lastIndexOf("{isOneTime ? (") !== -1, "The question must only appear for One-time.");
-
-  // Default No, and the counting fields stay hidden until Yes.
-  /* Defaults to No for a new Accountability, and to what the goal already is
-     when the same form is reused to edit one. */
-  assert(fields.includes("useState(Boolean(defaultTargetCount))"), "The answer follows the record, and a new one has no target.");
-  assert(fields.includes('defaultTargetCount = ""'), "A new Accountability starts with no number, so the question answers No.");
-  assert(fields.includes("{isMeasurable ? ("), "How many and What are you counting appear only after Yes.");
-  const revealed = fields.slice(fields.indexOf("{isMeasurable ? ("));
-  assert(revealed.includes("How many?"), "Yes reveals How many.");
-  assert(revealed.includes("What are you counting?"), "Yes reveals what the number counts.");
-  assert(revealed.includes('{ label: "People", value: "people" as const }'), "People is offered.");
-  assert(revealed.includes('{ label: "Times", value: "count" as const }'), "Times is offered.");
+  for (const label of ["Check in regularly", "Reach a number", "Complete once"]) {
+    assert(fields.includes(`label: "${label}"`), `${label} must be offered.`);
+  }
+  assert(fields.includes('trackingMode === "regular"'), "Frequency is revealed only for a regular check-in.");
+  assert(fields.includes('trackingMode === "number"'), "Target and Count are revealed only for a number goal.");
+  assert(fields.includes('label={trackingMode === "regular" ? "Start" : "Due"}'), "Regular rhythms start; finite goals are due.");
+  assert(!fields.includes("Is there a number you're working toward?"), "The form must not ask the removed Yes/No question.");
+  assert(!fields.includes('label="Type"'), "The form must not expose Recurring versus One-time as a technical type.");
+  assert(fields.includes('label="Start with an area"'), "The guided category entry point must remain available.");
+  assert(fields.includes('label="Suggested goals"'), "Selecting an area must provide useful examples.");
+  assert(fields.includes('label="What are they working toward?"'), "The custom goal question must stay clear and person-centered.");
 
   /* No database words in anything the user can actually read. Identifiers and
      form field names are not user-visible and are deliberately not checked;
@@ -880,7 +875,7 @@ await check("The number question is progressive, and Recurring never sees it", a
     ...fields.matchAll(/(?:label|helper|placeholder)="([^"]+)"/g),
     ...fields.matchAll(/label: "([^"]+)"/g),
   ].map((match) => match[1]);
-  assert(visibleText.length >= 8, "The form's visible copy must actually have been found before asserting about it.");
+  assert(visibleText.length >= 10, "The form's visible copy must actually have been found before asserting about it.");
   for (const text of visibleText) {
     assert(!/target_count|target_kind|commitment|schedule|subject/i.test(text), `The form must not say "${text}" to the user.`);
   }
