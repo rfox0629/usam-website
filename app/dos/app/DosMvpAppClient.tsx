@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,8 +20,14 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import { dosAdvancedFeatures, type DosAdvancedFeatureKey } from "@/src/lib/dos/advanced-features";
-import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
+import { Icon, type IconName } from "@/src/components/dos/Icon";
+import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
+import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
+import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
+import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
+import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
+import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
@@ -161,7 +167,6 @@ const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choos
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
 type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
-type IconName = "add" | "apps" | "arrow" | "bell" | "calendar" | "commitment" | "fruit" | "home" | "library" | "log" | "meetings" | "more" | "people" | "prayer" | "search" | "send" | "settings" | "upload";
 
 const moreAppViewValues = new Set<MoreAppView>([
   "apps",
@@ -1096,7 +1101,6 @@ type ImportantReminderMeta = {
   timing: ImportantReminderTiming;
 };
 
-type ButtonTone = "black" | "soft" | "white";
 type CircleFocusView = "my_120" | "seventy" | "three" | "twelve";
 type PeopleCircleView = "all" | CircleFocusView;
 type MeetingCalendarViewMode = "month" | "week";
@@ -1141,6 +1145,13 @@ type GroupActivityItem = {
   title: string;
 };
 type PersonDetailTab = "details" | "history" | "overview";
+/* Person Record views (spec §5.6). Internal values stay stable so the
+   `?person=&tab=` deep links keep working. */
+const personDetailViewOptions: ReadonlyArray<PillRailOption<PersonDetailTab>> = [
+  { label: "Overview", value: "overview" },
+  { label: "Timeline", value: "history" },
+  { label: "Details", value: "details" },
+];
 type CommitmentSheetState =
   | { commitment?: DosAppPersonCommitment | null; kind: "commitment"; personId?: string | null }
   | { commitment: DosAppPersonCommitment; kind: "update" }
@@ -1420,183 +1431,6 @@ type PeopleImportResult = {
   skippedCount: number;
 };
 
-function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
-  const commonProps = {
-    "aria-hidden": true,
-    fill: "none",
-    height: size,
-    stroke: "currentColor",
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    strokeWidth: 1.8,
-    viewBox: "0 0 24 24",
-    width: size,
-  };
-
-  switch (name) {
-    case "add":
-      return (
-        <svg {...commonProps}>
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      );
-    case "arrow":
-      return (
-        <svg {...commonProps}>
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      );
-    case "apps":
-      return (
-        <svg {...commonProps}>
-          <rect height="5.5" rx="1.5" width="5.5" x="4" y="4" />
-          <rect height="5.5" rx="1.5" width="5.5" x="14.5" y="4" />
-          <rect height="5.5" rx="1.5" width="5.5" x="4" y="14.5" />
-          <path d="M17.25 14.5v5.5" />
-          <path d="M14.5 17.25h5.5" />
-        </svg>
-      );
-    case "bell":
-      return (
-        <svg {...commonProps}>
-          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-          <path d="M10 21h4" />
-        </svg>
-      );
-    case "calendar":
-      return (
-        <svg {...commonProps}>
-          <path d="M7 3v3" />
-          <path d="M17 3v3" />
-          <path d="M4 8h16" />
-          <rect height="16" rx="3" width="16" x="4" y="5" />
-        </svg>
-      );
-    case "commitment":
-      return (
-        <svg {...commonProps}>
-          <path d="M9 5h6" />
-          <path d="M9.5 3.5h5a1.5 1.5 0 0 1 1.5 1.5v1H8V5a1.5 1.5 0 0 1 1.5-1.5Z" />
-          <path d="M6 5.5h12a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" />
-          <path d="m8 13 2 2 5-5" />
-        </svg>
-      );
-    case "fruit":
-      return (
-        <svg {...commonProps}>
-          <path d="M12 21V10" />
-          <path d="M12 13.5c-3.7 0-6.2-2.3-7-6.6 4 .1 6.5 2.2 7 6.6Z" />
-          <path d="M12 11.5c.9-3.8 3.4-5.8 7.2-5.9-.4 4.3-3 6.4-7.2 5.9Z" />
-          <path d="M12 18c2.3-.4 4-1.7 5.1-3.9" />
-        </svg>
-      );
-    case "home":
-      return (
-        <svg {...commonProps}>
-          <path d="M4 11.5 12 5l8 6.5" />
-          <path d="M6.5 10.5V20h11v-9.5" />
-          <path d="M10 20v-5h4v5" />
-        </svg>
-      );
-    case "log":
-      return (
-        <svg {...commonProps}>
-          <path d="M8 6h10" />
-          <path d="M8 12h10" />
-          <path d="M8 18h7" />
-          <path d="M4 6h.01" />
-          <path d="M4 12h.01" />
-          <path d="M4 18h.01" />
-        </svg>
-      );
-    case "meetings":
-      return (
-        <svg {...commonProps}>
-          <path d="M7 3v3" />
-          <path d="M17 3v3" />
-          <rect height="16" rx="3" width="18" x="3" y="5" />
-          <path d="M3 9h18" />
-          <circle cx="9" cy="14" r="2" />
-          <path d="M5.8 19c.7-1.6 1.8-2.4 3.2-2.4s2.5.8 3.2 2.4" />
-          <circle cx="15.7" cy="14.4" r="1.5" />
-          <path d="M13.7 18.6c.5-1 1.2-1.5 2.1-1.5.8 0 1.5.4 2 1.3" />
-        </svg>
-      );
-    case "more":
-      return (
-        <svg {...commonProps}>
-          <rect height="6" rx="1.5" width="6" x="4" y="4" />
-          <rect height="6" rx="1.5" width="6" x="14" y="4" />
-          <rect height="6" rx="1.5" width="6" x="4" y="14" />
-          <rect height="6" rx="1.5" width="6" x="14" y="14" />
-        </svg>
-      );
-    case "library":
-      return (
-        <svg {...commonProps}>
-          <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5v-16Z" />
-          <path d="M7 3v16" />
-          <path d="M10 7h5.5" />
-          <path d="M10 10h4" />
-        </svg>
-      );
-    case "people":
-      return (
-        <svg {...commonProps}>
-          <path d="M16 20v-1.5c0-1.7-1.8-3-4-3s-4 1.3-4 3V20" />
-          <circle cx="12" cy="9" r="3" />
-          <path d="M20 20v-1.2c0-1.2-1-2.2-2.5-2.7" />
-          <path d="M17 6.2a2.5 2.5 0 0 1 0 4.6" />
-        </svg>
-      );
-    case "prayer":
-      return (
-        <svg {...commonProps}>
-          <path d="M12 20s-7-4.4-7-10.2A4.2 4.2 0 0 1 12 6a4.2 4.2 0 0 1 7 3.8C19 15.6 12 20 12 20Z" />
-          <path d="M9 11h6" />
-        </svg>
-      );
-    case "search":
-      return (
-        <svg {...commonProps}>
-          <circle cx="11" cy="11" r="6" />
-          <path d="m16 16 4 4" />
-        </svg>
-      );
-    case "send":
-      return (
-        <svg {...commonProps}>
-          <path d="m4 12 16-7-7 16-2-7-7-2Z" />
-          <path d="m13 11-4 4" />
-        </svg>
-      );
-    case "settings":
-      return (
-        <svg {...commonProps}>
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 3v2" />
-          <path d="M12 19v2" />
-          <path d="m4.2 4.2 1.4 1.4" />
-          <path d="m18.4 18.4 1.4 1.4" />
-          <path d="M3 12h2" />
-          <path d="M19 12h2" />
-          <path d="m4.2 19.8 1.4-1.4" />
-          <path d="m18.4 5.6 1.4-1.4" />
-        </svg>
-      );
-    case "upload":
-      return (
-        <svg {...commonProps}>
-          <path d="M12 16V5" />
-          <path d="m8 9 4-4 4 4" />
-          <path d="M5 19h14" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
 
 const displayCalendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -1780,6 +1614,27 @@ function formatShortDate(value: string | null | undefined) {
     timeZone: displayTimeZoneForValue(value),
   }).format(date);
 }
+
+/* USA-218 timeline "when" line: `Wed, Sep 2`, in the DOS display time zone. */
+function formatWeekdayShortDate(value: string | null | undefined) {
+  const date = parseDisplayDate(value ?? null);
+
+  if (!date) {
+    return "No date";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: displayTimeZoneForValue(value),
+    weekday: "short",
+  }).format(date);
+}
+
+const meetingsViewOptions: ReadonlyArray<PillRailOption<"calendar" | "timeline">> = [
+  { label: "Calendar", value: "calendar" },
+  { label: "Timeline", value: "timeline" },
+];
 
 function formatTime(value: string | null) {
   const date = parseDisplayDate(value);
@@ -4651,40 +4506,6 @@ function analyzePeopleImportRows(rows: PeopleImportRow[], existingPeople: DosApp
   return { duplicateRows, invalidRows, readyRows };
 }
 
-function AppButton({
-  children,
-  disabled,
-  icon,
-  onClick,
-  tone = "white",
-  type = "button",
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  icon?: IconName;
-  onClick?: () => void;
-  tone?: ButtonTone;
-  type?: "button" | "submit";
-}) {
-  const toneClass = {
-    black: "bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] hover:brightness-[0.98]",
-    soft: "border border-[#E2E8F0] bg-[#F1F5F9] text-[#0F172A] hover:bg-white",
-    white: "border border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#BFDBFE]",
-  }[tone];
-  const sizeClass = tone === "black" ? "min-h-[54px] text-[15px]" : "min-h-11 text-xs sm:text-sm";
-
-  return (
-    <button
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${sizeClass} ${toneClass}`}
-      disabled={disabled}
-      onClick={onClick}
-      type={type}
-    >
-      {icon ? <Icon name={icon} size={15} /> : null}
-      {children}
-    </button>
-  );
-}
 
 function MeetingActionRow({
   onLogMeeting,
@@ -4715,26 +4536,6 @@ function MeetingActionRow({
   );
 }
 
-function CompactButton({
-  children,
-  icon,
-  onClick,
-}: {
-  children: ReactNode;
-  icon?: IconName;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A] transition-colors hover:border-[#BFDBFE] max-[350px]:px-2 max-[350px]:text-[11px]"
-      onClick={onClick}
-      type="button"
-    >
-      {icon ? <Icon name={icon} size={13} /> : null}
-      <span className="min-w-0 truncate">{children}</span>
-    </button>
-  );
-}
 
 function EmptyState({
   action,
@@ -4754,170 +4555,6 @@ function EmptyState({
   );
 }
 
-function FieldLabel({ children, srOnly = false }: { children: ReactNode; srOnly?: boolean }) {
-  return (
-    <span className={`${srOnly ? "sr-only" : ""} text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]`} style={{ fontFamily: font.rajdhani }}>
-      {children}
-    </span>
-  );
-}
-
-function FieldInputClass(spaced = true) {
-  return `${spaced ? "mt-2 " : ""}min-h-12 w-full rounded-[18px] border border-[#D6E4F7] bg-white px-4 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
-}
-
-// Native selects render OS chrome (grey gradient, platform arrow) that does not
-// belong in DOS. This resets appearance and draws a DOS chevron, keeping the
-// same height, radius, border and focus ring as text inputs.
-function FieldSelectClass(spaced = true) {
-  return `${spaced ? "mt-2 " : ""}min-h-12 w-full cursor-pointer appearance-none rounded-[18px] border border-[#D6E4F7] bg-white bg-[length:18px_18px] bg-[right_0.9rem_center] bg-no-repeat py-2.5 pl-4 pr-11 text-[15px] font-semibold text-dos-primary outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 disabled:cursor-not-allowed disabled:text-dos-disabled bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%235A6473%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6 9 6 6 6-6%22/%3E%3C/svg%3E')]`;
-}
-
-function FieldTextareaClass(spaced = true) {
-  return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
-}
-
-function DosFormSection({
-  children,
-  description,
-  icon,
-  title,
-}: {
-  children: ReactNode;
-  description?: string;
-  icon: IconName;
-  title: string;
-}) {
-  return (
-    <section className="grid gap-3 border-t border-[#EAF2FF] pt-5 first:border-t-0 first:pt-0">
-      <div className="grid gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-            <Icon name={icon} size={16} />
-          </span>
-          <span className="min-w-0 text-sm font-black leading-5 text-[#0F172A]">{title}</span>
-        </div>
-        {description ? <p className="text-xs leading-5 text-[#64748B]">{description}</p> : null}
-      </div>
-      <div className="grid gap-3">
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function DosFormField({
-  children,
-  className = "",
-  helper,
-  label,
-}: {
-  children: ReactNode;
-  className?: string;
-  helper?: string;
-  label?: ReactNode;
-}) {
-  return (
-    <label className={`block min-w-0 ${className}`}>
-      {label ? <FieldLabel>{label}</FieldLabel> : null}
-      {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
-      {children}
-    </label>
-  );
-}
-
-function DosFormGrid({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`grid gap-3 min-[380px]:grid-cols-2 ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-function RequiredMark() {
-  return (
-    <span aria-hidden="true" className="ml-0.5 text-[#DC2626]">
-      *
-    </span>
-  );
-}
-
-function OptionalTag() {
-  return (
-    <span className="ml-1.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
-      Optional
-    </span>
-  );
-}
-
-function DisclosureSection({
-  children,
-  defaultOpen = false,
-  description,
-  summary,
-  title,
-}: {
-  children: ReactNode;
-  defaultOpen?: boolean;
-  description?: string;
-  /** Shown instead of `description` while collapsed, to report current contents. */
-  summary?: string;
-  title: string;
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  const subtitle = !isOpen && summary ? summary : description;
-
-  return (
-    <section className="rounded-[20px] border border-[#E2E8F0] bg-white">
-      <button
-        aria-expanded={isOpen}
-        className={`flex min-h-[52px] w-full items-center justify-between gap-3 rounded-t-[20px] px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] ${isOpen ? "" : "rounded-b-[20px]"}`}
-        onClick={() => setIsOpen((current) => !current)}
-        type="button"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-bold text-[#0F172A]">{title}</span>
-          {subtitle ? <span className="mt-0.5 block text-xs font-medium leading-5 text-[#64748B]">{subtitle}</span> : null}
-        </span>
-        <ChevronRight
-          aria-hidden="true"
-          className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`}
-          strokeWidth={1.9}
-        />
-      </button>
-      {isOpen ? <div className="grid gap-4 rounded-b-[20px] border-t border-[#EAF2FF] px-4 pb-4 pt-4">{children}</div> : null}
-    </section>
-  );
-}
-
-// The founder preview is deliberately read-only, so its notice must not read as
-// a broken form. Anything else stays an error.
-function FormMessage({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  const isReadOnlyNotice = message.startsWith("Preview mode is read-only");
-  const className = isReadOnlyNotice
-    ? "rounded-2xl border border-dos-rule bg-dos-band p-3 text-sm text-dos-body"
-    : "rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700";
-
-  return <p className={className}>{message}</p>;
-}
-
-function StickyFormFooter({ children }: { children: ReactNode }) {
-  return (
-    <div className="sticky bottom-0 z-10 -mx-4 -mb-4 mt-1 rounded-b-[24px] border-t border-[#EAF2FF] bg-white/97 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur-sm md:rounded-b-[30px]">
-      <div className="grid gap-2">{children}</div>
-    </div>
-  );
-}
 
 const dateInputMonthLabels = Array.from({ length: 12 }, (_, index) => (
   new Intl.DateTimeFormat("en-US", { month: "short" }).format(new Date(2026, index, 1))
@@ -4932,6 +4569,7 @@ function DosDateInput({
   maxYear = new Date().getFullYear() + 25,
   minYear = 1900,
   name,
+  labelVariant = "caps",
   onChange,
   required = false,
   value,
@@ -4940,6 +4578,8 @@ function DosDateInput({
   autoComplete?: string;
   defaultValue?: string | null;
   label?: ReactNode;
+  /** `caps` keeps the tracked-caps FieldLabel; `sentence` is the spec §3 label grammar (USA-217). */
+  labelVariant?: "caps" | "sentence";
   maxYear?: number;
   minYear?: number;
   name: string;
@@ -5040,7 +4680,7 @@ function DosDateInput({
 
   return (
     <div className="min-w-0">
-      {label ? <FieldLabel>{label}</FieldLabel> : null}
+      {label ? (labelVariant === "sentence" ? <span className="text-dos-label text-dos-secondary">{label}</span> : <FieldLabel>{label}</FieldLabel>) : null}
       <input name={name} readOnly type="hidden" value={isoValue} />
       <div className={`relative ${label ? "mt-2" : ""}`}>
         <input
@@ -5065,7 +4705,7 @@ function DosDateInput({
         <button
           aria-expanded={isPickerOpen}
           aria-label={`Choose ${ariaLabel ?? (typeof label === "string" ? label : "date")}`}
-          className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
+          className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
           onClick={() => setIsPickerOpen((current) => !current)}
           type="button"
         >
@@ -5453,39 +5093,7 @@ function DetailResultTile({
   );
 }
 
-function SectionHeading({
-  action,
-  title,
-}: {
-  action?: ReactNode;
-  title: string;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-4">
-      <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-        {title}
-      </h2>
-      {action}
-    </div>
-  );
-}
 
-function TabPageHeader({
-  action,
-  title,
-}: {
-  action?: ReactNode;
-  title: string;
-}) {
-  return (
-    <header className="flex min-h-10 items-center justify-between gap-3">
-      <h1 className="text-[18px] font-black uppercase tracking-[0.12em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-        {title}
-      </h1>
-      {action ? <div className="shrink-0">{action}</div> : null}
-    </header>
-  );
-}
 
 function TabHero({
   action,
@@ -5896,12 +5504,12 @@ function CatalogResourceRow({
         <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">
           {canAssignResource ? (
             <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 bg-dos-blue px-3.5 text-dos-label text-white transition-colors hover:bg-dos-blueText"
               onClick={() => onAssign?.(resource)}
               type="button"
             >
               <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
+              Assign to someone
             </button>
           ) : null}
           {onOpenGuidedResource ? (
@@ -6029,12 +5637,12 @@ function CatalogResourceRow({
         <div className="mt-3 flex flex-wrap gap-2 pl-12">
           {canAssignResource ? (
             <button
-              className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-xs font-black text-white"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 bg-dos-blue px-3.5 text-dos-label text-white transition-colors hover:bg-dos-blueText"
               onClick={() => onAssign?.(resource)}
               type="button"
             >
               <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
-              Assign
+              Assign to someone
             </button>
           ) : null}
           <a
@@ -7701,29 +7309,30 @@ type DosAppCatalogSection = {
 };
 
 function DesktopMoreAppCard({ item }: { item: DesktopMoreAppItem }) {
+  /* Apps tile (canonical spec §5.7): 104px tall, 12px padding, a 30px icon
+     circle, the name on one line, one description line, and a 20px status
+     pill capped at 100px. Shared by the mobile launcher and the desktop
+     More views, so both keep their production items, order and routing. */
   return (
     <button
-      className="flex min-h-[112px] min-w-0 flex-col justify-between rounded-[22px] border border-[#EAF2FF] bg-white p-3.5 text-left shadow-[0_10px_28px_rgba(37,99,235,0.045)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF]"
+      className="flex min-h-[104px] min-w-0 flex-col justify-between rounded-dos-2 border border-dos-line bg-white p-3 text-left transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
       data-dos-app-card={item.label}
       onClick={item.onClick}
       type="button"
     >
-      <span className="flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[15px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+      <span className="flex items-start justify-between gap-2">
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-dos-blue50 text-dos-blue">
           {item.icon}
         </span>
-        <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-          {item.status}
-        </span>
+        <StatusPill>{item.status}</StatusPill>
       </span>
-      <span className="mt-3 min-w-0">
-        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]">{item.label}</span>
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{item.description}</span>
+      <span className="mt-2 min-w-0">
+        <span className="block truncate text-[15px] font-semibold leading-5 text-dos-primary">{item.label}</span>
+        <span className="mt-0.5 block truncate text-[12.5px] leading-[18px] text-dos-secondary">{item.description}</span>
       </span>
     </button>
   );
 }
-
 function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
   return (
     <DesktopPanel eyebrow="More" title="Available Tools">
@@ -7733,24 +7342,6 @@ function DesktopMoreAppsPreview({ apps }: { apps: DesktopMoreAppItem[] }) {
         ))}
       </div>
     </DesktopPanel>
-  );
-}
-
-function AppsCatalogSection({ section }: { section: DosAppCatalogSection }) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          {section.label}
-        </h2>
-        <p className="mt-1 text-xs leading-5 text-[#64748B]">{section.description}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {section.items.map((item) => (
-          <DesktopMoreAppCard item={item} key={item.label} />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -8284,7 +7875,7 @@ function GroupDetailWorkspaceV2({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton label="Back" onClick={onBack} />} title="Groups" />
       <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
         <div className="grid gap-3 p-3.5 sm:grid-cols-[224px_minmax(0,1fr)] md:p-4">
           <div className="max-w-[220px] sm:max-w-none">
@@ -9829,7 +9420,7 @@ function GroupDetailWorkspace({
 
   return (
     <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Groups" />
+      <TabPageHeader back={<MoreBackButton label="Back" onClick={onBack} />} title="Groups" />
       <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-[#DCEBFF] bg-white shadow-[0_18px_44px_rgba(37,99,235,0.06)] md:rounded-[26px]">
         <GroupLogoMark group={group} large />
         <div className="grid min-w-0 gap-3 p-4 text-center md:gap-4 md:p-5 md:text-left xl:grid-cols-[minmax(28rem,1fr)_minmax(22rem,auto)] xl:items-end">
@@ -15594,7 +15185,7 @@ function DesktopOrganizationsView({
 }) {
   return (
     <div className="hidden md:block">
-      <TabPageHeader action={<MoreBackButton onClick={onBack} />} title="Organizations" />
+      <TabPageHeader back={<MoreBackButton onClick={onBack} />} title="Organizations" />
       <div className="mt-4">
         <TabHero
           icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -15630,46 +15221,6 @@ function DesktopOrganizationsView({
   );
 }
 
-function MoreBackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-      onClick={onClick}
-      type="button"
-    >
-      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-      More
-    </button>
-  );
-}
-
-function MoreAppTile({
-  description,
-  icon,
-  label,
-  onClick,
-}: {
-  description: string;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="flex min-h-[108px] min-w-0 flex-col items-start justify-between rounded-[26px] border border-[#EAF2FF] bg-white p-4 text-left shadow-[0_16px_38px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99]"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-        {icon}
-      </span>
-      <span className="mt-3 min-w-0">
-        <span className="block text-base font-black leading-tight tracking-[-0.02em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>{label}</span>
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#64748B]">{description}</span>
-      </span>
-    </button>
-  );
-}
 
 function organizationConnectionStatusLabel(connection: DosAppOrganizationConnection) {
   if (connection.type === "usam") {
@@ -15934,399 +15485,6 @@ function TaskCard({
  * clears the mobile safe area. Collection/browse surfaces may still use
  * cards — detail and work surfaces become the page.
  */
-/* A dedicated task screen: the user has navigated into a real workflow.
- *
- * Every one of these holds meaningful input, so the guard is not optional here
- * the way it is on a Sheet -- Back always asks before discarding work. It uses
- * the same DOM snapshot as Sheet, so there is one dirty-state implementation
- * for the whole application rather than one per form. */
-function DosWorkflowPage({
-  children,
-  onClose,
-  subtitle,
-  title,
-}: {
-  children: ReactNode;
-  onClose: () => void;
-  subtitle?: string;
-  title: string;
-}) {
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
-  const guard = useUnsavedWorkGuard({
-    getIsDirty: () => formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)),
-    onExit: onClose,
-  });
-
-  useEffect(() => {
-    if (initialValuesRef.current === null) {
-      initialValuesRef.current = readSurfaceValues(bodyRef.current);
-    }
-  }, []);
-
-  const requestClose = guard.requestExit;
-
-  return (
-    <div className="fixed inset-0 z-[120] overflow-y-auto bg-white [scrollbar-width:none] md:left-[232px] xl:left-[260px]">
-      <div className="mx-auto w-full max-w-[620px] px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 md:px-8 md:pb-16 md:pt-10" ref={bodyRef}>
-        <header>
-          <button
-            aria-label="Back"
-            className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-            onClick={requestClose}
-            type="button"
-          >
-            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
-          </button>
-          <h2 className="mt-2 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{title}</h2>
-          {subtitle ? <p className="mt-1.5 text-[14.5px] leading-[1.5] text-dos-body">{subtitle}</p> : null}
-        </header>
-        <div className="mt-6">{children}</div>
-      </div>
-      {guard.confirmation}
-    </div>
-  );
-}
-
-/* The one confirmation DOS uses when leaving unfinished work.
- *
- * Keep editing is first, is the filled button, and is what Escape and the
- * backdrop do -- because the safe choice should be the easy one, and because
- * this dialog exists to catch accidents. Discard is a plain text button: it is
- * the destructive path and should take a deliberate press.
- *
- * It renders above everything, including the sheet that raised it, at a z-index
- * above Sheet's own 1000. */
-function DiscardChangesDialog({
-  onDiscard,
-  onKeepEditing,
-}: {
-  onDiscard: () => void;
-  onKeepEditing: () => void;
-}) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        onKeepEditing();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onKeepEditing]);
-
-  const content = (
-    <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-[#0F172A]/35 px-5 backdrop-blur-sm"
-      onMouseDown={onKeepEditing}
-      role="presentation"
-    >
-      <div
-        aria-modal="true"
-        className="w-full max-w-[340px] rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_26px_90px_rgba(15,23,42,0.22)]"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{discardConfirmationCopy.title}</h2>
-        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">{discardConfirmationCopy.description}</p>
-        <div className="mt-5 grid gap-2">
-          <button
-            className="flex min-h-11 w-full items-center justify-center rounded-full bg-dos-blue px-4 text-[14.5px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
-            onClick={onKeepEditing}
-            type="button"
-          >
-            {discardConfirmationCopy.cancel}
-          </button>
-          <button
-            className="flex min-h-11 w-full items-center justify-center rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
-            onClick={onDiscard}
-            type="button"
-          >
-            {discardConfirmationCopy.confirm}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  return isMounted ? createPortal(content, document.body) : null;
-}
-
-/* The single unsaved-work guard for DOS.
- *
- * A workflow tells it whether it is dirty; it hands back the close handler to
- * wire to X, Back and Cancel, plus the dialog to render. One implementation
- * rather than one per form, so a new workflow gets the protection by using it
- * rather than by remembering to reimplement it.
- *
- * Keep editing simply stops asking: the form was never unmounted, so every
- * typed character, selection and scroll position is still exactly where the
- * user left it. That is the point of guarding the exit rather than saving a
- * copy of the state and restoring it. */
-function useUnsavedWorkGuard({
-  getIsDirty,
-  onExit,
-}: {
-  /* A getter rather than a value: dirtiness is read from the live surface at
-     the moment the user tries to leave, so nothing has to be recomputed on
-     every keystroke to keep a boolean current. */
-  getIsDirty: () => boolean;
-  onExit: () => void;
-}) {
-  const [isConfirming, setIsConfirming] = useState(false);
-
-  const requestExit = () => {
-    if (exitNeedsConfirmation({ isDirty: getIsDirty(), kind: "editable" })) {
-      setIsConfirming(true);
-      return;
-    }
-
-    onExit();
-  };
-
-  /* Used after a successful save: the work is persisted, so there is nothing
-     left to protect and the caller leaves without a prompt. */
-  const exitWithoutGuard = () => {
-    setIsConfirming(false);
-    onExit();
-  };
-
-  const confirmation = isConfirming ? (
-    <DiscardChangesDialog
-      onDiscard={() => {
-        setIsConfirming(false);
-        onExit();
-      }}
-      onKeepEditing={() => setIsConfirming(false)}
-    />
-  ) : null;
-
-  return { confirmation, exitWithoutGuard, isConfirming, requestExit };
-}
-
-/* What has the user actually put into this surface?
- *
- * Read from the rendered controls rather than from each form's own state,
- * because there are twenty editable sheets with twenty different state shapes
- * and asking each to report dirtiness separately is how a form gets forgotten.
- * One reader here means a sheet is protected by saying what it is, not by
- * remembering to wire anything.
- *
- * Covers the three ways DOS collects an answer: typed fields, native selects
- * and checkboxes, and the pressed-state button groups the DOS pickers use. */
-function readSurfaceValues(root: HTMLElement | null) {
-  if (!root) {
-    return {};
-  }
-
-  const values: Record<string, unknown> = {};
-
-  root.querySelectorAll("input, textarea, select").forEach((node, index) => {
-    const field = node as HTMLInputElement;
-    const key = field.name || `${field.tagName}:${index}`;
-
-    values[key] = field.type === "checkbox" || field.type === "radio" ? field.checked : field.value;
-  });
-
-  /* The DOS pickers are buttons carrying aria-pressed, not inputs, so a
-     changed relationship or context would otherwise read as clean. */
-  root.querySelectorAll("[aria-pressed]").forEach((node, index) => {
-    values[`pressed:${index}`] = node.getAttribute("aria-pressed");
-  });
-
-  return values;
-}
-
-/* A Sheet declares what it is, and its dismissal rules follow.
- *
- *   kind="inspection" (the default) is a record you are reading. The backdrop
- *   closes it, exactly as every sheet always has, because closing costs
- *   nothing.
- *
- *   kind="editable" holds user input. The backdrop still dims and blurs, but
- *   stops being a way to lose work; X and Escape route through onClose, which
- *   the caller guards.
- *
- * The default is deliberately the old behaviour, so the 60 read-only sheets
- * are unchanged and only a surface that says it holds work gets the new
- * protection. */
-function Sheet({
-  children,
-  description,
-  kind = "inspection",
-  onClose,
-  showEyebrow = false,
-  showHeader = true,
-  size = "default",
-  title,
-}: {
-  children: ReactNode;
-  description?: string;
-  kind?: DosSurfaceKind;
-  onClose: () => void;
-  showEyebrow?: boolean;
-  showHeader?: boolean;
-  size?: "default" | "wide";
-  title: string;
-}) {
-  const [isMounted, setIsMounted] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
-  const guard = useUnsavedWorkGuard({
-    getIsDirty: () => kind === "editable" && formIsDirty(initialValuesRef.current, readSurfaceValues(panelRef.current)),
-    onExit: onClose,
-  });
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  /* Snapshot what the sheet opened with, once it has rendered. Everything the
-     user does afterwards is measured against this, so typing a word and
-     deleting it again leaves the sheet clean. */
-  useEffect(() => {
-    if (isMounted && kind === "editable" && initialValuesRef.current === null) {
-      initialValuesRef.current = readSurfaceValues(panelRef.current);
-    }
-  }, [isMounted, kind]);
-
-  /* Every deliberate exit -- X, Escape, and whatever the caller wires to
-     onClose -- comes through here. A clean sheet closes silently; a sheet
-     holding work asks first. Keep editing only dismisses the dialog, so the
-     sheet is never unmounted and every entered value survives. */
-  const requestClose = guard.requestExit;
-
-  useEffect(() => {
-    /* globalThis.KeyboardEvent because this file imports React KeyboardEvent. */
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        requestClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, onClose]);
-
-  const panelClassName = size === "wide"
-    ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
-    : "max-w-lg overflow-y-auto overflow-x-hidden rounded-t-[30px] rounded-b-[24px] p-4 [scrollbar-width:none] md:rounded-[30px]";
-
-  const content = (
-    <div
-      className="fixed inset-0 z-[1000] overflow-y-auto overflow-x-hidden bg-[#EAF2FF]/60 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-5 backdrop-blur-lg md:bg-[#0F172A]/18"
-      /* The whole point. An editable sheet's backdrop is inert: no handler at
-         all, so a stray thumb on the blurred area does nothing rather than
-         destroying a half-finished form. */
-      onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}
-      role="presentation"
-    >
-      <div className="flex min-h-full min-w-0 items-end justify-center md:items-center">
-        <div
-          aria-modal="true"
-          className={`max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-1.5rem)] min-w-0 border border-white/80 bg-white shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${panelClassName}`}
-          onMouseDown={(event) => event.stopPropagation()}
-          ref={panelRef}
-          role="dialog"
-        >
-          {showHeader ? (
-            <>
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  {showEyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>
-                    DOS
-                  </p> : null}
-                  <h2 className={`${showEyebrow ? "mt-2" : ""} text-2xl font-bold leading-none text-[#0F172A]`}>{title}</h2>
-                  {description ? <p className="mt-3 text-sm leading-6 text-[#64748B]">{description}</p> : null}
-                </div>
-                <button
-                  aria-label="Close"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-xl leading-none text-[#0F172A]"
-                  onClick={requestClose}
-                  type="button"
-                >
-                  &times;
-                </button>
-              </div>
-              <div className="mt-5">{children}</div>
-            </>
-          ) : children}
-        </div>
-      </div>
-      {guard.confirmation}
-    </div>
-  );
-
-  return isMounted ? createPortal(content, document.body) : null;
-}
-
-/* The legacy sheet primitive, kept for two read-only previews. It takes the
-   same kind contract as Sheet so that if anything editable is ever put in one,
-   its backdrop stops being a way to lose work -- rather than this quietly
-   becoming a second door around the safety rule. */
-function MobileBottomSheet({
-  badge,
-  children,
-  footer,
-  kind = "inspection",
-  onClose,
-  subtitle,
-  title,
-}: {
-  badge?: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
-  kind?: DosSurfaceKind;
-  onClose: () => void;
-  subtitle?: string;
-  title: string;
-}) {
-  return (
-    <div
-      className="absolute inset-0 z-[80] flex items-end bg-[#0F172A]/20 px-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] backdrop-blur-[3px]"
-      onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}
-      role="presentation"
-    >
-      <section
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-t-[32px] rounded-b-[24px] border border-white/70 bg-white p-3 shadow-[0_28px_85px_rgba(32,27,20,0.24)]"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#E2E8F0]" aria-hidden="true" />
-        <header className="flex items-start gap-3 px-1 pb-3">
-          <button
-            aria-label="Close"
-            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white"
-            onClick={onClose}
-            type="button"
-          >
-            <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          </button>
-          {badge ? <div className="shrink-0">{badge}</div> : null}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold leading-tight text-[#0F172A]">{title}</h2>
-            {subtitle ? <p className="mt-0.5 text-[11px] leading-4 text-[#64748B]">{subtitle}</p> : null}
-          </div>
-        </header>
-        <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto px-0.5 [scrollbar-width:none]">
-          {children}
-        </div>
-        {footer ? <div className="mt-3 px-0.5">{footer}</div> : null}
-      </section>
-    </div>
-  );
-}
 
 function ActionList({ children }: { children: ReactNode }) {
   return (
@@ -16375,32 +15533,6 @@ function ActionListRow({
   );
 }
 
-function UserProfileAvatar({
-  imageUrl,
-  name,
-  size = "sm",
-}: {
-  imageUrl?: string | null;
-  name: string;
-  size?: "lg" | "sm";
-}) {
-  const dimension = size === "lg" ? "h-20 w-20 text-2xl" : "h-11 w-11 text-sm";
-  const initial = name.trim().charAt(0).toUpperCase() || "R";
-
-  if (imageUrl) {
-    return (
-      <span className={`${dimension} flex shrink-0 overflow-hidden rounded-full border border-[#BFDBFE] bg-[#EBF2FF] shadow-[0_10px_24px_rgba(37,99,235,0.10)]`}>
-        <img alt="" className="h-full w-full object-cover" src={imageUrl} />
-      </span>
-    );
-  }
-
-  return (
-    <span className={`${dimension} flex shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] font-bold text-white shadow-[0_14px_30px_rgba(37,99,235,0.24)]`}>
-      {initial}
-    </span>
-  );
-}
 
 function ProfileSheetFrame({
   children,
@@ -16897,38 +16029,6 @@ const peopleCircleTabs: ReadonlyArray<SegmentedTabOption<PeopleCircleView>> = [
   { label: "My 120", value: "my_120" },
 ];
 
-function PeopleCircleTabs({
-  onChange,
-  value,
-}: {
-  onChange: (value: PeopleCircleView) => void;
-  value: PeopleCircleView;
-}) {
-  return (
-    <div className="grid grid-cols-5 gap-1 rounded-full border border-[#DCEBFF] bg-white p-1 shadow-[0_8px_22px_rgba(37,99,235,0.05)]">
-      {peopleCircleTabs.map((option) => {
-        const selected = value === option.value;
-
-        return (
-          <button
-            aria-pressed={selected}
-            className={`min-h-9 rounded-full px-1.5 text-[11px] font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:text-[10px] ${
-              selected
-                ? "bg-[#EAF2FF] text-[#1D4ED8] shadow-[0_6px_14px_rgba(37,99,235,0.10)] ring-1 ring-[#CFE0FF]"
-                : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-            }`}
-            key={option.value}
-            onClick={() => onChange(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function DesktopSectionSearch({
   ariaLabel,
   onChange,
@@ -17029,6 +16129,79 @@ function MobileSectionSearch({
         </div>
       ) : null}
     </>
+  );
+}
+
+/* USA-218 (spec §5.2): logged meetings only, reverse-chronological, month
+   groups with a count in the eyebrow, search shared with the calendar, no
+   filters and no status pills (everything here is logged by definition).
+   Every row opens the meeting record. */
+function MeetingsTimeline({
+  groups,
+  onOpenMeeting,
+  people,
+}: {
+  groups: Array<{ key: string; label: string; meetings: DosAppMeeting[] }>;
+  onOpenMeeting: (meetingId: string) => void;
+  people: DosAppPerson[];
+}) {
+  if (!groups.length) {
+    return <DosEmptyState>Logged meetings will appear here after conversations are complete.</DosEmptyState>;
+  }
+
+  return (
+    <section aria-label="Meetings timeline" className="min-w-0">
+      {groups.map((group) => (
+        <div key={group.key}>
+          <Eyebrow count={`${group.meetings.length} logged`}>{group.label}</Eyebrow>
+          {group.meetings.map((meeting) => {
+            const duration = formatLoggedTime(tableDurationMinutes(meeting));
+            const time = formatTime(meeting.date);
+            const meta = [meetingActivityTitle(meeting), duration === "—" ? null : duration].filter(Boolean).join(" · ");
+
+            return (
+              <Row
+                chevron
+                key={meeting.id}
+                leading={<IconTile><Icon name="meetings" size={18} /></IconTile>}
+                onClick={() => onOpenMeeting(meeting.id)}
+                primary={`${formatWeekdayShortDate(meeting.date)}${time ? ` · ${time}` : ""}`}
+                secondary={`${meetingDisplayTitle(meeting, people)} · ${meta}`}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/* USA-218 (spec §5.1): the one-line colour key beneath the grid, listing only
+   the kinds present in the visible items, with the tones the dots already use. */
+function calendarKindLabel(kind: MeetingCalendarItemKind) {
+  return { anniversary: "Anniversary", birthday: "Birthday", follow_up: "Reminder", google: "Google Calendar", meeting: "Meeting", prayer: "Prayer" }[kind];
+}
+
+function CalendarKey({ items }: { items: MeetingCalendarItem[] }) {
+  const kinds = Array.from(new Set(items.map((item) => item.kind)));
+
+  if (!kinds.length) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Calendar key" className="flex flex-wrap gap-x-4 gap-y-1 border-t border-dos-line px-3 py-2.5">
+      {kinds.map((kind) => {
+        const tone = calendarItemTone(kind);
+
+        return (
+          <span className="inline-flex items-center gap-1.5 text-dos-meta text-dos-secondary" key={kind}>
+            <span aria-hidden="true" className={`h-2 w-2 rounded-dos-3 ${tone.dot}`} />
+            {calendarKindLabel(kind)}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -20674,6 +19847,7 @@ function MeetingCalendarView({
   people,
   recentlyCompletedMeetings,
   savingCalendarSourceId,
+  showRecentlyLogged = true,
   selectedDateKey,
   viewMode,
   onViewModeChange,
@@ -20706,6 +19880,8 @@ function MeetingCalendarView({
   people: DosAppPerson[];
   recentlyCompletedMeetings: DosAppMeeting[];
   savingCalendarSourceId: string | null;
+  /** USA-218: the calendar view shows nothing beneath the grid but its key; history lives in the Timeline. */
+  showRecentlyLogged?: boolean;
   selectedDateKey: string;
   viewMode: MeetingCalendarViewMode;
   onViewModeChange: (value: MeetingCalendarViewMode) => void;
@@ -21065,6 +20241,7 @@ function MeetingCalendarView({
             </div>
           </div>
         )}
+	        <CalendarKey items={filteredItems} />
 	        {isDayAgendaOpen ? (
 	          <CalendarDayAgenda
 	            date={selectedDate}
@@ -21080,11 +20257,13 @@ function MeetingCalendarView({
 	        ) : null}
 	      </div>
 
-      <RecentlyLoggedMeetings
-        meetings={recentlyCompletedMeetings}
-        onOpenMeeting={onOpenMeeting}
-        people={people}
-      />
+      {showRecentlyLogged ? (
+        <RecentlyLoggedMeetings
+          meetings={recentlyCompletedMeetings}
+          onOpenMeeting={onOpenMeeting}
+          people={people}
+        />
+      ) : null}
     </section>
   );
 }
@@ -21149,112 +20328,6 @@ function GoogleCalendarEventDetailSheet({
   );
 }
 
-function CompactOptionSelect({
-  hideLabel = false,
-  label,
-  onChange,
-  options,
-  size = "default",
-  value,
-}: {
-  hideLabel?: boolean;
-  label?: string;
-  onChange: (value: string) => void;
-  options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
-  size?: "compact" | "default";
-  value: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
-  const isCompact = size === "compact";
-
-  function close() {
-    setIsOpen(false);
-  }
-
-  return (
-    <div
-      className="relative"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          close();
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && isOpen) {
-          event.stopPropagation();
-          close();
-          triggerRef.current?.focus();
-        }
-      }}
-    >
-      {label ? <FieldLabel srOnly={hideLabel}>{label}</FieldLabel> : null}
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-label={hideLabel ? label : undefined}
-        className={`${label && !hideLabel ? "mt-2 " : ""}flex w-full items-center justify-between gap-3 border bg-white text-left transition-colors ${
-          isCompact ? "min-h-10 rounded-full px-3 text-sm" : "min-h-12 rounded-2xl px-4 text-sm"
-        } ${isOpen ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.12)]" : "border-[#E2E8F0] hover:border-[#BFDBFE]"}`}
-        onClick={() => setIsOpen((current) => !current)}
-        ref={triggerRef}
-        type="button"
-      >
-        <span className="min-w-0 flex-1 truncate font-semibold text-[#0F172A]">{selectedOption?.label ?? "Select"}</span>
-        <ChevronRight className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${isOpen ? "-rotate-90" : "rotate-90"}`} aria-hidden="true" strokeWidth={1.8} />
-      </button>
-      {isOpen ? (
-        <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="listbox">
-          {options.map((option) => {
-            const selected = option.value === selectedOption?.value;
-
-            return (
-              <button
-                aria-selected={selected}
-                className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
-                  selected ? "bg-[#EBF2FF] text-[#1D4ED8]" : "text-[#0F172A] hover:bg-[#F1F5F9]"
-                }`}
-                key={option.value}
-                onClick={() => {
-                  onChange(option.value);
-                  close();
-                  triggerRef.current?.focus();
-                }}
-                role="option"
-                type="button"
-              >
-                <span className="min-w-0 flex-1 truncate font-semibold">{option.label}</span>
-                {option.helper ? <span className="shrink-0 text-[11px] font-medium text-[#64748B]">{option.helper}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function FormOptionSelect({
-  defaultValue = "",
-  label,
-  name,
-  options,
-}: {
-  defaultValue?: string;
-  label: string;
-  name: string;
-  options: ReadonlyArray<{ helper?: string; label: string; value: string }>;
-}) {
-  const [value, setValue] = useState(defaultValue);
-
-  return (
-    <>
-      <input name={name} type="hidden" value={value} />
-      <CompactOptionSelect label={label} onChange={setValue} options={options} value={value} />
-    </>
-  );
-}
 
 function MeetingContextPicker({
   onChange,
@@ -21625,25 +20698,13 @@ function MeetingPeopleSelector({
   return (
     <div className="grid gap-2">
       {selectedPeople.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedPeople.map((person, index) => (
-            <button
-              aria-label={`Remove ${person.name} ${removeLabel}`}
-              className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] pl-1 pr-2 text-[11px] font-semibold text-[#0F172A] transition-colors hover:border-[#2563EB]"
-              key={person.id}
-              onClick={() => onToggle(person.id)}
-              type="button"
-            >
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${avatarTone(index)}`}>
-                {initials(person.name)}
-              </span>
-              <span className="max-w-[9rem] truncate">{person.name}</span>
-              <span className="ml-0.5 text-[13px] leading-none text-[#1D4ED8]" aria-hidden="true">
-                &times;
-              </span>
-            </button>
+        <ChipGroup label="Selected people">
+          {selectedPeople.map((person) => (
+            <Chip key={person.id} onRemove={() => onToggle(person.id)} removeLabel={`Remove ${person.name} ${removeLabel}`} selected>
+              {person.name}
+            </Chip>
           ))}
-        </div>
+        </ChipGroup>
       ) : null}
 
       <div className="relative">
@@ -21987,7 +21048,7 @@ function MeetingLeaderReflectionSection({
   const prayerFields = (
     <div className="grid gap-3" key={`prayer-${prayerKey}`}>
       {attendeeOptions.length > 1 ? (
-        <DosFormField label="Who is this for?">
+        <DosFormField label="Who is this for?" labelVariant="sentence">
           <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
             {attendeeOptions.map((person) => (
               <option key={person.id} value={person.id}>{person.name}</option>
@@ -21997,7 +21058,7 @@ function MeetingLeaderReflectionSection({
       ) : (
         <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
       )}
-      <DosFormField label="What are you praying about?">
+      <DosFormField label="What are you praying about?" labelVariant="sentence">
         <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
       </DosFormField>
     </div>
@@ -22005,12 +21066,13 @@ function MeetingLeaderReflectionSection({
   const reminderFields = (
     <div className="grid gap-3" key={`reminder-${followUpKey}`}>
       <input name="follow_up_needed" type="hidden" value="on" />
-      <DosFormField label="What do you want to remember?">
+      <DosFormField label="What do you want to remember?" labelVariant="sentence">
         <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." />
       </DosFormField>
       <DosDateInput
         defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
         label="Remind me"
+        labelVariant="sentence"
         name="follow_up_date"
       />
     </div>
@@ -22036,7 +21098,7 @@ function MeetingLeaderReflectionSection({
 
   return (
     <>
-      <DosFormSection icon="log" title="Meeting Notes">
+      <DosFormSection icon="log" title="Meeting Notes" variant="label">
         <MeetingCaptureNotes defaultValue={notesDefault} label="Meeting Notes" showLabel={false} tall />
         {/* "What did you agree to?" is gone -- what they agreed to is
             Accountability, what you need to remember is a Reminder. Existing
@@ -22049,16 +21111,16 @@ function MeetingLeaderReflectionSection({
           optional extras. Nothing here is required -- the section exists to
           make you consider whether the conversation produced one. */}
       <section className="border-t border-dos-rule pt-5">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">From this meeting</h3>
+        <h3 className="text-dos-eyebrow uppercase text-dos-eyebrowSection">From this meeting</h3>
         <div className="mt-3 grid gap-2">
           {quickActions.map((action) => (
             <div key={action.key}>
               <button
                 aria-pressed={action.active}
-                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-2xl border px-4 text-[14.5px] font-bold transition-colors sm:w-auto ${
+                className={`inline-flex min-h-11 w-full items-center gap-2 rounded-dos-3 border px-4 text-dos-label transition-colors sm:w-auto ${
                   action.active
-                    ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                    : "border-[#D6E4F7] bg-white text-[#1D4ED8] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                    ? "border-dos-blue bg-dos-blue50 text-dos-blueText"
+                    : "border-dos-line bg-white text-dos-blueText hover:border-dos-blue100 hover:bg-dos-blue50"
                 }`}
                 onClick={action.onClick}
                 type="button"
@@ -22261,13 +21323,6 @@ const meetingFormGroupTitleClassName = "text-sm font-bold text-[#0F172A]";
 
 // The common cases on the surface; Custom carries 1h 15m, 2h 30m and the rest.
 // Exposing every possible duration made the row the loudest thing on the form.
-const meetingDurationOptions = [
-  { label: "15m", value: "15" },
-  { label: "30m", value: "30" },
-  { label: "45m", value: "45" },
-  { label: "1h", value: "60" },
-  { label: "Custom", value: "custom" },
-] as const;
 const scheduledTableDurationOptions = [
   { label: "30 min", value: "30" },
   { label: "45 min", value: "45" },
@@ -22276,75 +21331,32 @@ const scheduledTableDurationOptions = [
   { label: "2 hours", value: "120" },
 ] as const;
 
-type MeetingDurationOptionValue = typeof meetingDurationOptions[number]["value"];
 
 function MeetingDurationSelector({
   defaultMinutes = 30,
 }: {
   defaultMinutes?: number | string | null;
 }) {
-  const normalizedDefault = normalizedDurationMinutes(defaultMinutes, 30);
-  const defaultOption = meetingDurationOptions.some((option) => option.value === String(normalizedDefault))
-    ? String(normalizedDefault) as MeetingDurationOptionValue
-    : "custom";
-  const [selectedDuration, setSelectedDuration] = useState<MeetingDurationOptionValue>(defaultOption);
-  const [customHours, setCustomHours] = useState(String(Math.floor(normalizedDefault / 60)));
-  const [customMinutes, setCustomMinutes] = useState(String(normalizedDefault % 60));
-  const customTotalMinutes = (Number(customHours) || 0) * 60 + (Number(customMinutes) || 0);
-  const durationMinutes = selectedDuration === "custom" ? String(customTotalMinutes > 0 ? customTotalMinutes : normalizedDefault) : selectedDuration;
+  /* USA-216 (spec §5.3): a 15-minute stepper with no ceiling replaces the
+     preset pills and the custom hours/minutes pair. The posted field and its
+     default are unchanged; an existing meeting keeps its exact minutes and
+     steps from there, so no saved duration is ever rounded. */
+  const [durationMinutes, setDurationMinutes] = useState(normalizedDurationMinutes(defaultMinutes, 30));
 
   return (
     <fieldset className="grid gap-2">
       <legend className="sr-only">Duration</legend>
-      <input name="meeting_duration_minutes" type="hidden" value={durationMinutes} />
-      <div className="flex flex-wrap gap-2">
-        {meetingDurationOptions.map((option) => (
-          <label className="cursor-pointer" key={option.value}>
-            <input
-              checked={selectedDuration === option.value}
-              className="peer sr-only"
-              name="meeting_duration_choice"
-              onChange={() => setSelectedDuration(option.value)}
-              type="radio"
-              value={option.value}
-            />
-            <span className="flex min-h-10 items-center justify-center rounded-full border border-[#D6E4F7] bg-white px-3 text-xs font-bold text-[#475569] transition-colors peer-checked:border-[#2563EB] peer-checked:bg-[#EBF2FF] peer-checked:text-[#1D4ED8] max-[350px]:min-h-9 max-[350px]:px-2.5">
-              {option.label}
-            </span>
-          </label>
-        ))}
-      </div>
-      {selectedDuration === "custom" ? (
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <label className="grid gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Hours</span>
-            <input
-              autoFocus
-              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-              inputMode="numeric"
-              max="10"
-              min="0"
-              onChange={(event) => setCustomHours(event.target.value.replace(/\D/g, "").slice(0, 2))}
-              placeholder="0"
-              type="number"
-              value={customHours}
-            />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Minutes</span>
-            <input
-              className="min-h-11 rounded-[18px] border border-[#D6E4F7] bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-              inputMode="numeric"
-              max="59"
-              min="0"
-              onChange={(event) => setCustomMinutes(String(Math.min(59, Number(event.target.value.replace(/\D/g, "").slice(0, 2)) || 0)))}
-              placeholder="30"
-              type="number"
-              value={customMinutes}
-            />
-          </label>
-        </div>
-      ) : null}
+      <Stepper
+        decrementLabel="15 minutes less"
+        format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
+        incrementLabel="15 minutes more"
+        label="Duration"
+        min={15}
+        name="meeting_duration_minutes"
+        onChange={setDurationMinutes}
+        step={15}
+        value={durationMinutes}
+      />
     </fieldset>
   );
 }
@@ -22366,34 +21378,23 @@ const scheduledDurationChoices = [
 ] as const;
 
 function ScheduledDurationSelect({ defaultMinutes = "60", name }: { defaultMinutes?: number | string | null; name: string }) {
-  const normalized = String(normalizedDurationMinutes(defaultMinutes, 60));
-  const isKnown = scheduledDurationChoices.some((choice) => choice.value === normalized);
-  const [selected, setSelected] = useState(isKnown ? normalized : "custom");
-  const [customMinutes, setCustomMinutes] = useState(isKnown ? "" : normalized);
-  const resolved = selected === "custom" ? String(Number(customMinutes) || 60) : selected;
+  /* USA-217 (spec §5.4): the same 15-minute stepper as Log Meeting replaces
+     the preset menu and its custom-minutes input. Same hidden field, same
+     default (60); an existing scheduled duration keeps its exact minutes. */
+  const [durationMinutes, setDurationMinutes] = useState(normalizedDurationMinutes(defaultMinutes, 60));
 
   return (
-    <div className="grid gap-2">
-      <input name={name} type="hidden" value={resolved} />
-      {/* A designed DOS control, not the OS menu. */}
-      <CompactOptionSelect
-        hideLabel
-        label="Duration"
-        onChange={setSelected}
-        options={[...scheduledDurationChoices.map((choice) => ({ label: choice.label, value: choice.value })), { label: "Custom", value: "custom" }]}
-        value={selected}
-      />
-      {selected === "custom" ? (
-        <input
-          aria-label="Duration in minutes"
-          className={FieldInputClass()}
-          inputMode="numeric"
-          onChange={(event) => setCustomMinutes(event.target.value.replace(/\D/g, "").slice(0, 3))}
-          placeholder="Minutes"
-          value={customMinutes}
-        />
-      ) : null}
-    </div>
+    <Stepper
+      decrementLabel="15 minutes less"
+      format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
+      incrementLabel="15 minutes more"
+      label="Duration"
+      min={15}
+      name={name}
+      onChange={setDurationMinutes}
+      step={15}
+      value={durationMinutes}
+    />
   );
 }
 
@@ -22422,6 +21423,7 @@ function ScheduledTableTimingFields({
       <div className="max-w-[15rem]">
         <DosDateInput
           label="Date"
+          labelVariant="sentence"
           name={dateName}
           onChange={onDateChange}
           required
@@ -22430,10 +21432,10 @@ function ScheduledTableTimingFields({
         />
       </div>
       <DosFormGrid>
-        <DosFormField label="Start time">
+        <DosFormField label="Start time" labelVariant="sentence">
           <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
         </DosFormField>
-        <DosFormField label="Duration">
+        <DosFormField label="Duration" labelVariant="sentence">
           <ScheduledDurationSelect defaultMinutes={durationDefault} name={durationName} />
         </DosFormField>
       </DosFormGrid>
@@ -22660,34 +21662,26 @@ function MeetingFormContent({
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
   const compactPeopleSelector = attendingPeople.length && !isAddingPerson ? (
-    <div className="flex flex-wrap items-center gap-2">
+    <ChipGroup label="Participants">
       {attendingPeople.map((person) => (
-        <span
-          className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#D6E4F7] bg-white pl-3.5 pr-2 text-[14px] font-semibold text-dos-primary"
+        <Chip
           key={person.id}
+          onRemove={attendingPeople.length > 1 ? () => onTogglePerson(person.id) : undefined}
+          removeLabel={`Remove ${person.name}`}
+          selected
         >
           {person.name}
-          {attendingPeople.length > 1 ? (
-            <button
-              aria-label={`Remove ${person.name}`}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-[#F1F5F9] hover:text-dos-primary"
-              onClick={() => onTogglePerson(person.id)}
-              type="button"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />
-            </button>
-          ) : null}
-        </span>
+        </Chip>
       ))}
       <button
-        className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-dashed border-[#C7D9F5] px-3.5 text-[13.5px] font-semibold text-dos-blue transition-colors hover:bg-[#F6F9FE]"
+        className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dashed border-dos-blue100 px-3.5 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50"
         onClick={() => setIsAddingPerson(true)}
         type="button"
       >
         <span aria-hidden="true">+</span>
         Add person
       </button>
-    </div>
+    </ChipGroup>
   ) : (
     <div className="grid gap-2">
       {peopleSelector}
@@ -22741,7 +21735,7 @@ function MeetingFormContent({
 
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"}>
+      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"} variant="label">
         {showScheduledTiming ? (
           <ScheduledTableTimingFields
             dateDefault={scheduledDateDefault}
@@ -22759,7 +21753,7 @@ function MeetingFormContent({
           </div>
         )}
       </DosFormSection>
-      <DosFormSection icon="people" title="Who was there?">
+      <DosFormSection icon="people" title="Who was there?" variant="label">
         {compactPeopleSelector}
       </DosFormSection>
       {/* A Person meeting is my relationship with them; it does not need me to
@@ -22774,7 +21768,7 @@ function MeetingFormContent({
         summary={morePeopleSummary}
         title="More people"
       >
-        <DosFormField label="Ministry Team">
+        <DosFormField label="Ministry Team" labelVariant="sentence">
           <MinistryTeamSelector
             allPeople={allPeople}
             householdMembers={householdMembers}
@@ -22787,7 +21781,7 @@ function MeetingFormContent({
             selectedPersonIds={selectedMinistryTeamPersonIds}
           />
         </DosFormField>
-        <DosFormField label="Supporting Attendees">
+        <DosFormField label="Supporting Attendees" labelVariant="sentence">
           <SupportingAttendeeSelector
             allPeople={allPeople}
             disabledPersonIds={selectedPersonIds}
@@ -22802,11 +21796,11 @@ function MeetingFormContent({
         </DosFormField>
       </DisclosureSection>
       {showDurationField && durationSelector ? (
-        <DosFormSection icon="meetings" title="Duration">
+        <DosFormSection hint="15-minute steps" icon="meetings" title="Duration" variant="label">
           {durationSelector}
         </DosFormSection>
       ) : null}
-      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"}>
+      <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
         {meetingContextPicker}
       </DosFormSection>
       {showRoleReflectionFields ? (
@@ -22827,14 +21821,14 @@ function MeetingFormContent({
           tableRole={selectedTableRole}
         />
       ) : (
-        <DosFormSection icon="log" title="Notes">
+        <DosFormSection icon="log" title="Notes" variant="label">
           <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
       {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
     </form>
   );
@@ -22991,7 +21985,7 @@ function ScheduleMeetingForm({
     <form className="space-y-4" onSubmit={onSubmit}>
       {/* Launched from a Person, who you are meeting is already settled -- so
           this reads as identity, not as a form control to fill in. */}
-      <DosFormSection icon="people" title="Person">
+      <DosFormSection icon="people" title="Person" variant="label">
         {preselectedPerson && !isPersonPickerOpen ? (
           <div className="flex items-center gap-3">
             <span
@@ -23043,7 +22037,7 @@ function ScheduleMeetingForm({
       {/* Calendar sync follows the user's own settings; connection management
           lives in Settings, not in the middle of scheduling a meeting. */}
       <input name="google_sync_enabled" type="hidden" value={syncToGoogle ? "on" : ""} />
-      <DosFormSection icon="calendar" title="When">
+      <DosFormSection icon="calendar" title="When" variant="label">
         <ScheduledTableTimingFields
           dateName="scheduled_date"
           dateValue={scheduledDate}
@@ -23054,7 +22048,7 @@ function ScheduleMeetingForm({
           timeName="scheduled_time"
         />
       </DosFormSection>
-      <DosFormSection icon="meetings" title="How will you connect?">
+      <DosFormSection icon="meetings" title="How will you connect?" variant="label">
         <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />
       </DosFormSection>
       <DisclosureSection defaultOpen={false} description="Anything to carry into the meeting." title="Notes">
@@ -23065,7 +22059,7 @@ function ScheduleMeetingForm({
 
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Scheduling..." : "Schedule Meeting"}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? "Scheduling..." : "Schedule"}</Button>
         <button
           className="min-h-9 text-center text-sm font-semibold text-[#2563EB] transition-colors hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isSubmitting}
@@ -25504,38 +24498,37 @@ function PrayerRequestListRow({
     ? request.answerTestimony?.trim() || request.request
     : prayerRequestListStatusLine(request);
   const rightLabel = variant === "answered" && request.answeredAt ? formatShortDate(request.answeredAt) : "";
-  const iconToneClass = variant === "answered"
-    ? "bg-[#F0FDF4] text-emerald-600 ring-emerald-200"
-    : isPrayerRequestHighPriority(request)
-      ? "bg-[#EBF2FF] text-[#1D4ED8] ring-[#93C5FD]"
-      : "bg-[#EBF2FF] text-[#2563EB] ring-[#BFDBFE]";
+  const personName = prayerRequestPersonName(request, personById);
 
+  /* Row grammar (spec §5.10): initials when a person is linked, a neutral tile
+     otherwise; title, then context; status stays subtle text. */
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ${iconToneClass}`}>
-        {variant === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-      </span>
+      {personName ? (
+        <Avatar name={personName} size="sm" />
+      ) : (
+        <IconTile size="sm">
+          {variant === "answered" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+        </IconTile>
+      )}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{request.title}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">{context}</span>
+        <span className="block text-dos-body font-semibold leading-5 text-dos-primary">{request.title}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{context}</span>
         {statusLine ? (
-          <span className={`mt-0.5 block truncate text-xs leading-5 ${variant === "answered" ? "font-semibold text-emerald-700" : "font-bold text-[#1D4ED8]"}`}>
-            {statusLine}
-          </span>
+          <span className="mt-0.5 block truncate text-dos-meta font-semibold text-dos-secondary">{statusLine}</span>
         ) : null}
       </span>
-      <span className="mt-1 flex shrink-0 items-center gap-1.5 text-xs font-bold text-[#64748B]">
+      <span className="mt-1 flex shrink-0 items-center gap-1.5 text-dos-meta text-dos-secondary">
         {rightLabel ? <span>{rightLabel}</span> : null}
-        <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+        <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
       </span>
     </button>
   );
 }
-
 function PrayerDetailListRow({
   detail,
   onClick,
@@ -25545,22 +24538,19 @@ function PrayerDetailListRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
+      {detail.personName ? <Avatar name={detail.personName} size="sm" /> : <IconTile size="sm"><Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /></IconTile>}
       <span className="min-w-0 flex-1">
-        <span className="block line-clamp-2 text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{detail.request}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">{detail.personName}</span>
+        <span className="block line-clamp-2 text-dos-body font-semibold leading-5 text-dos-primary">{detail.request}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{detail.personName}</span>
       </span>
-      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={2} />
     </button>
   );
 }
-
 function PrayerPartnerListRow({
   onClick,
   partner,
@@ -25570,23 +24560,20 @@ function PrayerPartnerListRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 border-t border-[#EAF2FF] px-3 py-3 text-left transition-colors first:border-t-0 hover:bg-[#F8FBFF] focus:outline-none focus-visible:bg-[#F8FBFF] md:px-4"
+      className="flex min-h-[60px] w-full items-start gap-3 border-t border-dos-line py-3 text-left transition-colors first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
       onClick={onClick}
       type="button"
     >
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#BFDBFE]">
-        <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
+      <Avatar name={partner.name} size="sm" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black leading-5 text-[#0F172A] md:text-[15px]">{partner.name}</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#475569]">Prayer Partner</span>
-        {partner.lastContacted ? <span className="mt-0.5 block truncate text-xs font-semibold leading-5 text-[#64748B]">{partner.lastContacted}</span> : null}
+        <span className="block text-dos-body font-semibold leading-5 text-dos-primary">{partner.name}</span>
+        <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">Prayer Partner</span>
+        {partner.lastContacted ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{partner.lastContacted}</span> : null}
       </span>
-      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-dos-secondary" aria-hidden="true" strokeWidth={2} />
     </button>
   );
 }
-
 const prayerDesktopGrid = "minmax(0,1.7fr) minmax(0,1.25fr) minmax(0,0.55fr) minmax(0,0.85fr) minmax(0,0.75fr) minmax(0,0.65fr)";
 const prayerTeamDesktopGrid = "minmax(0,1.45fr) minmax(0,0.75fr) minmax(0,0.95fr) minmax(0,1fr)";
 const answeredPrayerDesktopGrid = "minmax(0,1.55fr) minmax(0,1.05fr) minmax(0,0.75fr) minmax(0,1.25fr) minmax(0,0.75fr)";
@@ -26796,6 +25783,7 @@ function MobilePrayerPanel({
   emptyText,
   emptyTitle,
   hasRows,
+  summary = "",
 }: {
   action?: ReactNode;
   children: ReactNode;
@@ -26803,22 +25791,17 @@ function MobilePrayerPanel({
   emptyText: string;
   emptyTitle: string;
   hasRows: boolean;
+  /** One quiet line under the eyebrow, e.g. "4 open" (spec §5.10). */
+  summary?: string;
 }) {
   return (
-    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-3 shadow-[0_12px_30px_rgba(37,99,235,0.045)]">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          {eyebrow}
-        </h2>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </div>
-      <div className="mt-3">
-        {hasRows ? children : <EmptyState text={emptyText} title={emptyTitle} />}
-      </div>
+    <section>
+      <Eyebrow action={action}>{eyebrow}</Eyebrow>
+      {summary ? <p className="-mt-1 mb-2 text-dos-meta text-dos-secondary">{summary}</p> : null}
+      {hasRows ? children : <DosEmptyState>{`${emptyTitle} ${emptyText}`}</DosEmptyState>}
     </section>
   );
 }
-
 function MobilePrayerWorkspace({
   groups,
   householdMembers,
@@ -26925,7 +25908,7 @@ function MobilePrayerWorkspace({
 
   return (
     <div className="space-y-3 md:hidden">
-      <SegmentedTabs onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
+      <PillRail edgeInset={4} label="Prayer sections" onChange={onTabChange} options={prayerWorkspaceTabs} value={tab} />
 
       {tab === "prayers" ? (
         <MobilePrayerPanel
@@ -26934,8 +25917,9 @@ function MobilePrayerWorkspace({
           emptyTitle={hubEmptyCopy.title}
           eyebrow="Prayers"
           hasRows={hasPrayRows}
+          summary={hasPrayRows ? `${visiblePrayRequests.length + visibleLegacyPrayRows.length} open` : ""}
         >
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visiblePrayRequests.map((request) => (
               <PrayerRequestListRow
                 groupById={groupById}
@@ -26955,7 +25939,7 @@ function MobilePrayerWorkspace({
 
       {tab === "prayer_team" ? (
         <MobilePrayerPanel emptyText={hubEmptyCopy.text} emptyTitle={hubEmptyCopy.title} eyebrow="Prayer Team" hasRows={hasPrayerTeamRows}>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visiblePrayerPartners.map((partner) => (
               <PrayerPartnerListRow key={partner.id} onClick={() => onOpenPrayerPartner(partner)} partner={partner} />
             ))}
@@ -26965,7 +25949,7 @@ function MobilePrayerWorkspace({
 
       {tab === "answered" ? (
         <MobilePrayerPanel emptyText={hubEmptyCopy.text} emptyTitle={hubEmptyCopy.title} eyebrow="Answered" hasRows={hasAnsweredRows}>
-          <div className="overflow-hidden rounded-[22px] border border-[#EAF2FF] bg-white">
+          <div className="rounded-dos-2 border border-dos-line bg-white px-4">
             {visibleAnsweredRequests.map((request) => (
               <PrayerRequestListRow
                 groupById={groupById}
@@ -27636,7 +26620,7 @@ function PersonChoiceField({
 }) {
   return (
     <fieldset className="grid gap-2">
-      <legend className="text-[11px] font-bold uppercase tracking-[0.12em] text-dos-eyebrow">{label}</legend>
+      <legend className="text-dos-label text-dos-secondary">{label}</legend>
       {hint ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">{hint}</p> : null}
       {/* The selected value travels with the form as a plain field, so the
           submit path does not depend on this component's internals. */}
@@ -27918,16 +26902,16 @@ function PersonFormContent({
       <input name="phone" type="hidden" value={phoneDraft} />
       <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
       <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
-      <DosFormSection icon="people" title="Person">
+      <DosFormSection icon="people" title="Person" variant="label">
         <DosFormGrid>
-          <DosFormField label={<>First Name<RequiredMark /></>}>
+          <DosFormField labelVariant="sentence" label={<>First Name<RequiredMark /></>}>
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
           </DosFormField>
-          <DosFormField label="Last Name">
+          <DosFormField labelVariant="sentence" label="Last Name">
             <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosFormField label={<>Mobile Phone<RequiredMark /></>}>
+        <DosFormField labelVariant="sentence" label={<>Mobile Phone<RequiredMark /></>}>
           <input
             className={FieldInputClass()}
             inputMode="tel"
@@ -27942,7 +26926,7 @@ function PersonFormContent({
             value={formatPhoneNumber(phoneDraft)}
           />
         </DosFormField>
-        <DosFormField label="Email">
+        <DosFormField labelVariant="sentence" label="Email">
           <input
             className={FieldInputClass()}
             defaultValue={additionalDefaults?.email}
@@ -27993,7 +26977,7 @@ function PersonFormContent({
           Engagement Levels are an Advanced Feature and are absent unless the
           workspace turned them on. Absent means not rendered -- every stored
           engagement value is loaded, kept, and submitted back unchanged. */}
-      <DosFormSection icon="people" title="Relationship">
+      <DosFormSection icon="people" title="Relationship" variant="label">
         <PersonChoiceField
           label="Your relationship with them"
           name="relationship_type_value"
@@ -28026,17 +27010,17 @@ function PersonFormContent({
 
       <DisclosureSection defaultOpen={isEditMode || hasHouseholdDetails(additionalDefaults ?? {})} description="Spouse and children, kept selectable for tables." title="Household & Family">
         <DosFormGrid>
-          <DosFormField label="Spouse First Name">
+          <DosFormField labelVariant="sentence" label="Spouse First Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
           </DosFormField>
-          <DosFormField label="Spouse Last Name">
+          <DosFormField labelVariant="sentence" label="Spouse Last Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" name="anniversary_date" />
+        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" labelVariant="sentence" name="anniversary_date" />
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <FieldLabel>Children</FieldLabel>
+            <span className="text-dos-label text-dos-secondary">Children</span>
             <button
               className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
               onClick={addChildDraft}
@@ -28049,10 +27033,10 @@ function PersonFormContent({
             {householdDraft.children.map((child, index) => (
               <div className="grid gap-2 rounded-[18px] border border-[#E2E8F0] bg-white p-2" key={child.id}>
                 <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
-                  <DosFormField label="Child First Name">
+                  <DosFormField labelVariant="sentence" label="Child First Name">
                     <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
                   </DosFormField>
-                  <DosFormField label="Child Last Name">
+                  <DosFormField labelVariant="sentence" label="Child Last Name">
                     <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
                   </DosFormField>
                   <button
@@ -28071,29 +27055,29 @@ function PersonFormContent({
       </DisclosureSection>
 
       <DisclosureSection defaultOpen={isEditMode || hasAddressData} description="Address, church, birthday, and other details." title="Address & Details">
-        <DosFormField label="Home Address">
+        <DosFormField labelVariant="sentence" label="Home Address">
           <input className={FieldInputClass()} defaultValue={additionalDefaults?.homeAddress} name="home_address" placeholder="Street address" />
         </DosFormField>
         <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
-          <DosFormField label="City">
+          <DosFormField labelVariant="sentence" label="City">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.city} name="city" />
           </DosFormField>
-          <DosFormField label="State">
+          <DosFormField labelVariant="sentence" label="State">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.state} maxLength={2} name="state" />
           </DosFormField>
-          <DosFormField label="ZIP">
+          <DosFormField labelVariant="sentence" label="ZIP">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.zip} inputMode="numeric" name="zip" />
           </DosFormField>
         </div>
         <DosFormGrid>
-          <DosFormField label="Church">
+          <DosFormField labelVariant="sentence" label="Church">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.church} name="church" placeholder="Church / community" />
           </DosFormField>
-          <DosFormField label="Occupation">
+          <DosFormField labelVariant="sentence" label="Occupation">
             <input className={FieldInputClass()} defaultValue={additionalDefaults?.occupation} name="occupation" placeholder="What do they do?" />
           </DosFormField>
         </DosFormGrid>
-        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" maxYear={new Date().getFullYear()} name="birthday" />
+        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" labelVariant="sentence" maxYear={new Date().getFullYear()} name="birthday" />
       </DisclosureSection>
 
       {/* Creating a person is the one moment where a birthday or a surgery date
@@ -28129,7 +27113,7 @@ function PersonFormContent({
       ) : null}
 
       <StickyFormFooter>
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? submittingText : buttonText}</AppButton>
+        <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
     </form>
   );
@@ -28624,38 +27608,6 @@ function myRecordAssessmentLibraryItems({
     }));
 
   return [...seedItems, ...externalItems, ...builtInItems, ...futureItems];
-}
-
-function MyRecordTabBar({
-  onChange,
-  tabs,
-  value,
-}: {
-  onChange: (tab: MyRecordTab) => void;
-  tabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>>;
-  value: MyRecordTab;
-}) {
-  return (
-    <div className="-mx-1 overflow-hidden pb-1 md:mx-0">
-      <div className="grid w-full grid-cols-5 gap-0.5 rounded-full border border-[#E2E8F0] bg-[#F1F5F9] p-1 shadow-inner shadow-white/70 md:gap-1">
-        {tabs.map((tab) => (
-          <button
-            aria-pressed={value === tab.value}
-            className={`min-h-8 min-w-0 rounded-full px-1 text-[10px] font-bold leading-none transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 md:px-4 md:text-xs ${
-              value === tab.value
-                ? "bg-white text-[#0F172A] shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
-                : "text-[#64748B] hover:text-[#0F172A]"
-            }`}
-            key={tab.value}
-            onClick={() => onChange(tab.value)}
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function MyRecordMetricCard({
@@ -31418,35 +30370,6 @@ function MyRecordSnapshotTile({
   );
 }
 
-function MyRecordAtAGlanceCard({
-  detail,
-  icon,
-  kind,
-  label,
-  value,
-}: {
-  detail: string;
-  icon: ReactNode;
-  kind: MyRecordRecordKind;
-  label: string;
-  value: string;
-}) {
-  const visual = myRecordRecordVisual(kind);
-
-  return (
-    <article className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white p-2 shadow-[0_10px_24px_rgba(37,99,235,0.035)]">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[10px] ring-1 ${visual.iconClassName}`}>
-        {icon}
-      </span>
-      <span className="mt-1.5 block min-w-0">
-        <span className="block truncate text-[21px] font-black leading-none tracking-[-0.02em] text-[#0F172A]">{value}</span>
-        <span className="mt-0.5 block text-[10px] font-black uppercase leading-3 tracking-[0.08em] text-[#0F172A]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold leading-3 text-[#64748B]">{detail}</span>
-      </span>
-    </article>
-  );
-}
-
 function MyRecordActionButton({
   children,
   onClick,
@@ -32015,8 +30938,8 @@ function MyRecordWalkWithGodPanel({
               aria-pressed={filter === item.value}
               className={`min-h-7 shrink-0 rounded-full border px-2.5 text-[11px] font-bold ${
                 filter === item.value
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : "border-[#EAF2FF] bg-white text-[#64748B]"
+                  ? "border-dos-blue bg-dos-blue50 text-dos-blueText"
+                  : "border-dos-line bg-white text-dos-secondary"
               }`}
               key={item.value}
               onClick={() => setFilter(item.value)}
@@ -32237,8 +31160,8 @@ function MyRecordGrowthPanel({
           />
         )}
         {completedAssignments.length ? (
-          <details className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2">
-            <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.16em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+          <details className="rounded-dos-1 border border-dos-line bg-white px-3 py-2">
+            <summary className="cursor-pointer text-dos-eyebrow uppercase text-dos-secondary">
               Completed Resources ({completedAssignments.length})
             </summary>
             <div className="mt-2 grid gap-1.5">
@@ -33092,9 +32015,7 @@ function MyRecordWorkspace({
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
   const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
-  const latestJournal = record.journalEntries[0] ?? null;
   const latestPrayer = record.prayerLogs[0] ?? null;
-  const latestEncounter = encounters[0] ?? null;
   const latestMentorMeeting = record.mentorMeetings[0] ?? null;
   const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
   const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
@@ -33104,19 +32025,48 @@ function MyRecordWorkspace({
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
   const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
   const namesById = useMemo(() => personNameById(people), [people]);
-  const todayKey = todayDateValue();
-  const { end: weekEnd, start: weekStart } = currentWeekRange();
-  const encountersToday = encounters.filter((encounter) => isTodayDate(encounter.date)).length;
-  const reflectionEntriesToday = myRecordJournalReflectionCount(record.journalEntries.filter((entry) => isTodayDate(entry.date)));
-  const prayerEncountersToday = record.prayerLogs.filter((log) => isTodayDate(log.prayedAt)).length
-    + record.journalEntries.filter((entry) => isTodayDate(entry.date) && myRecordJournalHasPrayerTag(entry)).length;
-  const encounterMinutesThisWeek = record.journalEntries
-    .filter((entry) => isDateWithinRange(entry.date, weekStart, weekEnd))
-    .reduce((sum, entry) => sum + entry.minutesSpent, 0);
-  const prayerMinutesThisWeek = record.prayerLogs
-    .filter((log) => isDateWithinRange(log.prayedAt, weekStart, weekEnd))
-    .reduce((sum, log) => sum + log.minutesSpent, 0);
-  const timeWithGodThisWeek = encounterMinutesThisWeek + prayerMinutesThisWeek;
+  /* CURRENT (spec §5.8, D10): exactly what production already treats as
+     active. Resources assigned to me that are not completed, and assessments
+     still in draft. No new aggregate; hidden when empty. */
+  const includeRyanSeedsForCurrent = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
+  const draftAssessments = useMemo(
+    () => myRecordAssessmentLibraryItems({ includeRyanSeeds: includeRyanSeedsForCurrent, record }).filter((item) => item.status === "draft"),
+    [includeRyanSeedsForCurrent, record],
+  );
+  const currentItems: Array<{ id: string; onOpen: () => void; secondary: string; title: string }> = [
+    ...resourceAssignments
+      .filter((assignment) => assignment.status !== "completed")
+      .map((assignment) => {
+        const resource = resourceAssignmentResource(assignment);
+
+        return {
+          id: `assignment-${assignment.id}`,
+          onOpen: () => {
+            if (resource && isGuidedResource(resource)) {
+              onOpenGuidedResource(resource, assignment.personId, assignment.id);
+              return;
+            }
+
+            onEditResourceAssignment(assignment);
+          },
+          secondary: [resourceAssignmentTypeLabel(assignment), assignment.status === "paused" ? "Paused" : resourceAssignmentDueLabel(assignment)].filter(Boolean).join(" · "),
+          title: resourceAssignmentTitle(assignment),
+        };
+      }),
+    ...draftAssessments.map((item) => ({
+      id: `assessment-${item.id}`,
+      onOpen: () => {
+        if (item.kind === "external" && item.result && "assessmentName" in item.result) {
+          openMyRecordSheet({ assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" });
+          return;
+        }
+
+        onTabChange("growth");
+      },
+      secondary: "Assessment · In progress",
+      title: item.name,
+    })),
+  ];
 
   useEffect(() => {
     setIsMyRecordFabOpen(false);
@@ -33309,28 +32259,29 @@ function MyRecordWorkspace({
 
   return (
     <div className="relative space-y-3 pb-[calc(env(safe-area-inset-bottom)+9rem)] md:space-y-4 md:pb-24">
-      <header className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 md:flex md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="min-w-0 truncate text-[28px] font-black leading-none tracking-[-0.035em] text-[#0F172A] md:text-[32px]" style={{ fontFamily: font.oswald }}>
-            My Record
-          </h1>
-          <div className="mt-2 md:hidden">
-            <MoreBackButton onClick={onBack} />
-          </div>
-        </div>
-        <div className="shrink-0 pt-0.5 md:pt-0">
+      {/* Canonical PageHeader (spec §3, §6): the "← More" pill becomes the
+          header's back control and the Share button becomes the Private chip.
+          The chip still opens the same sharing panel, so nothing about
+          sharing scope changes; Share Settings copy lives in that panel. */}
+      <PageHeader
+        action={(
           <button
             aria-expanded={isShareSettingsOpen}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+            className="group inline-flex h-11 items-center focus:outline-none"
             onClick={() => setIsShareSettingsOpen((current) => !current)}
             type="button"
           >
-            <Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            <span className="hidden sm:inline">Share Settings</span>
-            <span className="sm:hidden">Share</span>
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+              <Lock aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+            Private
+            </span>
           </button>
-        </div>
-      </header>
+        )}
+        backLabel="Back to More"
+        mobileOnlyBack
+        onBack={onBack}
+        title="My Record"
+      />
       {isShareSettingsOpen ? (
         <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
           <div className="flex min-w-0 items-start gap-3">
@@ -33351,24 +32302,31 @@ function MyRecordWorkspace({
           </div>
         </section>
       ) : null}
-      <MyRecordTabBar onChange={onTabChange} tabs={myRecordTabs} value={activeMyRecordTab} />
+      <PillRail edgeInset={4} label="My Record sections" onChange={onTabChange} options={myRecordTabs} value={activeMyRecordTab} />
 
       {activeMyRecordTab === "overview" ? (
+        /* Overview = Current + Recent + a single view-all action (spec §5.8).
+           The daily KPI cards were retired by USA-220. */
         <div className="space-y-4 pb-36 md:pb-6">
-          <section className="grid gap-3">
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <SectionHeading title="Today at a Glance" />
-              <span className="shrink-0 text-xs font-bold text-[#64748B]">{formatDate(todayKey)}</span>
-            </div>
-            <div className="grid min-w-0 grid-cols-2 gap-2 min-[900px]:grid-cols-4">
-              <MyRecordAtAGlanceCard detail={latestEncounter ? formatRelativeDate(latestEncounter.date) : "None yet"} icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Encounters" value={`${encountersToday}`} />
-              <MyRecordAtAGlanceCard detail={prayerEncountersToday ? "Today" : "None today"} icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="prayer" label="Prayer" value={`${prayerEncountersToday}`} />
-              <MyRecordAtAGlanceCard detail={latestJournal ? formatRelativeDate(latestJournal.date) : "None yet"} icon={<Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="reflection" label="Reflection" value={`${reflectionEntriesToday}`} />
-              <MyRecordAtAGlanceCard detail="This week" icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} kind="time_with_god" label="Time" value={formatRecordDuration(timeWithGodThisWeek)} />
-            </div>
-          </section>
-          <section className="grid gap-2">
-            <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>} title="Recent Activity" />
+          {currentItems.length ? (
+            <section aria-label="Current">
+              <Eyebrow count={currentItems.length}>Current</Eyebrow>
+              <div className="rounded-dos-2 border border-dos-line bg-white px-4">
+                {currentItems.map((item) => (
+                  <Row
+                    chevron
+                    key={item.id}
+                    leading={<IconTile><BookOpen aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.9} /></IconTile>}
+                    onClick={item.onOpen}
+                    primary={item.title}
+                    secondary={item.secondary}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          <section aria-label="Recent">
+            <Eyebrow action={<button className="-my-3 flex min-h-11 items-center text-dos-label text-dos-blue" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>}>Recent</Eyebrow>
             {timeline.length ? (
               <div className="grid gap-1.5">
                 {timeline.slice(0, 3).map((item) => (
@@ -34308,8 +33266,8 @@ function BottomNavigation({
   onSelect: (tab: ActiveTab) => void;
 }) {
   return (
-    <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
-      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-white/75 bg-white/62 p-1.5 shadow-[0_24px_55px_rgba(148,163,184,0.22)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/58">
+    <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-dos-nav px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
+      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-dos-line bg-white p-1.5 shadow-dos-float">
         {mobileTabs.map((tab) => {
           const selected = activeTab === tab.value || (tab.value === "more" && activeTab === "people");
 
@@ -34317,7 +33275,7 @@ function BottomNavigation({
           <button
             aria-current={selected ? "page" : undefined}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-semibold transition-colors ${
-              selected ? "bg-[#EBF2FF] text-[#2563EB] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]" : "text-[#94A3B8]"
+              selected ? "bg-dos-blue50 text-dos-blueText" : "text-dos-secondary"
             }`}
             key={tab.value}
             onClick={() => onSelect(tab.value)}
@@ -34373,8 +33331,8 @@ function MobileFloatingActions({
      callers get `fixed`, which is the viewport in both cases. */
   const positionClassName = portalToBody ? "fixed" : "absolute";
   const rootClassName = variant === "desktop"
-    ? `${positionClassName} inset-0 z-[70] hidden pointer-events-none md:block`
-    : `${positionClassName} inset-0 z-[70] pointer-events-none md:hidden`;
+    ? `${positionClassName} inset-0 z-dos-fab hidden pointer-events-none md:block`
+    : `${positionClassName} inset-0 z-dos-fab pointer-events-none md:hidden`;
   const closeClassName = variant === "desktop"
     ? "absolute inset-0 pointer-events-auto bg-transparent"
     : "absolute inset-0 pointer-events-auto bg-transparent";
@@ -34648,6 +33606,97 @@ function CircleLayerList({
   );
 }
 
+/* Field list (canonical spec §5.11): A–Z rows on one white surface. Each row
+   opens the person; the Log meeting shortcut stays as its own control (B8), so
+   a row is a group of two buttons rather than one nested button. The shared
+   CircleLayerList is untouched because Home's circle sheets render it. */
+function FieldPersonRow({
+  circleLabel,
+  lastMeetingDate,
+  onLogMeeting,
+  onOpen,
+  person,
+}: {
+  circleLabel: string | null;
+  lastMeetingDate: string | null;
+  onLogMeeting?: () => void;
+  onOpen: () => void;
+  person: DosAppPerson;
+}) {
+  const needsFollowUp = person.status === "follow_up";
+  const activity = needsFollowUp
+    ? "Follow up today"
+    : lastMeetingDate
+      ? `Met ${formatRelativeDate(lastMeetingDate).toLowerCase()}`
+      : "No meeting yet";
+  const secondary = [relationshipTypePillLabel(person), circleLabel, activity].filter(Boolean).join(" · ");
+
+  return (
+    <div className="flex min-h-[60px] items-center gap-2 border-t border-dos-line py-2 first:border-t-0">
+      <button
+        aria-label={`Open ${person.name}`}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-dos-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar imageUrl={person.photoUrl} name={person.name} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.name}</span>
+          <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{secondary}</span>
+        </span>
+      </button>
+      {onLogMeeting ? (
+        <button
+          aria-label={`Log meeting with ${person.name}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-dos-3 text-dos-blue transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onLogMeeting}
+          type="button"
+        >
+          <CalendarDays aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.9} />
+        </button>
+      ) : null}
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+    </div>
+  );
+}
+
+function FieldPeopleList({
+  circleKeyByPersonId,
+  empty,
+  items,
+  latestMeetingDateByPersonId,
+  onLogMeeting,
+  onOpenPerson,
+}: {
+  circleKeyByPersonId: Map<string, string>;
+  empty: string;
+  items: CircleListItem[];
+  latestMeetingDateByPersonId: Map<string, string | null>;
+  onLogMeeting?: (personId: string) => void;
+  onOpenPerson: (personId: string) => void;
+}) {
+  return (
+    <div className="rounded-dos-2 border border-dos-line bg-white px-4">
+      {items.length ? items.map(({ person }) => {
+        const circleKey = circleKeyByPersonId.get(person.id);
+
+        return (
+          <FieldPersonRow
+            circleLabel={circleKey ? circleDisplayName(circleKey) : null}
+            key={person.id}
+            lastMeetingDate={latestMeetingDateByPersonId.get(person.id) ?? null}
+            onLogMeeting={onLogMeeting ? () => onLogMeeting(person.id) : undefined}
+            onOpen={() => onOpenPerson(person.id)}
+            person={person}
+          />
+        );
+      }) : (
+        <p className="py-4 text-dos-body text-dos-secondary">{empty}</p>
+      )}
+    </div>
+  );
+}
+
 function CircleLayerSheet({
   activeCircle,
   circleGroups,
@@ -34729,7 +33778,7 @@ function CirclesDetailOverlay({
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-6 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -35100,16 +34149,15 @@ function LibraryResourceBackButton({
 }) {
   return (
     <button
-      className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.06)] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
+      aria-label={`Back to ${label}`}
+      className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
       onClick={onClick}
       type="button"
     >
-      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-      {label}
+      <ArrowLeft aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
     </button>
   );
 }
-
 function LibraryResourceShell({
   action,
   backLabel,
@@ -35132,19 +34180,16 @@ function LibraryResourceShell({
   return (
     <div className="grid gap-4">
       <LibraryResourceBackButton label={backLabel} onClick={onBack} />
-      <header className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.055)] md:p-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[#EBF2FF] text-[#2563EB]">
-            {icon}
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {typeLabel}
-            </span>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-[#0F172A] md:text-3xl">{title}</h1>
-            <p className="mt-2 text-sm leading-6 text-[#475569]">{description}</p>
-            {action ? <div className="mt-3">{action}</div> : null}
-          </div>
+      {/* Resource header (spec §5.9): blue eyebrow for the type, the display
+          title, the description in ink, then the primary action. The type
+          colour lives only in the icon tile. */}
+      <header className="flex min-w-0 items-start gap-3">
+        <IconTile>{icon}</IconTile>
+        <div className="min-w-0 flex-1">
+          <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{typeLabel}</p>
+          <h1 className="mt-1.5 text-dos-display text-dos-primary">{title}</h1>
+          <p className="mt-2 text-dos-body text-dos-primary">{description}</p>
+          {action ? <div className="mt-3">{action}</div> : null}
         </div>
       </header>
       {children}
@@ -35165,23 +34210,23 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
           const sectionDescription = "description" in section ? section.description : null;
 
           return (
-            <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.id}>
-              <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
-              {sectionDescription ? <p className="mt-1 text-sm leading-6 text-[#64748B]">{sectionDescription}</p> : null}
+            <section className="rounded-dos-2 border border-dos-line bg-white p-4" key={section.id}>
+              <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
+              {sectionDescription ? <p className="mt-1 text-dos-body text-dos-secondary">{sectionDescription}</p> : null}
               <div className="mt-4 grid gap-3">
                 {section.questions.map((question, index) => {
                   const prompt = "prompt" in question ? question.prompt : null;
                   const scriptureRefs = "scriptureRefs" in question ? question.scriptureRefs : null;
 
                   return (
-                    <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={question.id}>
+                    <article className="rounded-dos-1 border border-dos-line bg-dos-surface2 p-3" key={question.id}>
                       <div className="flex min-w-0 gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-xs font-black text-[#1D4ED8]">{index + 1}</span>
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-dos-blue50 text-dos-pill text-dos-blueText">{index + 1}</span>
                         <div className="min-w-0">
-                          <h3 className="text-sm font-black leading-6 text-[#0F172A]">{question.label}</h3>
-                          {prompt ? <p className="mt-1 text-sm leading-6 text-[#475569]">{prompt}</p> : null}
+                          <h3 className="text-dos-body font-semibold text-dos-primary">{question.label}</h3>
+                          {prompt ? <p className="mt-1 text-dos-body text-dos-body">{prompt}</p> : null}
                           {scriptureRefs?.length ? (
-                            <p className="mt-2 text-xs font-bold leading-5 text-[#1D4ED8]">{scriptureRefs.join(" · ")}</p>
+                            <p className="mt-2 text-dos-meta font-semibold text-dos-blueText">{scriptureRefs.join(" · ")}</p>
                           ) : null}
                         </div>
                       </div>
@@ -35193,7 +34238,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
           );
         })}
         {gospelInvitation ? (
-          <section className="rounded-[24px] border border-[#DCEBFF] bg-[#EBF2FF] p-4 text-sm font-bold leading-6 text-[#0F172A]">
+          <section className="rounded-dos-2 border border-dos-line bg-white p-4 text-dos-body font-semibold text-dos-primary">
             {gospelInvitation}
           </section>
         ) : null}
@@ -35204,21 +34249,21 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
   return (
     <div className="grid gap-3">
       {resource.content?.body ? (
-        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 text-sm leading-7 text-[#0F172A] shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <section className="rounded-dos-2 border border-dos-line bg-white p-4 text-dos-body leading-7 text-dos-primary">
           {resource.content.body}
         </section>
       ) : null}
       {sections.length ? sections.map((section) => (
-        <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" key={section.title}>
-          <h2 className="text-lg font-black leading-tight text-[#0F172A]">{section.title}</h2>
-          {section.body ? <p className="mt-2 text-sm leading-7 text-[#475569]">{section.body}</p> : null}
-          {section.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{section.scriptureReferences.join(" · ")}</p> : null}
+        <section className="rounded-dos-2 border border-dos-line bg-white p-4" key={section.title}>
+          <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
+          {section.body ? <p className="mt-2 text-dos-body leading-7 text-dos-body">{section.body}</p> : null}
+          {section.scriptureReferences?.length ? <p className="mt-2 text-dos-meta font-semibold text-dos-blueText">{section.scriptureReferences.join(" · ")}</p> : null}
           {section.items?.length ? (
             <div className="mt-3 grid gap-2">
               {section.items.map((item) => (
                 <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={item.title}>
                   <h3 className="text-sm font-black text-[#0F172A]">{item.title}</h3>
-                  {item.body ? <p className="mt-1 text-sm leading-6 text-[#475569]">{item.body}</p> : null}
+                  {item.body ? <p className="mt-1 text-dos-body text-dos-body">{item.body}</p> : null}
                   {item.scriptureReferences?.length ? <p className="mt-2 text-xs font-bold text-[#1D4ED8]">{item.scriptureReferences.join(" · ")}</p> : null}
                 </article>
               ))}
@@ -35431,7 +34476,7 @@ function LibraryCatalogResourcePage({
   const { IconComponent } = catalogResourceIcon(resource.icon);
   const pdfHref = resource.downloadPath ?? (resource.path.endsWith(".pdf") ? resource.path : null);
   const action = pdfHref && resource.type !== "assessment" ? (
-    <a className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#0F172A]" download href={pdfHref}>
+    <a className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100" download href={pdfHref}>
       <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
       Download PDF
     </a>
@@ -35586,8 +34631,8 @@ function PDButton({
   // navigation, which the book-study benchmark renders as a link rather than
   // a fourth pill stacked down the right edge.
   const className = tone === "quiet"
-    ? "inline-flex min-h-[34px] shrink-0 items-center justify-center gap-1 whitespace-nowrap text-[13.5px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
-    : `inline-flex min-h-[34px] min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
+    ? "inline-flex min-h-11 shrink-0 items-center justify-center gap-1 whitespace-nowrap text-[13.5px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
+    : `inline-flex min-h-11 min-w-[94px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-3 text-[12.5px] font-semibold transition-colors ${
       tone === "solid"
         ? "bg-dos-blue text-white hover:bg-[#1B3EA0]"
         : "border border-[#E3E6EB] bg-white text-dos-primary hover:border-[#0F1520]"
@@ -35827,7 +34872,7 @@ function PersonRecordRow({
 }) {
   return (
     <button
-      className="flex w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
+      className="flex min-h-11 w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
       onClick={onOpen}
       type="button"
     >
@@ -36136,6 +35181,20 @@ function PersonDetailOverlay({
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
   const [isPersonFruitOpen, setIsPersonFruitOpen] = useState(false);
   const [isPersonPrayerOpen, setIsPersonPrayerOpen] = useState(false);
+  /* RIGHT NOW lists cap at three (spec §5.6); "View all N" reveals the rest
+     in place, or opens the record surface where one already exists. */
+  const [expandedRightNow, setExpandedRightNow] = useState<Record<string, boolean>>({});
+  const rightNowCap = 3;
+  const cappedRows = <T,>(key: string, rows: T[]) => (expandedRightNow[key] ? rows : rows.slice(0, rightNowCap));
+  const renderViewAll = (key: string, total: number, onOpen?: () => void) => (total > rightNowCap && !expandedRightNow[key] ? (
+    <button
+      className="flex min-h-11 items-center text-[13px] font-semibold text-dos-blue"
+      onClick={onOpen ?? (() => setExpandedRightNow((current) => ({ ...current, [key]: true })))}
+      type="button"
+    >
+      View all {total}
+    </button>
+  ) : null);
   /* Feedback opens the same purpose-built sheet from Overview and Timeline, so
      the record never has two different detail experiences. */
   const [selectedFeedbackItem, setSelectedFeedbackItem] = useState<SubmittedReviewListItem | null>(null);
@@ -36527,6 +35586,12 @@ function PersonDetailOverlay({
      fallback label. */
   const isMultiplying = personIsMultiplying(commitments);
   const relationshipSignal = isMultiplying ? `${relationshipTypePill} · Multiplying` : relationshipTypePill;
+  const relationshipLine = `${relationshipSignal} · ${currentCircleLabel}`;
+  const openPrayerCount = activePersonPrayerRequests.length + activePrayerReminders.length;
+  const answeredPrayerCount = answeredPersonPrayerRequests.length + answeredPrayerReminders.length;
+  const prayerCountLine = openPrayerCount + answeredPrayerCount > 0
+    ? `${openPrayerCount} open${answeredPrayerCount ? ` · ${answeredPrayerCount} answered` : ""}`
+    : "";
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
   const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
   const conceptPrayerItems = [
@@ -36655,17 +35720,15 @@ function PersonDetailOverlay({
     /* Fruit only. What someone reported about us is Feedback, and it has its
        own section: mixing them made the page read as though a review were a
        kind of fruit. */
-    const recentOutcomes = personOutcomeEntries.slice(0, 2);
+    const recentOutcomes = cappedRows("fruit", personOutcomeEntries);
 
     return (
       <>
-        <div className="flex items-baseline justify-between gap-3">
-          {/* No create action: observed Fruit comes from an interaction, so it
-              is captured while logging a meeting, never typed in here. */}
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Fruit</h3>
-        </div>
+        {/* No create action: observed Fruit comes from an interaction, so it
+            is captured while logging a meeting, never typed in here. */}
+        <Eyebrow tone="sub">Fruit</Eyebrow>
         {recentOutcomes.length ? (
-          <div className="mt-1 divide-y divide-dos-rule">
+          <div className="divide-y divide-dos-rule">
             {recentOutcomes.map((entry) => (
               <PersonRecordRow key={entry.id} onOpen={() => setSelectedOutcomeEntry(entry)}>
                 <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
@@ -36676,8 +35739,9 @@ function PersonDetailOverlay({
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
+          <p className="text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
         )}
+        {renderViewAll("fruit", personOutcomeEntries.length)}
       </>
     );
   };
@@ -36690,57 +35754,55 @@ function PersonDetailOverlay({
      meeting -- when, what, how long -- and the whole card opens the record.
      No generated preparation copy lives in here. */
   const renderMeetingCards = () => {
-    const cardClass = "flex min-w-0 flex-col rounded-2xl border border-dos-hairline bg-white p-3.5 text-left transition-colors";
-    const eyebrowClass = "text-[10.5px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow";
-    const leadClass = "mt-1.5 text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
+    const eyebrowClass = "text-dos-eyebrow uppercase";
+    const leadClass = "mt-1.5 block text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
     // Two lines rather than an ellipsis: at half-width a real meeting title
     // ("First mentoring meeting") is unreadable truncated to one line.
-    const bodyClass = "mt-0.5 line-clamp-2 text-[13.5px] font-semibold leading-[1.35] text-dos-body";
-    const metaClass = "mt-1 text-[12.5px] font-semibold text-dos-secondary";
+    const bodyClass = "mt-0.5 line-clamp-2 block text-[13.5px] font-semibold leading-[1.35] text-dos-body";
+    const metaClass = "mt-1 block truncate text-dos-meta text-dos-secondary";
+    const chevron = <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />;
     const nextStartAt = nextMeeting ? nextMeeting.scheduledStartAt ?? nextMeeting.date : null;
     const nextTime = formatTime(nextStartAt);
 
     return (
       <div className="grid grid-cols-2 gap-2.5 pt-4">
         {lastMeeting ? (
-          <button
-            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
-            onClick={() => onOpenMeeting(lastMeeting.id, person.id)}
-            type="button"
-          >
-            <span className={eyebrowClass}>Last meeting</span>
+          <Card onClick={() => onOpenMeeting(lastMeeting.id, person.id)}>
+            <span className="flex items-start justify-between gap-2">
+              <span className={eyebrowClass}>Last meeting</span>
+              {chevron}
+            </span>
             <span className={leadClass}>{formatRelativeDate(lastMeeting.date)}</span>
             <span className={bodyClass}>{lastTimeTopic || meetingActivityTitle(lastMeeting)}</span>
             {lastMeetingDurationLabel ? <span className={metaClass}>{lastMeetingDurationLabel}</span> : null}
-          </button>
+          </Card>
         ) : (
-          <div className={cardClass}>
+          <Card>
             <span className={eyebrowClass}>Last meeting</span>
-            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
-            <span className="mt-auto pt-2.5">
+            <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
+            <span className="mt-2.5 block">
               <PDButton onClick={onLogMeeting}>Log</PDButton>
             </span>
-          </div>
+          </Card>
         )}
         {nextMeeting ? (
-          <button
-            className={`${cardClass} hover:border-[#C7D9F5] hover:bg-[#FAFCFF]`}
-            onClick={() => onOpenMeeting(nextMeeting.id, person.id)}
-            type="button"
-          >
-            <span className={eyebrowClass}>Next meeting</span>
+          <Card onClick={() => onOpenMeeting(nextMeeting.id, person.id)}>
+            <span className="flex items-start justify-between gap-2">
+              <span className={eyebrowClass}>Next meeting</span>
+              {chevron}
+            </span>
             <span className={leadClass}>{formatShortDate(nextStartAt) || upcomingDayLabel(nextStartAt)}</span>
             <span className={bodyClass}>{nextMeeting.title?.trim() || meetingActivityTitle(nextMeeting)}</span>
             {nextTime ? <span className={metaClass}>{nextTime}</span> : null}
-          </button>
+          </Card>
         ) : (
-          <div className={cardClass}>
+          <Card>
             <span className={eyebrowClass}>Next meeting</span>
-            <span className="mt-1.5 text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
-            <span className="mt-auto pt-2.5">
+            <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
+            <span className="mt-2.5 block">
               <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
             </span>
-          </div>
+          </Card>
         )}
       </div>
     );
@@ -36750,7 +35812,7 @@ function PersonDetailOverlay({
     <>
       {conceptFollowUps.length ? (
         <section>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Reminder</h3>
+          <Eyebrow tone="sub">Reminder</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {conceptFollowUps.map((followUp) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
@@ -36763,7 +35825,7 @@ function PersonDetailOverlay({
       ) : null}
       {upcomingGatherings.length ? (
         <section className={conceptFollowUps.length ? "mt-6 border-t border-dos-rule pt-5" : ""}>
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Group gathering</h3>
+          <Eyebrow tone="sub">Group gathering</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {upcomingGatherings.map(({ gathering, group }) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
@@ -36802,7 +35864,7 @@ function PersonDetailOverlay({
           <header>
             <div className="-mx-4 flex items-center justify-between px-2 md:mx-0 md:px-0">
               <button
-                className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
                 onClick={() => {
                   if (activeDetailTab === "overview") {
                     onBack();
@@ -36820,7 +35882,7 @@ function PersonDetailOverlay({
                   action, so Edit sits here rather than among the things you
                   intentionally do for someone. Secondary to the identity. */}
               <button
-                className="flex min-h-10 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
+                className="flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
                 onClick={onEdit}
                 type="button"
               >
@@ -36856,47 +35918,30 @@ function PersonDetailOverlay({
                   type="button"
                   aria-label={`${relationshipSignal}. DOS has noticed something about this relationship.`}
                 >
-                  {relationshipSignal}
+                  {relationshipLine}
                   <span className="h-1.5 w-1.5 rounded-full bg-dos-blue" aria-hidden="true" />
                 </button>
               ) : (
-                <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipSignal}</p>
+                <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">{relationshipLine}</p>
               )}
               {relationshipCadence ? (
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            {/* A compact segmented control rather than three underlined links
-                between two rules -- app navigation, not page links. One
-                surface, one selected state, no line above and below. */}
-            <nav aria-label={`${firstName} views`} className="flex justify-center pb-1">
-              <div className="inline-flex items-center gap-0.5 rounded-full border border-[#DCE6F8] bg-white/85 p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                {([
-                  { label: "Overview", value: "overview" as const },
-                  { label: "Timeline", value: "history" as const },
-                  { label: "Details", value: "details" as const },
-                ]).map((view) => {
-                  const isActive = activeDetailTab === view.value;
-
-                  return (
-                    <button
-                      aria-current={isActive ? "page" : undefined}
-                      className={`min-h-9 rounded-full px-4 text-[13.5px] font-bold transition-colors ${
-                        isActive ? "bg-dos-blue text-white" : "text-dos-secondary hover:bg-[#F3F6FD] hover:text-dos-primary"
-                      }`}
-                      key={view.value}
-                      onClick={() => {
-                        setActiveDetailTab(view.value);
-                        scrollDetailToTop();
-                      }}
-                      type="button"
-                    >
-                      {view.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
+            {/* The canonical PillRail (spec §3, §5.6): the same rail as
+                Meetings and My Record. */}
+            <div className="pb-1">
+              <PillRail
+                edgeInset={4}
+                label={`${firstName} views`}
+                onChange={(view) => {
+                  setActiveDetailTab(view);
+                  scrollDetailToTop();
+                }}
+                options={personDetailViewOptions}
+                value={activeDetailTab}
+              />
+            </div>
           </header>
         </>
       ) : (
@@ -36972,155 +36017,173 @@ function PersonDetailOverlay({
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
 
-                {/* ACCOUNTABILITY — the primary active work, immediately below.
-                    One section for everything this person is working on, whether
-                    it is a rhythm or a one-time goal. Add sits on the heading so
-                    it is reachable whether or not there is anything here yet, and
-                    opens the same canonical form as the FAB and Log Meeting. */}
-                <section aria-label="Accountability" className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Accountability</h3>
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">
-                      + Add
-                    </button>
-                  </div>
-                  <div className="mt-1 divide-y divide-dos-rule">
-                    {accountabilityTopics.map((topic) => (
-                      <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
-                        <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
-                        {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
-                        {/* Who has been confirmed, one line each and one line
-                            per person however many updates mention them. */}
-                        {topic.subjects.length ? (
-                          <span className="mt-2 grid gap-1.5">
-                            {topic.subjects.map((subject) => (
-                              <span className="block" key={subject.key}>
-                                <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
-                                {subject.startedDate ? (
-                                  <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
-                                ) : null}
-                              </span>
-                            ))}
-                          </span>
-                        ) : null}
-                      </PersonRecordRow>
-                    ))}
-                    {conceptJourneys.map((journey) => (
-                      <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
-                          <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
-                          {journey.completion && journey.completion.total > 0 ? (
-                            <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
-                              <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
-                            </span>
-                          ) : null}
-                        </div>
-                        {journey.isInAppJourney && journey.resource ? (
-                          <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                        ) : journey.resource ? (
-                          <PDButton href={journey.resource.path}>Open</PDButton>
-                        ) : null}
-                      </div>
-                    ))}
-                    {!accountabilityTopics.length && !conceptJourneys.length ? (
-                      <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
-                    ) : null}
-                  </div>
-                </section>
-
-                {/* Prayer is not accountability. Something we are praying about
-                    for them is not something they are responsible for doing,
-                    so it reads as its own compact section. */}
-                <section aria-label="Prayer" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Prayer</h3>
-                    {/* Creates another request. Never the resource library:
-                        that is something to send someone, not something they
-                        asked for. */}
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">
-                      + Add
-                    </button>
-                  </div>
-                  {conceptPrayerItems.length ? (
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      {conceptPrayerItems.slice(0, 3).map((item) => (
-                        <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
-                          <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
-                        </PersonRecordRow>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No prayer requests yet.</p>
-                  )}
-                </section>
-
-                {/* What they said about meeting with us, on the page the
-                    leader actually opens. Feedback used to live only in the
-                    Timeline and a nested sheet, so a requested review could
-                    arrive and never be seen. One line: how it was, what they
-                    wrote, and -- unmissably -- whether they asked us to get
-                    back to them. */}
-                <section aria-label="Feedback" className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Feedback</h3>
-                    {/* Feedback is requested, not created. */}
-                    {lastMeeting && onRequestReview ? (
-                      <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">
-                        Request
-                      </button>
-                    ) : null}
-                  </div>
-                  {latestPersonFeedback ? (
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
-                        <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
-                          {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
-                        </span>
-                        {latestPersonFeedback.comment ? (
-                          <span className="mt-1 line-clamp-2 block text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</span>
-                        ) : null}
-                        {latestPersonFeedback.wantsFollowUp ? (
-                          <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
-                        ) : null}
-                      </PersonRecordRow>
-                    </div>
-                  ) : (
-                    /* Restrained rather than absent, so what someone submits
-                       has a findable home before anything has arrived. */
-                    <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
-                  )}
-                </section>
-
-                {/* Groups are a membership fact, not active work. Separated by
-                    structure and type rather than a new colour. */}
-                {personGroups.length ? (
-                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4">
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">Groups</h3>
-                    <div className="mt-1 divide-y divide-dos-rule">
-                      {personGroups.map((group) => (
-                        <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                            {group.leaderPersonId === person.id ? (
-                              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                {/* RIGHT NOW (spec §5.6): one white surface, a blue section
+                    eyebrow, then grey sub-eyebrows for Journey, Accountability,
+                    Prayer, Fruit, Feedback and Groups, separated by hairlines.
+                    Every record is a row you open; lists cap at three. */}
+                <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4">
+                  <Eyebrow>Right now</Eyebrow>
+                  {conceptJourneys.length ? (
+                    <section aria-label="Journey" className="border-b border-dos-rule py-3 last:border-b-0">
+                      <Eyebrow tone="sub">Journey</Eyebrow>
+                      <div className="divide-y divide-dos-rule">
+                        {conceptJourneys.map((journey) => (
+                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
+                              <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
+                              {journey.completion && journey.completion.total > 0 ? (
+                                <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
+                                  <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
+                                </span>
+                              ) : null}
+                            </div>
+                            {/* Continue is the one filled action on the page. */}
+                            {journey.isInAppJourney && journey.resource ? (
+                              <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                            ) : journey.resource ? (
+                              <PDButton href={journey.resource.path}>Open</PDButton>
                             ) : null}
                           </div>
-                          <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
 
-                {conceptFollowUps.length || upcomingGatherings.length ? (
-                  <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
-                    {renderNextMeeting(false)}
+                  {/* ACCOUNTABILITY: one section for everything this person is
+                      working on, whether a rhythm or a one-time goal. Add sits
+                      on the heading so it is reachable whether or not there is
+                      anything here yet, and opens the same canonical form as
+                      the FAB and Log Meeting. */}
+                  <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
+                    <Eyebrow
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
+                      tone="sub"
+                    >
+                      Accountability
+                    </Eyebrow>
+                    <div className="divide-y divide-dos-rule">
+                      {cappedRows("accountability", accountabilityTopics).map((topic) => (
+                        <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
+                          <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
+                          {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
+                          {/* Who has been confirmed, one line each and one line
+                              per person however many updates mention them. */}
+                          {topic.subjects.length ? (
+                            <span className="mt-2 grid gap-1.5">
+                              {topic.subjects.map((subject) => (
+                                <span className="block" key={subject.key}>
+                                  <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
+                                  {subject.startedDate ? (
+                                    <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
+                                  ) : null}
+                                </span>
+                              ))}
+                            </span>
+                          ) : null}
+                        </PersonRecordRow>
+                      ))}
+                      {accountabilityTopics.length ? null : (
+                        <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
+                      )}
+                    </div>
+                    {renderViewAll("accountability", accountabilityTopics.length)}
                   </section>
-                ) : null}
-                <section className="mt-3 rounded-2xl border border-dos-hairline bg-white px-4 py-4 lg:hidden">
-                  {renderFruit()}
-                </section>
+
+                  {/* Prayer is not accountability. Something we are praying about
+                      for them is not something they are responsible for doing,
+                      so it reads as its own compact section. */}
+                  <section aria-label="Prayer" className="border-b border-dos-rule py-3 last:border-b-0">
+                    {/* + Add creates another request. Never the resource library:
+                        that is something to send someone, not something they
+                        asked for. */}
+                    <Eyebrow
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
+                      tone="sub"
+                    >
+                      Prayer
+                    </Eyebrow>
+                    {prayerCountLine ? <p className="mb-1 text-dos-meta text-dos-secondary">{prayerCountLine}</p> : null}
+                    {conceptPrayerItems.length ? (
+                      <div className="divide-y divide-dos-rule">
+                        {cappedRows("prayer", conceptPrayerItems).map((item) => (
+                          <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
+                            <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
+                          </PersonRecordRow>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No prayer requests yet.</p>
+                    )}
+                    {renderViewAll("prayer", conceptPrayerItems.length, () => setIsPersonPrayerOpen(true))}
+                  </section>
+
+                  <section aria-label="Fruit" className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
+                    {renderFruit()}
+                  </section>
+
+                  {/* What they said about meeting with us, on the page the
+                      leader actually opens. One line: how it was, what they
+                      wrote, and, unmissably, whether they asked us to get back
+                      to them. The label stays "Feedback" (spec §9 PL-7). */}
+                  <section aria-label="Feedback" className="border-b border-dos-rule py-3 last:border-b-0">
+                    {/* Feedback is requested, not created. */}
+                    <Eyebrow
+                      action={lastMeeting && onRequestReview ? (
+                        <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
+                      ) : undefined}
+                      tone="sub"
+                    >
+                      Feedback
+                    </Eyebrow>
+                    {latestPersonFeedback ? (
+                      <div className="divide-y divide-dos-rule">
+                        <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
+                          <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
+                            {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
+                          </span>
+                          {latestPersonFeedback.comment ? (
+                            <span className="mt-1 line-clamp-2 block text-[14.5px] leading-[1.45] text-dos-body">&ldquo;{latestPersonFeedback.comment}&rdquo;</span>
+                          ) : null}
+                          {latestPersonFeedback.wantsFollowUp ? (
+                            <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
+                          ) : null}
+                        </PersonRecordRow>
+                      </div>
+                    ) : (
+                      /* Restrained rather than absent, so what someone submits
+                         has a findable home before anything has arrived. */
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
+                    )}
+                  </section>
+
+                  {/* Groups are a membership fact, not active work. Separated by
+                      structure and type rather than a new colour. */}
+                  {personGroups.length ? (
+                    <section aria-label="Groups" className="border-b border-dos-rule py-3 last:border-b-0">
+                      <Eyebrow tone="sub">Groups</Eyebrow>
+                      <div className="divide-y divide-dos-rule">
+                        {personGroups.map((group) => (
+                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
+                              {group.leaderPersonId === person.id ? (
+                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                              ) : null}
+                            </div>
+                            <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {conceptFollowUps.length || upcomingGatherings.length ? (
+                    <section className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
+                      {renderNextMeeting(false)}
+                    </section>
+                  ) : null}
+                </div>
               </div>
 
               <aside className="mt-4 hidden w-[292px] shrink-0 self-start rounded-2xl border border-dos-hairline bg-white px-5 py-4 lg:block xl:w-[308px]">
@@ -38364,7 +37427,7 @@ function MeetingDetailOverlay({
 
   if (showPostMeetingFollowUp && isLoggedTableMeeting && roleAllowsFruitReviews) {
     return (
-      <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-28 pt-7 [scrollbar-width:none]">
+      <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -38454,12 +37517,12 @@ function MeetingDetailOverlay({
     .join(" · ");
 
   return (
-    <div className="absolute inset-0 z-40 overflow-y-auto bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
       <div className="mx-auto w-full max-w-[880px]">
         {/* Chrome: back to the person, deeper actions behind the overflow. */}
         <header className="-mx-1 flex items-center justify-between">
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
             onClick={onBack}
             type="button"
             aria-label="Back"
@@ -38467,7 +37530,7 @@ function MeetingDetailOverlay({
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
           </button>
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
             onClick={() => setIsMeetingActionsOpen(true)}
             type="button"
             aria-label="Meeting options"
@@ -38524,7 +37587,7 @@ function MeetingDetailOverlay({
                   {/* Edit sits with the notes it edits, not adrift below them. */}
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">What happened</h3>
-                    <button className="shrink-0 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
+                    <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onEditNotes} type="button">
                       {meetingNotes ? "Edit" : "Add"}
                     </button>
                   </div>
@@ -38737,6 +37800,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [libraryResourceView, setLibraryResourceView] = useState<LibraryResourceViewState>(null);
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
+  /* USA-218 (spec §5.1/5.2): Calendar and Timeline are mutually exclusive views. */
+  const [meetingsView, setMeetingsView] = useState<"calendar" | "timeline">("calendar");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
@@ -39153,6 +38218,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
+  /* Which circle each person is in, read from the same layer groups the tabs
+     use (B4: shown, never inferred). Unplaced people have no entry. */
+  const fieldCircleKeyByPersonId = useMemo(() => {
+    const byPerson = new Map<string, string>();
+
+    (["three", "twelve", "seventy", "my120"] as const).forEach((layer) => {
+      circlePeopleByLayer[layer].forEach(({ person }) => {
+        if (!byPerson.has(person.id)) {
+          byPerson.set(person.id, layer === "my120" ? "my_120" : layer);
+        }
+      });
+    });
+
+    return byPerson;
+  }, [circlePeopleByLayer]);
   const latestMeetingDateByPersonId = useMemo(() => {
     const latestDates = new Map<string, string | null>();
 
@@ -39329,6 +38409,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))
       .slice(0, 4)
   ), [loggedMeetings, people, tableQuery]);
+  /* USA-218 (spec §5.2): the Timeline is every logged meeting -- never a
+     scheduled or unlogged one -- newest first, filtered by the same search as
+     the calendar, grouped by month with a count. */
+  const meetingsTimelineGroups = useMemo(() => {
+    const logged = filteredTables(loggedMeetings, people, tableQuery)
+      .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
+    const groups: Array<{ key: string; label: string; meetings: DosAppMeeting[] }> = [];
+
+    for (const meeting of logged) {
+      const parsed = parseDisplayDate(meeting.date);
+      const key = parsed ? `${parsed.getFullYear()}-${parsed.getMonth()}` : "undated";
+      const label = parsed
+        ? new Intl.DateTimeFormat("en-US", { month: "long", timeZone: displayTimeZoneForValue(meeting.date), year: "numeric" }).format(parsed)
+        : "Undated";
+      const group = groups[groups.length - 1];
+
+      if (group && group.key === key) {
+        group.meetings.push(meeting);
+      } else {
+        groups.push({ key, label, meetings: [meeting] });
+      }
+    }
+
+    return groups;
+  }, [loggedMeetings, people, tableQuery]);
   const thisWeekStats = useMemo(() => {
     const { end, start } = currentWeekRange();
     const meetingsThisWeek = ministryLoggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));
@@ -44754,7 +43859,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           profileName={profileName}
           workspaceName={workspaceName}
         />
-        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 ${activeTab === "more" ? "pb-40" : "pb-28"}`}>
+        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 pb-dos-nav-clearance`}>
           {activeTab === "home" ? (
             <header className="relative md:hidden">
               <div className="min-w-0 pr-16">
@@ -44837,21 +43942,26 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
             {activeTab === "people" ? (
               <div className="space-y-4">
-                <header className="flex min-w-0 items-center justify-between gap-3 md:hidden">
-                  <div className="min-w-0">
-                    <h1 className="truncate text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                      Field
-                    </h1>
-                  </div>
-                  <button
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                    onClick={() => openMoreApp("settings")}
-                    type="button"
-                  >
-                    <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                    Settings
-                  </button>
-                </header>
+                {/* Canonical PageHeader (spec §5.11). Field is reached from More
+                    and from Home's circle target; the bottom nav is the way back,
+                    as in production, so no back control is added. */}
+                <div className="md:hidden">
+                  <PageHeader
+                    action={(
+                      <button
+                        className="group inline-flex h-11 items-center focus:outline-none"
+                        onClick={() => openMoreApp("settings")}
+                        type="button"
+                      >
+                        <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+                          <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                        Settings
+                        </span>
+                      </button>
+                    )}
+                    title="Field"
+                  />
+                </div>
                 <div className="hidden md:block">
                   <TabHero
                     icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -44867,31 +43977,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search by name, phone, relationship, or context"
                   query={peopleQuery}
                 />
-                <MobileSectionSearch
-                  alwaysVisible
-                  ariaLabel="Search field"
-                  isOpen={isPeopleSearchOpen}
-                  onChange={setPeopleQuery}
-                  onToggle={() => undefined}
-                  placeholder="Search people"
-                  query={peopleQuery}
-                />
+                <div className="md:hidden">
+                  <SearchField label="Search field" onChange={setPeopleQuery} placeholder="Search people" value={peopleQuery} />
+                </div>
                 {secondaryFieldPeopleCount ? (
+                  /* Household and secondary people stay hidden behind a Show row
+                     (production behavior, spec §5.11). */
                   <button
                     aria-pressed={showSecondaryFieldPeople}
-                    className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors sm:w-fit ${
-                      showSecondaryFieldPeople
-                        ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                        : "border-[#D6E4F7] bg-white text-[#475569] hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue sm:w-fit sm:gap-4 ${
+                      showSecondaryFieldPeople ? "border-dos-blue text-dos-blueText" : "border-dos-line text-dos-primary hover:border-dos-blue100"
                     }`}
                     onClick={() => setShowSecondaryFieldPeople((current) => !current)}
                     type="button"
                   >
-                    {showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-[#2563EB] ring-1 ring-[#BFDBFE]">{secondaryFieldPeopleCount}</span>
+                    <span>{showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary</span>
+                    <StatusPill tone={showSecondaryFieldPeople ? "blue" : "grey"}>{secondaryFieldPeopleCount}</StatusPill>
                   </button>
                 ) : null}
-                <PeopleCircleTabs onChange={setPeopleCircleView} value={peopleCircleView} />
+                <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
@@ -44905,13 +44009,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   {visibleCirclePeople.length ? (
                     <>
                       <div className="lg:hidden">
-                        <CircleLayerList
+                        <FieldPeopleList
+                          circleKeyByPersonId={fieldCircleKeyByPersonId}
                           empty={peopleCircleContent.empty}
                           items={visibleCirclePeople}
                           latestMeetingDateByPersonId={latestMeetingDateByPersonId}
                           onLogMeeting={openMeetingForPerson}
                           onOpenPerson={openPersonDetail}
-                          startIndex={peopleCircleContent.startIndex}
                         />
                       </div>
                       <DesktopPeopleIndex
@@ -44926,11 +44030,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       />
                     </>
                   ) : fieldListPeople.length ? (
-                    <EmptyState text={peopleQuery.trim() ? `Try a different search inside ${circleDisplayName(peopleCircleView)}.` : peopleCircleContent.empty} title={peopleQuery.trim() ? "No matching field results." : `No one in ${circleDisplayName(peopleCircleView)}.`} />
+                    <DosEmptyState>{peopleQuery.trim() ? `No matching field results. Try a different search inside ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}`}</DosEmptyState>
                   ) : people.length ? (
-                    <EmptyState text={secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty} title="No primary field contacts." />
+                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty}`}</DosEmptyState>
                   ) : (
-                    <EmptyState action={<CompactButton icon="add" onClick={() => openForm("person")}>Add Person</CompactButton>} text="Start by adding someone you are walking with." title="No field added yet." />
+                    <DosEmptyState action={<Button onClick={() => openForm("person")} variant="tinted">Add Person</Button>}>Start by adding someone you are walking with.</DosEmptyState>
                   )}
                 </div>
               </div>
@@ -44969,6 +44073,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search meetings, people, or context"
                   query={tableQuery}
                 />
+                <PillRail
+                  edgeInset={4}
+                  label="Meetings view"
+                  onChange={setMeetingsView}
+                  options={meetingsViewOptions}
+                  value={meetingsView}
+                />
                 <MobileSectionSearch
                   alwaysVisible
                   ariaLabel="Search meetings"
@@ -44978,7 +44089,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   placeholder="Search meetings"
                   query={tableQuery}
                 />
-                <div className="min-w-0 max-w-full">
+                {meetingsView === "timeline" ? (
+                  <MeetingsTimeline groups={meetingsTimelineGroups} onOpenMeeting={openMeetingDetail} people={people} />
+                ) : null}
+                <div className={`min-w-0 max-w-full ${meetingsView === "timeline" ? "hidden" : ""}`}>
                   <MeetingCalendarView
                     calendarConnection={calendarConnection}
                     calendarDisplaySettings={calendarDisplaySettings}
@@ -45007,6 +44121,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     recentlyCompletedMeetings={recentlyCompletedMeetings}
                     savingCalendarSourceId={savingCalendarSourceId}
                     selectedDateKey={selectedMeetingsCalendarDate}
+                    showRecentlyLogged={false}
                     viewMode={meetingCalendarViewMode}
                     onViewModeChange={setMeetingCalendarViewMode}
                     workspaceId={data.workspace.id}
@@ -45021,6 +44136,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === null || activeMoreAppView === "apps" ? (
                   <>
                     <div className="space-y-4 md:hidden">
+                      {/* The launcher gets the canonical page header (spec §5.7).
+                          The label stays "More" until D2 is decided (B2). */}
+                      <PageHeader title="More" />
                       {isAppsSearchOpen ? (
                         <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-2 shadow-[0_12px_30px_rgba(37,99,235,0.055)]">
                           <div className="relative">
@@ -45195,22 +44313,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "prayer" ? (
                   <>
-                    <header className="flex min-h-10 min-w-0 items-center justify-between gap-3 md:hidden">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <MoreBackButton onClick={() => setMoreAppView(null)} />
-                        <h1 className="truncate text-[32px] font-black leading-none tracking-[-0.035em] text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-                          Prayer
-                        </h1>
-                      </div>
-                      <button
-                        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                        onClick={() => openMoreApp("settings")}
-                        type="button"
-                      >
-                        <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                        Settings
-                      </button>
-                    </header>
+                    {/* Canonical PageHeader (spec §5.10): back to More, title, Settings. */}
+                    <div className="md:hidden">
+                      <PageHeader
+                        action={(
+                          <button
+                            className="group inline-flex h-11 items-center focus:outline-none"
+                            onClick={() => openMoreApp("settings")}
+                            type="button"
+                          >
+                            <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
+                              <Settings aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
+                            Settings
+                            </span>
+                          </button>
+                        )}
+                        backLabel="Back to More"
+                        mobileOnlyBack
+                        onBack={() => setMoreAppView(null)}
+                        title="Prayer"
+                      />
+                    </div>
                     <div className="hidden md:block">
                       <TabHero
                         icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
@@ -45287,9 +44410,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "fruit" ? (
                   <>
-                    <div className="flex min-h-9 items-center">
-                      <MoreBackButton onClick={() => setMoreAppView(null)} />
+                    <div className="md:hidden">
+                      <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Fruit" />
                     </div>
+                    <div className="hidden md:block">
                     <TabHero
                       icon={<Icon name="fruit" size={20} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45297,6 +44421,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       subtitle="Activity, visible outcomes, and fruit forms."
                       title="Recognize the fruit."
                     />
+                    </div>
                     <SegmentedTabs onChange={setFruitView} options={fruitViewTabs} value={fruitView} />
 
                     {fruitView === "activity" ? (
@@ -45440,9 +44565,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     )
                   ) : (
                     <>
-                      <div className="flex min-h-9 items-center">
-                        <MoreBackButton onClick={() => setMoreAppView(null)} />
+                      <div className="md:hidden">
+                        <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Library" />
                       </div>
+                      <div className="hidden md:block">
                       <TabHero
                         icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                         onScriptureClick={openScriptureQuickView}
@@ -45450,6 +44576,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         subtitle="Resources for conversations, follow up, and discipleship."
                         title="Grow in truth."
                       />
+                      </div>
                       <div className="space-y-6">
                         <LibrarySection title="Table Teachings">
                           <CatalogResourceList
@@ -45519,7 +44646,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === "in_season" ? (
                   <>
                     {/* TODO: Later rename the internal in_season app key after migration/route plan. */}
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Testimony Practice" />
                     <TabHero
                       icon={<Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45537,7 +44664,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "missionary_profile" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Missionary Profile" />
                     <TabHero
                       icon={<User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45566,7 +44693,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "prayer_team" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Prayer Team" />
                     <TabHero
                       icon={<HeartHandshake className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45584,7 +44711,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "support_team" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Support Team" />
                     <TabHero
                       icon={<Gift className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45602,7 +44729,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "stewardship" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Stewardship" />
                     <TabHero
                       icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45617,7 +44744,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {/* TODO: Fold Table Flow into Table later as Guided Flow templates. */}
                 {activeMoreAppView === "table_flow" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Table Flow" />
                     <TabHero
                       icon={<GitBranch className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45631,7 +44758,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "reports" ? (
                   <>
-                    <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
+                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
                     <TabHero
                       icon={<Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                       onScriptureClick={openScriptureQuickView}
@@ -45649,7 +44776,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 {activeMoreAppView === "organizations" ? (
                   <>
                     <div className="space-y-5 md:hidden">
-                      <TabPageHeader action={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
+                      <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Organizations" />
                       <TabHero
                         icon={<Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
                         onScriptureClick={openScriptureQuickView}
@@ -46605,7 +45732,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       {formMode === "person" ? (
         <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
-            buttonText="Add Person"
+            buttonText="Add person"
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onOpenExistingPerson={(person) => {
@@ -46628,7 +45755,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <DosWorkflowPage onClose={closeForm} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
-            buttonText="Save Person"
+            buttonText="Save person"
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}
@@ -46651,7 +45778,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
-            buttonText="Log Meeting"
+            buttonText="Log meeting"
             conversationResponses={conversationResponses}
             dateDefault={todayDateValue()}
             errorMessage={errorMessage}
@@ -46764,7 +45891,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             <MeetingFormContent
               allPeople={people}
               allowConversationFlows={data.workspace.isUsamWorkspace}
-              buttonText={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Save Meeting"}
+              buttonText={isLoggingSelectedScheduledMeeting ? "Log meeting" : "Save meeting"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
               durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}

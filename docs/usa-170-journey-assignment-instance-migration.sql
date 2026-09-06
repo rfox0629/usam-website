@@ -1,3 +1,7 @@
+-- ARCHIVED 2026-09-04 (DOS UI refresh, Phase 7 / USA-234). NEVER RUN.
+-- This is a historical repair script kept for reference. It is not a pending migration;
+-- the production schema is the source of truth (see docs/dos-ui-refresh/phase-0/01-baseline-report.md).
+
 -- USA-170.
 -- Apply to production only after Founder Approval.
 

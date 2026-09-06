@@ -25,13 +25,16 @@ function assertReadableSection(source, label) {
 }
 
 const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
+// USA-211 moved the form primitives and option selects into shared modules; the assertions are unchanged.
+const formPrimitives = readFileSync("src/components/dos/forms/FormPrimitives.tsx", "utf8");
+const optionSelect = readFileSync("src/components/dos/forms/OptionSelect.tsx", "utf8");
 const guide = readFileSync("app/guide/[slug]/page.tsx", "utf8");
 
-const fieldLabel = sliceBetween(client, "function FieldLabel", "function FieldInputClass");
+const fieldLabel = sliceBetween(formPrimitives, "function FieldLabel", "function FieldInputClass");
 assert(fieldLabel.includes("text-[#475569]"), "DOS form labels should use readable secondary text.");
 assertReadableSection(fieldLabel, "DOS form labels");
 
-const compactOptionSelect = sliceBetween(client, "function CompactOptionSelect", "function FormOptionSelect");
+const compactOptionSelect = sliceBetween(optionSelect, "function CompactOptionSelect", "function FormOptionSelect");
 assert(compactOptionSelect.includes("text-[#64748B]"), "Compact select helper text should use readable secondary text.");
 assertReadableSection(compactOptionSelect.replaceAll("text-[#94A3B8] transition-transform", ""), "Compact select labels and helper text");
 

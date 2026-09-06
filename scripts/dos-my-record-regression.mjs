@@ -248,8 +248,22 @@ assert(client.includes("right-[max(1rem,calc((100vw-430px)/2+1rem))]"), "My Reco
 assert(client.includes("Share Settings"), "My Record overview should expose Share Settings from the header.");
 assert(client.includes("My Record is private."), "Share Settings should preserve the private-by-default sharing language.");
 assert(client.includes("myRecordFutureSharingRoles.map"), "Share Settings should preserve future sharing roles.");
-assert(client.includes("Today at a Glance"), "V2 overview should include the compact daily KPI cards.");
 const myRecordWorkspaceSource = client.slice(client.indexOf("function MyRecordWorkspace"), client.indexOf("function GrowthMilestoneRow"));
+/* USA-220 (DOS UI refresh, canonical spec §5.8, Linear "Pilot — My Record")
+   retired the daily KPI cards: the Overview is Current + Recent entries with
+   one View all. The earlier assertion that the Overview includes the KPI
+   cards is replaced, deliberately, by the assertions below. */
+assert(!myRecordWorkspaceSource.includes("Today at a Glance"), "USA-220: the Overview no longer carries the daily KPI cards.");
+const myRecordOverviewSource = myRecordWorkspaceSource.slice(
+  myRecordWorkspaceSource.indexOf('{activeMyRecordTab === "overview" ? ('),
+  myRecordWorkspaceSource.indexOf('{activeMyRecordTab === "walk_with_god" ? ('),
+);
+assert(myRecordOverviewSource.includes('aria-label="Current"') && myRecordOverviewSource.includes("{currentItems.length ? ("), "USA-220: the Overview leads with Current, hidden when there is nothing active (D10).");
+assert(myRecordOverviewSource.includes('aria-label="Recent"') && myRecordOverviewSource.includes("timeline.slice(0, 3)"), "USA-220: Recent shows the latest three entries.");
+assert((myRecordOverviewSource.match(/View all/g) ?? []).length === 1, "USA-220: the Overview carries exactly one View all.");
+assert(myRecordWorkspaceSource.includes('assignment.status !== "completed"') && myRecordWorkspaceSource.includes('item.status === "draft"'), "USA-220: Current shows only what production already treats as active (assigned resources not completed, draft assessments); no new aggregate.");
+assert(myRecordWorkspaceSource.includes("<PillRail") && !client.includes("function MyRecordTabBar"), "USA-220: the section rail is the canonical PillRail; the bespoke tab bar is gone.");
+assert(myRecordWorkspaceSource.includes("aria-expanded={isShareSettingsOpen}") && myRecordWorkspaceSource.includes("Private"), "USA-220: the Private chip opens the same sharing panel the Share button did.");
 assert(!myRecordWorkspaceSource.includes("<TabHero"), "My Record overview should use a compact page header instead of the large TabHero card.");
 assert(!myRecordWorkspaceSource.includes("SectionHeading title=\"Quick Actions\""), "My Record overview should not render a visible Quick Actions section.");
 const myRecordFabSource = client.slice(client.indexOf("const myRecordFabItems"), client.indexOf("// TODO: Future: Permission-based My Record sharing"));
@@ -275,8 +289,8 @@ assert(client.includes("items-center gap-2.5 rounded-[16px]") && client.includes
 assert(client.includes("layout icon | content | date/chevron") || client.includes("self-start pt-0.5"), "V2 activity cards should keep the icon, content, date/chevron row layout.");
 assert(client.includes("badge: myRecordRecordVisual(kind).label"), "Timeline items should carry the compact card badge label.");
 assert(client.includes("kind={item.kind}") && client.includes("typeLabel={item.badge}"), "Overview and timeline activity should render through the compact card kind and badge.");
-assert(client.includes("grid min-w-0 grid-cols-2 gap-2 min-[900px]:grid-cols-4"), "Today at a Glance should render as individual cards in a 2-by-2 layout until desktop width permits four columns.");
-assert(client.includes("rounded-[18px] border border-[#EAF2FF] bg-white p-2"), "Today at a Glance cards should stay compact with reduced padding.");
+/* The two layout assertions for the KPI cards (2-by-2 grid, compact padding)
+   were retired with the cards in USA-220. */
 const myRecordVisualSource = client.slice(client.indexOf("function myRecordRecordVisual"), client.indexOf("function MyRecordCompactRecordCard"));
 ["red-", "violet-", "orange-", "indigo-", "teal-"].forEach((accent) => {
   assert(!myRecordVisualSource.includes(accent), `My Record record visuals should not use ${accent} accent classes.`);

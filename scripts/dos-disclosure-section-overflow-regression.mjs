@@ -10,12 +10,13 @@ function assert(condition, message) {
   }
 }
 
-const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+// USA-211 moved DisclosureSection into the shared form primitives; the assertions are unchanged.
+const appClient = read("src/components/dos/forms/FormPrimitives.tsx");
 const fnStart = appClient.indexOf("function DisclosureSection(");
-const fnEnd = appClient.indexOf("\nfunction StickyFormFooter(", fnStart);
+const fnEnd = appClient.indexOf("\nexport function StickyFormFooter(", fnStart);
 const fnBlock = appClient.slice(fnStart, fnEnd);
 
-assert(fnStart !== -1 && fnEnd !== -1, "DisclosureSection must exist in DosMvpAppClient.tsx.");
+assert(fnStart !== -1 && fnEnd !== -1, "DisclosureSection must exist in FormPrimitives.tsx.");
 
 assert(
   !fnBlock.includes('<section className="overflow-hidden'),

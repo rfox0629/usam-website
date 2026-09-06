@@ -2173,7 +2173,7 @@ await check("A backdrop can close what you are reading and never what you are ty
   assert.equal(swipeMayDismiss("inspection"), true, "A read-only sheet may be swiped away.");
   assert.equal(swipeMayDismiss("editable"), false, "A swipe while scrolling a form must not discard it.");
 
-  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const client = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
   const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
 
   /* The rule is applied at the one place every sheet's backdrop is built, so
@@ -2238,8 +2238,10 @@ await check("Add and Edit Person are the same protected task screen", async () =
 });
 
 await check("Every task screen is guarded by the primitive, not by per-form wiring", async () => {
+  // USA-211 moved the primitive into DosSurfaces.tsx; the task screens still mount it from the client.
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
-  const page = client.slice(client.indexOf("function DosWorkflowPage("), client.indexOf("function Sheet({"));
+  const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
+  const page = surfaces.slice(surfaces.indexOf("function DosWorkflowPage("), surfaces.indexOf("function Sheet({"));
 
   /* The guard lives in the screen itself, so Log Meeting, Schedule Meeting and
      both Person screens are protected by being task screens rather than by
@@ -2261,8 +2263,10 @@ await check("Every task screen is guarded by the primitive, not by per-form wiri
 });
 
 await check("Every editable sheet declares itself, and the primitive protects it", async () => {
+  // USA-211 moved the primitive into DosSurfaces.tsx; the editable sheets are still declared in the client.
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
-  const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
+  const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
+  const sheet = surfaces.slice(surfaces.indexOf("function Sheet({"), surfaces.indexOf("function MobileBottomSheet("));
 
   assert(sheet.includes("useUnsavedWorkGuard({"), "Sheet owns the guard for editable surfaces.");
   assert(sheet.includes("onClick={requestClose}"), "The X routes through the guard.");
@@ -2299,7 +2303,7 @@ await check("Every editable sheet declares itself, and the primitive protects it
 });
 
 await check("The second sheet primitive cannot become a loophole", async () => {
-  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const client = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
   const legacy = client.slice(client.indexOf("function MobileBottomSheet("), client.indexOf("function MobileBottomSheet(") + 2600);
 
   assert(legacy.includes("kind?: DosSurfaceKind"), "MobileBottomSheet takes the same contract as Sheet.");
@@ -2311,7 +2315,7 @@ await check("The second sheet primitive cannot become a loophole", async () => {
 });
 
 await check("Keep editing is the safe default and does not rebuild the form", async () => {
-  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const client = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
   const guard = client.slice(client.indexOf("function useUnsavedWorkGuard("), client.indexOf("function useUnsavedWorkGuard(") + 1600);
   const dialog = client.slice(client.indexOf("function DiscardChangesDialog("), client.indexOf("function useUnsavedWorkGuard("));
 
@@ -2360,8 +2364,10 @@ await check("The FAB belongs to the app shell, not to a content container", asyn
   assert(!/bg-\[|bg-white|shadow-\[/.test(stack), "The FAB stack has no background or shadow of its own.");
 
   /* Sheets sit above it, so an open sheet is never competed with. */
-  assert(/z-\[70\]/.test(fab), "The FAB sits below the sheet layer.");
-  const sheet = client.slice(client.indexOf("function Sheet({"), client.indexOf("function MobileBottomSheet("));
+  // USA-214: the FAB moved onto the documented z ladder (`z-dos-fab` = 25, beneath the nav at 30, above in-content overlays at 20); a sheet is still far above it.
+  assert(/z-dos-fab/.test(fab), "The FAB sits below the sheet layer.");
+  const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
+  const sheet = surfaces.slice(surfaces.indexOf("function Sheet({"), surfaces.indexOf("function MobileBottomSheet("));
   assert(/z-\[1000\]/.test(sheet), "A sheet renders above the FAB, so the FAB stays behind its backdrop.");
 });
 

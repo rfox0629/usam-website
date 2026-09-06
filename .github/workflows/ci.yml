@@ -37,6 +37,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # DOS UI foundation and workflow regression (USA-215): the offline subset of
+      # the DOS scripts (~10 s). The visual suite is local-only because its
+      # baselines are platform-specific screenshots.
+      - name: DOS regression scripts (USA-215)
+        run: npm run test:dos
+
       - name: /join provisioner contract (USA-110)
         run: npm run test:join-contract
 
