@@ -222,7 +222,7 @@ Home (mobile), Dashboard (desktop), bottom navigation (structure, icons, label),
 - No horizontal page scroll at 320, 375, 390, 430, 768, 1024, 1440; tables scroll inside their own container.
 - Safe areas per §4.5; keyboard-open: focused field scrolls above the sticky primary.
 - `prefers-reduced-motion`: no tab-settle translation or sheet slide.
-- Screenshots at 390×844 @2x and 1440×900 (plus 320 for the pill rail) are part of every PR. *[v1.1]* The visual baseline suite is clock-sensitive for date-relative demo rows (recorded in USA-218); until the demo clock is frozen (Phase 7 candidate), a dashboard-only diff whose pixels are due-date buckets is drift, not a regression, and is re-recorded with that note.
+- Screenshots at 390×844 @2x and 1440×900 (plus 320 for the pill rail) are part of every PR. *[v1.2]* The visual and accessibility suites run against a pinned demo clock (`DOS_DEMO_NOW`, default `2026-09-04T12:00:00-05:00`, with the browser clock faked to the same instant), so date-relative demo rows are deterministic; a baseline diff is therefore always a rendering change to be explained in the PR.
 
 ## 9. Unresolved product decisions (do not guess; production behavior stands)
 
