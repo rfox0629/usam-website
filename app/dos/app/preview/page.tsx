@@ -39,8 +39,18 @@ const isDemoPreviewRouteEnabled = process.env.DOS_DISABLE_DEMO_PREVIEW !== "true
 // The deterministic circle-suggestion rolling windows (14/30 days) compare against the real
 // clock, so a handful of meetings below are dated relative to "today" instead of the fixed
 // demo date — otherwise every meeting in this fixture would already be outside every window.
+/* USA-239: the visual and accessibility suites pin the fixture's "today" with
+   DOS_DEMO_NOW (and fake the browser clock to the same instant) so the
+   date-relative rows never drift between runs. Unset, the real clock is used. */
+function demoNow() {
+  const pinned = process.env.DOS_DEMO_NOW?.trim();
+  const parsed = pinned ? new Date(pinned) : null;
+
+  return parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date();
+}
+
 function daysAgoIso(days: number, hour = 9, minute = 0) {
-  const date = new Date();
+  const date = demoNow();
   date.setDate(date.getDate() - days);
   date.setHours(hour, minute, 0, 0);
   return date.toISOString();

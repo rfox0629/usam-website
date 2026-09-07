@@ -1,3 +1,7 @@
+# DOS application (read this first for `app/dos/**`)
+
+Work under `app/dos/**`, `app/api/dos/**`, `src/components/dos/**`, `components/dos/**`, or `src/lib/dos/**` is governed by the scoped `app/dos/AGENTS.md` and the canonical DOS UI and behavior specification at `docs/dos-ui-refresh/phase-3/dos-ui-canonical-spec.md` (decision D1, settled 2026-09-07). Where a statement below about "the DOS app", Field UI, Tables, Circles, engagement, or the website UI system contradicts that specification, the specification wins for those paths; the rest of this file governs the website and admin.
+
 # Typography Rules
 
 Do not introduce new fonts unless explicitly requested.
