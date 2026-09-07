@@ -661,8 +661,6 @@ export function buildMeetingRecommendations(flowKey: DosConversationFlowKey, res
   return [];
 }
 
-export function isUsamKitchenTableGospelWorkspace(workspace: { publicProfileHref?: string | null; slug?: string | null }) {
-  // TODO: Replace this public-profile route heuristic with an explicit
-  // organization/workspace feature flag when DOS supports non-USAM tenants.
-  return Boolean(workspace.publicProfileHref?.startsWith("/missionaries/"));
-}
+/* The public-profile-route heuristic that lived here was retired in USA-238:
+   whether a workspace is USAM is decided in src/lib/dos/usam-workspace.ts
+   from application, profile and owning-organization state. */

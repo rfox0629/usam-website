@@ -15,8 +15,15 @@ Review of PR #105 against the USA-238 requirements, with the corrections made du
 - **Regression coverage runs the normalizer for real.** `scripts/dos-log-meeting-form-regression.mjs` now imports `meeting-engine.ts` and asserts that invalid, duplicate, hidden-gift, and out-of-range values are removed, that gifts persist when Spiritual Gifts is Yes, that the temperature bands are right, that a non-USAM flow key normalizes to `none`, and that historical Four Questions responses still normalize. It also checks the detail render and the form's activation and pruning behavior.
 - The demo preview fixture's Kitchen Table meeting now carries gifts, outcomes, and a rating so the detail render can be reviewed without a database.
 
-## Known limit (pre-existing, not changed here)
-The server-side gate in `app/api/dos/app/meetings/route.ts` passes `/missionaries/<slug>` into `isUsamKitchenTableGospelWorkspace`, which always matches, so the API accepts a `kitchen_table_gospel` flow key from any workspace. The client never sends one outside a USAM workspace (`conversationFlowKey = data.workspace.isUsamWorkspace ? selectedConversationFlow : "none"`), and generic workspaces do not render the row at all. Tightening the server gate means resolving the organization and USAM application on the write path, which is a separate change.
+## Server-side USAM boundary (closed in this PR, USA-239 Phase 2)
+The meetings API previously passed `/missionaries/<slug>` into a profile-path heuristic, so it accepted a `kitchen_table_gospel` flow key from any workspace and only the client kept generic workspaces out. That is now enforced at the boundary from actual workspace state:
+
+- `src/lib/dos/usam-workspace.ts` holds one pure decision, `decideUsamWorkspace`: a workspace is USAM when its latest USAM application is **approved or active**, or its **public missionary profile is live**, or its **owning organization** (through its collective) is USA Missionaries. Nothing else — not the slug, and not the loader's display-only USAM-organization fallback, which is now marked `inferred` and ignored for this decision.
+- `app/api/dos/app/meetings/route.ts` (POST and PATCH) resolves `isUsamWorkspaceById(supabase, workspaceId)` and rejects a gated flow key with **403 "Kitchen Table Gospel is not available for this workspace."** before writing anything; a generic workspace's responses never reach `conversation_responses`.
+- `src/lib/dos/missionary-app.ts` computes `workspace.isUsamWorkspace` with the same decision, so what the client shows and what the server accepts agree.
+- The retired heuristic `isUsamKitchenTableGospelWorkspace` is removed from `meeting-engine.ts`.
+- Coverage (`scripts/dos-log-meeting-form-regression.mjs`, in `test:dos`): the decision is exercised for active / approved applications, a live profile, a USAM owner organization, another organization's workspace, a pending unowned applicant, an archived workspace and a plain generic workspace; `normalizeConversationFlowKey` returns `none` for both gated flows without access; the route is asserted to gate both handlers from workspace state, never the slug, and to answer 403.
+- Production check (read-only, 2026-09-07): of the five workspaces, the two real USAM missionary workspaces qualify by active application (one also by live profile) and the preview household by its USA Missionaries owner organization; the archived workspace and an unowned pending-review test applicant become generic. No schema change.
 
 ## Evidence
 | Screenshot | What it shows |
