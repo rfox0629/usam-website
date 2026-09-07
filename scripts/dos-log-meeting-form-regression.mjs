@@ -307,6 +307,36 @@ assert(
 // USA-238: normalization is the only persistence gate, so exercise it for
 // real. Invalid multi-select values, duplicates, and gift answers hidden by a
 // non-Yes Spiritual Gifts answer must all disappear; nothing creates Fruit.
+// USA-238 / USA-239: the USAM-only restriction is enforced at the API
+// boundary from actual workspace state, not from the slug or the client.
+const meetingsRoute = read("app/api/dos/app/meetings/route.ts");
+const usamWorkspaceModule = read("src/lib/dos/usam-workspace.ts");
+const missionaryApp = read("src/lib/dos/missionary-app.ts");
+
+assert(
+  (meetingsRoute.match(/const allowGatedConversationFlows = await isUsamWorkspaceById\(supabase, workspaceId\);/g) ?? []).length === 2
+    && !meetingsRoute.includes("isUsamKitchenTableGospelWorkspace")
+    && !meetingsRoute.includes("`/missionaries/${workspace.slug}`"),
+  "The meetings API (POST and PATCH) must gate Kitchen Table on the workspace's actual USAM state, never on a slug-derived profile path.",
+);
+assert(
+  meetingsRoute.includes("const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);")
+    && meetingsRoute.includes("is not available for this workspace.")
+    && meetingsRoute.includes("{ status: 403 }"),
+  "A gated flow key from a non-USAM workspace must be rejected with 403 before any meeting is written.",
+);
+assert(
+  missionaryApp.includes("isUsamWorkspace: decideUsamWorkspace({")
+    && missionaryApp.includes("ownerOrganization: organization && !organization.inferred ? organization : null")
+    && missionaryApp.includes("inferred: true,"),
+  "The app loader must use the same decision as the API, and the display-only USAM organization fallback must not count as ownership.",
+);
+assert(
+  !usamWorkspaceModule.includes("publicProfileHref?.startsWith")
+    && !read("src/lib/dos/meeting-engine.ts").includes("function isUsamKitchenTableGospelWorkspace"),
+  "The slug/profile-path heuristic is retired.",
+);
+
 const { register } = await import("node:module");
 const repoRoot = new URL("../", import.meta.url).href;
 
@@ -393,3 +423,25 @@ assert(
 );
 
 console.log("DOS Log Meeting form regression passed.");
+
+// USA-238 / USA-239: exercise the boundary decision for real. USAM by active
+// or approved application, by a live public profile, or by a USA Missionaries
+// owning organization; generic otherwise — including a pending applicant with
+// no owning organization and an archived workspace.
+const { decideUsamWorkspace, publicProfileLiveForWorkspace } = await import("@/src/lib/dos/usam-workspace");
+const { normalizeConversationFlowKey: normalizeFlowKeyForBoundary } = await import("@/src/lib/dos/meeting-engine");
+
+const generic = { applicationStatus: "not_connected", ownerOrganization: null, publicProfileLive: false };
+assert(decideUsamWorkspace({ ...generic, applicationStatus: "active" }) === true, "An active USAM application makes the workspace USAM.");
+assert(decideUsamWorkspace({ ...generic, applicationStatus: "approved" }) === true, "An approved USAM application makes the workspace USAM.");
+assert(decideUsamWorkspace({ ...generic, publicProfileLive: true }) === true, "A live public missionary profile makes the workspace USAM.");
+assert(decideUsamWorkspace({ ...generic, ownerOrganization: { brandingMode: "usam", slug: "usa-missionaries" } }) === true, "A USA Missionaries owning organization makes the workspace USAM.");
+assert(decideUsamWorkspace({ ...generic, ownerOrganization: { brandingMode: "default", slug: "some-ministry" } }) === false, "Another organization's workspace is generic.");
+assert(decideUsamWorkspace({ ...generic, applicationStatus: "pending_review" }) === false, "A pending, unowned applicant is not yet USAM.");
+assert(decideUsamWorkspace({ ...generic, applicationStatus: "archived" }) === false, "An archived workspace is not USAM.");
+assert(decideUsamWorkspace(generic) === false, "A generic DOS workspace is not USAM.");
+assert(publicProfileLiveForWorkspace({ public_visible: true, show_household: true }) === true && publicProfileLiveForWorkspace({ public_visible: true, show_household: false }) === false && publicProfileLiveForWorkspace({ public_visible: false, show_household: true }) === false, "Public profile is live only when visible and the household is shown.");
+assert(normalizeFlowKeyForBoundary("kitchen_table_gospel", false) === "none" && normalizeFlowKeyForBoundary("four_questions", false) === "none", "Without USAM access every gated flow key normalizes to none.");
+assert(normalizeFlowKeyForBoundary("kitchen_table_gospel", true) === "kitchen_table_gospel", "With USAM access Kitchen Table Gospel is accepted.");
+
+console.log("USA-238 USAM boundary checks passed.");
