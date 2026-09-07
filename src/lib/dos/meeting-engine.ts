@@ -5,7 +5,7 @@ export const dosConversationFlows = ["none", "kitchen_table_gospel", "four_quest
 export type DosConversationFlowKey = typeof dosConversationFlows[number];
 export type DosImplementedConversationFlowKey = Exclude<DosConversationFlowKey, "none">;
 export type DosConversationAnswer = "no" | "unsure" | "yes";
-export type DosConversationQuestionKind = "notes" | "rating" | "text" | "yes_no" | "yes_no_unsure";
+export type DosConversationQuestionKind = "multi_select" | "notes" | "rating" | "text" | "yes_no" | "yes_no_unsure";
 export type DosConversationResponseValue = number | string | string[];
 export type DosConversationResponses = Partial<Record<string, DosConversationResponseValue>>;
 export type DosKitchenTableAnswer = DosConversationAnswer;
@@ -34,6 +34,10 @@ export type DosConversationQuestion = {
   id: string;
   kind: DosConversationQuestionKind;
   label: string;
+  options?: readonly {
+    label: string;
+    value: string;
+  }[];
   placeholder?: string;
   prompt?: string;
   scale?: {
@@ -43,6 +47,10 @@ export type DosConversationQuestion = {
     min: number;
   };
   scriptureRefs?: readonly string[];
+  visibleWhen?: {
+    equals: DosConversationResponseValue;
+    questionId: string;
+  };
 };
 
 export type DosConversationSection = {
@@ -101,6 +109,80 @@ export const dosKitchenTableQuestions = [
   kind: DosKitchenTableQuestionKind;
 }>;
 
+export const dosKitchenTableCoreQuestionCount = dosKitchenTableQuestions.length;
+
+const manifestationGiftOptions = [
+  { label: "Word of Wisdom", value: "word_of_wisdom" },
+  { label: "Word of Knowledge", value: "word_of_knowledge" },
+  { label: "Faith", value: "faith" },
+  { label: "Gifts of Healing", value: "gifts_of_healing" },
+  { label: "Working of Miracles", value: "working_of_miracles" },
+  { label: "Prophecy", value: "prophecy" },
+  { label: "Discerning of Spirits", value: "discerning_of_spirits" },
+  { label: "Various Kinds of Tongues", value: "various_kinds_of_tongues" },
+  { label: "Interpretation of Tongues", value: "interpretation_of_tongues" },
+] as const;
+
+const serviceGiftOptions = [
+  { label: "Prophecy", value: "prophecy" },
+  { label: "Serving (Ministry/Helps)", value: "serving" },
+  { label: "Teaching", value: "teaching" },
+  { label: "Encouragement (Exhortation)", value: "encouragement" },
+  { label: "Giving", value: "giving" },
+  { label: "Leadership", value: "leadership" },
+  { label: "Mercy", value: "mercy" },
+] as const;
+
+const fivefoldGiftOptions = [
+  { label: "Apostle", value: "apostle" },
+  { label: "Prophet", value: "prophet" },
+  { label: "Evangelist", value: "evangelist" },
+  { label: "Pastor (Shepherd)", value: "pastor" },
+  { label: "Teacher", value: "teacher" },
+] as const;
+
+const connectionOutcomeOptions = [
+  { label: "Connected to Church Partner", value: "connected_to_church_partner" },
+  { label: "Connected to Ministry Partner", value: "connected_to_ministry_partner" },
+] as const;
+
+const faithCommitmentOutcomeOptions = [
+  { label: "First Time Decision for Christ", value: "first_time_decision_for_christ" },
+  { label: "Rededication", value: "rededication" },
+  { label: "Baptism in Holy Spirit", value: "baptism_in_holy_spirit" },
+  { label: "Committed to Fasting", value: "committed_to_fasting" },
+  { label: "Committed to Tithe", value: "committed_to_tithe" },
+  { label: "Desire to be Baptized", value: "desire_to_be_baptized" },
+  { label: "Desire to Join Discipleship Group", value: "desire_to_join_discipleship_group" },
+] as const;
+
+const healingOutcomeOptions = [
+  { label: "Deliverance", value: "deliverance" },
+  { label: "Inner Healing", value: "inner_healing" },
+  { label: "Addiction Freedom", value: "addiction_freedom" },
+  { label: "Emotional Healing", value: "emotional_healing" },
+  { label: "Physical Healing", value: "physical_healing" },
+  { label: "Restoration", value: "restoration" },
+  { label: "Financial Breakthrough", value: "financial_breakthrough" },
+  { label: "Forgiveness Breakthrough", value: "forgiveness_breakthrough" },
+  { label: "Identity in Christ Breakthrough", value: "identity_in_christ_breakthrough" },
+] as const;
+
+const relationshipOutcomeOptions = [
+  { label: "Marriage Reconciliation", value: "marriage_reconciliation" },
+  { label: "Relationship Restored", value: "relationship_restored" },
+  { label: "Relationship Connection", value: "relationship_connection" },
+] as const;
+
+const ministryMomentOutcomeOptions = [
+  { label: "Prayer Ministry Took Place", value: "prayer_ministry_took_place" },
+  { label: "Communion", value: "communion" },
+  { label: "Washing of Feet", value: "washing_of_feet" },
+  { label: "Deliverance Prayer", value: "deliverance_prayer" },
+  { label: "Prophetic Prayer", value: "prophetic_prayer" },
+  { label: "Healing Prayer", value: "healing_prayer" },
+] as const;
+
 export const dosConversationFlowDefinitions = [
   {
     category: "Conversation Flow",
@@ -111,7 +193,75 @@ export const dosConversationFlowDefinitions = [
       {
         id: "commands-of-jesus",
         questions: dosKitchenTableQuestions,
-        title: "Guided Questions",
+        title: "Kitchen Table Questions",
+      },
+      {
+        description: "Select any gifts they identified. These appear only when Spiritual Gifts is Yes.",
+        id: "spiritual-gifts",
+        questions: [
+          {
+            id: "manifestationGifts",
+            kind: "multi_select",
+            label: "Manifestation Gifts",
+            options: manifestationGiftOptions,
+            scriptureRefs: ["1 Corinthians 12:7-11"],
+            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+          },
+          {
+            id: "serviceGifts",
+            kind: "multi_select",
+            label: "Motivational / Service Gifts",
+            options: serviceGiftOptions,
+            scriptureRefs: ["Romans 12:6-8"],
+            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+          },
+          {
+            id: "fivefoldGifts",
+            kind: "multi_select",
+            label: "Fivefold Ministry Gifts",
+            options: fivefoldGiftOptions,
+            scriptureRefs: ["Ephesians 4:11"],
+            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+          },
+        ],
+        title: "Spiritual Gifts",
+      },
+      {
+        description: "Capture what happened during this Kitchen Table conversation.",
+        id: "outcomes",
+        questions: [
+          {
+            id: "connectionOutcomes",
+            kind: "multi_select",
+            label: "Discipleship & Church Connection",
+            options: connectionOutcomeOptions,
+          },
+          {
+            id: "faithCommitmentOutcomes",
+            kind: "multi_select",
+            label: "Faith Commitments",
+            options: faithCommitmentOutcomeOptions,
+          },
+          {
+            id: "healingOutcomes",
+            kind: "multi_select",
+            label: "Healing & Breakthrough",
+            options: healingOutcomeOptions,
+          },
+          {
+            id: "relationshipOutcomes",
+            kind: "multi_select",
+            label: "Relationship Restoration",
+            options: relationshipOutcomeOptions,
+          },
+          {
+            id: "ministryMomentOutcomes",
+            kind: "multi_select",
+            label: "Ministry Moments",
+            options: ministryMomentOutcomeOptions,
+          },
+        ],
+        title: "Outcomes",
       },
     ],
     slug: "kitchen-table-gospel",
@@ -305,11 +455,29 @@ export function normalizeConversationResponses(flowKey: DosConversationFlowKey, 
   const responses: DosConversationResponses = {};
 
   flow.sections.flatMap((section) => section.questions).forEach((question) => {
+    if (!conversationQuestionIsVisible(question, source)) {
+      return;
+    }
+
     if (question.kind === "rating") {
       const rating = normalizeRating(source[question.id]);
 
       if (rating) {
         responses[question.id] = rating;
+      }
+
+      return;
+    }
+
+    if (question.kind === "multi_select") {
+      const validValues = new Set(question.options?.map((option) => option.value) ?? []);
+      const rawSelection = source[question.id];
+      const selectedValues = Array.isArray(rawSelection)
+        ? rawSelection.filter((item): item is string => typeof item === "string" && validValues.has(item))
+        : [];
+
+      if (selectedValues.length) {
+        responses[question.id] = Array.from(new Set(selectedValues));
       }
 
       return;
@@ -344,6 +512,13 @@ export function normalizeConversationResponses(flowKey: DosConversationFlowKey, 
   }
 
   return responses;
+}
+
+export function conversationQuestionIsVisible(
+  question: DosConversationQuestion,
+  responses: Record<string, unknown> | DosConversationResponses,
+) {
+  return !question.visibleWhen || responses[question.visibleWhen.questionId] === question.visibleWhen.equals;
 }
 
 export function normalizeKitchenTableResponses(value: unknown): DosKitchenTableResponses {
