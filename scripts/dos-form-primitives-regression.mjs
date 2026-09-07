@@ -85,7 +85,8 @@ for (const name of ["HelperLine", "fieldControlClass", "Field", "Stepper", "Chip
 const stepper = primitives.slice(primitives.indexOf("export function Stepper("), primitives.indexOf("export function Chip("));
 assert(!/\bmax\b\s*[:=]/.test(stepper), "The stepper has no ceiling; thresholds belong to the caller.");
 assert(stepper.includes('type="hidden"'), "The stepper mirrors its value into a form control so the guard and FormData see it.");
-assert(/h-11 w-11/.test(stepper), "Stepper buttons keep a 44px hit area.");
+assert(/h-full w-\[52px\]/.test(stepper), "Stepper end controls keep a generous 52px hit area.");
+assert(stepper.includes("bg-dos-blue50") && stepper.includes("border-r border-dos-line") && stepper.includes("border-l border-dos-line"), "Stepper minus and plus controls keep their blue-tinted, divided end regions.");
 assert(stepper.includes('className="flex h-12 w-full'), "The stepper spans the form width instead of shrinking around its contents.");
 assert(stepper.includes("min-w-0 flex-1 text-center"), "The stepper value owns the remaining width between equal controls.");
 
