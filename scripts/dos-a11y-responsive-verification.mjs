@@ -51,8 +51,16 @@ const screens = [
   { name: "Log Meeting", mobileOnly: true, go: async (page) => click(page, "button", "Log Meeting", false) },
 ];
 
+/* Deterministic clock (USA-239, decision log P-9): the server renders the demo
+   fixture with DOS_DEMO_NOW and every page gets a fake browser clock at the
+   same instant, so date-relative rows ("2 days ago", the Today cell, due
+   buckets) never drift between runs. Override with DOS_DEMO_NOW to re-record
+   on purpose. */
+const demoNowIso = process.env.DOS_DEMO_NOW?.trim() || "2026-09-04T12:00:00-05:00";
+const demoNowMs = new Date(demoNowIso).getTime();
+
 const server = spawn("npm", ["run", "start", "--", "--hostname", host, "--port", String(port)], {
-  env: { ...process.env, HOSTNAME: host, PORT: String(port) },
+  env: { ...process.env, DOS_DEMO_NOW: demoNowIso, HOSTNAME: host, PORT: String(port) },
   detached: process.platform !== "win32",
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -134,6 +142,7 @@ async function main() {
         if (screen.mobileOnly && !mobile) { rows.push(`| ${width} | ${screen.name} | n/a (mobile-only screen) | | | | |`); continue; }
         const context = await browser.newContext({ deviceScaleFactor: mobile ? 2 : 1, hasTouch: mobile, isMobile: mobile, viewport: { height: mobile ? 844 : 900, width } });
         const page = await context.newPage();
+        await page.clock.install({ time: demoNowMs });
         const consoleErrors = [];
         const failedRequests = [];
         page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text().slice(0, 120)); });
