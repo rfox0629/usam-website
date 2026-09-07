@@ -430,6 +430,18 @@ export function isConversationFlowAvailable(flowKey: DosConversationFlowKey, all
   return flowKey === "none" || Boolean(flow && (allowGatedFlows || !flow.gatedTo));
 }
 
+/* True when a request names a flow that only USAM workspaces may store, so
+   the meetings API knows it must read workspace organization state before
+   deciding. "none", nothing, and unknown keys never need that lookup (an
+   unknown key is refused by normalization regardless). */
+export function conversationFlowRequiresGate(value: unknown): boolean {
+  if (typeof value !== "string" || value === "none") {
+    return false;
+  }
+
+  return Boolean(getConversationFlowDefinition(value as DosConversationFlowKey)?.gatedTo);
+}
+
 export function normalizeConversationFlowKey(value: unknown, allowGatedFlows = true): DosConversationFlowKey {
   if (typeof value !== "string" || value === "none") {
     return "none";

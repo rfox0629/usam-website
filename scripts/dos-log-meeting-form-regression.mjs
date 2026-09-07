@@ -314,7 +314,7 @@ const usamWorkspaceModule = read("src/lib/dos/usam-workspace.ts");
 const missionaryApp = read("src/lib/dos/missionary-app.ts");
 
 assert(
-  (meetingsRoute.match(/const allowGatedConversationFlows = await isUsamWorkspaceById\(supabase, workspaceId\);/g) ?? []).length === 2
+  (meetingsRoute.match(/const allowGatedConversationFlows = conversationFlowRequiresGate\(payload\.conversationFlowKey\)\n\s+\? await isUsamWorkspaceById\(supabase, workspaceId\)\n\s+: false;/g) ?? []).length === 2
     && !meetingsRoute.includes("isUsamKitchenTableGospelWorkspace")
     && !meetingsRoute.includes("`/missionaries/${workspace.slug}`"),
   "The meetings API (POST and PATCH) must gate Kitchen Table on the workspace's actual USAM state, never on a slug-derived profile path.",

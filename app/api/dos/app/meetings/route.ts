@@ -5,6 +5,7 @@ import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { dosMeetingEventSortValue, dosMeetingEventTimestamp } from "@/src/lib/dos/meeting-lifecycle";
 import {
   buildMeetingRecommendations,
+  conversationFlowRequiresGate,
   getConversationFlowDefinition,
   normalizeConversationResponses,
   normalizeConversationFlowKey,
@@ -1179,8 +1180,12 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   /* USA-238: Kitchen Table Gospel is USAM-only. The gate reads the workspace's
      actual application / public-profile / owning-organization state (never
-     the slug), so a generic DOS workspace cannot submit a gated flow. */
-  const allowGatedConversationFlows = await isUsamWorkspaceById(supabase, workspaceId);
+     the slug), so a generic DOS workspace cannot submit a gated flow. The
+     read happens only when a gated flow is actually requested; an ordinary
+     meeting never pays for it. */
+  const allowGatedConversationFlows = conversationFlowRequiresGate(payload.conversationFlowKey)
+    ? await isUsamWorkspaceById(supabase, workspaceId)
+    : false;
 
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
@@ -1467,8 +1472,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ id: data.id, ok: true });
   }
 
-  /* USA-238: same server-side USAM gate as POST, from actual workspace state. */
-  const allowGatedConversationFlows = await isUsamWorkspaceById(supabase, workspaceId);
+  /* USA-238: same server-side USAM gate as POST, from actual workspace state,
+     read only when a gated flow is requested. */
+  const allowGatedConversationFlows = conversationFlowRequiresGate(payload.conversationFlowKey)
+    ? await isUsamWorkspaceById(supabase, workspaceId)
+    : false;
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
   if (unavailableFlowResponse) {
