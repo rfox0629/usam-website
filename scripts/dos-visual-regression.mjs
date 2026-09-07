@@ -75,8 +75,16 @@ const scenes = [
   { name: "primitives-gallery", viewport: "desktop", url: `/dos/app/preview?demo=${token}&gallery=primitives`, go: async () => {} },
 ];
 
+/* Deterministic clock (USA-239, decision log P-9): the server renders the demo
+   fixture with DOS_DEMO_NOW and every page gets a fake browser clock at the
+   same instant, so date-relative rows ("2 days ago", the Today cell, due
+   buckets) never drift between runs. Override with DOS_DEMO_NOW to re-record
+   on purpose. */
+const demoNowIso = process.env.DOS_DEMO_NOW?.trim() || "2026-09-04T12:00:00-05:00";
+const demoNowMs = new Date(demoNowIso).getTime();
+
 const server = spawn("npm", ["run", "start", "--", "--hostname", host, "--port", String(port)], {
-  env: { ...process.env, HOSTNAME: host, PORT: String(port) },
+  env: { ...process.env, DOS_DEMO_NOW: demoNowIso, HOSTNAME: host, PORT: String(port) },
   detached: process.platform !== "win32",
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -150,6 +158,7 @@ async function main() {
     for (const scene of scenes) {
       const context = await browser.newContext({ viewport: viewports[scene.viewport], ...viewports[scene.viewport] });
       const page = await context.newPage();
+      await page.clock.install({ time: demoNowMs });
       const url = `${baseUrl}${scene.url ?? `/dos/app/preview?demo=${token}`}`;
 
       await page.goto(url, { waitUntil: "networkidle" });

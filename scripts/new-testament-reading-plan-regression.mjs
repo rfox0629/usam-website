@@ -81,7 +81,8 @@ assert(libraryReadingPlanCard.includes("FEATURED"), "Featured reading plan card 
 assert(libraryReadingPlanCard.includes("READING PLAN"), "Featured reading plan card should show a READING PLAN badge.");
 assert(libraryReadingPlanCard.includes("Assign"), "Featured reading plan card should expose the Assign action.");
 assert(libraryReadingPlanCard.includes("onAssign?.(resource)"), "Featured reading plan Assign action should call the Library assignment flow.");
-assert(libraryReadingPlanCard.includes("onOpenGuidedResource(resource)"), "Featured reading plan card should open the in-app guided journey.");
+/* USA-170 scoped opens by assignment instance; USA-239 corrected this needle to the shipped call. */
+assert(libraryReadingPlanCard.includes("onOpenGuidedResource(resource, activeAssignment?.id ?? null)"), "Featured reading plan card should open the in-app guided journey for the active assignment instance.");
 assert(libraryReadingPlanCard.includes('const primaryLabel = activeAssignment'), "Featured reading plan card should derive the canonical Journey CTA state.");
 assert(libraryReadingPlanCard.includes('"Continue"'), "Featured reading plan card should expose Continue for active assignments.");
 assert(libraryReadingPlanCard.includes('"Start Journey"'), "Featured reading plan card should expose Start Journey when there is no active instance.");
