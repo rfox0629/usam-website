@@ -1,3 +1,5 @@
+> **Status (USA-239 closeout, 2026-09-07):** historical. The decisions asked here were settled or dispositioned by Ryan; the outcomes are recorded in `../phase-3/dos-ui-canonical-spec.md` §9 and `../phase-3/decision-log.md` §E. Nothing below is a pending request.
+
 # Phase 1 — Rules conflict matrix and decision list (USA-212)
 
 ## A. Conflict matrix

@@ -127,3 +127,8 @@ Use `https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/
 - DOS Core users can add people, log meetings, track fruit, view personal metrics, and upload CSV only when enabled.
 - Public Profiles, fundraising, prayer team pages, support team tools, approved fruit publishing, national rollups, and coaching/accountability visibility are network-level unlocks.
 - Private DOS activity stays private by default. Organization/church rollups require an explicit sharing opt-in.
+
+## Settled Product Decisions
+
+Recorded by the DOS UI refresh closeout (USA-239, 2026-09-07) in `docs/dos-ui-refresh/phase-3/dos-ui-canonical-spec.md` §9: the mobile navigation is three tabs (Home, Meetings, More) with the production icons and an opaque background; Field lives inside More and is never a fourth tab; the third tab is called "More"; Home is protected from redesign; Groups stay on the current default path (Groups V2 is not promoted); My Record "Current" shows existing active data only and hides when empty; the More-tab "+" FAB stays; Kitchen Table response capture is USAM-specific and enforced by the meetings API. Open questions are listed there too and are never guessed.
+
