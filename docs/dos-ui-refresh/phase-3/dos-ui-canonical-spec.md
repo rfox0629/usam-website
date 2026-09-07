@@ -1,6 +1,6 @@
 # DOS UI and behavior specification (canonical)
 
-**Status:** v1.1 — published 2026-09-04 for Phase 3 (USA-196 / USA-207); v1.1 corrections from the Phase 5 pilot review (USA-224) are marked *[v1.1]* inline and listed in `decision-log.md` §D. Consolidates already-approved direction (Linear project description, V10 reference on USA-219) with verified production behavior (Phases 0–2). It introduces no new product decisions; everything not already approved is listed in §9 as unresolved.
+**Status:** v1.2 — published 2026-09-04 for Phase 3 (USA-196 / USA-207); v1.1 corrections from the Phase 5 pilot review (USA-224) are marked *[v1.1]* inline and listed in `decision-log.md` §D; v1.2 (USA-239 closeout, 2026-09-07) records Ryan's settled decisions in §9 and `decision-log.md` §E. Consolidates already-approved direction (Linear project description, V10 reference on USA-219) with verified production behavior (Phases 0–2). It introduces no new product decisions; everything not already approved is listed in §9 as unresolved.
 **Scope:** the authenticated DOS application (`/dos/[slug]`, rendered by `app/dos/app/DosMvpAppClient.tsx`) on mobile and desktop. Portal, setup, onboarding, public token forms, the public group portal, `/admin`, and the marketing sites receive tokens only where they already share components.
 **Governing principle:** simple at the surface, powerful underneath.
 
@@ -12,7 +12,7 @@ For anything under `app/dos/**`, `app/api/dos/**`, `src/components/dos/**`, `com
 2. **This specification** (design and behavior authority). Where it and V10 differ, this document wins because it has been reconciled with production; the difference is recorded in §9 or §10.
 3. The V10 reference (USA-219) for any visual detail this document does not state, for the screens V10 covers, with V10's own labels: "Approved direction" is direction; "Interaction demonstration" is illustrative; "Product logic — later" is unresolved.
 4. `app/dos/README.md` (architecture and data boundaries).
-5. `AGENTS.md` — website and admin rules; its DOS-specific statements listed in Phase 1 §3 are superseded by this document for the paths above (pending D1 confirmation of the wording).
+5. `AGENTS.md` — website and admin rules; its DOS-specific statements listed in Phase 1 §3 are superseded by this document for the paths above (D1, settled by Ryan in USA-239).
 6. `docs/dos-ui-refresh/phase-{0,1,2}/` — evidence, not rules.
 
 Superseded documents are listed in §10 and are archived (moved, never deleted) in Phase 7.
@@ -22,7 +22,7 @@ Superseded documents are listed in §10 and are archived (moved, never deleted) 
 | # | Rule | Where it is enforced today |
 | --- | --- | --- |
 | B1 | **Home (mobile) and Dashboard (desktop) are unchanged** in layout, content, and order for the life of this project. Only shared tokens may touch them, and only when a re-screenshot shows no visible change beyond color/typography values. | `CircleFocusHero`, `DesktopHomeDashboard` |
-| B2 | **Bottom navigation is three tabs — Home, Meetings, More** — with the production inline icons (`Icon` names `home`, `meetings`, `apps`). Field is never a tab; it stays reachable from More and from Home's circle target. The label "More" stays until D2 is decided. | `mobileTabs` (line 425), `MobileTabBar` |
+| B2 | **Bottom navigation is three tabs — Home, Meetings, More** — with the production inline icons (`Icon` names `home`, `meetings`, `apps`). Field is never a tab; it stays reachable from More and from Home's circle target. The label is "More" (D2 settled: not renamed to "Apps"). | `mobileTabs` (line 425), `MobileTabBar` |
 | B3 | **Person is the canonical relationship record** (`missionary_field_people`). No screen introduces a second person-like entity. | README |
 | B4 | **Circle placement is human-confirmed.** Recommendations are deterministic and visible with their reason; nothing places or moves a person except an explicit tap that names the person and the circle. `POST /api/dos/circles/recalculate` refreshes metrics only. | `circle-placement.ts` line 19, `/api/dos/circles/override` |
 | B5 | **Circle, Engagement, Spiritual Journey/Relationship, and Fruit are separate dimensions** and are never merged into one label or pill. Relationship truth is the three structured columns, not the display string. Engagement is an Advanced Feature: visibility only, off by default. | USA-168, `advanced-features.ts` |
@@ -171,11 +171,11 @@ Each pattern names the route/component it changes and the behavior it must prese
 - Timeline and Details tabs: tokens and Row only; structure unchanged.
 
 ### 5.7 Apps / More launcher (USA-223) · `AppsCatalogSection`, `activeMoreAppView=apps`
-- PageHeader "More" (label per B2), mobile only *[v1.1: desktop has no launcher screen; the sidebar is the launcher and the More grid mounts only on the mobile tab]*. Real scroll container with 134px clearance. Two-column tiles 104px tall, 12px padding, 30px icon circle, name 15/600 single line with ellipsis, one 12.5px description line truncated, 20px count/status pill capped at 100px. Group headings and production order unchanged. **The "+" FAB is kept** (production shortcut menu) until D12 is decided.
+- PageHeader "More" (label per B2), mobile only *[v1.1: desktop has no launcher screen; the sidebar is the launcher and the More grid mounts only on the mobile tab]*. Real scroll container with 134px clearance. Two-column tiles 104px tall, 12px padding, 30px icon circle, name 15/600 single line with ellipsis, one 12.5px description line truncated, 20px count/status pill capped at 100px. Group headings and production order unchanged. **The "+" FAB is kept** (production shortcut menu; D12 settled).
 
 ### 5.8 My Record (USA-220) · `MyRecordWorkspace`
 - PageHeader "My Record" with 🔒 Private chip *(replaces the Share button visually; the chip opens the same sharing panel; sharing scope and per-entry sharing unchanged)* *[v1.1: no Settings control — none exists in production and none is invented]*; PillRail Overview | Walk | Growth | Purpose | Faithfulness (treatment A).
-- **Overview = Current + Recent entries + one View all.** "Today at a glance", stats, Explore, and bottom arrows are removed. *(D10: the "Current" rule. Until answered, Current shows exactly the items production already treats as active — in-progress assessments and active self-assigned resources/journeys where the data exists — or is hidden when empty. No new aggregate is invented.)*
+- **Overview = Current + Recent entries + one View all.** "Today at a glance", stats, Explore, and bottom arrows are removed. *(D10 settled: Current shows only the items production already treats as active — in-progress assessments and active self-assigned resources/journeys — and is hidden when empty. No new aggregate.)*
 - Walk: headed groups Time with God (Log now, latest 3, "All N entries"), Scripture *(unresolved storage — show derived passages from recent entries as today's data allows, else omit)*, Prayer (Log prayer time), Reflections (Write). FAB "Time with God".
 - Growth: Active (journey / assessment with Continue), Mentors (+ Add), Mentor meetings (next or Schedule, last two), Assessments, Books (+ Add). FAB opens a three-row BottomSheet (Mentor meeting, Assessment result, Book) *(list must match existing add flows)*.
 - Purpose: identity block (Calling, Current season, Word of the year) as typographic statements with one Edit; Prophetic words timeline with testing/confirmed pills. FAB "Prophetic word".
@@ -195,7 +195,7 @@ Each pattern names the route/component it changes and the behavior it must prese
 
 ### 5.11 Field list and placement (Phase 6, USA-227)
 - PageHeader "Field" (back, Settings); search; PillRail All | 3 | 12 | 70 | 120; A–Z rows: initials, name, `Relationship · My N · met N days ago`, chevron; whole row taps. **Rhythm pills are not implemented** (no per-person rhythm exists in data; §9). Household/secondary hidden with a Show row (production behavior preserved). Extended FAB "Add person".
-- Needs placement summary + sheet: **D11** — until approved, production's Circle Suggestion / "DOS noticed something" sheets stay.
+- Needs placement summary + sheet: **D11** — Ryan has not approved a replacement (USA-239); production's shipped Circle Suggestion / "DOS noticed something" sheets stay.
 
 ### 5.12 Everything else (Groups, Fruit, Settings, placeholders, USAM layer, blocked/loading screens)
 Tokens and §3 components by rule; structure, copy, and workflows unchanged.
@@ -224,22 +224,24 @@ Home (mobile), Dashboard (desktop), bottom navigation (structure, icons, label),
 - `prefers-reduced-motion`: no tab-settle translation or sheet slide.
 - Screenshots at 390×844 @2x and 1440×900 (plus 320 for the pill rail) are part of every PR. *[v1.1]* The visual baseline suite is clock-sensitive for date-relative demo rows (recorded in USA-218); until the demo clock is frozen (Phase 7 candidate), a dashboard-only diff whose pixels are due-date buckets is drift, not a regression, and is re-recorded with that note.
 
-## 9. Unresolved product decisions (do not guess; production behavior stands)
+## 9. Product decisions (settled ones are marked; open ones are never guessed — production behavior stands)
+
+Settled by Ryan in the USA-239 closeout (2026-09-07) and binding for every future DOS change: navigation stays **three tabs** with the production icons and an opaque background; **Field stays inside More**, never a fourth tab; **Home is protected** from redesign; **Kitchen Table response capture is USAM-specific** and enforced server-side (USA-238); the D-decisions marked *Settled* below.
 
 | Id | Decision | Affects |
 | --- | --- | --- |
-| D1 | `AGENTS.md` DOS statements superseded for `app/dos/**` (wording) | docs |
-| D2 | "More" → "Apps" | `mobileTabs`, More header |
-| D3 | Demo route exposure in production | `/dos/app/preview` |
-| D4 | Delete legacy `app/api/dos/[collectiveSlug]/*` | Phase 7 |
-| D5 | "Workspace" vs "Household" copy | sidebar, portal |
-| D6 | Groups V2 promotion vs default path | USA-228 |
-| D7 | Unmerged usa-163/164/138 UI branches | git |
-| D8 | `app/dos/library-preview/` intent | USA-225 |
-| D9 | Strict status checks | repo settings |
-| D10 | My Record "Current" rule | USA-220 |
-| D11 | Field Needs-placement bounded block | USA-227 |
-| D12 | More-tab "+" FAB keep/remove | USA-223 |
+| D1 | **Settled (USA-239):** the scoped canonical spec supersedes obsolete root `AGENTS.md` DOS statements for `app/dos/**` (and the other DOS paths in §0). | docs, `app/dos/AGENTS.md` |
+| D2 | **Settled (USA-239):** keep **More**; not renamed to "Apps". | `mobileTabs`, More header |
+| D3 | **Policy (USA-239):** keep the DB-free demo route (`/dos/app/preview?demo=`) for local and preview builds. Turning it off in production is an environment change (`DOS_DISABLE_DEMO_PREVIEW=true`) documented separately and applied only with approval. | `/dos/app/preview` |
+| D4 | **Open (needs founder approval):** the legacy `app/api/dos/[collectiveSlug]/*` handlers are live HTTP surfaces; they are included in the closeout deletion analysis (`phase-7/usa-234-deletion-manifest.md`) but are not removed without evidence and explicit approval. | Phase 7 |
+| D5 | **Settled (USA-239):** "Workspace" vs "Household" copy changes are deferred; current copy stands. | sidebar, portal |
+| D6 | **Settled (USA-239):** keep the current/default Groups path; Groups V2 is not promoted by this project. | Groups |
+| D7 | **Settled (USA-239):** the old USA-138 / USA-163 / USA-164 UI branches are superseded by this project; they are not merged. | git |
+| D8 | **Resolved from history (USA-239):** `app/dos/library-preview/` was removed from the repository in commit `50b6b5f` (2026-08-21, "Untrack app/dos/library-preview"); nothing remains to reconcile. | — |
+| D9 | **Documented, not changed (USA-239):** `main` protection today requires the "Typecheck, build, and smoke" check with **strict mode off** and no required approvals. Recommendation: enable strict status checks so stacked PRs must be current with `main`; a repository-settings change for Ryan to apply. | repo settings |
+| D10 | **Settled (USA-239):** My Record "Current" uses existing active data only and stays hidden when empty. | My Record Overview |
+| D11 | **Open (conservative):** the shipped Needs-placement behavior (Circle Suggestion / "DOS noticed something" sheets) is preserved unless Ryan explicitly approves the V10 bounded block. | Field |
+| D12 | **Settled (USA-239):** keep the More-tab "+" FAB. | More |
 | PL-1 | Rhythm satisfaction and due-soon windows; rhythm data model | USA-227 (pills not built) |
 | PL-2 | Apps category membership | USA-223 (production order kept) |
 | PL-3 | Log future-date rule; 4-hour confirm threshold; default duration; Fruit on the form; context default | USA-216 (production kept) |

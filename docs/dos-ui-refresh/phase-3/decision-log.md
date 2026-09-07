@@ -20,7 +20,7 @@ Presented for Ryan's review. The specification consolidates approved direction a
 | S-12 | `app/dos/README.md` amended now (docs only): points to the spec, describes the demo route truthfully, allows primitives under `src/components/dos/`. | Phase 1 S2. | Yes. |
 | S-13 | `AGENTS.md` is **not** edited; the spec declares its DOS statements superseded for `app/dos/**` pending D1. | Phase 1 D1. | — |
 
-## B. Open questions for Ryan (none blocks Phase 4; the affected Phase 5/6 issue is named)
+## B. Open questions for Ryan at Phase 3 (historical — outcomes in §E)
 
 | Id | Question | Recommended answer | Blocks |
 | --- | --- | --- | --- |
@@ -66,3 +66,24 @@ All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on t
 **Retired regression assertions (deliberate, recorded in their PRs):** `dos-field-contact-form` (USA-217, rewritten to the shipped USA-168 form); `dos-my-record` KPI-card assertions (USA-220, replaced by Current + Recent assertions).
 
 **Gate statement (USA-193).** Previews exist for every pilot PR; workflows were exercised on the demo route and are unchanged in data and handlers; the corrections above are applied before USA-225. Ryan's review of the previews remains a Founder Review checkpoint on each issue; under the autonomous-execution instruction Phase 6 proceeds on stacked branches.
+
+## E. Settlement (USA-239 closeout, Ryan, 2026-09-07)
+
+| Id | Outcome | Recorded in |
+| --- | --- | --- |
+| D1 | Settled: the scoped canonical spec supersedes obsolete root `AGENTS.md` DOS statements for `app/dos/**`. | spec §0, `app/dos/AGENTS.md` |
+| D2 | Settled: keep **More**; do not rename it Apps. | spec B2 |
+| D3 | Policy: keep the DB-free demo route for local/preview; production disablement is an environment change documented separately, not applied here. | spec §9 |
+| D4 | Open: legacy prototype API handlers are live HTTP surfaces — analysed in the deletion manifest, removed only with evidence and founder approval. | manifest |
+| D5 | Settled: Household/Workspace copy changes deferred. | spec §9 |
+| D6 | Settled: keep the current/default Groups path; Groups V2 not promoted here. | spec §9 |
+| D7 | Settled: USA-138/163/164 UI branches superseded. | spec §9 |
+| D8 | Resolved from history: `app/dos/library-preview/` untracked in `50b6b5f` (2026-08-21); nothing to reconcile. | spec §9 |
+| D9 | Documented: required check "Typecheck, build, and smoke", strict off, 0 approvals; recommend strict on — repository setting for Ryan. | spec §9 |
+| D10 | Settled: My Record Current = existing active data only; hidden when empty. | spec §5.8 |
+| D11 | Open (conservative): shipped Needs-placement behavior preserved unless Ryan approves a replacement. | spec §5.11 |
+| D12 | Settled: keep the More-tab FAB. | spec §5.7 |
+| — | Settled: three-tab navigation with production icons and an opaque background; Field inside More; Home protected; Kitchen Table capture USAM-specific and enforced server-side (USA-238). | spec §9 preamble |
+
+PL-1 … PL-10 remain open product-logic questions; production behavior stands for each.
+
