@@ -14424,7 +14424,7 @@ function AccountabilityFields({
           </div>
         </DosFormField>
       ) : null}
-      <DosFormField label="What are they working toward?">
+      <DosFormField className="mb-2" label="What are they working toward?">
         <input
           autoFocus={autoFocus}
           className={FieldInputClass(false)}
@@ -33431,7 +33431,7 @@ function MobileFloatingActions({
     ? `${positionClassName} bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]`
     /* The open menu grows upward from the button, so cap it to the space
        above and let it scroll rather than run off the top of the screen. */
-    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-4 flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
+    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
 
   const content = (
     <div className={rootClassName}>
