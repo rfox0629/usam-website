@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
+  conversationQuestionIsVisible,
   dosConversationFlowDefinitions,
   getConversationFlowDefinition,
   relationshipWithJesusTemperature,
@@ -20440,29 +20441,6 @@ function MeetingContextPicker({
   );
 }
 
-function ConversationFlowPicker({
-  allowConversationFlows,
-  onChange,
-  value,
-}: {
-  allowConversationFlows: boolean;
-  onChange: (value: DosConversationFlowKey) => void;
-  value: DosConversationFlowKey;
-}) {
-  const options = allowConversationFlows
-    ? conversationFlowOptions
-    : conversationFlowOptions.filter((option) => option.value === "none");
-
-  return (
-    <CompactOptionSelect
-      label="Conversation Flow"
-      onChange={(nextValue) => onChange(nextValue as DosConversationFlowKey)}
-      options={options}
-      value={(options.find((option) => option.value === value) ?? options[0])?.value ?? "none"}
-    />
-  );
-}
-
 function responseAsNumber(value: DosConversationResponseValue | undefined) {
   return typeof value === "number" ? value : undefined;
 }
@@ -20486,157 +20464,102 @@ function questionResponseLabel(question: DosConversationQuestion, value: DosConv
     return responseAsString(value) || "No notes";
   }
 
+  if (question.kind === "multi_select") {
+    const selectedValues = responseAsStringArray(value);
+    const selectedLabels = question.options
+      ?.filter((option) => selectedValues.includes(option.value))
+      .map((option) => option.label);
+
+    return selectedLabels?.length ? selectedLabels.join(", ") : "None selected";
+  }
+
   return answerLabel(value as DosConversationAnswer | undefined);
 }
 
-function conversationFlowPreviewPrompts(flow: NonNullable<ReturnType<typeof getConversationFlowDefinition>>) {
-  return flow.sections
-    .flatMap((section) => section.questions)
-    .map((question) => question.prompt ?? question.label)
-    .slice(0, 3);
-}
-
-function ConversationFlowExperience({
-  flowKey,
+function KitchenTableResponsesSection({
+  active,
+  onActivate,
+  onClear,
   onResponseChange,
-  onToggleFollowUpAction,
-  recommendedResources,
   responses,
 }: {
-  flowKey: DosConversationFlowKey;
+  active: boolean;
+  onActivate: () => void;
+  onClear: () => void;
   onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
-  onToggleFollowUpAction: (actionId: string) => void;
-  recommendedResources: DosRecommendedResource[];
   responses: DosConversationResponses;
 }) {
-  const flow = getConversationFlowDefinition(flowKey);
-  const temperature = flowKey === "kitchen_table_gospel"
-    ? relationshipWithJesusTemperature(responseAsNumber(responses.relationshipWithJesus))
-    : null;
-  const selectedFollowUpActions = responseAsStringArray(responses.followUpActions);
+  const flow = getConversationFlowDefinition("kitchen_table_gospel");
 
   if (!flow) {
     return null;
   }
 
-  const guideResource = dosTableTeachingResources.find((resource) => resource.title === flow.title) ?? null;
-  const previewPrompts = conversationFlowPreviewPrompts(flow);
+  const coreQuestions = flow.sections[0]?.questions ?? [];
+  const answeredCoreQuestions = active
+    ? coreQuestions.filter((question) => responses[question.id] !== undefined).length
+    : 0;
+  const selectedExtras = active
+    ? Object.values(responses).reduce<number>((count, value) => count + (Array.isArray(value) ? value.length : 0), 0)
+    : 0;
+  const responseSummary = answeredCoreQuestions || selectedExtras
+    ? `${answeredCoreQuestions} of ${coreQuestions.length} answered${selectedExtras ? ` · ${selectedExtras} selected` : ""}`
+    : "Not added";
+  const updateResponse = (questionId: string, value: DosConversationResponseValue | undefined) => {
+    const hasValue = value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
+
+    if (!active && hasValue) {
+      onActivate();
+    }
+
+    onResponseChange(questionId, value);
+  };
 
   return (
-    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-              Conversation Flow
-            </p>
-            <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{flow.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.description}</p>
-          </div>
-          {temperature ? (
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {temperature}
+    <details className="group rounded-[20px] border border-[#D6E4F7] bg-white">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB]">
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
             </span>
-          ) : null}
-        </div>
-
-        {previewPrompts.length ? (
-          <div className="mt-3 grid gap-1.5">
-            {previewPrompts.map((prompt, index) => (
-              <div className="flex gap-2 rounded-2xl border border-[#EAF2FF] bg-white p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[10px] font-black text-[#1D4ED8]">
-                  {index + 1}
-                </span>
-                <span>{prompt}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {guideResource || recommendedResources.length ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {guideResource ? (
-              <a
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
-                href={guideResource.href}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                Open guide
-              </a>
-            ) : null}
-            {recommendedResources.slice(0, 3).map((resource) => (
-              <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A]" key={resource.id}>
-                {resource.title}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <details className="group rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[#0F172A] [&::-webkit-details-marker]:hidden">
-          <span>Capture guided responses</span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[#0F172A]">Kitchen Table responses</span>
+              <span className="mt-0.5 block text-xs text-[#64748B]">{responseSummary}</span>
+            </span>
+          </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
         </summary>
-        <div className="mt-3 grid gap-3">
-          {flow.sections.map((section) => (
-            <div className="grid gap-2" key={section.id}>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  {section.title}
-                </p>
-                {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
+        <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-3 pt-4">
+          <p className="text-xs leading-5 text-[#64748B]">Optional USAM ministry record. Open only when this meeting used the Kitchen Table conversation.</p>
+          {flow.sections.map((section) => {
+            const visibleQuestions = section.questions.filter((question) => conversationQuestionIsVisible(question, responses));
+
+            return visibleQuestions.length ? (
+              <div className="grid gap-2" key={section.id}>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                    {section.title}
+                  </p>
+                  {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
+                </div>
+                {visibleQuestions.map((question) => (
+                  <ConversationQuestionCard
+                    key={question.id}
+                    onResponseChange={updateResponse}
+                    question={question}
+                    value={responses[question.id]}
+                  />
+                ))}
               </div>
-              {section.questions.map((question) => (
-                <ConversationQuestionCard
-                  key={question.id}
-                  onResponseChange={onResponseChange}
-                  question={question}
-                  value={responses[question.id]}
-                />
-              ))}
-            </div>
-          ))}
-
-          {flow.closingPrompt || flow.gospelInvitation ? (
-            <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                Gospel Invitation
-              </p>
-              {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
-              {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
-            </div>
-          ) : null}
-
-          {flow.followUpActions?.length ? (
-            <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
-              <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {flow.followUpActions.map((action) => {
-                  const selected = selectedFollowUpActions.includes(action.id);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                      }`}
-                      key={action.id}
-                      onClick={() => onToggleFollowUpAction(action.id)}
-                      type="button"
-                    >
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            ) : null;
+          })}
+          {active ? (
+            <button className="justify-self-start text-xs font-semibold text-[#64748B] underline-offset-2 hover:text-[#0F172A] hover:underline" onClick={onClear} type="button">
+              Remove Kitchen Table responses
+            </button>
           ) : null}
         </div>
       </details>
-    </section>
   );
 }
 
@@ -20692,6 +20615,57 @@ function ConversationQuestionCard({
           value={responseAsString(value)}
         />
       </label>
+    );
+  }
+
+  if (question.kind === "multi_select") {
+    const selectedValues = responseAsStringArray(value);
+
+    return (
+      <details className="group rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
+        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="block text-sm font-semibold text-[#0F172A]">{question.label}</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">{selectedValues.length ? `${selectedValues.length} selected` : "None selected"}</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
+        </summary>
+        {question.scriptureRefs?.length ? (
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {question.scriptureRefs.join(" · ")}
+          </p>
+        ) : null}
+        <div className="mt-2 grid gap-1.5">
+          {question.options?.map((option) => {
+            const selected = selectedValues.includes(option.value);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex min-h-10 items-center gap-2.5 rounded-xl border px-3 text-left text-sm font-semibold ${
+                  selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
+                }`}
+                key={option.value}
+                onClick={() => onResponseChange(
+                  question.id,
+                  selected ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value],
+                )}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border ${
+                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#C7D9F5] bg-white"
+                  }`}
+                >
+                  {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                </span>
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
     );
   }
 
@@ -21644,7 +21618,6 @@ function MeetingFormContent({
   onSupportingAttendeeQueryChange,
   onSupportingAttendeeSubRoleChange,
   onTableRoleChange,
-  onToggleFollowUpAction,
   onToggleMinistryTeamMember,
   onToggleMinistryTeamPerson,
   onToggleOutcomeTag,
@@ -21702,7 +21675,6 @@ function MeetingFormContent({
   onSupportingAttendeeQueryChange: (value: string) => void;
   onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
   onTableRoleChange: (value: DosAppTableRole) => void;
-  onToggleFollowUpAction: (actionId: string) => void;
   onToggleMinistryTeamMember: (memberId: string) => void;
   onToggleMinistryTeamPerson: (personId: string) => void;
   onToggleOutcomeTag?: (tag: string) => void;
@@ -21789,13 +21761,6 @@ function MeetingFormContent({
   );
   const durationSelector = showDurationField ? <MeetingDurationSelector defaultMinutes={durationDefault} /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
-  const conversationFlowPicker = showConversationFlow ? (
-    <ConversationFlowPicker
-      allowConversationFlows={allowConversationFlows}
-      onChange={onConversationFlowChange}
-      value={selectedConversationFlow}
-    />
-  ) : null;
   // Collapsed summary for "More people & role", so the section can stay shut
   // without concealing the prefilled ministry team.
   const morePeopleSummary = (() => {
@@ -21894,6 +21859,19 @@ function MeetingFormContent({
       <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
         {meetingContextPicker}
       </DosFormSection>
+      {showConversationFlow && allowConversationFlows ? (
+        <KitchenTableResponsesSection
+          active={selectedConversationFlow === "kitchen_table_gospel"}
+          onActivate={() => {
+            if (selectedConversationFlow !== "kitchen_table_gospel") {
+              onConversationFlowChange("kitchen_table_gospel");
+            }
+          }}
+          onClear={() => onConversationFlowChange("none")}
+          onResponseChange={onConversationResponse}
+          responses={conversationResponses}
+        />
+      ) : null}
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
           allPeople={allPeople}
@@ -21916,7 +21894,7 @@ function MeetingFormContent({
           <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
-      {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
+      {showConversationFlow && selectedConversationFlow === "kitchen_table_gospel" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
         <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
@@ -32901,23 +32879,27 @@ function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
 
   return (
     <DetailCard title={flow.title}>
-      {flow.sections.map((section) => (
+      {flow.sections.map((section) => {
+        const visibleQuestions = section.questions.filter((question) => conversationQuestionIsVisible(question, meeting.conversationResponses));
+
+        return visibleQuestions.length ? (
         <div className="grid gap-2" key={section.id}>
           {flow.sections.length > 1 ? (
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               {section.title}
             </p>
           ) : null}
-          {section.questions.map((question) => (
-            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={question.id}>
+          {visibleQuestions.map((question) => (
+            <div className={`${question.kind === "multi_select" ? "grid gap-2" : "flex items-start justify-between gap-3"} rounded-2xl bg-[#F1F5F9] p-3`} key={question.id}>
               <p className="text-sm leading-5 text-[#0F172A]">{question.label}</p>
-              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#64748B]">
+              <span className={`${question.kind === "multi_select" ? "leading-5" : "max-w-[52%] shrink-0 rounded-full text-right"} bg-white px-2.5 py-1 text-xs font-semibold text-[#64748B]`}>
                 {questionResponseLabel(question, meeting.conversationResponses[question.id])}
               </span>
             </div>
           ))}
         </div>
-      ))}
+        ) : null;
+      })}
       {selectedActionLabels.length ? (
         <div className="rounded-2xl bg-[#F1F5F9] p-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
@@ -43444,26 +43426,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
-  function handleConversationFollowUpAction(actionId: string) {
-    setConversationResponses((current) => {
-      const currentActions = responseAsStringArray(current.followUpActions);
-      const nextActions = currentActions.includes(actionId)
-        ? currentActions.filter((currentAction) => currentAction !== actionId)
-        : [...currentActions, actionId];
-
-      if (!nextActions.length) {
-        const { followUpActions: _removed, ...rest } = current;
-
-        return rest;
-      }
-
-      return {
-        ...current,
-        followUpActions: nextActions,
-      };
-    });
-  }
-
   const prayerReminders = data.reminders.filter((reminder) => reminder.reminderType === "prayer");
   const prayerReminderCount = prayerReminders.length;
   const mobilePrayerRows = useMemo<PrayerDetail[]>(() => {
@@ -45887,7 +45849,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
             onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
             onTableRoleChange={setSelectedTableRole}
-            onToggleFollowUpAction={handleConversationFollowUpAction}
             onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
             onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
             onToggleOutcomeTag={toggleOutcomeTag}
@@ -46004,7 +45965,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
               onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
               onTableRoleChange={setSelectedTableRole}
-              onToggleFollowUpAction={handleConversationFollowUpAction}
               onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
               onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
               onToggleOutcomeTag={toggleOutcomeTag}

@@ -11,6 +11,7 @@ function assert(condition, message) {
 }
 
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const meetingEngine = read("src/lib/dos/meeting-engine.ts");
 
 const peopleSelectorStart = appClient.indexOf("function MeetingPeopleSelector");
 const peopleSelectorEnd = appClient.indexOf("function MinistryTeamSelector", peopleSelectorStart);
@@ -233,6 +234,40 @@ assert(
 assert(
   meetingFormBlock.includes("<StickyFormFooter>") && meetingFormBlock.includes("</StickyFormFooter>"),
   "Log Table's primary action must sit in a sticky footer so it stays reachable on mobile.",
+);
+
+assert(
+  meetingFormBlock.includes("<KitchenTableResponsesSection")
+    && meetingFormBlock.includes("showConversationFlow && allowConversationFlows")
+    && meetingFormBlock.includes('onConversationFlowChange("kitchen_table_gospel")'),
+  "Log Meeting must expose the optional Kitchen Table response capture only when the workspace allows USAM conversation flows.",
+);
+
+assert(
+  appClient.includes("function KitchenTableResponsesSection")
+    && appClient.includes("Kitchen Table responses")
+    && appClient.includes("<details")
+    && !appClient.includes("function ConversationFlowPicker"),
+  "Kitchen Table responses must stay behind one collapsed row without exposing the legacy Conversation Flow picker.",
+);
+
+assert(
+  meetingEngine.includes('id: "manifestationGifts"')
+    && meetingEngine.includes('id: "serviceGifts"')
+    && meetingEngine.includes('id: "fivefoldGifts"')
+    && meetingEngine.includes('visibleWhen: { equals: "yes", questionId: "spiritualGifts" }')
+    && meetingEngine.includes('id: "connectionOutcomes"')
+    && meetingEngine.includes('id: "faithCommitmentOutcomes"')
+    && meetingEngine.includes('id: "healingOutcomes"')
+    && meetingEngine.includes('id: "relationshipOutcomes"')
+    && meetingEngine.includes('id: "ministryMomentOutcomes"'),
+  "Kitchen Table capture must include the three conditional gift families and the ministry outcomes list.",
+);
+
+assert(
+  meetingEngine.includes('id: "four_questions"')
+    && !meetingFormBlock.includes("four_questions"),
+  "Four Questions historical data support must remain in the engine without appearing in the Log Meeting UI.",
 );
 
 console.log("DOS Log Meeting form regression passed.");
