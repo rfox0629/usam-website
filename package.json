@@ -49,7 +49,7 @@
     "test:dos-group-join-request-notification": "node scripts/dos-group-join-request-notification-regression.mjs",
     "test:dos-field-contact-form": "node scripts/dos-field-contact-form-regression.mjs",
     "test:dos-schedule-meeting-form": "node scripts/dos-schedule-meeting-form-regression.mjs",
-    "test:dos-log-meeting-form": "node scripts/dos-log-meeting-form-regression.mjs",
+    "test:dos-log-meeting-form": "node --no-warnings scripts/dos-log-meeting-form-regression.mjs",
     "test:usa-168-stabilization": "node --no-warnings scripts/usa-168-stabilization-behavior.mjs",
     "test:usa-168-person-ui": "node scripts/usa-168-person-ui-regression.mjs",
     "test:dos-disclosure-section-overflow": "node scripts/dos-disclosure-section-overflow-regression.mjs",
