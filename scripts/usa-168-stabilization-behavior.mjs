@@ -867,6 +867,7 @@ await check("Natural tracking choices progressively reveal only relevant fields"
   assert(fields.includes('label="Start with an area"'), "The guided category entry point must remain available.");
   assert(fields.includes('label="Suggested goals"'), "Selecting an area must provide useful examples.");
   assert(fields.includes('label="What are they working toward?"'), "The custom goal question must stay clear and person-centered.");
+  assert(fields.includes('className="mb-2" label="What are they working toward?"'), "The goal field must keep breathing room before the tracking choices.");
 
   /* No database words in anything the user can actually read. Identifiers and
      form field names are not user-visible and are deliberately not checked;

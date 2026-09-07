@@ -152,11 +152,11 @@ export function Stepper({
   const canDecrement = value - step >= min;
 
   return (
-    <div className="flex h-12 w-full items-center rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
+    <div className="flex h-12 w-full overflow-hidden rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
       {name ? <input name={name} type="hidden" value={value} /> : null}
       <button
         aria-label={decrementLabel}
-        className="flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 disabled:text-dos-disabled"
+        className="flex h-full w-[52px] shrink-0 items-center justify-center border-r border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected disabled:text-dos-disabled"
         disabled={!canDecrement}
         onClick={() => onChange(Math.max(min, value - step))}
         type="button"
@@ -168,7 +168,7 @@ export function Stepper({
       </span>
       <button
         aria-label={incrementLabel}
-        className="flex h-11 w-11 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2"
+        className="flex h-full w-[52px] shrink-0 items-center justify-center border-l border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected"
         onClick={() => onChange(value + step)}
         type="button"
       >

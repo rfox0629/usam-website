@@ -106,7 +106,7 @@ Home keeps its existing wash (`#EAF2FF` → white → peach) and the `#2563EB` v
 | **Field** | 48px (44 paired), `r1`, hairline, 15px text; label above (`text-dos-label`, ink-2), optional "optional" hint right-aligned, helper line below (`text-dos-meta`); required = red asterisk after the label; error = red border + 2px `redBg` ring + helper replaced by a red instruction. Focus = 2px blue ring. | `DosFormField`, `FieldLabel` |
 | **Select** | Field with trailing chevron; native `<select>` on mobile. | `FormOptionSelect`, `CompactOptionSelect` |
 | **DateInput / TimeInput** | Compact field pair (44px) using native inputs; display "Today, Sep 4". | `DosDateInput` |
-| **Stepper** | − value + ; fixed steps (15 min for durations, 5 min for Time with God); no ceiling; confirm past a threshold (threshold is unresolved, §9). | new (replaces duration pills) |
+| **Stepper** | − value + ; blue-50 end regions with hairline dividers and a white centered value; fixed steps (15 min for durations, 5 min for Time with God); no ceiling; confirm past a threshold (threshold is unresolved, §9). | new (replaces duration pills) |
 | **ToggleRow** | Label + one-line consequence + switch; used for booleans with a consequence (Household, We prayed together). | ad-hoc |
 | **HelperLine** | One `text-dos-meta` sentence under the control it explains. Replaces info boxes. | ad-hoc |
 | **StickyPrimary** | Bottom-fixed primary button above the keyboard, white gradient fade, never disabled: when invalid it is `tinted`, reads "Fix N things to …", and scrolls to the first error; while saving it shows a spinner and a progressive verb ("Adding…"). Shown only on task screens (nav hidden). | form footers |
@@ -131,7 +131,7 @@ Home keeps its existing wash (`#EAF2FF` → white → peach) and the `#2563EB` v
 2. Every scrollable screen that shows the nav reserves the 134px clearance at its end; the scroll container is the only vertical scroller (`overflow-x: hidden` on the app root, `overflow-y: auto` on the container, never `overflow: hidden` on content).
 3. Z-index ladder (documented, exhaustive; Tailwind `z-dos-*`): content 0 · sticky in-content 10 · in-content detail overlays (Person/Meeting/Circles) 20 · FAB 25 · nav 30 · in-content popovers 40 · bottom sheets 80 · task screens 120 · full sheets 1000 · dialog 1100. Detail overlays sit beneath the nav on purpose: the nav stays visible on a Person or Meeting record, as it does today; the FAB sits above those overlays but beneath the nav (V10: "z 10 vs 30").
 4. Forms and focused task screens hide the nav and use one StickyPrimary; resource overviews keep the nav; an opened step (reading plan, book study) is a task screen. **Never both a sticky action bar and the nav.**
-5. Safe areas: bottom on nav, FAB, sheets, sticky primaries; top on full-screen overlays and popovers; left/right on popovers.
+5. Safe areas: bottom on nav, FAB, sheets, sticky primaries; top on full-screen overlays and popovers; left/right on popovers. On mobile, the FAB\'s right inset follows the centered 430px app frame (`max(16px, (viewport - 430px) / 2 + 16px)`), so wide phone captures do not push it beyond the content and navigation alignment.
 6. Desktop (`md:` ≥ 768px): sidebar 232px (`xl:` 260px), page ground `surface-2`, content max-width per screen as today; task screens offset by the sidebar; no bottom nav; FAB becomes the header/top-right action where one exists today.
 7. Deep links (`?view= ?person= ?openGroup= ?tab= ?resource= ?walkthrough=usam`) and slug aliases keep working.
 
