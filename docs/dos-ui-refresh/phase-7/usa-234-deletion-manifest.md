@@ -1,5 +1,29 @@
 # USA-234 — Archive of superseded direction and deletion manifest
 
+> **Revalidated in the USA-239 closeout (2026-09-07) against `main` `e30a49e`.** PR #100 was stale (based on the pre-release stack) and was not rebased; every item below was re-searched on current `main` and re-classified. The replacement is the isolated cleanup PR named in the closeout index; it awaits founder approval like any deletion. The original manifest text follows for history.
+
+## Closeout classification (current `main`)
+
+| Item | Fresh evidence (2026-09-07) | Class |
+| --- | --- | --- |
+| `src/components/dos/WorkspaceV2Shell.tsx` (1,379 lines) | Zero importers in `app/`, `src/`, `components/`; only `scripts/dos-readability-regression.mjs` listed it as a scan target (list updated in the same PR) | **Safe to delete** — in the cleanup PR |
+| `dos.html` (repo root) | No route, rewrite or import; mentioned only by a `.github/CODEOWNERS` path rule (now matches nothing; harmless) and an automation fixture string | **Safe to delete** — in the cleanup PR |
+| Zero-reference functions in `DosMvpAppClient.tsx` | 84 on current `main` (USA-235–237 added and removed some; `PersonCard` is no longer script-pinned). 15 are still pinned by a regression script (name or a body-only needle) and are **retained**: `AssessmentResultSummaryCard`, `FollowUpDetailCard`, `FruitOutcomesDetailCard`, `GrowthMilestoneRow`, `MyRecordAssessmentsPanel`, `MyRecordLearningPanel`, `MyRecordPreviewCard`, `MyRecordPropheticOverviewCard`, `NotesReflectionDetailCard`, `PDPill`, `PrayerTeamCountVisibilityToggle`, `ResourceAssignmentCard`, `TableActionsDetailCard`, `TableRolePicker`, `WeekStatTile`. The other **69 named functions plus 7 that became unreferenced through them** (76 removed, 2,218 lines; 46,110 → 43,807 lines) appear exactly once in the repository | **Safe to delete** — in the cleanup PR; **15 retained** |
+| Prototype clients `app/dos/[collectiveSlug]/{meetings/MeetingsWorkspaceClient,people/PeopleWorkspaceClient,people/[personId]/PersonRelationshipModal,people/[personId]/RelationshipInsightsPanel}.tsx` | Their `page.tsx` files only call `redirectLegacyDosRoute`; nothing imports the clients except each other | **Safe to delete** — in the cleanup PR (the redirecting pages and `legacy-redirect.ts` stay) |
+| `src/lib/dos/workspace.ts`, `src/lib/dos/meetings.ts`, `src/lib/dos/people.ts` | No importers outside the prototype clients above | **Safe to delete** — in the cleanup PR |
+| Legacy API handlers `app/api/dos/[collectiveSlug]/{people,meetings,relationships,people/[personId]/insights}/route.ts` | Live HTTP surfaces. No caller in the repository once the prototype clients are gone. Production runtime logs (7 days to 2026-09-07, all `/api/dos/` requests) show only `/api/dos/app/*` paths — no request reached a `[collectiveSlug]` handler | **Separately approved API removal (D4)** — not in the cleanup PR; recommendation: remove in their own PR after Ryan's approval |
+| Compatibility redirects `/dos/[slug]/meetings`, `/people`, `/people/[id]`, `/dos/workspaces/[slug]`, `/dos/admin` | Still serve old links | **Retained** |
+| Demo route `/dos/app/preview` | Test and screenshot infrastructure (D3) | **Retained** (production disablement is an environment change, separately) |
+| `AppButton tone="black"` | Spec §10 retirement changes every primary button and the controls script pins the gradient | **Retained** (follow-up design PR, not cleanup) |
+| `app/dos/library-preview/` | Untracked in `50b6b5f` (2026-08-21) | **Nothing to delete** (D8 resolved) |
+| Remote branches `codex/dos-ui-blitz`, `clean/public-website-brand-refresh`, USA-138/163/164 UI branches | Remote operations outside these PRs; D7 settled as superseded | **Founder decision / remote operation** |
+
+**Verification of the cleanup PR:** reference searches above; `npm run typecheck` ✓; `npm run test:dos` ✓ 40/40; `npm run build` ✓; rendering A/B — the 16 visual scenes were recorded from `main`'s client and then verified byte-for-byte against the cleanup branch (result recorded in the PR); `npm run smoke` ✓.
+
+**Recovery:** one `git revert` of the cleanup commit restores everything; any single function can be restored from the parent commit (`git show <parent>:app/dos/app/DosMvpAppClient.tsx`).
+
+---
+
 Phase 7 runs after migration, not before (USA-200). It has two parts with different risk:
 
 1. **Archive and pointers (PR #99, docs only, safe):** superseded documents moved under `docs/archive/dos-ui-refresh-superseded/` with a README; the USA-170 SQL scripts kept in place with a "NEVER RUN" header (a regression script reads them there); a scoped `app/dos/AGENTS.md` that makes the canonical spec discoverable to Claude and Codex; README / onboarding pointers.
