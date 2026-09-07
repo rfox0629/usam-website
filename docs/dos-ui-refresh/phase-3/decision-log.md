@@ -8,7 +8,7 @@ Presented for Ryan's review. The specification consolidates approved direction a
 | --- | --- | --- | --- |
 | S-1 | Token values follow V10 where V10 defines them (`#0B1220`, `#5A6473`, `#9AA3B2`, `#E5E8EF`, `#2251E8`, `#1E3FB8`, `#F1F4FF`, `#E4EAFF`, `#F7F8FB`, radii 12/20/999, float shadow); USA-168 token names kept; production-only hex values retired. | Project: "V10 is the primary visual reference"; Phase 1 C10 named V10 the tie-breaker. | Yes — values in one file. |
 | S-2 | `#5A6473` is the floor for readable text; `#94A3B8` and 8/9/10px readable text are retired. | Project guardrail "remove very light gray text"; `text-tokens.ts`. | Yes. |
-| S-3 | Section eyebrows are blue (V10); grey sub-eyebrows inside a section (Person "Right now"). | V10 §2, §8. | Yes. |
+| S-3 | Section eyebrows are blue (V10); grey sub-eyebrows remain available only for true nested groupings. Person's named overview sections are all blue. | V10 §2, §8; founder clarification USA-236. | Yes. |
 | S-4 | Home keeps its gradient background and `#2563EB` until a Home decision exists; only 1:1 text-color mappings may touch it, verified by screenshot. | Project: Home unchanged. | n/a |
 | S-5 | Desktop is treated by rule (tokens + components), layout untouched. | V10 has no desktop frames. | n/a |
 | S-6 | Production defaults are kept wherever V10 shows a different default that is marked "Product logic — later" (Log context "In person" not "Coffee"; duration default 30m; circle at creation allowed; Repeat/reminder defaults; "Feedback" label). | Operating rule: never guess product logic. | Yes. |
@@ -61,6 +61,7 @@ All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on t
 | P-9 | The visual suite drifted on the Dashboard at a UTC day boundary (demo due-date buckets). | Drift rule recorded; freezing the demo clock is a Phase 7 candidate. | §8 |
 | P-10 (Phase 8) | The first accessibility sweep found refreshed controls under the 44px hit area (header chips, eyebrow text actions, Field rows, Person `PDButton`, overlay back arrows, task-screen back, date-picker button). | All raised to 44px in USA-233 without visual change beyond the taller Person buttons; the sweep script is kept as tooling. | §3, §8 |
 | P-11 (Phase 8) | The PillRail's scroll-into-view could scroll the page on tab change; the visual suite could capture a transient scroll. | Rail scrolls itself horizontally only; the suite resets scroll before each capture. | §3 PillRail |
+| P-12 (USA-236) | Person's three fixed views looked left-weighted as a scroll rail, “Right now” duplicated the grouping below it, and grey section labels weakened hierarchy. | Person uses the centered Segmented control; the umbrella heading is removed; named overview sections and meeting-card eyebrows are blue. | §3, §5.6 |
 
 **Retired regression assertions (deliberate, recorded in their PRs):** `dos-field-contact-form` (USA-217, rewritten to the shipped USA-168 form); `dos-my-record` KPI-card assertions (USA-220, replaced by Current + Recent assertions).
 

@@ -2348,7 +2348,7 @@ await check("The FAB belongs to the app shell, not to a content container", asyn
   );
 
   /* One diameter and one inset, declared once each. */
-  assert(/h-16 w-16 items-center justify-center rounded-full/.test(fab), "One circular button, one diameter.");
+  assert(/h-16 w-16[^\"]*items-center justify-center rounded-full/.test(fab), "One circular button, one diameter.");
   const insets = fab.match(/right-\d+/g) ?? [];
   assert(insets.length > 0, "The inset is declared in the component, not by callers.");
   assert(!/right-\[\d+px\]/.test(fab), "No screenshot-specific magic offset.");
@@ -2357,6 +2357,9 @@ await check("The FAB belongs to the app shell, not to a content container", asyn
      shadow, and its container carries no background or radius. */
   const stack = fab.slice(fab.indexOf("const stackClassName"), fab.indexOf("const content"));
   assert(!/bg-\[|bg-white|shadow-\[/.test(stack), "The FAB stack has no background or shadow of its own.");
+  assert(!stack.includes("overflow-y-auto"), "The FAB stack must not clip the circular shadow into a square silhouette.");
+  assert(fab.includes('className="min-h-0 w-full overflow-y-auto'), "Only the open quick-action menu scrolls.");
+  assert(fab.includes("[-webkit-tap-highlight-color:transparent]"), "The circular FAB suppresses Safari's rectangular tap highlight.");
 
   /* Sheets sit above it, so an open sheet is never competed with. */
   // USA-214: the FAB moved onto the documented z ladder (`z-dos-fab` = 25, beneath the nav at 30, above in-content overlays at 20); a sheet is still far above it.
@@ -2364,6 +2367,20 @@ await check("The FAB belongs to the app shell, not to a content container", asyn
   const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
   const sheet = surfaces.slice(surfaces.indexOf("function Sheet({"), surfaces.indexOf("function MobileBottomSheet("));
   assert(/z-\[1000\]/.test(sheet), "A sheet renders above the FAB, so the FAB stays behind its backdrop.");
+});
+
+await check("Person polish keeps fixed tabs centered and section hierarchy blue", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const personStart = client.indexOf("function PersonDetailOverlay(");
+  const person = client.slice(personStart, client.indexOf("\nfunction ", personStart + 10));
+
+  assert(person.includes('<Segmented') && person.includes('label={`${firstName} views`}'), "Person's three fixed views use the centered segmented control.");
+  assert(!person.includes("<Eyebrow>Right now</Eyebrow>"), "The redundant Right now umbrella heading stays removed.");
+  assert(person.includes('const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection"'), "Last and Next meeting card eyebrows are blue.");
+  for (const section of ["Journey", "Accountability", "Prayer", "Fruit", "Feedback", "Groups", "Reminder", "Group gathering"]) {
+    assert(person.includes(`aria-label="${section}"`) || person.includes(`<Eyebrow>${section}</Eyebrow>`), `${section} remains a named Person section.`);
+  }
+  assert(!person.includes('tone="sub"'), "Person's named overview sections use the blue section eyebrow treatment.");
 });
 
 console.log(`USA-168 stabilization behavior checks passed (${checks.length}):`);

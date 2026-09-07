@@ -26,7 +26,7 @@ import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/form
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
+import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
@@ -33431,7 +33431,7 @@ function MobileFloatingActions({
     ? `${positionClassName} bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]`
     /* The open menu grows upward from the button, so cap it to the space
        above and let it scroll rather than run off the top of the screen. */
-    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-4 flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 overflow-y-auto pointer-events-auto`;
+    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-4 flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
 
   const content = (
     <div className={rootClassName}>
@@ -33448,7 +33448,7 @@ function MobileFloatingActions({
           /* Named so the ranked action list can be asserted as a list, rather
              than by scraping every button on the page that happens to share a
              label with one of these actions. */
-          <div aria-label="Quick actions" className="w-full rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl" role="menu">
+          <div aria-label="Quick actions" className="min-h-0 w-full overflow-y-auto rounded-[26px] border border-white/80 bg-white/95 p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] backdrop-blur-xl" role="menu">
             {items.map((item, index) => (
               <Fragment key={item.label}>
                 {index > 0 && item.group && item.group !== items[index - 1]?.group ? (
@@ -33471,7 +33471,7 @@ function MobileFloatingActions({
         <button
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close quick actions" : "Open quick actions"}
-          className={`flex h-16 w-16 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] transition-transform active:scale-[0.97] ${isOpen ? "rotate-45" : ""}`}
+          className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-[0_20px_44px_rgba(37,99,235,0.34)] outline-none transition-transform [-webkit-tap-highlight-color:transparent] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-offset-2 ${isOpen ? "rotate-45" : ""}`}
           onClick={onToggle}
           type="button"
         >
@@ -35817,7 +35817,7 @@ function PersonDetailOverlay({
       <>
         {/* No create action: observed Fruit comes from an interaction, so it
             is captured while logging a meeting, never typed in here. */}
-        <Eyebrow tone="sub">Fruit</Eyebrow>
+        <Eyebrow>Fruit</Eyebrow>
         {recentOutcomes.length ? (
           <div className="divide-y divide-dos-rule">
             {recentOutcomes.map((entry) => (
@@ -35845,7 +35845,7 @@ function PersonDetailOverlay({
      meeting -- when, what, how long -- and the whole card opens the record.
      No generated preparation copy lives in here. */
   const renderMeetingCards = () => {
-    const eyebrowClass = "text-dos-eyebrow uppercase";
+    const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection";
     const leadClass = "mt-1.5 block text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
     // Two lines rather than an ellipsis: at half-width a real meeting title
     // ("First mentoring meeting") is unreadable truncated to one line.
@@ -35903,7 +35903,7 @@ function PersonDetailOverlay({
     <>
       {conceptFollowUps.length ? (
         <section>
-          <Eyebrow tone="sub">Reminder</Eyebrow>
+          <Eyebrow>Reminder</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {conceptFollowUps.map((followUp) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={followUp.id} onClick={followUp.onOpen} type="button">
@@ -35916,7 +35916,7 @@ function PersonDetailOverlay({
       ) : null}
       {upcomingGatherings.length ? (
         <section className={conceptFollowUps.length ? "mt-6 border-t border-dos-rule pt-5" : ""}>
-          <Eyebrow tone="sub">Group gathering</Eyebrow>
+          <Eyebrow>Group gathering</Eyebrow>
           <div className="mt-1 divide-y divide-dos-rule">
             {upcomingGatherings.map(({ gathering, group }) => (
               <button className="block w-full py-2.5 text-left first:pt-1" key={gathering.id} onClick={() => onOpenGroup(group.id)} type="button">
@@ -36019,11 +36019,10 @@ function PersonDetailOverlay({
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            {/* The canonical PillRail (spec §3, §5.6): the same rail as
-                Meetings and My Record. */}
-            <div className="pb-1">
-              <PillRail
-                edgeInset={4}
+            {/* Three fixed Person views use the centered segmented treatment;
+                longer, scrollable section lists continue to use PillRail. */}
+            <div className="mx-auto w-full max-w-[350px] pb-1">
+              <Segmented
                 label={`${firstName} views`}
                 onChange={(view) => {
                   setActiveDetailTab(view);
@@ -36108,15 +36107,13 @@ function PersonDetailOverlay({
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
 
-                {/* RIGHT NOW (spec §5.6): one white surface, a blue section
-                    eyebrow, then grey sub-eyebrows for Journey, Accountability,
-                    Prayer, Fruit, Feedback and Groups, separated by hairlines.
-                    Every record is a row you open; lists cap at three. */}
+                {/* One white overview surface with blue section eyebrows and
+                    hairline-separated groups. Every record is a row you open;
+                    lists cap at three. */}
                 <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4">
-                  <Eyebrow>Right now</Eyebrow>
                   {conceptJourneys.length ? (
                     <section aria-label="Journey" className="border-b border-dos-rule py-3 last:border-b-0">
-                      <Eyebrow tone="sub">Journey</Eyebrow>
+                      <Eyebrow>Journey</Eyebrow>
                       <div className="divide-y divide-dos-rule">
                         {conceptJourneys.map((journey) => (
                           <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
@@ -36149,7 +36146,6 @@ function PersonDetailOverlay({
                   <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
                     <Eyebrow
                       action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
-                      tone="sub"
                     >
                       Accountability
                     </Eyebrow>
@@ -36190,7 +36186,6 @@ function PersonDetailOverlay({
                         asked for. */}
                     <Eyebrow
                       action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
-                      tone="sub"
                     >
                       Prayer
                     </Eyebrow>
@@ -36223,7 +36218,6 @@ function PersonDetailOverlay({
                       action={lastMeeting && onRequestReview ? (
                         <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
                       ) : undefined}
-                      tone="sub"
                     >
                       Feedback
                     </Eyebrow>
@@ -36252,7 +36246,7 @@ function PersonDetailOverlay({
                       structure and type rather than a new colour. */}
                   {personGroups.length ? (
                     <section aria-label="Groups" className="border-b border-dos-rule py-3 last:border-b-0">
-                      <Eyebrow tone="sub">Groups</Eyebrow>
+                      <Eyebrow>Groups</Eyebrow>
                       <div className="divide-y divide-dos-rule">
                         {personGroups.map((group) => (
                           <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
