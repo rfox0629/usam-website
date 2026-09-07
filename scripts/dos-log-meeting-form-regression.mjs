@@ -270,4 +270,126 @@ assert(
   "Four Questions historical data support must remain in the engine without appearing in the Log Meeting UI.",
 );
 
+// USA-238: the collapsed row alone never marks the meeting as Kitchen Table;
+// the flow activates from the first real answer, and gift groups are dropped
+// again when the Spiritual Gifts answer that revealed them changes.
+const kitchenTableSectionStart = appClient.indexOf("function KitchenTableResponsesSection");
+const kitchenTableSectionEnd = appClient.indexOf("function ConversationQuestionCard", kitchenTableSectionStart);
+const kitchenTableSection = appClient.slice(kitchenTableSectionStart, kitchenTableSectionEnd);
+
+assert(
+  kitchenTableSection.includes("if (!active && hasValue) {")
+    && kitchenTableSection.includes("onActivate();")
+    && kitchenTableSection.includes("dependent.visibleWhen?.questionId === questionId")
+    && kitchenTableSection.includes("onResponseChange(dependent.id, undefined)"),
+  "Kitchen Table must activate only from an entered response and must clear hidden gift selections when Spiritual Gifts is no longer Yes.",
+);
+
+assert(
+  kitchenTableSection.includes("legacyFlowTitle")
+    && kitchenTableSection.includes("Those responses stay on the record unless you add Kitchen Table responses here."),
+  "Editing a historical Four Questions meeting must say those responses are kept until Kitchen Table responses replace them.",
+);
+
+// USA-238: saved responses, gift labels, and outcomes render on the meeting
+// record, inside the logged-meeting detail rather than a dead helper.
+const meetingDetailStart = appClient.indexOf("function MeetingDetailOverlay(");
+const meetingDetailEnd = appClient.indexOf("\nfunction ", meetingDetailStart + 1);
+const meetingDetailBlock = appClient.slice(meetingDetailStart, meetingDetailEnd);
+
+assert(
+  appClient.includes("function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting })")
+    && meetingDetailBlock.includes("<ConversationResponsesSection meeting={meeting} />")
+    && !appClient.includes("function ConversationFlowDetail("),
+  "Meeting detail must render the saved Kitchen Table responses, gift labels, and outcomes.",
+);
+
+// USA-238: normalization is the only persistence gate, so exercise it for
+// real. Invalid multi-select values, duplicates, and gift answers hidden by a
+// non-Yes Spiritual Gifts answer must all disappear; nothing creates Fruit.
+const { register } = await import("node:module");
+const repoRoot = new URL("../", import.meta.url).href;
+
+register(
+  `data:text/javascript,${encodeURIComponent(`
+    const root = ${JSON.stringify(repoRoot)};
+    export async function resolve(specifier, context, next) {
+      if (specifier.startsWith("@/")) {
+        const target = root + specifier.slice(2);
+        for (const suffix of ["", ".ts", ".tsx", "/index.ts"]) {
+          try { return await next(target + suffix, context); } catch {}
+        }
+      }
+      return next(specifier, context);
+    }
+  `)}`,
+);
+
+const engine = await import("../src/lib/dos/meeting-engine.ts");
+const normalized = engine.normalizeConversationResponses("kitchen_table_gospel", {
+  believeJesus: "yes",
+  connectionOutcomes: "connected_to_church_partner",
+  fivefoldGifts: ["pastor"],
+  followUpActions: ["wants_prayer"],
+  healingOutcomes: ["deliverance", "bogus", "deliverance", 42],
+  manifestationGifts: ["faith", "not_a_gift"],
+  relationshipWithJesus: 11,
+  serviceGifts: ["mercy"],
+  spiritualGifts: "no",
+  tithe: "unsure",
+});
+
+assert(
+  JSON.stringify(normalized) === JSON.stringify({ believeJesus: "yes", spiritualGifts: "no", healingOutcomes: ["deliverance"] }),
+  `Normalization must drop invalid, duplicate, hidden, and out-of-range Kitchen Table values. Got ${JSON.stringify(normalized)}`,
+);
+
+const revealed = engine.normalizeConversationResponses("kitchen_table_gospel", {
+  fivefoldGifts: ["pastor", "apostle"],
+  manifestationGifts: ["faith"],
+  relationshipWithJesus: "8",
+  serviceGifts: ["mercy"],
+  spiritualGifts: "yes",
+});
+
+assert(
+  JSON.stringify(revealed) === JSON.stringify({
+    spiritualGifts: "yes",
+    relationshipWithJesus: 8,
+    manifestationGifts: ["faith"],
+    serviceGifts: ["mercy"],
+    fivefoldGifts: ["pastor", "apostle"],
+  })
+    && engine.relationshipWithJesusTemperature(3) === "Cold"
+    && engine.relationshipWithJesusTemperature(4) === "Lukewarm"
+    && engine.relationshipWithJesusTemperature(7) === "Lukewarm"
+    && engine.relationshipWithJesusTemperature(8) === "Hot",
+  `Gift groups must persist when Spiritual Gifts is Yes and the 1-10 rating must read Cold / Lukewarm / Hot. Got ${JSON.stringify(revealed)}`,
+);
+
+assert(
+  JSON.stringify(engine.normalizeConversationResponses("none", { believeJesus: "yes", healingOutcomes: ["deliverance"] })) === "{}"
+    && engine.normalizeConversationFlowKey("kitchen_table_gospel", false) === "none",
+  "A workspace without the USAM gate must not keep Kitchen Table data.",
+);
+
+const historical = engine.normalizeConversationResponses("four_questions", {
+  followUpActions: ["wants_prayer"],
+  recognizes_problem: "unsure",
+  response_notes: "Kept for the record.",
+});
+
+assert(
+  historical.recognizes_problem === "unsure"
+    && historical.response_notes === "Kept for the record."
+    && Array.isArray(historical.followUpActions),
+  "Historical Four Questions responses must still normalize for existing meetings.",
+);
+
+assert(
+  !meetingEngine.toLowerCase().includes("fruit")
+    && !read("app/api/dos/app/meetings/route.ts").includes("fruit_events"),
+  "Kitchen Table outcomes are raw meeting responses; the engine and the meeting write path must not create Fruit.",
+);
+
 console.log("DOS Log Meeting form regression passed.");

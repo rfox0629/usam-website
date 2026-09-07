@@ -20478,12 +20478,17 @@ function questionResponseLabel(question: DosConversationQuestion, value: DosConv
 
 function KitchenTableResponsesSection({
   active,
+  legacyFlowTitle = null,
   onActivate,
   onClear,
   onResponseChange,
   responses,
 }: {
   active: boolean;
+  /* Set when the meeting being edited was logged with a flow that is no
+     longer offered (Four Questions). Those responses stay on the record
+     until Kitchen Table responses replace them. */
+  legacyFlowTitle?: string | null;
   onActivate: () => void;
   onClear: () => void;
   onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
@@ -20495,16 +20500,23 @@ function KitchenTableResponsesSection({
     return null;
   }
 
+  const allQuestions = flow.sections.flatMap((section) => section.questions);
   const coreQuestions = flow.sections[0]?.questions ?? [];
   const answeredCoreQuestions = active
     ? coreQuestions.filter((question) => responses[question.id] !== undefined).length
     : 0;
+  // Count only selections the leader can currently see, so a hidden gift
+  // group never inflates the collapsed summary.
   const selectedExtras = active
-    ? Object.values(responses).reduce<number>((count, value) => count + (Array.isArray(value) ? value.length : 0), 0)
+    ? allQuestions
+      .filter((question) => question.kind === "multi_select" && conversationQuestionIsVisible(question, responses))
+      .reduce<number>((count, question) => count + responseAsStringArray(responses[question.id]).length, 0)
     : 0;
   const responseSummary = answeredCoreQuestions || selectedExtras
     ? `${answeredCoreQuestions} of ${coreQuestions.length} answered${selectedExtras ? ` · ${selectedExtras} selected` : ""}`
-    : "Not added";
+    : legacyFlowTitle
+      ? `${legacyFlowTitle} on record`
+      : "Not added";
   const updateResponse = (questionId: string, value: DosConversationResponseValue | undefined) => {
     const hasValue = value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
 
@@ -20513,6 +20525,19 @@ function KitchenTableResponsesSection({
     }
 
     onResponseChange(questionId, value);
+
+    // Gift groups only mean something while Spiritual Gifts is Yes. Drop
+    // their selections the moment the answer that revealed them changes, so
+    // the summary, the payload, and what the leader sees stay in agreement.
+    allQuestions.forEach((dependent) => {
+      if (
+        dependent.visibleWhen?.questionId === questionId
+        && dependent.visibleWhen.equals !== value
+        && responses[dependent.id] !== undefined
+      ) {
+        onResponseChange(dependent.id, undefined);
+      }
+    });
   };
 
   return (
@@ -20531,6 +20556,11 @@ function KitchenTableResponsesSection({
         </summary>
         <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-3 pt-4">
           <p className="text-xs leading-5 text-[#64748B]">Optional USAM ministry record. Open only when this meeting used the Kitchen Table conversation.</p>
+          {legacyFlowTitle && !active ? (
+            <p className="rounded-2xl border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
+              This meeting was logged with {legacyFlowTitle}. Those responses stay on the record unless you add Kitchen Table responses here.
+            </p>
+          ) : null}
           {flow.sections.map((section) => {
             const visibleQuestions = section.questions.filter((question) => conversationQuestionIsVisible(question, responses));
 
@@ -21862,6 +21892,7 @@ function MeetingFormContent({
       {showConversationFlow && allowConversationFlows ? (
         <KitchenTableResponsesSection
           active={selectedConversationFlow === "kitchen_table_gospel"}
+          legacyFlowTitle={selectedConversationFlow !== "none" && selectedConversationFlow !== "kitchen_table_gospel" ? conversationFlowLabel(selectedConversationFlow) : null}
           onActivate={() => {
             if (selectedConversationFlow !== "kitchen_table_gospel") {
               onConversationFlowChange("kitchen_table_gospel");
@@ -32865,56 +32896,110 @@ function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void;
   );
 }
 
-function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
+/* Saved conversation responses on the meeting record: the Kitchen Table
+   answers, the relationship rating, the gift groups revealed by a Yes, and
+   the grouped outcomes. Historical Four Questions meetings render through
+   the same path. Only answered questions appear; nothing is invented. */
+function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
   const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
 
   if (!flow) {
     return null;
   }
 
-  const selectedActions = responseAsStringArray(meeting.conversationResponses.followUpActions);
+  const responses = meeting.conversationResponses;
+  const answeredSections = flow.sections
+    .map((section) => ({
+      questions: section.questions.filter((question) => {
+        if (!conversationQuestionIsVisible(question, responses)) {
+          return false;
+        }
+
+        const value = responses[question.id];
+
+        return question.kind === "multi_select"
+          ? responseAsStringArray(value).length > 0
+          : value !== undefined && value !== "";
+      }),
+      section,
+    }))
+    .filter((entry) => entry.questions.length > 0);
+  const selectedActions = responseAsStringArray(responses.followUpActions);
   const selectedActionLabels = (flow.followUpActions ?? [])
     .filter((action) => selectedActions.includes(action.id))
     .map((action) => action.label);
 
-  return (
-    <DetailCard title={flow.title}>
-      {flow.sections.map((section) => {
-        const visibleQuestions = section.questions.filter((question) => conversationQuestionIsVisible(question, meeting.conversationResponses));
+  if (!answeredSections.length && !selectedActionLabels.length) {
+    return null;
+  }
 
-        return visibleQuestions.length ? (
-        <div className="grid gap-2" key={section.id}>
-          {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {section.title}
-            </p>
+  return (
+    <section className="border-b border-dos-rule py-5">
+      <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">
+        {flow.id === "kitchen_table_gospel" ? "Kitchen Table responses" : flow.title}
+      </h3>
+      {answeredSections.map(({ questions, section }, index) => (
+        <div className={index === 0 ? "mt-2" : "mt-3"} key={section.id}>
+          {answeredSections.length > 1 ? (
+            <p className="text-[12.5px] font-semibold text-dos-secondary">{section.title}</p>
           ) : null}
-          {visibleQuestions.map((question) => (
-            <div className={`${question.kind === "multi_select" ? "grid gap-2" : "flex items-start justify-between gap-3"} rounded-2xl bg-[#F1F5F9] p-3`} key={question.id}>
-              <p className="text-sm leading-5 text-[#0F172A]">{question.label}</p>
-              <span className={`${question.kind === "multi_select" ? "leading-5" : "max-w-[52%] shrink-0 rounded-full text-right"} bg-white px-2.5 py-1 text-xs font-semibold text-[#64748B]`}>
-                {questionResponseLabel(question, meeting.conversationResponses[question.id])}
-              </span>
-            </div>
-          ))}
+          <ul className="mt-1.5 grid gap-2">
+            {questions.map((question) => {
+              const value = responses[question.id];
+
+              if (question.kind === "multi_select") {
+                const selectedLabels = (question.options ?? [])
+                  .filter((option) => responseAsStringArray(value).includes(option.value))
+                  .map((option) => option.label);
+
+                return (
+                  <li className="grid gap-1" key={question.id}>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.label}</span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {selectedLabels.map((label) => (
+                        <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[12.5px] font-semibold text-[#1D4ED8]" key={label}>
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                );
+              }
+
+              if (question.kind === "text" || question.kind === "notes") {
+                return (
+                  <li className="grid gap-0.5" key={question.id}>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.label}</span>
+                    <span className="whitespace-pre-line text-[14.5px] leading-[1.5] text-dos-body">{responseAsString(value)}</span>
+                  </li>
+                );
+              }
+
+              return (
+                <li className="flex items-start justify-between gap-3" key={question.id}>
+                  <span className="min-w-0 text-[14.5px] leading-[1.5] text-dos-body">{question.label}</span>
+                  <span className="shrink-0 text-right text-[14.5px] font-semibold leading-[1.5] text-dos-primary">
+                    {questionResponseLabel(question, value)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-        ) : null;
-      })}
+      ))}
       {selectedActionLabels.length ? (
-        <div className="rounded-2xl bg-[#F1F5F9] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            Follow-up
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-3">
+          <p className="text-[12.5px] font-semibold text-dos-secondary">Follow-up</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {selectedActionLabels.map((label) => (
-              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]" key={label}>
+              <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[12.5px] font-semibold text-[#1D4ED8]" key={label}>
                 {label}
               </span>
             ))}
           </div>
         </div>
       ) : null}
-    </DetailCard>
+    </section>
   );
 }
 
@@ -37703,6 +37788,11 @@ function MeetingDetailOverlay({
                     </ul>
                   </section>
                 ) : null}
+
+                {/* What they said at the table. Raw meeting responses, kept
+                    apart from Fruit observed above: an outcome ticked here is
+                    a record of the conversation, not a canonical Fruit event. */}
+                <ConversationResponsesSection meeting={meeting} />
               </>
             )}
 
