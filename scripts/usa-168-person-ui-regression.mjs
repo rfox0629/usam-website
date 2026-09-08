@@ -77,23 +77,29 @@ async function openNaomi(page) {
   await page.getByRole("button", { name: "Open Preview" }).waitFor({ state: "detached", timeout: 20_000 }).catch(() => {});
   await page.getByText("Naomi Lee", { exact: true }).first().waitFor({ state: "visible", timeout: 60_000 });
 
-  /* At narrow widths Field lives behind More. The sheet animates open, so the
-     control is waited for rather than assumed to exist on the next tick: this
-     was a race that happened to pass while the bundle was smaller. */
-  let fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
+  /* USA-246 made People a primary destination, so it is reachable directly at
+     every width. The fallback through More is kept for any surface that still
+     lists it there, and the older "Field" wording is still accepted so this
+     check does not depend on the rename alone. */
+  const peopleNavigation = async () => {
+    const direct = await visibleLocators(page.getByText("People", { exact: true }));
+
+    return direct.length ? direct : visibleLocators(page.getByText("Field", { exact: true }));
+  };
+  let fieldControls = await peopleNavigation();
   if (!fieldControls.length) {
     await clickFirstVisible(page.getByText("More", { exact: true }));
 
-    /* Poll for a VISIBLE match: the desktop sidebar carries a hidden "Field"
-       at this width, so waiting on the first match waits on the wrong one. */
+    /* Poll for a VISIBLE match: the desktop sidebar carries a hidden copy at
+       this width, so waiting on the first match waits on the wrong one. */
     const deadline = Date.now() + 20_000;
-    fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
+    fieldControls = await peopleNavigation();
     while (!fieldControls.length && Date.now() < deadline) {
       await delay(250);
-      fieldControls = await visibleLocators(page.getByText("Field", { exact: true }));
+      fieldControls = await peopleNavigation();
     }
   }
-  assert(fieldControls.length, "Field navigation was not available.");
+  assert(fieldControls.length, "People navigation was not available.");
   await fieldControls[0].click();
 
   await clickFirstVisible(page.getByText("Naomi Lee", { exact: true }));
