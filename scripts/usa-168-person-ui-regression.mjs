@@ -107,6 +107,50 @@ function rectanglesOverlap(first, second) {
     && first.y + first.height > second.y;
 }
 
+/* USA-244 founder note: the Overview / Timeline / Details rail is part of the
+   content system, not a control floating at its own width. Its outer edges must
+   land on the card margins below it at every width, its three segments must be
+   equal width, and each must clear the 44px touch minimum (the USA-240
+   regression). The four empty Overview sections must share one rhythm. */
+async function verifyPersonRail(page, width) {
+  const probe = await page.evaluate(() => {
+    const rail = document.querySelector('[role="group"][aria-label$="views"]');
+    const card = [...document.querySelectorAll("div")].find((n) => (n.className || "").toString().includes("border-dos-hairline") && n.querySelector('section[aria-label="Accountability"]'));
+    if (!rail || !card) return null;
+    const segs = [...rail.querySelectorAll("button")].map((b) => b.getBoundingClientRect());
+    const rb = rail.getBoundingClientRect();
+    const cb = card.getBoundingClientRect();
+    /* The rhythm, not the height: a section with real content is meant to be
+       taller. What must match across all four is the heading row and the
+       section's own vertical padding. */
+    const sectionRhythm = (name) => {
+      const el = document.querySelector(`section[aria-label="${name}"]`);
+      if (!el || el.getBoundingClientRect().height === 0) return null;
+      const head = el.firstElementChild;
+      const cs = getComputedStyle(el);
+      return `${Math.round(head.getBoundingClientRect().height)}/${cs.paddingTop}/${cs.paddingBottom}`;
+    };
+    return {
+      heights: segs.map((b) => Math.round(b.height)),
+      widths: segs.map((b) => Math.round(b.width)),
+      railLeft: Math.round(rb.left), railRight: Math.round(rb.right),
+      cardLeft: Math.round(cb.left), cardRight: Math.round(cb.right),
+      sections: ["Accountability", "Prayer", "Fruit", "Feedback"].map(sectionRhythm).filter((h) => h !== null),
+    };
+  });
+
+  assert(probe, `${width}px Person rail or overview card was not found.`);
+  assert.equal(probe.heights.length, 3, `${width}px Person rail must have three segments.`);
+  assert(probe.heights.every((h) => h >= 44), `${width}px Person segments are ${probe.heights.join("/")}px, under the 44px minimum.`);
+  assert(new Set(probe.widths).size === 1, `${width}px Person segments must be equal width, got ${probe.widths.join("/")}.`);
+  assert.equal(probe.railLeft, probe.cardLeft, `${width}px Person rail starts at ${probe.railLeft}, the content below at ${probe.cardLeft}.`);
+  assert.equal(probe.railRight, probe.cardRight, `${width}px Person rail ends at ${probe.railRight}, the content below at ${probe.cardRight}.`);
+  assert(
+    new Set(probe.sections).size === 1,
+    `${width}px Overview sections must share one heading rhythm and padding, got ${probe.sections.join(" | ")}.`,
+  );
+}
+
 async function verifyPersonActions(page, width) {
   /* Person actions now all live on the canonical DOS FAB -- the same component
      Meetings uses -- rather than a header control plus a "+". What must not
@@ -285,6 +329,7 @@ async function main() {
     for (const width of [390, 768, 1440]) {
       const page = await browser.newPage({ viewport: { height: width === 390 ? 844 : width === 768 ? 1024 : 900, width } });
       await openNaomi(page);
+      await verifyPersonRail(page, width);
       await verifyPersonActions(page, width);
       await verifyGroupRoundTrip(page);
       if (width === 390) await verifyCompactReviewRequest(page);

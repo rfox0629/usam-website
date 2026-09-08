@@ -66,7 +66,12 @@ export function Eyebrow({
   tone?: "section" | "sub";
 }) {
   return (
-    <div className="mb-2 mt-[22px] flex items-center justify-between gap-3 first:mt-0">
+    /* min-h-5 keeps the heading row the same height whether or not it carries
+       an action. Without it, a section with a "+ Add" button stood 6px taller
+       than one without, so four adjacent empty sections read as four different
+       rhythms (USA-244 founder note). An action still sets its own 44px touch
+       target through negative margins. */
+    <div className="mb-2 mt-[22px] flex min-h-5 items-center justify-between gap-3 first:mt-0">
       <h2 className={`text-dos-eyebrow uppercase ${tone === "section" ? "text-dos-eyebrowSection" : "text-dos-eyebrow"}`}>{children}</h2>
       {action ?? (count !== undefined ? <span className="text-dos-meta text-dos-secondary">{count}</span> : null)}
     </div>

@@ -119,8 +119,14 @@ export function PillRail<T extends string>({
 
 /**
  * Segmented control for two or three exclusive views inside content
- * (month / week): a surface-2 track with 4px padding; the active segment is a
- * white pill.
+ * (Person's Overview / Timeline / Details, Meetings' Calendar / Timeline /
+ * Links, month / week): a surface-2 track with 4px padding; the active segment
+ * is a white pill.
+ *
+ * Segments are equal width and 44px tall. The track was 36px, which is below
+ * the DOS minimum touch target and the one thing the Person rail was failing
+ * (USA-240); the height belongs to the shared control rather than to each
+ * screen, so every rail that adopts it is correct by default.
  */
 export function Segmented<T extends string>({
   label,
@@ -141,7 +147,7 @@ export function Segmented<T extends string>({
         return (
           <button
             aria-pressed={selected}
-            className={`flex h-9 min-w-0 flex-1 items-center justify-center rounded-dos-3 px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
+            className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-dos-3 px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
               selected ? "bg-white text-dos-primary shadow-dos-float" : "text-dos-secondary hover:text-dos-primary"
             }`}
             key={option.value}
