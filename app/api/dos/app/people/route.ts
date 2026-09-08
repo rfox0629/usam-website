@@ -3,6 +3,7 @@ import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
 import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { syncHouseholdMembersAsPeople } from "@/src/lib/dos/household-member-people";
+import { householdMemberColumns, normalizeHouseholdMembers } from "@/src/lib/dos/household-members";
 import { isMissingWorkspaceScopeColumn, resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { joinPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { canonicalRelationshipModel, relationshipModelSummary, relationshipScoreFromEngagementLevel, relationshipScoreLabel } from "@/src/lib/dos/relationship-model";
@@ -20,6 +21,8 @@ type PersonPayload = {
   field_visibility?: unknown;
   homeAddress?: unknown;
   home_address?: unknown;
+  householdMembers?: unknown;
+  household_members?: unknown;
   householdNotes?: unknown;
   household_notes?: unknown;
   id?: unknown;
@@ -255,9 +258,14 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const childrenNames = asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
+  /* USA-244: when the form sends its per-member list, the legacy text columns
+     are derived from it so the two never disagree; older callers still send
+     the text columns alone. */
+  const householdMembers = normalizeHouseholdMembers(payload.householdMembers ?? payload.household_members);
+  const householdColumns = householdMembers.length ? householdMemberColumns(householdMembers) : null;
+  const childrenNames = householdColumns ? householdColumns.childrenNames : asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
   const householdNotes = asNullableString(payload.householdNotes) || asNullableString(payload.household_notes);
-  const spouseName = asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
+  const spouseName = householdColumns ? householdColumns.spouseName : asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
   const personInsert: Record<string, unknown> = {
     children_names: childrenNames,
     church: asNullableString(payload.church),
@@ -308,6 +316,7 @@ export async function POST(request: Request) {
     createdBy: authResult.authorization.userId,
     engagementLevel: relationshipScoreLabel(relationshipScoreFromEngagementLevel(payload.engagementScore)),
     householdNotes,
+    members: householdMembers,
     spouseName,
     workspaceId,
   });
@@ -353,9 +362,14 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const childrenNames = asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
+  /* USA-244: when the form sends its per-member list, the legacy text columns
+     are derived from it so the two never disagree; older callers still send
+     the text columns alone. */
+  const householdMembers = normalizeHouseholdMembers(payload.householdMembers ?? payload.household_members);
+  const householdColumns = householdMembers.length ? householdMemberColumns(householdMembers) : null;
+  const childrenNames = householdColumns ? householdColumns.childrenNames : asNullableString(payload.childrenNames) || asNullableString(payload.children_names);
   const householdNotes = asNullableString(payload.householdNotes) || asNullableString(payload.household_notes);
-  const spouseName = asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
+  const spouseName = householdColumns ? householdColumns.spouseName : asNullableString(payload.spouseName) || asNullableString(payload.spouse_name);
   const personUpdate: Record<string, unknown> = {
     children_names: childrenNames,
     church: asNullableString(payload.church),
@@ -419,6 +433,7 @@ export async function PATCH(request: Request) {
     createdBy: authResult.authorization.userId,
     engagementLevel: asString(payload.engagementScore),
     householdNotes,
+    members: householdMembers,
     spouseName,
     workspaceId,
   });

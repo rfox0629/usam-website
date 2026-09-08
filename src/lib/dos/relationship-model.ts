@@ -33,6 +33,30 @@ export const relationshipTypeOptions = [
   { helper: "They invest in me", label: "Mentor", value: "mentor" },
 ] as const;
 
+/* USA-244: the same four stored relationship types, in plain language and
+   with the direction stated ("They mentor me" rather than "Mentor"). */
+export const relationshipStageChoiceOptions = [
+  { helper: "Early days", label: "Getting to know them", value: "new" },
+  { helper: "Staying close", label: "Staying connected", value: "walking_with" },
+  { helper: "Intentional investment", label: "I am discipling them", value: "discipling" },
+  { helper: "They invest in me", label: "They mentor me", value: "mentor" },
+] as const;
+
+/* USA-244: list visibility only. The stored values are unchanged
+   (primary / secondary / hidden); the words no longer read as a household
+   role or as a relationship. */
+export const listVisibilityOptions = [
+  { helper: "Shows in everyday People", label: "Active person", value: "primary" },
+  { helper: "Behind the household toggle in People", label: "Household only", value: "secondary" },
+  { helper: "Kept on file, never listed", label: "Private", value: "hidden" },
+] as const;
+
+export type ListVisibilityValue = typeof listVisibilityOptions[number]["value"];
+
+export function listVisibilityLabel(value: string | null | undefined) {
+  return listVisibilityOptions.find((option) => option.value === value)?.label ?? "Active person";
+}
+
 export const relationshipScoreOptions = [
   { label: "-3", value: -3, helper: "Hostile / resistant" },
   { label: "-2", value: -2, helper: "Closed" },

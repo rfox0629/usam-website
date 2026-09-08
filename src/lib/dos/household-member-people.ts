@@ -1,3 +1,4 @@
+import type { HouseholdMemberInput, HouseholdMemberVisibility } from "@/src/lib/dos/household-members";
 import type { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -42,6 +43,10 @@ type HouseholdMemberPersonInput = {
   createdBy?: string | null;
   engagementLevel?: string | null;
   householdNotes?: string | null;
+  /* USA-244: the form's per-member list (name, relationship, optional
+     visibility). When present it is the source of truth for which members
+     exist; spouseName / childrenNames are still honoured for older callers. */
+  members?: ReadonlyArray<HouseholdMemberInput> | null;
   spouseName?: string | null;
   workspaceId: string;
 };
@@ -55,6 +60,9 @@ type DosViewerPersonInput = {
 };
 
 type HouseholdMemberCandidate = {
+  /* An explicit visibility choice for this member. Absent = leave an existing
+     person's setting alone; a new person is created as household-only. */
+  fieldVisibility?: HouseholdMemberVisibility;
   name: string;
   relationship: HouseholdMemberRelationship;
 };
@@ -180,11 +188,19 @@ function householdTeamMemberNote(row: HouseholdTeamMemberRow) {
 export function householdMemberPersonCandidates(input: {
   anchorName: string;
   childrenNames?: string | null;
+  members?: ReadonlyArray<HouseholdMemberInput> | null;
   spouseName?: string | null;
 }) {
   const anchorKey = nameKey(input.anchorName);
   const candidates: HouseholdMemberCandidate[] = [
-    cleanText(input.spouseName) ? { name: cleanText(input.spouseName), relationship: "spouse" } : null,
+    /* Explicit members first, so their visibility choice wins over the
+       text-derived fallback for the same name. */
+    ...(input.members ?? []).map((member) => ({
+      ...(member.fieldVisibility ? { fieldVisibility: member.fieldVisibility } : {}),
+      name: cleanText(member.name),
+      relationship: member.relationship,
+    })),
+    cleanText(input.spouseName) ? { name: cleanText(input.spouseName), relationship: "spouse" as const } : null,
     ...parseChildrenNames(input.childrenNames).map((name) => ({ name, relationship: "child" as const })),
   ].filter((candidate): candidate is HouseholdMemberCandidate => Boolean(candidate?.name));
   const seen = new Set<string>();
@@ -292,7 +308,7 @@ function buildHouseholdMemberInsert(input: HouseholdMemberPersonInput, candidate
     created_by: input.createdBy ?? null,
     discipleship_stage: "not_started",
     engagement_level: cleanText(input.engagementLevel) || "0",
-    field_visibility: "secondary",
+    field_visibility: candidate.fieldVisibility ?? "secondary",
     household_id: input.workspaceId,
     household_notes: householdNoteFor(input, candidate),
     name: candidate.name,
@@ -393,7 +409,11 @@ function buildExistingPersonUpdate(existing: ExistingPersonRow, input: Household
     update.engagement_level = cleanText(input.engagementLevel) || "0";
   }
 
-  if (!cleanText(existing.field_visibility)) {
+  /* USA-244: an explicit choice made on the anchor's form applies to the
+     member; otherwise only a blank value is filled in, as before. */
+  if (candidate.fieldVisibility && candidate.fieldVisibility !== cleanText(existing.field_visibility)) {
+    update.field_visibility = candidate.fieldVisibility;
+  } else if (!cleanText(existing.field_visibility)) {
     update.field_visibility = "secondary";
   }
 
