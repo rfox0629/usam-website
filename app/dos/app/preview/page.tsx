@@ -878,6 +878,7 @@ function buildDosPreviewDemoData(): DosAppData {
       id: "demo-participant-testimony-naomi",
       meetingId: "demo-meeting-naomi-recent-1",
       nextStep: "Invite my sister to the Thursday study.",
+      outcomeTags: ["Discipleship growth", "Connected to church or Christian community"],
       permissionToShare: true,
       personId: "demo-person-naomi-lee",
       publicDisplayName: null,

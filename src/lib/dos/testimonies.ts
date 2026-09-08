@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { isValidReviewToken } from "@/src/lib/dos/reviews";
-import { normalizeDosReviewOutcomeTags } from "@/src/lib/dos/review-form-config";
+import { normalizeDosReviewOutcomeTags } from "@/src/lib/dos/testimony-form-config";
 import { dosReviewOptionsType, dosTestimonyReviewType, dosTestimonyReviewTypes, type DosReviewLinkState, type DosReviewSharePermission } from "@/src/lib/dos/review-types";
 
 type ReviewLinkRow = {

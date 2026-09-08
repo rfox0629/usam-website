@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import {
-  dosReviewOutcomeOptions,
-  dosReviewSharePermissionOptions,
-  dosTestimonyReviewFormDefinition,
-} from "@/src/lib/dos/review-form-config";
+import { dosReviewSharePermissionOptions } from "@/src/lib/dos/review-form-config";
+import { dosReviewOutcomeOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import type { DosReviewLinkState, DosReviewSharePermission } from "@/src/lib/dos/review-types";
 import { ExperienceChip, QuestionLabel, RatingRow, atmosphere, firstNameOf, formatMeetingDate, meetingTypeLabel } from "@/app/dos/review/[token]/DosQuickReviewForm";
 

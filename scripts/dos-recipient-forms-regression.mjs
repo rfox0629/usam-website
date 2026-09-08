@@ -20,6 +20,10 @@ const options = read("app/dos/review-options/[token]/DosReviewOptionsForm.tsx");
 const testimonyPage = read("app/dos/testimony/[token]/page.tsx");
 const reviewPage = read("app/dos/review/[token]/page.tsx");
 const config = read("src/lib/dos/review-form-config.ts");
+/* USA-243 split the Testimony form definition out of review-form-config so the
+   Quick Review config can stay dependency-free for these scripts while the
+   Testimony form imports the shared fruit vocabulary. */
+const testimonyConfig = read("src/lib/dos/testimony-form-config.ts");
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 const between = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start) + 1));
 const sendSheet = between(client, "function MeetingSendConfirmationSheet(", "\nfunction ");
@@ -38,7 +42,7 @@ assert(
   "The bound Testimony flow must take identity from the link, ask no email, and only offer a name field when the link carries no recipient.",
 );
 assert(
-  !config.includes('label: "Your name"') && !config.includes('label: "Email address"') && config.includes('label: "Who is sharing"'),
+  !testimonyConfig.includes('label: "Your name"') && !testimonyConfig.includes('label: "Email address"') && testimonyConfig.includes('label: "Who is sharing"'),
   "The Testimony form definition (leader preview) must not list name or email fields.",
 );
 assert(
@@ -51,6 +55,7 @@ assert(
   config.includes('{ label: "Yes, anonymously", value: "anonymous" }')
     && config.includes('{ label: "Yes, with my name included", value: "with_name" }')
     && config.includes('{ label: "No, keep it private", value: "private" }')
+    && testimonyConfig.includes("dosReviewSharePermissionOptions.map((option) => option.label)")
     && testimony.includes('sharePermission: "private",')
     && testimony.includes("dosReviewSharePermissionOptions.map(")
     && testimony.includes('draft.sharePermission === "with_name"'),
@@ -67,7 +72,7 @@ assert(testimony.includes("bg-dos-blue") && testimony.includes("border-t border-
 
 // 4. "Table" is not user-facing wording on these surfaces (Kitchen Table Gospel excepted).
 const tableWord = /\bTable\b(?! Gospel)|\btable\b(?! Gospel)/;
-for (const [name, source] of [["Testimony form", testimony], ["Quick Review form", quickReview], ["Review Options form", options], ["review-form-config", config], ["send sheet", sendSheet], ["preview card", previewCard]]) {
+for (const [name, source] of [["Testimony form", testimony], ["Quick Review form", quickReview], ["Review Options form", options], ["review-form-config", config], ["testimony-form-config", testimonyConfig], ["send sheet", sendSheet], ["preview card", previewCard]]) {
   assert(!tableWord.test(source.replace(/kitchen_table|Kitchen table/g, "")), `${name} must say meeting, not Table.`);
 }
 for (const [file, phrase] of [["src/lib/dos/reviews.ts", "missing a meeting recipient"], ["src/lib/dos/testimonies.ts", "missing a meeting recipient"], ["src/lib/dos/review-requests.ts", "Select a recipient from this meeting"]]) {
