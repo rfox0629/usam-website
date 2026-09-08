@@ -1,0 +1,36 @@
+# USA-244 — Simplify Add/Edit Person and correct household visibility semantics
+
+Implementation note, 2026-09-08, branch `ryan/usa-244-add-edit-person` (from `main` 89269c1). Companion to [investigation.md](./investigation.md). **No schema migration, no production data change.** The stored values are exactly what they were: `relationship_type` / `role_in_my_life` / `relationship_context` / `field_visibility` (`primary` / `secondary` / `hidden`) and the text columns `spouse_name` / `children_names`.
+
+## 1. What changed, in the words the leader sees
+| Before | After |
+| --- | --- |
+| "Your relationship with them" — four buttons New / Walking With / Discipling / Mentor | **How are you connected?** — dropdown: Getting to know them · Staying connected · I am discipling them · They mentor me (same four stored values; the direction is now said) |
+| "How do you know them?" — nine buttons | **How do you know them?** — dropdown, same nine values |
+| **"Person role"** — Primary Contact / Household Member / Hidden (default Primary Contact, always visible) | **List visibility** — Active person / Household only / Private, behind *Add more details* on Add, in the Relationship section on Edit, with the line "Only whether they appear in everyday People. It is not their relationship to you or their place in a household." |
+| Spouse/child rows: names only; the sync always created them as `secondary` with no choice | Each spouse/child row has **"Spouse/Child in everyday People?"** (Active person / Household only / Private). A new spouse defaults to Active person, a new child to Household only. A typed name that matches an existing person shows "Links to the existing person … — no second record is created." and leaves that person's own visibility alone unless changed here. |
+| Household description "Spouse and children, kept selectable for tables." | Removed; no "table" wording remains on the form (Kitchen Table Gospel is untouched). |
+| Add Person: Person → Relationship (3 button grids) → Engagement → Household & Family → Address & Details → Reminders → Notes, every group visible | **Add Person:** First name, Last name, Mobile phone, Email → Connection (two dropdowns) → **Add person**. Everything else (List visibility, Engagement when enabled, Household & Family, Address & Details, Notes, the reminder shortcut) is behind one **Add more details** disclosure. Nothing was removed. |
+| Edit Person: one long page with every disclosure open | **Edit Person:** compact sections, one open at a time — Basic information · Relationship · Household · Details · Notes · Advanced (Engagement, when the workspace enables it), each header 48px with a one-line summary; Delete this person stays separate at the bottom; Save in the sticky footer. Collapsed sections stay mounted (hidden, not unmounted), so a collapsed section still submits its values unchanged and the anniversary reminder path still sees its field. |
+
+## 2. Data path (additive)
+- The form now sends an additional `household_members` field: `[{ name, relationship: "spouse" | "child", fieldVisibility? }]`, produced from the household rows. The client sends it through the existing people payload as `householdMembers` (parsed by the pure helper in `src/lib/dos/household-members.ts`).
+- `POST`/`PATCH /api/dos/app/people` read it; when present, `spouse_name` and `children_names` are **derived from it** so the legacy text columns and the member rows can never disagree. Older callers that send only the text columns behave exactly as before.
+- `syncHouseholdMembersAsPeople` receives `members`. A new member is inserted with its chosen visibility (or `secondary` when none was chosen, as before). An existing person matched by name changes visibility **only on an explicit choice**; a blank value is still filled with `secondary`. The anchor person's own visibility is never touched by a member's choice.
+- **A plain Save changes nothing.** Members seeded from what is already stored (Edit) and members that link to an existing person send no visibility unless the leader changed the control, so re-saving George Jenko does not promote his text-only spouse, and adding Brooke Fox as a spouse does not rewrite Brooke's setting. (Verified in the walkthrough: Edit George → `household_members` carries names only; Add with spouse "Brooke Fox" → no `fieldVisibility` for Brooke, `secondary` for a typed child, `primary` after the child's control is changed.)
+- Duplicate detection on Add (name / phone / email, "This looks like an existing contact") is unchanged, as are dirty-form protection, permissions, RLS, keyboard handling and deep links — none of those code paths were edited.
+
+## 3. Two active spouses in one household
+Both spouses can be Active person; the meeting attendee search already searched every visibility, so both can attend the same meeting (`m390-07-log-meeting-two-attendees.png`: George Jenko as the person met with, Brooke Fox as a supporting attendee in the same meeting). No "primary household contact" control was added: nothing in the schema or any consumer reads such a value (investigation §6).
+
+## 4. Samuel and Skylar Gaffney — correction still awaiting approval
+Not executed. With this PR merged, the in-app fix is: open Samuel → Edit Person → Household → Spouse "Skylar Gaffney" → the row shows "Links to the existing person Skylar Gaffney" with her current visibility (Active person) → Save. The sync sets `spouse_name` on both rows and creates nothing. Alternative: the two-row reversible SQL in investigation §5.
+
+## 5. Verification (local, on this branch)
+`npm run typecheck` ✓ · `npm run test:dos` 45/45 ✓ (new `test:dos-person-form`, updated `dos-field-contact-form-regression` and `usa-168-stabilization-behavior` assertions for the new shape) · `npm run scan:dos-dead-code` ✓ (the retired `PersonChoiceField` / `personRoleOptions` are deleted, not left dead; 843 declared, 28 reference-only, unchanged set) · `npm run build` ✓ · `npm run smoke` ✓ · `npm run test:dos:visual` 16/16 identical (no scene captures the form; the Person record is unchanged) · `scripts/dos-a11y-responsive-verification.mjs` no overflow at 320–1440 · `npm run test:usa-168-person-ui` ✓ · Playwright walkthrough of the production build at 390, 768 and 1440 (`screenshots/`): Add short path, Add with household and existing-person link, child visibility change, Edit sections (only one open, hidden ones report zero height), Household and Relationship sections, two spouses in one meeting. Every Edit hidden field is submitted from collapsed sections (29 mounted inputs, `anniversary_date` present).
+
+## 6. Screenshots
+`screenshots/m390-01-add-person.png` · `m390-02-add-person-household.png` · `m390-03-add-person-child-active.png` · `m390-04-edit-person.png` · `m390-05-edit-person-household.png` · `m390-06-edit-person-relationship.png` · `m390-07-log-meeting-two-attendees.png` · `t768-01-add-person.png` · `t768-04-edit-person.png` · `d1440-01-add-person.png` · `d1440-02-add-person-household.png` · `d1440-04-edit-person.png` · `d1440-05-edit-person-household.png`.
+
+## 7. Rollback
+One squash commit; `git revert` restores the previous form and sync. The additive payload field is ignored by the previous route, and the previous form never sends it, so the two versions are compatible in both directions.

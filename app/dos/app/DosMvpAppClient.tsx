@@ -87,11 +87,13 @@ import {
 import {
   defaultRelationshipModel,
   discipleshipStageLabel,
+  listVisibilityOptions,
   relationshipContextLabel,
   relationshipContextOptions,
   relationshipModelFromRelationshipType,
   relationshipScoreFromEngagementLevel,
   relationshipScoreLabel,
+  relationshipStageChoiceOptions,
   relationshipTypeFromModel,
   relationshipTypeOptions,
   type DosRelationshipModel,
@@ -100,6 +102,7 @@ import {
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
 import { canonicalFruitGroupOptions } from "@/src/lib/dos/fruit-vocabulary";
+import { householdNameKey, normalizeHouseholdMembers } from "@/src/lib/dos/household-members";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
@@ -563,23 +566,6 @@ const supportingAttendeeSubRoleOptions: ReadonlyArray<{ label: string; value: Do
   { label: "Learning", value: "learning" },
   { label: "Support", value: "support" },
   { label: "Child present", value: "child_present" },
-];
-
-/* Person role, in the words someone would actually use.
- *
- * The stored values are unchanged -- primary / secondary / hidden are exactly
- * what they always were, and nothing is remapped or rewritten. Only the labels
- * change, because "Primary Field Contact" and "Hidden from Field" ask a Basic
- * DOS user to know what "Field" means before they can answer.
- *
- * "Household Member" is not a euphemism for secondary: it is what secondary
- * already means. syncHouseholdMembersAsPeople writes exactly this value when a
- * spouse or child is created from a household, so the label describes the rows
- * that are actually in there. */
-const personRoleOptions: ReadonlyArray<{ description: string; label: string; value: DosAppFieldVisibility }> = [
-  { description: "Someone you are personally investing in.", label: "Primary Contact", value: "primary" },
-  { description: "Part of a household you know, not a separate relationship.", label: "Household Member", value: "secondary" },
-  { description: "Kept on file, out of your everyday lists.", label: "Hidden", value: "hidden" },
 ];
 
 const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: DosAppDiscipleshipRelationship | "" }> = [
@@ -1363,11 +1349,21 @@ type PersonChildDraft = {
   firstName: string;
   id: string;
   lastName: string;
+  /* USA-244: each household member has their own list visibility. `touched`
+     records an explicit choice; untouched linked people keep their own. */
+  /* `seeded`: this row came from what is already stored (Edit), so an
+     untouched visibility is not sent and the sync behaves exactly as before. */
+  seeded: boolean;
+  visibility: DosAppFieldVisibility;
+  visibilityTouched: boolean;
 };
 type PersonHouseholdDraft = {
   children: PersonChildDraft[];
   spouseFirstName: string;
   spouseLastName: string;
+  spouseSeeded: boolean;
+  spouseVisibility: DosAppFieldVisibility;
+  spouseVisibilityTouched: boolean;
 };
 type PeopleImportRow = {
   childrenNames: string;
@@ -3409,6 +3405,9 @@ function blankChildDraft(index = 0): PersonChildDraft {
     firstName: "",
     id: `child-${index}`,
     lastName: "",
+    seeded: false,
+    visibility: "secondary",
+    visibilityTouched: false,
   };
 }
 
@@ -3423,6 +3422,9 @@ function parseChildDrafts(value: string | null | undefined) {
       return {
         ...nameParts,
         id: `existing-child-${index}`,
+        seeded: true,
+        visibility: "secondary" as const,
+        visibilityTouched: false,
       };
     });
 
@@ -3436,6 +3438,14 @@ function householdDraftFromDefaults(defaults?: PersonFormDefaults): PersonHouseh
     children: parseChildDrafts(defaults?.childrenNames),
     spouseFirstName: spouse.firstName,
     spouseLastName: spouse.lastName,
+    /* A spouse is usually someone the leader relates to as well, so a newly
+       typed spouse defaults to Active; a new child to Household only. A
+       stored spouse (Edit) is seeded: untouched, no visibility is sent, so a
+       member who already exists keeps their own setting and a text-only one
+       is still created household-only as before (see householdDraftMembers). */
+    spouseSeeded: Boolean(spouse.firstName),
+    spouseVisibility: spouse.firstName ? "secondary" : "primary",
+    spouseVisibilityTouched: false,
   };
 }
 
@@ -25319,74 +25329,6 @@ function PeopleImportSheet({
   );
 }
 
-/* One interaction for every choice on the Person form.
- *
- * The form used to ask four questions four different ways: a dropdown, a row
- * of visible buttons, a dropdown that expanded into a button grid, and another
- * dropdown. Nothing about the questions justified the difference, so the
- * variety read as accident rather than intent.
- *
- * Now every choice is the same thing: the options are visible, one is
- * selected, tapping another selects it. No disclosure, no hidden state, no
- * scroll-inside-a-scroll on mobile, and the answer is readable without
- * touching anything. Nine context options wrap onto three lines and that is
- * fine -- seeing them is the point.
- */
-function PersonChoiceField({
-  columns = 2,
-  hint,
-  label,
-  name,
-  onSelect,
-  options,
-  value,
-}: {
-  columns?: 1 | 2;
-  hint?: string;
-  label: string;
-  name: string;
-  onSelect: (value: string) => void;
-  options: ReadonlyArray<{ description?: string; helper?: string; label: string; value: string }>;
-  value: string;
-}) {
-  return (
-    <fieldset className="grid gap-2">
-      <legend className="text-dos-label text-dos-secondary">{label}</legend>
-      {hint ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">{hint}</p> : null}
-      {/* The selected value travels with the form as a plain field, so the
-          submit path does not depend on this component's internals. */}
-      <input name={name} type="hidden" value={value} />
-      <div className={`grid gap-2 ${columns === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-        {options.map((option) => {
-          const selected = value === option.value;
-          const detail = option.description ?? option.helper ?? "";
-
-          return (
-            <button
-              aria-pressed={selected}
-              className={`flex min-h-[44px] flex-col justify-center rounded-2xl border px-3 py-2 text-left transition-colors ${
-                selected
-                  ? "border-dos-blue bg-[#EBF2FF]"
-                  : "border-dos-hairline bg-white hover:border-[#BFDBFE]"
-              }`}
-              key={option.value}
-              onClick={() => onSelect(option.value)}
-              type="button"
-            >
-              <span className={`text-[13.5px] font-bold leading-tight ${selected ? "text-dos-blue" : "text-dos-primary"}`}>
-                {option.label}
-              </span>
-              {detail ? (
-                <span className="mt-0.5 text-[11.5px] font-semibold leading-[1.35] text-dos-secondary">{detail}</span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
 function RelationshipScorePicker({
   onChange,
   value,
@@ -25591,20 +25533,29 @@ function PersonFormContent({
   }
 
   const updateSpouseDraft = (key: "spouseFirstName" | "spouseLastName", value: string) => {
-    setHouseholdDraft((current) => ({ ...current, [key]: value }));
+    /* Renaming a stored spouse makes it a new member again: it is no longer
+       the seeded row, so the shown default is what will be saved. */
+    setHouseholdDraft((current) => ({ ...current, [key]: value, ...(current.spouseSeeded ? { spouseSeeded: false, spouseVisibility: current.spouseVisibilityTouched ? current.spouseVisibility : "primary" } : {}) }));
   };
 
   const updateChildDraft = (childId: string, key: "firstName" | "lastName", value: string) => {
     setHouseholdDraft((current) => ({
       ...current,
-      children: current.children.map((child) => (child.id === childId ? { ...child, [key]: value } : child)),
+      children: current.children.map((child) => (child.id === childId ? { ...child, [key]: value, seeded: false } : child)),
     }));
   };
 
   const addChildDraft = () => {
     setHouseholdDraft((current) => ({
       ...current,
-      children: [...current.children, { firstName: "", id: `child-${Date.now()}-${current.children.length}`, lastName: "" }],
+      children: [...current.children, { ...blankChildDraft(), id: `child-${Date.now()}-${current.children.length}` }],
+    }));
+  };
+
+  const updateChildVisibility = (childId: string, visibility: DosAppFieldVisibility) => {
+    setHouseholdDraft((current) => ({
+      ...current,
+      children: current.children.map((child) => (child.id === childId ? { ...child, visibility, visibilityTouched: true } : child)),
     }));
   };
 
@@ -25616,237 +25567,434 @@ function PersonFormContent({
     });
   };
 
-  const hasAddressData = Boolean(
-    additionalDefaults?.homeAddress
-    || additionalDefaults?.city
-    || additionalDefaults?.state
-    || additionalDefaults?.zip
-    || additionalDefaults?.church
-    || additionalDefaults?.occupation
-    || additionalDefaults?.birthday,
+  const stageValue = relationshipTypeFromModel(relationshipModel);
+  const contextValue = relationshipModel.relationshipContext;
+  const spouseDraftName = householdDraftSpouseName(householdDraft);
+  const linkedSpouse = findPersonByName(people, spouseDraftName, isEditMode ? nameDefault : null);
+  const [openSection, setOpenSection] = useState<PersonEditSectionKey>("basic");
+  const toggleSection = (key: PersonEditSectionKey) => setOpenSection((current) => (current === key ? null : key));
+  const visibilityLabel = listVisibilityOptions.find((option) => option.value === personRole)?.label ?? "Active person";
+  const stageLabel = relationshipStageChoiceOptions.find((option) => option.value === stageValue)?.label ?? "";
+  const contextLabel = relationshipContextOptions.find((option) => option.value === contextValue)?.label ?? "";
+  const childCount = householdDraft.children.filter((child) => joinNameParts(child.firstName, child.lastName)).length;
+
+  /* The contact basics. First name and mobile phone stay required; the
+     duplicate check runs on blur exactly as before. */
+  const contactFields = (
+    <>
+      <DosFormGrid>
+        <DosFormField labelVariant="sentence" label={<>First Name<RequiredMark /></>}>
+          <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
+        </DosFormField>
+        <DosFormField labelVariant="sentence" label="Last Name">
+          <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
+        </DosFormField>
+      </DosFormGrid>
+      <DosFormField labelVariant="sentence" label={<>Mobile Phone<RequiredMark /></>}>
+        <input
+          className={FieldInputClass()}
+          inputMode="tel"
+          onBlur={() => runDuplicateCheck(emailInputRef.current?.value ?? "")}
+          onChange={(event) => {
+            setPhoneDraft(phoneDigitsOnly(event.target.value));
+            setDuplicateDismissed(false);
+          }}
+          placeholder="(651) 456-8974"
+          required
+          type="tel"
+          value={formatPhoneNumber(phoneDraft)}
+        />
+      </DosFormField>
+      <DosFormField labelVariant="sentence" label="Email">
+        <input
+          className={FieldInputClass()}
+          defaultValue={additionalDefaults?.email}
+          name="email"
+          onBlur={(event) => runDuplicateCheck(event.target.value)}
+          placeholder="email@example.com"
+          ref={emailInputRef}
+          type="email"
+        />
+      </DosFormField>
+    </>
   );
 
-  return (
-    <form className="space-y-4" onSubmit={onSubmit}>
-      <input name="name" type="hidden" value={composedName} />
-      <input name="phone" type="hidden" value={phoneDraft} />
-      <input name="spouse_name" type="hidden" value={householdDraftSpouseName(householdDraft)} />
-      <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
-      <DosFormSection icon="people" title="Person" variant="label">
-        <DosFormGrid>
-          <DosFormField labelVariant="sentence" label={<>First Name<RequiredMark /></>}>
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, firstName: event.target.value }))} required value={nameDraft.firstName} />
-          </DosFormField>
-          <DosFormField labelVariant="sentence" label="Last Name">
-            <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
-          </DosFormField>
-        </DosFormGrid>
-        <DosFormField labelVariant="sentence" label={<>Mobile Phone<RequiredMark /></>}>
-          <input
-            className={FieldInputClass()}
-            inputMode="tel"
-            onBlur={() => runDuplicateCheck(emailInputRef.current?.value ?? "")}
-            onChange={(event) => {
-              setPhoneDraft(phoneDigitsOnly(event.target.value));
-              setDuplicateDismissed(false);
-            }}
-            placeholder="(651) 456-8974"
-            required
-            type="tel"
-            value={formatPhoneNumber(phoneDraft)}
-          />
-        </DosFormField>
-        <DosFormField labelVariant="sentence" label="Email">
-          <input
-            className={FieldInputClass()}
-            defaultValue={additionalDefaults?.email}
-            name="email"
-            onBlur={(event) => runDuplicateCheck(event.target.value)}
-            placeholder="email@example.com"
-            ref={emailInputRef}
-            type="email"
-          />
-        </DosFormField>
-      </DosFormSection>
-
-      {duplicateMatch && !duplicateDismissed ? (
-        <div className="flex items-start gap-3 rounded-[18px] border border-[#FDE68A] bg-[#FFFBEB] p-3">
-          <div className="min-w-0 flex-1 text-sm leading-5 text-[#92400E]">
-            <p className="font-bold">This looks like an existing contact</p>
-            <p className="mt-0.5">{duplicateMatch.name} is already in your People list.</p>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            {onOpenExistingPerson ? (
-              <button
-                className="rounded-full border border-[#F2C94C] bg-white px-3 py-1.5 text-xs font-bold text-[#92400E] transition-colors hover:bg-[#FFFBEB]"
-                onClick={() => onOpenExistingPerson(duplicateMatch)}
-                type="button"
-              >
-                View
-              </button>
-            ) : null}
-            <button
-              className="px-3 py-1 text-xs font-semibold text-[#92400E]/70 hover:text-[#92400E]"
-              onClick={() => setDuplicateDismissed(true)}
-              type="button"
-            >
-              Not a duplicate
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* The three questions a Person actually answers: who they are to you,
-          how you know them, and how they should show up in your lists.
-
-          Discipleship Relationship used to sit here as a fifth taxonomy. It
-          had no column in any database, so it was collected and discarded on
-          every save. It is gone rather than replaced: the four choices above
-          already say what kind of relationship this is.
-
-          Engagement Levels are an Advanced Feature and are absent unless the
-          workspace turned them on. Absent means not rendered -- every stored
-          engagement value is loaded, kept, and submitted back unchanged. */}
-      <DosFormSection icon="people" title="Relationship" variant="label">
-        <PersonChoiceField
-          label="Your relationship with them"
-          name="relationship_type_value"
-          onSelect={(next) => onRelationshipChange(relationshipModelFromRelationshipType(next as RelationshipTypeValue, relationshipModel))}
-          options={relationshipTypeOptions}
-          value={relationshipTypeFromModel(relationshipModel)}
-        />
-        <PersonChoiceField
+  /* Three separate settings (USA-244): how you know them (context), how you
+     are connected (relationship stage, stored on the existing relationship
+     type and role), and list visibility (stored field_visibility). */
+  const contextSelect = (
+    <DosFormField labelVariant="sentence" label="How do you know them?">
+      <div className="mt-1.5">
+        <CompactOptionSelect
+          hideLabel
           label="How do you know them?"
-          name="relationship_context"
-          onSelect={(next) => onRelationshipChange({ ...relationshipModel, relationshipContext: next as RelationshipContextValue })}
+          onChange={(next) => onRelationshipChange({ ...relationshipModel, relationshipContext: next as RelationshipContextValue })}
           options={relationshipContextOptions}
-          value={relationshipModel.relationshipContext}
+          value={contextValue}
         />
-        <PersonChoiceField
-          columns={1}
-          label="Person role"
-          name="field_visibility"
-          onSelect={setPersonRole}
-          options={personRoleOptions}
-          value={personRole}
+      </div>
+    </DosFormField>
+  );
+  const stageSelect = (
+    <DosFormField labelVariant="sentence" label="How are you connected?">
+      <div className="mt-1.5">
+        <CompactOptionSelect
+          hideLabel
+          label="How are you connected?"
+          onChange={(next) => onRelationshipChange(relationshipModelFromRelationshipType(next as RelationshipTypeValue, relationshipModel))}
+          options={relationshipStageChoiceOptions}
+          value={stageValue}
         />
-      </DosFormSection>
+      </div>
+    </DosFormField>
+  );
+  const visibilitySelect = (
+    <DosFormField labelVariant="sentence" label="List visibility">
+      <div className="mt-1.5">
+        <CompactOptionSelect hideLabel label="List visibility" onChange={setPersonRole} options={listVisibilityOptions} value={personRole} />
+      </div>
+      <p className="mt-1.5 text-[12.5px] leading-[1.45] text-dos-secondary">Only whether they appear in everyday People. It is not their relationship to you or their place in a household.</p>
+    </DosFormField>
+  );
 
-      {showEngagement ? (
-        <DisclosureSection defaultOpen={isEditMode} description="Advanced: the -3 to +3 engagement framework." title="Engagement Level">
-          <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
-        </DisclosureSection>
-      ) : null}
-
-      <DisclosureSection defaultOpen={isEditMode || hasHouseholdDetails(additionalDefaults ?? {})} description="Spouse and children, kept selectable for tables." title="Household & Family">
+  /* A spouse or child is a person of their own with their own visibility.
+     Typing a name that already exists links that person instead of creating
+     a second one (the sync matches by name). */
+  const memberVisibilitySelect = (label: string, value: DosAppFieldVisibility, onChange: (next: DosAppFieldVisibility) => void) => (
+    <div className="grid gap-1">
+      <span className="text-dos-label text-dos-secondary">{label}</span>
+      <CompactOptionSelect hideLabel label={label} onChange={(next) => onChange(normalizeFieldVisibility(next))} options={listVisibilityOptions} size="compact" value={value} />
+    </div>
+  );
+  const householdFields = (
+    <>
+      <div className="grid gap-2 rounded-2xl border border-dos-line bg-white p-3">
+        <span className="text-dos-label text-dos-secondary">Spouse</span>
         <DosFormGrid>
-          <DosFormField labelVariant="sentence" label="Spouse First Name">
+          <DosFormField labelVariant="sentence" label="First Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseFirstName", event.target.value)} value={householdDraft.spouseFirstName} />
           </DosFormField>
-          <DosFormField labelVariant="sentence" label="Spouse Last Name">
+          <DosFormField labelVariant="sentence" label="Last Name">
             <input className={FieldInputClass()} onChange={(event) => updateSpouseDraft("spouseLastName", event.target.value)} value={householdDraft.spouseLastName} />
           </DosFormField>
         </DosFormGrid>
-        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary Date" labelVariant="sentence" name="anniversary_date" />
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-dos-label text-dos-secondary">Children</span>
-            <button
-              className="inline-flex h-8 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#2563EB] transition-colors hover:bg-[#EBF2FF]"
-              onClick={addChildDraft}
-              type="button"
-            >
-              + Child
-            </button>
-          </div>
-          <div className="grid gap-2">
-            {householdDraft.children.map((child, index) => (
-              <div className="grid gap-2 rounded-[18px] border border-[#E2E8F0] bg-white p-2" key={child.id}>
-                <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px]">
-                  <DosFormField labelVariant="sentence" label="Child First Name">
-                    <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
-                  </DosFormField>
-                  <DosFormField labelVariant="sentence" label="Child Last Name">
-                    <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
-                  </DosFormField>
-                  <button
-                    aria-label={`Remove child ${index + 1}`}
-                    className="mt-0 flex h-9 w-9 items-center justify-center justify-self-end rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 min-[420px]:mt-5"
-                    onClick={() => removeChildDraft(child.id)}
-                    type="button"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </DisclosureSection>
-
-      <DisclosureSection defaultOpen={isEditMode || hasAddressData} description="Address, church, birthday, and other details." title="Address & Details">
-        <DosFormField labelVariant="sentence" label="Home Address">
-          <input className={FieldInputClass()} defaultValue={additionalDefaults?.homeAddress} name="home_address" placeholder="Street address" />
-        </DosFormField>
-        <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
-          <DosFormField labelVariant="sentence" label="City">
-            <input className={FieldInputClass()} defaultValue={additionalDefaults?.city} name="city" />
-          </DosFormField>
-          <DosFormField labelVariant="sentence" label="State">
-            <input className={FieldInputClass()} defaultValue={additionalDefaults?.state} maxLength={2} name="state" />
-          </DosFormField>
-          <DosFormField labelVariant="sentence" label="ZIP">
-            <input className={FieldInputClass()} defaultValue={additionalDefaults?.zip} inputMode="numeric" name="zip" />
-          </DosFormField>
-        </div>
-        <DosFormGrid>
-          <DosFormField labelVariant="sentence" label="Church">
-            <input className={FieldInputClass()} defaultValue={additionalDefaults?.church} name="church" placeholder="Church / community" />
-          </DosFormField>
-          <DosFormField labelVariant="sentence" label="Occupation">
-            <input className={FieldInputClass()} defaultValue={additionalDefaults?.occupation} name="occupation" placeholder="What do they do?" />
-          </DosFormField>
-        </DosFormGrid>
-        <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" labelVariant="sentence" maxYear={new Date().getFullYear()} name="birthday" />
-      </DisclosureSection>
-
-      {/* Creating a person is the one moment where a birthday or a surgery date
-          is in hand, so the shortcut stays there. Editing a person is not: an
-          existing person's reminders live in their own list and are reached
-          from the Person, and offering a blank "Add a reminder" here made Edit
-          quietly a second, lossier way to create one. */}
-      {isEditMode ? null : <ImportantDatesReminderSection />}
-
-      <DisclosureSection defaultOpen={isEditMode && Boolean(additionalDefaults?.notes)} title="Notes">
-        <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={additionalDefaults?.notes} name="notes" />
-      </DisclosureSection>
-
-      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      {/* Delete used to sit inside the sticky footer, directly under Save, in a
-          red filled block that followed the screen. Save is what someone came
-          to do; delete is a rare, destructive exception. It now scrolls with
-          the form, sits below everything else behind a rule, and is a quiet
-          text button rather than a second filled bar competing for the thumb.
-          The confirmation flow it triggers is unchanged. */}
-      {onDelete ? (
-        <div className="mt-2 border-t border-dos-rule pt-4">
+        {spouseDraftName ? (
+          <>
+            {memberVisibilitySelect("Spouse in everyday People?", memberVisibilityValue(linkedSpouse, householdDraft.spouseVisibilityTouched, householdDraft.spouseVisibility), (next) => setHouseholdDraft((current) => ({ ...current, spouseVisibility: next, spouseVisibilityTouched: true })))}
+            <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+              {linkedSpouse
+                ? `Links to the existing person ${linkedSpouse.name} — no second record is created.`
+                : "Choose Active person if you relate to both spouses; both can attend the same meeting."}
+            </p>
+          </>
+        ) : null}
+        <DosDateInput defaultValue={additionalDefaults?.anniversaryDate} label="Anniversary" labelVariant="sentence" name="anniversary_date" />
+      </div>
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-dos-label text-dos-secondary">Children</span>
           <button
-            className="text-[13.5px] font-semibold text-[#B42318] underline underline-offset-2 transition-colors hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
-            onClick={onDelete}
+            className="inline-flex min-h-11 items-center rounded-full border border-dos-line bg-white px-3 text-xs font-bold text-dos-blueText transition-colors hover:bg-dos-blue50"
+            onClick={addChildDraft}
             type="button"
           >
-            Delete this person
+            + Child
           </button>
-          <p className="mt-1 text-[12px] leading-[1.45] text-dos-secondary">This cannot be undone.</p>
         </div>
-      ) : null}
+        {householdDraft.children.map((child, index) => {
+          const childName = joinNameParts(child.firstName, child.lastName);
+          const linkedChild = findPersonByName(people, childName, isEditMode ? nameDefault : null);
 
+          return (
+            <div className="grid gap-2 rounded-2xl border border-dos-line bg-white p-3" key={child.id}>
+              <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px]">
+                <DosFormField labelVariant="sentence" label="First Name">
+                  <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "firstName", event.target.value)} value={child.firstName} />
+                </DosFormField>
+                <DosFormField labelVariant="sentence" label="Last Name">
+                  <input className={FieldInputClass()} onChange={(event) => updateChildDraft(child.id, "lastName", event.target.value)} value={child.lastName} />
+                </DosFormField>
+                <button
+                  aria-label={`Remove child ${index + 1}`}
+                  className="flex h-11 w-11 items-center justify-center self-end justify-self-end rounded-full border border-dos-line bg-white text-dos-secondary transition-colors hover:border-red-200 hover:text-[#B42318]"
+                  onClick={() => removeChildDraft(child.id)}
+                  type="button"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                </button>
+              </div>
+              {childName ? (
+                <>
+                  {memberVisibilitySelect("Child in everyday People?", memberVisibilityValue(linkedChild, child.visibilityTouched, child.visibility), (next) => updateChildVisibility(child.id, next))}
+                  {linkedChild ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">Links to the existing person {linkedChild.name} — no second record is created.</p> : null}
+                </>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const detailsFields = (
+    <>
+      <DosFormField labelVariant="sentence" label="Home Address">
+        <input className={FieldInputClass()} defaultValue={additionalDefaults?.homeAddress} name="home_address" placeholder="Street address" />
+      </DosFormField>
+      <div className="grid gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_72px_86px]">
+        <DosFormField labelVariant="sentence" label="City">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.city} name="city" />
+        </DosFormField>
+        <DosFormField labelVariant="sentence" label="State">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.state} maxLength={2} name="state" />
+        </DosFormField>
+        <DosFormField labelVariant="sentence" label="ZIP">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.zip} inputMode="numeric" name="zip" />
+        </DosFormField>
+      </div>
+      <DosFormGrid>
+        <DosFormField labelVariant="sentence" label="Church">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.church} name="church" placeholder="Church / community" />
+        </DosFormField>
+        <DosFormField labelVariant="sentence" label="Occupation">
+          <input className={FieldInputClass()} defaultValue={additionalDefaults?.occupation} name="occupation" placeholder="What do they do?" />
+        </DosFormField>
+      </DosFormGrid>
+      <DosDateInput autoComplete="bday" defaultValue={additionalDefaults?.birthday} label="Birthday" labelVariant="sentence" maxYear={new Date().getFullYear()} name="birthday" />
+    </>
+  );
+  const notesField = <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={additionalDefaults?.notes} name="notes" />;
+  const engagementField = showEngagement ? (
+    <div className="grid gap-2">
+      <span className="text-dos-label text-dos-secondary">Engagement Level</span>
+      <p className="text-[12.5px] leading-[1.45] text-dos-secondary">Advanced: the -3 to +3 engagement framework.</p>
+      <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
+    </div>
+  ) : null;
+
+  const duplicateNotice = duplicateMatch && !duplicateDismissed ? (
+    <div className="flex items-start gap-3 rounded-[18px] border border-[#FDE68A] bg-[#FFFBEB] p-3">
+      <div className="min-w-0 flex-1 text-sm leading-5 text-[#92400E]">
+        <p className="font-bold">This looks like an existing contact</p>
+        <p className="mt-0.5">{duplicateMatch.name} is already in your People list.</p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        {onOpenExistingPerson ? (
+          <button
+            className="rounded-full border border-[#F2C94C] bg-white px-3 py-1.5 text-xs font-bold text-[#92400E] transition-colors hover:bg-[#FFFBEB]"
+            onClick={() => onOpenExistingPerson(duplicateMatch)}
+            type="button"
+          >
+            View
+          </button>
+        ) : null}
+        <button
+          className="px-3 py-1 text-xs font-semibold text-[#92400E]/70 hover:text-[#92400E]"
+          onClick={() => setDuplicateDismissed(true)}
+          type="button"
+        >
+          Not a duplicate
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  /* Every stored value travels as a plain field, so the submit path never
+     depends on which section is open. */
+  const hiddenFields = (
+    <>
+      <input name="name" type="hidden" value={composedName} />
+      <input name="phone" type="hidden" value={phoneDraft} />
+      <input name="spouse_name" type="hidden" value={spouseDraftName} />
+      <input name="children_names" type="hidden" value={householdDraftChildrenNames(householdDraft)} />
+      <input name="household_members" type="hidden" value={JSON.stringify(householdDraftMembers(householdDraft, people, isEditMode ? nameDefault : null))} />
+      <input name="field_visibility" type="hidden" value={personRole} />
+      <input name="relationship_type_value" type="hidden" value={stageValue} />
+      <input name="relationship_context" type="hidden" value={contextValue} />
+    </>
+  );
+
+  if (isEditMode) {
+    /* Edit Person: compact sections, one open at a time, every field stays
+       mounted so a collapsed section still submits its values unchanged. */
+    return (
+      <form className="space-y-2" onSubmit={onSubmit}>
+        {hiddenFields}
+        <PersonEditSection id="basic" onToggle={() => toggleSection("basic")} open={openSection === "basic"} summary={[formatPhoneNumber(phoneDraft) || phoneDraft, additionalDefaults?.email].filter(Boolean).join(" · ") || "Name, phone, email"} title="Basic information">
+          {contactFields}
+        </PersonEditSection>
+        <PersonEditSection id="relationship" onToggle={() => toggleSection("relationship")} open={openSection === "relationship"} summary={[stageLabel, contextLabel, visibilityLabel].filter(Boolean).join(" · ")} title="Relationship">
+          {stageSelect}
+          {contextSelect}
+          {visibilitySelect}
+        </PersonEditSection>
+        <PersonEditSection id="household" onToggle={() => toggleSection("household")} open={openSection === "household"} summary={[spouseDraftName ? `Spouse: ${spouseDraftName}` : "", childCount ? `${childCount} ${childCount === 1 ? "child" : "children"}` : ""].filter(Boolean).join(" · ") || "No household members yet"} title="Household">
+          {householdFields}
+        </PersonEditSection>
+        <PersonEditSection id="details" onToggle={() => toggleSection("details")} open={openSection === "details"} summary={[additionalDefaults?.city, additionalDefaults?.church, additionalDefaults?.occupation].filter(Boolean).join(" · ") || "Address, church, occupation, birthday"} title="Details">
+          {detailsFields}
+        </PersonEditSection>
+        <PersonEditSection id="notes" onToggle={() => toggleSection("notes")} open={openSection === "notes"} summary={additionalDefaults?.notes?.trim() ? "Notes on file" : "No notes yet"} title="Notes">
+          {notesField}
+        </PersonEditSection>
+        {showEngagement ? (
+          <PersonEditSection id="advanced" onToggle={() => toggleSection("advanced")} open={openSection === "advanced"} summary={`Engagement ${relationshipScoreLabel(scoreValue)}`} title="Advanced">
+            {engagementField}
+          </PersonEditSection>
+        ) : null}
+        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+        {/* Delete stays below everything, behind a rule, as a quiet text
+            button; its confirmation flow is unchanged. */}
+        {onDelete ? (
+          <div className="mt-2 border-t border-dos-rule pt-4">
+            <button
+              className="text-[13.5px] font-semibold text-[#B42318] underline underline-offset-2 transition-colors hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
+              onClick={onDelete}
+              type="button"
+            >
+              Delete this person
+            </button>
+            <p className="mt-1 text-[12px] leading-[1.45] text-dos-secondary">This cannot be undone.</p>
+          </div>
+        ) : null}
+        <StickyFormFooter>
+          <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
+        </StickyFormFooter>
+      </form>
+    );
+  }
+
+  /* Add Person: the short path first; everything else behind one disclosure. */
+  return (
+    <form className="space-y-4" onSubmit={onSubmit}>
+      {hiddenFields}
+      <DosFormSection icon="people" title="Person" variant="label">
+        {contactFields}
+      </DosFormSection>
+      {duplicateNotice}
+      <DosFormSection icon="people" title="Connection" variant="label">
+        {contextSelect}
+        {stageSelect}
+      </DosFormSection>
+      <DisclosureSection description="Visibility, household, address, and notes." title="Add more details">
+        {visibilitySelect}
+        {engagementField}
+        <div className="grid gap-3 border-t border-dos-rule pt-3">
+          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Household &amp; Family</span>
+          {householdFields}
+        </div>
+        <div className="grid gap-3 border-t border-dos-rule pt-3">
+          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Address &amp; Details</span>
+          {detailsFields}
+        </div>
+        <div className="grid gap-3 border-t border-dos-rule pt-3">
+          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Notes</span>
+          {notesField}
+        </div>
+        {/* Creating a person is the one moment a birthday or surgery date is
+            in hand, so the reminder shortcut stays on Add (inside the details
+            disclosure) and is not offered on Edit, where reminders live in
+            their own list. */}
+        <div className="border-t border-dos-rule pt-3">
+          <ImportantDatesReminderSection />
+        </div>
+      </DisclosureSection>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <StickyFormFooter>
         <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
     </form>
   );
+}
+
+type PersonEditSectionKey = "advanced" | "basic" | "details" | "household" | "notes" | "relationship" | null;
+
+/* One Edit Person section: a 48px header with a one-line summary, and content
+   that is hidden rather than unmounted so a collapsed section still submits
+   its values. Only one section is open at a time (USA-244). The class swaps
+   with the attribute because a display utility would otherwise outrank the
+   preflight `[hidden]` rule and leave the section visible. */
+function PersonEditSection({
+  children,
+  id,
+  onToggle,
+  open,
+  summary,
+  title,
+}: {
+  children: ReactNode;
+  id: string;
+  onToggle: () => void;
+  open: boolean;
+  summary?: string;
+  title: string;
+}) {
+  return (
+    <section className="border-t border-dos-rule first:border-t-0">
+      <button
+        aria-controls={`person-section-${id}`}
+        aria-expanded={open}
+        className="flex min-h-12 w-full items-center justify-between gap-3 py-3 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="min-w-0">
+          <span className="block text-[15px] font-bold text-dos-primary">{title}</span>
+          {summary ? <span className="mt-0.5 block truncate text-[12.5px] text-dos-secondary">{summary}</span> : null}
+        </span>
+        <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 text-dos-secondary transition-transform ${open ? "-rotate-90" : "rotate-90"}`} strokeWidth={1.9} />
+      </button>
+      <div className={open ? "grid gap-3 pb-4" : "hidden"} hidden={!open} id={`person-section-${id}`}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/* Matches a typed household member to an existing person by name, ignoring
+   the anchor person, so the leader can see a link rather than a duplicate. */
+function findPersonByName(people: DosAppPerson[] | undefined, name: string, excludeName?: string | null) {
+  const key = householdNameKey(name);
+  const excludeKey = householdNameKey(excludeName ?? "");
+
+  if (!key || key === excludeKey) {
+    return null;
+  }
+
+  return people?.find((person) => householdNameKey(person.name) === key) ?? null;
+}
+
+/* A linked existing person keeps their own visibility unless the leader
+   changed it here; an explicit choice, or a brand-new member, carries one. */
+function memberVisibilityValue(linked: DosAppPerson | null, touched: boolean, draftValue: DosAppFieldVisibility): DosAppFieldVisibility {
+  return linked && !touched ? linked.fieldVisibility : draftValue;
+}
+
+function householdDraftMembers(draft: PersonHouseholdDraft, people: DosAppPerson[] | undefined, excludeName?: string | null) {
+  const spouseName = householdDraftSpouseName(draft);
+  const members: Array<{ fieldVisibility?: DosAppFieldVisibility; name: string; relationship: "child" | "spouse" }> = [];
+  /* No visibility travels for an untouched member that is already stored
+     (seeded) or already a person (linked): the sync then leaves an existing
+     person alone and creates a text-only member household-only, exactly as
+     before. A typed member, or an explicit choice, carries its value. */
+  const visibilityFor = (name: string, seeded: boolean, touched: boolean, draftValue: DosAppFieldVisibility) => (
+    !touched && (seeded || findPersonByName(people, name, excludeName)) ? {} : { fieldVisibility: draftValue }
+  );
+
+  if (spouseName) {
+    members.push({ ...visibilityFor(spouseName, draft.spouseSeeded, draft.spouseVisibilityTouched, draft.spouseVisibility), name: spouseName, relationship: "spouse" });
+  }
+
+  draft.children.forEach((child) => {
+    const name = joinNameParts(child.firstName, child.lastName);
+
+    if (name) {
+      members.push({ ...visibilityFor(name, child.seeded, child.visibilityTouched, child.visibility), name, relationship: "child" });
+    }
+  });
+
+  return members;
 }
 
 function DetailCard({
@@ -39389,6 +39537,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       email: formString("email", fallback.email ?? ""),
       fieldVisibility: normalizeFieldVisibility(formData.get("field_visibility"), fallback.fieldVisibility ?? "primary"),
       homeAddress: formString("home_address", fallback.homeAddress ?? ""),
+      /* USA-244: per-member household list; absent when the form did not
+         render it, so the route falls back to the text columns. */
+      ...(formData.has("household_members") ? { householdMembers: normalizeHouseholdMembers(formData.get("household_members")) } : {}),
       householdNotes: formString("household_notes", fallback.householdNotes ?? ""),
       id,
       name: String(formData.get("name") ?? ""),
@@ -44085,6 +44236,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onRelationshipChange={setSelectedRelationshipModel}
             onScoreChange={setSelectedRelationshipScore}
             onSubmit={handleEditPersonSubmit}
+            people={people}
             phoneDefault={selectedPerson.phone}
             relationshipModel={selectedRelationshipModel}
             scoreValue={selectedRelationshipScore}

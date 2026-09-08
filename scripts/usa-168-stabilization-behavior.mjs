@@ -1802,13 +1802,14 @@ await check("The Person loader and the Person write path both stop parsing relat
 await check("The Basic Person form asks three questions and hides the advanced ones", async () => {
   const form = personFormSource();
 
-  /* Present: the questions Basic DOS is for. */
-  assert(form.includes('label="Your relationship with them"'), "Relationship type is asked.");
+  /* Present: the questions Basic DOS is for (USA-244 wording: the stage is
+     asked as "How are you connected?", visibility as "List visibility"). */
+  assert(form.includes('label="How are you connected?"'), "Relationship stage is asked.");
   assert(form.includes('label="How do you know them?"'), "Context is asked, in those words.");
-  assert(form.includes('label="Person role"'), "Person role is asked.");
-  assert(form.includes("options={relationshipTypeOptions}"), "The four relationship choices remain available.");
+  assert(form.includes('label="List visibility"'), "List visibility is asked.");
+  assert(form.includes("options={relationshipStageChoiceOptions}"), "The four relationship choices remain available.");
   assert(form.includes("options={relationshipContextOptions}"), "The nine context values remain available.");
-  assert(form.includes("options={personRoleOptions}"), "Person role remains available.");
+  assert(form.includes("options={listVisibilityOptions}"), "List visibility remains available.");
 
   /* Absent: the control with no column behind it. */
   assert(!form.includes("discipleship_relationship"), "Discipleship Relationship is gone from the Basic form.");
@@ -1833,14 +1834,14 @@ await check("The Basic Person form asks three questions and hides the advanced o
   assert.deepEqual(jargon, [], `Basic DOS must not show internal Field vocabulary (${jargon.length} occurrence(s)).`);
 });
 
-await check("Person role keeps the stored values and only changes the words", async () => {
-  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
-  const options = client.slice(client.indexOf("const personRoleOptions"), client.indexOf("const personRoleOptions") + 700);
+await check("List visibility keeps the stored values and only changes the words", async () => {
+  const model = readFileSync(new URL("../src/lib/dos/relationship-model.ts", import.meta.url), "utf8");
+  const options = model.slice(model.indexOf("export const listVisibilityOptions"), model.indexOf("export const listVisibilityOptions") + 600);
 
-  assert(/label: "Primary Contact", value: "primary"/.test(options), "primary reads as Primary Contact.");
-  assert(/label: "Household Member", value: "secondary"/.test(options), "secondary reads as Household Member.");
-  assert(/label: "Hidden", value: "hidden"/.test(options), "hidden reads as Hidden.");
-  assert(!/Primary Field Contact|Hidden from Field/.test(options), "The old Field wording is gone.");
+  assert(/label: "Active person", value: "primary"/.test(options), "primary reads as Active person.");
+  assert(/label: "Household only", value: "secondary"/.test(options), "secondary reads as Household only.");
+  assert(/label: "Private", value: "hidden"/.test(options), "hidden reads as Private.");
+  assert(!/Primary Field Contact|Hidden from Field|Primary Contact|Household Member/.test(options), "The old wording is gone.");
 });
 
 await check("An Advanced Feature is off by default, per feature, and per workspace", async () => {
@@ -1995,9 +1996,14 @@ await check("Multiplying is derived on read, and writes nothing", async () => {
 await check("Edit Person no longer creates reminders, and Save outranks Delete", async () => {
   const form = personFormSource();
 
-  /* The reminder shortcut belongs to creating a person, not editing one. */
+  /* The reminder shortcut belongs to creating a person, not editing one.
+     Since USA-244 the two shapes are separate returns: it renders only in
+     the Add branch (after the `if (isEditMode)` return). */
+  const addFormStart = form.lastIndexOf('<form className="space-y-4" onSubmit={onSubmit}>');
+  const editReturn = form.slice(form.indexOf("if (isEditMode) {"), addFormStart);
+  const addReturn = form.slice(addFormStart);
   assert(
-    form.includes("{isEditMode ? null : <ImportantDatesReminderSection />}"),
+    editReturn.length > 0 && !editReturn.includes("<ImportantDatesReminderSection />") && addReturn.includes("<ImportantDatesReminderSection />"),
     "Add a reminder must not render inside Edit Person.",
   );
 
