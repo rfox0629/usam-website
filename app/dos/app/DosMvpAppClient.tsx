@@ -26,6 +26,7 @@ import { dosAdvancedFeatures, type DosAdvancedFeatureKey } from "@/src/lib/dos/a
 import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
 import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
+import { accountabilityDraftFrequency, accountabilityDraftSummary, accountabilityTrackingModeFor, type AccountabilityDraft, type AccountabilityTrackingMode } from "@/src/lib/dos/accountability-presentation";
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
@@ -14269,14 +14270,13 @@ function CommitmentSubjectSheet({
 }
 
 function AccountabilityChoiceClass(active: boolean) {
-  return `min-h-11 rounded-full border px-4 text-[13px] font-bold transition-colors ${
+  return `min-h-11 rounded-full border px-3.5 text-[13px] font-bold transition-colors ${
     active
       ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
       : "border-[#D6E4F7] bg-white text-dos-secondary hover:border-[#BFDBFE]"
   }`;
 }
 
-type AccountabilityTrackingMode = "regular" | "number" | "complete";
 type AccountabilityCategory = "scripture" | "prayer" | "discipleship" | "relationships" | "health" | "other";
 
 type AccountabilitySuggestion = {
@@ -14285,6 +14285,8 @@ type AccountabilitySuggestion = {
   trackingMode: AccountabilityTrackingMode;
 };
 
+/* Categories stay in the model; in the UI they are the secondary "Need an
+   idea?" focus chips that organize suggestions (USA-242). */
 const accountabilityCategories: ReadonlyArray<{ label: string; value: AccountabilityCategory }> = [
   { label: "Scripture", value: "scripture" },
   { label: "Prayer", value: "prayer" },
@@ -14323,6 +14325,28 @@ const accountabilitySuggestions: Record<AccountabilityCategory, ReadonlyArray<Ac
   other: [],
 };
 
+const accountabilityTrackingOptions: ReadonlyArray<{ helper: string; label: string; value: AccountabilityTrackingMode }> = [
+  { helper: "Weekly, every 2 weeks, or monthly", label: "Check in regularly", value: "regular" },
+  { helper: "A number of people or times by a date", label: "Reach a target", value: "number" },
+  { helper: "Finish something by a due date", label: "Complete once", value: "complete" },
+];
+
+const accountabilityRecurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
+  { label: "Weekly", value: "weekly" },
+  { label: "Every 2 weeks", value: "every_two_weeks" },
+  { label: "Monthly", value: "monthly" },
+];
+
+const accountabilityTargetKindOptions: ReadonlyArray<{ label: string; value: DosCommitmentTargetKind }> = [
+  { label: "People", value: "people" },
+  { label: "Times", value: "count" },
+];
+
+/* The one canonical accountability editor (USA-235 contract, USA-242 shape):
+   the goal comes first and needs no taxonomy; "Need an idea?" is a compact
+   disclosure with focus chips and suggestions; Tracking is one select whose
+   choice reveals only the fields that apply. Person sheets and Log Meeting
+   both render this; the field names are unchanged. */
 function AccountabilityFields({
   autoFocus = false,
   defaultFrequency = "weekly",
@@ -14330,8 +14354,10 @@ function AccountabilityFields({
   defaultTargetCount = "",
   defaultTargetKind = "people",
   defaultTitle = "",
+  defaultTrackingMode,
   lockType = false,
   namePrefix,
+  onDraftChange,
 }: {
   autoFocus?: boolean;
   defaultFrequency?: DosAccountabilityFrequency;
@@ -14339,195 +14365,435 @@ function AccountabilityFields({
   defaultTargetCount?: string;
   defaultTargetKind?: DosCommitmentTargetKind;
   defaultTitle?: string;
+  defaultTrackingMode?: AccountabilityTrackingMode;
   /* Editing keeps a goal a goal. Switching an existing one-time goal to a
      recurring rhythm would move it between two different records. */
   lockType?: boolean;
   namePrefix: string;
+  /* Reports every change so a wrapper can collapse the editor into a
+     summary without a second copy of the field logic. */
+  onDraftChange?: (draft: AccountabilityDraft) => void;
 }) {
-  const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency);
+  const [frequency, setFrequency] = useState<DosAccountabilityFrequency>(defaultFrequency === "one_time" ? "weekly" : defaultFrequency);
   const [title, setTitle] = useState(defaultTitle);
   const [targetCount, setTargetCount] = useState(defaultTargetCount);
   const [targetKind, setTargetKind] = useState<DosCommitmentTargetKind>(defaultTargetKind);
+  const [date, setDate] = useState(defaultStartDate ?? todayDateValue());
   const [selectedCategory, setSelectedCategory] = useState<AccountabilityCategory | null>(null);
-  const [trackingMode, setTrackingMode] = useState<AccountabilityTrackingMode>(() => (
-    defaultFrequency !== "one_time" ? "regular" : defaultTargetCount ? "number" : "complete"
-  ));
-  const recurringOptions: ReadonlyArray<{ label: string; value: DosAccountabilityFrequency }> = [
-    { label: "Weekly", value: "weekly" },
-    { label: "Every 2 weeks", value: "every_two_weeks" },
-    { label: "Monthly", value: "monthly" },
-  ];
-  const trackingOptions: ReadonlyArray<{ description: string; label: string; value: AccountabilityTrackingMode }> = [
-    { description: "Weekly, every 2 weeks, or monthly", label: "Check in regularly", value: "regular" },
-    { description: "Track people or times toward a goal", label: "Reach a number", value: "number" },
-    { description: "Finish something by a due date", label: "Complete once", value: "complete" },
-  ];
+  const [isIdeasOpen, setIsIdeasOpen] = useState(false);
+  const [trackingMode, setTrackingMode] = useState<AccountabilityTrackingMode>(
+    () => defaultTrackingMode ?? accountabilityTrackingModeFor(defaultFrequency, defaultTargetCount),
+  );
+  const draftChangeRef = useRef(onDraftChange);
+  draftChangeRef.current = onDraftChange;
 
-  function chooseTrackingMode(nextMode: AccountabilityTrackingMode) {
-    setTrackingMode(nextMode);
-    setFrequency(nextMode === "regular" ? (frequency === "one_time" ? "weekly" : frequency) : "one_time");
-  }
+  useEffect(() => {
+    draftChangeRef.current?.({ date, frequency, targetCount, targetKind, title, trackingMode });
+  }, [date, frequency, targetCount, targetKind, title, trackingMode]);
 
   function chooseSuggestion(suggestion: AccountabilitySuggestion) {
     setTitle(suggestion.label);
     if (suggestion.targetKind) {
       setTargetKind(suggestion.targetKind);
     }
-    chooseTrackingMode(suggestion.trackingMode);
+    setTrackingMode(suggestion.trackingMode);
   }
 
   const suggestions = selectedCategory ? accountabilitySuggestions[selectedCategory] : [];
+  const submittedFrequency = accountabilityDraftFrequency({ frequency, trackingMode });
+  const dateLabel = trackingMode === "regular" ? "Start" : "Due date";
 
   return (
     <>
-      <input name={`${namePrefix}_frequency`} type="hidden" value={frequency} />
-      {lockType ? null : (
-        <DosFormField helper="Choose one for helpful examples, or write your own goal." label="Start with an area">
-          <div className="mt-2 flex flex-wrap gap-2">
-            {accountabilityCategories.map((category) => {
-              const active = selectedCategory === category.value;
-
-              return (
-                <button
-                  aria-pressed={active}
-                  className={AccountabilityChoiceClass(active)}
-                  key={category.value}
-                  onClick={() => setSelectedCategory(category.value)}
-                  type="button"
-                >
-                  {category.label}
-                </button>
-              );
-            })}
-          </div>
-        </DosFormField>
-      )}
-      {!lockType && suggestions.length ? (
-        <DosFormField label="Suggested goals">
-          <div className="mt-2 grid gap-2">
-            {suggestions.map((suggestion) => {
-              const active = title === suggestion.label && trackingMode === suggestion.trackingMode;
-
-              return (
-                <button
-                  aria-pressed={active}
-                  className={`min-h-11 rounded-[18px] border px-4 py-2.5 text-left text-[13.5px] font-semibold transition-colors ${
-                    active
-                      ? "border-dos-blue bg-dos-selected text-dos-blue-deep"
-                      : "border-dos-line bg-white text-dos-primary hover:border-dos-blue-soft hover:bg-dos-band"
-                  }`}
-                  key={suggestion.label}
-                  onClick={() => chooseSuggestion(suggestion)}
-                  type="button"
-                >
-                  {suggestion.label}
-                </button>
-              );
-            })}
-          </div>
-        </DosFormField>
-      ) : null}
-      <DosFormField className="mb-2" label="What are they working toward?">
+      <input name={`${namePrefix}_frequency`} type="hidden" value={submittedFrequency} />
+      <DosFormField label="What are they working toward?" labelVariant="sentence">
         <input
           autoFocus={autoFocus}
           className={FieldInputClass(false)}
           name={`${namePrefix}_title`}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Write a clear goal..."
+          placeholder="Disciple 3 people, read John 4-6, pray each morning..."
           value={title}
         />
       </DosFormField>
       {lockType ? null : (
-      <DosFormField label="How will you track it?">
-        <div className="mt-2 grid gap-2">
-          {trackingOptions.map((option) => {
-            const active = option.value === trackingMode;
+        <div className="grid gap-2">
+          <button
+            aria-expanded={isIdeasOpen}
+            className="inline-flex min-h-11 items-center gap-1.5 self-start text-dos-label font-semibold text-dos-blueText"
+            onClick={() => setIsIdeasOpen((current) => !current)}
+            type="button"
+          >
+            <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+            Need an idea?
+            <ChevronRight aria-hidden="true" className={`h-4 w-4 transition-transform ${isIdeasOpen ? "-rotate-90" : "rotate-90"}`} strokeWidth={1.9} />
+          </button>
+          {isIdeasOpen ? (
+            <>
+              <div aria-label="Focus" className="flex flex-wrap gap-1.5" role="group">
+                {accountabilityCategories.map((category) => {
+                  const active = selectedCategory === category.value;
 
-            return (
-              <button
-                aria-pressed={active}
-                className={`flex min-h-[52px] items-center justify-between gap-3 rounded-[18px] border px-4 py-2.5 text-left transition-colors ${
-                  active
-                    ? "border-dos-blue bg-dos-selected text-dos-blue-deep"
-                    : "border-dos-line bg-white text-dos-primary hover:border-dos-blue-soft hover:bg-dos-band"
-                }`}
-                key={option.value}
-                onClick={() => chooseTrackingMode(option.value)}
-                type="button"
-              >
-                <span className="text-[13.5px] font-bold">{option.label}</span>
-                <span className={`text-right text-[11.5px] font-medium ${active ? "text-dos-blue-deep" : "text-dos-secondary"}`}>
-                  {option.description}
-                </span>
-              </button>
-            );
-          })}
+                  return (
+                    <button
+                      aria-pressed={active}
+                      className={AccountabilityChoiceClass(active)}
+                      key={category.value}
+                      onClick={() => setSelectedCategory(category.value)}
+                      type="button"
+                    >
+                      {category.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {suggestions.length ? (
+                <div aria-label="Suggested goals" className="flex flex-wrap gap-1.5" role="group">
+                  {suggestions.map((suggestion) => {
+                    const active = title === suggestion.label && trackingMode === suggestion.trackingMode;
+
+                    return (
+                      <button
+                        aria-pressed={active}
+                        className={`min-h-11 rounded-dos-3 border px-3.5 text-left text-[13px] font-semibold transition-colors ${
+                          active
+                            ? "border-dos-blue bg-dos-selected text-dos-blue-deep"
+                            : "border-dos-line bg-white text-dos-primary hover:border-dos-blue-soft hover:bg-dos-band"
+                        }`}
+                        key={suggestion.label}
+                        onClick={() => chooseSuggestion(suggestion)}
+                        type="button"
+                      >
+                        {suggestion.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : selectedCategory === "other" ? (
+                <p className="text-dos-meta font-medium text-dos-secondary">Write the goal in your own words above.</p>
+              ) : null}
+            </>
+          ) : null}
         </div>
-      </DosFormField>
       )}
-      {trackingMode === "regular" ? (
-        <DosFormField label="Frequency">
-          <div className="flex flex-wrap gap-2">
-            {recurringOptions.map((option) => {
-              const active = frequency === option.value;
-
-              return (
-                <button
-                  aria-pressed={active}
-                  className={AccountabilityChoiceClass(active)}
-                  key={option.value}
-                  onClick={() => setFrequency(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+      {lockType ? null : (
+        <DosFormField label="Tracking" labelVariant="sentence">
+          <div className="mt-1.5">
+            <CompactOptionSelect
+              hideLabel
+              label="Tracking"
+              onChange={(nextValue) => setTrackingMode(nextValue as AccountabilityTrackingMode)}
+              options={accountabilityTrackingOptions}
+              value={trackingMode}
+            />
           </div>
         </DosFormField>
+      )}
+      {trackingMode === "regular" ? (
+        <div className="grid grid-cols-2 gap-3">
+          <DosFormField label="Frequency" labelVariant="sentence">
+            <div className="mt-1.5">
+              <CompactOptionSelect
+                hideLabel
+                label="Frequency"
+                onChange={(nextValue) => setFrequency(nextValue as DosAccountabilityFrequency)}
+                options={accountabilityRecurringOptions}
+                value={frequency}
+              />
+            </div>
+          </DosFormField>
+          <DosDateInput defaultValue={date} label={dateLabel} labelVariant="sentence" name={`${namePrefix}_date`} onChange={setDate} />
+        </div>
       ) : null}
       {trackingMode === "number" ? (
         <>
-          <DosFormField label="Target">
-            <input
-              className={FieldInputClass(false)}
-              inputMode="numeric"
-              min="1"
-              name={`${namePrefix}_target_count`}
-              onChange={(event) => setTargetCount(event.target.value)}
-              placeholder="e.g. 3"
-              type="number"
-              value={targetCount}
-            />
-          </DosFormField>
+          <div className="grid grid-cols-2 gap-3">
+            <DosFormField label="Target number" labelVariant="sentence">
+              <input
+                className={FieldInputClass(false)}
+                inputMode="numeric"
+                min="1"
+                name={`${namePrefix}_target_count`}
+                onChange={(event) => setTargetCount(event.target.value)}
+                placeholder="e.g. 3"
+                type="number"
+                value={targetCount}
+              />
+            </DosFormField>
+            <DosFormField label="Unit" labelVariant="sentence">
+              <div className="mt-1.5">
+                <CompactOptionSelect
+                  hideLabel
+                  label="Unit"
+                  onChange={(nextValue) => setTargetKind(nextValue as DosCommitmentTargetKind)}
+                  options={accountabilityTargetKindOptions}
+                  value={targetKind}
+                />
+              </div>
+            </DosFormField>
+          </div>
           <input name={`${namePrefix}_target_kind`} type="hidden" value={targetKind} />
-          <DosFormField label="Count">
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[{ label: "People", value: "people" as const }, { label: "Times", value: "count" as const }].map((option) => {
-                const active = targetKind === option.value;
-
-                return (
-                  <button
-                    aria-pressed={active}
-                    className={AccountabilityChoiceClass(active)}
-                    key={option.value}
-                    onClick={() => setTargetKind(option.value)}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </DosFormField>
+          <DosDateInput defaultValue={date} label={dateLabel} labelVariant="sentence" name={`${namePrefix}_date`} onChange={setDate} />
         </>
       ) : null}
-      <DosDateInput
-        defaultValue={defaultStartDate ?? todayDateValue()}
-        label={trackingMode === "regular" ? "Start" : "Due"}
-        name={`${namePrefix}_date`}
-      />
+      {trackingMode === "complete" ? (
+        <DosDateInput defaultValue={date} label={dateLabel} labelVariant="sentence" name={`${namePrefix}_date`} onChange={setDate} />
+      ) : null}
     </>
+  );
+}
+
+type MeetingAccountabilityComposerDraft = AccountabilityDraft & { key: number };
+
+function blankAccountabilityDraft(key: number): MeetingAccountabilityComposerDraft {
+  return { date: todayDateValue(), frequency: "weekly", key, targetCount: "", targetKind: "people", title: "", trackingMode: "regular" };
+}
+
+/* Log Meeting's accountability composer (USA-242). Exactly one editor is open
+   at a time; every other draft is a compact summary row that still submits
+   its values through hidden `meeting_accountability_<index>_*` inputs, so the
+   USA-235 meeting writer and router are unchanged. Drafts live here until the
+   meeting is logged. */
+function MeetingAccountabilityComposer({
+  collapseSignal,
+  onDraftCountChange,
+  onEmpty,
+}: {
+  /* Bumped by the "− Accountability" header: commit a titled editor, drop a
+     blank one, never discard saved drafts. */
+  collapseSignal: number;
+  onDraftCountChange: (count: number) => void;
+  onEmpty: () => void;
+}) {
+  const [drafts, setDrafts] = useState<MeetingAccountabilityComposerDraft[]>([]);
+  const [editing, setEditing] = useState<{ draft: MeetingAccountabilityComposerDraft; isNew: boolean } | null>(() => ({ draft: blankAccountabilityDraft(0), isNew: true }));
+  const [editorError, setEditorError] = useState("");
+  const [openMenuKey, setOpenMenuKey] = useState<number | null>(null);
+  const nextKeyRef = useRef(1);
+  const latestDraftRef = useRef<AccountabilityDraft | null>(null);
+  const draftCountRef = useRef(onDraftCountChange);
+  draftCountRef.current = onDraftCountChange;
+
+  useEffect(() => {
+    draftCountRef.current(drafts.length);
+  }, [drafts.length]);
+
+  function commitEditor(): boolean {
+    if (!editing) {
+      return true;
+    }
+
+    const latest = latestDraftRef.current ?? editing.draft;
+
+    if (!latest.title.trim()) {
+      if (editing.isNew) {
+        setEditing(null);
+        return true;
+      }
+
+      setEditorError("Add what they are working toward.");
+      return false;
+    }
+
+    const committed = { ...latest, key: editing.draft.key };
+
+    setDrafts((current) => (
+      current.some((draft) => draft.key === committed.key)
+        ? current.map((draft) => (draft.key === committed.key ? committed : draft))
+        : [...current, committed]
+    ));
+    setEditing(null);
+    setEditorError("");
+    return true;
+  }
+
+  const lastCollapseSignal = useRef(collapseSignal);
+
+  useEffect(() => {
+    if (lastCollapseSignal.current !== collapseSignal) {
+      lastCollapseSignal.current = collapseSignal;
+      commitEditor();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapseSignal]);
+
+  function addAccountability() {
+    const latest = latestDraftRef.current ?? editing?.draft;
+
+    if (!latest?.title.trim()) {
+      setEditorError("Add what they are working toward.");
+      return;
+    }
+
+    commitEditor();
+  }
+
+  function cancelEditor() {
+    const wasNew = editing?.isNew ?? false;
+
+    setEditing(null);
+    setEditorError("");
+
+    if (wasNew && drafts.length === 0) {
+      onEmpty();
+    }
+  }
+
+  function openNewEditor() {
+    if (!commitEditor()) {
+      return;
+    }
+
+    latestDraftRef.current = null;
+    setEditing({ draft: blankAccountabilityDraft(nextKeyRef.current++), isNew: true });
+  }
+
+  function editDraft(draft: MeetingAccountabilityComposerDraft) {
+    setOpenMenuKey(null);
+
+    if (editing && editing.draft.key !== draft.key && !commitEditor()) {
+      return;
+    }
+
+    latestDraftRef.current = null;
+    setEditorError("");
+    setEditing({ draft, isNew: false });
+  }
+
+  function removeDraft(key: number) {
+    setOpenMenuKey(null);
+    const remaining = drafts.filter((draft) => draft.key !== key);
+
+    setDrafts(remaining);
+
+    if (editing?.draft.key === key) {
+      setEditing(null);
+    }
+
+    if (remaining.length === 0 && (editing === null || editing.draft.key === key)) {
+      onEmpty();
+    }
+  }
+
+  /* Contiguous indices are what the writer walks; the editor takes the slot
+     of the draft it is editing, or the next one when it is new. */
+  const orderedDrafts = editing?.isNew ? [...drafts, editing.draft] : drafts;
+
+  return (
+    <div className="grid gap-2">
+      {orderedDrafts.map((draft, index) => {
+        const isEditing = editing?.draft.key === draft.key;
+
+        if (isEditing && editing) {
+          return (
+            <div className="grid gap-3 rounded-dos-2 border border-dos-blue100 bg-white p-3" key={`editor-${draft.key}`}>
+              <AccountabilityFields
+                autoFocus
+                defaultFrequency={editing.draft.frequency}
+                defaultStartDate={editing.draft.date}
+                defaultTargetCount={editing.draft.targetCount}
+                defaultTargetKind={editing.draft.targetKind}
+                defaultTitle={editing.draft.title}
+                defaultTrackingMode={editing.draft.trackingMode}
+                namePrefix={`meeting_accountability_${index}`}
+                onDraftChange={(next) => {
+                  latestDraftRef.current = next;
+                  if (editorError && next.title.trim()) {
+                    setEditorError("");
+                  }
+                }}
+              />
+              {editorError ? <p className="text-dos-meta font-semibold text-[#B42318]" role="alert">{editorError}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 bg-dos-blue px-4 text-dos-label font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                  onClick={addAccountability}
+                  type="button"
+                >
+                  {editing.isNew ? "Add accountability" : "Done"}
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 border border-dos-line bg-white px-4 text-dos-label font-semibold text-dos-primary transition-colors hover:bg-dos-band"
+                  onClick={cancelEditor}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        const summary = accountabilityDraftSummary(draft, formatShortDate);
+        const submittedFrequency = accountabilityDraftFrequency(draft);
+        const isMenuOpen = openMenuKey === draft.key;
+
+        return (
+          <div className="flex items-center gap-2 rounded-dos-2 border border-dos-line bg-white py-1.5 pl-3.5 pr-1.5" key={`draft-${draft.key}`}>
+            <input name={`meeting_accountability_${index}_title`} type="hidden" value={draft.title} />
+            <input name={`meeting_accountability_${index}_frequency`} type="hidden" value={submittedFrequency} />
+            <input name={`meeting_accountability_${index}_date`} type="hidden" value={draft.date} />
+            {draft.trackingMode === "number" ? (
+              <>
+                <input name={`meeting_accountability_${index}_target_count`} type="hidden" value={draft.targetCount} />
+                <input name={`meeting_accountability_${index}_target_kind`} type="hidden" value={draft.targetKind} />
+              </>
+            ) : null}
+            <div className="min-w-0 flex-1 py-1">
+              <p className="truncate text-dos-body font-semibold text-dos-primary">{summary.title}</p>
+              <p className="text-dos-meta font-medium text-dos-secondary">{summary.meta}</p>
+            </div>
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setOpenMenuKey(null);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && isMenuOpen) {
+                  event.stopPropagation();
+                  setOpenMenuKey(null);
+                }
+              }}
+            >
+              <button
+                aria-expanded={isMenuOpen}
+                aria-haspopup="menu"
+                aria-label={`Options for ${summary.title}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-dos-blue50 hover:text-dos-primary"
+                onClick={() => setOpenMenuKey(isMenuOpen ? null : draft.key)}
+                type="button"
+              >
+                <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+              </button>
+              {isMenuOpen ? (
+                <div className="absolute right-0 z-30 mt-1 w-40 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
+                  <button className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-dos-label font-semibold text-dos-primary hover:bg-dos-blue50" onClick={() => editDraft(draft)} role="menuitem" type="button">
+                    <Pencil aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+                    Edit
+                  </button>
+                  <button className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-dos-label font-semibold text-[#B42318] hover:bg-[#FEF2F2]" onClick={() => removeDraft(draft.key)} role="menuitem" type="button">
+                    <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+      {editing === null && drafts.length > 0 ? (
+        <button
+          className="inline-flex min-h-11 items-center gap-1 self-start text-dos-label font-semibold text-dos-blueText"
+          onClick={openNewEditor}
+          type="button"
+        >
+          <span aria-hidden="true" className="text-[17px] leading-none">+</span>
+          Add another
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -21150,11 +21416,15 @@ function MeetingLeaderReflectionSection({
      saves its own record there. */
   const [prayerKey, setPrayerKey] = useState(0);
   const [followUpKey, setFollowUpKey] = useState(0);
-  // Accountability is captured inline like everything else here. Several items
-  // can come out of one long conversation, so the block grows on demand.
-  const [accountabilityCount, setAccountabilityCount] = useState(0);
+  // Accountability is captured inline like everything else here. The composer
+  // (USA-242) keeps one editor open at a time and collapses saved drafts into
+  // summaries; re-tapping the header collapses an editor but never discards a
+  // saved draft -- those are removed one at a time from their own menu.
+  const [isAccountabilityOpen, setIsAccountabilityOpen] = useState(false);
   const [accountabilityKey, setAccountabilityKey] = useState(0);
-  const closeAccountability = () => { setAccountabilityCount(0); setAccountabilityKey((key) => key + 1); };
+  const [accountabilityDraftCount, setAccountabilityDraftCount] = useState(0);
+  const [accountabilityCollapseSignal, setAccountabilityCollapseSignal] = useState(0);
+  const closeAccountability = () => { setIsAccountabilityOpen(false); setAccountabilityDraftCount(0); setAccountabilityKey((key) => key + 1); };
   const closePrayer = () => { setIsPrayerOpen(false); setPrayerKey((key) => key + 1); };
   const closeFollowUp = () => { setIsFollowUpNeeded(false); setFollowUpKey((key) => key + 1); };
   const closeFruit = () => {
@@ -21206,7 +21476,20 @@ function MeetingLeaderReflectionSection({
   );
 
   const quickActions = [
-    { active: accountabilityCount > 0, key: "accountability", label: "Accountability", onClick: () => (accountabilityCount > 0 ? closeAccountability() : setAccountabilityCount(1)) },
+    {
+      active: isAccountabilityOpen,
+      key: "accountability",
+      label: "Accountability",
+      onClick: () => {
+        if (!isAccountabilityOpen) {
+          setIsAccountabilityOpen(true);
+        } else if (accountabilityDraftCount > 0) {
+          setAccountabilityCollapseSignal((signal) => signal + 1);
+        } else {
+          closeAccountability();
+        }
+      },
+    },
     { active: isPrayerOpen, key: "prayer", label: "Prayer request", onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)) },
     { active: isFollowUpNeeded, key: "reminder", label: "Reminder", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
     { active: isFruitOpen, key: "fruit", label: "Observed Fruit", onClick: () => (isFruitOpen ? closeFruit() : setIsFruitOpen(true)) },
@@ -21244,29 +21527,13 @@ function MeetingLeaderReflectionSection({
                 <span aria-hidden="true" className="text-[17px] leading-none">{action.active ? "\u2212" : "+"}</span>
                 {action.label}
               </button>
-              {action.key === "accountability" && accountabilityCount > 0 ? (
-                <div className="mt-3 grid gap-4" key={`accountability-${accountabilityKey}`}>
-                  {Array.from({ length: accountabilityCount }, (_, index) => (
-                    <div className="grid gap-3 border-l-2 border-[#DCEBFF] pl-4" key={index}>
-                      <AccountabilityFields autoFocus={index === accountabilityCount - 1} namePrefix={`meeting_accountability_${index}`} />
-                    </div>
-                  ))}
-                  <div className="flex flex-wrap gap-4">
-                    <button
-                      className="text-xs font-semibold text-dos-blue transition-colors hover:text-[#1D4ED8]"
-                      onClick={() => setAccountabilityCount((count) => count + 1)}
-                      type="button"
-                    >
-                      + Add another
-                    </button>
-                    <button
-                      className="text-xs font-semibold text-dos-secondary transition-colors hover:text-dos-primary"
-                      onClick={closeAccountability}
-                      type="button"
-                    >
-                      Remove accountability
-                    </button>
-                  </div>
+              {action.key === "accountability" && isAccountabilityOpen ? (
+                <div className="mt-3" key={`accountability-${accountabilityKey}`}>
+                  <MeetingAccountabilityComposer
+                    collapseSignal={accountabilityCollapseSignal}
+                    onDraftCountChange={setAccountabilityDraftCount}
+                    onEmpty={closeAccountability}
+                  />
                 </div>
               ) : null}
               {action.key === "prayer" && isPrayerOpen ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{prayerFields}</div> : null}
