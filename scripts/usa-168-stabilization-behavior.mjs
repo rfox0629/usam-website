@@ -887,7 +887,9 @@ await check("Natural tracking choices progressively reveal only relevant fields"
   assert(!fields.includes('label="Type"'), "The form must not expose Recurring versus One-time as a technical type.");
   assert(fields.includes("Need an idea?") && fields.includes('aria-label="Focus"'), "The guided focus entry point must remain available (collapsed behind Need an idea?).");
   assert(fields.includes('aria-label="Suggested goals"'), "Selecting a focus must provide useful examples.");
-  assert(fields.includes('label="What are they working toward?"'), "The custom goal question must stay clear and person-centered.");
+  /* USA-242 follow-up made this the card's primary prompt, rendered in DOS blue
+     with its own label element rather than through the muted field label. */
+  assert(fields.includes(">What are they working toward?</span>"), "The custom goal question must stay clear and person-centered.");
   assert(fields.indexOf('label="What are they working toward?"') < fields.indexOf('label="Tracking"'), "The goal field must come before the tracking choice.");
 
   /* No database words in anything the user can actually read. Identifiers and
