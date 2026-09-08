@@ -5,7 +5,7 @@ export const dosConversationFlows = ["none", "kitchen_table_gospel", "four_quest
 export type DosConversationFlowKey = typeof dosConversationFlows[number];
 export type DosImplementedConversationFlowKey = Exclude<DosConversationFlowKey, "none">;
 export type DosConversationAnswer = "no" | "unsure" | "yes";
-export type DosConversationQuestionKind = "notes" | "rating" | "text" | "yes_no" | "yes_no_unsure";
+export type DosConversationQuestionKind = "multi_select" | "notes" | "rating" | "text" | "yes_no" | "yes_no_unsure";
 export type DosConversationResponseValue = number | string | string[];
 export type DosConversationResponses = Partial<Record<string, DosConversationResponseValue>>;
 export type DosKitchenTableAnswer = DosConversationAnswer;
@@ -30,10 +30,21 @@ export type DosKitchenTableResponses = Partial<Record<Exclude<DosKitchenTableQue
 type DosKitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
 
 export type DosConversationQuestion = {
+  /* Shown in meeting detail instead of `label` (e.g. for an "Add …" form title). */
+  detailLabel?: string;
+  /* Collapsed-row status when nothing is selected; defaults to "None selected". */
+  emptyLabel?: string;
   helper?: string;
+  /* Kept for saved records: still normalized and rendered in detail, never
+     offered in the form or the Library. */
+  historicalOnly?: boolean;
   id: string;
   kind: DosConversationQuestionKind;
   label: string;
+  options?: readonly {
+    label: string;
+    value: string;
+  }[];
   placeholder?: string;
   prompt?: string;
   scale?: {
@@ -43,10 +54,15 @@ export type DosConversationQuestion = {
     min: number;
   };
   scriptureRefs?: readonly string[];
+  visibleWhen?: {
+    equals: DosConversationResponseValue;
+    questionId: string;
+  };
 };
 
 export type DosConversationSection = {
   description?: string;
+  historicalOnly?: boolean;
   id: string;
   questions: readonly DosConversationQuestion[];
   title: string;
@@ -65,6 +81,13 @@ export type DosConversationFlowDefinition = {
   gatedTo?: "usam";
   gospelInvitation?: string;
   id: DosImplementedConversationFlowKey;
+  /* Discussion-guide presentation. A flow with `offeredForNewCapture` renders
+     as one collapsed optional row in Log Meeting titled `rowTitle`, with
+     `rowDescription` beneath it and a status line. Flows without it (Four
+     Questions) stay historical-only: readable and editable, never offered. */
+  offeredForNewCapture?: boolean;
+  rowDescription?: string;
+  rowTitle?: string;
   sections: readonly DosConversationSection[];
   slug: string;
   title: string;
@@ -79,17 +102,20 @@ export type DosRecommendedResource = {
   type: "flag" | "resource";
 };
 
+/* Conversational order of a Kitchen Table conversation (PCO reference,
+   founder review 2026-09-07). The gift groups are inserted directly after
+   "Do you have any spiritual gifts?" when the flow is assembled below. */
 export const dosKitchenTableQuestions = [
   { id: "believeJesus", kind: "yes_no", label: "Do you believe in Jesus?" },
   { id: "baptized", kind: "yes_no", label: "Have you been baptized?" },
-  { id: "bibleDaily", kind: "yes_no", label: "Do you read your Bible daily?" },
-  { id: "spiritualGifts", kind: "yes_no_unsure", label: "Do you have any spiritual gifts?" },
   { id: "disciplingAnyone", kind: "yes_no", label: "Are you discipling anyone?" },
-  { id: "attendChurchOften", kind: "yes_no", label: "Do you attend church often?" },
-  { id: "preachGoodNews", kind: "yes_no", label: "Do you preach the Good News?" },
   { id: "tithe", kind: "yes_no", label: "Do you tithe?" },
   { id: "honorSabbath", kind: "yes_no", label: "Do you honor the Sabbath?" },
   { id: "prayFastOften", kind: "yes_no_unsure", label: "Do you pray daily and fast often?" },
+  { id: "preachGoodNews", kind: "yes_no", label: "Do you preach the Good News?" },
+  { id: "attendChurchOften", kind: "yes_no", label: "Do you attend church often?" },
+  { id: "spiritualGifts", kind: "yes_no_unsure", label: "Do you have any spiritual gifts?" },
+  { id: "bibleDaily", kind: "yes_no", label: "Do you read your Bible daily?" },
   {
     id: "relationshipWithJesus",
     kind: "rating",
@@ -101,17 +127,181 @@ export const dosKitchenTableQuestions = [
   kind: DosKitchenTableQuestionKind;
 }>;
 
+export const dosKitchenTableCoreQuestionCount = dosKitchenTableQuestions.length;
+
+/* Spiritual-gift taxonomy (founder review, USA-238, 2026-09-07). Labels follow
+   the approved reference; values are stable snake_case storage keys and are
+   never renamed — "Distinguishing/Discernment of Spirits" keeps the original
+   `discerning_of_spirits` key so any saved selection still reads. Production
+   held no saved gift values when the labels were settled, so no mapping was
+   needed beyond keeping the keys. */
+const manifestationGiftOptions = [
+  { label: "Word of Wisdom", value: "word_of_wisdom" },
+  { label: "Word of Knowledge", value: "word_of_knowledge" },
+  { label: "Faith", value: "faith" },
+  { label: "Gifts of Healing", value: "gifts_of_healing" },
+  { label: "Working of Miracles", value: "working_of_miracles" },
+  { label: "Prophecy", value: "prophecy" },
+  { label: "Distinguishing/Discernment of Spirits", value: "discerning_of_spirits" },
+  { label: "Various Kinds of Tongues", value: "various_kinds_of_tongues" },
+  { label: "Interpretation of Tongues", value: "interpretation_of_tongues" },
+  { label: "Exploring / Unsure", value: "exploring_unsure" },
+] as const;
+
+const serviceGiftOptions = [
+  { label: "Prophecy", value: "prophecy" },
+  { label: "Serving (Ministry/Helps)", value: "serving" },
+  { label: "Teaching", value: "teaching" },
+  { label: "Encouragement (Exhortation)", value: "encouragement" },
+  { label: "Giving", value: "giving" },
+  { label: "Leadership", value: "leadership" },
+  { label: "Mercy", value: "mercy" },
+] as const;
+
+const fivefoldGiftOptions = [
+  { label: "Apostle", value: "apostle" },
+  { label: "Prophet", value: "prophet" },
+  { label: "Evangelist", value: "evangelist" },
+  { label: "Pastor (Shepherd)", value: "pastor" },
+  { label: "Teacher", value: "teacher" },
+] as const;
+
+const connectionOutcomeOptions = [
+  { label: "Connected to Church Partner", value: "connected_to_church_partner" },
+  { label: "Connected to Ministry Partner", value: "connected_to_ministry_partner" },
+] as const;
+
+const faithCommitmentOutcomeOptions = [
+  { label: "First Time Decision for Christ", value: "first_time_decision_for_christ" },
+  { label: "Rededication", value: "rededication" },
+  { label: "Baptism in Holy Spirit", value: "baptism_in_holy_spirit" },
+  { label: "Committed to Fasting", value: "committed_to_fasting" },
+  { label: "Committed to Tithe", value: "committed_to_tithe" },
+  { label: "Desire to be Baptized", value: "desire_to_be_baptized" },
+  { label: "Desire to Join Discipleship Group", value: "desire_to_join_discipleship_group" },
+] as const;
+
+const healingOutcomeOptions = [
+  { label: "Deliverance", value: "deliverance" },
+  { label: "Inner Healing", value: "inner_healing" },
+  { label: "Addiction Freedom", value: "addiction_freedom" },
+  { label: "Emotional Healing", value: "emotional_healing" },
+  { label: "Physical Healing", value: "physical_healing" },
+  { label: "Restoration", value: "restoration" },
+  { label: "Financial Breakthrough", value: "financial_breakthrough" },
+  { label: "Forgiveness Breakthrough", value: "forgiveness_breakthrough" },
+  { label: "Identity in Christ Breakthrough", value: "identity_in_christ_breakthrough" },
+] as const;
+
+const relationshipOutcomeOptions = [
+  { label: "Marriage Reconciliation", value: "marriage_reconciliation" },
+  { label: "Relationship Restored", value: "relationship_restored" },
+  { label: "Relationship Connection", value: "relationship_connection" },
+] as const;
+
+const ministryMomentOutcomeOptions = [
+  { label: "Prayer Ministry Took Place", value: "prayer_ministry_took_place" },
+  { label: "Communion", value: "communion" },
+  { label: "Washing of Feet", value: "washing_of_feet" },
+  { label: "Deliverance Prayer", value: "deliverance_prayer" },
+  { label: "Prophetic Prayer", value: "prophetic_prayer" },
+  { label: "Healing Prayer", value: "healing_prayer" },
+] as const;
+
+/* Significant outcomes (founder review 2026-09-07): one flat optional list of
+   concrete results or next steps from this conversation. The five earlier
+   outcome groups above are historical-only — saved values keep normalizing
+   and rendering, the form no longer offers them, and granular activities
+   (communion, foot washing, prayer types) belong in Meeting Notes. Outcomes
+   are meeting responses only; they never touch the leader's separate
+   assessment records. */
+const significantOutcomeOptions = [
+  { label: "Decision for Christ", value: "decision_for_christ" },
+  { label: "Rededication", value: "rededication" },
+  { label: "Baptism next step", value: "baptism_next_step" },
+  { label: "Baptism in the Holy Spirit", value: "baptism_in_holy_spirit" },
+  { label: "Connected to a church or ministry", value: "connected_to_church_or_ministry" },
+  { label: "Discipleship next step", value: "discipleship_next_step" },
+  { label: "Healing or breakthrough", value: "healing_or_breakthrough" },
+  { label: "Relationship restored", value: "relationship_restored" },
+  { label: "Other significant outcome", value: "other_significant_outcome" },
+] as const;
+
+const kitchenTableSpiritualGiftsIndex = dosKitchenTableQuestions.findIndex((question) => question.id === "spiritualGifts");
+
+const kitchenTableGiftQuestions = [
+  {
+    id: "manifestationGifts",
+    kind: "multi_select",
+    label: "Manifestation Gifts",
+    options: manifestationGiftOptions,
+    scriptureRefs: ["1 Corinthians 12:7-11"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+  {
+    id: "serviceGifts",
+    kind: "multi_select",
+    label: "Motivational / Service Gifts",
+    options: serviceGiftOptions,
+    scriptureRefs: ["Romans 12:6-8"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+  {
+    id: "fivefoldGifts",
+    kind: "multi_select",
+    label: "Fivefold Ministry Gifts",
+    options: fivefoldGiftOptions,
+    scriptureRefs: ["Ephesians 4:11"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+] as const satisfies readonly DosConversationQuestion[];
+
+const kitchenTableSignificantOutcomesQuestion = {
+  detailLabel: "Significant outcomes",
+  emptyLabel: "Optional",
+  id: "significantOutcomes",
+  kind: "multi_select",
+  label: "Add significant outcomes",
+  options: significantOutcomeOptions,
+} as const satisfies DosConversationQuestion;
+
 export const dosConversationFlowDefinitions = [
   {
     category: "Conversation Flow",
     description: "A guided Gospel conversation for live ministry moments.",
     gatedTo: "usam",
     id: "kitchen_table_gospel",
+    offeredForNewCapture: true,
+    rowDescription: "Questions, spiritual gifts, and ministry outcomes",
+    rowTitle: "Kitchen Table Gospel Responses",
     sections: [
       {
         id: "commands-of-jesus",
-        questions: dosKitchenTableQuestions,
-        title: "Guided Questions",
+        /* Conversational order: the three gift groups sit directly under
+           "Do you have any spiritual gifts?" and render only while it is Yes;
+           "Add significant outcomes" is one optional collapsed row after the
+           relationship rating. */
+        questions: [
+          ...dosKitchenTableQuestions.slice(0, kitchenTableSpiritualGiftsIndex + 1),
+          ...kitchenTableGiftQuestions,
+          ...dosKitchenTableQuestions.slice(kitchenTableSpiritualGiftsIndex + 1),
+          kitchenTableSignificantOutcomesQuestion,
+        ],
+        title: "Kitchen Table Questions",
+      },
+      {
+        /* Historical only (pre-review outcome groups). Kept so saved meetings
+           keep their values through edits and still render them in detail. */
+        historicalOnly: true,
+        id: "outcomes",
+        questions: [
+          { historicalOnly: true, id: "connectionOutcomes", kind: "multi_select", label: "Discipleship & Church Connection", options: connectionOutcomeOptions },
+          { historicalOnly: true, id: "faithCommitmentOutcomes", kind: "multi_select", label: "Faith Commitments", options: faithCommitmentOutcomeOptions },
+          { historicalOnly: true, id: "healingOutcomes", kind: "multi_select", label: "Healing & Breakthrough", options: healingOutcomeOptions },
+          { historicalOnly: true, id: "relationshipOutcomes", kind: "multi_select", label: "Relationship Restoration", options: relationshipOutcomeOptions },
+          { historicalOnly: true, id: "ministryMomentOutcomes", kind: "multi_select", label: "Ministry Moments", options: ministryMomentOutcomeOptions },
+        ],
+        title: "Outcomes",
       },
     ],
     slug: "kitchen-table-gospel",
@@ -199,6 +389,13 @@ export const dosConversationFlowDefinitions = [
   },
 ] as const satisfies readonly DosConversationFlowDefinition[];
 
+/* Discussion guides are the conversation flows offered for new meeting
+   capture. Log Meeting renders one collapsed optional row per guide and no
+   chooser; a second guide is a new definition here, not a schema change, and
+   only then would a picker be warranted. */
+export const dosDiscussionGuides: readonly DosConversationFlowDefinition[] = (dosConversationFlowDefinitions as readonly DosConversationFlowDefinition[])
+  .filter((flow) => flow.offeredForNewCapture === true);
+
 const resourceRecommendationRules: ReadonlyArray<{
   id: DosKitchenTableNonRatingQuestionId;
   matches: ReadonlyArray<DosKitchenTableAnswer>;
@@ -280,6 +477,18 @@ export function isConversationFlowAvailable(flowKey: DosConversationFlowKey, all
   return flowKey === "none" || Boolean(flow && (allowGatedFlows || !flow.gatedTo));
 }
 
+/* True when a request names a flow that only USAM workspaces may store, so
+   the meetings API knows it must read workspace organization state before
+   deciding. "none", nothing, and unknown keys never need that lookup (an
+   unknown key is refused by normalization regardless). */
+export function conversationFlowRequiresGate(value: unknown): boolean {
+  if (typeof value !== "string" || value === "none") {
+    return false;
+  }
+
+  return Boolean(getConversationFlowDefinition(value as DosConversationFlowKey)?.gatedTo);
+}
+
 export function normalizeConversationFlowKey(value: unknown, allowGatedFlows = true): DosConversationFlowKey {
   if (typeof value !== "string" || value === "none") {
     return "none";
@@ -305,11 +514,29 @@ export function normalizeConversationResponses(flowKey: DosConversationFlowKey, 
   const responses: DosConversationResponses = {};
 
   flow.sections.flatMap((section) => section.questions).forEach((question) => {
+    if (!conversationQuestionIsVisible(question, source)) {
+      return;
+    }
+
     if (question.kind === "rating") {
       const rating = normalizeRating(source[question.id]);
 
       if (rating) {
         responses[question.id] = rating;
+      }
+
+      return;
+    }
+
+    if (question.kind === "multi_select") {
+      const validValues = new Set(question.options?.map((option) => option.value) ?? []);
+      const rawSelection = source[question.id];
+      const selectedValues = Array.isArray(rawSelection)
+        ? rawSelection.filter((item): item is string => typeof item === "string" && validValues.has(item))
+        : [];
+
+      if (selectedValues.length) {
+        responses[question.id] = Array.from(new Set(selectedValues));
       }
 
       return;
@@ -344,6 +571,13 @@ export function normalizeConversationResponses(flowKey: DosConversationFlowKey, 
   }
 
   return responses;
+}
+
+export function conversationQuestionIsVisible(
+  question: DosConversationQuestion,
+  responses: Record<string, unknown> | DosConversationResponses,
+) {
+  return !question.visibleWhen || responses[question.visibleWhen.questionId] === question.visibleWhen.equals;
 }
 
 export function normalizeKitchenTableResponses(value: unknown): DosKitchenTableResponses {
@@ -486,8 +720,6 @@ export function buildMeetingRecommendations(flowKey: DosConversationFlowKey, res
   return [];
 }
 
-export function isUsamKitchenTableGospelWorkspace(workspace: { publicProfileHref?: string | null; slug?: string | null }) {
-  // TODO: Replace this public-profile route heuristic with an explicit
-  // organization/workspace feature flag when DOS supports non-USAM tenants.
-  return Boolean(workspace.publicProfileHref?.startsWith("/missionaries/"));
-}
+/* The public-profile-route heuristic that lived here was retired in USA-238:
+   whether a workspace is USAM is decided in src/lib/dos/usam-workspace.ts
+   from application, profile and owning-organization state. */

@@ -5,8 +5,8 @@ import { recalculateCircleScores } from "@/src/lib/dos/circle-scoring";
 import { dosMeetingEventSortValue, dosMeetingEventTimestamp } from "@/src/lib/dos/meeting-lifecycle";
 import {
   buildMeetingRecommendations,
+  conversationFlowRequiresGate,
   getConversationFlowDefinition,
-  isUsamKitchenTableGospelWorkspace,
   normalizeConversationResponses,
   normalizeConversationFlowKey,
   type DosConversationFlowKey,
@@ -15,6 +15,7 @@ import {
 import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
 import { dosAppMeetingTypes, dosAppTableRoles, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType, type DosAppTableRole } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { isUsamWorkspaceById } from "@/src/lib/dos/usam-workspace";
 
 type MeetingPayload = {
   conversationFlowKey?: unknown;
@@ -1176,7 +1177,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Meeting operation ID is invalid." }, { status: 400 });
   }
 
-  const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+  const supabase = createSupabaseAdminClient();
+  /* USA-238: Kitchen Table Gospel is USAM-only. The gate reads the workspace's
+     actual application / public-profile / owning-organization state (never
+     the slug), so a generic DOS workspace cannot submit a gated flow. The
+     read happens only when a gated flow is actually requested; an ordinary
+     meeting never pays for it. */
+  const allowGatedConversationFlows = conversationFlowRequiresGate(payload.conversationFlowKey)
+    ? await isUsamWorkspaceById(supabase, workspaceId)
+    : false;
 
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
@@ -1195,7 +1204,6 @@ export async function POST(request: Request) {
   const ministryTeamPersonIds = uniqueStringArray(asStringArray(payload.ministryTeamPersonIds));
   const supportingAttendeeInputs = asSupportingAttendees(payload);
   const supportingPersonIds = supportingAttendeeInputs.map((attendee) => attendee.personId);
-  const supabase = createSupabaseAdminClient();
   const [peopleResult, teamMembersResult, recorder] = await Promise.all([
     loadScopedPeople(supabase, workspaceId, [
       ...participantPersonIds,
@@ -1464,7 +1472,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ id: data.id, ok: true });
   }
 
-  const allowGatedConversationFlows = isUsamKitchenTableGospelWorkspace({ publicProfileHref: `/missionaries/${workspace.slug}`, slug: workspace.slug });
+  /* USA-238: same server-side USAM gate as POST, from actual workspace state,
+     read only when a gated flow is requested. */
+  const allowGatedConversationFlows = conversationFlowRequiresGate(payload.conversationFlowKey)
+    ? await isUsamWorkspaceById(supabase, workspaceId)
+    : false;
   const unavailableFlowResponse = unavailableConversationFlowResponse(payload.conversationFlowKey, allowGatedConversationFlows);
 
   if (unavailableFlowResponse) {

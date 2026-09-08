@@ -8,7 +8,10 @@ import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   buildMeetingRecommendations,
+  conversationQuestionIsVisible,
   dosConversationFlowDefinitions,
+  type DosConversationFlowDefinition,
+  dosDiscussionGuides,
   getConversationFlowDefinition,
   relationshipWithJesusTemperature,
   type DosConversationAnswer,
@@ -20440,29 +20443,6 @@ function MeetingContextPicker({
   );
 }
 
-function ConversationFlowPicker({
-  allowConversationFlows,
-  onChange,
-  value,
-}: {
-  allowConversationFlows: boolean;
-  onChange: (value: DosConversationFlowKey) => void;
-  value: DosConversationFlowKey;
-}) {
-  const options = allowConversationFlows
-    ? conversationFlowOptions
-    : conversationFlowOptions.filter((option) => option.value === "none");
-
-  return (
-    <CompactOptionSelect
-      label="Conversation Flow"
-      onChange={(nextValue) => onChange(nextValue as DosConversationFlowKey)}
-      options={options}
-      value={(options.find((option) => option.value === value) ?? options[0])?.value ?? "none"}
-    />
-  );
-}
-
 function responseAsNumber(value: DosConversationResponseValue | undefined) {
   return typeof value === "number" ? value : undefined;
 }
@@ -20486,157 +20466,136 @@ function questionResponseLabel(question: DosConversationQuestion, value: DosConv
     return responseAsString(value) || "No notes";
   }
 
+  if (question.kind === "multi_select") {
+    const selectedValues = responseAsStringArray(value);
+    const selectedLabels = question.options
+      ?.filter((option) => selectedValues.includes(option.value))
+      .map((option) => option.label);
+
+    return selectedLabels?.length ? selectedLabels.join(", ") : "None selected";
+  }
+
   return answerLabel(value as DosConversationAnswer | undefined);
 }
 
-function conversationFlowPreviewPrompts(flow: NonNullable<ReturnType<typeof getConversationFlowDefinition>>) {
-  return flow.sections
-    .flatMap((section) => section.questions)
-    .map((question) => question.prompt ?? question.label)
-    .slice(0, 3);
-}
-
-function ConversationFlowExperience({
-  flowKey,
+/* One collapsed optional row per discussion guide (engine
+   `dosDiscussionGuides`). The row shows the guide's title, its supporting
+   description and a status line; questions, gift groups and outcome groups
+   stay hidden until the leader opens it, and each group is itself collapsed
+   with a selected count. There is deliberately no guide chooser: a second
+   guide would add another row from its definition, not a schema change. */
+function DiscussionGuideResponsesSection({
+  active,
+  guide,
+  legacyFlowTitle = null,
+  onActivate,
+  onClear,
   onResponseChange,
-  onToggleFollowUpAction,
-  recommendedResources,
   responses,
 }: {
-  flowKey: DosConversationFlowKey;
+  active: boolean;
+  guide: DosConversationFlowDefinition;
+  /* Set when the meeting being edited was logged with a flow that is no
+     longer offered (Four Questions). Those responses stay on the record
+     until this guide's responses replace them. */
+  legacyFlowTitle?: string | null;
+  onActivate: () => void;
+  onClear: () => void;
   onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
-  onToggleFollowUpAction: (actionId: string) => void;
-  recommendedResources: DosRecommendedResource[];
   responses: DosConversationResponses;
 }) {
-  const flow = getConversationFlowDefinition(flowKey);
-  const temperature = flowKey === "kitchen_table_gospel"
-    ? relationshipWithJesusTemperature(responseAsNumber(responses.relationshipWithJesus))
-    : null;
-  const selectedFollowUpActions = responseAsStringArray(responses.followUpActions);
+  const flow = guide;
+  const rowTitle = guide.rowTitle ?? guide.title;
+  const allQuestions = flow.sections.flatMap((section) => section.questions);
+  const coreQuestions = (flow.sections[0]?.questions ?? []).filter((question) => question.kind !== "multi_select");
+  const answeredCoreQuestions = active
+    ? coreQuestions.filter((question) => responses[question.id] !== undefined).length
+    : 0;
+  // Count only selections the leader can currently see, so a hidden gift
+  // group never inflates the collapsed summary.
+  const selectedExtras = active
+    ? allQuestions
+      .filter((question) => question.kind === "multi_select" && !question.historicalOnly && conversationQuestionIsVisible(question, responses))
+      .reduce<number>((count, question) => count + responseAsStringArray(responses[question.id]).length, 0)
+    : 0;
+  const responseSummary = answeredCoreQuestions || selectedExtras
+    ? `${answeredCoreQuestions} of ${coreQuestions.length} answered${selectedExtras ? ` · ${selectedExtras} selected` : ""}`
+    : legacyFlowTitle
+      ? `${legacyFlowTitle} on record`
+      : "Not added";
+  const updateResponse = (questionId: string, value: DosConversationResponseValue | undefined) => {
+    const hasValue = value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
 
-  if (!flow) {
-    return null;
-  }
+    if (!active && hasValue) {
+      onActivate();
+    }
 
-  const guideResource = dosTableTeachingResources.find((resource) => resource.title === flow.title) ?? null;
-  const previewPrompts = conversationFlowPreviewPrompts(flow);
+    onResponseChange(questionId, value);
+
+    // Gift groups only mean something while Spiritual Gifts is Yes. Drop
+    // their selections the moment the answer that revealed them changes, so
+    // the summary, the payload, and what the leader sees stay in agreement.
+    allQuestions.forEach((dependent) => {
+      if (
+        dependent.visibleWhen?.questionId === questionId
+        && dependent.visibleWhen.equals !== value
+        && responses[dependent.id] !== undefined
+      ) {
+        onResponseChange(dependent.id, undefined);
+      }
+    });
+  };
 
   return (
-    <section className="grid gap-3 rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-      <div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-              Conversation Flow
-            </p>
-            <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{flow.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.description}</p>
-          </div>
-          {temperature ? (
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {temperature}
+    <details className="group rounded-[20px] border border-[#D6E4F7] bg-white">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] text-[#2563EB]">
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
             </span>
-          ) : null}
-        </div>
-
-        {previewPrompts.length ? (
-          <div className="mt-3 grid gap-1.5">
-            {previewPrompts.map((prompt, index) => (
-              <div className="flex gap-2 rounded-2xl border border-[#EAF2FF] bg-white p-2.5 text-xs leading-5 text-[#475569]" key={`${flow.id}-prompt-${index}`}>
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[10px] font-black text-[#1D4ED8]">
-                  {index + 1}
-                </span>
-                <span>{prompt}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {guideResource || recommendedResources.length ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {guideResource ? (
-              <a
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3 text-xs font-bold text-[#1D4ED8]"
-                href={guideResource.href}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                Open guide
-              </a>
-            ) : null}
-            {recommendedResources.slice(0, 3).map((resource) => (
-              <span className="inline-flex min-h-8 items-center rounded-full border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A]" key={resource.id}>
-                {resource.title}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <details className="group rounded-[20px] border border-[#D6E4F7] bg-white p-3">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-[#0F172A] [&::-webkit-details-marker]:hidden">
-          <span>Capture guided responses</span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[#0F172A]">{rowTitle}</span>
+              {guide.rowDescription ? <span className="mt-0.5 block text-xs leading-4 text-[#64748B]">{guide.rowDescription}</span> : null}
+              <span className={`mt-0.5 block text-xs font-semibold ${active ? "text-[#1D4ED8]" : "text-[#64748B]"}`}>{responseSummary}</span>
+            </span>
+          </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
         </summary>
-        <div className="mt-3 grid gap-3">
-          {flow.sections.map((section) => (
-            <div className="grid gap-2" key={section.id}>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-                  {section.title}
-                </p>
-                {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
-              </div>
-              {section.questions.map((question) => (
-                <ConversationQuestionCard
-                  key={question.id}
-                  onResponseChange={onResponseChange}
-                  question={question}
-                  value={responses[question.id]}
-                />
-              ))}
-            </div>
-          ))}
-
-          {flow.closingPrompt || flow.gospelInvitation ? (
-            <div className="rounded-2xl border border-[#BFDBFE] bg-[#EBF2FF] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                Gospel Invitation
-              </p>
-              {flow.closingPrompt ? <p className="mt-2 text-sm font-semibold leading-5 text-[#0F172A]">{flow.closingPrompt}</p> : null}
-              {flow.gospelInvitation ? <p className="mt-1 text-xs leading-5 text-[#64748B]">{flow.gospelInvitation}</p> : null}
-            </div>
+        <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-3 pt-4">
+          {legacyFlowTitle && !active ? (
+            <p className="rounded-2xl border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
+              This meeting was logged with {legacyFlowTitle}. Those responses stay on the record unless you add {rowTitle} here.
+            </p>
           ) : null}
+          {flow.sections.filter((section) => !section.historicalOnly).map((section) => {
+            const visibleQuestions = section.questions.filter((question) => !question.historicalOnly && conversationQuestionIsVisible(question, responses));
 
-          {flow.followUpActions?.length ? (
-            <div className="rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
-              <p className="text-sm font-semibold text-[#0F172A]">Follow-up</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {flow.followUpActions.map((action) => {
-                  const selected = selectedFollowUpActions.includes(action.id);
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={`min-h-8 rounded-full border px-3 text-xs font-bold ${
-                        selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                      }`}
-                      key={action.id}
-                      onClick={() => onToggleFollowUpAction(action.id)}
-                      type="button"
-                    >
-                      {action.label}
-                    </button>
-                  );
-                })}
+            return visibleQuestions.length ? (
+              <div className="grid gap-2" key={section.id}>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+                    {section.title}
+                  </p>
+                  {section.description ? <p className="mt-0.5 text-xs leading-5 text-[#64748B]">{section.description}</p> : null}
+                </div>
+                {visibleQuestions.map((question) => (
+                  <ConversationQuestionCard
+                    key={question.id}
+                    onResponseChange={updateResponse}
+                    question={question}
+                    value={responses[question.id]}
+                  />
+                ))}
               </div>
-            </div>
+            ) : null;
+          })}
+          {active ? (
+            <button className="justify-self-start text-xs font-semibold text-[#64748B] underline-offset-2 hover:text-[#0F172A] hover:underline" onClick={onClear} type="button">
+              Remove {rowTitle}
+            </button>
           ) : null}
         </div>
       </details>
-    </section>
   );
 }
 
@@ -20692,6 +20651,57 @@ function ConversationQuestionCard({
           value={responseAsString(value)}
         />
       </label>
+    );
+  }
+
+  if (question.kind === "multi_select") {
+    const selectedValues = responseAsStringArray(value);
+
+    return (
+      <details className="group rounded-2xl border border-[#EAF2FF] bg-white p-2.5">
+        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="block text-sm font-semibold text-[#0F172A]">{question.label}</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">{selectedValues.length ? `${selectedValues.length} selected` : question.emptyLabel ?? "None selected"}</span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
+        </summary>
+        {question.scriptureRefs?.length ? (
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
+            {question.scriptureRefs.join(" · ")}
+          </p>
+        ) : null}
+        <div className="mt-2 grid gap-1.5">
+          {question.options?.map((option) => {
+            const selected = selectedValues.includes(option.value);
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={`flex min-h-10 items-center gap-2.5 rounded-xl border px-3 text-left text-sm font-semibold ${
+                  selected ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]" : "border-[#E2E8F0] bg-white text-[#0F172A]"
+                }`}
+                key={option.value}
+                onClick={() => onResponseChange(
+                  question.id,
+                  selected ? selectedValues.filter((item) => item !== option.value) : [...selectedValues, option.value],
+                )}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border ${
+                    selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#C7D9F5] bg-white"
+                  }`}
+                >
+                  {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                </span>
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </details>
     );
   }
 
@@ -20944,7 +20954,16 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={member.id}
-              onClick={() => onToggleMember(member.id)}
+              onClick={() => {
+                /* Choosing a result adds the person once and hands the field
+                   back empty, so the next name can be typed straight away
+                   (USA-238 founder review). */
+                if (!selectedMemberIds.includes(member.id)) {
+                  onToggleMember(member.id);
+                }
+
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
@@ -20958,7 +20977,13 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
-              onClick={() => onTogglePerson(person.id)}
+              onClick={() => {
+                if (!selectedPersonIds.includes(person.id)) {
+                  onTogglePerson(person.id);
+                }
+
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index + visibleMembers.length)}`}>
@@ -21644,7 +21669,6 @@ function MeetingFormContent({
   onSupportingAttendeeQueryChange,
   onSupportingAttendeeSubRoleChange,
   onTableRoleChange,
-  onToggleFollowUpAction,
   onToggleMinistryTeamMember,
   onToggleMinistryTeamPerson,
   onToggleOutcomeTag,
@@ -21702,7 +21726,6 @@ function MeetingFormContent({
   onSupportingAttendeeQueryChange: (value: string) => void;
   onSupportingAttendeeSubRoleChange: (personId: string, value: DosSupportingAttendeeSubRole | "") => void;
   onTableRoleChange: (value: DosAppTableRole) => void;
-  onToggleFollowUpAction: (actionId: string) => void;
   onToggleMinistryTeamMember: (memberId: string) => void;
   onToggleMinistryTeamPerson: (personId: string) => void;
   onToggleOutcomeTag?: (tag: string) => void;
@@ -21789,13 +21812,6 @@ function MeetingFormContent({
   );
   const durationSelector = showDurationField ? <MeetingDurationSelector defaultMinutes={durationDefault} /> : null;
   const meetingContextPicker = <MeetingContextPicker onChange={onContextChange} value={selectedMeetingContext} />;
-  const conversationFlowPicker = showConversationFlow ? (
-    <ConversationFlowPicker
-      allowConversationFlows={allowConversationFlows}
-      onChange={onConversationFlowChange}
-      value={selectedConversationFlow}
-    />
-  ) : null;
   // Collapsed summary for "More people & role", so the section can stay shut
   // without concealing the prefilled ministry team.
   const morePeopleSummary = (() => {
@@ -21894,6 +21910,22 @@ function MeetingFormContent({
       <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
         {meetingContextPicker}
       </DosFormSection>
+      {showConversationFlow && allowConversationFlows ? dosDiscussionGuides.map((guide) => (
+        <DiscussionGuideResponsesSection
+          active={selectedConversationFlow === guide.id}
+          guide={guide}
+          key={guide.id}
+          legacyFlowTitle={selectedConversationFlow !== "none" && !dosDiscussionGuides.some((candidate) => candidate.id === selectedConversationFlow) ? conversationFlowLabel(selectedConversationFlow) : null}
+          onActivate={() => {
+            if (selectedConversationFlow !== guide.id) {
+              onConversationFlowChange(guide.id);
+            }
+          }}
+          onClear={() => onConversationFlowChange("none")}
+          onResponseChange={onConversationResponse}
+          responses={conversationResponses}
+        />
+      )) : null}
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
           allPeople={allPeople}
@@ -21916,7 +21948,7 @@ function MeetingFormContent({
           <MeetingCaptureNotes defaultValue={notesDefault} label="Notes" showLabel={false} />
         </DosFormSection>
       )}
-      {showConversationFlow && selectedConversationFlow === "none" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
+      {showConversationFlow && selectedConversationFlow === "kitchen_table_gospel" ? <MeetingRecommendationsPreview resources={recommendedResources} /> : null}
       <FormMessage message={errorMessage} />
       <StickyFormFooter>
         <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
@@ -32887,52 +32919,110 @@ function ParticipantTestimonyRow({ onClick, testimony }: { onClick?: () => void;
   );
 }
 
-function ConversationFlowDetail({ meeting }: { meeting: DosAppMeeting }) {
+/* Saved conversation responses on the meeting record: the Kitchen Table
+   answers, the relationship rating, the gift groups revealed by a Yes, and
+   the grouped outcomes. Historical Four Questions meetings render through
+   the same path. Only answered questions appear; nothing is invented. */
+function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
   const flow = getConversationFlowDefinition(meeting.conversationFlowKey);
 
   if (!flow) {
     return null;
   }
 
-  const selectedActions = responseAsStringArray(meeting.conversationResponses.followUpActions);
+  const responses = meeting.conversationResponses;
+  const answeredSections = flow.sections
+    .map((section) => ({
+      questions: section.questions.filter((question) => {
+        if (!conversationQuestionIsVisible(question, responses)) {
+          return false;
+        }
+
+        const value = responses[question.id];
+
+        return question.kind === "multi_select"
+          ? responseAsStringArray(value).length > 0
+          : value !== undefined && value !== "";
+      }),
+      section,
+    }))
+    .filter((entry) => entry.questions.length > 0);
+  const selectedActions = responseAsStringArray(responses.followUpActions);
   const selectedActionLabels = (flow.followUpActions ?? [])
     .filter((action) => selectedActions.includes(action.id))
     .map((action) => action.label);
 
+  if (!answeredSections.length && !selectedActionLabels.length) {
+    return null;
+  }
+
   return (
-    <DetailCard title={flow.title}>
-      {flow.sections.map((section) => (
-        <div className="grid gap-2" key={section.id}>
-          {flow.sections.length > 1 ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-              {section.title}
-            </p>
+    <section className="border-b border-dos-rule py-5">
+      <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">
+        {flow.rowTitle ?? flow.title}
+      </h3>
+      {answeredSections.map(({ questions, section }, index) => (
+        <div className={index === 0 ? "mt-2" : "mt-3"} key={section.id}>
+          {answeredSections.length > 1 ? (
+            <p className="text-[12.5px] font-semibold text-dos-secondary">{section.title}</p>
           ) : null}
-          {section.questions.map((question) => (
-            <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#F1F5F9] p-3" key={question.id}>
-              <p className="text-sm leading-5 text-[#0F172A]">{question.label}</p>
-              <span className="max-w-[52%] shrink-0 rounded-full bg-white px-2.5 py-1 text-right text-xs font-semibold text-[#64748B]">
-                {questionResponseLabel(question, meeting.conversationResponses[question.id])}
-              </span>
-            </div>
-          ))}
+          <ul className="mt-1.5 grid gap-2">
+            {questions.map((question) => {
+              const value = responses[question.id];
+
+              if (question.kind === "multi_select") {
+                const selectedLabels = (question.options ?? [])
+                  .filter((option) => responseAsStringArray(value).includes(option.value))
+                  .map((option) => option.label);
+
+                return (
+                  <li className="grid gap-1" key={question.id}>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.detailLabel ?? question.label}</span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {selectedLabels.map((label) => (
+                        <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[12.5px] font-semibold text-[#1D4ED8]" key={label}>
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                );
+              }
+
+              if (question.kind === "text" || question.kind === "notes") {
+                return (
+                  <li className="grid gap-0.5" key={question.id}>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.detailLabel ?? question.label}</span>
+                    <span className="whitespace-pre-line text-[14.5px] leading-[1.5] text-dos-body">{responseAsString(value)}</span>
+                  </li>
+                );
+              }
+
+              return (
+                <li className="flex items-start justify-between gap-3" key={question.id}>
+                  <span className="min-w-0 text-[14.5px] leading-[1.5] text-dos-body">{question.detailLabel ?? question.label}</span>
+                  <span className="shrink-0 text-right text-[14.5px] font-semibold leading-[1.5] text-dos-primary">
+                    {questionResponseLabel(question, value)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ))}
       {selectedActionLabels.length ? (
-        <div className="rounded-2xl bg-[#F1F5F9] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            Follow-up
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-3">
+          <p className="text-[12.5px] font-semibold text-dos-secondary">Follow-up</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {selectedActionLabels.map((label) => (
-              <span className="rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]" key={label}>
+              <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[12.5px] font-semibold text-[#1D4ED8]" key={label}>
                 {label}
               </span>
             ))}
           </div>
         </div>
       ) : null}
-    </DetailCard>
+    </section>
   );
 }
 
@@ -34297,7 +34387,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
 
     return (
       <div className="grid gap-3">
-        {flow.sections.map((section) => {
+        {flow.sections.filter((section) => !("historicalOnly" in section && section.historicalOnly)).map((section) => {
           const sectionDescription = "description" in section ? section.description : null;
 
           return (
@@ -34305,7 +34395,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
               <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
               {sectionDescription ? <p className="mt-1 text-dos-body text-dos-secondary">{sectionDescription}</p> : null}
               <div className="mt-4 grid gap-3">
-                {section.questions.map((question, index) => {
+                {section.questions.filter((question) => question.kind !== "multi_select").map((question, index) => {
                   const prompt = "prompt" in question ? question.prompt : null;
                   const scriptureRefs = "scriptureRefs" in question ? question.scriptureRefs : null;
 
@@ -37721,6 +37811,11 @@ function MeetingDetailOverlay({
                     </ul>
                   </section>
                 ) : null}
+
+                {/* What they said at the table. Raw meeting responses, kept
+                    apart from Fruit observed above: an outcome ticked here is
+                    a record of the conversation, not a canonical Fruit event. */}
+                <ConversationResponsesSection meeting={meeting} />
               </>
             )}
 
@@ -43444,26 +43539,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     });
   }
 
-  function handleConversationFollowUpAction(actionId: string) {
-    setConversationResponses((current) => {
-      const currentActions = responseAsStringArray(current.followUpActions);
-      const nextActions = currentActions.includes(actionId)
-        ? currentActions.filter((currentAction) => currentAction !== actionId)
-        : [...currentActions, actionId];
-
-      if (!nextActions.length) {
-        const { followUpActions: _removed, ...rest } = current;
-
-        return rest;
-      }
-
-      return {
-        ...current,
-        followUpActions: nextActions,
-      };
-    });
-  }
-
   const prayerReminders = data.reminders.filter((reminder) => reminder.reminderType === "prayer");
   const prayerReminderCount = prayerReminders.length;
   const mobilePrayerRows = useMemo<PrayerDetail[]>(() => {
@@ -45887,7 +45962,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
             onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
             onTableRoleChange={setSelectedTableRole}
-            onToggleFollowUpAction={handleConversationFollowUpAction}
             onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
             onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
             onToggleOutcomeTag={toggleOutcomeTag}
@@ -46004,7 +46078,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               onSupportingAttendeeQueryChange={setSupportingAttendeeQuery}
               onSupportingAttendeeSubRoleChange={updateSupportingAttendeeSubRole}
               onTableRoleChange={setSelectedTableRole}
-              onToggleFollowUpAction={handleConversationFollowUpAction}
               onToggleMinistryTeamMember={toggleMinistryTeamMemberId}
               onToggleMinistryTeamPerson={toggleMinistryTeamPersonId}
               onToggleOutcomeTag={toggleOutcomeTag}

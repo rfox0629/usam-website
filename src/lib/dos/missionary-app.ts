@@ -1,14 +1,7 @@
 import "server-only";
 
-import {
-  isUsamKitchenTableGospelWorkspace,
-  normalizeConversationResponses,
-  normalizeConversationFlowKey,
-  normalizeRecommendedResources,
-  type DosConversationFlowKey,
-  type DosConversationResponses,
-  type DosRecommendedResource,
-} from "@/src/lib/dos/meeting-engine";
+import { normalizeConversationResponses, normalizeConversationFlowKey, normalizeRecommendedResources, type DosConversationFlowKey, type DosConversationResponses, type DosRecommendedResource } from "@/src/lib/dos/meeting-engine";
+import { decideUsamWorkspace } from "@/src/lib/dos/usam-workspace";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import {
   normalizeRelationshipType,
@@ -4148,6 +4141,7 @@ async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, works
     if (organizationName) {
       return {
         brandingMode: organizationResult.data?.branding_mode ?? null,
+        inferred: false,
         name: organizationName,
         slug: organizationResult.data?.slug ?? null,
       };
@@ -4162,9 +4156,13 @@ async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, works
 
   const fallbackName = cleanOptionalText(usamOrganizationResult.error ? null : usamOrganizationResult.data?.name);
 
+  /* Display fallback only: a workspace with no owning organization shows the
+     USAM organization's name in its connections list, but this inferred link
+     is not ownership and must not make the workspace USAM (USA-238). */
   return fallbackName
     ? {
       brandingMode: "usam",
+      inferred: true,
       name: fallbackName,
       slug: "usa-missionaries",
     }
@@ -5351,7 +5349,11 @@ export async function loadDosAppData(
         displayName: workspace.display_name,
         greetingName: null,
         id: workspace.id,
-        isUsamWorkspace: usamApplication.status === "approved" || usamApplication.status === "active" || usamApplication.publicProfileLive || organization?.brandingMode === "usam" || organization?.slug === "usa-missionaries" || isUsamKitchenTableGospelWorkspace({ publicProfileHref: organization?.brandingMode === "usam" ? publicProfileHrefForWorkspace(workspace) : null, slug: workspace.slug }),
+        isUsamWorkspace: decideUsamWorkspace({
+          applicationStatus: usamApplication.status,
+          ownerOrganization: organization && !organization.inferred ? organization : null,
+          publicProfileLive: usamApplication.publicProfileLive,
+        }),
         organizationName: organization?.name ?? null,
         profileImageUrl: workspace.profile_image_url,
         publicProfileHref: publicProfileHrefForWorkspace(workspace),

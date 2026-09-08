@@ -43,12 +43,13 @@ Do not introduce another people, contact, disciple, or relationship table for th
 
 - Meetings separate Meeting Context from Conversation Flow.
 - Meeting Context records how the interaction happened, such as Kitchen Table, Coffee, Phone, Zoom, Text, Prayer, Group, Discipleship, or Other.
-- Conversation Flow records what spiritual guide was used. `None` is the universal default.
+- Conversation Flow records what spiritual guide was used. `None` is the universal default and non-USAM workspaces do not see organization-owned response capture.
 - Table Conversations are live-meeting resources. They may include a printable PDF teaching guide, an app-startable flow, or both.
 - App-startable Conversation Flows are reusable guided discipleship experiences, not passive PDFs.
-- Implemented table conversations: Kitchen Table Gospel and Four Questions.
-- Kitchen Table Gospel and Four Questions are currently gated to USAM Missionary Workspaces.
-- Library is for opening resources. Structured conversation execution belongs inside Log Meeting -> Conversation Flow.
+- Kitchen Table response capture is available as one collapsed, optional section in Log Meeting for USAM Missionary Workspaces only. "USAM" is decided from actual state in `src/lib/dos/usam-workspace.ts` (approved/active application, live public profile, or a USA Missionaries owning organization) and enforced by the meetings API (403 for a gated flow from any other workspace) as well as by the app loader; the client alone never gates it (`test:dos-kitchen-table-boundary` proves both sides against fake rows). It stores the Kitchen Table questions, relationship-with-Jesus rating, identified gift groups, and outcomes from the conversation.
+- Four Questions remains in the data model only for historical compatibility and is not offered when logging a new meeting.
+- Kitchen Table outcomes are raw meeting responses. They do not automatically create canonical Fruit records; confirmed Fruit is recorded separately.
+- Library is for opening resources. Structured Kitchen Table response capture belongs inside Log Meeting.
 - Flow responses are stored as flexible private JSONB on the meeting record so new questions can expand without a migration for every prompt.
 - Flows support simple answer types, recommendations, and follow-up actions.
 - Recommended resources are queued on the meeting record. DOS does not automatically send texts, emails, or shared guides yet.
