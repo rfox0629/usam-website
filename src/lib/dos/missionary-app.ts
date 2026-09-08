@@ -306,6 +306,10 @@ export type DosAppParticipantTestimony = {
   id: string;
   meetingId: string;
   nextStep: string | null;
+  /* USA-243: what the person explicitly chose under "What fruit did you
+     notice?". This is the ONLY fruit a testimony asserts — the story itself is
+     narrative evidence and is never scanned for outcomes. */
+  outcomeTags: string[];
   permissionToShare: boolean;
   personId: string | null;
   publicDisplayName: string | null;
@@ -1827,6 +1831,7 @@ type ParticipantTestimonyRow = {
   id: string;
   meeting_id: string;
   next_step: string | null;
+  outcome_tags?: unknown;
   permission_to_share: boolean | null;
   person_id: string | null;
   public_display_name: string | null;
@@ -3974,7 +3979,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("participant_testimonies")
-        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, permission_to_share, public_display_name, status, submitted_at, submitted_name, submitted_email")
+        .select("id, meeting_id, person_id, story, what_changed, decision_made, next_step, outcome_tags, permission_to_share, public_display_name, status, submitted_at, submitted_name, submitted_email")
         .in("meeting_id", meetingIds)
         .order("submitted_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -5030,6 +5035,7 @@ export async function loadDosAppData(
     id: testimony.id,
     meetingId: testimony.meeting_id,
     nextStep: testimony.next_step,
+    outcomeTags: Array.isArray(testimony.outcome_tags) ? testimony.outcome_tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
     permissionToShare: testimony.permission_to_share === true,
     personId: testimony.person_id,
     publicDisplayName: testimony.public_display_name,

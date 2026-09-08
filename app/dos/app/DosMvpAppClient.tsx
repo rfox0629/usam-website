@@ -34,7 +34,8 @@ import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, P
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
-import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions, dosTestimonyReviewFormDefinition } from "@/src/lib/dos/review-form-config";
+import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
+import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
 import { personNotesToPlainText, splitPersonNotesValue } from "@/src/lib/dos/person-notes";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "@/src/lib/dos/person-evidence";
@@ -98,6 +99,7 @@ import {
   type RelationshipScoreValue,
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
+import { canonicalFruitGroupOptions } from "@/src/lib/dos/fruit-vocabulary";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
@@ -975,47 +977,26 @@ const fruitOutcomeByKey: ReadonlyMap<string, FruitOutcomeDefinition> = new Map(f
 const outcomeTagOptions = fruitOutcomeDefinitions
   .filter((outcome) => outcome.sources.includes("leader_review"))
   .map((outcome) => outcome.leaderLabel ?? outcome.label);
-/* New Observed Fruit choices, grouped so the leader's question is obvious:
-   "What fruit became evident in this interaction?"
+/* USA-243: Observed Fruit offers the ONE canonical vocabulary — the same 11
+   labels a recipient sees on a testimony — so a leader and the person they met
+   with describe the same result in the same words, and reporting never has to
+   reconcile two lists that mean the same thing.
 
-   `value` is the canonical stored value, and fruit_events.fruit_type stores the
-   display label -- so these values are exactly today's labels and no history is
-   orphaned. Removed from NEW logging: Started Discipling Others and Discipling
-   (now Accountability progress), Prayer Request (already canonical Prayer),
-   Joined Discipleship (a Journey/Group state), Felt encouraged (belongs to
-   Quick Review) and Prayer Received. Every one of those remains a historical
-   fact and still renders wherever it was recorded; it is simply no longer
-   offered for new logging. */
-const meetingObservedFruitCategories: ReadonlyArray<{ label: string; options: ReadonlyArray<{ label: string; value: string }> }> = [
-  {
-    label: "Spiritual response",
-    options: [
-      { label: "New Believers", value: "New Believers" },
-      { label: "Baptized", value: "Baptized" },
-    ],
-  },
-  {
-    label: "Restoration",
-    options: [
-      { label: "Answered Prayer", value: "Answered Prayer" },
-      { label: "Reconciliation", value: "Reconciliation" },
-      { label: "Marriage Restoration", value: "Marriage Restoration" },
-    ],
-  },
-  {
-    label: "Growth",
-    options: [
-      { label: "Testimony Shared", value: "Testimony Shared" },
-    ],
-  },
-  {
-    label: "Mission",
-    options: [
-      { label: "Gospel Conversation", value: "Gospel Conversation" },
-      { label: "Serving", value: "Serving" },
-    ],
-  },
-];
+   What left this list left it because it is not fruit. "Gospel Conversation"
+   and "Testimony Shared" are ministry ACTIVITY: real, worth recording, but
+   evidence that ministry happened rather than a result to count. "Marriage
+   Restoration" is Reconciliation with a context of "Marriage", not a twelfth
+   top-level label. Every one of those remains a historical fact and still
+   renders wherever it was recorded (see `renderableObservedFruitValues`); it is
+   simply no longer offered for new logging.
+
+   `value` is the canonical label, which is what `fruit_events.fruit_type`
+   already stores, so nothing written before today is orphaned and reverting
+   this change needs no data migration. */
+const meetingObservedFruitCategories: ReadonlyArray<{ label: string; options: ReadonlyArray<{ label: string; value: string }> }> = canonicalFruitGroupOptions.map((group) => ({
+  label: group.label,
+  options: group.options.map((option) => ({ label: option.label, value: option.label })),
+}));
 
 const meetingObservedFruitOptions = meetingObservedFruitCategories.flatMap((category) => category.options);
 /* Two sets, deliberately different sizes.
@@ -2568,9 +2549,15 @@ function formDurationMinutes(value: FormDataEntryValue | null) {
 }
 
 function formObservedFruit(formData: FormData) {
+  /* Validated against everything DOS has ever offered, not against the
+     narrowed canonical picker (USA-243). The picker only OFFERS the canonical
+     vocabulary, but a meeting logged years ago carries values that are no
+     longer offered; validating against the narrow set would silently delete
+     those the moment someone opened the meeting and pressed Save. A recorded
+     fact is not junk input. */
   return formData
     .getAll("observed_fruit")
-    .filter((value): value is string => typeof value === "string" && meetingObservedFruitValues.has(value));
+    .filter((value): value is string => typeof value === "string" && renderableObservedFruitValues.has(value));
 }
 
 function formatDurationLabel(minutes: number | null) {
@@ -3139,7 +3126,8 @@ function observedFruitForMeeting(reflections: DosAppLeaderReflection[], fruitEve
         event.meetingId === meetingId
         && event.status !== "hidden"
         && (event.generatedBy === "leader_review" || event.sourceType === "leader_reflection")
-        && meetingObservedFruitValues.has(event.fruitType)
+        /* Display, not selection: a historical fruit type must still show. */
+        && renderableObservedFruitValues.has(event.fruitType)
       )
       .map((event) => event.fruitType),
   ));
@@ -20447,13 +20435,21 @@ function ObservedFruitMultiSelect({
   onToggle: (tag: string) => void;
   selectedOutcomeTags: string[];
 }) {
+  /* Anything already recorded on this meeting that the canonical vocabulary no
+     longer offers. It is shown, selected, in its own group so the leader can
+     see exactly what was recorded and decide — rather than discovering later
+     that pressing Save quietly dropped it (USA-243). */
+  const recordedEarlier = selectedOutcomeTags.filter((tag) => !meetingObservedFruitValues.has(tag));
+  const categories = recordedEarlier.length
+    ? [...meetingObservedFruitCategories, { label: "Recorded earlier", options: recordedEarlier.map((tag) => ({ label: tag, value: tag })) }]
+    : meetingObservedFruitCategories;
   /* The section itself is already a disclosure, so it needs neither a second
      one inside it nor a badge restating what a closed section already says.
      Opening it shows every choice, grouped, straight away. */
   return (
     <div className="grid gap-4">
       <p className="text-[14px] leading-[1.5] text-dos-body">What fruit became evident in this interaction?</p>
-      {meetingObservedFruitCategories.map((category) => (
+      {categories.map((category) => (
         <div key={category.label}>
           <h4 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-dos-eyebrow">{category.label}</h4>
           <div className="mt-1.5 grid gap-1.5">
@@ -21410,22 +21406,15 @@ function fruitOutcomeMatchesValue(outcome: FruitOutcomeDefinition, value: string
   return searchableLabels.some((label) => normalizeFruitOutcomeText(label) === normalizedValue);
 }
 
-function fruitOutcomeMatchesText(outcome: FruitOutcomeDefinition, value: string) {
-  const text = fruitSearchText(value);
-  const searchableLabels = [
-    outcome.label,
-    outcome.formLabel,
-    outcome.leaderLabel,
-    ...outcome.aliases,
-  ].filter((label): label is string => Boolean(label));
+/* USA-243 retired `fruitOutcomeMatchesText`, which searched a story's summary,
+   title and description for any label longer than three characters and treated
+   a substring hit as fruit. Writing "we talked about how her marriage is
+   healing" silently produced a Marriage Restoration outcome nobody recorded,
+   and one sentence could manufacture several. Spiritual fruit is now only ever
+   what a person explicitly selected.
 
-  return searchableLabels.some((label) => {
-    const normalizedLabel = normalizeFruitOutcomeText(label);
-
-    return normalizedLabel.length > 3 && normalizedLabel !== "other" && text.includes(normalizedLabel);
-  });
-}
-
+   `fruitOutcomesFromValues` therefore takes EXPLICIT TAG VALUES ONLY. Callers
+   must not pass narrative text; it is read by people, not classified. */
 function fruitOutcomesFromValues(...values: Array<null | string | string[] | undefined>) {
   const directValues = values
     .flatMap((value) => Array.isArray(value) ? value : [value])
@@ -21434,7 +21423,7 @@ function fruitOutcomesFromValues(...values: Array<null | string | string[] | und
 
   directValues.forEach((value) => {
     fruitOutcomeDefinitions.forEach((outcome) => {
-      if (fruitOutcomeMatchesValue(outcome, value) || fruitOutcomeMatchesText(outcome, value)) {
+      if (fruitOutcomeMatchesValue(outcome, value)) {
         outcomes.set(outcome.key, outcome);
       }
     });
@@ -21524,7 +21513,7 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
     ...fruitItems
       .filter((fruit) => fruit.status === "approved")
       .map((fruit) => {
-        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(fruit.outcomeTags, fruit.summary));
+        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(fruit.outcomeTags));
 
         return {
           date: fruit.testimonyDate,
@@ -21543,7 +21532,7 @@ function approvedFruitStories(fruitItems: DosAppFruit[], fruitEvents: DosAppFrui
       .filter((event) => event.status === "approved")
       .map((event) => {
         const source = fruitEventSourceLabel(event);
-        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(event.fruitType, event.title, event.description));
+        const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(event.fruitType));
 
         return {
           date: event.date,
@@ -21586,12 +21575,10 @@ function fieldFruitStories({
     .filter((testimony) => isSubmittedStatus(testimony.status))
     .filter((testimony) => Boolean(testimony.story?.trim() || testimony.whatChanged?.trim() || testimony.decisionMade?.trim()))
     .map((testimony) => {
-      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
-        testimony.decisionMade,
-        testimony.nextStep,
-        testimony.whatChanged,
-        testimony.story,
-      ));
+      /* Only what the person explicitly selected. Their story, what changed
+         and their next step are narrative evidence — read by people, never
+         mined for fruit (USA-243). */
+      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(testimony.outcomeTags));
 
       return {
         date: testimony.submittedAt,
@@ -21609,11 +21596,9 @@ function fieldFruitStories({
   const reflectionStories = leaderReflections
     .filter((reflection) => Boolean(reflection.observedFruit.length || reflection.whatHappened?.trim() || reflection.prayerNeeds?.trim()))
     .map((reflection) => {
-      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(
-        reflection.observedFruit,
-        reflection.whatHappened,
-        reflection.nextStep,
-      ));
+      /* Only the fruit the leader explicitly recorded; "what happened" and the
+         next step are narrative (USA-243). */
+      const outcomeFields = fruitStoryOutcomeFields(fruitOutcomesFromValues(reflection.observedFruit));
 
       return {
         date: reflection.createdAt,

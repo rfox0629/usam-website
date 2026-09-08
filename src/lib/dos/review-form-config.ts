@@ -1,13 +1,8 @@
-export const dosReviewOutcomeOptions = [
-  { label: "Reconciliation", value: "Reconciliation" },
-  { label: "New Believers", value: "New Believers" },
-  { label: "Marriage Restoration", value: "Marriage Restoration" },
-  { label: "Baptized", value: "Baptized" },
-  { label: "Discipling", value: "Discipling" },
-  { label: "Started Discipling Others", value: "Started Discipling Others" },
-  { label: "Answered Prayer", value: "Answered Prayer" },
-] as const;
-
+/* Quick Review configuration. This module is deliberately DEPENDENCY-FREE: the
+   DOS regression scripts import it directly under Node's type stripping, which
+   cannot resolve the "@/" alias or an extensionless relative TypeScript import.
+   Anything that needs the canonical fruit vocabulary lives in
+   `testimony-form-config.ts` instead (USA-243). */
 /* What Quick Review V2 offers. Four things a person can actually notice in
    themselves after a conversation. The ten-option list below is kept as the
    historical set -- reviews already submitted still render every tag they
@@ -101,75 +96,13 @@ export const dosQuickReviewFormDefinition = {
   ],
 } as const;
 
-export const dosTestimonyReviewFormDefinition = {
-  description: "A deeper story form someone completes after a saved meeting.",
-  title: "Testimony Review",
-  sections: [
-    {
-      copy: "The secure link already identifies who is sharing and which meeting it is about, so the form never asks for a name or email.",
-      label: "Who is sharing",
-      type: "notice",
-    },
-    {
-      fieldType: "textarea",
-      label: "What happened?",
-      placeholder: "Share what happened in your own words.",
-      required: true,
-      type: "field",
-    },
-    {
-      fieldType: "textarea",
-      label: "What changed?",
-      placeholder: "What feels different now?",
-      type: "field",
-    },
-    {
-      fieldType: "text",
-      label: "Did you take a next step?",
-      placeholder: "Optional",
-      type: "field",
-    },
-    {
-      choiceType: "checkbox",
-      label: "What fruit did you notice?",
-      options: dosReviewOutcomeOptions.map((option) => option.label),
-      type: "choice",
-    },
-    {
-      copy: "Stories are reviewed before anything is shared publicly.",
-      label: "Privacy",
-      type: "notice",
-    },
-    {
-      choiceType: "radio",
-      label: "May we share this testimony?",
-      options: dosReviewSharePermissionOptions.map((option) => option.label),
-      type: "choice",
-    },
-  ],
-} as const;
-
-export type DosReviewOutcomeValue = typeof dosReviewOutcomeOptions[number]["value"];
 export type DosQuickReviewOutcomeValue = typeof dosQuickReviewOutcomeOptions[number]["value"];
 export type DosQuickReviewExperienceValue = typeof dosQuickReviewExperienceOptions[number]["value"];
 export type DosReviewOptionChoice = typeof dosReviewOptionChoices[number]["value"];
 export type DosReviewSharePermissionValue = typeof dosReviewSharePermissionOptions[number]["value"];
 export type DosQuickReviewOverallRatingValue = typeof dosQuickReviewOverallRatingOptions[number]["value"];
 
-const dosReviewOutcomeValueSet = new Set<string>(dosReviewOutcomeOptions.map((option) => option.value));
 const dosQuickReviewOutcomeValueSet = new Set<string>(dosQuickReviewOutcomeOptions.map((option) => option.value));
-
-export function normalizeDosReviewOutcomeTags(value: unknown): DosReviewOutcomeValue[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return Array.from(new Set(
-    value.filter((item): item is DosReviewOutcomeValue => (
-      typeof item === "string" && dosReviewOutcomeValueSet.has(item)
-    )),
-  ));
-}
 
 export function normalizeDosQuickReviewOutcomeTags(value: unknown): DosQuickReviewOutcomeValue[] {
   if (!Array.isArray(value)) {

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { accountabilityConfirmedSubjects, accountabilityCountProgress, accountabilityProgressKind, accountabilityProgressLabel, commitmentConfirmedSubjectCount, unifiedAccountabilityRows } from "../src/lib/dos/accountability-presentation.ts";
 import { isMissingCommitmentsSchema } from "../src/lib/dos/commitments-accountability.ts";
 import { canonicalCircleForRecalculation } from "../src/lib/dos/circle-placement.ts";
+import { canonicalFruitOptions } from "../src/lib/dos/fruit-vocabulary.ts";
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow } from "../src/lib/dos/meeting-workflow.ts";
 import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidenceCounts } from "../src/lib/dos/person-evidence.ts";
 import { canonicalRelationshipModel, relationshipModelFromFields, relationshipModelSummary } from "../src/lib/dos/relationship-model.ts";
@@ -316,31 +317,45 @@ await check("Multiplication progress counts distinct subjects, not update rows",
 });
 
 /* Observed Fruit was the catch-all for every kind of discipleship activity.
-   The narrowed selector must not orphan history: fruit_events.fruit_type stores
-   the display label, so a retired value that stopped rendering would make a
-   recorded fact disappear from the meeting it belongs to. */
-await check("Retired Fruit types cannot be newly selected but still render", async () => {
+   USA-243 replaced the ad hoc list with the ONE canonical vocabulary shared
+   with the recipient forms, and nothing that is merely ministry ACTIVITY is
+   offered as fruit any more. The rule that matters has not changed: a narrowed
+   selector must never orphan history, because fruit_events.fruit_type stores
+   the display label and a value that stopped rendering would make a recorded
+   fact disappear from the meeting it belongs to. */
+await check("Observed Fruit offers the canonical vocabulary and never orphans history", async () => {
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
-  const retired = ["Started Discipling Others", "Discipling", "Prayer Request", "Joined Discipleship", "Felt encouraged", "Prayer Received"];
-  const kept = ["New Believers", "Baptized", "Answered Prayer", "Reconciliation", "Marriage Restoration", "Testimony Shared", "Gospel Conversation", "Serving"];
+  /* Activity, impact, follow-up and superseded wordings: still stored, still
+     rendered, no longer offered. */
+  const retired = ["Started Discipling Others", "Discipling", "Prayer Request", "Joined Discipleship", "Felt encouraged", "Prayer Received", "Gospel Conversation", "Testimony Shared", "Marriage Restoration"];
+  const kept = canonicalFruitOptions.map((option) => option.label);
 
   const categoriesBlock = client.slice(
     client.indexOf("const meetingObservedFruitCategories"),
     client.indexOf("const meetingObservedFruitOptions ="),
   );
 
-  for (const value of kept) {
-    assert(categoriesBlock.includes(`value: "${value}"`), `${value} must remain selectable, preserving its stored value.`);
-  }
+  assert(
+    categoriesBlock.includes("canonicalFruitGroupOptions.map("),
+    "Observed Fruit must be built from the shared canonical vocabulary, not a second hand-written list.",
+  );
+  assert(kept.length === 11, `The canonical vocabulary must stay 11 labels (found ${kept.length}).`);
 
   for (const value of retired) {
-    assert(!categoriesBlock.includes(`value: "${value}"`), `${value} must not be offered as new Observed Fruit.`);
+    assert(!kept.includes(value), `${value} must not be offered as new Observed Fruit.`);
   }
 
-  // Selection is validated against the narrowed set; display is not.
+  /* Display and re-submission both accept everything DOS has ever offered.
+     Validating a submission against the narrow set would delete a historical
+     value the first time someone opened an old meeting and pressed Save. */
   assert(
-    client.includes("typeof value === \"string\" && meetingObservedFruitValues.has(value)"),
-    "New submissions must be validated against the narrowed selectable set.",
+    client.includes("typeof value === \"string\" && renderableObservedFruitValues.has(value)"),
+    "A re-submitted historical value must survive; validate against the renderable set, not the narrowed picker.",
+  );
+  assert(
+    client.includes('const recordedEarlier = selectedOutcomeTags.filter((tag) => !meetingObservedFruitValues.has(tag));')
+      && client.includes('label: "Recorded earlier"'),
+    "A recorded value the vocabulary no longer offers must stay visible and selected in the picker.",
   );
   assert(
     client.includes("renderableObservedFruitValues.has(fruit)"),
@@ -354,7 +369,11 @@ await check("Retired Fruit types cannot be newly selected but still render", asy
   // The selector shows categorised choices directly: no inner disclosure, no badge.
   const selector = client.slice(client.indexOf("function ObservedFruitMultiSelect({"));
   const selectorBody = selector.slice(0, selector.indexOf("\nfunction "));
-  assert(selectorBody.includes("meetingObservedFruitCategories.map("), "The selector must render categories directly.");
+  assert(
+    selectorBody.includes("{categories.map(")
+      && selectorBody.includes("[...meetingObservedFruitCategories, { label: \"Recorded earlier\""),
+    "The selector must render its categories directly, plus a Recorded earlier group for values the vocabulary no longer offers.",
+  );
   assert(!selectorBody.includes("Hide outcomes"), "The inner disclosure must be gone.");
   assert(!selectorBody.includes("Select observed fruit"), "The inner disclosure trigger must be gone.");
   assert(!selectorBody.includes('"Optional"'), "The OPTIONAL badge must be gone; a closed section already says it.");
