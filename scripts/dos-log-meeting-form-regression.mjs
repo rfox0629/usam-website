@@ -510,18 +510,31 @@ assert(
   "Gift groups must render inline, only while Spiritual Gifts is Yes, and the answered count must cover the eleven core questions.",
 );
 
+// USA-243 (2026-09-08): Kitchen Table Gospel captures no outcomes of its own.
+// The significant-outcomes question stays historical-only (saved values
+// normalize and render), the form offers no outcome picker, and the meeting's
+// Observed Fruit disclosure is the single leader-facing fruit entry point.
 assert(
-  significantOutcomes.kind === "multi_select"
-    && significantOutcomes.label === "Add significant outcomes"
-    && significantOutcomes.emptyLabel === "Optional"
+  significantOutcomes.historicalOnly === true
     && significantOutcomes.detailLabel === "Significant outcomes"
-    && JSON.stringify(significantOutcomes.options.map((option) => option.label)) === JSON.stringify([
-      "Decision for Christ", "Rededication", "Baptism next step", "Baptism in the Holy Spirit", "Connected to a church or ministry",
-      "Discipleship next step", "Healing or breakthrough", "Relationship restored", "Other significant outcome",
-    ])
-    && !significantOutcomes.options.some((option) => /communion|washing|prophetic|healing prayer|deliverance prayer|prayer ministry/i.test(option.label))
-    && appClient.includes('question.emptyLabel ?? "None selected"'),
-  "The outcomes picker must be one flat optional list with the nine approved outcomes and no granular meeting activities.",
+    && kitchenTableFlow.sections.flatMap((section) => section.questions).filter((question) => question.kind === "multi_select" && !question.historicalOnly).every((question) => question.visibleWhen?.questionId === "spiritualGifts")
+    && !guideSection.includes("Add significant outcomes")
+    && meetingEngine.includes('rowDescription: "Questions, spiritual gifts, and relationship rating"'),
+  "Kitchen Table Gospel Responses must offer only the questions, conditional gifts and the rating; no outcome picker.",
+);
+
+const observedFruitSection = appClient.slice(appClient.indexOf("function MeetingLeaderReflectionSection("), appClient.indexOf("\nfunction MeetingGrowthReflectionSection("));
+
+assert(
+  observedFruitSection.includes("<ObservedFruitMultiSelect")
+    && observedFruitSection.includes('label: "Observed Fruit"')
+    && appClient.includes("includeReflectionFields={selectedMeeting.meetingStatus !== \"scheduled\" || isLoggingSelectedScheduledMeeting}"),
+  "Observed Fruit must remain the one universal fruit entry point on every logged meeting (Log and Edit).",
+);
+
+assert(
+  JSON.stringify(engine.normalizeConversationResponses("kitchen_table_gospel", { significantOutcomes: ["decision_for_christ", "bogus"], believeJesus: "yes" }).significantOutcomes) === '["decision_for_christ"]',
+  "Historical significant outcomes must keep normalizing for saved records.",
 );
 
 const legacySection = kitchenTableFlow.sections.find((section) => section.id === "outcomes");
@@ -544,7 +557,7 @@ assert(
 // USA-238 founder review: row copy, no extra explanation, no guide picker.
 assert(
   meetingEngine.includes('rowTitle: "Kitchen Table Gospel Responses"')
-    && meetingEngine.includes('rowDescription: "Questions, spiritual gifts, and ministry outcomes"')
+    && meetingEngine.includes('rowDescription: "Questions, spiritual gifts, and relationship rating"')
     && !appClient.includes("Kitchen Table responses")
     && !appClient.includes("Optional USAM ministry record")
     && guideSection.includes("{rowTitle}")
