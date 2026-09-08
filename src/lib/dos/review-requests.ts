@@ -256,7 +256,7 @@ export async function createDosReviewRequestLink(input: CreateReviewRequestLinkI
   const recipientPersonId = requestedRecipientId(input.recipientPersonId, participantIds);
 
   if (!recipientPersonId || !participantIds.includes(recipientPersonId)) {
-    return { error: "Select a recipient from this Table before sending a review link.", ok: false, status: 400 };
+    return { error: "Select a recipient from this meeting before sending a review link.", ok: false, status: 400 };
   }
 
   const existingResult = await supabase

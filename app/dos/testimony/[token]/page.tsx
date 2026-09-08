@@ -16,8 +16,8 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function TestimonyState({ detail, title }: { detail: string; title: string }) {
   return (
-    <main className="min-h-screen bg-[#F8FBFF] px-5 py-10 text-[#0F172A]">
-      <section className="mx-auto max-w-md rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.10)]">
+    <main className="min-h-screen bg-white px-5 py-10 text-[#0F172A]">
+      <section className="mx-auto max-w-md rounded-3xl border border-dos-hairline bg-white p-5 shadow-[0_18px_44px_rgba(15,21,32,0.07)]">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
           DOS Testimony
         </p>

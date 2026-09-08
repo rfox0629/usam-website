@@ -17,6 +17,7 @@ import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/do
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
 import { PrimitivesGallery } from "./PrimitivesGallery";
+import { RecipientFormsGallery, type RecipientFormPreviewKey } from "./RecipientFormsGallery";
 
 export const dynamic = "force-dynamic";
 
@@ -2078,7 +2079,7 @@ function buildDosPreviewDemoData(): DosAppData {
 export default async function DosAppPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string; gallery?: string; workspace?: string }>;
+  searchParams: Promise<{ demo?: string; form?: string; gallery?: string; workspace?: string }>;
 }) {
   if (!isDemoPreviewRouteEnabled) {
     redirect("/dos");
@@ -2094,6 +2095,14 @@ export default async function DosAppPreviewPage({
   // visual regression and review. Synthetic content only.
   if (params.gallery === "primitives") {
     return <PrimitivesGallery />;
+  }
+
+  // USA-243: the recipient-facing Quick Review / Testimony / Review Options
+  // forms with a synthetic bound link, for founder review and screenshots.
+  if (params.gallery === "recipient-forms") {
+    const form = (["quick-review", "review-options", "testimony", "testimony-unbound"] as const).find((key) => key === params.form) ?? "testimony";
+
+    return <RecipientFormsGallery form={form as RecipientFormPreviewKey} />;
   }
 
   return <DosMvpAppClient data={buildDosPreviewDemoData()} />;

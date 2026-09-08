@@ -12,7 +12,7 @@ type ReadyReviewLink = Extract<DosReviewLinkState, { status: "ready" }>;
 
 /* The same atmosphere the Person page sits on, so the page someone opens from
    a text message is recognisably the same product the leader is using. */
-const atmosphere = "bg-[#F8FBFF] bg-[radial-gradient(circle_at_78%_6%,rgba(219,234,254,0.95),transparent_36%),radial-gradient(circle_at_50%_58%,rgba(221,214,254,0.4),transparent_44%),linear-gradient(140deg,#FAFCFF_0%,#F5F8FF_52%,#EEF3FF_100%)]";
+export const atmosphere = "bg-[#F8FBFF] bg-[radial-gradient(circle_at_78%_6%,rgba(219,234,254,0.95),transparent_36%),radial-gradient(circle_at_50%_58%,rgba(221,214,254,0.4),transparent_44%),linear-gradient(140deg,#FAFCFF_0%,#F5F8FF_52%,#EEF3FF_100%)]";
 
 const meetingTypeLabels: Record<string, string> = {
   call: "Phone call",
@@ -26,11 +26,11 @@ const meetingTypeLabels: Record<string, string> = {
   zoom: "Video call",
 };
 
-function firstNameOf(value: string | null) {
+export function firstNameOf(value: string | null) {
   return (value ?? "").trim().split(/\s+/).filter(Boolean)[0] ?? "";
 }
 
-function formatMeetingDate(value: string | null) {
+export function formatMeetingDate(value: string | null) {
   if (!value) {
     return "";
   }
@@ -44,7 +44,7 @@ function formatMeetingDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
 }
 
-function meetingTypeLabel(value: string | null) {
+export function meetingTypeLabel(value: string | null) {
   return meetingTypeLabels[(value ?? "").trim().toLowerCase()] ?? "";
 }
 
@@ -62,14 +62,14 @@ function splitKnownName(value: string | null) {
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function QuestionLabel({ children }: { children: string }) {
+export function QuestionLabel({ children }: { children: string }) {
   return <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{children}</p>;
 }
 
 /* The rating is the one required answer, so it gets the most deliberate
    control on the page: full-width rows that fill with DOS blue, rather than a
    column of outlined boxes each carrying a radio dot. */
-function RatingRow({
+export function RatingRow({
   label,
   onClick,
   selected,
@@ -96,7 +96,7 @@ function RatingRow({
 
 /* Optional signals read as chips: smaller, wrapping, obviously secondary to
    the rating above them. */
-function ExperienceChip({
+export function ExperienceChip({
   label,
   onClick,
   selected,

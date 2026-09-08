@@ -202,7 +202,7 @@ export async function submitDosTestimony(token: string, submission: TestimonySub
   const recipientPersonId = typedLink.recipient_person_id ?? typedLink.reviewer_person_id;
 
   if (!recipientPersonId) {
-    return { error: "This story link is missing a Table recipient.", status: 409 as const };
+    return { error: "This story link is missing a meeting recipient.", status: 409 as const };
   }
 
   const submittedAt = new Date().toISOString();
