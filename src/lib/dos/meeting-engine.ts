@@ -208,13 +208,13 @@ const ministryMomentOutcomeOptions = [
   { label: "Healing Prayer", value: "healing_prayer" },
 ] as const;
 
-/* Significant outcomes (founder review 2026-09-07): one flat optional list of
-   concrete results or next steps from this conversation. The five earlier
-   outcome groups above are historical-only — saved values keep normalizing
-   and rendering, the form no longer offers them, and granular activities
-   (communion, foot washing, prayer types) belong in Meeting Notes. Outcomes
-   are meeting responses only; they never touch the leader's separate
-   assessment records. */
+/* Significant outcomes — historical only since USA-243 (2026-09-08). The
+   founder settled that Kitchen Table Gospel keeps no outcome capture of its
+   own: results a leader observed are recorded once, in the meeting's own
+   observation disclosure, never here. This list (and the five earlier groups
+   above) stays in the definition so saved values keep normalizing through
+   edits and render in meeting detail; the form never offers them. Granular
+   activities belong in Meeting Notes. */
 const significantOutcomeOptions = [
   { label: "Decision for Christ", value: "decision_for_christ" },
   { label: "Rededication", value: "rededication" },
@@ -259,6 +259,7 @@ const kitchenTableGiftQuestions = [
 const kitchenTableSignificantOutcomesQuestion = {
   detailLabel: "Significant outcomes",
   emptyLabel: "Optional",
+  historicalOnly: true,
   id: "significantOutcomes",
   kind: "multi_select",
   label: "Add significant outcomes",
@@ -272,15 +273,15 @@ export const dosConversationFlowDefinitions = [
     gatedTo: "usam",
     id: "kitchen_table_gospel",
     offeredForNewCapture: true,
-    rowDescription: "Questions, spiritual gifts, and ministry outcomes",
+    rowDescription: "Questions, spiritual gifts, and relationship rating",
     rowTitle: "Kitchen Table Gospel Responses",
     sections: [
       {
         id: "commands-of-jesus",
         /* Conversational order: the three gift groups sit directly under
-           "Do you have any spiritual gifts?" and render only while it is Yes;
-           "Add significant outcomes" is one optional collapsed row after the
-           relationship rating. */
+           "Do you have any spiritual gifts?" and render only while it is Yes.
+           The significant-outcomes question that follows the rating is
+           historical-only (USA-243): rendered for saved records, never offered. */
         questions: [
           ...dosKitchenTableQuestions.slice(0, kitchenTableSpiritualGiftsIndex + 1),
           ...kitchenTableGiftQuestions,
