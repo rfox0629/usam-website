@@ -6,8 +6,8 @@ import { dosReviewOptionChoices } from "@/src/lib/dos/review-form-config";
 import type { DosReviewLinkState } from "@/src/lib/dos/review-types";
 import { DosQuickReviewForm } from "@/app/dos/review/[token]/DosQuickReviewForm";
 import { DosTestimonyForm } from "@/app/dos/testimony/[token]/DosTestimonyForm";
+import { atmosphere } from "@/app/dos/review/[token]/DosQuickReviewForm";
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 type ReadyLink = Extract<DosReviewLinkState, { status: "ready" }>;
 type SelectedForm = "quick_review" | "testimony_review" | null;
@@ -23,12 +23,12 @@ function OptionButton({
 }) {
   return (
     <button
-      className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 text-left shadow-[0_12px_30px_rgba(37,99,235,0.055)] transition-colors hover:border-[#2563EB] hover:bg-[#F8FBFF]"
+      className="rounded-2xl border border-dos-hairline bg-white p-4 text-left transition-colors hover:border-dos-blue hover:bg-dos-band"
       onClick={onClick}
       type="button"
     >
-      <span className="block text-base font-black text-[#0F172A]">{children}</span>
-      <span className="mt-1 block text-sm leading-6 text-[#475569]">{description}</span>
+      <span className="block text-[15px] font-bold text-dos-primary">{children}</span>
+      <span className="mt-0.5 block text-[13.5px] leading-[1.45] text-dos-body">{description}</span>
     </button>
   );
 }
@@ -45,18 +45,18 @@ export function DosReviewOptionsForm({ link }: { link: ReadyLink }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#F8FBFF] px-4 py-6 text-[#0F172A]">
-      <section className="mx-auto max-w-md rounded-[30px] border border-[#DCEBFF] bg-white p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          DOS Review
+    <main className={`min-h-screen px-4 py-3 text-dos-primary ${atmosphere}`}>
+      <section className="mx-auto w-full max-w-[420px] rounded-3xl border border-dos-hairline bg-white px-4 py-3.5 shadow-[0_18px_44px_rgba(15,21,32,0.07)]">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">
+          Review
         </p>
-        <h1 className="mt-2 text-4xl font-bold leading-none text-[#0F172A]" style={{ fontFamily: font.oswald }}>
+        <h1 className="mt-1 text-[22px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">
           Choose a review
         </h1>
-        <p className="mt-2 text-sm leading-6 text-[#475569]">
-          Pick the form that best fits what you want to share from this Table.
+        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">
+          Pick the form that best fits what you want to share from this meeting.
         </p>
-        <p className="mt-3 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-center text-xs font-semibold text-[#1D4ED8]">{link.workspaceDisplayName}</p>
+        <p className="mt-1 text-[12.5px] font-semibold leading-[1.3] text-dos-secondary">{link.workspaceDisplayName}</p>
 
         <div className="mt-5 grid gap-3">
           {dosReviewOptionChoices.map((choice) => (

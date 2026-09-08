@@ -102,20 +102,13 @@ export const dosQuickReviewFormDefinition = {
 } as const;
 
 export const dosTestimonyReviewFormDefinition = {
-  description: "A deeper story form someone completes after a saved Table.",
+  description: "A deeper story form someone completes after a saved meeting.",
   title: "Testimony Review",
   sections: [
     {
-      fieldType: "text",
-      helper: "Optional confirmation only. The secure link already connects this response to the right Table.",
-      label: "Your name",
-      type: "field",
-    },
-    {
-      fieldType: "email",
-      helper: "Optional confirmation only.",
-      label: "Email address",
-      type: "field",
+      copy: "The secure link already identifies who is sharing and which meeting it is about, so the form never asks for a name or email.",
+      label: "Who is sharing",
+      type: "notice",
     },
     {
       fieldType: "textarea",

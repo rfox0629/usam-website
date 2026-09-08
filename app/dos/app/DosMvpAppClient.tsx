@@ -15407,14 +15407,14 @@ const fruitFormCards: ReadonlyArray<{
   title: string;
 }> = [
   {
-    description: "Preview the short review sent after a saved Table.",
+    description: "Preview the short review sent after a saved meeting.",
     icon: "send",
     key: "quick_review",
     status: "live",
     title: "Quick Review",
   },
   {
-    description: "Preview the testimony form sent after a saved Table.",
+    description: "Preview the testimony form sent after a saved meeting.",
     icon: "fruit",
     key: "testimony_review",
     status: "live",
@@ -22110,7 +22110,7 @@ function FruitFormPreviewSheet({
   return (
     <Sheet description={description} onClose={onClose} showEyebrow={false} title={`${title} Preview`}>
       <div className="space-y-4">
-        <section className="rounded-[24px] border border-[#DCEBFF] bg-[#F8FBFF] p-4">
+        <section className="rounded-2xl border border-dos-line bg-white p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
             Recipient Form
           </p>
@@ -35460,7 +35460,7 @@ function SendableFormPreviewCard({
   form: SendableFormPreview;
 }) {
   return (
-    <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+    <section className="rounded-2xl border border-dos-line bg-white p-3.5">
       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
         {eyebrow}
       </p>
@@ -35470,7 +35470,7 @@ function SendableFormPreviewCard({
       ) : null}
       <div className="mt-3 grid gap-3">
         {form.sections.map((section) => (
-          <div className="rounded-2xl bg-white px-3 py-3 shadow-[0_8px_18px_rgba(37,99,235,0.035)]" key={section.label}>
+          <div className="border-t border-dos-rule pt-3 first:border-t-0 first:pt-0" key={section.label}>
             <p className="text-sm font-bold leading-5 text-[#0F172A]">
               {section.label}
               {section.required ? <span className="text-[#2563EB]"> *</span> : null}
@@ -35482,7 +35482,7 @@ function SendableFormPreviewCard({
               <p className="mt-2 text-xs leading-5 text-[#64748B]">{section.copy}</p>
             ) : null}
             {section.type === "field" ? (
-              <div className={`mt-3 rounded-2xl border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-3 py-2 text-xs text-[#64748B] ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
+              <div className={`mt-2 rounded-xl border border-dashed border-dos-line bg-white px-3 py-2 text-xs text-dos-secondary ${section.fieldType === "textarea" ? "min-h-20" : ""}`}>
                 {section.placeholder ?? (section.fieldType === "textarea" ? "Long answer" : section.fieldType === "email" ? "Email field" : "Text field")}
               </div>
             ) : null}
@@ -35490,12 +35490,12 @@ function SendableFormPreviewCard({
               <div className={section.choiceType === "checkbox" || section.choiceType === "radio" ? "mt-3 grid gap-2" : "mt-3 flex flex-wrap gap-2"}>
                 {section.options.map((option) => (
                   section.choiceType === "checkbox" || section.choiceType === "radio" ? (
-                    <span className="flex items-start gap-2 rounded-2xl border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2 text-xs font-semibold leading-5 text-[#475569]" key={option}>
+                    <span className="flex items-start gap-2 rounded-xl border border-dos-line bg-white px-3 py-2 text-xs font-semibold leading-5 text-dos-body" key={option}>
                       <span className={`mt-0.5 h-3.5 w-3.5 shrink-0 border border-[#93C5FD] bg-white ${section.choiceType === "radio" ? "rounded-full" : "rounded-[4px]"}`} aria-hidden="true" />
                       <span>{option}</span>
                     </span>
                   ) : (
-                    <span className="rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-1.5 text-xs font-semibold text-[#475569]" key={option}>
+                    <span className="rounded-full border border-dos-line bg-white px-3 py-1.5 text-xs font-semibold text-dos-body" key={option}>
                       {option}
                     </span>
                   )
@@ -35506,6 +35506,20 @@ function SendableFormPreviewCard({
         ))}
       </div>
     </section>
+  );
+}
+
+/* Plain rows for the send sheet: label and value on white, separated by
+   rules, no tinted panel (USA-243 B2). */
+function SendSheetRow({ icon, label, value }: { icon?: ReactNode; label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 border-t border-dos-rule py-2.5 first:border-t-0 first:pt-0 last:pb-0">
+      {icon ? <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-dos-blueText">{icon}</span> : null}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{label}</p>
+        <div className="mt-0.5 break-words text-[14.5px] leading-5 text-dos-primary">{value}</div>
+      </div>
+    </div>
   );
 }
 
@@ -35528,8 +35542,8 @@ function MeetingSendConfirmationSheet({
   const description = isReviewOptions
     ? "Send one link where they can choose Quick Review or Testimony Review."
     : isTestimony
-    ? "Invite them to share what changed from this table."
-    : "Invite them to share a quick review of the table.";
+    ? "Invite them to share what changed from this meeting."
+    : "Invite them to share a quick review of the meeting.";
   const recipientOptions = meetingRecipientOptions(action.meeting, people);
   const [selectedRecipientId, setSelectedRecipientId] = useState(recipientOptions[0]?.id ?? "");
   const selectedRecipient = recipientOptions.find((recipient) => recipient.id === selectedRecipientId) ?? null;
@@ -35540,22 +35554,22 @@ function MeetingSendConfirmationSheet({
   return (
     <Sheet description={description} onClose={onClose} showEyebrow={false} title={title}>
       <div className="grid gap-3">
-        <div className="rounded-[22px] border border-[#DCEBFF] bg-white p-3.5 shadow-[0_10px_24px_rgba(37,99,235,0.05)]">
+        <div className="rounded-2xl border border-dos-line bg-white p-3.5">
           {recipientTitle ? (
-            <DetailRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Recipient" value={recipientTitle} />
+            <SendSheetRow icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Recipient" value={recipientTitle} />
           ) : (
-            <DetailRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Table" value={fallbackTitle} />
+            <SendSheetRow icon={<MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Meeting" value={fallbackTitle} />
           )}
-          <DetailRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Table" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
-          <DetailRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isReviewOptions ? "Review Options" : isTestimony ? "Testimony Request" : "Quick Review"} />
+          <SendSheetRow icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label={recipientTitle ? "Meeting" : "Date"} value={recipientTitle ? meetingMetadataLine(action.meeting) : formatDate(action.meeting.date)} />
+          <SendSheetRow icon={<Send className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />} label="Request Type" value={isReviewOptions ? "Review Options" : isTestimony ? "Testimony Request" : "Quick Review"} />
         </div>
         {recipientOptions.length > 1 ? (
-          <label className="grid gap-1.5 rounded-[22px] border border-[#DCEBFF] bg-white p-3.5">
+          <label className="grid gap-1.5 rounded-2xl border border-dos-line bg-white p-3.5">
             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
               Recipient
             </span>
             <select
-              className="min-h-11 rounded-2xl border border-[#D6E4F7] bg-[#F8FBFF] px-3 text-sm font-bold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+              className="min-h-11 rounded-2xl border border-dos-line bg-white px-3 text-sm font-bold text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
               onChange={(event) => setSelectedRecipientId(event.target.value)}
               value={selectedRecipientId}
             >
@@ -35565,12 +35579,12 @@ function MeetingSendConfirmationSheet({
             </select>
           </label>
         ) : null}
-        <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
+        <p className="text-xs leading-5 text-dos-secondary">
           {cannotSend
-            ? "Add a person to this table before sending a review link."
+            ? "Add a person to this meeting before sending a review link."
             : "DOS will create a share link for this request. You can use the phone share sheet or copy the link if sharing is not available."}
         </p>
-        <details className="rounded-2xl border border-[#DCEBFF] bg-white px-3.5 py-3">
+        <details className="rounded-2xl border border-dos-line bg-white px-3.5 py-3">
           <summary className="cursor-pointer text-sm font-semibold text-[#1D4ED8]">Preview questions</summary>
           <div className="mt-3 grid gap-3">
             {isReviewOptions ? (
