@@ -59,7 +59,10 @@ const scenes = [
   { name: "library-resource", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); await page.getByText("Kitchen Table Gospel", { exact: true }).first().click(); } },
   { name: "prayer", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Prayer/, false); } },
   { name: "my-record", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /My Record/, false); } },
-  { name: "meetings-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, "Meetings"); await clickTab(page, "Timeline"); } },
+  /* Meetings moved to the canonical Segmented rail (USA-246), which is a
+     group of buttons rather than a tablist, so this scene selects the segment
+     by its button role. The Person and Groups rails are still PillRails. */
+  { name: "meetings-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, "Meetings"); await clickButton(page, "Timeline", false); } },
   {
     name: "person-record",
     viewport: "mobile",
