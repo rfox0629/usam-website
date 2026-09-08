@@ -34487,9 +34487,18 @@ function PersonDetailOverlay({
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">Meeting {relationshipCadence.toLowerCase()}</p>
               ) : null}
             </div>
-            {/* Three fixed Person views use the centered segmented treatment;
-                longer, scrollable section lists continue to use PillRail. */}
-            <div className="mx-auto w-full max-w-[350px] pb-1">
+            {/* Three fixed Person views use the canonical segmented treatment;
+                longer, scrollable section lists continue to use PillRail. It
+                spans the content column so its outer edges line up with the
+                cards below it, rather than floating at its own narrower width
+                (USA-244 founder note). */}
+            {/* The rail mirrors the content article's own geometry — same
+                max widths, same two-column split, same gap — so its outer
+                edges land exactly on the card margins below it at every
+                width rather than being fitted to one breakpoint. */}
+            <div className="mx-auto w-full max-w-[600px] pb-1 lg:mx-0 lg:max-w-[936px]">
+              <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
+              <div className="min-w-0 lg:flex-1">
               <Segmented
                 label={`${firstName} views`}
                 onChange={(view) => {
@@ -34499,6 +34508,9 @@ function PersonDetailOverlay({
                 options={personDetailViewOptions}
                 value={activeDetailTab}
               />
+              </div>
+              <div aria-hidden="true" className="hidden lg:block lg:w-[292px] lg:shrink-0 xl:w-[308px]" />
+              </div>
             </div>
           </header>
         </>
@@ -34617,7 +34629,7 @@ function PersonDetailOverlay({
                     >
                       Accountability
                     </Eyebrow>
-                    <div className="divide-y divide-dos-rule">
+                    <div className={accountabilityTopics.length ? "divide-y divide-dos-rule" : "contents"}>
                       {cappedRows("accountability", accountabilityTopics).map((topic) => (
                         <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
                           <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
@@ -34638,8 +34650,13 @@ function PersonDetailOverlay({
                           ) : null}
                         </PersonRecordRow>
                       ))}
+                      {/* Same element, same type ramp and the same absence of
+                          extra padding as "No prayer requests yet." and "No
+                          feedback yet.", so four empty sections read as one
+                          rhythm. Sections with real content still take the
+                          height their content needs. */}
                       {accountabilityTopics.length ? null : (
-                        <p className="py-1 text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
+                        <p className="text-[14.5px] leading-[1.5] text-dos-body">Nothing they are working on yet.</p>
                       )}
                     </div>
                     {renderViewAll("accountability", accountabilityTopics.length)}
