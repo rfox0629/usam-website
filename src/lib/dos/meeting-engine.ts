@@ -73,6 +73,13 @@ export type DosConversationFlowDefinition = {
   gatedTo?: "usam";
   gospelInvitation?: string;
   id: DosImplementedConversationFlowKey;
+  /* Discussion-guide presentation. A flow with `offeredForNewCapture` renders
+     as one collapsed optional row in Log Meeting titled `rowTitle`, with
+     `rowDescription` beneath it and a status line. Flows without it (Four
+     Questions) stay historical-only: readable and editable, never offered. */
+  offeredForNewCapture?: boolean;
+  rowDescription?: string;
+  rowTitle?: string;
   sections: readonly DosConversationSection[];
   slug: string;
   title: string;
@@ -111,6 +118,12 @@ export const dosKitchenTableQuestions = [
 
 export const dosKitchenTableCoreQuestionCount = dosKitchenTableQuestions.length;
 
+/* Spiritual-gift taxonomy (founder review, USA-238, 2026-09-07). Labels follow
+   the approved reference; values are stable snake_case storage keys and are
+   never renamed — "Distinguishing/Discernment of Spirits" keeps the original
+   `discerning_of_spirits` key so any saved selection still reads. Production
+   held no saved gift values when the labels were settled, so no mapping was
+   needed beyond keeping the keys. */
 const manifestationGiftOptions = [
   { label: "Word of Wisdom", value: "word_of_wisdom" },
   { label: "Word of Knowledge", value: "word_of_knowledge" },
@@ -118,9 +131,10 @@ const manifestationGiftOptions = [
   { label: "Gifts of Healing", value: "gifts_of_healing" },
   { label: "Working of Miracles", value: "working_of_miracles" },
   { label: "Prophecy", value: "prophecy" },
-  { label: "Discerning of Spirits", value: "discerning_of_spirits" },
+  { label: "Distinguishing/Discernment of Spirits", value: "discerning_of_spirits" },
   { label: "Various Kinds of Tongues", value: "various_kinds_of_tongues" },
   { label: "Interpretation of Tongues", value: "interpretation_of_tongues" },
+  { label: "Exploring / Unsure", value: "exploring_unsure" },
 ] as const;
 
 const serviceGiftOptions = [
@@ -189,6 +203,9 @@ export const dosConversationFlowDefinitions = [
     description: "A guided Gospel conversation for live ministry moments.",
     gatedTo: "usam",
     id: "kitchen_table_gospel",
+    offeredForNewCapture: true,
+    rowDescription: "Questions, spiritual gifts, and ministry outcomes",
+    rowTitle: "Kitchen Table Gospel Responses",
     sections: [
       {
         id: "commands-of-jesus",
@@ -348,6 +365,13 @@ export const dosConversationFlowDefinitions = [
     title: "Four Questions",
   },
 ] as const satisfies readonly DosConversationFlowDefinition[];
+
+/* Discussion guides are the conversation flows offered for new meeting
+   capture. Log Meeting renders one collapsed optional row per guide and no
+   chooser; a second guide is a new definition here, not a schema change, and
+   only then would a picker be warranted. */
+export const dosDiscussionGuides: readonly DosConversationFlowDefinition[] = (dosConversationFlowDefinitions as readonly DosConversationFlowDefinition[])
+  .filter((flow) => flow.offeredForNewCapture === true);
 
 const resourceRecommendationRules: ReadonlyArray<{
   id: DosKitchenTableNonRatingQuestionId;

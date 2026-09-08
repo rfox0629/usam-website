@@ -237,18 +237,19 @@ assert(
 );
 
 assert(
-  meetingFormBlock.includes("<KitchenTableResponsesSection")
+  meetingFormBlock.includes("<DiscussionGuideResponsesSection")
     && meetingFormBlock.includes("showConversationFlow && allowConversationFlows")
-    && meetingFormBlock.includes('onConversationFlowChange("kitchen_table_gospel")'),
+    && meetingFormBlock.includes("onConversationFlowChange(guide.id)")
+    && meetingFormBlock.includes("dosDiscussionGuides.map((guide) => ("),
   "Log Meeting must expose the optional Kitchen Table response capture only when the workspace allows USAM conversation flows.",
 );
 
 assert(
-  appClient.includes("function KitchenTableResponsesSection")
-    && appClient.includes("Kitchen Table responses")
+  appClient.includes("function DiscussionGuideResponsesSection")
+    && meetingEngine.includes('rowTitle: "Kitchen Table Gospel Responses"')
     && appClient.includes("<details")
     && !appClient.includes("function ConversationFlowPicker"),
-  "Kitchen Table responses must stay behind one collapsed row without exposing the legacy Conversation Flow picker.",
+  "Kitchen Table Gospel Responses must stay behind one collapsed row without exposing the legacy Conversation Flow picker.",
 );
 
 assert(
@@ -273,7 +274,7 @@ assert(
 // USA-238: the collapsed row alone never marks the meeting as Kitchen Table;
 // the flow activates from the first real answer, and gift groups are dropped
 // again when the Spiritual Gifts answer that revealed them changes.
-const kitchenTableSectionStart = appClient.indexOf("function KitchenTableResponsesSection");
+const kitchenTableSectionStart = appClient.indexOf("function DiscussionGuideResponsesSection");
 const kitchenTableSectionEnd = appClient.indexOf("function ConversationQuestionCard", kitchenTableSectionStart);
 const kitchenTableSection = appClient.slice(kitchenTableSectionStart, kitchenTableSectionEnd);
 
@@ -287,8 +288,8 @@ assert(
 
 assert(
   kitchenTableSection.includes("legacyFlowTitle")
-    && kitchenTableSection.includes("Those responses stay on the record unless you add Kitchen Table responses here."),
-  "Editing a historical Four Questions meeting must say those responses are kept until Kitchen Table responses replace them.",
+    && kitchenTableSection.includes("Those responses stay on the record unless you add {rowTitle} here."),
+  "Editing a historical Four Questions meeting must say those responses are kept until Kitchen Table Gospel Responses replace them.",
 );
 
 // USA-238: saved responses, gift labels, and outcomes render on the meeting
@@ -301,7 +302,7 @@ assert(
   appClient.includes("function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting })")
     && meetingDetailBlock.includes("<ConversationResponsesSection meeting={meeting} />")
     && !appClient.includes("function ConversationFlowDetail("),
-  "Meeting detail must render the saved Kitchen Table responses, gift labels, and outcomes.",
+  "Meeting detail must render the saved Kitchen Table Gospel Responses, gift labels, and outcomes.",
 );
 
 // USA-238: normalization is the only persistence gate, so exercise it for
@@ -414,6 +415,102 @@ assert(
     && historical.response_notes === "Kept for the record."
     && Array.isArray(historical.followUpActions),
   "Historical Four Questions responses must still normalize for existing meetings.",
+);
+
+// USA-238 founder review (2026-09-07): gift taxonomy. Labels follow the
+// approved list; values are stable snake_case storage keys (the relabelled
+// entry keeps `discerning_of_spirits`), and every supported gift saves,
+// reopens, edits and is pruned through the same definition.
+const kitchenTableFlow = engine.getConversationFlowDefinition("kitchen_table_gospel");
+const giftQuestions = kitchenTableFlow.sections.flatMap((section) => section.questions).filter((question) => question.visibleWhen?.questionId === "spiritualGifts");
+const giftLabels = Object.fromEntries(giftQuestions.map((question) => [question.id, question.options.map((option) => option.label)]));
+
+assert(
+  JSON.stringify(giftLabels.manifestationGifts) === JSON.stringify(["Word of Wisdom", "Word of Knowledge", "Faith", "Gifts of Healing", "Working of Miracles", "Prophecy", "Distinguishing/Discernment of Spirits", "Various Kinds of Tongues", "Interpretation of Tongues", "Exploring / Unsure"])
+    && JSON.stringify(giftLabels.serviceGifts) === JSON.stringify(["Prophecy", "Serving (Ministry/Helps)", "Teaching", "Encouragement (Exhortation)", "Giving", "Leadership", "Mercy"])
+    && JSON.stringify(giftLabels.fivefoldGifts) === JSON.stringify(["Apostle", "Prophet", "Evangelist", "Pastor (Shepherd)", "Teacher"]),
+  `The three gift families must match the approved taxonomy. Got ${JSON.stringify(giftLabels)}`,
+);
+
+assert(
+  giftQuestions.find((question) => question.id === "manifestationGifts").options.some((option) => option.value === "discerning_of_spirits" && option.label === "Distinguishing/Discernment of Spirits")
+    && giftQuestions.every((question) => question.options.every((option) => /^[a-z_]+$/.test(option.value))),
+  "A relabelled gift must keep its stored value and every gift value must be a stable snake_case key.",
+);
+
+const everyGift = Object.fromEntries(giftQuestions.map((question) => [question.id, question.options.map((option) => option.value)]));
+const savedAll = engine.normalizeConversationResponses("kitchen_table_gospel", { spiritualGifts: "yes", ...everyGift });
+const editedAll = engine.normalizeConversationResponses("kitchen_table_gospel", { ...savedAll, fivefoldGifts: ["teacher"], manifestationGifts: savedAll.manifestationGifts.slice(1) });
+const prunedAll = engine.normalizeConversationResponses("kitchen_table_gospel", { ...savedAll, spiritualGifts: "no" });
+
+assert(
+  giftQuestions.every((question) => JSON.stringify(savedAll[question.id]) === JSON.stringify(everyGift[question.id]))
+    && JSON.stringify(editedAll.manifestationGifts) === JSON.stringify(everyGift.manifestationGifts.slice(1))
+    && JSON.stringify(editedAll.fivefoldGifts) === JSON.stringify(["teacher"])
+    && JSON.stringify(editedAll.serviceGifts) === JSON.stringify(everyGift.serviceGifts)
+    && Object.keys(prunedAll).every((key) => !(key in everyGift)),
+  "Every supported gift must save, reopen and edit through normalization and vanish when Spiritual Gifts is no longer Yes.",
+);
+
+const detailSection = appClient.slice(appClient.indexOf("function ConversationResponsesSection("), appClient.indexOf("\nfunction ", appClient.indexOf("function ConversationResponsesSection(") + 1));
+
+assert(
+  detailSection.includes(".filter((option) => responseAsStringArray(value).includes(option.value))")
+    && detailSection.includes(".map((option) => option.label)"),
+  "Meeting detail must render every saved gift and outcome through the definition's labels.",
+);
+
+// USA-238 founder review: Ministry Team search hands the field back clean.
+const ministrySelector = appClient.slice(appClient.indexOf("function MinistryTeamSelector("), appClient.indexOf("function SupportingAttendeeSelector("));
+
+assert(
+  (ministrySelector.match(/onPersonQueryChange\(""\);/g) ?? []).length === 2
+    && ministrySelector.includes("if (!selectedMemberIds.includes(member.id)) {")
+    && ministrySelector.includes("if (!selectedPersonIds.includes(person.id)) {")
+    && ministrySelector.includes("people.filter((person) => !selectedPersonIds.includes(person.id))"),
+  "Selecting a ministry team result must add the person once, clear the search query and leave the field ready for the next name.",
+);
+
+// USA-238 founder review: outcomes live with the meeting and never touch Fruit.
+const guideSection = appClient.slice(appClient.indexOf("function DiscussionGuideResponsesSection"), appClient.indexOf("function ConversationQuestionCard"));
+const outcomeQuestions = kitchenTableFlow.sections.find((section) => section.id === "outcomes").questions;
+const outcomesOnly = engine.normalizeConversationResponses("kitchen_table_gospel", Object.fromEntries(outcomeQuestions.map((question) => [question.id, question.options.map((option) => option.value)])));
+
+assert(
+  !/fruit/i.test(meetingsRoute)
+    && !/fruit/i.test(guideSection)
+    && outcomeQuestions.length === 5
+    && Object.keys(outcomesOnly).length === 5
+    && Object.keys(outcomesOnly).every((key) => outcomeQuestions.some((question) => question.id === key))
+    && kitchenTableFlow.sections.find((section) => section.id === "outcomes").description === "Capture what happened during this Kitchen Table conversation.",
+  "Kitchen Table outcomes must be stored with the meeting only: neither the guide section nor the meetings API may reference Fruit, and the payload carries only outcome keys.",
+);
+
+// USA-238 founder review: row copy, no extra explanation, no guide picker.
+assert(
+  meetingEngine.includes('rowTitle: "Kitchen Table Gospel Responses"')
+    && meetingEngine.includes('rowDescription: "Questions, spiritual gifts, and ministry outcomes"')
+    && !appClient.includes("Kitchen Table responses")
+    && !appClient.includes("Optional USAM ministry record")
+    && guideSection.includes("{rowTitle}")
+    && guideSection.includes("guide.rowDescription")
+    && guideSection.includes('"Not added"')
+    && engine.dosDiscussionGuides.length === 1
+    && engine.dosDiscussionGuides[0].id === "kitchen_table_gospel"
+    && !appClient.includes("DiscussionGuidePicker")
+    && !appClient.includes("Discussion Guide"),
+  'The collapsed row must read "Kitchen Table Gospel Responses" with its supporting description and a status line, with no extra explanatory copy and no guide picker while one guide exists.',
+);
+
+// USA-238 founder review: the duration Stepper is three equal, centered regions.
+const formPrimitives = read("src/components/dos/forms/primitives.tsx");
+const stepperBlock = formPrimitives.slice(formPrimitives.indexOf("export function Stepper("), formPrimitives.indexOf("/* ---", formPrimitives.indexOf("export function Stepper(")));
+
+assert(
+  stepperBlock.includes('className="grid h-14 w-full grid-cols-3 overflow-hidden')
+    && (stepperBlock.match(/flex h-full w-full items-center justify-center/g) ?? []).length === 2
+    && stepperBlock.includes('className="flex h-full min-w-0 items-center justify-center whitespace-nowrap'),
+  "The duration Stepper must be 56px tall in three equal regions with the value and both buttons vertically centered.",
 );
 
 assert(

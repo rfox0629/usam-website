@@ -152,23 +152,25 @@ export function Stepper({
   const canDecrement = value - step >= min;
 
   return (
-    <div className="flex h-12 w-full overflow-hidden rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
+    /* Three equal regions, 56px tall, everything vertically centered, so "30 min"
+       and "1 hr 15 min" both sit in the middle of the control (USA-238 review). */
+    <div className="grid h-14 w-full grid-cols-3 overflow-hidden rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
       {name ? <input name={name} type="hidden" value={value} /> : null}
       <button
         aria-label={decrementLabel}
-        className="flex h-full w-[52px] shrink-0 items-center justify-center border-r border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected disabled:text-dos-disabled"
+        className="flex h-full w-full items-center justify-center border-r border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected disabled:text-dos-disabled"
         disabled={!canDecrement}
         onClick={() => onChange(Math.max(min, value - step))}
         type="button"
       >
         <Minus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
       </button>
-      <span aria-live="polite" className="min-w-0 flex-1 text-center text-dos-body font-semibold text-dos-primary">
+      <span aria-live="polite" className="flex h-full min-w-0 items-center justify-center whitespace-nowrap px-1 text-center text-dos-body font-semibold text-dos-primary">
         {display}
       </span>
       <button
         aria-label={incrementLabel}
-        className="flex h-full w-[52px] shrink-0 items-center justify-center border-l border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected"
+        className="flex h-full w-full items-center justify-center border-l border-dos-line bg-dos-blue50 text-dos-blueText transition-colors hover:bg-dos-selected"
         onClick={() => onChange(value + step)}
         type="button"
       >

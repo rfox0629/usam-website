@@ -10,6 +10,8 @@ import {
   buildMeetingRecommendations,
   conversationQuestionIsVisible,
   dosConversationFlowDefinitions,
+  type DosConversationFlowDefinition,
+  dosDiscussionGuides,
   getConversationFlowDefinition,
   relationshipWithJesusTemperature,
   type DosConversationAnswer,
@@ -20476,8 +20478,15 @@ function questionResponseLabel(question: DosConversationQuestion, value: DosConv
   return answerLabel(value as DosConversationAnswer | undefined);
 }
 
-function KitchenTableResponsesSection({
+/* One collapsed optional row per discussion guide (engine
+   `dosDiscussionGuides`). The row shows the guide's title, its supporting
+   description and a status line; questions, gift groups and outcome groups
+   stay hidden until the leader opens it, and each group is itself collapsed
+   with a selected count. There is deliberately no guide chooser: a second
+   guide would add another row from its definition, not a schema change. */
+function DiscussionGuideResponsesSection({
   active,
+  guide,
   legacyFlowTitle = null,
   onActivate,
   onClear,
@@ -20485,21 +20494,18 @@ function KitchenTableResponsesSection({
   responses,
 }: {
   active: boolean;
+  guide: DosConversationFlowDefinition;
   /* Set when the meeting being edited was logged with a flow that is no
      longer offered (Four Questions). Those responses stay on the record
-     until Kitchen Table responses replace them. */
+     until this guide's responses replace them. */
   legacyFlowTitle?: string | null;
   onActivate: () => void;
   onClear: () => void;
   onResponseChange: (questionId: string, value: DosConversationResponseValue | undefined) => void;
   responses: DosConversationResponses;
 }) {
-  const flow = getConversationFlowDefinition("kitchen_table_gospel");
-
-  if (!flow) {
-    return null;
-  }
-
+  const flow = guide;
+  const rowTitle = guide.rowTitle ?? guide.title;
   const allQuestions = flow.sections.flatMap((section) => section.questions);
   const coreQuestions = flow.sections[0]?.questions ?? [];
   const answeredCoreQuestions = active
@@ -20548,17 +20554,17 @@ function KitchenTableResponsesSection({
               <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-[#0F172A]">Kitchen Table responses</span>
-              <span className="mt-0.5 block text-xs text-[#64748B]">{responseSummary}</span>
+              <span className="block text-sm font-bold text-[#0F172A]">{rowTitle}</span>
+              {guide.rowDescription ? <span className="mt-0.5 block text-xs leading-4 text-[#64748B]">{guide.rowDescription}</span> : null}
+              <span className={`mt-0.5 block text-xs font-semibold ${active ? "text-[#1D4ED8]" : "text-[#64748B]"}`}>{responseSummary}</span>
             </span>
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
         </summary>
         <div className="grid gap-4 border-t border-[#EAF2FF] px-3 pb-3 pt-4">
-          <p className="text-xs leading-5 text-[#64748B]">Optional USAM ministry record. Open only when this meeting used the Kitchen Table conversation.</p>
           {legacyFlowTitle && !active ? (
             <p className="rounded-2xl border border-[#EAF2FF] bg-[#F8FAFC] px-3 py-2 text-xs leading-5 text-[#64748B]">
-              This meeting was logged with {legacyFlowTitle}. Those responses stay on the record unless you add Kitchen Table responses here.
+              This meeting was logged with {legacyFlowTitle}. Those responses stay on the record unless you add {rowTitle} here.
             </p>
           ) : null}
           {flow.sections.map((section) => {
@@ -20585,7 +20591,7 @@ function KitchenTableResponsesSection({
           })}
           {active ? (
             <button className="justify-self-start text-xs font-semibold text-[#64748B] underline-offset-2 hover:text-[#0F172A] hover:underline" onClick={onClear} type="button">
-              Remove Kitchen Table responses
+              Remove {rowTitle}
             </button>
           ) : null}
         </div>
@@ -20948,7 +20954,16 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={member.id}
-              onClick={() => onToggleMember(member.id)}
+              onClick={() => {
+                /* Choosing a result adds the person once and hands the field
+                   back empty, so the next name can be typed straight away
+                   (USA-238 founder review). */
+                if (!selectedMemberIds.includes(member.id)) {
+                  onToggleMember(member.id);
+                }
+
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
@@ -20962,7 +20977,13 @@ function MinistryTeamSelector({
             <button
               className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
               key={person.id}
-              onClick={() => onTogglePerson(person.id)}
+              onClick={() => {
+                if (!selectedPersonIds.includes(person.id)) {
+                  onTogglePerson(person.id);
+                }
+
+                onPersonQueryChange("");
+              }}
               type="button"
             >
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index + visibleMembers.length)}`}>
@@ -21889,20 +21910,22 @@ function MeetingFormContent({
       <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
         {meetingContextPicker}
       </DosFormSection>
-      {showConversationFlow && allowConversationFlows ? (
-        <KitchenTableResponsesSection
-          active={selectedConversationFlow === "kitchen_table_gospel"}
-          legacyFlowTitle={selectedConversationFlow !== "none" && selectedConversationFlow !== "kitchen_table_gospel" ? conversationFlowLabel(selectedConversationFlow) : null}
+      {showConversationFlow && allowConversationFlows ? dosDiscussionGuides.map((guide) => (
+        <DiscussionGuideResponsesSection
+          active={selectedConversationFlow === guide.id}
+          guide={guide}
+          key={guide.id}
+          legacyFlowTitle={selectedConversationFlow !== "none" && !dosDiscussionGuides.some((candidate) => candidate.id === selectedConversationFlow) ? conversationFlowLabel(selectedConversationFlow) : null}
           onActivate={() => {
-            if (selectedConversationFlow !== "kitchen_table_gospel") {
-              onConversationFlowChange("kitchen_table_gospel");
+            if (selectedConversationFlow !== guide.id) {
+              onConversationFlowChange(guide.id);
             }
           }}
           onClear={() => onConversationFlowChange("none")}
           onResponseChange={onConversationResponse}
           responses={conversationResponses}
         />
-      ) : null}
+      )) : null}
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
           allPeople={allPeople}
@@ -32936,7 +32959,7 @@ function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
   return (
     <section className="border-b border-dos-rule py-5">
       <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-primary">
-        {flow.id === "kitchen_table_gospel" ? "Kitchen Table responses" : flow.title}
+        {flow.rowTitle ?? flow.title}
       </h3>
       {answeredSections.map(({ questions, section }, index) => (
         <div className={index === 0 ? "mt-2" : "mt-3"} key={section.id}>

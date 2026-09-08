@@ -289,7 +289,7 @@ check("Historical Four Questions data stays readable and editable without being 
   const meetingForm = client.slice(formStart, formEnd);
 
   assert(!meetingForm.includes("four_questions") && !client.includes("ConversationFlowPicker"), "The Log Meeting form must not offer Four Questions or any flow chooser.");
-  assert(client.includes("Those responses stay on the record unless you add Kitchen Table responses here."), "Editing a historical Four Questions meeting must say the data is kept.");
+  assert(client.includes("Those responses stay on the record unless you add {rowTitle} here."), "Editing a historical Four Questions meeting must say the data is kept.");
 });
 
 check("Requests without a gated flow never pay for the lookup, and unknown flows are refused", async () => {

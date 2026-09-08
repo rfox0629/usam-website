@@ -85,10 +85,13 @@ for (const name of ["HelperLine", "fieldControlClass", "Field", "Stepper", "Chip
 const stepper = primitives.slice(primitives.indexOf("export function Stepper("), primitives.indexOf("export function Chip("));
 assert(!/\bmax\b\s*[:=]/.test(stepper), "The stepper has no ceiling; thresholds belong to the caller.");
 assert(stepper.includes('type="hidden"'), "The stepper mirrors its value into a form control so the guard and FormData see it.");
-assert(/h-full w-\[52px\]/.test(stepper), "Stepper end controls keep a generous 52px hit area.");
+assert(
+  /grid h-14 w-full grid-cols-3/.test(stepper) && (stepper.match(/flex h-full w-full items-center justify-center/g) ?? []).length === 2,
+  "Stepper end controls fill a third of the 56px control each (never below 52px at 320px) with their icons vertically centered.",
+);
 assert(stepper.includes("bg-dos-blue50") && stepper.includes("border-r border-dos-line") && stepper.includes("border-l border-dos-line"), "Stepper minus and plus controls keep their blue-tinted, divided end regions.");
-assert(stepper.includes('className="flex h-12 w-full'), "The stepper spans the form width instead of shrinking around its contents.");
-assert(stepper.includes("min-w-0 flex-1 text-center"), "The stepper value owns the remaining width between equal controls.");
+assert(stepper.includes('className="grid h-14 w-full'), "The stepper spans the form width instead of shrinking around its contents.");
+assert(stepper.includes("flex h-full min-w-0 items-center justify-center whitespace-nowrap"), "The stepper value fills the middle third, vertically centered, and never wraps.");
 
 const chip = primitives.slice(primitives.indexOf("export function Chip("), primitives.indexOf("export function ChipGroup("));
 assert(chip.includes("aria-pressed={selected}"), "Chips expose aria-pressed, which the guard reads.");
