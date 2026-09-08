@@ -324,3 +324,66 @@ export function personIsMultiplying(
     && accountabilityConfirmedSubjects(commitment.updates).length > 0
   ));
 }
+
+/* ------------------------------------------------------------------ USA-242
+   The compact accountability composer. One draft shape feeds the shared
+   editor, the collapsed summary rows in Log Meeting, and the hidden inputs
+   that keep the `<prefix>_title / _frequency / _date / _target_count /
+   _target_kind` contract from USA-235 unchanged. */
+
+export type AccountabilityTrackingMode = "regular" | "number" | "complete";
+
+export type AccountabilityDraft = {
+  date: string;
+  frequency: DosAccountabilityFrequency;
+  targetCount: string;
+  targetKind: DosCommitmentTargetKind;
+  title: string;
+  trackingMode: AccountabilityTrackingMode;
+};
+
+/* How an existing record reopens: a rhythm is "Check in regularly"; a one-time
+   goal is "Reach a target" when it carries a number, otherwise "Complete once". */
+export function accountabilityTrackingModeFor(frequency: DosAccountabilityFrequency, targetCount: string | number | null | undefined): AccountabilityTrackingMode {
+  if (frequency !== "one_time") {
+    return "regular";
+  }
+
+  return targetCount !== null && targetCount !== undefined && String(targetCount).trim() !== "" ? "number" : "complete";
+}
+
+/* What the form submits as frequency: the chosen rhythm, or `one_time` for
+   both target and complete-once goals. */
+export function accountabilityDraftFrequency(draft: Pick<AccountabilityDraft, "frequency" | "trackingMode">): DosAccountabilityFrequency {
+  if (draft.trackingMode !== "regular") {
+    return "one_time";
+  }
+
+  return draft.frequency === "one_time" ? "weekly" : draft.frequency;
+}
+
+/* The collapsed summary: "Disciple 3 people" / "Monthly · Starts Oct 7". */
+export function accountabilityDraftSummary(
+  draft: AccountabilityDraft,
+  formatDate: (value: string) => string,
+): { meta: string; title: string } {
+  const title = draft.title.trim();
+  const when = draft.date ? formatDate(draft.date) : "";
+
+  if (draft.trackingMode === "regular") {
+    const rhythm = accountabilityFrequencyLabels[accountabilityDraftFrequency(draft)];
+
+    return { meta: when ? `${rhythm} · Starts ${when}` : rhythm, title };
+  }
+
+  const due = when ? `Due ${when}` : "No due date";
+
+  if (draft.trackingMode === "number") {
+    const count = draft.targetCount.trim();
+    const target = count ? `${count} ${draft.targetKind === "people" ? "people" : "times"}` : "Reach a target";
+
+    return { meta: `${target} · ${due}`, title };
+  }
+
+  return { meta: due, title };
+}

@@ -565,9 +565,11 @@ await check("Every Person V2 Accountability entry point opens the one canonical 
     "Editing must not introduce a second Accountability form.",
   );
   const logMeetingSection = client.slice(client.indexOf("function MeetingLeaderReflectionSection("));
+  const composer = client.slice(client.indexOf("function MeetingAccountabilityComposer("));
   assert(
-    logMeetingSection.slice(0, logMeetingSection.indexOf("\nfunction ")).includes("<AccountabilityFields"),
-    "Log Meeting must use the canonical Accountability fields inline.",
+    logMeetingSection.slice(0, logMeetingSection.indexOf("\nfunction ")).includes("<MeetingAccountabilityComposer")
+      && composer.slice(0, composer.indexOf("\nfunction ")).includes("<AccountabilityFields"),
+    "Log Meeting must use the canonical Accountability fields inline (through the USA-242 composer).",
   );
   const scheduleSheet = client.slice(client.indexOf("function AccountabilityScheduleSheet({"));
   assert(
@@ -733,11 +735,11 @@ await check("A number goal records its unit without an extra Yes or No gate", as
   const fieldsStart = client.indexOf("function AccountabilityFields({");
   const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
 
-  assert(fields.includes('label="Count"'), "The one canonical form names the unit plainly.");
+  assert(fields.includes('label="Unit"'), "The one canonical form names the unit plainly.");
   assert(!fields.includes("Is there a number you're working toward?"), "The old Yes/No number gate must stay removed.");
   assert(fields.includes('trackingMode === "number"'), "Target and unit fields appear only for a number goal.");
-  assert(fields.includes('{ label: "People", value: "people" as const }'), "People stores the people kind.");
-  assert(fields.includes('{ label: "Times", value: "count" as const }'), "Times reads plainly but stores the generic count kind.");
+  assert(client.includes('{ label: "People", value: "people" }'), "People stores the people kind.");
+  assert(client.includes('{ label: "Times", value: "count" }'), "Times reads plainly but stores the generic count kind.");
 
   // The choice travels to the commitments endpoint, and never without a number.
   const routerStart = client.indexOf("function accountabilityRoute(");
@@ -856,18 +858,18 @@ await check("Natural tracking choices progressively reveal only relevant fields"
   const fieldsStart = client.indexOf("function AccountabilityFields({");
   const fields = client.slice(fieldsStart, client.indexOf("\nfunction ", fieldsStart + 10));
 
-  for (const label of ["Check in regularly", "Reach a number", "Complete once"]) {
-    assert(fields.includes(`label: "${label}"`), `${label} must be offered.`);
+  for (const label of ["Check in regularly", "Reach a target", "Complete once"]) {
+    assert(client.includes(`label: "${label}"`), `${label} must be offered.`);
   }
   assert(fields.includes('trackingMode === "regular"'), "Frequency is revealed only for a regular check-in.");
   assert(fields.includes('trackingMode === "number"'), "Target and Count are revealed only for a number goal.");
-  assert(fields.includes('label={trackingMode === "regular" ? "Start" : "Due"}'), "Regular rhythms start; finite goals are due.");
+  assert(fields.includes('const dateLabel = trackingMode === "regular" ? "Start" : "Due date";'), "Regular rhythms start; finite goals are due.");
   assert(!fields.includes("Is there a number you're working toward?"), "The form must not ask the removed Yes/No question.");
   assert(!fields.includes('label="Type"'), "The form must not expose Recurring versus One-time as a technical type.");
-  assert(fields.includes('label="Start with an area"'), "The guided category entry point must remain available.");
-  assert(fields.includes('label="Suggested goals"'), "Selecting an area must provide useful examples.");
+  assert(fields.includes("Need an idea?") && fields.includes('aria-label="Focus"'), "The guided focus entry point must remain available (collapsed behind Need an idea?).");
+  assert(fields.includes('aria-label="Suggested goals"'), "Selecting a focus must provide useful examples.");
   assert(fields.includes('label="What are they working toward?"'), "The custom goal question must stay clear and person-centered.");
-  assert(fields.includes('className="mb-2" label="What are they working toward?"'), "The goal field must keep breathing room before the tracking choices.");
+  assert(fields.indexOf('label="What are they working toward?"') < fields.indexOf('label="Tracking"'), "The goal field must come before the tracking choice.");
 
   /* No database words in anything the user can actually read. Identifiers and
      form field names are not user-visible and are deliberately not checked;

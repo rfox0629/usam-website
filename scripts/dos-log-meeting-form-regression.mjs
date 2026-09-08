@@ -130,10 +130,13 @@ assert(
 
 // Accountability is captured inline through the one shared field set rather
 // than launching the separate legacy Commitment screen.
+const composerBlock = appClient.slice(appClient.indexOf("function MeetingAccountabilityComposer("), appClient.indexOf("\nfunction ", appClient.indexOf("function MeetingAccountabilityComposer(") + 1));
+
 assert(
-  leaderBlock.includes("<AccountabilityFields")
+  leaderBlock.includes("<MeetingAccountabilityComposer")
+    && composerBlock.includes("<AccountabilityFields")
     && !leaderBlock.includes("New Commitment"),
-  "Log Meeting accountability must use the canonical inline AccountabilityFields, not the legacy Commitment sheet.",
+  "Log Meeting accountability must use the canonical inline AccountabilityFields (through the USA-242 composer), not the legacy Commitment sheet.",
 );
 
 /* Existing data still opens its own section, so editing a meeting never hides
@@ -160,7 +163,8 @@ assert(
    knows the person from the meeting -- so it neither asks again nor needs the
    legacy Commitment record type. */
 assert(
-  leaderBlock.includes("namePrefix={`meeting_accountability_${index}`}")
+  composerBlock.includes("namePrefix={`meeting_accountability_${index}`}")
+    && composerBlock.includes("name={`meeting_accountability_${index}_title`}")
     && !leaderBlock.includes("onOpenCommitment"),
   "Log Meeting accountability must be captured inline against the meeting's person.",
 );
