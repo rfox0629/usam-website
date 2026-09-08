@@ -28,6 +28,15 @@ export function FieldSelectClass(spaced = true) {
   return `${spaced ? "mt-2 " : ""}min-h-12 w-full cursor-pointer appearance-none rounded-[18px] border border-[#D6E4F7] bg-white bg-[length:18px_18px] bg-[right_0.9rem_center] bg-no-repeat py-2.5 pl-4 pr-11 text-[15px] font-semibold text-dos-primary outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 disabled:cursor-not-allowed disabled:text-dos-disabled bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%235A6473%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6 9 6 6 6-6%22/%3E%3C/svg%3E')]`;
 }
 
+// Native time inputs on iOS Safari keep their intrinsic width and centre their
+// value unless appearance is reset, so `w-full` alone lets them spill out of a
+// grid column and under a neighbouring control (USA-245). This keeps the text
+// input's height, radius, border and focus ring and makes the field obey its
+// containing block on every engine.
+export function FieldTimeInputClass(spaced = true) {
+  return `${FieldInputClass(spaced)} block min-w-0 appearance-none [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.5em]`;
+}
+
 export function FieldTextareaClass(spaced = true) {
   return `${spaced ? "mt-2 " : ""}min-h-24 w-full resize-none rounded-[18px] border border-[#D6E4F7] bg-white px-4 py-3 text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10`;
 }

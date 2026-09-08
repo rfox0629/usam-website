@@ -575,7 +575,8 @@ const formPrimitives = read("src/components/dos/forms/primitives.tsx");
 const stepperBlock = formPrimitives.slice(formPrimitives.indexOf("export function Stepper("), formPrimitives.indexOf("/* ---", formPrimitives.indexOf("export function Stepper(")));
 
 assert(
-  stepperBlock.includes('className="grid h-14 w-full grid-cols-3 overflow-hidden')
+  stepperBlock.includes('className="grid h-14 w-full grid-cols-[1fr_1.4fr_1fr] overflow-hidden')
+    && stepperBlock.includes("min-[360px]:grid-cols-3")
     && (stepperBlock.match(/flex h-full w-full items-center justify-center/g) ?? []).length === 2
     && stepperBlock.includes('className="flex h-full min-w-0 items-center justify-center whitespace-nowrap'),
   "The duration Stepper must be 56px tall in three equal regions with the value and both buttons vertically centered.",

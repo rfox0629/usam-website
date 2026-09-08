@@ -27,7 +27,7 @@ import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
 import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
 import { accountabilityDraftFrequency, accountabilityDraftSummary, accountabilityTrackingModeFor, type AccountabilityDraft, type AccountabilityTrackingMode } from "@/src/lib/dos/accountability-presentation";
-import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
+import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FieldTimeInputClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
@@ -11268,11 +11268,11 @@ function GroupGatheringFormSheet({
           </label>
           <label className="block min-w-0">
             <FieldLabel>Start time</FieldLabel>
-            <input className={`${FieldInputClass()} bg-white`} onChange={(event) => setStartTime(event.target.value)} type="time" value={startTime} />
+            <input className={`${FieldTimeInputClass()} bg-white`} onChange={(event) => setStartTime(event.target.value)} type="time" value={startTime} />
           </label>
           <label className="block min-w-0">
             <FieldLabel>End time (optional)</FieldLabel>
-            <input className={`${FieldInputClass()} bg-white`} onChange={(event) => setEndTime(event.target.value)} type="time" value={endTime} />
+            <input className={`${FieldTimeInputClass()} bg-white`} onChange={(event) => setEndTime(event.target.value)} type="time" value={endTime} />
           </label>
         </div>
         <label className="block">
@@ -20422,14 +20422,20 @@ function ScheduledTableTimingFields({
           defaultValue={dateDefault}
         />
       </div>
-      <DosFormGrid>
+      {/* USA-245: Start time sits full width above a full-width Duration at
+          every width. The pair used to share DosFormGrid's two columns from
+          380px, which squeezed a time input and the three-region stepper into
+          ~170px each on a phone (and ~230px on a tablet sheet, where
+          "3 hrs 30 min" still clipped). Each control keeps its own row in
+          normal flow; nothing is positioned. */}
+      <div className="grid gap-3">
         <DosFormField label="Start time" labelVariant="sentence">
-          <input className={FieldInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
+          <input className={FieldTimeInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
         </DosFormField>
         <DosFormField label="Duration" labelVariant="sentence">
           <ScheduledDurationSelect defaultMinutes={durationDefault} name={durationName} />
         </DosFormField>
-      </DosFormGrid>
+      </div>
     </>
   );
 }
