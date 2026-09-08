@@ -86,8 +86,8 @@ const stepper = primitives.slice(primitives.indexOf("export function Stepper("),
 assert(!/\bmax\b\s*[:=]/.test(stepper), "The stepper has no ceiling; thresholds belong to the caller.");
 assert(stepper.includes('type="hidden"'), "The stepper mirrors its value into a form control so the guard and FormData see it.");
 assert(
-  /grid h-14 w-full grid-cols-3/.test(stepper) && (stepper.match(/flex h-full w-full items-center justify-center/g) ?? []).length === 2,
-  "Stepper end controls fill a third of the 56px control each (never below 52px at 320px) with their icons vertically centered.",
+  /grid h-14 w-full grid-cols-\[1fr_1\.4fr_1fr\] .* min-\[360px\]:grid-cols-3/.test(stepper) && (stepper.match(/flex h-full w-full items-center justify-center/g) ?? []).length === 2,
+  "Stepper end controls fill a third of the 56px control from 360px (a fixed 1 : 1.4 : 1 share below it, so the value never clips and never shifts the ends; USA-245) with their icons vertically centered.",
 );
 assert(stepper.includes("bg-dos-blue50") && stepper.includes("border-r border-dos-line") && stepper.includes("border-l border-dos-line"), "Stepper minus and plus controls keep their blue-tinted, divided end regions.");
 assert(stepper.includes('className="grid h-14 w-full'), "The stepper spans the form width instead of shrinking around its contents.");

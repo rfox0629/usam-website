@@ -153,8 +153,11 @@ export function Stepper({
 
   return (
     /* Three equal regions, 56px tall, everything vertically centered, so "30 min"
-       and "1 hr 15 min" both sit in the middle of the control (USA-238 review). */
-    <div className="grid h-14 w-full grid-cols-3 overflow-hidden rounded-dos-3 border border-dos-line bg-white" role="group" aria-label={label}>
+       and "1 hr 15 min" both sit in the middle of the control (USA-238 review).
+       Below 360px the value region takes a fixed 1.4 share so "3 hrs 30 min"
+       still fits without clipping; the ratio is width-based, never
+       content-based, so a changing label never shifts the layout (USA-245). */
+    <div className="grid h-14 w-full grid-cols-[1fr_1.4fr_1fr] overflow-hidden rounded-dos-3 border border-dos-line bg-white min-[360px]:grid-cols-3" role="group" aria-label={label}>
       {name ? <input name={name} type="hidden" value={value} /> : null}
       <button
         aria-label={decrementLabel}

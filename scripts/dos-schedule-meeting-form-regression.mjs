@@ -64,6 +64,38 @@ assert(
 );
 
 /* The duration control is a designed DOS control, not an OS select. */
+/* USA-245: Start time is a full-width row above a full-width Duration
+   stepper at every width, each in its own row of a one-column grid, in
+   normal flow. The time input uses the shared time-input class so iOS Safari
+   cannot let it spill under the stepper, and the shared Stepper keeps three
+   width-based regions so the label never shifts or clips. */
+const timingStart = appClient.indexOf("function ScheduledTableTimingFields(");
+const timingEnd = appClient.indexOf("\nfunction ", timingStart + 1);
+const timingBlock = appClient.slice(timingStart, timingEnd);
+const primitives = read("src/components/dos/forms/FormPrimitives.tsx");
+const stepper = read("src/components/dos/forms/primitives.tsx");
+
+assert(timingStart !== -1 && timingEnd !== -1, "ScheduledTableTimingFields must exist in DosMvpAppClient.tsx.");
+assert(
+  timingBlock.includes('<div className="grid gap-3">')
+    && !timingBlock.includes("<DosFormGrid")
+    && !timingBlock.includes("grid-cols")
+    && timingBlock.indexOf('label="Start time"') < timingBlock.indexOf('label="Duration"')
+    && !timingBlock.includes("absolute"),
+  "Schedule Meeting must stack Start time above Duration in a one-column grid, in normal flow, at every width.",
+);
+assert(
+  timingBlock.includes('className={FieldTimeInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time"')
+    && primitives.includes("export function FieldTimeInputClass(")
+    && primitives.includes("block min-w-0 appearance-none [&::-webkit-date-and-time-value]:text-left"),
+  "The scheduled Start time input must use the shared time-input class that keeps it inside its grid cell on iOS Safari.",
+);
+assert(
+  stepper.includes('grid h-14 w-full grid-cols-[1fr_1.4fr_1fr] overflow-hidden rounded-dos-3 border border-dos-line bg-white min-[360px]:grid-cols-3')
+    && stepper.includes("whitespace-nowrap"),
+  "The shared Stepper must keep three equal full-width regions so a longer duration label never shifts the layout.",
+);
+
 assert(
   formBlock.includes("<ScheduledTableTimingFields")
     && appClient.includes("function ScheduledDurationSelect(")

@@ -49,6 +49,9 @@ const screens = [
   { name: "Library", go: async (page, mobile) => { if (mobile) { await click(page, "button", "More"); await click(page, "button", /Library/, false); } else { await sidebar(page, "Library"); } } },
   /* The desktop task screen is reached through the quick-actions menu and is covered by the USA-216 captures; the sweep opens it on mobile widths. */
   { name: "Log Meeting", mobileOnly: true, go: async (page) => click(page, "button", "Log Meeting", false) },
+  /* USA-245: the Schedule form's Start time + Duration row is the one place a
+     time input and the three-region stepper share a grid; keep it in the sweep. */
+  { name: "Schedule Meeting", mobileOnly: true, go: async (page) => click(page, "button", "Schedule", true) },
 ];
 
 /* Deterministic clock (USA-239, decision log P-9): the server renders the demo
