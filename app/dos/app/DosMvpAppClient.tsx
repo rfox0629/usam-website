@@ -13531,31 +13531,37 @@ const accountabilityCategories: ReadonlyArray<{ label: string; value: Accountabi
   { label: "Other", value: "other" },
 ];
 
+/* Short enough to tap and read at a glance. A suggestion is a starting point
+   for the goal text, never a taxonomy: it fills the input and preconfigures the
+   tracking method, and the leader can edit or ignore it (USA-242 follow-up). */
 const accountabilitySuggestions: Record<AccountabilityCategory, ReadonlyArray<AccountabilitySuggestion>> = {
   scripture: [
-    { label: "Read Scripture regularly", trackingMode: "regular" },
-    { label: "Complete a reading plan", trackingMode: "complete" },
-    { label: "Read a number of chapters", targetKind: "count", trackingMode: "number" },
+    { label: "Read Scripture daily", trackingMode: "regular" },
+    { label: "Read together weekly", trackingMode: "regular" },
+    { label: "Finish a reading plan", trackingMode: "complete" },
+    { label: "Read 10 chapters", targetKind: "count", trackingMode: "number" },
   ],
   prayer: [
-    { label: "Pray regularly", trackingMode: "regular" },
-    { label: "Pray with someone regularly", trackingMode: "regular" },
-    { label: "Complete a prayer commitment", trackingMode: "complete" },
+    { label: "Pray each morning", trackingMode: "regular" },
+    { label: "Pray together weekly", trackingMode: "regular" },
+    { label: "Finish a prayer commitment", trackingMode: "complete" },
   ],
   discipleship: [
-    { label: "Meet with someone regularly", trackingMode: "regular" },
-    { label: "Disciple a number of people", targetKind: "people", trackingMode: "number" },
-    { label: "Complete a discipleship resource", trackingMode: "complete" },
+    { label: "Meet weekly", trackingMode: "regular" },
+    { label: "Read Scripture together", trackingMode: "regular" },
+    { label: "Pray together", trackingMode: "regular" },
+    { label: "Disciple 3 people", targetKind: "people", trackingMode: "number" },
+    { label: "Complete a resource", trackingMode: "complete" },
   ],
   relationships: [
-    { label: "Connect with someone regularly", trackingMode: "regular" },
-    { label: "Have an important conversation", trackingMode: "complete" },
+    { label: "Connect weekly", trackingMode: "regular" },
+    { label: "Have one hard conversation", trackingMode: "complete" },
     { label: "Follow up with someone", trackingMode: "complete" },
   ],
   health: [
     { label: "Build a healthy rhythm", trackingMode: "regular" },
     { label: "Reach a health goal", targetKind: "count", trackingMode: "number" },
-    { label: "Complete a health appointment", trackingMode: "complete" },
+    { label: "Keep a health appointment", trackingMode: "complete" },
   ],
   other: [],
 };
@@ -13621,6 +13627,8 @@ function AccountabilityFields({
   );
   const draftChangeRef = useRef(onDraftChange);
   draftChangeRef.current = onDraftChange;
+  const goalInputRef = useRef<HTMLInputElement>(null);
+  const goalLabelId = `${namePrefix}_goal_label`;
 
   useEffect(() => {
     draftChangeRef.current?.({ date, frequency, targetCount, targetKind, title, trackingMode });
@@ -13632,6 +13640,15 @@ function AccountabilityFields({
       setTargetKind(suggestion.targetKind);
     }
     setTrackingMode(suggestion.trackingMode);
+    /* One tap finishes the job: the goal is filled and the menu gets out of the
+       way rather than leaving a second list open above the rest of the card. */
+    setIsIdeasOpen(false);
+    goalInputRef.current?.focus();
+  }
+
+  function writeMyOwn() {
+    setIsIdeasOpen(false);
+    goalInputRef.current?.focus();
   }
 
   const suggestions = selectedCategory ? accountabilitySuggestions[selectedCategory] : [];
@@ -13641,30 +13658,45 @@ function AccountabilityFields({
   return (
     <>
       <input name={`${namePrefix}_frequency`} type="hidden" value={submittedFrequency} />
-      <DosFormField label="What are they working toward?" labelVariant="sentence">
-        <input
-          autoFocus={autoFocus}
-          className={FieldInputClass(false)}
-          name={`${namePrefix}_title`}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Disciple 3 people, read John 4-6, pray each morning..."
-          value={title}
-        />
-      </DosFormField>
+      {/* The goal is the question this card exists to ask, so it reads as the
+          primary prompt in DOS blue rather than as another muted field label,
+          and it keeps the same label-to-control gap as Tracking and Frequency.
+          The suggestions action sits beside the prompt: obviously available,
+          never competing with the field (USA-242 follow-up). */}
+      <div className="grid">
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 text-dos-label font-bold text-dos-blueText" id={goalLabelId}>What are they working toward?</span>
+          {lockType ? null : (
+            <button
+              aria-controls={`${namePrefix}_ideas`}
+              aria-expanded={isIdeasOpen}
+              className="-mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[12.5px] font-bold text-dos-blueText transition-colors hover:bg-dos-band"
+              onClick={() => setIsIdeasOpen((current) => !current)}
+              type="button"
+            >
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+              Need an idea?
+              <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${isIdeasOpen ? "-rotate-90" : "rotate-90"}`} strokeWidth={1.9} />
+            </button>
+          )}
+        </div>
+        <div className="mt-1.5">
+          <input
+            aria-labelledby={goalLabelId}
+            autoFocus={autoFocus}
+            className={FieldInputClass(false)}
+            name={`${namePrefix}_title`}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Enter a goal"
+            ref={goalInputRef}
+            value={title}
+          />
+        </div>
+      </div>
       {lockType ? null : (
-        <div className="grid gap-2">
-          <button
-            aria-expanded={isIdeasOpen}
-            className="inline-flex min-h-11 items-center gap-1.5 self-start text-dos-label font-semibold text-dos-blueText"
-            onClick={() => setIsIdeasOpen((current) => !current)}
-            type="button"
-          >
-            <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
-            Need an idea?
-            <ChevronRight aria-hidden="true" className={`h-4 w-4 transition-transform ${isIdeasOpen ? "-rotate-90" : "rotate-90"}`} strokeWidth={1.9} />
-          </button>
+        <div className="grid gap-2" id={`${namePrefix}_ideas`}>
           {isIdeasOpen ? (
-            <>
+            <div className="grid gap-2 rounded-[18px] border border-dos-line bg-white p-2.5">
               <div aria-label="Focus" className="flex flex-wrap gap-1.5" role="group">
                 {accountabilityCategories.map((category) => {
                   const active = selectedCategory === category.value;
@@ -13704,10 +13736,15 @@ function AccountabilityFields({
                     );
                   })}
                 </div>
-              ) : selectedCategory === "other" ? (
-                <p className="text-dos-meta font-medium text-dos-secondary">Write the goal in your own words above.</p>
               ) : null}
-            </>
+              <button
+                className="min-h-11 self-start px-1 text-[12.5px] font-bold text-dos-blueText underline underline-offset-2"
+                onClick={writeMyOwn}
+                type="button"
+              >
+                Write my own
+              </button>
+            </div>
           ) : null}
         </div>
       )}

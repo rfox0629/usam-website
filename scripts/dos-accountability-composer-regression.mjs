@@ -23,10 +23,53 @@ const personAdd = between("function AccountabilityScheduleSheet(", "\nfunction L
 const personEdit = between("function PersonAccountabilityEditSheet(", "\nfunction PersonAccountabilityCheckInSheet(");
 
 // 1. The goal comes first and needs no taxonomy; suggestions are a collapsed disclosure.
-const titleAt = fields.indexOf('label="What are they working toward?"');
+const titleAt = fields.indexOf("What are they working toward?");
 const ideasAt = fields.indexOf("Need an idea?");
 const trackingAt = fields.indexOf('label="Tracking"');
 assert(titleAt > 0 && ideasAt > titleAt && trackingAt > ideasAt, "The editor must lead with the goal, then the Need an idea? disclosure, then Tracking.");
+
+/* USA-242 follow-up: the goal is the card's primary question, so it is asked in
+   DOS blue rather than in the muted field-label grey, it keeps the same
+   label-to-control gap as Tracking and Frequency, its placeholder is short, and
+   "Need an idea?" sits beside the prompt instead of below the input. */
+assert(
+  /<span className="[^"]*font-bold text-dos-blueText" id=\{goalLabelId\}>What are they working toward\?<\/span>/.test(fields),
+  "The goal prompt must use the canonical DOS blue, not muted grey.",
+);
+assert(
+  fields.includes('placeholder="Enter a goal"') && !fields.includes("Disciple 3 people, read John 4-6, pray each morning..."),
+  "The goal input must use the short neutral placeholder, not a long example sentence.",
+);
+assert(
+  fields.indexOf("Need an idea?") < fields.indexOf('name={`${namePrefix}_title`}'),
+  "Need an idea? belongs beside the prompt, above the input, not below the field.",
+);
+assert(
+  fields.includes('<div className="mt-1.5">\n          <input\n            aria-labelledby={goalLabelId}'),
+  "The goal input must keep the same label-to-control spacing as Tracking and Frequency.",
+);
+
+/* Suggestions are short, one-tap, and get out of the way when chosen. */
+assert(
+  fields.includes("setIsIdeasOpen(false);\n    goalInputRef.current?.focus();"),
+  "Choosing a suggestion must fill the goal and close the suggestion menu.",
+);
+assert(fields.includes("function writeMyOwn()") && fields.includes(">\n                Write my own\n              </button>"), "A custom path must stay available without choosing a suggestion.");
+assert(
+  client.includes('{ label: "Meet weekly", trackingMode: "regular" }')
+    && client.includes('{ label: "Disciple 3 people", targetKind: "people", trackingMode: "number" }')
+    && client.includes('{ label: "Complete a resource", trackingMode: "complete" }')
+    && client.includes('{ label: "Read Scripture together", trackingMode: "regular" }')
+    && client.includes('{ label: "Pray together", trackingMode: "regular" }'),
+  "Discipleship suggestions must be the short, one-tap set.",
+);
+assert(!fields.includes("Write the goal in your own words above."), "The paragraph of helper copy is replaced by a one-tap custom path.");
+/* rounded-dos-3 is the 999px pill radius: right for a chip, an ellipse on a
+   panel. The suggestion popover uses the card radius instead. */
+assert(
+  fields.includes('<div className="grid gap-2 rounded-[18px] border border-dos-line bg-white p-2.5">'),
+  "The suggestion panel must use the card radius, not the pill radius.",
+);
 assert(fields.includes("const [isIdeasOpen, setIsIdeasOpen] = useState(false);") && fields.includes("{isIdeasOpen ? ("), "Need an idea? must start collapsed and reveal focus chips only when opened.");
 assert(
   ["Scripture", "Prayer", "Discipleship", "Relationships", "Health", "Other"].every((label) => client.includes(`{ label: "${label}", value: "${label.toLowerCase()}" }`))
