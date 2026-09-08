@@ -257,12 +257,13 @@ assert(
     && meetingEngine.includes('id: "serviceGifts"')
     && meetingEngine.includes('id: "fivefoldGifts"')
     && meetingEngine.includes('visibleWhen: { equals: "yes", questionId: "spiritualGifts" }')
-    && meetingEngine.includes('id: "connectionOutcomes"')
-    && meetingEngine.includes('id: "faithCommitmentOutcomes"')
-    && meetingEngine.includes('id: "healingOutcomes"')
-    && meetingEngine.includes('id: "relationshipOutcomes"')
-    && meetingEngine.includes('id: "ministryMomentOutcomes"'),
-  "Kitchen Table capture must include the three conditional gift families and the ministry outcomes list.",
+    && meetingEngine.includes('id: "significantOutcomes"')
+    && meetingEngine.includes('historicalOnly: true, id: "connectionOutcomes"')
+    && meetingEngine.includes('historicalOnly: true, id: "faithCommitmentOutcomes"')
+    && meetingEngine.includes('historicalOnly: true, id: "healingOutcomes"')
+    && meetingEngine.includes('historicalOnly: true, id: "relationshipOutcomes"')
+    && meetingEngine.includes('historicalOnly: true, id: "ministryMomentOutcomes"'),
+  "Kitchen Table capture must include the three conditional gift families, the single significant-outcomes list, and the historical outcome groups marked historical-only.",
 );
 
 assert(
@@ -386,10 +387,10 @@ const revealed = engine.normalizeConversationResponses("kitchen_table_gospel", {
 assert(
   JSON.stringify(revealed) === JSON.stringify({
     spiritualGifts: "yes",
-    relationshipWithJesus: 8,
     manifestationGifts: ["faith"],
     serviceGifts: ["mercy"],
     fivefoldGifts: ["pastor", "apostle"],
+    relationshipWithJesus: 8,
   })
     && engine.relationshipWithJesusTemperature(3) === "Cold"
     && engine.relationshipWithJesusTemperature(4) === "Lukewarm"
@@ -473,17 +474,67 @@ assert(
 
 // USA-238 founder review: outcomes live with the meeting and never touch Fruit.
 const guideSection = appClient.slice(appClient.indexOf("function DiscussionGuideResponsesSection"), appClient.indexOf("function ConversationQuestionCard"));
-const outcomeQuestions = kitchenTableFlow.sections.find((section) => section.id === "outcomes").questions;
-const outcomesOnly = engine.normalizeConversationResponses("kitchen_table_gospel", Object.fromEntries(outcomeQuestions.map((question) => [question.id, question.options.map((option) => option.value)])));
+const questionSection = kitchenTableFlow.sections[0];
+const significantOutcomes = questionSection.questions.find((question) => question.id === "significantOutcomes");
+const outcomesOnly = engine.normalizeConversationResponses("kitchen_table_gospel", { significantOutcomes: significantOutcomes.options.map((option) => option.value) });
 
 assert(
   !/fruit/i.test(meetingsRoute)
     && !/fruit/i.test(guideSection)
-    && outcomeQuestions.length === 5
-    && Object.keys(outcomesOnly).length === 5
-    && Object.keys(outcomesOnly).every((key) => outcomeQuestions.some((question) => question.id === key))
-    && kitchenTableFlow.sections.find((section) => section.id === "outcomes").description === "Capture what happened during this Kitchen Table conversation.",
-  "Kitchen Table outcomes must be stored with the meeting only: neither the guide section nor the meetings API may reference Fruit, and the payload carries only outcome keys.",
+    && JSON.stringify(Object.keys(outcomesOnly)) === '["significantOutcomes"]'
+    && outcomesOnly.significantOutcomes.length === 9,
+  "Kitchen Table outcomes must be stored with the meeting only: neither the guide section nor the meetings API may reference Fruit, and the payload carries only the outcome key.",
+);
+
+// USA-238 second founder review (2026-09-07): conversational question order,
+// gifts inline under Spiritual Gifts, one flat optional outcomes row, and
+// historical outcome groups that still normalize and render.
+const orderedIds = questionSection.questions.map((question) => question.id);
+
+assert(
+  JSON.stringify(orderedIds) === JSON.stringify([
+    "believeJesus", "baptized", "disciplingAnyone", "tithe", "honorSabbath", "prayFastOften", "preachGoodNews", "attendChurchOften",
+    "spiritualGifts", "manifestationGifts", "serviceGifts", "fivefoldGifts", "bibleDaily", "relationshipWithJesus", "significantOutcomes",
+  ]),
+  `Kitchen Table questions must follow the conversational order with the gift groups directly under Spiritual Gifts. Got ${JSON.stringify(orderedIds)}`,
+);
+
+assert(
+  questionSection.questions.filter((question) => question.visibleWhen?.questionId === "spiritualGifts").every((question) => question.visibleWhen.equals === "yes" && !question.historicalOnly)
+    && guideSection.includes("section.questions.filter((question) => !question.historicalOnly && conversationQuestionIsVisible(question, responses))")
+    && guideSection.includes('const coreQuestions = (flow.sections[0]?.questions ?? []).filter((question) => question.kind !== "multi_select")'),
+  "Gift groups must render inline, only while Spiritual Gifts is Yes, and the answered count must cover the eleven core questions.",
+);
+
+assert(
+  significantOutcomes.kind === "multi_select"
+    && significantOutcomes.label === "Add significant outcomes"
+    && significantOutcomes.emptyLabel === "Optional"
+    && significantOutcomes.detailLabel === "Significant outcomes"
+    && JSON.stringify(significantOutcomes.options.map((option) => option.label)) === JSON.stringify([
+      "Decision for Christ", "Rededication", "Baptism next step", "Baptism in the Holy Spirit", "Connected to a church or ministry",
+      "Discipleship next step", "Healing or breakthrough", "Relationship restored", "Other significant outcome",
+    ])
+    && !significantOutcomes.options.some((option) => /communion|washing|prophetic|healing prayer|deliverance prayer|prayer ministry/i.test(option.label))
+    && appClient.includes('question.emptyLabel ?? "None selected"'),
+  "The outcomes picker must be one flat optional list with the nine approved outcomes and no granular meeting activities.",
+);
+
+const legacySection = kitchenTableFlow.sections.find((section) => section.id === "outcomes");
+const legacyKept = engine.normalizeConversationResponses("kitchen_table_gospel", { believeJesus: "yes", faithCommitmentOutcomes: ["rededication"], ministryMomentOutcomes: ["communion", "bogus"] });
+const detailSectionForHistory = appClient.slice(appClient.indexOf("function ConversationResponsesSection("), appClient.indexOf("\nfunction ", appClient.indexOf("function ConversationResponsesSection(") + 1));
+
+assert(
+  legacySection.historicalOnly === true
+    && legacySection.questions.length === 5
+    && legacySection.questions.every((question) => question.historicalOnly)
+    && JSON.stringify(legacyKept.faithCommitmentOutcomes) === '["rededication"]'
+    && JSON.stringify(legacyKept.ministryMomentOutcomes) === '["communion"]'
+    && !guideSection.includes("historicalOnly === false")
+    && guideSection.includes("flow.sections.filter((section) => !section.historicalOnly)")
+    && !detailSectionForHistory.includes("historicalOnly")
+    && detailSectionForHistory.includes("{question.detailLabel ?? question.label}"),
+  "Historical outcome groups must keep normalizing and rendering in meeting detail while the form never offers them.",
 );
 
 // USA-238 founder review: row copy, no extra explanation, no guide picker.

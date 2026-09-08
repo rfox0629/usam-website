@@ -44,6 +44,15 @@ The meetings API previously passed `/missionaries/<slug>` into a profile-path he
 - **Compactness.** Default form unchanged apart from the single row; questions, gift groups and the five outcome groups render only after opening; each group is a collapsed `<details>` with "n selected".
 - **Regression coverage added** (`scripts/dos-log-meeting-form-regression.mjs`): exact taxonomy per group; relabelled key stability; every supported gift saves, reopens, edits and is pruned when Spiritual Gifts leaves Yes; detail render maps values to labels; search clearing and duplicate guard; Fruit separation; row copy and absence of a guide picker.
 
+## Second founder review (hosted mobile review, 2026-09-07)
+- **Question order** now follows the Kitchen Table conversation: Do you believe in Jesus? · Have you been baptized? · Are you discipling anyone? · Do you tithe? · Do you honor the Sabbath? · Do you pray daily and fast often? · Do you preach the Good News? · Do you attend church often? · Do you have any spiritual gifts? · (gift groups, conditional) · Do you read your Bible daily? · Rate your relationship with Jesus. Wording unchanged; only the sequence moved.
+- **Gifts inline.** The three collapsed gift groups are part of the question list directly under Spiritual Gifts and render only while the answer is Yes ("None selected" / count). Changing the answer still clears hidden selections.
+- **Significant outcomes.** The five outcome groups are replaced for new capture by one optional collapsed row after the rating — "Add significant outcomes" / "Optional" or the selected count — opening a flat list: Decision for Christ (`decision_for_christ`), Rededication (`rededication`), Baptism next step (`baptism_next_step`), Baptism in the Holy Spirit (`baptism_in_holy_spirit`), Connected to a church or ministry (`connected_to_church_or_ministry`), Discipleship next step (`discipleship_next_step`), Healing or breakthrough (`healing_or_breakthrough`), Relationship restored (`relationship_restored`), Other significant outcome (`other_significant_outcome`). Granular activities (communion, foot washing, prayer types) go in Meeting Notes.
+- **Historical outcome groups** stay in the definition as `historicalOnly`: saved values (`connectionOutcomes`, `faithCommitmentOutcomes`, `healingOutcomes`, `relationshipOutcomes`, `ministryMomentOutcomes`) keep normalizing through edits and still render with their labels in meeting detail; the form and the Library never offer them. Nothing is migrated or discarded (production held no saved responses on 2026-09-07).
+- **Outcomes vs Fruit** unchanged: outcomes are a concrete result or next step stored with the meeting; Observed Fruit stays on the normal Log Meeting form and in detail; the regression proves neither the guide section nor the meetings API references Fruit and the payload carries only the outcome key.
+- **Library resource** lists the questions in the new order and no longer numbers gift or outcome pickers as questions.
+- **Regression added**: exact question order; inline conditional gift placement; consolidated picker (labels, "Optional", detail label, no granular activities); historical normalization and detail rendering; Fruit separation.
+
 ## Evidence
 | Screenshot | What it shows |
 | --- | --- |
@@ -57,12 +66,16 @@ The meetings API previously passed `/missionaries/<slug>` into a profile-path he
 | `review-390--01-log-meeting-row-collapsed.png` | Founder-review build: the row reads "Kitchen Table Gospel Responses" / "Questions, spiritual gifts, and ministry outcomes" / "Not added"; the form stays compact. |
 | `review-390--02-duration-2hrs30min.png` | The 56px Stepper with three equal regions, value and buttons centered ("2 hrs 30 min"). |
 | `review-390--03-ministry-search-cleared.png` | After picking two ministry team results the chips stay and the search field is empty and focused. |
-| `review-390--04-row-open.png` | Opening the row reveals the questions; no explanatory paragraph. |
+| `review-390--04a-question-order-1.png` | Row opened: questions begin in conversational order (believe, baptized, discipling…). |
+| `review-390--04b-question-order-2-gifts-before-yes.png` | …tithe, Sabbath, prayer/fasting, preach, church, spiritual gifts (unanswered: no gift controls), Bible daily, rating. |
+| `review-390--04c-question-order-3-gifts-after-yes.png` | Spiritual Gifts = Yes reveals the three collapsed gift groups inline, directly under the question, before "Do you read your Bible daily?". |
 | `review-390--05-manifestation-taxonomy.png` | Manifestation Gifts tail: "Distinguishing/Discernment of Spirits" and "Exploring / Unsure". |
-| `review-390--06-service-and-fivefold.png` | Motivational / Service and Fivefold lists. |
-| `review-390--07-outcomes-collapsed.png` | Five outcome groups collapsed with counts; "Remove Kitchen Table Gospel Responses". |
+| `review-390--06-outcomes-row-collapsed.png` | After the rating: the single collapsed "Add significant outcomes" / "Optional" row, then the remove control. No five-group outcomes. |
+| `review-390--07-outcomes-list-open.png` | The opened flat nine-item outcomes list. |
+| `review-390--07b-outcomes-row-2-selected.png` | Collapsed again with "2 selected". |
 | `review-390--08-gifts-hidden-after-no.png` | Spiritual Gifts = No hides the groups; status reads "1 of 11 answered". |
 | `review-390--09-meeting-detail-heading.png` | Meeting detail heading "Kitchen Table Gospel Responses" below the separate "Fruit observed". |
+| `review-390--09b-meeting-detail-gifts-and-outcomes.png` | Detail continues with gift chips and "Significant outcomes" chips. |
 
 ## Verification
 `npm run typecheck`, `npm run test:dos-log-meeting-form`, `npm run test:dos`, `next build --webpack`, `git diff --check`.

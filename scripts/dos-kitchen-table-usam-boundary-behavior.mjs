@@ -259,9 +259,9 @@ check("A USAM workspace can create and edit Kitchen Table responses", async () =
       conversationResponses: {
         believeJesus: "yes",
         spiritualGifts: "yes",
-        relationshipWithJesus: 8,
         manifestationGifts: ["faith"],
         fivefoldGifts: ["pastor"],
+        relationshipWithJesus: 8,
         faithCommitmentOutcomes: ["rededication"],
       },
       status: 200,

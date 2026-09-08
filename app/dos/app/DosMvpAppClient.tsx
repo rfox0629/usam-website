@@ -20507,7 +20507,7 @@ function DiscussionGuideResponsesSection({
   const flow = guide;
   const rowTitle = guide.rowTitle ?? guide.title;
   const allQuestions = flow.sections.flatMap((section) => section.questions);
-  const coreQuestions = flow.sections[0]?.questions ?? [];
+  const coreQuestions = (flow.sections[0]?.questions ?? []).filter((question) => question.kind !== "multi_select");
   const answeredCoreQuestions = active
     ? coreQuestions.filter((question) => responses[question.id] !== undefined).length
     : 0;
@@ -20515,7 +20515,7 @@ function DiscussionGuideResponsesSection({
   // group never inflates the collapsed summary.
   const selectedExtras = active
     ? allQuestions
-      .filter((question) => question.kind === "multi_select" && conversationQuestionIsVisible(question, responses))
+      .filter((question) => question.kind === "multi_select" && !question.historicalOnly && conversationQuestionIsVisible(question, responses))
       .reduce<number>((count, question) => count + responseAsStringArray(responses[question.id]).length, 0)
     : 0;
   const responseSummary = answeredCoreQuestions || selectedExtras
@@ -20567,8 +20567,8 @@ function DiscussionGuideResponsesSection({
               This meeting was logged with {legacyFlowTitle}. Those responses stay on the record unless you add {rowTitle} here.
             </p>
           ) : null}
-          {flow.sections.map((section) => {
-            const visibleQuestions = section.questions.filter((question) => conversationQuestionIsVisible(question, responses));
+          {flow.sections.filter((section) => !section.historicalOnly).map((section) => {
+            const visibleQuestions = section.questions.filter((question) => !question.historicalOnly && conversationQuestionIsVisible(question, responses));
 
             return visibleQuestions.length ? (
               <div className="grid gap-2" key={section.id}>
@@ -20662,7 +20662,7 @@ function ConversationQuestionCard({
         <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <span>
             <span className="block text-sm font-semibold text-[#0F172A]">{question.label}</span>
-            <span className="mt-0.5 block text-xs text-[#64748B]">{selectedValues.length ? `${selectedValues.length} selected` : "None selected"}</span>
+            <span className="mt-0.5 block text-xs text-[#64748B]">{selectedValues.length ? `${selectedValues.length} selected` : question.emptyLabel ?? "None selected"}</span>
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-90" aria-hidden="true" strokeWidth={1.9} />
         </summary>
@@ -32977,7 +32977,7 @@ function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
 
                 return (
                   <li className="grid gap-1" key={question.id}>
-                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.label}</span>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.detailLabel ?? question.label}</span>
                     <span className="flex flex-wrap gap-1.5">
                       {selectedLabels.map((label) => (
                         <span className="inline-flex rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-[12.5px] font-semibold text-[#1D4ED8]" key={label}>
@@ -32992,7 +32992,7 @@ function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
               if (question.kind === "text" || question.kind === "notes") {
                 return (
                   <li className="grid gap-0.5" key={question.id}>
-                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.label}</span>
+                    <span className="text-[14px] font-semibold leading-[1.4] text-dos-primary">{question.detailLabel ?? question.label}</span>
                     <span className="whitespace-pre-line text-[14.5px] leading-[1.5] text-dos-body">{responseAsString(value)}</span>
                   </li>
                 );
@@ -33000,7 +33000,7 @@ function ConversationResponsesSection({ meeting }: { meeting: DosAppMeeting }) {
 
               return (
                 <li className="flex items-start justify-between gap-3" key={question.id}>
-                  <span className="min-w-0 text-[14.5px] leading-[1.5] text-dos-body">{question.label}</span>
+                  <span className="min-w-0 text-[14.5px] leading-[1.5] text-dos-body">{question.detailLabel ?? question.label}</span>
                   <span className="shrink-0 text-right text-[14.5px] font-semibold leading-[1.5] text-dos-primary">
                     {questionResponseLabel(question, value)}
                   </span>
@@ -34387,7 +34387,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
 
     return (
       <div className="grid gap-3">
-        {flow.sections.map((section) => {
+        {flow.sections.filter((section) => !("historicalOnly" in section && section.historicalOnly)).map((section) => {
           const sectionDescription = "description" in section ? section.description : null;
 
           return (
@@ -34395,7 +34395,7 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
               <h2 className="text-[17px] font-semibold leading-snug text-dos-primary">{section.title}</h2>
               {sectionDescription ? <p className="mt-1 text-dos-body text-dos-secondary">{sectionDescription}</p> : null}
               <div className="mt-4 grid gap-3">
-                {section.questions.map((question, index) => {
+                {section.questions.filter((question) => question.kind !== "multi_select").map((question, index) => {
                   const prompt = "prompt" in question ? question.prompt : null;
                   const scriptureRefs = "scriptureRefs" in question ? question.scriptureRefs : null;
 

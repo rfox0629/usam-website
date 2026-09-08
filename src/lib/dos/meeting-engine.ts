@@ -30,7 +30,14 @@ export type DosKitchenTableResponses = Partial<Record<Exclude<DosKitchenTableQue
 type DosKitchenTableNonRatingQuestionId = Exclude<DosKitchenTableQuestionId, "relationshipWithJesus">;
 
 export type DosConversationQuestion = {
+  /* Shown in meeting detail instead of `label` (e.g. for an "Add …" form title). */
+  detailLabel?: string;
+  /* Collapsed-row status when nothing is selected; defaults to "None selected". */
+  emptyLabel?: string;
   helper?: string;
+  /* Kept for saved records: still normalized and rendered in detail, never
+     offered in the form or the Library. */
+  historicalOnly?: boolean;
   id: string;
   kind: DosConversationQuestionKind;
   label: string;
@@ -55,6 +62,7 @@ export type DosConversationQuestion = {
 
 export type DosConversationSection = {
   description?: string;
+  historicalOnly?: boolean;
   id: string;
   questions: readonly DosConversationQuestion[];
   title: string;
@@ -94,17 +102,20 @@ export type DosRecommendedResource = {
   type: "flag" | "resource";
 };
 
+/* Conversational order of a Kitchen Table conversation (PCO reference,
+   founder review 2026-09-07). The gift groups are inserted directly after
+   "Do you have any spiritual gifts?" when the flow is assembled below. */
 export const dosKitchenTableQuestions = [
   { id: "believeJesus", kind: "yes_no", label: "Do you believe in Jesus?" },
   { id: "baptized", kind: "yes_no", label: "Have you been baptized?" },
-  { id: "bibleDaily", kind: "yes_no", label: "Do you read your Bible daily?" },
-  { id: "spiritualGifts", kind: "yes_no_unsure", label: "Do you have any spiritual gifts?" },
   { id: "disciplingAnyone", kind: "yes_no", label: "Are you discipling anyone?" },
-  { id: "attendChurchOften", kind: "yes_no", label: "Do you attend church often?" },
-  { id: "preachGoodNews", kind: "yes_no", label: "Do you preach the Good News?" },
   { id: "tithe", kind: "yes_no", label: "Do you tithe?" },
   { id: "honorSabbath", kind: "yes_no", label: "Do you honor the Sabbath?" },
   { id: "prayFastOften", kind: "yes_no_unsure", label: "Do you pray daily and fast often?" },
+  { id: "preachGoodNews", kind: "yes_no", label: "Do you preach the Good News?" },
+  { id: "attendChurchOften", kind: "yes_no", label: "Do you attend church often?" },
+  { id: "spiritualGifts", kind: "yes_no_unsure", label: "Do you have any spiritual gifts?" },
+  { id: "bibleDaily", kind: "yes_no", label: "Do you read your Bible daily?" },
   {
     id: "relationshipWithJesus",
     kind: "rating",
@@ -197,6 +208,63 @@ const ministryMomentOutcomeOptions = [
   { label: "Healing Prayer", value: "healing_prayer" },
 ] as const;
 
+/* Significant outcomes (founder review 2026-09-07): one flat optional list of
+   concrete results or next steps from this conversation. The five earlier
+   outcome groups above are historical-only — saved values keep normalizing
+   and rendering, the form no longer offers them, and granular activities
+   (communion, foot washing, prayer types) belong in Meeting Notes. Outcomes
+   are meeting responses only; they never touch the leader's separate
+   assessment records. */
+const significantOutcomeOptions = [
+  { label: "Decision for Christ", value: "decision_for_christ" },
+  { label: "Rededication", value: "rededication" },
+  { label: "Baptism next step", value: "baptism_next_step" },
+  { label: "Baptism in the Holy Spirit", value: "baptism_in_holy_spirit" },
+  { label: "Connected to a church or ministry", value: "connected_to_church_or_ministry" },
+  { label: "Discipleship next step", value: "discipleship_next_step" },
+  { label: "Healing or breakthrough", value: "healing_or_breakthrough" },
+  { label: "Relationship restored", value: "relationship_restored" },
+  { label: "Other significant outcome", value: "other_significant_outcome" },
+] as const;
+
+const kitchenTableSpiritualGiftsIndex = dosKitchenTableQuestions.findIndex((question) => question.id === "spiritualGifts");
+
+const kitchenTableGiftQuestions = [
+  {
+    id: "manifestationGifts",
+    kind: "multi_select",
+    label: "Manifestation Gifts",
+    options: manifestationGiftOptions,
+    scriptureRefs: ["1 Corinthians 12:7-11"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+  {
+    id: "serviceGifts",
+    kind: "multi_select",
+    label: "Motivational / Service Gifts",
+    options: serviceGiftOptions,
+    scriptureRefs: ["Romans 12:6-8"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+  {
+    id: "fivefoldGifts",
+    kind: "multi_select",
+    label: "Fivefold Ministry Gifts",
+    options: fivefoldGiftOptions,
+    scriptureRefs: ["Ephesians 4:11"],
+    visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
+  },
+] as const satisfies readonly DosConversationQuestion[];
+
+const kitchenTableSignificantOutcomesQuestion = {
+  detailLabel: "Significant outcomes",
+  emptyLabel: "Optional",
+  id: "significantOutcomes",
+  kind: "multi_select",
+  label: "Add significant outcomes",
+  options: significantOutcomeOptions,
+} as const satisfies DosConversationQuestion;
+
 export const dosConversationFlowDefinitions = [
   {
     category: "Conversation Flow",
@@ -209,74 +277,29 @@ export const dosConversationFlowDefinitions = [
     sections: [
       {
         id: "commands-of-jesus",
-        questions: dosKitchenTableQuestions,
+        /* Conversational order: the three gift groups sit directly under
+           "Do you have any spiritual gifts?" and render only while it is Yes;
+           "Add significant outcomes" is one optional collapsed row after the
+           relationship rating. */
+        questions: [
+          ...dosKitchenTableQuestions.slice(0, kitchenTableSpiritualGiftsIndex + 1),
+          ...kitchenTableGiftQuestions,
+          ...dosKitchenTableQuestions.slice(kitchenTableSpiritualGiftsIndex + 1),
+          kitchenTableSignificantOutcomesQuestion,
+        ],
         title: "Kitchen Table Questions",
       },
       {
-        description: "Select any gifts they identified. These appear only when Spiritual Gifts is Yes.",
-        id: "spiritual-gifts",
-        questions: [
-          {
-            id: "manifestationGifts",
-            kind: "multi_select",
-            label: "Manifestation Gifts",
-            options: manifestationGiftOptions,
-            scriptureRefs: ["1 Corinthians 12:7-11"],
-            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
-          },
-          {
-            id: "serviceGifts",
-            kind: "multi_select",
-            label: "Motivational / Service Gifts",
-            options: serviceGiftOptions,
-            scriptureRefs: ["Romans 12:6-8"],
-            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
-          },
-          {
-            id: "fivefoldGifts",
-            kind: "multi_select",
-            label: "Fivefold Ministry Gifts",
-            options: fivefoldGiftOptions,
-            scriptureRefs: ["Ephesians 4:11"],
-            visibleWhen: { equals: "yes", questionId: "spiritualGifts" },
-          },
-        ],
-        title: "Spiritual Gifts",
-      },
-      {
-        description: "Capture what happened during this Kitchen Table conversation.",
+        /* Historical only (pre-review outcome groups). Kept so saved meetings
+           keep their values through edits and still render them in detail. */
+        historicalOnly: true,
         id: "outcomes",
         questions: [
-          {
-            id: "connectionOutcomes",
-            kind: "multi_select",
-            label: "Discipleship & Church Connection",
-            options: connectionOutcomeOptions,
-          },
-          {
-            id: "faithCommitmentOutcomes",
-            kind: "multi_select",
-            label: "Faith Commitments",
-            options: faithCommitmentOutcomeOptions,
-          },
-          {
-            id: "healingOutcomes",
-            kind: "multi_select",
-            label: "Healing & Breakthrough",
-            options: healingOutcomeOptions,
-          },
-          {
-            id: "relationshipOutcomes",
-            kind: "multi_select",
-            label: "Relationship Restoration",
-            options: relationshipOutcomeOptions,
-          },
-          {
-            id: "ministryMomentOutcomes",
-            kind: "multi_select",
-            label: "Ministry Moments",
-            options: ministryMomentOutcomeOptions,
-          },
+          { historicalOnly: true, id: "connectionOutcomes", kind: "multi_select", label: "Discipleship & Church Connection", options: connectionOutcomeOptions },
+          { historicalOnly: true, id: "faithCommitmentOutcomes", kind: "multi_select", label: "Faith Commitments", options: faithCommitmentOutcomeOptions },
+          { historicalOnly: true, id: "healingOutcomes", kind: "multi_select", label: "Healing & Breakthrough", options: healingOutcomeOptions },
+          { historicalOnly: true, id: "relationshipOutcomes", kind: "multi_select", label: "Relationship Restoration", options: relationshipOutcomeOptions },
+          { historicalOnly: true, id: "ministryMomentOutcomes", kind: "multi_select", label: "Ministry Moments", options: ministryMomentOutcomeOptions },
         ],
         title: "Outcomes",
       },
