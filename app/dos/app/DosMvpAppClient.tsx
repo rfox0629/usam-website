@@ -1617,6 +1617,44 @@ function formatTime(value: string | null) {
   }).format(date);
 }
 
+/* USA-246: what this meeting was planned for, shown only on a logged meeting
+   and only when the plan and the actual differ. A meeting that ran as planned
+   says nothing extra, and a meeting that never had a plan — everything logged
+   before the snapshot existed — says nothing at all. */
+function plannedVersusActualLine(meeting: DosAppMeeting) {
+  if (meeting.meetingStatus !== "logged" || !meeting.plannedStartAt) {
+    return null;
+  }
+
+  const actualStart = meeting.scheduledStartAt;
+  const plannedMinutes = meeting.plannedDurationMinutes
+    ?? (durationMinutesFromDateRange(meeting.plannedStartAt, meeting.plannedEndAt, 0) || null);
+  const actualMinutes = durationMinutesFromDateRange(actualStart, meeting.scheduledEndAt, 0) || null;
+  const sameStart = Boolean(actualStart) && Math.abs(Date.parse(actualStart as string) - Date.parse(meeting.plannedStartAt)) < 60_000;
+  const sameDuration = plannedMinutes !== null && actualMinutes !== null && plannedMinutes === actualMinutes;
+
+  if (sameStart && sameDuration) {
+    return null;
+  }
+
+  const parts = [
+    sameStart ? null : `${formatMeetingClockTime(meeting.plannedStartAt)}`,
+    sameDuration || plannedMinutes === null ? null : formatDurationLabel(plannedMinutes),
+  ].filter(Boolean);
+
+  return parts.length ? `Scheduled for ${parts.join(" · ")}` : null;
+}
+
+/* A bare clock time, used where the date is already established by its
+   surroundings (for example "Scheduled for 6:00 PM"). */
+function formatMeetingClockTime(value: string | null | undefined) {
+  const date = value ? new Date(value) : null;
+
+  return date && !Number.isNaN(date.getTime())
+    ? new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date)
+    : "the scheduled time";
+}
+
 function formatMeetingTimeRange(meeting: DosAppMeeting) {
   const start = formatTime(meeting.scheduledStartAt ?? meeting.date);
   const end = formatTime(meeting.scheduledEndAt);
@@ -20615,6 +20653,7 @@ function MeetingFormContent({
   planningReflectionDefault,
   recommendedResources,
   scheduledEndAtDefault,
+  plannedStartAtDefault,
   scheduledStartAtDefault,
   selectedConversationFlow,
   selectedMeetingContext,
@@ -20672,6 +20711,10 @@ function MeetingFormContent({
   planningReflectionDefault?: DosAppMeeting["planningReflection"] | null;
   recommendedResources: DosRecommendedResource[];
   scheduledEndAtDefault?: string | null;
+  /* USA-246: the time this meeting was scheduled for. Present only when
+     completing a scheduled meeting, and it seeds the actual start so logging
+     records the real clock time instead of a placeholder. */
+  plannedStartAtDefault?: string | null;
   scheduledStartAtDefault?: string | null;
   selectedConversationFlow: DosConversationFlowKey;
   selectedMeetingContext: DosAppMeetingType;
@@ -20841,6 +20884,27 @@ function MeetingFormContent({
       {showDurationField && durationSelector ? (
         <DosFormSection hint="15-minute steps" icon="meetings" title="Duration" variant="label">
           {durationSelector}
+          {/* USA-246: most meetings happen when they were planned, so the
+              actual start is prefilled and stays out of the way. It is here for
+              the meeting that started late or ran on a different day, and it
+              never appears on a meeting that had no plan. */}
+          {plannedStartAtDefault ? (
+            <DisclosureSection description="Only if it started at a different time." title="Adjust time">
+              <DosFormField label="Actual start time" labelVariant="sentence">
+                <div className="mt-1.5">
+                  <input
+                    className={FieldTimeInputClass(false)}
+                    defaultValue={timeInputValueFromDateTime(plannedStartAtDefault, "")}
+                    name="actual_start_time"
+                    type="time"
+                  />
+                </div>
+              </DosFormField>
+              <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+                Scheduled for {formatMeetingClockTime(plannedStartAtDefault)}. Changing this records what actually happened; the scheduled time is kept.
+              </p>
+            </DisclosureSection>
+          ) : null}
         </DosFormSection>
       ) : null}
       <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
@@ -36096,6 +36160,11 @@ function MeetingDetailOverlay({
           </p>
           <h2 className="mt-1.5 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{meetingHeadline}</h2>
           <p className="mt-1.5 text-[13px] font-semibold text-dos-secondary">{meetingSubline}</p>
+          {/* The plan, kept in the deeper detail and only when it differs from
+              what actually happened (USA-246). */}
+          {plannedVersusActualLine(meeting) ? (
+            <p className="mt-0.5 text-[12.5px] font-medium text-dos-eyebrow">{plannedVersusActualLine(meeting)}</p>
+          ) : null}
           {/* The facts actually captured about this meeting: when, how we
               connected, how long. Fruit count stays, but as trailing detail
               rather than the headline metadata. */}
@@ -36453,6 +36522,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [reviewLinksByMeetingId, setReviewLinksByMeetingId] = useState<Record<string, string>>({});
   const reviewSendInFlightRef = useRef<Set<string>>(new Set());
   const meetingWorkflowIdsRef = useRef<MeetingWorkflowIds | null>(null);
+  /* USA-246: one key per logging attempt, held for as long as the editor is
+     open so a retry after a failure reuses it and cannot apply twice. Cleared
+     with the rest of the meeting form state. */
+  const loggingOperationKeyRef = useRef<string | null>(null);
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
   const [reviewOptionsLinksByMeetingId, setReviewOptionsLinksByMeetingId] = useState<Record<string, string>>({});
@@ -37321,6 +37394,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function closeForm() {
     meetingWorkflowIdsRef.current = null;
+    loggingOperationKeyRef.current = null;
     setErrorMessage("");
     setFormMode(null);
     setReviewLinkMeetingId(null);
@@ -37346,6 +37420,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode(mode);
     if (mode === "meeting") {
       meetingWorkflowIdsRef.current = null;
+    loggingOperationKeyRef.current = null;
       setSelectedMeetingId(null);
       setSelectedMeetingReviewRecipientId(null);
       setLoggingScheduledMeetingId(null);
@@ -38432,6 +38507,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMeetingForPerson(personId: string) {
     meetingWorkflowIdsRef.current = null;
+    loggingOperationKeyRef.current = null;
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
@@ -38443,6 +38519,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openLogTableFromCalendar(personIds: string[] = [], meetingType?: DosAppMeetingType) {
     meetingWorkflowIdsRef.current = null;
+    loggingOperationKeyRef.current = null;
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedMeetingId(null);
@@ -41084,6 +41161,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
+        /* USA-246: what this meeting is scheduled for, snapshotted now so
+           logging can record what actually happened without erasing it. */
+        plannedDate: scheduledDate,
+        plannedEndAt: scheduledEndAt,
+        plannedStartAt: scheduledStartAt,
+        plannedTimezone: timezone,
         scheduledEndAt,
         scheduledStartAt,
         tableDate: scheduledDate,
@@ -41122,7 +41205,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const latestReflection = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
     const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
-    const loggedStartAt = localDateTimeIso(tableDate, "12:00");
+    /* USA-246: the actual start. Logging used to stamp every meeting at local
+       noon, which destroyed both the time it was scheduled for and the time it
+       happened. It now defaults to the planned start and can be corrected under
+       "Adjust time"; only a meeting that never had a plan falls back to noon,
+       which is the placeholder that shipped before. */
+    const actualTimeInput = String(formData.get("actual_start_time") ?? "").trim();
+    const plannedClockTime = timeInputValueFromDateTime(selectedMeeting.plannedStartAt ?? selectedMeeting.scheduledStartAt, "");
+    const loggedStartAt = localDateTimeIso(tableDate, actualTimeInput || plannedClockTime || "12:00");
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
@@ -41160,8 +41250,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
 
     if (isLoggingScheduledMeeting) {
+      /* The canonical columns now carry the ACTUAL time; the planned snapshot
+         is deliberately absent from this payload so the server leaves it
+         untouched. The operation key makes a retry or a double tap a no-op. */
       payload.scheduledStartAt = loggedStartAt;
       payload.scheduledEndAt = loggedEndAt;
+      loggingOperationKeyRef.current = loggingOperationKeyRef.current ?? crypto.randomUUID();
+      payload.logOperationKey = loggingOperationKeyRef.current;
     } else if (isScheduledMeeting) {
       const scheduledTime = String(formData.get("scheduled_time") ?? "");
       const scheduledStartAt = localDateTimeIso(tableDate, scheduledTime);
@@ -44476,6 +44571,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               recommendedResources={draftRecommendedResources}
               reflectionDefault={reflectionDefault}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
+              plannedStartAtDefault={selectedMeeting.meetingStatus === "scheduled" ? selectedMeeting.plannedStartAt ?? selectedMeeting.scheduledStartAt : null}
               scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
               selectedMeetingContext={selectedMeetingContext}

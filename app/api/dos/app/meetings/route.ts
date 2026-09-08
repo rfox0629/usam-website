@@ -35,6 +35,13 @@ type MeetingPayload = {
   ministryTeamMemberIds?: unknown;
   ministryTeamPersonIds?: unknown;
   participantPersonIds?: unknown;
+  logOperationKey?: unknown;
+  loggedAt?: unknown;
+  plannedDate?: unknown;
+  plannedDurationMinutes?: unknown;
+  plannedEndAt?: unknown;
+  plannedStartAt?: unknown;
+  plannedTimezone?: unknown;
   planningActionItems?: unknown;
   planningDecisions?: unknown;
   planningFollowUp?: unknown;
@@ -309,19 +316,83 @@ function calendarDeleteWarning(status: "deleted" | "failed" | "needs_reconnect" 
   return null;
 }
 
+/* USA-246: the planned snapshot. `scheduled_*` and `table_date` stay canonical
+   and hold what ACTUALLY happened once a meeting is logged; these columns keep
+   what it was scheduled for, so the plan is never overwritten. Absent values
+   stay null rather than being inferred. */
+/* USA-246: logging is idempotent. A retry or a double-tapped Log carrying the
+   same key finds the key already recorded on the row and does nothing, rather
+   than applying the same transition twice. A database that predates the column
+   simply reports it missing and we fall through to the normal write, which is
+   the behaviour that shipped before this change. */
+async function alreadyLoggedWithKey(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  workspaceId: string,
+  meetingId: string,
+  logOperationKey: string,
+) {
+  const result = await supabase
+    .from("missionary_tables")
+    .select("id")
+    .eq("log_operation_key", logOperationKey)
+    .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
+    .limit(1);
+
+  if (result.error) {
+    return { applied: false, error: null };
+  }
+
+  const existingId = result.data?.[0]?.id ? String(result.data[0].id) : null;
+
+  return { applied: existingId === meetingId, error: null };
+}
+
+function plannedSnapshotFields(payload: MeetingPayload) {
+  const plannedStartAt = asIsoString(payload.plannedStartAt);
+  const plannedEndAt = asIsoString(payload.plannedEndAt);
+  const plannedDate = asDateString(payload.plannedDate);
+  const plannedTimezone = asString(payload.plannedTimezone) || null;
+  const rawDuration = Number(payload.plannedDurationMinutes);
+  const derivedDuration = plannedStartAt && plannedEndAt
+    ? Math.max(1, Math.round((Date.parse(plannedEndAt) - Date.parse(plannedStartAt)) / 60_000))
+    : null;
+  const plannedDurationMinutes = Number.isFinite(rawDuration) && rawDuration > 0
+    ? Math.round(rawDuration)
+    : derivedDuration;
+
+  if (!plannedStartAt && !plannedEndAt && !plannedDate && !plannedTimezone && !plannedDurationMinutes) {
+    return null;
+  }
+
+  return {
+    planned_date: plannedDate,
+    planned_duration_minutes: plannedDurationMinutes,
+    planned_end_at: plannedEndAt,
+    planned_start_at: plannedStartAt,
+    planned_timezone: plannedTimezone,
+  };
+}
+
 function meetingRecordCandidates(record: Record<string, unknown>) {
   const schedulingKeys = ["meeting_status", "scheduled_start_at", "scheduled_end_at", "timezone", "google_sync_enabled"];
   const recorderKeys = ["recorded_by_user_id", "recorded_by_display_name"];
+  /* USA-246 planned-versus-actual columns. Dropped first when the database has
+     not been migrated yet, so code deployed ahead of the schema degrades to the
+     previous behaviour instead of failing the write. */
+  const plannedKeys = ["planned_start_at", "planned_end_at", "planned_date", "planned_duration_minutes", "planned_timezone", "lifecycle_id", "logged_at", "log_operation_key"];
   const { workspace_id: _workspaceId, ...legacyRecord } = record;
   const dropKeySets = [
     [],
+    plannedKeys,
     tableRoleColumnKeys,
+    [...plannedKeys, ...tableRoleColumnKeys],
     schedulingKeys,
     recorderKeys,
     [...schedulingKeys, ...recorderKeys],
     [...tableRoleColumnKeys, ...schedulingKeys],
     [...tableRoleColumnKeys, ...recorderKeys],
     [...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
+    [...plannedKeys, ...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
   ];
   const omitKeys = (candidate: Record<string, unknown>, keys: string[]) => (
     keys.length
@@ -1264,6 +1335,18 @@ export async function POST(request: Request) {
     scheduled_end_at: scheduledEndAt,
     scheduled_start_at: scheduledStartAt,
     source: "field",
+    ...(plannedSnapshotFields(payload) ?? (meetingStatus === "scheduled" ? {
+      /* Scheduling without an explicit snapshot still records one: at this
+         moment the canonical values ARE the plan. */
+      planned_date: tableDate,
+      planned_duration_minutes: scheduledStartAt && scheduledEndAt
+        ? Math.max(1, Math.round((Date.parse(scheduledEndAt) - Date.parse(scheduledStartAt)) / 60_000))
+        : null,
+      planned_end_at: scheduledEndAt,
+      planned_start_at: scheduledStartAt,
+      planned_timezone: timezone,
+    } : {})),
+    ...(meetingStatus === "logged" ? { logged_at: new Date().toISOString() } : {}),
     table_date: tableDate,
     ...tableRoleReflectionFields(payload, tableRole),
     table_type: tableType,
@@ -1426,6 +1509,16 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const logOperationKey = asString(payload.logOperationKey) || null;
+
+  if (logOperationKey) {
+    const alreadyApplied = await alreadyLoggedWithKey(supabase, workspaceId, id, logOperationKey);
+
+    if (alreadyApplied.applied) {
+      return NextResponse.json({ id, status: "already_applied" });
+    }
+  }
+
   const previousTargetResult = await loadMeetingDeleteTarget(supabase, workspaceId, id);
 
   if (previousTargetResult.error) {
@@ -1547,6 +1640,14 @@ export async function PATCH(request: Request) {
     recommended_resources: buildMeetingRecommendations(conversationFlowKey, conversationResponses),
     scheduled_end_at: scheduledEndAt,
     scheduled_start_at: scheduledStartAt,
+    /* The plan is written only when the caller sends one — a reschedule. It is
+       never included in a logging write, so completing a meeting can no longer
+       overwrite the time it was scheduled for (USA-246). */
+    ...(plannedSnapshotFields(payload) ?? {}),
+    ...(meetingStatus === "logged" ? {
+      logged_at: new Date().toISOString(),
+      ...(logOperationKey ? { log_operation_key: logOperationKey } : {}),
+    } : {}),
     table_date: tableDate,
     ...tableRoleReflectionFields(payload, tableRole),
     table_type: tableType,

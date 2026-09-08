@@ -252,6 +252,13 @@ export type DosAppMeeting = {
   source: "connection" | "table";
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
+  /* USA-246: what this meeting was scheduled for, when that is known. After
+     logging, `scheduledStartAt` / `scheduledEndAt` / `date` hold what actually
+     happened; these hold the plan, so the two can be compared. */
+  plannedStartAt: string | null;
+  plannedEndAt: string | null;
+  plannedDurationMinutes: number | null;
+  loggedAt: string | null;
   supportingAttendees: DosAppMinistryEventPerson[];
   planningReflection: {
     actionItems: string | null;
@@ -1095,6 +1102,13 @@ type MeetingRow = {
   recorded_by_user_id?: string | null;
   scheduled_end_at?: string | null;
   scheduled_start_at?: string | null;
+  /* USA-246: the plan, kept beside the canonical columns. Null means no plan
+     was ever captured — for every meeting logged before that snapshot existed. */
+  planned_start_at?: string | null;
+  planned_end_at?: string | null;
+  planned_duration_minutes?: number | null;
+  planned_timezone?: string | null;
+  logged_at?: string | null;
   table_role?: string | null;
   table_date: string | null;
   table_type: string | null;
@@ -1861,7 +1875,7 @@ type FruitEventRow = {
   visibility: string | null;
 };
 
-const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, planned_start_at, planned_end_at, planned_duration_minutes, planned_timezone, logged_at, timezone, google_sync_enabled, created_at, updated_at";
 const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
@@ -4909,6 +4923,10 @@ export async function loadDosAppData(
         source: "table" as const,
         scheduledEndAt: meeting.scheduled_end_at ?? null,
         scheduledStartAt: meeting.scheduled_start_at ?? null,
+        plannedStartAt: meeting.planned_start_at ?? null,
+        plannedEndAt: meeting.planned_end_at ?? null,
+        plannedDurationMinutes: typeof meeting.planned_duration_minutes === "number" ? meeting.planned_duration_minutes : null,
+        loggedAt: meeting.logged_at ?? null,
         supportingAttendees: eventPeople.filter((eventPerson) => eventPerson.role === "supporting_attendee"),
         planningReflection: {
           actionItems: meeting.planning_action_items ?? null,
@@ -4953,6 +4971,12 @@ export async function loadDosAppData(
       reviewLinks: [],
       scheduledEndAt: null,
       scheduledStartAt: null,
+      /* A connection-sourced meeting is never scheduled in DOS, so it has no
+         plan to compare against (USA-246). */
+      plannedStartAt: null,
+      plannedEndAt: null,
+      plannedDurationMinutes: null,
+      loggedAt: null,
       source: "connection" as const,
       supportingAttendees: [],
       planningReflection: {
