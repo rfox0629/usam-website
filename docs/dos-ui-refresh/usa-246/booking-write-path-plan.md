@@ -72,4 +72,19 @@ Person resolution never leaves a half state: an ambiguous or possible match book
 
 **Unit (Node, `scripts/dos-booking-write-path-regression.mjs`, in `test:dos`):** person resolution (email, phone with formatting variance, ambiguous phone, email-vs-phone conflict, name-only possible match, create) and host assignment (owner fallback for the live links, configured single host, child/archived never host, team busy-host skip, all-busy deterministic fallback, configured order, linked-member and first-active fallbacks, no host).
 
-**End to end:** hosted Vercel preview (new path on) against the founder's live links; Playwright drives the public page including a double submit and a retried request.
+**End to end, on the hosted preview (PR #126, new path on) against the live "Kitchen Table" link, which has Google sync off** (`scratch/usa246b/preview-e2e*.mjs`, all passing):
+- The public page loads and offers the same slots the server payload contains (14 across two Thursdays).
+- Form submit confirms; a **double tap on the deployed form sends exactly one request** (after the in-flight ref guard; the first build sent two requests with the same key and the server still created one booking).
+- **10 concurrent requests for one slot against the production database: 1 booked, 9 refused (409), one row created.** The winner's meeting carries the full planned snapshot, `lifecycle_id = id`, `created_by` = the owner's user id (host rule: no configured host → workspace owner), and the created Person linked.
+- **Same-key retry** returns `alreadyBooked: true` with the same booking and meeting ids after the slot is taken.
+- A fresh key for the taken slot → 409; the slot 15 minutes after a live 90-minute booking → 409 (buffer); unknown token → 404; missing operation key → 400 with nothing written.
+- **Person matching in production:** a second form booking with the same phone as an earlier test guest was `linked` (one exact phone match, no duplicate Person); a booking named "Brooke Fox" with a new email was booked and **flagged for review with both existing "Brooke Fox" people as candidates, no Person created, meeting created with no people attached**.
+- Historical bookings: the four July rows still have `operation_key`, `host_member_id`, `person_match_status` null and their July/August `updated_at`.
+
+**Test data left on production (all in the founder's workspace, all clearly labelled):** five test bookings and their meetings were set to `canceled` (they do not block availability or appear in Needs Logging); two test Persons ("Preview Test … (delete me)") were archived. **One live booking was kept on purpose** so the review flow can be exercised in the preview: guest "Brooke Fox" (`preview.review.…@example.com`), Thu Oct 1 6:00 PM CT, `person_match_status = review` — it appears under Links → Needs review and as a scheduled meeting on Oct 1. Cancel or resolve it after review; say the word and I will remove all test rows.
+
+**Enabling in production:** set `DOS_BOOKING_WRITE_PATH_V2=true` in the Vercel Production environment and redeploy (or remove the gate in code after approval). Until then production keeps the legacy path; the migration is already applied and inert.
+
+## 7. Screenshots
+
+`screenshots/booking/`: Links → Needs review with the two candidate actions and Add as a new person (390 and 1440); the meeting detail's "Booked through … by …" line; the public confirmation page from the preview run.
