@@ -15,7 +15,9 @@
  *   - time is split into what the missionary INVESTED (meetings where they
  *     ministered, discipled mutually, or planned) and what was INVESTED IN
  *     THEM (meetings where they were the one being discipled); the two are
- *     never ranked together
+ *     never ranked together, and a meeting whose direction cannot be
+ *     resolved is reported as DIRECTION UNRESOLVED rather than defaulted
+ *     (classification rules beside `dosMinistryClassifyMeeting`)
  *   - default range is the last 30 days; 7 / 30 / 90 / custom are offered
  *   - accountability check-ins are their own activity type: never counted
  *     as meetings, never added to contact-time hours
@@ -72,25 +74,28 @@ export const dosMinistryRelationshipDirectionLabels: Record<DosMinistryRelations
   none: "No direction recorded",
 };
 
-export type DosMinistryCompleteness = "recorded" | "partial" | "none";
+export type DosMinistryCompleteness = "recorded" | "partial" | "none" | "unresolved";
 
 export const dosMinistryCompletenessLabels: Record<DosMinistryCompleteness, string> = {
   recorded: "Recorded",
   partial: "Partial",
   none: "No qualifying activity",
+  unresolved: "Direction unresolved",
 };
 
 /* Which way a meeting's time went. `being_mentored` is the legacy stored
    role for "I was the one being discipled". Mutual discipleship and
-   leadership / planning are time the missionary gave, so they are invested. */
-export type DosMinistryTimeBucket = "invested" | "received";
+   leadership / planning are time the missionary gave, so they are invested.
+   "unresolved" is an honest state, never a default. */
+export type DosMinistryTimeBucket = "invested" | "received" | "unresolved";
 
 export const dosMinistryTimeBucketLabels: Record<DosMinistryTimeBucket, string> = {
   invested: "Time I invested",
   received: "Time invested in me",
+  unresolved: "Direction unresolved",
 };
 
-export function dosMinistryTimeBucketForRole(tableRole: string): DosMinistryTimeBucket {
+export function dosMinistryTimeBucketForRole(tableRole: string): Exclude<DosMinistryTimeBucket, "unresolved"> {
   return tableRole === "being_mentored" ? "received" : "invested";
 }
 
@@ -118,6 +123,10 @@ export type DosMinistryReportMeeting = {
   scheduledStartAt: string | null;
   source: "connection" | "table";
   tableRole: string;
+  /* True only when the role was stored on the meeting. Production has no
+     `table_role` column yet, so the loader's "ministering" is a default
+     there, and a default never classifies anything. */
+  tableRoleRecorded: boolean;
   type: string;
 };
 
@@ -182,6 +191,8 @@ export type DosMinistryReportInput = {
 export type DosMinistryReportRecord =
   | {
       bucket: DosMinistryTimeBucket;
+      /* Which rule classified the meeting (see dosMinistryClassifyMeeting). */
+      bucketReason: string;
       date: string;
       id: string;
       kind: "meeting";
@@ -202,12 +213,14 @@ export type DosMinistryReportRecord =
     };
 
 export type DosMinistryNextAction = {
-  kind: "complete_record" | "log_check_in" | "scheduled" | "schedule" | "ask" | "keep_rhythm";
+  kind: "confirm_direction" | "complete_record" | "log_check_in" | "scheduled" | "schedule" | "ask" | "keep_rhythm";
   label: string;
   reason: string;
 };
 
 export type DosMinistryDownstreamStatus = "resolved" | "not_linked" | "not_applicable";
+
+export type DosMinistryDirectionStatus = "confirmed" | "unconfirmed" | "conflicting" | "none";
 
 export type DosMinistryReportRow = {
   bucket: DosMinistryTimeBucket;
@@ -222,6 +235,10 @@ export type DosMinistryReportRow = {
   directionConflict: string | null;
   directionLabel: string;
   directionSource: "person" | "my_record" | "none";
+  /* confirmed: the Person's structured role. unconfirmed: only My Record
+     says so. conflicting: My Record disagrees with the Person. none. Only
+     "confirmed" may classify a legacy meeting. */
+  directionStatus: DosMinistryDirectionStatus;
   downstream: Array<{ name: string; personId: string }>;
   downstreamStatus: DosMinistryDownstreamStatus;
   lastActivity: { date: string; kind: "meeting" | "check_in" } | null;
@@ -246,6 +263,8 @@ export type DosMinistryReportTotals = {
      it credited. These are the only figures that may be called "my time". */
   uniqueLoggedMinutesInvested: number;
   uniqueLoggedMinutesReceived: number;
+  uniqueLoggedMinutesUnresolved: number;
+  unresolvedMeetings: number;
 };
 
 export type DosMinistryReport = {
@@ -259,6 +278,8 @@ export type DosMinistryReport = {
      period. They are listed, never hidden, and never called inactive. */
   relationshipRows: DosMinistryReportRow[];
   totals: DosMinistryReportTotals;
+  /* People with meetings DOS cannot place in either direction. */
+  unresolvedRows: DosMinistryReportRow[];
 };
 
 /* ---------- dates ---------- */
@@ -408,18 +429,21 @@ function directionFromRole(roleInMyLife: string): DosMinistryRelationshipDirecti
 export function dosMinistryDirectionForPerson(
   person: DosMinistryReportPerson,
   disciplingMe: DosMinistryReportDisciplingMeRelationship[],
-): Pick<DosMinistryReportRow, "direction" | "directionConflict" | "directionLabel" | "directionSource"> {
+): Pick<DosMinistryReportRow, "direction" | "directionConflict" | "directionLabel" | "directionSource" | "directionStatus"> {
   const roleDirection = directionFromRole(person.roleInMyLife);
   const myRecord = disciplingMe.find((relationship) => relationship.status === "active" && relationship.fieldPersonId === person.id) ?? null;
 
   if (roleDirection !== "none") {
+    const conflicting = Boolean(myRecord) && roleDirection !== "discipling_me";
+
     return {
       direction: roleDirection,
-      directionConflict: myRecord && roleDirection !== "discipling_me"
+      directionConflict: conflicting
         ? `The Person record says "${dosMinistryRelationshipDirectionLabels[roleDirection]}" and is canonical; My Record also lists ${person.name} as discipling you. Reconcile on the Person record.`
         : null,
       directionLabel: dosMinistryRelationshipDirectionLabels[roleDirection],
       directionSource: "person",
+      directionStatus: conflicting ? "conflicting" : "confirmed",
     };
   }
 
@@ -429,6 +453,7 @@ export function dosMinistryDirectionForPerson(
       directionConflict: `The Person record has no direction recorded; My Record says ${person.name} is discipling you. The Person record is canonical: confirm "They are discipling me" there.`,
       directionLabel: dosMinistryRelationshipDirectionLabels.discipling_me,
       directionSource: "my_record",
+      directionStatus: "unconfirmed",
     };
   }
 
@@ -444,7 +469,85 @@ export function dosMinistryDirectionForPerson(
       : null,
     directionLabel: dosMinistryRelationshipDirectionLabels.none,
     directionSource: "none",
+    directionStatus: "none",
   };
+}
+
+/* ---------- classification (founder rules, 2026-09-09) ----------
+ *
+ * Which list a meeting belongs to, for each person it links. Nothing here
+ * reads notes, and nothing is defaulted:
+ *
+ *   1. A role RECORDED on the meeting decides: being_mentored -> Time
+ *      invested in me; ministering, mutual discipleship, leadership /
+ *      planning -> Time I invested. The missionary chose it when logging.
+ *   2. Otherwise (legacy meeting, no stored role) the CONFIRMED structured
+ *      Person direction of every linked person decides: "They are discipling
+ *      me" -> invested in me; "I am discipling them", "I am walking with
+ *      them", peer encouragement -> Time I invested.
+ *   3. A direction that is missing, only in My Record (unconfirmed), or
+ *      conflicting cannot classify; a meeting that mixes people in both
+ *      directions cannot be split. Every such meeting is Direction
+ *      unresolved for every person it links, and the row says why.
+ */
+
+export type DosMinistryClassification = {
+  bucket: DosMinistryTimeBucket;
+  reason: string;
+};
+
+function bucketFromConfirmedDirection(status: Pick<DosMinistryReportRow, "direction" | "directionStatus">) {
+  if (status.directionStatus !== "confirmed") {
+    return null;
+  }
+
+  switch (status.direction) {
+    case "discipling_me":
+      return "received" as const;
+    case "i_am_discipling":
+    case "walking_with":
+    case "peer":
+      return "invested" as const;
+    default:
+      return null;
+  }
+}
+
+export function dosMinistryClassifyMeeting(
+  meeting: Pick<DosMinistryReportMeeting, "fieldPersonIds" | "tableRole" | "tableRoleRecorded">,
+  directionByPersonId: Map<string, Pick<DosMinistryReportRow, "direction" | "directionStatus" | "personName">>,
+): DosMinistryClassification {
+  if (meeting.tableRoleRecorded) {
+    const bucket = dosMinistryTimeBucketForRole(meeting.tableRole);
+
+    return { bucket, reason: bucket === "received" ? "Role recorded on the meeting: being discipled" : "Role recorded on the meeting" };
+  }
+
+  const linked = Array.from(new Set(meeting.fieldPersonIds))
+    .map((personId) => directionByPersonId.get(personId) ?? null)
+    .filter((status): status is Pick<DosMinistryReportRow, "direction" | "directionStatus" | "personName"> => Boolean(status));
+
+  if (!linked.length) {
+    return { bucket: "unresolved", reason: "No active linked person to read a direction from" };
+  }
+
+  const unresolvedPeople = linked.filter((status) => bucketFromConfirmedDirection(status) === null);
+
+  if (unresolvedPeople.length) {
+    const named = unresolvedPeople.map((status) => `${status.personName} (${status.directionStatus === "conflicting" ? "conflicting" : status.directionStatus === "unconfirmed" ? "only My Record says so" : "no direction recorded"})`).join(", ");
+
+    return { bucket: "unresolved", reason: `No recorded meeting role, and the Person direction cannot classify it: ${named}` };
+  }
+
+  const buckets = new Set(linked.map((status) => bucketFromConfirmedDirection(status)));
+
+  if (buckets.size > 1) {
+    return { bucket: "unresolved", reason: "No recorded meeting role, and the people present are in both directions" };
+  }
+
+  const bucket = buckets.values().next().value as "invested" | "received";
+
+  return { bucket, reason: linked.length === 1 ? "Confirmed Person direction" : "Confirmed Person direction of everyone present" };
 }
 
 /* ---------- next action (provisional until USA-252 is approved) ---------- */
@@ -553,27 +656,26 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     notes.push(`${connectionLogs.length} connection ${connectionLogs.length === 1 ? "log is" : "logs are"} in this range and ${connectionLogs.length === 1 ? "is" : "are"} not counted as meetings.`);
   }
 
+  /* Direction per active person, resolved once; the classifier reads it. */
+  const activePeople = input.people.filter((person) => person.status !== "archived");
+  const directionByPersonId = new Map(activePeople.map((person) => [person.id, { ...dosMinistryDirectionForPerson(person, input.disciplingMe), personName: person.name }]));
+
+  const classificationByMeetingId = new Map<string, DosMinistryClassification>();
   const meetingsByPerson = new Map<string, DosMinistryReportMeeting[]>();
   let unlinkedMeetings = 0;
 
   qualifyingMeetings.forEach((meeting) => {
-    const personIds = Array.from(new Set(meeting.fieldPersonIds));
-    let credited = false;
+    const linkedIds = Array.from(new Set(meeting.fieldPersonIds)).filter((personId) => peopleById.get(personId) && peopleById.get(personId)!.status !== "archived");
 
-    personIds.forEach((personId) => {
-      const person = peopleById.get(personId);
+    classificationByMeetingId.set(meeting.id, dosMinistryClassifyMeeting(meeting, directionByPersonId));
 
-      if (!person || person.status === "archived") {
-        return;
-      }
-
-      credited = true;
-      meetingsByPerson.set(personId, [...(meetingsByPerson.get(personId) ?? []), meeting]);
-    });
-
-    if (!credited) {
+    if (!linkedIds.length) {
       unlinkedMeetings += 1;
     }
+
+    linkedIds.forEach((personId) => {
+      meetingsByPerson.set(personId, [...(meetingsByPerson.get(personId) ?? []), meeting]);
+    });
   });
 
   if (unlinkedMeetings) {
@@ -592,28 +694,33 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     checkInsByPerson.set(checkIn.personId, [...(checkInsByPerson.get(checkIn.personId) ?? []), checkIn]);
   });
 
+  const bucketOf = (meeting: DosMinistryReportMeeting) => classificationByMeetingId.get(meeting.id)?.bucket ?? "unresolved";
+
   const buildRow = (person: DosMinistryReportPerson, bucket: DosMinistryTimeBucket): DosMinistryReportRow => {
     const meetings = [...(meetingsByPerson.get(person.id) ?? [])]
-      .filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === bucket)
+      .filter((meeting) => bucketOf(meeting) === bucket)
       .sort((first, second) => (dosMinistryReportDateKey(second.date) ?? "").localeCompare(dosMinistryReportDateKey(first.date) ?? ""));
     /* Check-ins are something the missionary does for the person, so they
-       belong with invested activity and never with time received. */
+       belong with invested activity and never with time received or with
+       an unresolved meeting. */
     const checkIns = bucket === "invested"
       ? [...(checkInsByPerson.get(person.id) ?? [])].sort((first, second) => second.checkInDate.localeCompare(first.checkInDate))
       : [];
     const meetingRecords: DosMinistryReportRecord[] = meetings.map((meeting) => {
       const minutes = dosLoggedMeetingMinutes(meeting);
       const others = meeting.fieldPersonIds.filter((id) => id !== person.id).length;
+      const classification = classificationByMeetingId.get(meeting.id) ?? { bucket: "unresolved" as const, reason: "Not classified" };
 
       return {
-        bucket,
+        bucket: classification.bucket,
+        bucketReason: classification.reason,
         date: dosMinistryReportDateKey(meeting.date) ?? period.end,
         id: meeting.id,
         kind: "meeting",
-        label: `${meetingTypeLabel(meeting.type)} · ${meetingRoleLabel(meeting.tableRole)}${others ? ` · with ${others} other${others === 1 ? "" : "s"}` : ""}`,
+        label: `${meetingTypeLabel(meeting.type)} · ${meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : "no recorded role"}${others ? ` · with ${others} other${others === 1 ? "" : "s"}` : ""}`,
         minutes,
         open: { id: meeting.id, kind: "meeting" },
-        role: meeting.tableRole,
+        role: meeting.tableRoleRecorded ? meeting.tableRole : "",
         shared: others > 0,
       };
     });
@@ -638,23 +745,29 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         ? { date: lastMeeting!.date, kind: "meeting" as const }
         : { date: lastCheckIn.date, kind: "check_in" as const };
     const hasActivity = meetingRecords.length > 0 || checkInRecords.length > 0;
-    const completeness: DosMinistryCompleteness = !hasActivity
-      ? "none"
-      : meetingsMissingDuration > 0 || checkInsMissingDuration > 0
-        ? "partial"
-        : "recorded";
-    const completenessDetail = completeness === "none"
-      ? "No meeting or check-in logged in this range. That is what DOS has, not proof that nothing happened."
-      : completeness === "partial"
-        ? [
-          meetingsMissingDuration ? `${meetingsMissingDuration} meeting${meetingsMissingDuration === 1 ? "" : "s"} without a logged duration` : null,
-          checkInsMissingDuration ? `${checkInsMissingDuration} check-in${checkInsMissingDuration === 1 ? "" : "s"} without a duration` : null,
-        ].filter(Boolean).join(" · ")
-        : "Every contributing record has a date and a logged duration.";
-    const direction = dosMinistryDirectionForPerson(person, input.disciplingMe);
+    const unresolvedElsewhere = bucket === "unresolved" ? 0 : (meetingsByPerson.get(person.id) ?? []).filter((meeting) => bucketOf(meeting) === "unresolved").length;
+    const completeness: DosMinistryCompleteness = bucket === "unresolved"
+      ? "unresolved"
+      : !hasActivity
+        ? "none"
+        : meetingsMissingDuration > 0 || checkInsMissingDuration > 0
+          ? "partial"
+          : "recorded";
+    const reasons = Array.from(new Set(meetingRecords.map((record) => record.kind === "meeting" ? record.bucketReason : null).filter(Boolean)));
+    const completenessDetail = completeness === "unresolved"
+      ? `DOS cannot place ${meetingRecords.length === 1 ? "this meeting" : `these ${meetingRecords.length} meetings`} in either direction, so nothing is counted as invested or received. ${reasons.join(" · ")}.`
+      : completeness === "none"
+        ? "No meeting or check-in logged in this range. That is what DOS has, not proof that nothing happened."
+        : [
+          completeness === "partial" && meetingsMissingDuration ? `${meetingsMissingDuration} meeting${meetingsMissingDuration === 1 ? "" : "s"} without a logged duration` : null,
+          completeness === "partial" && checkInsMissingDuration ? `${checkInsMissingDuration} check-in${checkInsMissingDuration === 1 ? "" : "s"} without a duration` : null,
+          completeness === "recorded" ? "Every contributing record has a date and a logged duration." : null,
+          unresolvedElsewhere ? `${unresolvedElsewhere} more meeting${unresolvedElsewhere === 1 ? "" : "s"} with this person ${unresolvedElsewhere === 1 ? "is" : "are"} under Direction unresolved.` : null,
+        ].filter(Boolean).join(" · ");
+    const direction = directionByPersonId.get(person.id) ?? { ...dosMinistryDirectionForPerson(person, input.disciplingMe), personName: person.name };
     const overdueCheckIn = bucket === "invested" && input.schedules.some((schedule) => schedule.personId === person.id && schedule.status === "active" && Boolean(schedule.nextCheckIn) && (dosMinistryReportDateKey(schedule.nextCheckIn) ?? "") < today);
     const upcoming = upcomingMeetings
-      .filter((meeting) => meeting.fieldPersonIds.includes(person.id) && dosMinistryTimeBucketForRole(meeting.tableRole) === bucket)
+      .filter((meeting) => meeting.fieldPersonIds.includes(person.id) && dosMinistryClassifyMeeting(meeting, directionByPersonId).bucket === bucket)
       .map((meeting) => dosMinistryReportDateKey(meeting.date) ?? "")
       .sort()[0] ?? null;
     const downstream = resolvedDownstream
@@ -665,6 +778,17 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       : downstream.length
         ? "resolved"
         : "not_linked";
+    const nextAction: DosMinistryNextAction = bucket === "unresolved"
+      ? { kind: "confirm_direction", label: "Confirm the direction on the Person record", reason: "Once the Person record carries a confirmed direction, these meetings classify themselves." }
+      : nextActionFor({
+        direction: direction.direction,
+        lastMeetingDate: lastMeeting?.date ?? null,
+        meetingsMissingDuration,
+        overdueCheckIn,
+        period,
+        personName: person.name,
+        upcomingMeetingDate: upcoming,
+      });
 
     return {
       bucket,
@@ -674,22 +798,18 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       completeness,
       completenessDetail,
       completenessLabel: dosMinistryCompletenessLabels[completeness],
-      ...direction,
+      direction: direction.direction,
+      directionConflict: direction.directionConflict,
+      directionLabel: direction.directionLabel,
+      directionSource: direction.directionSource,
+      directionStatus: direction.directionStatus,
       downstream,
       downstreamStatus,
       lastActivity,
       loggedMinutes,
       meetingCount: meetingRecords.length,
       meetingsMissingDuration,
-      nextAction: nextActionFor({
-        direction: direction.direction,
-        lastMeetingDate: lastMeeting?.date ?? null,
-        meetingsMissingDuration,
-        overdueCheckIn,
-        period,
-        personName: person.name,
-        upcomingMeetingDate: upcoming,
-      }),
+      nextAction,
       personId: person.id,
       personName: person.name,
       records: [...meetingRecords, ...checkInRecords].sort((first, second) => second.date.localeCompare(first.date)),
@@ -698,7 +818,6 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
 
   const byLoggedMinutes = (first: DosMinistryReportRow, second: DosMinistryReportRow) =>
     second.loggedMinutes - first.loggedMinutes || second.meetingCount - first.meetingCount || first.personName.localeCompare(second.personName);
-  const activePeople = input.people.filter((person) => person.status !== "archived");
   const investedRows = activePeople
     .map((person) => buildRow(person, "invested"))
     .filter((row) => row.meetingCount > 0 || row.checkInCount > 0)
@@ -707,15 +826,22 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     .map((person) => buildRow(person, "received"))
     .filter((row) => row.meetingCount > 0)
     .sort(byLoggedMinutes);
-  const activeIds = new Set([...investedRows, ...receivedRows].map((row) => row.personId));
+  const unresolvedRows = activePeople
+    .map((person) => buildRow(person, "unresolved"))
+    .filter((row) => row.meetingCount > 0)
+    .sort(byLoggedMinutes);
+  const activeIds = new Set([...investedRows, ...receivedRows, ...unresolvedRows].map((row) => row.personId));
   const relationshipRows = activePeople
     .filter((person) => !activeIds.has(person.id))
     .map((person) => buildRow(person, "invested"))
     .filter((row) => row.direction !== "none")
     .sort((first, second) => first.personName.localeCompare(second.personName));
 
-  const investedMeetings = qualifyingMeetings.filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === "invested");
-  const receivedMeetings = qualifyingMeetings.filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === "received");
+  const inBucket = (bucket: DosMinistryTimeBucket) => qualifyingMeetings.filter((meeting) => bucketOf(meeting) === bucket);
+  const sumUnique = (meetings: DosMinistryReportMeeting[]) => meetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0);
+  const investedMeetings = inBucket("invested");
+  const receivedMeetings = inBucket("received");
+  const unresolvedMeetings = inBucket("unresolved");
   const totals: DosMinistryReportTotals = {
     checkIns: qualifyingCheckIns.length,
     investedMeetings: investedMeetings.length,
@@ -723,15 +849,21 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     meetingsMissingDuration: qualifyingMeetings.filter((meeting) => dosLoggedMeetingMinutes(meeting) === null).length,
     peopleWithActivity: activeIds.size,
     receivedMeetings: receivedMeetings.length,
-    uniqueLoggedMinutesInvested: investedMeetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0),
-    uniqueLoggedMinutesReceived: receivedMeetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0),
+    uniqueLoggedMinutesInvested: sumUnique(investedMeetings),
+    uniqueLoggedMinutesReceived: sumUnique(receivedMeetings),
+    uniqueLoggedMinutesUnresolved: sumUnique(unresolvedMeetings),
+    unresolvedMeetings: unresolvedMeetings.length,
   };
 
   if (totals.meetingsMissingDuration) {
     notes.push(`${totals.meetingsMissingDuration} of ${totals.meetings} meetings in this range ${totals.meetingsMissingDuration === 1 ? "has" : "have"} no logged duration and ${totals.meetingsMissingDuration === 1 ? "adds" : "add"} nothing to the totals.`);
   }
 
-  return { investedRows, notes, period, receivedRows, relationshipRows, totals };
+  if (totals.unresolvedMeetings) {
+    notes.push(`${totals.unresolvedMeetings} of ${totals.meetings} meetings ${totals.unresolvedMeetings === 1 ? "has" : "have"} no resolvable direction and ${totals.unresolvedMeetings === 1 ? "is" : "are"} listed under Direction unresolved, not as invested or received.`);
+  }
+
+  return { investedRows, notes, period, receivedRows, relationshipRows, totals, unresolvedRows };
 }
 
 /* ---------- what flows upward (USA-253 / USA-259) ---------- */
@@ -745,7 +877,9 @@ export const dosSafeMinistrySummaryFields = [
   "meetings",
   "loggedMinutesInvested",
   "loggedMinutesReceived",
+  "loggedMinutesUnresolved",
   "meetingsMissingDuration",
+  "meetingsUnresolved",
   "checkIns",
   "lastRecordedActivity",
   "relationships",
@@ -777,15 +911,17 @@ export type DosSafeMinistrySummary = {
   lastRecordedActivity: string | null;
   loggedMinutesInvested: number;
   loggedMinutesReceived: number;
+  loggedMinutesUnresolved: number;
   meetings: number;
   meetingsMissingDuration: number;
+  meetingsUnresolved: number;
   peopleWithRecordedActivity: number;
   period: DosMinistryReportPeriod;
   relationships: Array<{ count: number; direction: DosMinistryRelationshipDirection; label: string }>;
 };
 
 export function buildDosSafeMinistrySummary(report: DosMinistryReport): DosSafeMinistrySummary {
-  const everyRow = [...report.investedRows, ...report.receivedRows, ...report.relationshipRows];
+  const everyRow = [...report.investedRows, ...report.receivedRows, ...report.unresolvedRows, ...report.relationshipRows];
   const relationshipCounts = new Map<DosMinistryRelationshipDirection, number>();
   const counted = new Set<string>();
 
@@ -796,7 +932,7 @@ export function buildDosSafeMinistrySummary(report: DosMinistryReport): DosSafeM
     }
   });
 
-  const lastRecordedActivity = [...report.investedRows, ...report.receivedRows]
+  const lastRecordedActivity = [...report.investedRows, ...report.receivedRows, ...report.unresolvedRows]
     .map((row) => row.lastActivity?.date ?? null)
     .filter((date): date is string => Boolean(date))
     .sort()
@@ -822,8 +958,10 @@ export function buildDosSafeMinistrySummary(report: DosMinistryReport): DosSafeM
     lastRecordedActivity,
     loggedMinutesInvested: report.totals.uniqueLoggedMinutesInvested,
     loggedMinutesReceived: report.totals.uniqueLoggedMinutesReceived,
+    loggedMinutesUnresolved: report.totals.uniqueLoggedMinutesUnresolved,
     meetings: report.totals.meetings,
     meetingsMissingDuration: report.totals.meetingsMissingDuration,
+    meetingsUnresolved: report.totals.unresolvedMeetings,
     peopleWithRecordedActivity: report.totals.peopleWithActivity,
     period: report.period,
     relationships: Array.from(relationshipCounts.entries()).map(([direction, count]) => ({
@@ -909,6 +1047,7 @@ export function dosMinistryReportInputFromAppData({
       scheduledStartAt: meeting.scheduledStartAt,
       source: meeting.source,
       tableRole: meeting.tableRole,
+      tableRoleRecorded: meeting.tableRoleRecorded,
       type: meeting.type,
     })),
     people: people.map((person) => ({

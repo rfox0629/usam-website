@@ -30,6 +30,7 @@ const completenessTone: Record<DosMinistryCompleteness, StatusTone> = {
   recorded: "green",
   partial: "amber",
   none: "grey",
+  unresolved: "amber",
 };
 
 function formatReportDate(dateKey: string, withYear = false) {
@@ -129,6 +130,7 @@ function RowDetail({
                   <span className="block text-dos-meta text-dos-secondary">
                     {record.kind === "meeting" ? "Logged duration" : "Check-in duration"}: {formatDosMinistryMinutes(record.minutes)}
                     {record.kind === "meeting" && record.shared ? " · credited to each person present" : ""}
+                    {record.kind === "meeting" ? ` · ${record.bucketReason}` : ""}
                     {record.kind === "check_in" ? " · not a meeting, not contact time" : ""}
                   </span>
                 </span>
@@ -328,9 +330,10 @@ export function MinistryTimeInvestmentReport({
         <p className="text-dos-meta text-dos-secondary">{formatPeriod(report.period.start, report.period.end)} · logged DOS activity only</p>
       </section>
 
-      <section className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <SummaryTile label="Duration I invested" note={`${plural(report.totals.investedMeetings, "meeting")} · each counted once`} value={formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesInvested)} />
         <SummaryTile label="Invested in me" note={`${plural(report.totals.receivedMeetings, "meeting")} where I was discipled`} value={formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesReceived)} />
+        <SummaryTile label="Direction unresolved" note={`${plural(report.totals.unresolvedMeetings, "meeting")} · counted in neither`} value={formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesUnresolved)} />
         <SummaryTile label="Meetings" note={report.totals.meetingsMissingDuration ? `${report.totals.meetingsMissingDuration} without a logged duration` : "All with a logged duration"} value={`${report.totals.meetings}`} />
         <SummaryTile label="Check-ins" note="Own activity, not contact time" value={`${report.totals.checkIns}`} />
       </section>
@@ -364,6 +367,16 @@ export function MinistryTimeInvestmentReport({
           Meetings where someone was discipling you. Kept apart from the list above so no one is ranked as though you were investing in them.
         </p>
       </section>
+
+      {report.unresolvedRows.length ? (
+        <section>
+          <Eyebrow count={plural(report.unresolvedRows.length, "person", "people")}>{dosMinistryTimeBucketLabels.unresolved}</Eyebrow>
+          <RowTable emptyText="" rows={report.unresolvedRows} {...tableProps} />
+          <p className="mt-2 text-dos-meta text-dos-secondary">
+            Meetings DOS cannot place in either direction: no role was recorded on the meeting, and the Person record has no confirmed direction, My Record disagrees with it, or the people present are in both directions. Confirm the direction on the Person record; nothing here is guessed or defaulted.
+          </p>
+        </section>
+      ) : null}
 
       {report.relationshipRows.length ? (
         <section>
@@ -410,6 +423,7 @@ export function MinistryTimeInvestmentReport({
               <div><dt className="text-dos-secondary">Period</dt><dd className="text-dos-primary">{formatPeriod(safeSummary.period.start, safeSummary.period.end)}</dd></div>
               <div><dt className="text-dos-secondary">Duration invested</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.loggedMinutesInvested)}</dd></div>
               <div><dt className="text-dos-secondary">Invested in them</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.loggedMinutesReceived)}</dd></div>
+              <div><dt className="text-dos-secondary">Direction unresolved</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.loggedMinutesUnresolved)}{safeSummary.meetingsUnresolved ? ` (${plural(safeSummary.meetingsUnresolved, "meeting")})` : ""}</dd></div>
               <div><dt className="text-dos-secondary">Meetings</dt><dd className="text-dos-primary">{safeSummary.meetings}{safeSummary.meetingsMissingDuration ? ` (${safeSummary.meetingsMissingDuration} without duration)` : ""}</dd></div>
               <div><dt className="text-dos-secondary">People with activity</dt><dd className="text-dos-primary">{safeSummary.peopleWithRecordedActivity}</dd></div>
               <div><dt className="text-dos-secondary">Check-ins</dt><dd className="text-dos-primary">{safeSummary.checkIns}</dd></div>
@@ -429,8 +443,9 @@ export function MinistryTimeInvestmentReport({
           <li>A meeting is a logged DOS meeting dated inside the range. Scheduled, canceled, and connection-log records are not meetings.</li>
           <li>Logged duration is what was entered for the meeting. Historical start times are a synthetic noon, so this is a duration, not clock-in and clock-out. A meeting without a start and end adds nothing and marks the row Partial. Nothing is estimated.</li>
           <li>Time I invested: meetings where your role was ministering, mutual discipleship, or leadership / planning. Time invested in me: meetings where you were the one being discipled. The two are never ranked together.</li>
+          <li>How a meeting is placed: a role recorded on the meeting decides. Without one, the confirmed Person direction of everyone present decides (They are discipling me → invested in me; I am discipling them, walking with them, peer encouragement → time I invested). A missing, unconfirmed, or conflicting direction, or a meeting with people in both directions, is Direction unresolved. Nothing is defaulted and notes are never read.</li>
           <li>Accountability check-ins are their own activity: counted separately, never as meetings, never as contact time.</li>
-          <li>Direction comes from the Person record&apos;s structured relationship, which is canonical. A My Record relationship is only a fallback, and a disagreement is stated on the row.</li>
+          <li>Direction comes from the Person record&apos;s structured relationship, which is canonical. A My Record relationship is only a fallback for the label, never for placing a meeting, and a disagreement is stated on the row.</li>
           <li>Multiplication resolves from a downstream person&apos;s own confirmed Person relationships through a linked DOS identity. Nothing is claimed until that link exists.</li>
           <li>Circle placement (My 3, My 12, My 70, My 120) and Journey status are not part of this report.</li>
           <li>&ldquo;No qualifying activity&rdquo; means DOS has no record in the range. It does not mean nothing happened.</li>

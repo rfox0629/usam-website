@@ -14501,6 +14501,7 @@ function DesktopHomeDashboard({
           <p className="mb-2 text-xs font-semibold text-[#64748B]">
             Last 30 days · logged meetings and logged duration I invested · each meeting counted once
             {meetingActivity.uniqueLoggedMinutesReceived ? ` · ${formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesReceived)} invested in me is in Reports` : ""}
+            {meetingActivity.unresolvedMeetings ? ` · ${meetingActivity.unresolvedMeetings} with unresolved direction in Reports` : ""}
           </p>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {meetingActivityMetrics.map((metric) => (

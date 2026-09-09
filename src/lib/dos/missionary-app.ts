@@ -266,6 +266,10 @@ export type DosAppMeeting = {
     followUp: string | null;
   };
   tableRole: DosAppTableRole;
+  /* USA-251: whether `table_role` was actually stored on the row. Production
+     has no such column yet, so `tableRole` there is the loader's default and
+     the Master Ministry Report must not classify a meeting from it. */
+  tableRoleRecorded: boolean;
   timezone: string | null;
   title: string;
   type: DosAppMeetingType;
@@ -4939,6 +4943,7 @@ export async function loadDosAppData(
           followUp: meeting.planning_follow_up ?? null,
         },
         tableRole: mapTableRole(meeting.table_role),
+        tableRoleRecorded: dosAppTableRoles.includes(meeting.table_role as DosAppTableRole),
         timezone: meeting.timezone ?? null,
         title: "Meeting",
         type: mapMeetingType(meeting.table_type),
@@ -4990,6 +4995,7 @@ export async function loadDosAppData(
         followUp: null,
       },
       tableRole: "ministering" as const,
+      tableRoleRecorded: false,
       timezone: null,
       title: connection.interaction_type ?? "Connection",
       type: mapConnectionType(connection.interaction_type),

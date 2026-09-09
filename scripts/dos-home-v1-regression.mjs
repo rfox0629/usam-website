@@ -58,6 +58,8 @@ assert(!dashboard.includes("accountabilityCheckInDurationMinutes"), "Home never 
 // 4. Meeting Activity says what it counts.
 assert(dashboard.includes('label: "Logged meetings"') && dashboard.includes('label: "Logged duration"') && dashboard.includes('label: "People met with"') && dashboard.includes('label: "Check-ins (separate)"'), "Meeting Activity metrics are logged meetings, logged duration, people met with, and check-ins kept separate.");
 assert(dashboard.includes("uniqueLoggedMinutesInvested") && dashboard.includes("invested in me is in Reports"), "Meeting Activity reports the duration I invested and points to Reports for time invested in me.");
+assert(dashboard.includes("with unresolved direction in Reports"), "Meeting Activity names meetings whose direction is unresolved instead of counting them as invested.");
+assert(!dashboard.includes("uniqueLoggedMinutesUnresolved") || dashboard.includes("unresolvedMeetings"), "Unresolved time is never folded into Home's invested figure.");
 assert(!/Recorded time/.test(dashboard), "Home says logged duration, never recorded time (start times are synthetic).");
 assert(!dashboard.includes("Total meetings") && !dashboard.includes("Total hours logged") && !dashboard.includes("Total reviews"), "The old combined totals are gone.");
 assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that logged duration counts each meeting once.");

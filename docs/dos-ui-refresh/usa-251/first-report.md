@@ -16,10 +16,11 @@ One calculation, `src/lib/dos/ministry-report.ts`, feeds both the report and Hom
 | Direction | From the Person's structured relationship, which is canonical: **Discipling me**, **I am discipling**, **Walking with**, **Peer encouragement**, or **No direction recorded**. An active My Record relationship is only a fallback when the Person carries no direction, and the row then says the Person record must be confirmed (Dirk). |
 | Meetings | Logged DOS meetings in the range that link the person. Scheduled, canceled, and connection-log records are not meetings. |
 | Logged duration | The duration entered for those meetings (historical start times are a synthetic noon, so this is never clock-in / clock-out). A meeting without a start and end adds nothing and marks the row **Partial**. No estimates. Group meetings credit each person; rows are never summed as "my time". |
-| Two lists | **Time I invested** (meetings where I ministered, discipled mutually, or planned, plus check-ins) and **Time invested in me** (meetings where I was the one being discipled). Never ranked together, so Dirk is not ranked as though Ryan were investing in him. |
+| Three lists | **Time I invested** (meetings where I ministered, discipled mutually, or planned, plus check-ins), **Time invested in me** (meetings where I was the one being discipled), and **Direction unresolved** (meetings DOS cannot place). Never ranked together, so Dirk is not ranked as though Ryan were investing in him. |
+| How a meeting is placed | A role recorded on the meeting decides. Without one, the confirmed structured Person direction of everyone present decides. A missing, unconfirmed (My Record only), or conflicting direction, or a meeting with people in both directions, is **Direction unresolved**: counted in neither total, completeness *Direction unresolved*, next action *Confirm the direction on the Person record*. Nothing is defaulted; notes are never read. Registry §6. |
 | Check-ins | Accountability check-ins in the range: their own column and activity type, never meetings, never contact-time hours, always under *Time I invested*. |
 | Last activity | The latest meeting or check-in date, labelled by kind. |
-| Completeness | **Recorded**, **Partial**, or **No qualifying activity**. Missing data is never called inactive. |
+| Completeness | **Recorded**, **Partial**, **No qualifying activity**, or **Direction unresolved**. Missing data is never called inactive. |
 | Next action | Provisional deterministic rules (USA-252 still to be approved): add missing time → log an overdue check-in → show the scheduled meeting → schedule (I am discipling) / ask (Discipling me) after 14 quiet days → nothing due. |
 | Drill-through | Every row opens into its contributing records; each record opens the meeting or the person. |
 
@@ -31,7 +32,11 @@ Below the two lists: relationships without activity in the range (listed, never 
 
 The demo route (`/dos/app/preview`) now carries the four named cases, mirroring production where production has data:
 
-- **Dirk Bond → Ryan.** Dirk's Person record is exactly production's: summary "Mentor · Friend · Exploring", structured role Not active. The direction **Discipling me** comes from the My Record fallback, and the row says the Person record is canonical and must be confirmed. Two meetings where Ryan was being discipled sit under **Time invested in me**, with the next one scheduled; Dirk is not ranked under *Time I invested*.
+- **Dirk Bond → Ryan.** Dirk's Person record is exactly production's: summary "Mentor · Friend · Exploring", structured role Not active. The direction label **Discipling me** comes from the My Record fallback, and the row says the Person record is canonical and must be confirmed. His two meetings with a recorded *being discipled* role sit under **Time invested in me**; his legacy meeting with no recorded role is **Direction unresolved** because only My Record says he is discipling Ryan.
+- **Marty Vanderzanden → Ryan.** Person role confirmed as "They are discipling me"; his legacy meeting (no recorded role) is **Time invested in me** by rule 2.
+- **Sam Lucas (conflict).** The Person says "I am discipling them"; My Record also lists him as discipling Ryan. The Person wins for the label, the conflict is stated, and his legacy meeting is **Direction unresolved**.
+- **Austin Clifford (no direction).** Not active on the Person, nothing in My Record; his legacy meeting is **Direction unresolved**.
+- **Mixed meeting.** A legacy breakfast with Tanner (I am discipling) and Marty (Discipling me) is **Direction unresolved** for both.
 - **Ryan → Tanner Kent.** Role `discipling_them` (production). Two logged meetings, one check-in, all with a duration → **Recorded**. Multiplication reads "not yet resolvable": it would resolve from Tanner's own Person relationships once he has a linked DOS workspace.
 - **Tanner → his disciple.** Not shown, and not claimed, because there is no resolved Person relationship; there is no separate chain model (decision 1).
 - **Ryan → Philip John Saco.** Role `discipling_them`. One meeting with a duration and one without → **Partial**, next action "Add the missing meeting duration". Multiplication reads "not yet resolvable" for the same reason.
@@ -48,7 +53,7 @@ USA-257 officially supersedes spec rule B1 ("Home unchanged") for the approved H
 
 ## Screenshots
 
-`screenshots/` — `mobile-390-*` at 390×844 @2x and `desktop-1440-*` at 1440×900: `home`, `report-30-days` (both lists: Time I invested and Time invested in me), `report-philip-expanded` (Partial row with drill-through), `report-dirk-expanded` (Time invested in me, with the Person-canonical conflict note), `report-7-days`, `report-custom`.
+`screenshots/` — `mobile-390-*` at 390×844 @2x and `desktop-1440-*` at 1440×900: `home`, `report-30-days` (all three lists: Time I invested, Time invested in me, Direction unresolved), `report-philip-expanded` (Partial row with drill-through), `report-dirk-expanded` (Time invested in me, with the Person-canonical conflict note and the pointer to his unresolved legacy meeting), `report-unresolved-austin-expanded` (no direction), `report-unresolved-sam-expanded` (conflicting Person / My Record direction), `report-7-days`, `report-custom`.
 
 ## Verification
 
