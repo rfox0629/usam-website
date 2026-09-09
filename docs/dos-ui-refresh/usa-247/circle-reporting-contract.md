@@ -6,6 +6,7 @@
 |---|---|---|
 | Tiers, views, capacity, change sets | `src/lib/dos/circle-tiers.ts` | `scripts/dos-circle-tiers-regression.mjs` |
 | Alignment windows, states, evidence, dismissals | `src/lib/dos/circle-alignment.ts` | `scripts/dos-circle-alignment-regression.mjs` |
+| Confirmed placement, history, capacity transaction | `src/lib/dos/circle-placement-store.ts`, `supabase/migrations/20260909180000_usa_247_circle_placements.sql` | `scripts/dos-circle-placement-regression.mjs` |
 | Normalized activity facts (meetings, minutes, tables, recency, Fruit, multiplication) | not built yet — owned by USA-251 | — |
 
 Both are dependency-free and importable directly under Node's type stripping. The alignment module restates the tier order; a cross-module assertion proves the two agree, so they cannot drift.
@@ -48,6 +49,24 @@ Consequences, all asserted in `scripts/dos-circle-tiers-regression.mjs`:
 5. **Distinguish current placement from historical placement.** A report about the past must read the placement that was in force then, not today's. See §4.
 6. **Keep circle alignment separate from the discipling / multiplication graph.** See §5.
 7. **Exclude unconfirmed placements.** See §3.
+
+## 2b. Where confirmed placement lives
+
+`public.dos_circle_placements`, one row per placement per person, workspace-scoped and effective-dated. `effective_to is null` marks the current row, and a unique partial index guarantees there is at most one. A change **closes** the old row and opens a new one, so history survives a move and a removal alike; the closed row's `superseded_by` names the row that replaced it.
+
+**Three states, per founder decision 4. Reports must keep them apart.**
+
+| State | How it is stored | Consumes capacity |
+|---|---|---|
+| Not reviewed | no current row | no |
+| Reviewed, not in a circle | current row, `placement = 'reviewed_not_placed'` | no |
+| Confirmed placement | current row holding one of the four tiers | yes |
+
+"Not reviewed" and "reviewed, not in a circle" are different facts. A report that collapses them is wrong: the second is a decision the missionary made.
+
+`public.dos_circle_placement_batches` records one review-and-save, unique on `(workspace_id, operation_key)`. That uniqueness is what makes the write idempotent.
+
+**Every write goes through `dos_confirm_circle_placements`.** It takes a per-workspace advisory lock, so concurrent saves are applied one at a time and the later one counts the earlier one's rows before its own capacity check. Any rule failure raises, which rolls the entire batch back. Nothing writes these tables any other way.
 
 ## 3. Only confirmed placements are reportable
 
@@ -143,7 +162,11 @@ Alignment rules never reach a database. They receive a normalized `CircleEvidenc
 | Activity facts loader | **USA-251** | The single production query layer for meetings, actual minutes, tables, recency, Fruit and multiplication |
 | Reports, Manage circles | USA-251, USA-247 | Consumers of that normalized evidence |
 
-Neither branch owns a facts loader today; no Reports branch or open pull request contains one. USA-251 (Phase 1, Master Ministry Report / Time Investment) is the natural owner because it needs the same facts first. USA-247 will **import** that loader once it exists and will not write a second implementation. Until then Manage circles stays database-free and the alignment rules are exercised only by fixtures.
+**Checked against the Reports branch on 2026-09-09** (`ryan/usa-251-master-ministry-report`, pull request 130). Its `src/lib/dos/ministry-report.ts` is a **pure transformer**: it takes a normalized `DosMinistryReportInput` and contains no query, no database client and no SQL, exactly as `circle-alignment.ts` does. The production facts it consumes are assembled by the existing `loadDosAppData` in `src/lib/dos/missionary-app.ts`.
+
+So there is **one loader already, and it is `loadDosAppData`**. Neither branch wrote a second one, and neither should. When circle observations need meetings, minutes, tables, recency, Fruit and multiplication, they extend that loader under USA-251 rather than opening their own path to the database. `circle-placement-store.ts` is the single exception, and only because confirmed placement is a table Reports does not read.
+
+The boundary holds from both sides: the Master Ministry Report states in its own words that circle placement is not part of it, and this branch's alignment rules never query anything. USA-251 (Phase 1, Master Ministry Report / Time Investment) is the natural owner because it needs the same facts first. USA-247 will **import** that loader once it exists and will not write a second implementation. Until then Manage circles stays database-free and the alignment rules are exercised only by fixtures.
 
 ## 7. Explainability rules for any recommendation
 
@@ -156,4 +179,4 @@ Neither branch owns a facts loader today; no Reports branch or open pull request
 
 ## 8. Status
 
-**Blocked for reporting until a missionary confirms placements.** No migration has been run, no production override exists, and nothing here is deployed. The Manage circles surface exists as a founder-review prototype and writes nothing. The correction plan for the 73 unconfirmed assignments is documented in `circle-data-contract.md` §4 and has not been run.
+**The write path is built and proven; no migration has been applied to production and nothing is deployed.** Reporting stays blocked until a missionary confirms placements, because there are still zero confirmed rows in production. The 121 machine rows in `dos_relationship_scores` are historical evidence only: founder decision 2 rules them out as recommendation inputs as well, because the process that produced them was unreliable. Future observations must be rebuilt from current, explainable ministry evidence through the USA-251 facts loader. The Manage circles surface exists as a founder-review prototype and writes nothing. The correction plan for the 73 unconfirmed assignments is documented in `circle-data-contract.md` §4 and has not been run.
