@@ -33,6 +33,16 @@ const completenessTone: Record<DosMinistryCompleteness, StatusTone> = {
   unresolved: "amber",
 };
 
+/* The shared StatusPill is 100px wide by design (spec §3), so the pill
+   carries the short form; the list title and the row detail say
+   "Direction unresolved" in full. */
+const completenessPillLabel: Record<DosMinistryCompleteness, string> = {
+  recorded: "Recorded",
+  partial: "Partial",
+  none: "No activity",
+  unresolved: "Unresolved",
+};
+
 function formatReportDate(dateKey: string, withYear = false) {
   const date = new Date(`${dateKey}T12:00:00`);
 
@@ -189,7 +199,7 @@ function ReportRow({
         <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{formatDosMinistryMinutes(row.loggedMinutes)}</span>
         <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{row.bucket === "invested" ? row.checkInCount : "—"}</span>
         <span className="hidden truncate text-dos-meta text-dos-primary md:block">{lastActivity}</span>
-        <span className="flex justify-end md:justify-start"><StatusPill tone={completenessTone[row.completeness]}>{row.completenessLabel}</StatusPill></span>
+        <span className="flex justify-end md:justify-start"><StatusPill tone={completenessTone[row.completeness]}>{completenessPillLabel[row.completeness]}</StatusPill></span>
         <span className="hidden truncate text-dos-meta text-dos-primary md:block">{row.nextAction.label}</span>
         <span className="hidden text-dos-secondary md:flex md:justify-end">
           {expanded ? <ChevronDown aria-hidden="true" className="h-4 w-4" strokeWidth={2} /> : <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />}
