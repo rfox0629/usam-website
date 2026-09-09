@@ -24,7 +24,7 @@ const launchBridge = sliceBetween(client, "useEffect(() => {\n    if (!launchAct
 [
   "label=\"Time With God\"",
   "label=\"Prayer Time\"",
-  "label=\"Next Mentor Meeting\"",
+  "label=\"Next Discipleship Meeting\"",
   "label=\"Weekly Report Card\"",
 ].forEach((needle) => {
   assert(dashboard.includes(needle), `Today's Alignment must render ${needle}.`);
@@ -32,7 +32,7 @@ const launchBridge = sliceBetween(client, "useEffect(() => {\n    if (!launchAct
 
 assert(dashboard.includes("latestDashboardJournalEntry(myRecord)"), "Time With God must use My Record journal/encounter data.");
 assert(dashboard.includes("latestDashboardPrayerLog(myRecord)"), "Prayer Time must use personal My Record prayer logs.");
-assert(dashboard.includes("nextDashboardMentorMeeting(myRecord)"), "Next Mentor Meeting must use My Record mentor meetings.");
+assert(dashboard.includes("nextDashboardMentorMeeting(myRecord)"), "Next Discipleship Meeting must use the existing My Record relationship meetings.");
 assert(dashboard.includes("buildDashboardWeeklyReportCard(myRecord, loggedMeetings)"), "Weekly Report Card must derive completion from real weekly report data.");
 assert(dashboard.includes("progress={weeklyReportCard.completionPercent}"), "Weekly Report Card must render a derived completion percentage.");
 
