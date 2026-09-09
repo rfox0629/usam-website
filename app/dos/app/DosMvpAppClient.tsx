@@ -1591,9 +1591,16 @@ function formatWeekdayShortDate(value: string | null | undefined) {
   }).format(date);
 }
 
-const meetingsViewOptions: ReadonlyArray<PillRailOption<"calendar" | "timeline">> = [
+/* USA-246: Meetings has three destinations, on the same canonical segmented
+   rail the Person record uses. Scheduling Links stops being a sheet reached
+   through a generic "View" control and becomes a place you can navigate to,
+   which is the only way it reads as a first-class part of Meetings. */
+type MeetingsView = "calendar" | "links" | "timeline";
+
+const meetingsViewOptions: ReadonlyArray<PillRailOption<MeetingsView>> = [
   { label: "Calendar", value: "calendar" },
   { label: "Timeline", value: "timeline" },
+  { label: "Links", value: "links" },
 ];
 
 function formatTime(value: string | null) {
@@ -18736,7 +18743,7 @@ function MeetingCalendarSettingsMenu({
 
       <div className="grid gap-3">
         <section className="grid gap-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>View</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Display</p>
           <div className="grid grid-cols-2 gap-2">
             {meetingCalendarViewTabs.map((option) => (
               <button
@@ -19089,16 +19096,21 @@ function MeetingCalendarView({
               <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{calendarSelectedDayLabel(selectedDateKey)}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              {/* USA-246: the generic "View" label is gone. This is the
+                  Calendar settings action, it keeps every display control it
+                  already opened (month/week, reminder and external overlays,
+                  Google connect and refresh), and it belongs to the Calendar
+                  view rather than competing with the three-tab rail. */}
               <button
-                aria-label="Open calendar view"
+                aria-label="Calendar settings"
                 aria-expanded={isCalendarMenuOpen}
-                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
                 onClick={() => setCalendarMenuOpen(!isCalendarMenuOpen)}
                 style={{ fontFamily: font.rajdhani }}
                 type="button"
               >
                 <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                <span>View</span>
+                <span>Settings</span>
               </button>
             </div>
             <button
@@ -36345,7 +36357,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   /* USA-218 (spec §5.1/5.2): Calendar and Timeline are mutually exclusive views. */
-  const [meetingsView, setMeetingsView] = useState<"calendar" | "timeline">("calendar");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
@@ -36373,7 +36385,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isMobileActionSheetOpen, setIsMobileActionSheetOpen] = useState(false);
   const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   const [isMeetingsCalendarSettingsOpen, setIsMeetingsCalendarSettingsOpen] = useState(false);
-  const [isMeetingsInviteSheetOpen, setIsMeetingsInviteSheetOpen] = useState(false);
   const [isUpcomingSheetOpen, setIsUpcomingSheetOpen] = useState(false);
   const [isPrayerResourceLibraryOpen, setIsPrayerResourceLibraryOpen] = useState(false);
   const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
@@ -37046,6 +37057,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     openLibraryResourceView({ kind: "resource", slug: resource.slug });
   }
 
+  /* USA-246: scheduling links have one home. Everything that used to open the
+     sheet now navigates to the Links tab instead, so the leader is never shown
+     the same list in two different kinds of surface. */
+  function openSchedulingLinks() {
+    setActiveTab("meetings");
+    setMeetingsView("links");
+  }
+
   function selectMeetingsCalendarDate(date: Date) {
     setSelectedMeetingsCalendarDate(calendarDateKey(date));
 
@@ -37265,7 +37284,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsDesktopActionMenuOpen(false);
     setIsMobileActionSheetOpen(false);
     setIsMeetingsCalendarSettingsOpen(false);
-  }, [activeTab, formMode, guidedResourceDetail, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupCreateOpen, isGroupInviteOpen, isGroupSettingsOpen, isMeetingsInviteSheetOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
+  }, [activeTab, formMode, guidedResourceDetail, isActivitySheetOpen, isAppsSearchOpen, isFirstLaunchWalkthroughOpen, isGroupCreateOpen, isGroupInviteOpen, isGroupSettingsOpen, isMobileAddPrayerRequestOpen, isMobileAddPrayerPartnerOpen, isMobileLogPrayerOpen, isPrayerResourceLibraryOpen, isResourcePickerOpen, isUpcomingSheetOpen, moreAppView, selectedExternalCalendarEventId, selectedGroupId, selectedMeetingId, selectedMobilePrayerDetail, selectedMobilePrayerPartner, selectedMobilePrayerRequest, selectedPersonId, selectedPrayerResourceSlug, selectedReminderId]);
 
   function closeFirstLaunchWalkthrough() {
     window.localStorage.setItem(usamWalkthroughDismissedStorageKey, "true");
@@ -37380,7 +37399,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
-	    setIsMeetingsInviteSheetOpen(false);
 	    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     setPrayerQuery("");
@@ -37425,7 +37443,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
-	    setIsMeetingsInviteSheetOpen(false);
 	    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     setPrayerQuery("");
@@ -38162,7 +38179,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
-	    setIsMeetingsInviteSheetOpen(false);
 	    setIsUpcomingSheetOpen(false);
     setAppSearchQuery("");
     setPrayerQuery("");
@@ -42262,7 +42278,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ? [
         { icon: "log", label: "Log Meeting", onClick: runMobileAction(() => openForm("meeting")) },
         { icon: "calendar", label: "Schedule Meeting", onClick: runMobileAction(() => openScheduleMeeting()) },
-        { icon: "send", label: "Invite", onClick: runMobileAction(() => setIsMeetingsInviteSheetOpen(true)) },
+        { icon: "send", label: "Invite", onClick: runMobileAction(openSchedulingLinks) },
       ]
     : activeTab === "people"
       ? [
@@ -42297,7 +42313,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ? [
         { icon: "log", label: "Log Meeting", onClick: runDesktopAction(() => openForm("meeting")) },
         { icon: "calendar", label: "Schedule Meeting", onClick: runDesktopAction(() => openScheduleMeeting()) },
-        { icon: "send", label: "Invite", onClick: runDesktopAction(() => setIsMeetingsInviteSheetOpen(true)) },
+        { icon: "send", label: "Invite", onClick: runDesktopAction(openSchedulingLinks) },
       ]
     : activeTab === "people"
       ? [
@@ -42314,7 +42330,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isCirclesOpen
     && !isEditProfileOpen
     && !isFirstLaunchWalkthroughOpen
-    && !isMeetingsInviteSheetOpen
     && !isMobileAddPrayerRequestOpen
     && !isMobileAddPrayerPartnerOpen
     && !isMobileLogPrayerOpen
@@ -42348,7 +42363,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     && !isCirclesOpen
     && !isEditProfileOpen
     && !isFirstLaunchWalkthroughOpen
-    && !isMeetingsInviteSheetOpen
     && !isPeopleImportOpen
     && !isPrayerResourceLibraryOpen
     && !isResourcePickerOpen
@@ -42575,14 +42589,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       Meetings
                     </h1>
                   </div>
-                  <button
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
-                    onClick={() => setIsMeetingsCalendarSettingsOpen(true)}
-                    type="button"
-                  >
-                    <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                    View
-                  </button>
+                  {/* USA-246: the page-level "View" control was a third
+                      competing navigation affordance beside the tabs. It is now
+                      Calendar settings, named for what it does, and it appears
+                      only on the Calendar view where those settings apply. */}
+                  {meetingsView === "calendar" ? (
+                    <button
+                      aria-label="Calendar settings"
+                      className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-black text-[#1D4ED8] shadow-[0_8px_18px_rgba(37,99,235,0.04)] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
+                      onClick={() => setIsMeetingsCalendarSettingsOpen(true)}
+                      type="button"
+                    >
+                      <Settings className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+                      Settings
+                    </button>
+                  ) : null}
                 </header>
                 <div className="hidden md:block">
                   <TabHero
@@ -42594,32 +42615,68 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     title="Faithful at the table."
                   />
                 </div>
-                <DesktopSectionSearch
-                  ariaLabel="Search meetings"
-                  onChange={setTableQuery}
-                  placeholder="Search meetings, people, or context"
-                  query={tableQuery}
-                />
-                <PillRail
-                  edgeInset={4}
+                {meetingsView === "links" ? null : (
+                  <DesktopSectionSearch
+                    ariaLabel="Search meetings"
+                    onChange={setTableQuery}
+                    placeholder="Search meetings, people, or context"
+                    query={tableQuery}
+                  />
+                )}
+                {/* The same canonical control as the Person record's
+                    Overview / Timeline / Details rail: equal-width segments,
+                    44px targets, aligned to the content margins (USA-246). */}
+                <Segmented
                   label="Meetings view"
                   onChange={setMeetingsView}
                   options={meetingsViewOptions}
                   value={meetingsView}
                 />
-                <MobileSectionSearch
-                  alwaysVisible
-                  ariaLabel="Search meetings"
-                  isOpen={false}
-                  onChange={setTableQuery}
-                  onToggle={() => undefined}
-                  placeholder="Search meetings"
-                  query={tableQuery}
-                />
+                {meetingsView === "links" ? null : (
+                  <MobileSectionSearch
+                    alwaysVisible
+                    ariaLabel="Search meetings"
+                    isOpen={false}
+                    onChange={setTableQuery}
+                    onToggle={() => undefined}
+                    placeholder="Search meetings"
+                    query={tableQuery}
+                  />
+                )}
                 {meetingsView === "timeline" ? (
                   <MeetingsTimeline groups={meetingsTimelineGroups} onOpenMeeting={openMeetingDetail} people={people} />
                 ) : null}
-                <div className={`min-w-0 max-w-full ${meetingsView === "timeline" ? "hidden" : ""}`}>
+                {/* Links renders the existing scheduling-link panel inline as a
+                    full task surface. Same component, same engine, same
+                    production data as the sheet it replaces — only its place in
+                    the app changes (USA-246). */}
+                {meetingsView === "links" ? (
+                  <section aria-label="Scheduling Links" className="space-y-3">
+                    <div className="min-w-0">
+                      <h2 className="text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Scheduling Links</h2>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Create and share booking links for meetings.</p>
+                    </div>
+                    <DesktopInvitePanel
+                      calendarConnection={calendarConnection}
+                      calendarSourceMessage={calendarSourceMessage}
+                      calendarSourcePreferences={calendarSourcePreferences}
+                      householdMembers={data.householdMembers}
+                      isDisconnecting={isCalendarDisconnecting}
+                      onDisconnectCalendar={handleDisconnectCalendar}
+                      onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
+                      people={people}
+                      savingCalendarSourceId={savingCalendarSourceId}
+                      tableInvitations={data.tableInvitations}
+                      workspaceDisplayName={data.workspace.displayName}
+                      workspaceId={data.workspace.id}
+                      workspaceSlug={data.workspace.slug}
+                    />
+                  </section>
+                ) : null}
+                {/* The calendar stays mounted while another view is shown so
+                    the selected date, month and settings survive a tab switch;
+                    it is hidden rather than unmounted. */}
+                <div className={`min-w-0 max-w-full ${meetingsView === "calendar" ? "" : "hidden"}`}>
                   <MeetingCalendarView
                     calendarConnection={calendarConnection}
                     calendarDisplaySettings={calendarDisplaySettings}
@@ -42638,7 +42695,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onLogTable={openLogTableFromCalendar}
                     onLogScheduledMeeting={openScheduledMeetingLog}
                     onOpenExternalEvent={openExternalCalendarEventDetail}
-                    onOpenInvitations={() => setIsMeetingsInviteSheetOpen(true)}
+                    onOpenInvitations={openSchedulingLinks}
                     onOpenMeeting={openMeetingDetail}
                     onSelectDate={selectMeetingsCalendarDate}
                     onSyncGoogleCalendar={handleSyncGoogleCalendar}
@@ -44210,42 +44267,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <EmptyState text="Log a meeting to begin your activity rhythm." title="No activity yet." />
               )}
             </div>
-          </div>
-        </Sheet>
-      ) : null}
-
-      {isMeetingsInviteSheetOpen ? (
-        <Sheet onClose={() => setIsMeetingsInviteSheetOpen(false)} showHeader={false} size="wide" title="Scheduling Links">
-          <div className="max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-3 [scrollbar-width:none] md:p-4">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Scheduling Links</h2>
-                <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Create and share booking links for meetings.</p>
-              </div>
-              <button
-                aria-label="Close scheduling links"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]"
-                onClick={() => setIsMeetingsInviteSheetOpen(false)}
-                type="button"
-              >
-                <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              </button>
-            </div>
-            <DesktopInvitePanel
-              calendarConnection={calendarConnection}
-              calendarSourceMessage={calendarSourceMessage}
-              calendarSourcePreferences={calendarSourcePreferences}
-              householdMembers={data.householdMembers}
-              isDisconnecting={isCalendarDisconnecting}
-              onDisconnectCalendar={handleDisconnectCalendar}
-              onToggleGoogleAvailabilitySource={handleToggleGoogleAvailabilitySource}
-              people={people}
-              savingCalendarSourceId={savingCalendarSourceId}
-              tableInvitations={data.tableInvitations}
-              workspaceDisplayName={data.workspace.displayName}
-              workspaceId={data.workspace.id}
-              workspaceSlug={data.workspace.slug}
-            />
           </div>
         </Sheet>
       ) : null}
