@@ -3,27 +3,38 @@
  * The first report answers one stewardship question: where is a
  * missionary's time going in the field God has given them, and what is
  * happening through that investment. This module is the whole calculation.
- * It is pure (no React, no Supabase, no "server-only"), so the regression
- * script runs it directly and a future server route can reuse it for the
- * safe summaries that flow up a confirmed discipleship chain (USA-253).
+ * It is pure (no React, no Supabase, no server-only import), so the
+ * regression script runs it directly and a future server route can reuse it
+ * for the safe summaries that flow up a confirmed discipleship chain
+ * (USA-253).
  *
- * Rules the founder settled on 2026-09-09 (USA-250 recommendation):
+ * Founder decisions of 2026-09-09 (USA-250 and the review of PR #130):
  *
+ *   - the Person's structured relationship is the canonical direction; My
+ *     Record is a fallback that must be reconciled to it (registry §5)
+ *   - time is split into what the missionary INVESTED (meetings where they
+ *     ministered, discipled mutually, or planned) and what was INVESTED IN
+ *     THEM (meetings where they were the one being discipled); the two are
+ *     never ranked together
  *   - default range is the last 30 days; 7 / 30 / 90 / custom are offered
- *   - one row per person with recorded qualifying activity
- *   - accountability check-ins are a separate activity type: they are never
- *     counted as meetings and their minutes are never added to contact time
+ *   - accountability check-ins are their own activity type: never counted
+ *     as meetings, never added to contact-time hours
  *   - a group meeting credits its full duration to every linked person as
  *     relationship-contact time; person rows are therefore never summed and
  *     presented as unique missionary elapsed time (see `totals`)
- *   - time is recorded time only: a logged meeting with both a start and an
- *     end contributes that duration; anything else contributes nothing and
+ *   - duration is what was logged: a logged meeting with both a start and an
+ *     end contributes that difference; anything else contributes nothing and
  *     marks the row Partial. There is no 45/60/75-minute estimate here.
+ *     Historical start times are a synthetic noon (USA-246), so this is a
+ *     "logged duration", never clock-in / clock-out precision.
  *   - a missing record never proves that no ministry happened, so the
  *     completeness states are Recorded / Partial / No qualifying activity
  *     and the word "inactive" does not appear
- *   - nothing circle-based, and no multiplication claim without an
- *     explicitly recorded downstream discipleship relationship
+ *   - nothing circle-based; multiplication only from a downstream person's
+ *     own confirmed, directed Person relationship reached through their DOS
+ *     identity (no separate chain model)
+ *   - Journey progress is not read; when it is, canonical progress rows
+ *     win over a stale assignment status (USA-258)
  *
  * Every input type below lists exactly the fields the report reads. Private
  * notes, prayer wording, My Record narrative, participant responses,
@@ -69,6 +80,20 @@ export const dosMinistryCompletenessLabels: Record<DosMinistryCompleteness, stri
   none: "No qualifying activity",
 };
 
+/* Which way a meeting's time went. `being_mentored` is the legacy stored
+   role for "I was the one being discipled". Mutual discipleship and
+   leadership / planning are time the missionary gave, so they are invested. */
+export type DosMinistryTimeBucket = "invested" | "received";
+
+export const dosMinistryTimeBucketLabels: Record<DosMinistryTimeBucket, string> = {
+  invested: "Time I invested",
+  received: "Time invested in me",
+};
+
+export function dosMinistryTimeBucketForRole(tableRole: string): DosMinistryTimeBucket {
+  return tableRole === "being_mentored" ? "received" : "invested";
+}
+
 /* ---------- inputs: exactly the fields the report reads ---------- */
 
 export type DosMinistryReportPerson = {
@@ -76,6 +101,7 @@ export type DosMinistryReportPerson = {
   name: string;
   /* "archived" rows are excluded; anything else is a living record. */
   status: string;
+  /* The canonical, structured direction (USA-244). */
   roleInMyLife: string;
   /* The stored display summary ("Mentor · Friend · Exploring"). Read only
      to detect a conflict with the structured role; never used as truth. */
@@ -109,8 +135,10 @@ export type DosMinistryReportSchedule = {
   status: string;
 };
 
-/* An active My Record relationship: the person who is discipling the
-   viewer. `dos_user_mentor_relationships` in the database (legacy name). */
+/* A My Record relationship (`dos_user_mentor_relationships`, legacy name).
+   It is NOT canonical for direction: the Person's structured role is. It is
+   read only as a fallback, and a disagreement is stated on the row until
+   the reconciliation in the registry (§5) lands. */
 export type DosMinistryReportDisciplingMeRelationship = {
   fieldPersonId: string | null;
   id: string;
@@ -118,26 +146,29 @@ export type DosMinistryReportDisciplingMeRelationship = {
   status: "active" | "archived";
 };
 
-/* An explicitly recorded downstream discipleship relationship: `discipler`
-   is a person in this workspace who has recorded that they are discipling
-   `disciple`. There is no production source for this yet (decision for the
-   founder, see docs/dos-ui-refresh/usa-249/metric-registry.md); the preview
-   fixture supplies it so the multiplication view can be reviewed. It is
-   never inferred from a stage, a score, or free text. */
-export type DosDiscipleshipChainLink = {
-  disciplePersonId: string | null;
+/* A downstream relationship RESOLVED from the downstream person's own
+   confirmed, directed Person relationship (`role_in_my_life =
+   discipling_them` in their workspace), reached through their DOS identity
+   link. Person stays the canonical relationship record; there is no
+   separate chain model. The loader does not resolve these yet, so today the
+   list is always empty and the report says so honestly. */
+export type DosResolvedDownstreamRelationship = {
   discipleDisplayName: string;
+  /* The disciple's Person id in the discipler's own workspace. */
+  disciplePersonId: string;
+  /* The discipler as a Person in the viewer's workspace. */
   disciplerPersonId: string;
-  id: string;
-  recordedAt: string | null;
-  source: "explicit";
+  disciplerWorkspaceId: string;
+  identityLinkId: string;
+  roleInMyLife: "discipling_them";
+  source: "person_relationship";
   status: "active" | "ended";
 };
 
 export type DosMinistryReportInput = {
   checkIns: DosMinistryReportCheckIn[];
-  chain?: DosDiscipleshipChainLink[];
   disciplingMe: DosMinistryReportDisciplingMeRelationship[];
+  downstream?: DosResolvedDownstreamRelationship[];
   meetings: DosMinistryReportMeeting[];
   now: Date;
   people: DosMinistryReportPerson[];
@@ -150,6 +181,7 @@ export type DosMinistryReportInput = {
 
 export type DosMinistryReportRecord =
   | {
+      bucket: DosMinistryTimeBucket;
       date: string;
       id: string;
       kind: "meeting";
@@ -160,6 +192,7 @@ export type DosMinistryReportRecord =
       shared: boolean;
     }
   | {
+      bucket: "invested";
       date: string;
       id: string;
       kind: "check_in";
@@ -174,7 +207,10 @@ export type DosMinistryNextAction = {
   reason: string;
 };
 
+export type DosMinistryDownstreamStatus = "resolved" | "not_linked" | "not_applicable";
+
 export type DosMinistryReportRow = {
+  bucket: DosMinistryTimeBucket;
   checkInCount: number;
   checkInMinutes: number;
   checkInsMissingDuration: number;
@@ -185,35 +221,43 @@ export type DosMinistryReportRow = {
   /* A plain sentence when two records disagree about the direction. */
   directionConflict: string | null;
   directionLabel: string;
-  directionSource: "my_record" | "person" | "none";
-  downstream: Array<{ name: string; personId: string | null }>;
+  directionSource: "person" | "my_record" | "none";
+  downstream: Array<{ name: string; personId: string }>;
+  downstreamStatus: DosMinistryDownstreamStatus;
   lastActivity: { date: string; kind: "meeting" | "check_in" } | null;
+  /* Logged duration in this row's bucket, credited per person. */
+  loggedMinutes: number;
   meetingCount: number;
-  meetingsMissingTime: number;
+  meetingsMissingDuration: number;
   nextAction: DosMinistryNextAction;
   personId: string;
   personName: string;
-  recordedMinutes: number;
   records: DosMinistryReportRecord[];
 };
 
 export type DosMinistryReportTotals = {
   checkIns: number;
+  investedMeetings: number;
   meetings: number;
-  meetingsMissingTime: number;
+  meetingsMissingDuration: number;
   peopleWithActivity: number;
-  /* Unique elapsed time: each meeting counted once, however many people it
-     credited. This is the only figure that may be called "your time". */
-  uniqueRecordedMinutes: number;
+  receivedMeetings: number;
+  /* Unique logged duration, each meeting counted once, however many people
+     it credited. These are the only figures that may be called "my time". */
+  uniqueLoggedMinutesInvested: number;
+  uniqueLoggedMinutesReceived: number;
 };
 
 export type DosMinistryReport = {
+  /* People with meetings where the missionary invested time, or check-ins. */
+  investedRows: DosMinistryReportRow[];
   notes: string[];
   period: DosMinistryReportPeriod;
+  /* People with meetings where the missionary was the one being discipled. */
+  receivedRows: DosMinistryReportRow[];
   /* People who have a recorded direction but no qualifying activity in the
      period. They are listed, never hidden, and never called inactive. */
   relationshipRows: DosMinistryReportRow[];
-  rows: DosMinistryReportRow[];
   totals: DosMinistryReportTotals;
 };
 
@@ -280,27 +324,6 @@ function inPeriod(dateKey: string | null, period: DosMinistryReportPeriod) {
   return Boolean(dateKey && dateKey >= period.start && dateKey <= period.end);
 }
 
-/* ---------- time ---------- */
-
-/* Recorded duration only. A logged meeting whose start and end are both
-   present contributes the difference; anything else contributes nothing.
-   Production start times are a synthetic local noon on every logged meeting
-   (USA-246 audit), so this is a recorded duration, not a clock time. */
-export function dosRecordedMeetingMinutes(meeting: Pick<DosMinistryReportMeeting, "scheduledEndAt" | "scheduledStartAt">) {
-  if (!meeting.scheduledStartAt || !meeting.scheduledEndAt) {
-    return null;
-  }
-
-  const start = new Date(meeting.scheduledStartAt).getTime();
-  const end = new Date(meeting.scheduledEndAt).getTime();
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-    return null;
-  }
-
-  return Math.round((end - start) / 60_000);
-}
-
 /* "Sep 11" / "Sep 11, 2025": short, and with the year only when it differs
    from the current one. Pure, so the regression can pin it. */
 export function formatDosMinistryDate(dateKey: string, now = new Date()) {
@@ -315,9 +338,31 @@ export function formatDosMinistryDate(dateKey: string, now = new Date()) {
     : { day: "numeric", month: "short", year: "numeric" });
 }
 
+/* ---------- duration ---------- */
+
+/* Logged duration only. A logged meeting whose start and end are both
+   present contributes the difference; anything else contributes nothing.
+   Production start times are a synthetic local noon on every logged meeting
+   (USA-246 audit), so this is the duration that was entered, never a
+   clock-in / clock-out interval. */
+export function dosLoggedMeetingMinutes(meeting: Pick<DosMinistryReportMeeting, "scheduledEndAt" | "scheduledStartAt">) {
+  if (!meeting.scheduledStartAt || !meeting.scheduledEndAt) {
+    return null;
+  }
+
+  const start = new Date(meeting.scheduledStartAt).getTime();
+  const end = new Date(meeting.scheduledEndAt).getTime();
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return null;
+  }
+
+  return Math.round((end - start) / 60_000);
+}
+
 export function formatDosMinistryMinutes(minutes: number | null | undefined) {
   if (minutes === null || minutes === undefined) {
-    return "Not recorded";
+    return "Not logged";
   }
 
   if (minutes <= 0) {
@@ -357,6 +402,9 @@ function directionFromRole(roleInMyLife: string): DosMinistryRelationshipDirecti
   }
 }
 
+/* The Person's structured role is canonical. A My Record relationship is a
+   fallback only, and any disagreement is stated on the row so it can be
+   reconciled on the Person record (registry §5). */
 export function dosMinistryDirectionForPerson(
   person: DosMinistryReportPerson,
   disciplingMe: DosMinistryReportDisciplingMeRelationship[],
@@ -364,32 +412,28 @@ export function dosMinistryDirectionForPerson(
   const roleDirection = directionFromRole(person.roleInMyLife);
   const myRecord = disciplingMe.find((relationship) => relationship.status === "active" && relationship.fieldPersonId === person.id) ?? null;
 
-  if (myRecord) {
-    const conflict = roleDirection !== "none" && roleDirection !== "discipling_me"
-      ? `My Record says ${person.name} is discipling you; the Person record says "${dosMinistryRelationshipDirectionLabels[roleDirection]}".`
-      : roleDirection === "none"
-        ? `My Record says ${person.name} is discipling you; the Person record has no direction recorded.`
-        : null;
-
-    return {
-      direction: "discipling_me",
-      directionConflict: conflict,
-      directionLabel: dosMinistryRelationshipDirectionLabels.discipling_me,
-      directionSource: "my_record",
-    };
-  }
-
   if (roleDirection !== "none") {
     return {
       direction: roleDirection,
-      directionConflict: null,
+      directionConflict: myRecord && roleDirection !== "discipling_me"
+        ? `The Person record says "${dosMinistryRelationshipDirectionLabels[roleDirection]}" and is canonical; My Record also lists ${person.name} as discipling you. Reconcile on the Person record.`
+        : null,
       directionLabel: dosMinistryRelationshipDirectionLabels[roleDirection],
       directionSource: "person",
     };
   }
 
-  /* The structured role is the truth (USA-244). When only the legacy display
-     summary carries a direction, the row says so instead of borrowing it. */
+  if (myRecord) {
+    return {
+      direction: "discipling_me",
+      directionConflict: `The Person record has no direction recorded; My Record says ${person.name} is discipling you. The Person record is canonical: confirm "They are discipling me" there.`,
+      directionLabel: dosMinistryRelationshipDirectionLabels.discipling_me,
+      directionSource: "my_record",
+    };
+  }
+
+  /* When only the legacy display summary carries a direction, the row says
+     so instead of borrowing it. */
   const summary = person.relationshipType?.trim() ?? "";
   const legacy = displayStringDirectionWords.find(([pattern]) => pattern.test(summary))?.[1] ?? null;
 
@@ -412,7 +456,7 @@ function daysBetween(earlier: string, later: string) {
 function nextActionFor({
   direction,
   lastMeetingDate,
-  meetingsMissingTime,
+  meetingsMissingDuration,
   overdueCheckIn,
   period,
   personName,
@@ -420,17 +464,17 @@ function nextActionFor({
 }: {
   direction: DosMinistryRelationshipDirection;
   lastMeetingDate: string | null;
-  meetingsMissingTime: number;
+  meetingsMissingDuration: number;
   overdueCheckIn: boolean;
   period: DosMinistryReportPeriod;
   personName: string;
   upcomingMeetingDate: string | null;
 }): DosMinistryNextAction {
-  if (meetingsMissingTime > 0) {
+  if (meetingsMissingDuration > 0) {
     return {
       kind: "complete_record",
-      label: "Add the missing meeting time",
-      reason: `${meetingsMissingTime === 1 ? "One meeting" : `${meetingsMissingTime} meetings`} with ${personName} ${meetingsMissingTime === 1 ? "has" : "have"} no recorded time.`,
+      label: "Add the missing meeting duration",
+      reason: `${meetingsMissingDuration === 1 ? "One meeting" : `${meetingsMissingDuration} meetings`} with ${personName} ${meetingsMissingDuration === 1 ? "has" : "have"} no logged duration.`,
     };
   }
 
@@ -445,11 +489,11 @@ function nextActionFor({
   const quiet = !lastMeetingDate || daysBetween(lastMeetingDate, period.end) > 14;
 
   if (direction === "i_am_discipling" && quiet) {
-    return { kind: "schedule", label: "Schedule the next meeting", reason: lastMeetingDate ? `Last recorded meeting ${formatDosMinistryDate(lastMeetingDate)}.` : "No meeting recorded in this range." };
+    return { kind: "schedule", label: "Schedule the next meeting", reason: lastMeetingDate ? `Last logged meeting ${formatDosMinistryDate(lastMeetingDate)}.` : "No meeting logged in this range." };
   }
 
   if (direction === "discipling_me" && quiet) {
-    return { kind: "ask", label: "Ask for the next meeting", reason: lastMeetingDate ? `Last recorded meeting ${formatDosMinistryDate(lastMeetingDate)}.` : "No meeting recorded in this range." };
+    return { kind: "ask", label: "Ask for the next meeting", reason: lastMeetingDate ? `Last logged meeting ${formatDosMinistryDate(lastMeetingDate)}.` : "No meeting logged in this range." };
   }
 
   return { kind: "keep_rhythm", label: "Nothing due", reason: "Keep the rhythm." };
@@ -503,7 +547,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   const connectionLogs = input.meetings.filter((meeting) => meeting.meetingStatus === "logged" && meeting.source === "connection" && inPeriod(dosMinistryReportDateKey(meeting.date), period));
   const qualifyingCheckIns = input.checkIns.filter((checkIn) => inPeriod(dosMinistryReportDateKey(checkIn.checkInDate), period));
   const upcomingMeetings = input.meetings.filter((meeting) => meeting.meetingStatus === "scheduled" && (dosMinistryReportDateKey(meeting.date) ?? "") >= today);
-  const activeChain = (input.chain ?? []).filter((link) => link.status === "active" && link.source === "explicit");
+  const resolvedDownstream = (input.downstream ?? []).filter((link) => link.status === "active" && link.source === "person_relationship" && link.roleInMyLife === "discipling_them");
 
   if (connectionLogs.length) {
     notes.push(`${connectionLogs.length} connection ${connectionLogs.length === 1 ? "log is" : "logs are"} in this range and ${connectionLogs.length === 1 ? "is" : "are"} not counted as meetings.`);
@@ -548,14 +592,21 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     checkInsByPerson.set(checkIn.personId, [...(checkInsByPerson.get(checkIn.personId) ?? []), checkIn]);
   });
 
-  const buildRow = (person: DosMinistryReportPerson): DosMinistryReportRow => {
-    const meetings = [...(meetingsByPerson.get(person.id) ?? [])].sort((first, second) => (dosMinistryReportDateKey(second.date) ?? "").localeCompare(dosMinistryReportDateKey(first.date) ?? ""));
-    const checkIns = [...(checkInsByPerson.get(person.id) ?? [])].sort((first, second) => second.checkInDate.localeCompare(first.checkInDate));
+  const buildRow = (person: DosMinistryReportPerson, bucket: DosMinistryTimeBucket): DosMinistryReportRow => {
+    const meetings = [...(meetingsByPerson.get(person.id) ?? [])]
+      .filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === bucket)
+      .sort((first, second) => (dosMinistryReportDateKey(second.date) ?? "").localeCompare(dosMinistryReportDateKey(first.date) ?? ""));
+    /* Check-ins are something the missionary does for the person, so they
+       belong with invested activity and never with time received. */
+    const checkIns = bucket === "invested"
+      ? [...(checkInsByPerson.get(person.id) ?? [])].sort((first, second) => second.checkInDate.localeCompare(first.checkInDate))
+      : [];
     const meetingRecords: DosMinistryReportRecord[] = meetings.map((meeting) => {
-      const minutes = dosRecordedMeetingMinutes(meeting);
+      const minutes = dosLoggedMeetingMinutes(meeting);
       const others = meeting.fieldPersonIds.filter((id) => id !== person.id).length;
 
       return {
+        bucket,
         date: dosMinistryReportDateKey(meeting.date) ?? period.end,
         id: meeting.id,
         kind: "meeting",
@@ -567,6 +618,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       };
     });
     const checkInRecords: DosMinistryReportRecord[] = checkIns.map((checkIn) => ({
+      bucket: "invested",
       date: dosMinistryReportDateKey(checkIn.checkInDate) ?? period.end,
       id: checkIn.id,
       kind: "check_in",
@@ -574,8 +626,8 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       minutes: checkIn.durationMinutes && checkIn.durationMinutes > 0 ? checkIn.durationMinutes : null,
       open: { id: person.id, kind: "person" },
     }));
-    const recordedMinutes = meetingRecords.reduce((sum, record) => sum + (record.minutes ?? 0), 0);
-    const meetingsMissingTime = meetingRecords.filter((record) => record.minutes === null).length;
+    const loggedMinutes = meetingRecords.reduce((sum, record) => sum + (record.minutes ?? 0), 0);
+    const meetingsMissingDuration = meetingRecords.filter((record) => record.minutes === null).length;
     const checkInsMissingDuration = checkInRecords.filter((record) => record.minutes === null).length;
     const checkInMinutes = checkInRecords.reduce((sum, record) => sum + (record.minutes ?? 0), 0);
     const lastMeeting = meetingRecords[0] ?? null;
@@ -588,28 +640,34 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     const hasActivity = meetingRecords.length > 0 || checkInRecords.length > 0;
     const completeness: DosMinistryCompleteness = !hasActivity
       ? "none"
-      : meetingsMissingTime > 0 || checkInsMissingDuration > 0
+      : meetingsMissingDuration > 0 || checkInsMissingDuration > 0
         ? "partial"
         : "recorded";
     const completenessDetail = completeness === "none"
-      ? "No meeting or check-in recorded in this range. That is what DOS has, not proof that nothing happened."
+      ? "No meeting or check-in logged in this range. That is what DOS has, not proof that nothing happened."
       : completeness === "partial"
         ? [
-          meetingsMissingTime ? `${meetingsMissingTime} meeting${meetingsMissingTime === 1 ? "" : "s"} without recorded time` : null,
+          meetingsMissingDuration ? `${meetingsMissingDuration} meeting${meetingsMissingDuration === 1 ? "" : "s"} without a logged duration` : null,
           checkInsMissingDuration ? `${checkInsMissingDuration} check-in${checkInsMissingDuration === 1 ? "" : "s"} without a duration` : null,
         ].filter(Boolean).join(" · ")
-        : "Every contributing record has a date and a recorded duration.";
+        : "Every contributing record has a date and a logged duration.";
     const direction = dosMinistryDirectionForPerson(person, input.disciplingMe);
-    const overdueCheckIn = input.schedules.some((schedule) => schedule.personId === person.id && schedule.status === "active" && Boolean(schedule.nextCheckIn) && (dosMinistryReportDateKey(schedule.nextCheckIn) ?? "") < today);
+    const overdueCheckIn = bucket === "invested" && input.schedules.some((schedule) => schedule.personId === person.id && schedule.status === "active" && Boolean(schedule.nextCheckIn) && (dosMinistryReportDateKey(schedule.nextCheckIn) ?? "") < today);
     const upcoming = upcomingMeetings
-      .filter((meeting) => meeting.fieldPersonIds.includes(person.id))
+      .filter((meeting) => meeting.fieldPersonIds.includes(person.id) && dosMinistryTimeBucketForRole(meeting.tableRole) === bucket)
       .map((meeting) => dosMinistryReportDateKey(meeting.date) ?? "")
       .sort()[0] ?? null;
-    const downstream = activeChain
+    const downstream = resolvedDownstream
       .filter((link) => link.disciplerPersonId === person.id)
       .map((link) => ({ name: link.discipleDisplayName, personId: link.disciplePersonId }));
+    const downstreamStatus: DosMinistryDownstreamStatus = direction.direction !== "i_am_discipling"
+      ? "not_applicable"
+      : downstream.length
+        ? "resolved"
+        : "not_linked";
 
     return {
+      bucket,
       checkInCount: checkInRecords.length,
       checkInMinutes,
       checkInsMissingDuration,
@@ -618,13 +676,15 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       completenessLabel: dosMinistryCompletenessLabels[completeness],
       ...direction,
       downstream,
+      downstreamStatus,
       lastActivity,
+      loggedMinutes,
       meetingCount: meetingRecords.length,
-      meetingsMissingTime,
+      meetingsMissingDuration,
       nextAction: nextActionFor({
         direction: direction.direction,
         lastMeetingDate: lastMeeting?.date ?? null,
-        meetingsMissingTime,
+        meetingsMissingDuration,
         overdueCheckIn,
         period,
         personName: person.name,
@@ -632,36 +692,46 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       }),
       personId: person.id,
       personName: person.name,
-      recordedMinutes,
       records: [...meetingRecords, ...checkInRecords].sort((first, second) => second.date.localeCompare(first.date)),
     };
   };
 
+  const byLoggedMinutes = (first: DosMinistryReportRow, second: DosMinistryReportRow) =>
+    second.loggedMinutes - first.loggedMinutes || second.meetingCount - first.meetingCount || first.personName.localeCompare(second.personName);
   const activePeople = input.people.filter((person) => person.status !== "archived");
-  const rows = activePeople
-    .filter((person) => meetingsByPerson.has(person.id) || checkInsByPerson.has(person.id))
-    .map(buildRow)
-    .sort((first, second) => second.recordedMinutes - first.recordedMinutes || second.meetingCount - first.meetingCount || first.personName.localeCompare(second.personName));
-  const rowIds = new Set(rows.map((row) => row.personId));
+  const investedRows = activePeople
+    .map((person) => buildRow(person, "invested"))
+    .filter((row) => row.meetingCount > 0 || row.checkInCount > 0)
+    .sort(byLoggedMinutes);
+  const receivedRows = activePeople
+    .map((person) => buildRow(person, "received"))
+    .filter((row) => row.meetingCount > 0)
+    .sort(byLoggedMinutes);
+  const activeIds = new Set([...investedRows, ...receivedRows].map((row) => row.personId));
   const relationshipRows = activePeople
-    .filter((person) => !rowIds.has(person.id))
-    .map(buildRow)
-    .filter((row) => row.direction !== "none" || row.downstream.length > 0)
+    .filter((person) => !activeIds.has(person.id))
+    .map((person) => buildRow(person, "invested"))
+    .filter((row) => row.direction !== "none")
     .sort((first, second) => first.personName.localeCompare(second.personName));
 
+  const investedMeetings = qualifyingMeetings.filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === "invested");
+  const receivedMeetings = qualifyingMeetings.filter((meeting) => dosMinistryTimeBucketForRole(meeting.tableRole) === "received");
   const totals: DosMinistryReportTotals = {
     checkIns: qualifyingCheckIns.length,
+    investedMeetings: investedMeetings.length,
     meetings: qualifyingMeetings.length,
-    meetingsMissingTime: qualifyingMeetings.filter((meeting) => dosRecordedMeetingMinutes(meeting) === null).length,
-    peopleWithActivity: rows.length,
-    uniqueRecordedMinutes: qualifyingMeetings.reduce((sum, meeting) => sum + (dosRecordedMeetingMinutes(meeting) ?? 0), 0),
+    meetingsMissingDuration: qualifyingMeetings.filter((meeting) => dosLoggedMeetingMinutes(meeting) === null).length,
+    peopleWithActivity: activeIds.size,
+    receivedMeetings: receivedMeetings.length,
+    uniqueLoggedMinutesInvested: investedMeetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0),
+    uniqueLoggedMinutesReceived: receivedMeetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0),
   };
 
-  if (totals.meetingsMissingTime) {
-    notes.push(`${totals.meetingsMissingTime} of ${totals.meetings} meetings in this range ${totals.meetingsMissingTime === 1 ? "has" : "have"} no recorded time and ${totals.meetingsMissingTime === 1 ? "adds" : "add"} nothing to the totals.`);
+  if (totals.meetingsMissingDuration) {
+    notes.push(`${totals.meetingsMissingDuration} of ${totals.meetings} meetings in this range ${totals.meetingsMissingDuration === 1 ? "has" : "have"} no logged duration and ${totals.meetingsMissingDuration === 1 ? "adds" : "add"} nothing to the totals.`);
   }
 
-  return { notes, period, relationshipRows, rows, totals };
+  return { investedRows, notes, period, receivedRows, relationshipRows, totals };
 }
 
 /* ---------- what flows upward (USA-253 / USA-259) ---------- */
@@ -673,8 +743,9 @@ export const dosSafeMinistrySummaryFields = [
   "period",
   "peopleWithRecordedActivity",
   "meetings",
-  "uniqueRecordedMinutes",
-  "meetingsMissingTime",
+  "loggedMinutesInvested",
+  "loggedMinutesReceived",
+  "meetingsMissingDuration",
   "checkIns",
   "lastRecordedActivity",
   "relationships",
@@ -704,41 +775,55 @@ export type DosSafeMinistrySummary = {
   completeness: DosMinistryCompleteness;
   downstreamRelationships: number;
   lastRecordedActivity: string | null;
+  loggedMinutesInvested: number;
+  loggedMinutesReceived: number;
   meetings: number;
-  meetingsMissingTime: number;
+  meetingsMissingDuration: number;
   peopleWithRecordedActivity: number;
   period: DosMinistryReportPeriod;
   relationships: Array<{ count: number; direction: DosMinistryRelationshipDirection; label: string }>;
-  uniqueRecordedMinutes: number;
 };
 
 export function buildDosSafeMinistrySummary(report: DosMinistryReport): DosSafeMinistrySummary {
-  const everyRow = [...report.rows, ...report.relationshipRows];
+  const everyRow = [...report.investedRows, ...report.receivedRows, ...report.relationshipRows];
   const relationshipCounts = new Map<DosMinistryRelationshipDirection, number>();
+  const counted = new Set<string>();
 
   everyRow.forEach((row) => {
-    if (row.direction !== "none") {
+    if (row.direction !== "none" && !counted.has(row.personId)) {
+      counted.add(row.personId);
       relationshipCounts.set(row.direction, (relationshipCounts.get(row.direction) ?? 0) + 1);
     }
   });
 
-  const lastRecordedActivity = report.rows
+  const lastRecordedActivity = [...report.investedRows, ...report.receivedRows]
     .map((row) => row.lastActivity?.date ?? null)
     .filter((date): date is string => Boolean(date))
     .sort()
     .at(-1) ?? null;
+  const downstreamCounted = new Set<string>();
 
   return {
     checkIns: report.totals.checkIns,
     completeness: report.totals.meetings === 0 && report.totals.checkIns === 0
       ? "none"
-      : report.totals.meetingsMissingTime > 0
+      : report.totals.meetingsMissingDuration > 0
         ? "partial"
         : "recorded",
-    downstreamRelationships: everyRow.reduce((sum, row) => sum + row.downstream.length, 0),
+    downstreamRelationships: everyRow.reduce((sum, row) => {
+      if (downstreamCounted.has(row.personId)) {
+        return sum;
+      }
+
+      downstreamCounted.add(row.personId);
+
+      return sum + row.downstream.length;
+    }, 0),
     lastRecordedActivity,
+    loggedMinutesInvested: report.totals.uniqueLoggedMinutesInvested,
+    loggedMinutesReceived: report.totals.uniqueLoggedMinutesReceived,
     meetings: report.totals.meetings,
-    meetingsMissingTime: report.totals.meetingsMissingTime,
+    meetingsMissingDuration: report.totals.meetingsMissingDuration,
     peopleWithRecordedActivity: report.totals.peopleWithActivity,
     period: report.period,
     relationships: Array.from(relationshipCounts.entries()).map(([direction, count]) => ({
@@ -746,17 +831,34 @@ export function buildDosSafeMinistrySummary(report: DosMinistryReport): DosSafeM
       direction,
       label: dosMinistryRelationshipDirectionLabels[direction],
     })),
-    uniqueRecordedMinutes: report.totals.uniqueRecordedMinutes,
   };
 }
 
-/* The people who receive this workspace's safe summary: everyone with an
-   ACTIVE "discipling me" relationship. Ending the relationship (status
-   "archived") ends future upward visibility; nothing else is required. */
-export function dosUpstreamViewers(disciplingMe: DosMinistryReportDisciplingMeRelationship[]) {
-  return disciplingMe
+/* The people who receive this workspace's safe summary: everyone the Person
+   record marks as discipling the viewer (canonical), plus, until the
+   reconciliation lands, an active My Record relationship. Ending the
+   relationship ends future upward visibility; nothing else is required. */
+export function dosUpstreamViewers(
+  people: DosMinistryReportPerson[],
+  disciplingMe: DosMinistryReportDisciplingMeRelationship[],
+) {
+  const viewers = new Map<string, { name: string; personId: string | null; source: "person" | "my_record" }>();
+
+  people
+    .filter((person) => person.status !== "archived" && person.roleInMyLife === "mentoring_me")
+    .forEach((person) => viewers.set(person.id, { name: person.name, personId: person.id, source: "person" }));
+
+  disciplingMe
     .filter((relationship) => relationship.status === "active")
-    .map((relationship) => ({ id: relationship.id, name: relationship.mentorName, personId: relationship.fieldPersonId }));
+    .forEach((relationship) => {
+      const key = relationship.fieldPersonId ?? `my-record-${relationship.id}`;
+
+      if (!viewers.has(key)) {
+        viewers.set(key, { name: relationship.mentorName, personId: relationship.fieldPersonId, source: "my_record" });
+      }
+    });
+
+  return Array.from(viewers.values());
 }
 
 /* ---------- adapter from the loaded workspace data ---------- */
@@ -765,24 +867,26 @@ import type { DosAppAccountabilityCheckIn, DosAppAccountabilitySchedule, DosAppM
 
 /* Narrows the loaded workspace objects to the fields above. The narrowing
    is the privacy boundary for the report: whatever else a person, meeting,
-   or check-in carries never reaches the calculation. */
+   or check-in carries never reaches the calculation. Downstream
+   relationships are not part of the loaded workspace; when the loader can
+   resolve them from Person relationships and identity links, they are
+   passed here explicitly. */
 export function dosMinistryReportInputFromAppData({
   accountabilityCheckIns,
   accountabilitySchedules,
-  chain,
   disciplingMe,
+  downstream,
   meetings,
   people,
 }: {
   accountabilityCheckIns: DosAppAccountabilityCheckIn[];
   accountabilitySchedules: DosAppAccountabilitySchedule[];
-  chain?: DosDiscipleshipChainLink[];
   disciplingMe: DosAppUserMentorRelationship[];
+  downstream?: DosResolvedDownstreamRelationship[];
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
 }): Omit<DosMinistryReportInput, "now" | "period" | "range"> {
   return {
-    chain: chain ?? [],
     checkIns: accountabilityCheckIns.map((checkIn) => ({
       checkInDate: checkIn.checkInDate,
       durationMinutes: checkIn.durationMinutes,
@@ -795,6 +899,7 @@ export function dosMinistryReportInputFromAppData({
       mentorName: relationship.mentorName,
       status: relationship.status,
     })),
+    downstream: downstream ?? [],
     meetings: meetings.map((meeting) => ({
       date: meeting.date,
       fieldPersonIds: meeting.fieldPersonIds,

@@ -13,10 +13,11 @@ One calculation, `src/lib/dos/ministry-report.ts`, feeds both the report and Hom
 | Column | Definition (short) |
 | --- | --- |
 | Person | Active people in the workspace; archived rows never appear. |
-| Direction | **Discipling me** (from My Record), **I am discipling**, **Walking with**, **Peer encouragement**, or **No direction recorded** (from the Person's structured role). A conflict between the two records is stated on the row. |
+| Direction | From the Person's structured relationship, which is canonical: **Discipling me**, **I am discipling**, **Walking with**, **Peer encouragement**, or **No direction recorded**. An active My Record relationship is only a fallback when the Person carries no direction, and the row then says the Person record must be confirmed (Dirk). |
 | Meetings | Logged DOS meetings in the range that link the person. Scheduled, canceled, and connection-log records are not meetings. |
-| Recorded time | The saved duration of those meetings. A meeting without a start and end adds nothing and marks the row **Partial**. No estimates. Group meetings credit each person; rows are never summed as "your time". |
-| Check-ins | Accountability check-ins in the range, counted and timed separately, never as meetings. |
+| Logged duration | The duration entered for those meetings (historical start times are a synthetic noon, so this is never clock-in / clock-out). A meeting without a start and end adds nothing and marks the row **Partial**. No estimates. Group meetings credit each person; rows are never summed as "my time". |
+| Two lists | **Time I invested** (meetings where I ministered, discipled mutually, or planned, plus check-ins) and **Time invested in me** (meetings where I was the one being discipled). Never ranked together, so Dirk is not ranked as though Ryan were investing in him. |
+| Check-ins | Accountability check-ins in the range: their own column and activity type, never meetings, never contact-time hours, always under *Time I invested*. |
 | Last activity | The latest meeting or check-in date, labelled by kind. |
 | Completeness | **Recorded**, **Partial**, or **No qualifying activity**. Missing data is never called inactive. |
 | Next action | Provisional deterministic rules (USA-252 still to be approved): add missing time → log an overdue check-in → show the scheduled meeting → schedule (I am discipling) / ask (Discipling me) after 14 quiet days → nothing due. |
@@ -24,30 +25,30 @@ One calculation, `src/lib/dos/ministry-report.ts`, feeds both the report and Hom
 
 Ranges: 30 days by default, with 7 days, 90 days, and a custom from/to.
 
-Below the table: relationships without activity in the range (listed, never hidden), where discipleship is multiplying (explicit records only), what flows upward through a confirmed "Discipling me" relationship (the safe summary, with the excluded content named), and how the numbers are counted. Recent Fruit and Recent Reviews follow, unchanged from Home.
+Below the two lists: relationships without activity in the range (listed, never hidden), where discipleship is multiplying (resolved from the downstream person's own Person relationships through a linked DOS identity, or honestly "not yet resolvable"), what flows upward through a confirmed "Discipling me" relationship (the safe summary with invested and received apart, and the excluded content named), and how the numbers are counted. Recent Fruit and Recent Reviews follow, unchanged from Home.
 
 ## The founder scenarios in the preview fixture
 
 The demo route (`/dos/app/preview`) now carries the four named cases, mirroring production where production has data:
 
-- **Dirk Bond → Ryan.** Dirk's Person record is exactly production's: summary "Mentor · Friend · Exploring", structured role Not active. The direction **Discipling me** comes from the My Record relationship, and the row names the conflict. Two meetings where Ryan was being discipled, and the next one scheduled.
-- **Ryan → Tanner Kent.** Role `discipling_them` (production). Two recorded meetings, one check-in, all with time → **Recorded**. An explicit downstream link records that Tanner is discipling one placeholder person.
-- **Tanner → his disciple.** Shown only because it is explicitly recorded in the fixture's `discipleshipChain`. Production has no source for this yet (registry decision 1).
-- **Ryan → Philip John Saco.** Role `discipling_them`. One meeting with time and one without → **Partial**, next action "Add the missing meeting time". Three explicit downstream links: "Philip John Saco is discipling 3 people".
+- **Dirk Bond → Ryan.** Dirk's Person record is exactly production's: summary "Mentor · Friend · Exploring", structured role Not active. The direction **Discipling me** comes from the My Record fallback, and the row says the Person record is canonical and must be confirmed. Two meetings where Ryan was being discipled sit under **Time invested in me**, with the next one scheduled; Dirk is not ranked under *Time I invested*.
+- **Ryan → Tanner Kent.** Role `discipling_them` (production). Two logged meetings, one check-in, all with a duration → **Recorded**. Multiplication reads "not yet resolvable": it would resolve from Tanner's own Person relationships once he has a linked DOS workspace.
+- **Tanner → his disciple.** Not shown, and not claimed, because there is no resolved Person relationship; there is no separate chain model (decision 1).
+- **Ryan → Philip John Saco.** Role `discipling_them`. One meeting with a duration and one without → **Partial**, next action "Add the missing meeting duration". Multiplication reads "not yet resolvable" for the same reason.
 
 Rows with real fixture people (George, Naomi, Tim, Brooke) fall out of the same rules and show the Partial and No-activity states.
 
 ## Home V1 (USA-257)
 
-Order on both viewports: Notifications → primary actions (mobile) → **Top Time Investments** (last 30 days, recorded meeting time, check-ins excluded; action **View Report**) → **Meeting Activity** (Logged meetings · Recorded time, each meeting once · People met with · Check-ins, separate) → **Accountability** (Due Today / Overdue / 7 Days plus the three most important items, each opening the Person) → **Upcoming**.
+Order on both viewports: Notifications → primary actions (mobile) → **Top Time Investments** (last 30 days, logged duration I invested, check-ins excluded; action **View Report**) → **Meeting Activity** (Logged meetings · Logged duration, each meeting once, with time invested in me pointed to Reports · People met with · Check-ins, separate) → **Accountability** (Due Today / Overdue / 7 Days plus the three most important items, each opening the Person) → **Upcoming**.
 
 Removed from Home: Today's Alignment (My Record stays its own destination), Recent Fruit and Recent Reviews (now in Reports), Assigned Resources (until USA-258 proves the status source), and the full check-in / mark-complete / reschedule controls (they remain on the Person and Library screens). The legacy Home-only Log Check-In sheet had no caller left and was removed.
 
-Spec rule B1 ("Home unchanged") is superseded for Home only; decision log §F.
+USA-257 officially supersedes spec rule B1 ("Home unchanged") for the approved Home sections (Ryan, 2026-09-09); decision log §F. On the same review Learning's non-functional "future sharing" checkbox and its promise were removed; book notes are private until a real explicit-sharing feature exists.
 
 ## Screenshots
 
-`screenshots/` — `mobile-390-*` at 390×844 @2x and `desktop-1440-*` at 1440×900: `home`, `report-30-days`, `report-philip-expanded` (Partial row with drill-through), `report-dirk-expanded` (Discipling me with the conflict note), `report-7-days`, `report-custom`.
+`screenshots/` — `mobile-390-*` at 390×844 @2x and `desktop-1440-*` at 1440×900: `home`, `report-30-days` (both lists: Time I invested and Time invested in me), `report-philip-expanded` (Partial row with drill-through), `report-dirk-expanded` (Time invested in me, with the Person-canonical conflict note), `report-7-days`, `report-custom`.
 
 ## Verification
 
@@ -59,8 +60,9 @@ Spec rule B1 ("Home unchanged") is superseded for Home only; decision log §F.
 ## Known limitations
 
 - Upward delivery (Dirk seeing Ryan's summary; Ryan seeing Tanner's) is designed and its content boundary is enforced in code, but nothing is delivered across workspaces yet.
-- Multiplication has no production source; it is fixture-only until decision 1 in the registry is made.
+- Multiplication is not yet resolvable: the loader does not yet read a downstream person's own Person relationships through their DOS identity, so the report says so and claims nothing.
 - Adoption ("is Tanner / Philip using DOS?") cannot be observed: neither has a DOS user or workspace.
 - Next-action rules are provisional until USA-252.
-- Production start times are a synthetic noon on every logged meeting, so "recorded time" is the entered duration, not a clock interval.
+- Production start times are a synthetic noon on every logged meeting, which is why the report says "logged duration" and never implies clock-in / clock-out. Production also has no `table_role` column, so every production meeting lands under *Time I invested* until that column exists.
+- My Record must be reconciled to the Person relationship (registry §5.2) before the My Record fallback and Dirk's conflict warning can be retired.
 - Custom range dates use the browser's local calendar.

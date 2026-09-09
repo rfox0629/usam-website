@@ -46,19 +46,21 @@ order.reduce((previous, needle) => {
 assert(dashboard.includes("View Report"), "Top Time Investments' action must read View Report.");
 assert(dashboard.includes("onClick={onOpenReport}"), "View Report must open the report.");
 assert(homeCallSite.includes('onOpenReport={() => openMoreApp("reports")}'), "View Report opens the Reports destination.");
-assert(homeCallSite.includes("timeInvestments={homeMinistryReport.rows}"), "Top Time Investments rows come from the Master Ministry Report calculation.");
+assert(homeCallSite.includes("timeInvestments={homeMinistryReport.investedRows}"), "Top Time Investments rows are the report's Time I invested rows; time invested in the missionary is never ranked on Home.");
 assert(homeCallSite.includes("meetingActivity={homeMinistryReport.totals}"), "Meeting Activity comes from the same calculation.");
 assert(client.includes('buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" })'), "Home uses the report's default 30-day range.");
-assert(dashboard.includes("Last 30 days · recorded meeting time · check-ins not included"), "Top Time Investments states its range and definition.");
+assert(dashboard.includes("Last 30 days · logged duration I invested · check-ins not included"), "Top Time Investments states its range and definition.");
 assert(dashboard.includes(">Meetings</span>") && dashboard.includes(">Time</span>"), "Top Time Investments keeps its Meetings and Time headings.");
 assert(dashboard.includes("dashboardTimeInvestmentRelationshipLine(person, engagementLevelsEnabled, row.directionLabel)"), "The relationship line shows the report's direction and keeps the engagement toggle.");
 assert(!dashboard.includes("tableDurationMinutes") && !dashboard.includes("meetingMinutesEstimate"), "Home never falls back to a duration estimate.");
 assert(!dashboard.includes("accountabilityCheckInDurationMinutes"), "Home never adds check-in minutes to meeting time.");
 
 // 4. Meeting Activity says what it counts.
-assert(dashboard.includes('label: "Logged meetings"') && dashboard.includes('label: "Recorded time"') && dashboard.includes('label: "People met with"') && dashboard.includes('label: "Check-ins (separate)"'), "Meeting Activity metrics are logged meetings, recorded time, people met with, and check-ins kept separate.");
+assert(dashboard.includes('label: "Logged meetings"') && dashboard.includes('label: "Logged duration"') && dashboard.includes('label: "People met with"') && dashboard.includes('label: "Check-ins (separate)"'), "Meeting Activity metrics are logged meetings, logged duration, people met with, and check-ins kept separate.");
+assert(dashboard.includes("uniqueLoggedMinutesInvested") && dashboard.includes("invested in me is in Reports"), "Meeting Activity reports the duration I invested and points to Reports for time invested in me.");
+assert(!/Recorded time/.test(dashboard), "Home says logged duration, never recorded time (start times are synthetic).");
 assert(!dashboard.includes("Total meetings") && !dashboard.includes("Total hours logged") && !dashboard.includes("Total reviews"), "The old combined totals are gone.");
-assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that recorded time counts each meeting once.");
+assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that logged duration counts each meeting once.");
 
 // 5. Accountability is a compact attention summary; the workflow lives on the Person.
 assert(accountabilityCard.includes('eyebrow="Accountability"'), "Accountability keeps its heading.");

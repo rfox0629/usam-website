@@ -1910,16 +1910,6 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       lastSyncedAt: demoTimestamp,
     },
     circles,
-    /* USA-251: explicitly recorded downstream discipleship relationships.
-       Production has no source for these yet (metric registry decision);
-       this fixture records that Tanner is discipling one person and Philip
-       three, so the founder can review how multiplication is shown. */
-    discipleshipChain: [
-      { discipleDisplayName: "Placeholder disciple (Tanner)", disciplePersonId: null, disciplerPersonId: "demo-person-tanner-kent", id: "demo-chain-tanner-1", recordedAt: daysAgoIso(14), source: "explicit", status: "active" },
-      { discipleDisplayName: "Placeholder disciple A", disciplePersonId: null, disciplerPersonId: "demo-person-philip-saco", id: "demo-chain-philip-1", recordedAt: daysAgoIso(5), source: "explicit", status: "active" },
-      { discipleDisplayName: "Placeholder disciple B", disciplePersonId: null, disciplerPersonId: "demo-person-philip-saco", id: "demo-chain-philip-2", recordedAt: daysAgoIso(5), source: "explicit", status: "active" },
-      { discipleDisplayName: "Placeholder disciple C", disciplePersonId: null, disciplerPersonId: "demo-person-philip-saco", id: "demo-chain-philip-3", recordedAt: daysAgoIso(5), source: "explicit", status: "active" },
-    ],
     /* One-time Accountability now lands here rather than in schedules, so the
        demo Person shows both halves of the one section: a measurable goal with
        real progress, and an ordinary dated goal with none. */

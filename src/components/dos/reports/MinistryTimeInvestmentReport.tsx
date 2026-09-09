@@ -8,6 +8,7 @@ import {
   buildDosSafeMinistrySummary,
   dosMinistryReportDefaultRange,
   dosMinistryReportRangeOptions,
+  dosMinistryTimeBucketLabels,
   dosUpstreamViewers,
   formatDosMinistryMinutes,
   type DosMinistryCompleteness,
@@ -18,10 +19,11 @@ import {
 
 /* Master Ministry Report — Time Investment (USA-251).
  *
- * Simple at the surface: one readable list, one question answered per row.
- * Powerful underneath: every number comes from `buildDosMinistryReport`, and
- * every row opens into the records that produced it. Nothing here writes
- * data; this is a report, not a second place to enter ministry.
+ * Simple at the surface: one readable list per direction of time, one
+ * question answered per row. Powerful underneath: every number comes from
+ * `buildDosMinistryReport`, and every row opens into the records that
+ * produced it. Nothing here writes data; this is a report, not a second
+ * place to enter ministry.
  */
 
 const completenessTone: Record<DosMinistryCompleteness, StatusTone> = {
@@ -48,12 +50,40 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
+function firstName(name: string) {
+  return name.split(/\s+/)[0] ?? name;
+}
+
 function SummaryTile({ label, note, value }: { label: string; note?: string; value: string }) {
   return (
     <div className="min-w-0 rounded-dos-1 border border-dos-line bg-white px-3.5 py-3">
       <p className="text-dos-eyebrow uppercase text-dos-eyebrow">{label}</p>
       <p className="mt-1 text-dos-heading text-dos-primary">{value}</p>
       {note ? <p className="mt-0.5 text-dos-meta text-dos-secondary">{note}</p> : null}
+    </div>
+  );
+}
+
+function DownstreamLine({ row }: { row: DosMinistryReportRow }) {
+  if (row.downstreamStatus === "not_applicable") {
+    return null;
+  }
+
+  return (
+    <div>
+      <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Multiplication</p>
+      {row.downstreamStatus === "resolved" ? (
+        <>
+          <p className="mt-1 text-dos-body text-dos-primary">
+            {row.personName}&apos;s own Person records say they are discipling {plural(row.downstream.length, "person", "people")}: {row.downstream.map((link) => link.name).join(", ")}.
+          </p>
+          <p className="text-dos-meta text-dos-secondary">Resolved from confirmed, directed Person relationships in {firstName(row.personName)}&apos;s workspace through a linked DOS identity.</p>
+        </>
+      ) : (
+        <p className="mt-1 text-dos-meta text-dos-secondary">
+          Resolves from {firstName(row.personName)}&apos;s own confirmed Person relationships once {firstName(row.personName)} has a linked DOS workspace. Not linked yet, so nothing is claimed.
+        </p>
+      )}
     </div>
   );
 }
@@ -86,28 +116,20 @@ function RowDetail({
         <p className="rounded-dos-1 bg-dos-amberBg px-3 py-2 text-dos-meta text-dos-amber">{row.directionConflict}</p>
       ) : null}
 
-      {row.downstream.length ? (
-        <div>
-          <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Multiplication</p>
-          <p className="mt-1 text-dos-body text-dos-primary">
-            {row.personName} has recorded that they are discipling {plural(row.downstream.length, "person", "people")}: {row.downstream.map((link) => link.name).join(", ")}.
-          </p>
-          <p className="text-dos-meta text-dos-secondary">Explicitly recorded discipleship relationships only. DOS never infers this from a stage, a score, or notes.</p>
-        </div>
-      ) : null}
+      <DownstreamLine row={row} />
 
       <div>
         <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Contributing records</p>
         {row.records.length ? (
           <ul className="mt-1 divide-y divide-dos-line rounded-dos-1 border border-dos-line bg-white">
             {row.records.map((record) => (
-              <li className="flex min-h-[52px] items-center gap-3 px-3 py-2" key={`${record.kind}-${record.id}`}>
+              <li className="flex min-h-[52px] items-center gap-3 px-3 py-2 text-dos-primary" key={`${record.kind}-${record.id}`}>
                 <span className="min-w-0 flex-1">
                   <span className="block text-dos-label text-dos-primary">{formatReportDate(record.date)} · {record.label}</span>
                   <span className="block text-dos-meta text-dos-secondary">
-                    {record.kind === "meeting" ? "Recorded time" : "Check-in time"}: {formatDosMinistryMinutes(record.minutes)}
+                    {record.kind === "meeting" ? "Logged duration" : "Check-in duration"}: {formatDosMinistryMinutes(record.minutes)}
                     {record.kind === "meeting" && record.shared ? " · credited to each person present" : ""}
-                    {record.kind === "check_in" ? " · not counted as a meeting" : ""}
+                    {record.kind === "check_in" ? " · not a meeting, not contact time" : ""}
                   </span>
                 </span>
                 <Button compact onClick={() => (record.open.kind === "meeting" ? onOpenMeeting(record.open.id) : onOpenPerson(record.open.id))} variant="secondary">
@@ -117,7 +139,7 @@ function RowDetail({
             ))}
           </ul>
         ) : (
-          <p className="mt-1 text-dos-body text-dos-secondary">No meeting or check-in is recorded for this range.</p>
+          <p className="mt-1 text-dos-body text-dos-secondary">No meeting or check-in is logged for this range.</p>
         )}
       </div>
 
@@ -156,14 +178,14 @@ function ReportRow({
         <span className="min-w-0">
           <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.personName}</span>
           <span className="mt-0.5 block whitespace-normal text-dos-meta text-dos-secondary md:hidden">
-            {row.directionLabel} · {plural(row.meetingCount, "meeting")} · {formatDosMinistryMinutes(row.recordedMinutes)}
+            {row.directionLabel} · {plural(row.meetingCount, "meeting")} · {formatDosMinistryMinutes(row.loggedMinutes)}
             {row.checkInCount ? ` · ${plural(row.checkInCount, "check-in")}` : ""} · last {row.lastActivity ? formatReportDate(row.lastActivity.date) : "none"}
           </span>
         </span>
         <span className="hidden truncate text-dos-meta text-dos-primary md:block">{row.directionLabel}</span>
         <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{row.meetingCount}</span>
-        <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{formatDosMinistryMinutes(row.recordedMinutes)}</span>
-        <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{row.checkInCount}</span>
+        <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{formatDosMinistryMinutes(row.loggedMinutes)}</span>
+        <span className="hidden text-dos-body tabular-nums text-dos-primary md:block">{row.bucket === "invested" ? row.checkInCount : "—"}</span>
         <span className="hidden truncate text-dos-meta text-dos-primary md:block">{lastActivity}</span>
         <span className="flex justify-end md:justify-start"><StatusPill tone={completenessTone[row.completeness]}>{row.completenessLabel}</StatusPill></span>
         <span className="hidden truncate text-dos-meta text-dos-primary md:block">{row.nextAction.label}</span>
@@ -182,12 +204,43 @@ function RowTableHeader() {
       <span>Person</span>
       <span>Direction</span>
       <span>Meetings</span>
-      <span>Recorded time</span>
+      <span>Logged duration</span>
       <span>Check-ins</span>
       <span>Last activity</span>
       <span>Completeness</span>
       <span>Next action</span>
       <span />
+    </div>
+  );
+}
+
+function RowTable({
+  emptyText,
+  expandedKey,
+  onOpenMeeting,
+  onOpenPerson,
+  onToggle,
+  rows,
+}: {
+  emptyText: string;
+  expandedKey: string | null;
+  onOpenMeeting: (meetingId: string) => void;
+  onOpenPerson: (personId: string) => void;
+  onToggle: (key: string) => void;
+  rows: DosMinistryReportRow[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-dos-2 border border-dos-line bg-white">
+      <RowTableHeader />
+      {rows.length ? rows.map((row) => {
+        const key = `${row.bucket}:${row.personId}`;
+
+        return (
+          <ReportRow expanded={expandedKey === key} key={key} onOpenMeeting={onOpenMeeting} onOpenPerson={onOpenPerson} onToggle={() => onToggle(key)} row={row} />
+        );
+      }) : (
+        <p className="px-4 py-5 text-dos-body text-dos-secondary">{emptyText}</p>
+      )}
     </div>
   );
 }
@@ -213,16 +266,28 @@ export function MinistryTimeInvestmentReport({
 
     return { end, start: startDate.toISOString().slice(0, 10) };
   });
-  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const report = useMemo(
     () => buildDosMinistryReport({ ...input, now, period: range === "custom" ? customPeriod : undefined, range }),
     [customPeriod, input, now, range],
   );
   const safeSummary = useMemo(() => buildDosSafeMinistrySummary(report), [report]);
-  const upstreamViewers = useMemo(() => dosUpstreamViewers(input.disciplingMe), [input.disciplingMe]);
-  const multiplying = [...report.rows, ...report.relationshipRows].filter((row) => row.downstream.length > 0);
-  const toggle = (personId: string) => setExpandedPersonId((current) => (current === personId ? null : personId));
-  const rowProps = { onOpenMeeting, onOpenPerson };
+  const upstreamViewers = useMemo(() => dosUpstreamViewers(input.people, input.disciplingMe), [input.disciplingMe, input.people]);
+  const disciplingRows = useMemo(() => {
+    const seen = new Set<string>();
+
+    return [...report.investedRows, ...report.receivedRows, ...report.relationshipRows].filter((row) => {
+      if (row.direction !== "i_am_discipling" || seen.has(row.personId)) {
+        return false;
+      }
+
+      seen.add(row.personId);
+
+      return true;
+    });
+  }, [report]);
+  const toggle = (key: string) => setExpandedKey((current) => (current === key ? null : key));
+  const tableProps = { expandedKey, onOpenMeeting, onOpenPerson, onToggle: toggle };
 
   return (
     <div className="grid gap-6">
@@ -260,14 +325,14 @@ export function MinistryTimeInvestmentReport({
             </label>
           </div>
         ) : null}
-        <p className="text-dos-meta text-dos-secondary">{formatPeriod(report.period.start, report.period.end)} · recorded DOS activity only</p>
+        <p className="text-dos-meta text-dos-secondary">{formatPeriod(report.period.start, report.period.end)} · logged DOS activity only</p>
       </section>
 
       <section className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <SummaryTile label="Your recorded time" note="Each meeting counted once" value={formatDosMinistryMinutes(report.totals.uniqueRecordedMinutes)} />
-        <SummaryTile label="Meetings" note={report.totals.meetingsMissingTime ? `${report.totals.meetingsMissingTime} without recorded time` : "All with recorded time"} value={`${report.totals.meetings}`} />
-        <SummaryTile label="People" note="With recorded activity" value={`${report.totals.peopleWithActivity}`} />
-        <SummaryTile label="Check-ins" note="Separate from meetings" value={`${report.totals.checkIns}`} />
+        <SummaryTile label="Duration I invested" note={`${plural(report.totals.investedMeetings, "meeting")} · each counted once`} value={formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesInvested)} />
+        <SummaryTile label="Invested in me" note={`${plural(report.totals.receivedMeetings, "meeting")} where I was discipled`} value={formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesReceived)} />
+        <SummaryTile label="Meetings" note={report.totals.meetingsMissingDuration ? `${report.totals.meetingsMissingDuration} without a logged duration` : "All with a logged duration"} value={`${report.totals.meetings}`} />
+        <SummaryTile label="Check-ins" note="Own activity, not contact time" value={`${report.totals.checkIns}`} />
       </section>
 
       {report.notes.length ? (
@@ -277,46 +342,61 @@ export function MinistryTimeInvestmentReport({
       ) : null}
 
       <section>
-        <Eyebrow count={plural(report.rows.length, "person", "people")}>Recorded contact time by person</Eyebrow>
-        <div className="overflow-hidden rounded-dos-2 border border-dos-line bg-white">
-          <RowTableHeader />
-          {report.rows.length ? report.rows.map((row) => (
-            <ReportRow expanded={expandedPersonId === row.personId} key={row.personId} onToggle={() => toggle(row.personId)} row={row} {...rowProps} />
-          )) : (
-            <p className="px-4 py-5 text-dos-body text-dos-secondary">No meeting or check-in is recorded in this range. That is what DOS has, not proof that nothing happened.</p>
-          )}
-        </div>
+        <Eyebrow count={plural(report.investedRows.length, "person", "people")}>{dosMinistryTimeBucketLabels.invested}</Eyebrow>
+        <RowTable
+          emptyText="No meeting where you ministered, and no check-in, is logged in this range. That is what DOS has, not proof that nothing happened."
+          rows={report.investedRows}
+          {...tableProps}
+        />
         <p className="mt-2 text-dos-meta text-dos-secondary">
-          A meeting with several people credits its full time to each of them, so these rows are relationship-contact time. They are never added together as your time; the total above counts each meeting once.
+          Meetings where you ministered, discipled mutually, or planned. A meeting with several people credits its full duration to each of them, so these rows are relationship-contact time. They are never added together as your time; the total above counts each meeting once.
+        </p>
+      </section>
+
+      <section>
+        <Eyebrow count={plural(report.receivedRows.length, "person", "people")}>{dosMinistryTimeBucketLabels.received}</Eyebrow>
+        <RowTable
+          emptyText="No meeting where you were the one being discipled is logged in this range."
+          rows={report.receivedRows}
+          {...tableProps}
+        />
+        <p className="mt-2 text-dos-meta text-dos-secondary">
+          Meetings where someone was discipling you. Kept apart from the list above so no one is ranked as though you were investing in them.
         </p>
       </section>
 
       {report.relationshipRows.length ? (
         <section>
           <Eyebrow count={plural(report.relationshipRows.length, "person", "people")}>Discipleship relationships without activity in this range</Eyebrow>
-          <div className="overflow-hidden rounded-dos-2 border border-dos-line bg-white">
-            <RowTableHeader />
-            {report.relationshipRows.map((row) => (
-              <ReportRow expanded={expandedPersonId === row.personId} key={row.personId} onToggle={() => toggle(row.personId)} row={row} {...rowProps} />
-            ))}
-          </div>
+          <RowTable emptyText="" rows={report.relationshipRows} {...tableProps} />
         </section>
       ) : null}
 
       <section>
         <Eyebrow>Where discipleship is multiplying</Eyebrow>
-        {multiplying.length ? (
+        {disciplingRows.length ? (
           <ul className="divide-y divide-dos-line rounded-dos-2 border border-dos-line bg-white">
-            {multiplying.map((row) => (
+            {disciplingRows.map((row) => (
               <li className="px-4 py-3 text-dos-primary" key={row.personId}>
-                <p className="text-dos-body font-semibold text-dos-primary">{row.personName} is discipling {plural(row.downstream.length, "person", "people")}</p>
-                <p className="text-dos-meta text-dos-secondary">{row.directionLabel} · recorded: {row.downstream.map((link) => link.name).join(", ")}</p>
+                <p className="text-dos-body font-semibold text-dos-primary">
+                  {row.downstreamStatus === "resolved"
+                    ? `${row.personName} is discipling ${plural(row.downstream.length, "person", "people")}`
+                    : `${row.personName} · not yet resolvable`}
+                </p>
+                <p className="text-dos-meta text-dos-secondary">
+                  {row.downstreamStatus === "resolved"
+                    ? `From ${firstName(row.personName)}'s own Person records: ${row.downstream.map((link) => link.name).join(", ")}`
+                    : `Resolves from ${firstName(row.personName)}'s own confirmed Person relationships once a DOS identity is linked. No linked workspace yet.`}
+                </p>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-dos-body text-dos-secondary">No downstream discipleship relationship is recorded yet. DOS reports multiplication only from an explicit record.</p>
+          <p className="text-dos-body text-dos-secondary">No one is recorded as being discipled by you in this range.</p>
         )}
+        <p className="mt-2 text-dos-meta text-dos-secondary">
+          Person is the canonical relationship record. Multiplication is never inferred from a stage, a score, or notes, and DOS keeps no separate chain.
+        </p>
       </section>
 
       {upstreamViewers.length ? (
@@ -328,13 +408,13 @@ export function MinistryTimeInvestmentReport({
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-dos-meta md:grid-cols-4">
               <div><dt className="text-dos-secondary">Period</dt><dd className="text-dos-primary">{formatPeriod(safeSummary.period.start, safeSummary.period.end)}</dd></div>
-              <div><dt className="text-dos-secondary">Recorded time</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.uniqueRecordedMinutes)}</dd></div>
-              <div><dt className="text-dos-secondary">Meetings</dt><dd className="text-dos-primary">{safeSummary.meetings}{safeSummary.meetingsMissingTime ? ` (${safeSummary.meetingsMissingTime} without time)` : ""}</dd></div>
+              <div><dt className="text-dos-secondary">Duration invested</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.loggedMinutesInvested)}</dd></div>
+              <div><dt className="text-dos-secondary">Invested in them</dt><dd className="text-dos-primary">{formatDosMinistryMinutes(safeSummary.loggedMinutesReceived)}</dd></div>
+              <div><dt className="text-dos-secondary">Meetings</dt><dd className="text-dos-primary">{safeSummary.meetings}{safeSummary.meetingsMissingDuration ? ` (${safeSummary.meetingsMissingDuration} without duration)` : ""}</dd></div>
               <div><dt className="text-dos-secondary">People with activity</dt><dd className="text-dos-primary">{safeSummary.peopleWithRecordedActivity}</dd></div>
               <div><dt className="text-dos-secondary">Check-ins</dt><dd className="text-dos-primary">{safeSummary.checkIns}</dd></div>
               <div><dt className="text-dos-secondary">Relationships</dt><dd className="text-dos-primary">{safeSummary.relationships.length ? safeSummary.relationships.map((item) => `${item.label} ${item.count}`).join(" · ") : "None recorded"}</dd></div>
-              <div><dt className="text-dos-secondary">Multiplication</dt><dd className="text-dos-primary">{plural(safeSummary.downstreamRelationships, "recorded relationship")}</dd></div>
-              <div><dt className="text-dos-secondary">Completeness</dt><dd className="text-dos-primary">{safeSummary.completeness === "recorded" ? "Recorded" : safeSummary.completeness === "partial" ? "Partial" : "No qualifying activity"}</dd></div>
+              <div><dt className="text-dos-secondary">Multiplication</dt><dd className="text-dos-primary">{plural(safeSummary.downstreamRelationships, "resolved relationship")}</dd></div>
             </dl>
             <p className="mt-3 text-dos-meta text-dos-secondary">
               Never included: private notes, prayer wording, My Record narrative, participant responses, private reflections, testimony content, and names in the summary. Upward delivery is not switched on in this prototype; this shows what would travel.
@@ -347,11 +427,12 @@ export function MinistryTimeInvestmentReport({
         <summary className="cursor-pointer text-dos-label text-dos-primary">How these numbers are counted</summary>
         <ul className="mt-2 grid gap-1.5 text-dos-meta text-dos-secondary [&>li]:text-dos-secondary">
           <li>A meeting is a logged DOS meeting dated inside the range. Scheduled, canceled, and connection-log records are not meetings.</li>
-          <li>Recorded time is the meeting&apos;s saved duration. A meeting without a start and end adds nothing and marks the row Partial. Nothing is estimated.</li>
-          <li>Accountability check-ins are a separate activity: counted and timed separately, never as meetings.</li>
-          <li>Direction comes from your My Record relationships (Discipling me) and the Person record&apos;s structured role. A conflict between the two is stated on the row.</li>
-          <li>Multiplication appears only when someone has explicitly recorded who they are discipling.</li>
-          <li>Circle placement (My 3, My 12, My 70, My 120) is not part of this report.</li>
+          <li>Logged duration is what was entered for the meeting. Historical start times are a synthetic noon, so this is a duration, not clock-in and clock-out. A meeting without a start and end adds nothing and marks the row Partial. Nothing is estimated.</li>
+          <li>Time I invested: meetings where your role was ministering, mutual discipleship, or leadership / planning. Time invested in me: meetings where you were the one being discipled. The two are never ranked together.</li>
+          <li>Accountability check-ins are their own activity: counted separately, never as meetings, never as contact time.</li>
+          <li>Direction comes from the Person record&apos;s structured relationship, which is canonical. A My Record relationship is only a fallback, and a disagreement is stated on the row.</li>
+          <li>Multiplication resolves from a downstream person&apos;s own confirmed Person relationships through a linked DOS identity. Nothing is claimed until that link exists.</li>
+          <li>Circle placement (My 3, My 12, My 70, My 120) and Journey status are not part of this report.</li>
           <li>&ldquo;No qualifying activity&rdquo; means DOS has no record in the range. It does not mean nothing happened.</li>
         </ul>
       </details>

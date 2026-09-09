@@ -1,7 +1,6 @@
 import "server-only";
 
 import { normalizeConversationResponses, normalizeConversationFlowKey, normalizeRecommendedResources, type DosConversationFlowKey, type DosConversationResponses, type DosRecommendedResource } from "@/src/lib/dos/meeting-engine";
-import type { DosDiscipleshipChainLink } from "@/src/lib/dos/ministry-report";
 import { decideUsamWorkspace } from "@/src/lib/dos/usam-workspace";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import {
@@ -951,12 +950,6 @@ export type DosAppData = {
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
   commitments: DosAppPersonCommitment[];
-  /* USA-251: explicitly recorded downstream discipleship relationships for
-     the Master Ministry Report's multiplication view. There is no production
-     source yet (founder decision, docs/dos-ui-refresh/usa-249/metric-registry.md);
-     the loader returns none and the preview fixture supplies them. Never
-     inferred from a stage, a score, or free text. */
-  discipleshipChain?: DosDiscipleshipChainLink[];
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   featureFlags: DosAppFeatureFlags;
   fruit: DosAppFruit[];
@@ -5353,8 +5346,6 @@ export async function loadDosAppData(
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
       commitments,
-      /* USA-251: no production source for explicit downstream relationships yet. */
-      discipleshipChain: [],
       externalCalendarEvents,
       featureFlags,
       fruit,

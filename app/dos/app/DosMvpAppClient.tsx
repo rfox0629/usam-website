@@ -14325,8 +14325,8 @@ function DesktopHomeDashboard({
      feature flags by the same helper every other surface uses. */
   engagementLevelsEnabled: boolean;
   /* Last 30 days from the same calculation as the Master Ministry Report:
-     logged meetings only, recorded time only, each meeting counted once,
-     check-ins separate. */
+     logged meetings only, logged duration only, each meeting counted once,
+     check-ins separate, time invested in the missionary kept apart. */
   meetingActivity: DosMinistryReportTotals;
   onAddPerson: () => void;
   onCreateCommitment: () => void;
@@ -14341,7 +14341,9 @@ function DesktopHomeDashboard({
   pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
   resourceAssignments: DosAppResourceAssignment[];
-  /* The report's rows, already ranked by recorded contact time. */
+  /* The report's "Time I invested" rows, already ranked by logged duration.
+     Time invested in the missionary (being discipled) is reported, never
+     ranked here. */
   timeInvestments: DosMinistryReportRow[];
   upcomingItems: UpcomingTimelineItem[];
 }) {
@@ -14353,11 +14355,11 @@ function DesktopHomeDashboard({
     { icon: "commitment", label: "Accountability", onClick: onCreateCommitment },
   ];
   /* USA-257: Meeting Activity says what it counts. Check-ins are their own
-     activity and are never added to meetings or to recorded time; a meeting
-     without a recorded duration adds nothing rather than an estimate. */
+     activity and are never added to meetings or to logged duration; a meeting
+     without a logged duration adds nothing rather than an estimate. */
   const meetingActivityMetrics = [
     { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Logged meetings", value: `${meetingActivity.meetings}` },
-    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Recorded time", value: formatDosMinistryMinutes(meetingActivity.uniqueRecordedMinutes) },
+    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Logged duration", value: formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesInvested) },
     { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: `${meetingActivity.peopleWithActivity}` },
     { icon: <ClipboardCheck className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Check-ins (separate)", value: `${meetingActivity.checkIns}` },
   ];
@@ -14456,7 +14458,7 @@ function DesktopHomeDashboard({
           </div>
 
           <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReport}>View Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
-            <p className="mb-2 text-xs font-semibold text-[#64748B]">Last 30 days · recorded meeting time · check-ins not included</p>
+            <p className="mb-2 text-xs font-semibold text-[#64748B]">Last 30 days · logged duration I invested · check-ins not included</p>
             <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
               <div className="grid grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-2.5 py-1.5 text-[9px] font-bold tracking-[0.06em] text-[#64748B] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>
                 <span aria-hidden="true" />
@@ -14481,22 +14483,25 @@ function DesktopHomeDashboard({
                       <span className="block whitespace-normal break-words text-sm font-black leading-4 text-[#0F172A] sm:text-base sm:leading-5">{row.personName}</span>
                       <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">
                         {person ? dashboardTimeInvestmentRelationshipLine(person, engagementLevelsEnabled, row.directionLabel) : row.directionLabel}
-                        {row.completeness === "partial" ? " · time missing on a meeting" : ""}
+                        {row.completeness === "partial" ? " · duration missing on a meeting" : ""}
                       </span>
                     </span>
                     <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{row.meetingCount}</span>
-                    <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDosMinistryMinutes(row.recordedMinutes)}</span>
+                    <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDosMinistryMinutes(row.loggedMinutes)}</span>
                   </button>
                 );
               }) : (
-                <p className="px-4 py-5 text-sm text-[#64748B]">No recorded meeting time in the last 30 days. Log a meeting with its time to see it here.</p>
+                <p className="px-4 py-5 text-sm text-[#64748B]">No logged meeting duration in the last 30 days. Log a meeting with its duration to see it here.</p>
               )}
             </div>
           </DesktopPanel>
         </div>
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Meetings</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Meeting Activity">
-          <p className="mb-2 text-xs font-semibold text-[#64748B]">Last 30 days · logged meetings and recorded time only · each meeting counted once</p>
+          <p className="mb-2 text-xs font-semibold text-[#64748B]">
+            Last 30 days · logged meetings and logged duration I invested · each meeting counted once
+            {meetingActivity.uniqueLoggedMinutesReceived ? ` · ${formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesReceived)} invested in me is in Reports` : ""}
+          </p>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {meetingActivityMetrics.map((metric) => (
               <article className="min-h-[68px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-2.5" key={metric.label}>
@@ -37145,11 +37150,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const ministryReportInput = useMemo(() => dosMinistryReportInputFromAppData({
     accountabilityCheckIns: data.accountabilityCheckIns,
     accountabilitySchedules: data.accountabilitySchedules,
-    chain: data.discipleshipChain,
     disciplingMe: data.myRecord.mentorRelationships,
     meetings: data.meetings,
     people,
-  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.discipleshipChain, data.meetings, data.myRecord.mentorRelationships, people]);
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.meetings, data.myRecord.mentorRelationships, people]);
   const reportNow = useMemo(() => new Date(), []);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
@@ -42866,7 +42870,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
                 resourceAssignments={data.resourceAssignments}
-                timeInvestments={homeMinistryReport.rows}
+                timeInvestments={homeMinistryReport.investedRows}
                 upcomingItems={upcomingTimelineItems}
               />
               </>
