@@ -43420,8 +43420,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     full-width Show row that used to sit under Search. It only
                     expands or collapses the list: nobody's saved visibility
                     changes, which is what the copy says. */}
+                {/* The rail scrolls horizontally when it cannot fit, so on a
+                    narrow screen a control pinned to its right edge would look
+                    like it followed whichever tab happened to be visible. Below
+                    sm the control wraps onto its own line directly under the
+                    rail; from sm up, where My 120 is on screen, it sits inline
+                    immediately after it. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <div className="min-w-0 flex-1">
+                  <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                     <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabsWithCounts} value={peopleCircleView} />
                   </div>
                   {secondaryFieldPeopleCount ? (
