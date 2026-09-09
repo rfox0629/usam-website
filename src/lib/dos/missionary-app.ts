@@ -21,7 +21,7 @@ import { resolveDosIdentityForWorkspace } from "@/src/lib/dos/identity";
 import { dosMeetingEventDate, dosMeetingEventSortValue } from "@/src/lib/dos/meeting-lifecycle";
 import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
-import { loadTableInvitationsForWorkspace } from "@/src/lib/dos/table-invitation-data";
+import { loadTableInvitationBookingsForWorkspace, loadTableInvitationsForWorkspace, type DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
 import {
@@ -969,6 +969,8 @@ export type DosAppData = {
   myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  /* USA-246: live bookings from scheduling links (last 90 days onward) plus any flagged for Person review. */
+  tableInvitationBookings: DosTableInvitationBooking[];
   tableInvitations: DosTableInvitation[];
   usamApplication: DosUsamOrganizationApplication;
   stats: {
@@ -4355,7 +4357,7 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, tableInvitationBookingsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -4382,6 +4384,7 @@ export async function loadDosAppData(
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
     loadMyRecordForWorkspace(supabase, workspace.id, viewer),
     loadTableInvitationsForWorkspace(supabase, workspace.id),
+    loadTableInvitationBookingsForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
@@ -4450,6 +4453,8 @@ export async function loadDosAppData(
   const householdMemberRows = (householdMembersResult.data ?? []) as HouseholdMemberRow[];
   const myRecord = myRecordResult.data;
   const tableInvitations = tableInvitationsResult.data ?? [];
+  /* A bookings load failure never blocks the app; the list is simply empty. */
+  const tableInvitationBookings = tableInvitationBookingsResult.error ? [] : tableInvitationBookingsResult.data;
   const calendarConnectionRow = calendarConnectionResult.data as CalendarConnectionRow | null;
   const calendarEventLinkRows = (calendarEventLinksResult.data ?? []) as CalendarEventLinkRow[];
   const calendarWorkspaceSyncStateRow = calendarWorkspaceSyncStateResult.data as CalendarWorkspaceSyncStateRow | null;
@@ -5360,6 +5365,7 @@ export async function loadDosAppData(
       myRecord,
       reminders,
       resourceAssignments,
+      tableInvitationBookings,
       tableInvitations,
       usamApplication,
       stats: {

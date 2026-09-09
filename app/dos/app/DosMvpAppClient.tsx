@@ -1664,6 +1664,12 @@ function formatWeekdayShortDate(value: string | null | undefined) {
    rail the Person record uses. Scheduling Links stops being a sheet reached
    through a generic "View" control and becomes a place you can navigate to,
    which is the only way it reads as a first-class part of Meetings. */
+type DosAppTableBooking = DosAppData["tableInvitationBookings"][number];
+
+function bookingMatchReasonLabel(reason: DosAppTableBooking["personMatchCandidates"][number]["reasons"][number]) {
+  return reason === "email_exact" ? "same email" : reason === "phone_exact" ? "same phone" : "same name";
+}
+
 type MeetingsView = "calendar" | "links" | "timeline";
 
 const meetingsViewOptions: ReadonlyArray<PillRailOption<MeetingsView>> = [
@@ -17622,6 +17628,7 @@ function InvitationDetailSheet({
 }
 
 function DesktopInvitePanel({
+  bookings,
   calendarConnection,
   calendarSourceMessage,
   calendarSourcePreferences,
@@ -17636,6 +17643,8 @@ function DesktopInvitePanel({
   workspaceId,
   workspaceSlug,
 }: {
+  /* USA-246: live bookings; the ones flagged for Person review are surfaced here. */
+  bookings: DosAppTableBooking[];
   calendarConnection: DosAppCalendarConnection;
   calendarSourceMessage: string;
   calendarSourcePreferences: CalendarSourcePreference[];
@@ -17656,6 +17665,9 @@ function DesktopInvitePanel({
   const [selectedInvitationId, setSelectedInvitationId] = useState<string | null>(null);
   const [inviteShareMessage, setInviteShareMessage] = useState("");
   const [savingInvitationId, setSavingInvitationId] = useState<string | null>(null);
+  const [resolvingBookingId, setResolvingBookingId] = useState<string | null>(null);
+  const [resolvedBookingIds, setResolvedBookingIds] = useState<string[]>([]);
+  const reviewBookings = bookings.filter((booking) => booking.personMatchStatus === "review" && !resolvedBookingIds.includes(booking.id));
   const selectedInvitation = selectedInvitationId ? invitations.find((invitation) => invitation.id === selectedInvitationId) ?? null : null;
   const activeInvitationCount = invitations.filter((invitation) => invitation.status === "active" && !invitation.isDraft).length;
 
@@ -17690,6 +17702,32 @@ function DesktopInvitePanel({
     }
 
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function resolveBooking(booking: DosAppTableBooking, action: "create" | "link", personId: string | null, personName: string) {
+    setResolvingBookingId(booking.id);
+    setInviteShareMessage("");
+
+    try {
+      const response = await fetch("/api/dos/app/table-invitations/bookings", {
+        body: JSON.stringify({ action, bookingId: booking.id, personId, workspaceId }),
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error ?? "Unable to update this booking.");
+      }
+
+      setResolvedBookingIds((current) => [...current, booking.id]);
+      setInviteShareMessage(action === "create" ? `${personName} added and linked to the booking.` : `Booking linked to ${personName}.`);
+      router.refresh();
+    } catch (error) {
+      setInviteShareMessage(error instanceof Error ? error.message : "Unable to update this booking.");
+    } finally {
+      setResolvingBookingId(null);
+    }
   }
 
   function startNewInvitation() {
@@ -17760,6 +17798,57 @@ function DesktopInvitePanel({
     <section className="min-w-0 rounded-[24px] border border-[#DCE6F2] bg-white p-4 md:p-5">
       {inviteShareMessage ? (
         <p className="mb-4 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-[14px] font-semibold leading-5 text-[#1D4ED8]" role="status">{inviteShareMessage}</p>
+      ) : null}
+
+      {/* USA-246: bookings whose guest matched more than one person, or only
+          by name, wait here. Nothing was linked or created for them; their
+          details are kept on the booking until someone decides. */}
+      {reviewBookings.length ? (
+        <section aria-label="Bookings needing a person match" className="mb-4 rounded-[18px] border border-[#FDE68A] bg-[#FFFBEB] p-3.5">
+          <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#92400E]" style={{ fontFamily: font.rajdhani }}>
+            Needs review · {reviewBookings.length}
+          </p>
+          <p className="mt-1 text-[14px] font-medium leading-5 text-[#78350F]">
+            These bookings matched more than one person, or only by name. Choose who they are, or add them as someone new.
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {reviewBookings.map((booking) => {
+              const linkTitle = tableInvitations.find((invitation) => invitation.id === booking.invitationId)?.title ?? "Scheduling link";
+              const when = new Intl.DateTimeFormat("en-US", { day: "numeric", hour: "numeric", minute: "2-digit", month: "short", timeZone: booking.timezone ?? undefined }).format(new Date(booking.startAt));
+              const isResolving = resolvingBookingId === booking.id;
+
+              return (
+                <li className="rounded-[14px] border border-[#FDE68A] bg-white p-3" key={booking.id}>
+                  <p className="text-[15px] font-bold leading-5 text-[#0F172A]">{booking.requesterName}</p>
+                  <p className="mt-0.5 text-[13px] font-medium leading-5 text-[#334155]">
+                    {booking.requesterEmail}{booking.requesterPhone ? ` · ${booking.requesterPhone}` : ""} · {linkTitle} · {when}
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {booking.personMatchCandidates.map((candidate) => (
+                      <button
+                        className="inline-flex min-h-10 items-center rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3.5 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBE7FF] disabled:opacity-60"
+                        disabled={isResolving}
+                        key={candidate.personId}
+                        onClick={() => void resolveBooking(booking, "link", candidate.personId, candidate.name)}
+                        type="button"
+                      >
+                        This is {candidate.name} ({candidate.reasons.map(bookingMatchReasonLabel).join(", ")})
+                      </button>
+                    ))}
+                    <button
+                      className="inline-flex min-h-10 items-center rounded-full border border-[#DCE6F2] bg-white px-3.5 text-[13px] font-bold text-[#334155] transition-colors hover:bg-[#F8FBFF] disabled:opacity-60"
+                      disabled={isResolving}
+                      onClick={() => void resolveBooking(booking, "create", null, booking.requesterName)}
+                      type="button"
+                    >
+                      Add as a new person
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
 
       {invitations.length ? (
@@ -36374,6 +36463,7 @@ function MeetingDetailOverlay({
   isSendingReviewOptions,
   isSendingTestimony,
   leaderReflections,
+  booking = null,
   meeting,
   onBack,
   onCopyReviewLink,
@@ -36407,6 +36497,8 @@ function MeetingDetailOverlay({
   isSendingReviewOptions?: boolean;
   isSendingTestimony?: boolean;
   leaderReflections: DosAppLeaderReflection[];
+  /* USA-246: set when this meeting was created by a public booking. */
+  booking?: { linkTitle: string; needsReview: boolean; requesterName: string } | null;
   meeting: DosAppMeeting;
   onBack: () => void;
   onCopyReviewLink: () => void;
@@ -36602,6 +36694,12 @@ function MeetingDetailOverlay({
               what actually happened (USA-246). */}
           {plannedVersusActualLine(meeting) ? (
             <p className="mt-0.5 text-[12.5px] font-medium text-dos-eyebrow">{plannedVersusActualLine(meeting)}</p>
+          ) : null}
+          {booking ? (
+            <p className="mt-1 text-[12.5px] font-medium text-dos-eyebrow">
+              Booked through {booking.linkTitle} by {booking.requesterName}
+              {booking.needsReview ? " · person match waiting in Links" : ""}
+            </p>
           ) : null}
           {/* The facts actually captured about this meeting: when, how we
               connected, how long. Fruit count stays, but as trailing detail
@@ -43337,6 +43435,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       <p className="mt-1 text-[15px] font-semibold leading-6 text-[#334155]">Create and share links people use to book a time with you.</p>
                     </div>
                     <DesktopInvitePanel
+                      bookings={data.tableInvitationBookings}
                       calendarConnection={calendarConnection}
                       calendarSourceMessage={calendarSourceMessage}
                       calendarSourcePreferences={calendarSourcePreferences}
@@ -44193,6 +44292,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
         {selectedMeetingWithReview ? (
           <MeetingDetailOverlay
+            booking={(() => {
+              const booking = data.tableInvitationBookings.find((item) => item.tableId === selectedMeetingWithReview.id);
+
+              return booking
+                ? {
+                  linkTitle: data.tableInvitations.find((invitation) => invitation.id === booking.invitationId)?.title ?? "a scheduling link",
+                  needsReview: booking.personMatchStatus === "review",
+                  requesterName: booking.requesterName,
+                }
+                : null;
+            })()}
             hasReviewRequestLink={Boolean(selectedMeetingReviewUrl) || Object.keys(reviewLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             hasTestimonyRequestLink={Boolean(existingTestimonyUrl(selectedMeetingWithReview)) || Object.keys(testimonyLinksByMeetingId).some((key) => key.startsWith(`${selectedMeetingWithReview.id}:`))}
             isSendingReview={reviewLinkMeetingId === selectedMeetingWithReview.id}

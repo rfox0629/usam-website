@@ -117,6 +117,9 @@ export type DosCalendarEventInput = {
   startAt: string;
   timezone?: string | null;
   title: string;
+  /* USA-246: when set, only this user's connection in the workspace is used
+     (a booking syncs to the assigned host's calendar, never someone else's). */
+  userId?: string | null;
   workspaceId: string;
 };
 
@@ -447,13 +450,19 @@ export async function upsertConnectedGoogleCalendar({
   return data?.id ? String(data.id) : null;
 }
 
-async function loadConnectedCalendar(supabase: SupabaseAdminClient, workspaceId: string) {
-  const { data, error } = await supabase
+async function loadConnectedCalendar(supabase: SupabaseAdminClient, workspaceId: string, userId?: string | null) {
+  let query = supabase
     .from("connected_calendars")
     .select("id, workspace_id, google_account_email, calendar_id, access_token, refresh_token, expires_at")
     .eq("workspace_id", workspaceId)
     .eq("provider", "google")
-    .is("disconnected_at", null)
+    .is("disconnected_at", null);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query
     .order("connected_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -1273,7 +1282,7 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
     return { status: "skipped" as const };
   }
 
-  const connectedCalendar = await loadConnectedCalendar(supabase, input.workspaceId);
+  const connectedCalendar = await loadConnectedCalendar(supabase, input.workspaceId, input.userId);
 
   if (!connectedCalendar) {
     await recordCalendarSyncFailure({
