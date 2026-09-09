@@ -146,23 +146,60 @@ assert.ok(
 );
 
 /* Every founder requirement for the workflow, asserted where it lives. */
-assert.ok(manage.includes("visiblePeople.map((person)") && manage.includes("placementOf(person.id)"), "it lists people with their confirmed placement");
+assert.ok(manage.includes("visiblePeople.map((person)") && manage.includes("decisionOf(person.id)"), "it lists people with their confirmed placement");
 assert.ok(manage.includes("onPlace={(next) => place(person.id, next)}"), "a person can be moved deliberately");
-assert.ok(manage.includes('onPlace("not_placed")') && /Remove from circles\s*<\/button>/.test(manage), "a person can be removed from placement");
+assert.ok(manage.includes("onPlace(notReviewed)") && /Remove from circles\s*<\/button>/.test(manage), "a person can be removed from placement");
 assert.ok(manage.includes("capacityReport(counts)") && manage.includes("row.remaining") && manage.includes("row.capacity"), "remaining capacity is shown per circle");
 assert.ok(
-  manage.includes("Confirmed: ${manageCircleLabel(placement)}") && manage.includes("Possible {manageCircleLabel(recommendation.suggested)}"),
-  "a confirmed placement and a possibility are visibly different things",
+  manage.includes("Confirmed: ${decisionLabel(decision)}"),
+  "a confirmed placement says so in words",
+);
+
+/* Founder decision 4: three distinct states, and the middle one is stored. */
+assert.ok(
+  manage.includes("onPlace(reviewedNotPlaced)") && manage.includes("Not in a circle")
+    && manage.includes("chosen not to place them"),
+  "reviewed-but-deliberately-not-placed is an action a missionary can take",
+);
+assert.ok(
+  manage.includes('{ label: "Reviewed", value: "reviewed" }'),
+  "the reviewed state is filterable, so it is visibly not the same as never looked at",
+);
+
+/* Founder decision 6: no automated possibilities in the first release. */
+assert.ok(
+  !/recommendation|suggested|Possible My/.test(manage),
+  "this release offers no automated placement suggestions",
+);
+assert.ok(
+  !/circleRecommendations/.test(client),
+  "the suggestion engine is not wired into the app at all",
+);
+
+/* Founder decision 5: private and household-only people can be placed. */
+assert.ok(
+  manage.includes('return "Private"') && manage.includes('return "Household only"'),
+  "a placed person who is hidden from the People list is badged, so the absence is explained",
+);
+
+/* A refused save must not throw the operator's work away. */
+assert.ok(
+  manage.includes("Your changes are still here.") && manage.includes('aria-label="Save error"'),
+  "a refused save explains itself and keeps the proposed changes",
+);
+assert.ok(
+  manage.includes("await onSave(") && manage.includes('outcome.status === "rejected"'),
+  "saving goes through one call whose refusal is handled",
 );
 
 /* Built for 73-120 people: search, filters, and compact rows. */
 assert.ok(manage.includes("<SearchField label=\"Search people to place\""), "the list is searchable");
 assert.ok(
   manage.includes('{ label: "Confirmed", value: "confirmed" }') && manage.includes('{ label: "Unplaced", value: "unplaced" }')
-    && manage.includes('{ label: "Possible", value: "possible" }') && manage.includes('{ label: "Changed", value: "changed" }'),
-  "Confirmed, Unplaced, Possible and Changed filters exist",
+    && manage.includes('{ label: "Reviewed", value: "reviewed" }') && manage.includes('{ label: "Changed", value: "changed" }'),
+  "Confirmed, Unplaced, Reviewed and Changed filters exist",
 );
-assert.ok(!manage.includes("No suggestion"), "the repetitive no-suggestion copy is gone");
+assert.ok(!manage.includes("No suggest" + "ion"), "the repetitive placeholder copy is gone");
 
 /* The missionary reads circles; tiers stay internal. */
 assert.ok(
@@ -185,39 +222,42 @@ assert.ok(
 
 /* Neutral language: DOS has not pinned anyone. */
 assert.ok(
-  manage.includes("This is an observation, not a decision."),
-  "a possibility says outright that it is not a decision",
-);
-assert.ok(
   !/\bSuggested:/.test(manage) && !/Pinned to/.test(manage) && !/Accept and place/.test(manage),
   "no wording implies DOS has already assigned or pinned someone",
 );
 assert.ok(manage.includes("capacityConflicts(counts)") && manage.includes("Over capacity"), "capacity conflicts are surfaced");
 assert.ok(
-  manage.includes("setIsReviewing(true)") && manage.includes("Confirm these changes") && manage.includes("disabled={Boolean(conflicts.length) || !changes.length}"),
+  manage.includes("setIsReviewing(true)") && manage.includes("Confirm these changes")
+    && manage.includes("disabled={Boolean(conflicts.length) || !changes.length || isSaving}"),
   "saving takes an explicit confirmation and is blocked while a conflict stands",
 );
 assert.ok(
   manage.includes("{changes.length} {changes.length === 1 ? \"change\" : \"changes\"} to save") && manage.includes("changes.map((change)"),
   "the final review lists only the proposed changes",
 );
-assert.ok(
-  manage.includes("Prototype — nothing was saved"),
-  "the prototype says plainly that it writes nothing",
-);
 
-/* Recommendations explain themselves and are never applied automatically. */
+/* This release writes for real, and says what it wrote. */
 assert.ok(
-  manage.includes("recommendation.reasons.map((reason)"),
-  "a possibility shows the concrete reasons behind it",
+  !manage.includes("Prototype " + "\u2014 nothing was saved"),
+  "the prototype disclaimer is gone now that saving is real",
 );
 assert.ok(
-  manage.includes("Place in {manageCircleLabel(recommendation.suggested)}") && manage.includes("onPlace(recommendation.suggested)"),
-  "a possibility is applied only when a human presses the button",
+  manage.includes("Every earlier placement is kept"),
+  "a successful save tells the missionary that history was preserved",
 );
 assert.ok(
   !/useEffect\([^)]*\)\s*=>\s*\{[^}]*place\(/.test(manage),
   "nothing places a person as a side effect",
+);
+
+/* One save, one operation key: a retried request cannot apply twice. */
+assert.ok(
+  client.includes("circleSaveKeyRef") && client.includes("operationKey: circleSaveKeyRef.current"),
+  "a save carries an operation key so a retry is idempotent",
+);
+assert.ok(
+  client.includes("circleSaveKeyRef.current = null;"),
+  "the key is retired only after the save succeeds",
 );
 
 /* The People rail is cumulative on top of exclusive tiers. */

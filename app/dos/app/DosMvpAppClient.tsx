@@ -35,10 +35,17 @@ import {
   circleTierCapacity,
   circleTierLabel,
   circleTiers,
+  circleViewTiers,
+  decisionLabel,
+  isCircleTier,
+  notReviewed,
   placedTotal,
   placementChanges,
+  placementForDecision,
+  reviewedNotPlaced,
   tierCounts,
   viewCounts,
+  type CircleDecision,
   type CirclePlacement,
   type CirclePlacementChange,
   type CircleTier,
@@ -17649,7 +17656,7 @@ function circleDisplayName(circle: string) {
 }
 
 type CircleListItem = { person: DosAppPerson };
-type CirclePersonItem = CircleListItem & { score: DosRelationshipScore };
+type CirclePersonItem = CircleListItem & { score?: DosRelationshipScore };
 type CircleLayerGroups = {
   my120: CirclePersonItem[];
   seventy: CirclePersonItem[];
@@ -25755,58 +25762,116 @@ function manageCircleLabel(tier: CircleTier) {
   return manageCircleChoices.find((choice) => choice.tier === tier)?.label ?? "My 120";
 }
 
-type ManageCirclesFilter = "all" | "changed" | "confirmed" | "possible" | "unplaced";
+type ManageCirclesFilter = "all" | "changed" | "confirmed" | "reviewed" | "unplaced";
 
 const manageCirclesFilters: ReadonlyArray<{ label: string; value: ManageCirclesFilter }> = [
   { label: "All", value: "all" },
   { label: "Confirmed", value: "confirmed" },
   { label: "Unplaced", value: "unplaced" },
-  { label: "Possible", value: "possible" },
+  { label: "Reviewed", value: "reviewed" },
   { label: "Changed", value: "changed" },
 ];
 
+type ManageCirclesSaveOutcome =
+  | { conflicts: ReadonlyArray<{ label: string }>; message: string; status: "rejected" }
+  | { status: "saved" };
+
+/* Household-only and private people can hold a confirmed placement (founder
+   decision 5). They are absent from the default People list, so the badge is
+   what stops that absence from reading as a bug. */
+function manageCirclesVisibilityBadge(person: DosAppPerson) {
+  if (person.fieldVisibility === "hidden") {
+    return "Private";
+  }
+
+  if (person.fieldVisibility === "secondary") {
+    return "Household only";
+  }
+
+  return null;
+}
+
 function ManageCirclesWorkflow({
+  confirmedPlacements,
   onClose,
+  onSave,
   people,
-  recommendations,
 }: {
+  /* Confirmed placement, keyed by person. A person absent from this map has
+     not been reviewed. Machine assignments never appear here. */
+  confirmedPlacements: ReadonlyMap<string, CircleDecision>;
   onClose: () => void;
+  onSave: (changes: ReadonlyArray<{ personId: string; to: CircleDecision }>) => Promise<ManageCirclesSaveOutcome>;
   people: DosAppPerson[];
-  /* The existing score engine's output, used ONLY as a possibility with its
-     stored reasons. It never places anyone. */
-  recommendations: Map<string, { reasons: string[]; suggested: CircleTier; summary: string }>;
 }) {
-  /* Confirmed placements. Empty today, because production holds none: every
-     stored circle is an unconfirmed machine assignment. */
-  const [confirmedBaseline] = useState<Map<string, CirclePlacement>>(() => new Map());
-  const [draft, setDraft] = useState<Map<string, CirclePlacement>>(() => new Map());
+  const [draft, setDraft] = useState<Map<string, CircleDecision>>(() => new Map());
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ManageCirclesFilter>("all");
   const [isReviewing, setIsReviewing] = useState(false);
-  const [savedSummary, setSavedSummary] = useState<CirclePlacementChange[] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
   const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
-  const placementOf = (personId: string): CirclePlacement => draft.get(personId) ?? confirmedBaseline.get(personId) ?? "not_placed";
-  const counts = useMemo(() => tierCounts(people.map((person) => placementOf(person.id))), [draft, people]);
+  const decisionOf = (personId: string): CircleDecision => draft.get(personId) ?? confirmedPlacements.get(personId) ?? notReviewed;
+  const counts = useMemo(
+    () => tierCounts(people.map((person) => placementForDecision(decisionOf(person.id)))),
+    [confirmedPlacements, draft, people],
+  );
   const capacity = useMemo(() => capacityReport(counts), [counts]);
   const conflicts = useMemo(() => capacityConflicts(counts), [counts]);
-  const changes = useMemo(() => placementChanges(confirmedBaseline, draft), [confirmedBaseline, draft]);
-  const views = useMemo(() => viewCounts(counts), [counts]);
+  const changes = useMemo(() => {
+    const rows: Array<{ from: CircleDecision; personId: string; to: CircleDecision }> = [];
+
+    draft.forEach((to, personId) => {
+      const from = confirmedPlacements.get(personId) ?? notReviewed;
+
+      if (from !== to) {
+        rows.push({ from, personId, to });
+      }
+    });
+
+    return rows;
+  }, [confirmedPlacements, draft]);
   const changedIds = useMemo(() => new Set(changes.map((change) => change.personId)), [changes]);
 
-  function place(personId: string, placement: CirclePlacement) {
-    setSavedSummary(null);
+  function place(personId: string, decision: CircleDecision) {
+    setSavedCount(null);
+    setSaveError(null);
     setDraft((current) => {
       const next = new Map(current);
-      const confirmed = confirmedBaseline.get(personId) ?? "not_placed";
 
-      if (placement === confirmed) {
+      if (decision === (confirmedPlacements.get(personId) ?? notReviewed)) {
         next.delete(personId);
       } else {
-        next.set(personId, placement);
+        next.set(personId, decision);
       }
 
       return next;
     });
+  }
+
+  /* A refused save keeps every proposed change on screen. The operator's work
+     is never discarded to report an error. */
+  async function save() {
+    if (!changes.length || conflicts.length || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    const outcome = await onSave(changes.map((change) => ({ personId: change.personId, to: change.to })));
+
+    setIsSaving(false);
+
+    if (outcome.status === "rejected") {
+      setSaveError(outcome.message);
+      return;
+    }
+
+    setSavedCount(changes.length);
+    setDraft(new Map());
+    setIsReviewing(false);
   }
 
   const visiblePeople = useMemo(() => {
@@ -25817,20 +25882,18 @@ function ManageCirclesWorkflow({
         return false;
       }
 
-      const placement = placementOf(person.id);
+      const decision = decisionOf(person.id);
 
       if (filter === "confirmed") {
-        return placement !== "not_placed";
+        return isCircleTier(decision);
       }
 
       if (filter === "unplaced") {
-        return placement === "not_placed";
+        return decision === notReviewed;
       }
 
-      if (filter === "possible") {
-        const recommendation = recommendations.get(person.id);
-
-        return Boolean(recommendation) && recommendation?.suggested !== placement;
+      if (filter === "reviewed") {
+        return decision === reviewedNotPlaced;
       }
 
       if (filter === "changed") {
@@ -25839,7 +25902,7 @@ function ManageCirclesWorkflow({
 
       return true;
     });
-  }, [changedIds, draft, filter, people, query, recommendations]);
+  }, [changedIds, confirmedPlacements, draft, filter, people, query]);
 
   return (
     <DosWorkflowPage identity="Manage circles" onClose={onClose} title="People">
@@ -25887,11 +25950,10 @@ function ManageCirclesWorkflow({
             {visiblePeople.map((person) => (
               <li key={person.id}>
                 <ManageCirclesRow
+                  decision={decisionOf(person.id)}
                   isChanged={changedIds.has(person.id)}
                   onPlace={(next) => place(person.id, next)}
                   person={person}
-                  placement={placementOf(person.id)}
-                  recommendation={recommendations.get(person.id) ?? null}
                 />
               </li>
             ))}
@@ -25913,17 +25975,22 @@ function ManageCirclesWorkflow({
           </section>
         ) : null}
 
-        {savedSummary ? (
+        {saveError ? (
+          <section aria-label="Save error" className="grid gap-1 rounded-[18px] border border-[#F0A5A5] bg-[#FEF2F2] p-3.5" role="alert">
+            <p className="text-[14px] font-bold text-[#B42318]">Nothing was saved</p>
+            <p className="text-[13px] leading-[1.5] text-[#912018]">{saveError}</p>
+            <p className="text-[13px] leading-[1.5] text-[#912018]">Your changes are still here. Fix the problem and save again.</p>
+          </section>
+        ) : null}
+
+        {savedCount ? (
           <section aria-label="Save result" className="grid gap-1.5 rounded-[18px] border border-[#BFDBFE] bg-[#F8FBFF] p-3.5" role="status">
-            <p className="text-[14px] font-bold text-dos-blueText">Prototype — nothing was saved</p>
-            <p className="text-[13px] leading-[1.5] text-dos-body">This is the change set a real save would write, once you approve the data contract and migration:</p>
-            <ul className="grid gap-1">
-              {savedSummary.map((change) => (
-                <li className="text-[13px] leading-[1.5] text-dos-body" key={change.personId}>
-                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : manageCircleLabel(change.from)} → {change.to === "not_placed" ? "not placed" : manageCircleLabel(change.to)}
-                </li>
-              ))}
-            </ul>
+            <p className="text-[14px] font-bold text-dos-blueText">
+              Saved {savedCount} {savedCount === 1 ? "change" : "changes"}
+            </p>
+            <p className="text-[13px] leading-[1.5] text-dos-body">
+              Your circles are updated. Every earlier placement is kept, so you can see how a relationship has moved over time.
+            </p>
           </section>
         ) : null}
       </div>
@@ -25935,23 +26002,20 @@ function ManageCirclesWorkflow({
               <p className="text-[13.5px] font-bold text-dos-primary">{changes.length} {changes.length === 1 ? "change" : "changes"} to save</p>
               {changes.map((change) => (
                 <p className="text-[13px] leading-[1.45] text-dos-body" key={change.personId}>
-                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : manageCircleLabel(change.from)} → {change.to === "not_placed" ? "not placed" : manageCircleLabel(change.to)}
+                  {peopleById.get(change.personId)?.name ?? change.personId}: {decisionLabel(change.from).toLowerCase()} → {decisionLabel(change.to)}
                 </p>
               ))}
               {conflicts.length ? <p className="text-[13px] font-bold text-[#B42318]">Resolve the capacity conflict first.</p> : null}
             </div>
             <Button
-              disabled={Boolean(conflicts.length) || !changes.length}
+              disabled={Boolean(conflicts.length) || !changes.length || isSaving}
               fullWidth
-              onClick={() => {
-                setSavedSummary(changes);
-                setIsReviewing(false);
-              }}
+              onClick={save}
               variant="primary"
             >
-              Confirm these changes
+              {isSaving ? "Saving…" : "Confirm these changes"}
             </Button>
-            <Button fullWidth onClick={() => setIsReviewing(false)} variant="secondary">Keep editing</Button>
+            <Button disabled={isSaving} fullWidth onClick={() => setIsReviewing(false)} variant="secondary">Keep editing</Button>
           </>
         ) : (
           <Button disabled={!changes.length} fullWidth onClick={() => setIsReviewing(true)} variant="primary">
@@ -25963,26 +26027,23 @@ function ManageCirclesWorkflow({
   );
 }
 
-/* One compact row: who they are, the circle they are confirmed in, and -- kept
-   visually and verbally distinct -- what the score thinks is possible and why.
-   A person with nothing to suggest simply has no such line; the old repeated
-   placeholder copy said nothing and is gone. */
+/* One compact row: who they are, the circle they are confirmed in, and how
+   visible they are elsewhere in DOS. This release shows no automated
+   possibilities at all (founder decision 6): every placement here is one the
+   missionary made. */
 function ManageCirclesRow({
+  decision,
   isChanged,
   onPlace,
   person,
-  placement,
-  recommendation,
 }: {
+  decision: CircleDecision;
   isChanged: boolean;
-  onPlace: (placement: CirclePlacement) => void;
+  onPlace: (decision: CircleDecision) => void;
   person: DosAppPerson;
-  placement: CirclePlacement;
-  recommendation: { reasons: string[]; suggested: CircleTier; summary: string } | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isExplaining, setIsExplaining] = useState(false);
-  const possibleElsewhere = recommendation && recommendation.suggested !== placement;
+  const badge = manageCirclesVisibilityBadge(person);
 
   return (
     <article className={`grid gap-2 rounded-[16px] border bg-white p-3 ${isChanged ? "border-dos-blue" : "border-dos-line"}`}>
@@ -25990,43 +26051,21 @@ function ManageCirclesRow({
         <button className="min-w-0 flex-1 text-left" onClick={() => setIsOpen((current) => !current)} aria-expanded={isOpen} type="button">
           <span className="block truncate text-[15px] font-bold text-dos-primary">{person.name}</span>
           <span className="mt-0.5 block truncate text-[12.5px] text-dos-secondary">
-            {placement === "not_placed" ? "Not placed" : `Confirmed: ${manageCircleLabel(placement)}`}
+            {isCircleTier(decision) ? `Confirmed: ${decisionLabel(decision)}` : decisionLabel(decision)}
             {isChanged ? " · changed, not saved" : ""}
           </span>
         </button>
-        {possibleElsewhere ? (
-          <button
-            aria-expanded={isExplaining}
-            className="shrink-0 rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-1 text-[11.5px] font-bold text-[#92400E]"
-            onClick={() => setIsExplaining((current) => !current)}
-            type="button"
-          >
-            Possible {manageCircleLabel(recommendation.suggested)}
-          </button>
+        {badge ? (
+          <span className="shrink-0 rounded-full border border-dos-line bg-dos-surface px-2.5 py-1 text-[11.5px] font-bold text-dos-secondary">
+            {badge}
+          </span>
         ) : null}
       </div>
 
-      {isExplaining && recommendation ? (
-        <div className="grid gap-1 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
-          <p className="text-[12.5px] font-semibold leading-[1.45] text-[#92400E]">
-            Possible {manageCircleLabel(recommendation.suggested)} placement. This is an observation, not a decision.
-          </p>
-          <ul className="grid gap-0.5">
-            {recommendation.reasons.map((reason) => (
-              <li className="text-[12.5px] leading-[1.45] text-[#78350F]" key={reason}>· {reason}</li>
-            ))}
-          </ul>
-          <button
-            className="mt-1 w-fit rounded-full bg-[#92400E] px-3 py-1.5 text-[12.5px] font-bold text-white"
-            onClick={() => {
-              onPlace(recommendation.suggested);
-              setIsExplaining(false);
-            }}
-            type="button"
-          >
-            Place in {manageCircleLabel(recommendation.suggested)}
-          </button>
-        </div>
+      {badge && isOpen ? (
+        <p className="rounded-[12px] border border-dos-line bg-dos-surface px-2.5 py-2 text-[12px] leading-[1.45] text-dos-secondary">
+          {person.name.split(" ")[0]} does not appear in your People list by default. Placing them in a circle does not change that.
+        </p>
       ) : null}
 
       {isOpen ? (
@@ -26034,9 +26073,9 @@ function ManageCirclesRow({
           <p className="text-[12.5px] leading-[1.45] text-dos-secondary">Which circle is {person.name.split(" ")[0]} closest to?</p>
           {manageCircleChoices.map((choice) => (
             <button
-              aria-pressed={placement === choice.tier}
+              aria-pressed={decision === choice.tier}
               className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-[12px] border px-3 text-left transition-colors ${
-                placement === choice.tier ? "border-dos-blue bg-[#EBF2FF]" : "border-dos-line bg-white hover:border-dos-blue100"
+                decision === choice.tier ? "border-dos-blue bg-[#EBF2FF]" : "border-dos-line bg-white hover:border-dos-blue100"
               }`}
               key={choice.tier}
               onClick={() => onPlace(choice.tier)}
@@ -26046,13 +26085,33 @@ function ManageCirclesRow({
                 <span className="block text-[13.5px] font-bold text-dos-primary">{choice.label}</span>
                 <span className="block text-[12px] text-dos-secondary">{choice.helper}</span>
               </span>
-              {placement === choice.tier ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-blue" strokeWidth={2.2} /> : null}
+              {decision === choice.tier ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-blue" strokeWidth={2.2} /> : null}
             </button>
           ))}
-          {placement === "not_placed" ? null : (
+
+          {/* The deliberate middle state. Recording "I have thought about this
+              person and they are not in a circle right now" is a real
+              discipleship decision, and it is not the same as never having
+              looked. */}
+          <button
+            aria-pressed={decision === reviewedNotPlaced}
+            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-[12px] border px-3 text-left transition-colors ${
+              decision === reviewedNotPlaced ? "border-dos-blue bg-[#EBF2FF]" : "border-dos-line bg-white hover:border-dos-blue100"
+            }`}
+            onClick={() => onPlace(reviewedNotPlaced)}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-bold text-dos-primary">Not in a circle</span>
+              <span className="block text-[12px] text-dos-secondary">You have considered {person.name.split(" ")[0]} and chosen not to place them.</span>
+            </span>
+            {decision === reviewedNotPlaced ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-blue" strokeWidth={2.2} /> : null}
+          </button>
+
+          {decision === notReviewed ? null : (
             <button
               className="min-h-10 w-fit rounded-full border border-dos-line bg-white px-3 text-[12.5px] font-bold text-[#B42318] transition-colors hover:border-[#F0A5A5]"
-              onClick={() => onPlace("not_placed")}
+              onClick={() => onPlace(notReviewed)}
               type="button"
             >
               Remove from circles
@@ -37427,55 +37486,56 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups, requestedGroupId]);
 
+  /* USA-247: the circle lists show confirmed placements, cumulatively. My 12
+     includes My 3, and so on outward. Nobody appears in a circle because a
+     score put them there; only a human confirmation does that. */
   const circlePeopleByLayer = useMemo<CircleLayerGroups>(() => {
-    const peopleById = new Map(fieldListPeople.map((person) => [person.id, person]));
-    const mapScores = (scores: DosRelationshipScore[]) => uniqueCircleMembers(scores
-      .map((score) => ({ person: peopleById.get(score.person.id), score }))
-      .filter((item): item is CirclePersonItem => Boolean(item.person)));
+    const inTier = (tiers: ReadonlyArray<CircleTier>) => uniqueCircleMembers(
+      fieldListPeople
+        .filter((person) => {
+          const decision = data.circlePlacements?.find((row) => row.personId === person.id)?.placement;
+
+          return typeof decision === "string" && (tiers as ReadonlyArray<string>).includes(decision);
+        })
+        .map((person) => ({ person })),
+    );
 
     return {
-      my120: mapScores(data.circles?.my120 ?? []),
-      seventy: mapScores(data.circles?.my70 ?? []),
-      three: mapScores(data.circles?.my3 ?? []),
-      twelve: mapScores(data.circles?.my12 ?? []),
+      my120: inTier(circleViewTiers.my_120),
+      seventy: inTier(circleViewTiers.my_70),
+      three: inTier(circleViewTiers.my_3),
+      twelve: inTier(circleViewTiers.my_12),
     };
-  }, [data.circles, fieldListPeople]);
+  }, [data.circlePlacements, fieldListPeople]);
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
-  /* USA-247: the existing score engine, used ONLY as a suggestion with its
-     stored reasons. Its legacy circle maps to the tier a person would be
-     placed in if a human accepted it; it places nobody by itself. */
-  const circleRecommendations = useMemo(() => {
-    const suggestedTierFor = (circle: string): CircleTier | null => (
-      circle === "three" ? "inner_3"
-        : circle === "twelve" ? "next_9"
-          : circle === "seventy" ? "next_58"
-            : circle === "my_120" ? "next_50"
-              : null
-    );
-    const map = new Map<string, { reasons: string[]; suggested: CircleTier; summary: string }>();
-    const scores = data.circles
-      ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.my120]
-      : [];
+  /* USA-247, founder decision 6: this release shows no automated placement
+     suggestions. Every possibility available today is derived from the 121
+     unconfirmed machine rows in dos_relationship_scores, and showing them
+     before any human confirmation exists would teach the product to trust its
+     own guesses. Suggestions return when confirmed placements and the shared
+     reporting evidence layer exist; the rules that will judge them already
+     live in src/lib/dos/circle-alignment.ts, unused by this surface. */
 
-    scores.forEach((score) => {
-      const suggested = suggestedTierFor(score.circle);
+  /* Placement is offered for everyone in the workspace, including the
+     household-only and private people the People list hides by default
+     (founder decision 5). Manage circles badges that visibility so their
+     absence elsewhere does not read as a bug. */
+  const manageCirclePeople = useMemo(
+    () => [...people].sort((left, right) => left.name.localeCompare(right.name)),
+    [people],
+  );
+  /* USA-247: confirmed placement, and nothing else. The machine values in
+     data.circles are historical evidence; they never become a circle here. A
+     person absent from this map has not been reviewed. */
+  const confirmedPlacementByPersonId = useMemo(() => {
+    const map = new Map<string, CircleDecision>();
 
-      if (!suggested) {
-        return;
-      }
-
-      map.set(score.person.id, {
-        reasons: [
-          ...(score.explanation?.positive_factors ?? []),
-          ...(score.explanation?.negative_factors ?? []).map((factor) => `Against: ${factor}`),
-        ],
-        suggested,
-        summary: score.explanation?.summary ?? "Suggested by the existing relationship score.",
-      });
+    (data.circlePlacements ?? []).forEach((row) => {
+      map.set(row.personId, row.placement);
     });
 
     return map;
-  }, [data.circles]);
+  }, [data.circlePlacements]);
   /* USA-247: what each number on the People rail counts.
      Storage is exclusive (one tier per person); the rail is CUMULATIVE, so
      My 12 includes My 3 and My 120 includes them all. Both come from the same
@@ -37491,12 +37551,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      these numbers describe suggestions, not confirmed circles. */
   const peopleCircleCounts = useMemo(() => {
     const searched = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery);
-    const counts = tierCounts([
-      ...searched(circlePeopleByLayer.three).map(() => "inner_3" as const),
-      ...searched(circlePeopleByLayer.twelve).map(() => "next_9" as const),
-      ...searched(circlePeopleByLayer.seventy).map(() => "next_58" as const),
-      ...searched(circlePeopleByLayer.my120).map(() => "next_50" as const),
-    ]);
+    const counts = tierCounts(
+      searched(allCirclePeople).map((item) => placementForDecision(confirmedPlacementByPersonId.get(item.person.id) ?? notReviewed)),
+    );
     const cumulative = viewCounts(counts);
 
     return {
@@ -37507,7 +37564,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       three: cumulative.my_3,
       twelve: cumulative.my_12,
     };
-  }, [allCirclePeople, circlePeopleByLayer, peopleQuery]);
+  }, [allCirclePeople, confirmedPlacementByPersonId, peopleQuery]);
   /* All is everyone listed. The circles hold only those with a placement, so
      All is larger by exactly the people who have none. */
   const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - peopleCircleCounts.placed);
@@ -39220,6 +39277,54 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setFormMode("editPerson");
     setSelectedRelationshipModel(relationshipModelForPerson(person));
     setSelectedRelationshipScore(relationshipScoreFromEngagementLevel(person.engagementLevel));
+  }
+
+  /* USA-247. One review-and-save, sent as one request with one operation key.
+     The key is generated per attempt and reused on a retry of that same
+     attempt, so a dropped response can never apply the batch twice. A refusal
+     returns its message to the surface, which keeps the proposed changes. */
+  const circleSaveKeyRef = useRef<string | null>(null);
+
+  async function saveCirclePlacements(changes: ReadonlyArray<{ personId: string; to: CircleDecision }>) {
+    if (isPreview) {
+      return { conflicts: [], message: "This preview is read-only. Nothing was saved.", status: "rejected" as const };
+    }
+
+    if (!circleSaveKeyRef.current) {
+      circleSaveKeyRef.current = `circles-${data.workspace.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    try {
+      const response = await fetch("/api/dos/app/circle-placements", {
+        body: JSON.stringify({
+          changes: changes.map((change) => ({ personId: change.personId, to: change.to })),
+          operationKey: circleSaveKeyRef.current,
+          workspaceId: data.workspace.id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { conflicts?: Array<{ label: string }>; error?: string };
+
+      if (!response.ok) {
+        return {
+          conflicts: result.conflicts ?? [],
+          message: result.error ?? "Your changes could not be saved. Nothing was changed.",
+          status: "rejected" as const,
+        };
+      }
+
+      circleSaveKeyRef.current = null;
+      router.refresh();
+
+      return { status: "saved" as const };
+    } catch {
+      return {
+        conflicts: [],
+        message: "DOS could not reach the server, so nothing was saved.",
+        status: "rejected" as const,
+      };
+    }
   }
 
   async function confirmPersonCircleMove(personId: string, circle: CircleKey) {
@@ -45151,9 +45256,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           guard. */}
       {isManageCirclesOpen ? (
         <ManageCirclesWorkflow
+          confirmedPlacements={confirmedPlacementByPersonId}
           onClose={() => setIsManageCirclesOpen(false)}
-          people={fieldListPeople}
-          recommendations={circleRecommendations}
+          onSave={saveCirclePlacements}
+          people={manageCirclePeople}
         />
       ) : null}
 

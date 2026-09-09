@@ -27,6 +27,45 @@ export type CircleTier = typeof circleTiers[number];
 /** A person is in exactly one tier, or explicitly not placed. */
 export type CirclePlacement = CircleTier | "not_placed";
 
+/* USA-247, founder decision 4. Three states, deliberately distinct:
+     "not_reviewed"         nobody has considered this person yet
+     "reviewed_not_placed"  considered, and deliberately left out of the circles
+     one of the four tiers  a confirmed placement
+   Only a tier consumes capacity. The middle state is a real decision worth
+   keeping, which is why it is stored rather than inferred from an absence. */
+export const notReviewed = "not_reviewed";
+export const reviewedNotPlaced = "reviewed_not_placed";
+
+export type CircleDecision = CircleTier | typeof notReviewed | typeof reviewedNotPlaced;
+
+/* What a decision means for counting. Both non-tier states are "not placed":
+   neither takes a seat in any circle. */
+export function placementForDecision(decision: CircleDecision): CirclePlacement {
+  return isCircleTier(decision) ? decision : "not_placed";
+}
+
+/* The circle a missionary reads for each stored tier. Storage stays internal;
+   every label a person sees is a circle. */
+export const circleViewForTier: Record<CircleTier, CircleView> = {
+  inner_3: "my_3",
+  next_50: "my_120",
+  next_58: "my_70",
+  next_9: "my_12",
+};
+
+export function decisionLabel(decision: CircleDecision) {
+  if (decision === notReviewed) {
+    return "Not reviewed";
+  }
+
+  if (decision === reviewedNotPlaced) {
+    return "Reviewed, not in a circle";
+  }
+
+  return circleViewLabel[circleViewForTier[decision]];
+}
+
+
 export const circleViews = ["my_3", "my_12", "my_70", "my_120"] as const;
 
 export type CircleView = typeof circleViews[number];
