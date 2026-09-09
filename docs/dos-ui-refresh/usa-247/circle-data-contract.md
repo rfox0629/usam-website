@@ -1,5 +1,7 @@
 # Circle management — data contract, semantics, migration and open decisions
 
+> **The canonical contract for Reports is [`circle-reporting-contract.md`](./circle-reporting-contract.md).** This file carries the migration plan, the open decisions and the Tanner Kent audit.
+
 Prototype for founder review. **Nothing is merged, deployed or reset. No production circle assignment was altered.** The audit that motivates this is `circle-placement-audit.md` in this folder.
 
 ## 1. Proposed data contract
