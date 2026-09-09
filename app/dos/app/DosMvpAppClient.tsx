@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -4772,6 +4772,300 @@ function DosDateInput({
               Today
             </button>
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ---- USA-246: the canonical time control ---------------------------------
+ *
+ * Schedule Meeting asks for a Start and an End, and a browser-native time
+ * popup is not acceptable there: on a phone it can float over the sticky
+ * action and on desktop it renders whatever chrome the engine ships. This is
+ * the DOS time control, built the way DosDateInput is built — a typed field
+ * that accepts what people actually write ("6", "6pm", "6:30 pm", "18:30")
+ * plus a picker that expands inline beneath the field, in normal flow, so it
+ * can never overlap or clip anything. The picker is a listbox of 15-minute
+ * times with full keyboard support. The posted value is always "HH:MM". */
+
+const timeInputStepMinutes = 15;
+const timeInputOptions = Array.from({ length: (24 * 60) / timeInputStepMinutes }, (_, index) => timeInputFromMinutes(index * timeInputStepMinutes));
+
+function timeInputMinutes(value: string | null | undefined) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 ? hours * 60 + minutes : null;
+}
+
+function timeInputFromMinutes(totalMinutes: number) {
+  const wrapped = ((Math.round(totalMinutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(wrapped / 60);
+  const minutes = wrapped % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/* "18:30" -> "6:30 PM". */
+function formatTimeInputDisplay(value: string | null | undefined) {
+  const minutes = timeInputMinutes(value);
+
+  if (minutes === null) {
+    return "";
+  }
+
+  const hours24 = Math.floor(minutes / 60);
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+
+  return `${hours12}:${String(minutes % 60).padStart(2, "0")} ${hours24 < 12 ? "AM" : "PM"}`;
+}
+
+/* What someone might type: "6", "6pm", "6:30", "6:30 pm", "18:30", "noon".
+   Anything else is null, and the field says so rather than guessing. */
+function parseTimeInput(raw: string) {
+  const text = raw.trim().toLowerCase().replace(/\s+/g, " ");
+
+  if (!text) {
+    return null;
+  }
+
+  if (text === "noon") {
+    return "12:00";
+  }
+
+  if (text === "midnight") {
+    return "00:00";
+  }
+
+  const match = /^(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|a|p)?$/.exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3]?.charAt(0);
+
+  if (minutes > 59) {
+    return null;
+  }
+
+  if (meridiem) {
+    if (hours < 1 || hours > 12) {
+      return null;
+    }
+
+    hours = hours % 12 + (meridiem === "p" ? 12 : 0);
+  } else if (hours > 23) {
+    return null;
+  }
+
+  return timeInputFromMinutes(hours * 60 + minutes);
+}
+
+function DosTimeInput({
+  ariaLabel,
+  invalidMessage = null,
+  label,
+  name,
+  onChange,
+  required = false,
+  value,
+}: {
+  ariaLabel?: string;
+  /* A validation message owned by the form (for example "End time must be after
+     the start time"). Shown beneath the field and applied as the input's
+     validity, so the browser blocks submission and focuses it. */
+  invalidMessage?: string | null;
+  label: string;
+  name: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  /* Always "HH:MM". This control is controlled. */
+  value: string;
+}) {
+  const [displayValue, setDisplayValue] = useState(() => formatTimeInputDisplay(value));
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const listId = useId();
+  const messageId = useId();
+  const resolvedLabel = ariaLabel ?? label;
+
+  useEffect(() => {
+    setDisplayValue(formatTimeInputDisplay(value));
+  }, [value]);
+
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(invalidMessage ?? "");
+  }, [invalidMessage]);
+
+  /* When the picker opens, the current time is in view and holds focus, so the
+     arrow keys start from where the user already is. */
+  useEffect(() => {
+    if (!isPickerOpen) {
+      return;
+    }
+
+    const selected = listRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+      ?? listRef.current?.querySelector<HTMLButtonElement>("button");
+
+    selected?.scrollIntoView({ block: "center" });
+    selected?.focus();
+  }, [isPickerOpen]);
+
+  function commit(nextValue: string) {
+    onChange(nextValue);
+    setDisplayValue(formatTimeInputDisplay(nextValue));
+    inputRef.current?.setCustomValidity(invalidMessage ?? "");
+  }
+
+  function commitTyped() {
+    const parsed = parseTimeInput(displayValue);
+
+    if (parsed) {
+      commit(parsed);
+      return true;
+    }
+
+    if (!displayValue.trim()) {
+      setDisplayValue(formatTimeInputDisplay(value));
+      return true;
+    }
+
+    inputRef.current?.setCustomValidity("Enter a time like 6:30 PM.");
+    inputRef.current?.reportValidity();
+
+    return false;
+  }
+
+  function choose(nextValue: string) {
+    commit(nextValue);
+    setIsPickerOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function moveFocus(event: KeyboardEvent<HTMLDivElement>) {
+    const options = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    const index = options.findIndex((option) => option === document.activeElement);
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = event.key === "ArrowDown" ? Math.min(options.length - 1, index + 1) : Math.max(0, index - 1);
+
+      options[next]?.focus();
+      options[next]?.scrollIntoView({ block: "nearest" });
+    }
+
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const target = event.key === "Home" ? options[0] : options[options.length - 1];
+
+      target?.focus();
+      target?.scrollIntoView({ block: "nearest" });
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsPickerOpen(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  const selectedOption = timeInputOptions.includes(value) ? value : null;
+
+  return (
+    <div className="min-w-0">
+      <span className="text-dos-label text-dos-secondary">{label}</span>
+      <input name={name} readOnly type="hidden" value={value} />
+      <div className="relative mt-1.5">
+        <input
+          aria-controls={isPickerOpen ? listId : undefined}
+          aria-describedby={invalidMessage ? messageId : undefined}
+          aria-expanded={isPickerOpen}
+          aria-invalid={invalidMessage ? true : undefined}
+          aria-label={resolvedLabel}
+          autoComplete="off"
+          className={`${FieldInputClass(false)} pr-12 ${invalidMessage ? "border-[#F0A5A5] focus:border-[#B42318] focus:ring-[#B42318]/10" : ""}`}
+          inputMode="text"
+          onBlur={() => commitTyped()}
+          onChange={(event) => setDisplayValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (commitTyped()) {
+                setIsPickerOpen(false);
+              }
+            }
+
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setIsPickerOpen(true);
+            }
+
+            if (event.key === "Escape") {
+              setIsPickerOpen(false);
+            }
+          }}
+          placeholder="6:00 PM"
+          ref={inputRef}
+          required={required}
+          role="combobox"
+          type="text"
+          value={displayValue}
+        />
+        <button
+          aria-expanded={isPickerOpen}
+          aria-label={`Choose ${resolvedLabel.toLowerCase()}`}
+          className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-[#EBF2FF] hover:text-[#2563EB]"
+          onClick={() => setIsPickerOpen((current) => !current)}
+          type="button"
+        >
+          <Clock className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+        </button>
+      </div>
+      {invalidMessage ? (
+        <p className="mt-1.5 text-[12.5px] font-semibold leading-[1.4] text-[#B42318]" id={messageId} role="alert">{invalidMessage}</p>
+      ) : null}
+      {isPickerOpen ? (
+        /* Inline and in normal flow, exactly like the date picker, so it
+           pushes the form down rather than floating over the sticky action or
+           being clipped by an ancestor. */
+        <div
+          aria-label={`Choose ${resolvedLabel.toLowerCase()}`}
+          className="mt-2 max-h-56 overflow-y-auto rounded-[20px] border border-[#D6E4F7] bg-white p-1.5 shadow-[0_18px_48px_rgba(15,23,42,0.16)]"
+          id={listId}
+          onKeyDown={moveFocus}
+          ref={listRef}
+          role="listbox"
+        >
+          {timeInputOptions.map((option) => {
+            const selected = option === selectedOption;
+
+            return (
+              <button
+                aria-selected={selected}
+                className={`flex min-h-11 w-full items-center rounded-2xl px-3 text-left text-[15px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 ${
+                  selected ? "bg-[#EBF2FF] text-[#1D4ED8]" : "text-dos-primary hover:bg-[#F8FBFF]"
+                }`}
+                key={option}
+                onClick={() => choose(option)}
+                role="option"
+                tabIndex={-1}
+                type="button"
+              >
+                {formatTimeInputDisplay(option)}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -16289,6 +16583,9 @@ function InviteMetaItem({ children, icon }: { children: ReactNode; icon: ReactNo
   );
 }
 
+/* USA-246 (founder correction 5): a scheduling link is one compact,
+   scannable row. Title and status on the first line, who it is for and how
+   long on the second, when it is available on the third. */
 function InvitationCard({
   invitation,
   onCopy,
@@ -16298,43 +16595,41 @@ function InvitationCard({
   onCopy: () => void;
   onOpen: () => void;
 }) {
+  const isActive = invitation.status === "active" && !invitation.isDraft;
+
   return (
-    <article className="min-w-0 rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_10px_26px_rgba(37,99,235,0.05)] transition-colors hover:border-[#BFDBFE]">
-      <button className="block w-full p-4 text-left" onClick={onOpen} type="button">
-        <span className="flex min-w-0 items-start justify-between gap-3">
-          <span className="flex min-w-0 items-start gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
-              <InvitationIcon id={invitation.kind} />
-            </span>
-            <span className="min-w-0 pt-1">
-              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{invitation.title}</span>
-              <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#334155]">{invitation.audience}</span>
+    <article className="min-w-0 rounded-[18px] border border-[#DCE6F2] bg-white transition-colors hover:border-[#BFDBFE]">
+      <button className="flex w-full items-start gap-3 p-3.5 text-left" onClick={onOpen} type="button">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#1D4ED8]">
+          <InvitationIcon id={invitation.kind} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center justify-between gap-2">
+            <span className="truncate text-[15px] font-bold leading-5 text-[#0F172A]">{invitation.title}</span>
+            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${isActive ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]" : "border-[#E2E8F0] bg-[#F8FAFC] text-[#334155]"}`}>
+              {invitationStatusLabel(invitation.status)}
             </span>
           </span>
-          <span className="shrink-0 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-bold text-[#15803D]">{invitationStatusLabel(invitation.status)}</span>
-        </span>
-        <span className="mt-5 grid gap-3">
-          <InviteMetaItem icon={<CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.daySummary}</InviteMetaItem>
-          <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.timeSummary}</InviteMetaItem>
-          <InviteMetaItem icon={<Clock className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}>{invitation.durationMinutes} minutes</InviteMetaItem>
+          <span className="mt-0.5 block truncate text-[13px] font-semibold leading-5 text-[#334155]">{invitation.audience} · {invitation.durationMinutes} min</span>
+          <span className="mt-0.5 block truncate text-[13px] font-medium leading-5 text-[#475569]">{invitation.daySummary} · {invitation.timeSummary}</span>
         </span>
       </button>
-      <div className="flex items-center justify-between gap-3 border-t border-[#EFF6FF] px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-t border-[#EFF3F8] px-3.5 py-1.5">
         <button
-          className="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-full px-1 text-sm font-bold text-[#1D4ED8]"
+          className="inline-flex min-h-9 min-w-0 items-center gap-1.5 rounded-full px-1 text-[13px] font-bold text-[#1D4ED8]"
           onClick={onCopy}
           type="button"
         >
           <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" strokeWidth={1.9} />
-          <span className="truncate">Copy Link</span>
+          <span className="truncate">Copy link</span>
         </button>
         <button
-          aria-label={`Open ${invitation.title} options`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#334155] transition-colors hover:bg-[#F8FBFF]"
+          aria-label={`Edit ${invitation.title}`}
+          className="inline-flex min-h-9 items-center rounded-full px-2 text-[13px] font-bold text-[#334155] transition-colors hover:bg-[#F8FBFF]"
           onClick={onOpen}
           type="button"
         >
-          <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={2.1} />
+          Edit
         </button>
       </div>
     </article>
@@ -16443,7 +16738,7 @@ function InvitationEditorNav({
   onChange: (section: InvitationEditorSection) => void;
 }) {
   return (
-    <nav className="-mx-4 overflow-x-auto border-b border-[#EAF2FF] px-4 [scrollbar-width:none] sm:-mx-5 sm:px-5" aria-label="Invitation editor sections">
+    <nav className="-mx-4 overflow-x-auto border-b border-[#EAF2FF] px-4 [scrollbar-width:none] sm:-mx-5 sm:px-5" aria-label="Scheduling link editor sections">
       <div className="flex min-w-max items-center gap-1">
         {invitationEditorSections.map((section) => {
           const selected = activeSection === section.value;
@@ -16929,7 +17224,7 @@ function InvitationAvailabilityPreview({
         ) : (
           <p className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-sm font-semibold text-[#64748B]">No times available.</p>
         )}
-        <p className="text-xs font-semibold leading-5 text-[#64748B]">This is what people booking this invitation will see.</p>
+        <p className="text-xs font-semibold leading-5 text-[#64748B]">This is what people booking this scheduling link will see.</p>
       </div>
     </section>
   );
@@ -17147,8 +17442,8 @@ function InvitationDetailSheet({
           </div>
           <p className="text-sm font-semibold leading-6 text-[#475569]">
             {calendarConnectionIsHealthy(calendarConnection)
-              ? "This invitation checks your Google Calendar for conflicts."
-              : "Connect Google Calendar to check this invitation for conflicts."}
+              ? "This scheduling link checks your Google Calendar for conflicts."
+              : "Connect Google Calendar to check this scheduling link for conflicts."}
           </p>
           {calendarConnection.connected && onDisconnectCalendar ? (
             <button
@@ -17251,7 +17546,7 @@ function InvitationDetailSheet({
         </button>
         <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-sm font-bold text-[#1D4ED8]" onClick={onOpenInvitation} type="button">
           <ExternalLink className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          Open Invitation
+          Open scheduling link
         </button>
       </div>
     </InvitationEditorBlock>
@@ -17264,7 +17559,7 @@ function InvitationDetailSheet({
         <header className="shrink-0 px-4 pt-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <button
-              aria-label="Close invitation editor"
+              aria-label="Close scheduling link editor"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF]"
               onClick={onClose}
               type="button"
@@ -17374,7 +17669,7 @@ function DesktopInvitePanel({
 
   async function copyInvitationLink(invitation: InviteCard) {
     if (!invitation.token) {
-      setInviteShareMessage("Save this invitation before copying the public link.");
+      setInviteShareMessage("Save this scheduling link before copying it.");
       return;
     }
 
@@ -17390,7 +17685,7 @@ function DesktopInvitePanel({
     const url = invitationUrl(invitation);
 
     if (!url) {
-      setInviteShareMessage("Save this invitation before opening the public link.");
+      setInviteShareMessage("Save this scheduling link before opening it.");
       return;
     }
 
@@ -17437,7 +17732,7 @@ function DesktopInvitePanel({
       const result = await response.json().catch(() => ({})) as { error?: string; invitation?: DosTableInvitation };
 
       if (!response.ok || !result.invitation) {
-        throw new Error(result.error ?? "Unable to save invitation.");
+        throw new Error(result.error ?? "Unable to save scheduling link.");
       }
 
       const savedCard = createInviteCard(result.invitation);
@@ -17450,59 +17745,65 @@ function DesktopInvitePanel({
       setInviteShareMessage(`${savedCard.title} saved.`);
       router.refresh();
     } catch (error) {
-      setInviteShareMessage(error instanceof Error ? error.message : "Unable to save invitation.");
+      setInviteShareMessage(error instanceof Error ? error.message : "Unable to save scheduling link.");
     } finally {
       setSavingInvitationId(null);
     }
   }
 
+  /* USA-246 (founder correction 5): a plain white, content-first surface.
+     The page already carries the "Scheduling Links" title and description,
+     so nothing is repeated here. With no links there is one message and one
+     action; with links, a compact list and a small create action. The global
+     floating action is hidden on this view so there is never a second plus. */
   return (
-    <section className="min-w-0 rounded-[26px] border border-[#EAF2FF] bg-white/92 p-4 shadow-[0_12px_34px_rgba(37,99,235,0.045)] backdrop-blur md:p-5">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            Your Invitations
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748B]">
-            Create invitations people can use to find a time to meet with you.
-          </p>
-        </div>
-        <span className="inline-flex w-fit items-center rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-bold text-[#15803D]">
-          {activeInvitationCount} Active
-        </span>
-      </div>
-
+    <section className="min-w-0 rounded-[24px] border border-[#DCE6F2] bg-white p-4 md:p-5">
       {inviteShareMessage ? (
-        <p className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-5 text-[#1D4ED8]">{inviteShareMessage}</p>
+        <p className="mb-4 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-[14px] font-semibold leading-5 text-[#1D4ED8]" role="status">{inviteShareMessage}</p>
       ) : null}
 
       {invitations.length ? (
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {invitations.map((invitation) => (
-          <InvitationCard
-            invitation={invitation}
-            key={invitation.id}
-            onCopy={() => void copyInvitationLink(invitation)}
-            onOpen={() => setSelectedInvitationId(invitation.id)}
-          />
-          ))}
-        </div>
+        <>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-[#334155]" style={{ fontFamily: font.rajdhani }}>
+              {activeInvitationCount} active
+            </p>
+            <button
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-3.5 text-[14px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBE7FF]"
+              onClick={startNewInvitation}
+              type="button"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+              New scheduling link
+            </button>
+          </div>
+          <ul aria-label="Your scheduling links" className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {invitations.map((invitation) => (
+              <li className="min-w-0" key={invitation.id}>
+                <InvitationCard
+                  invitation={invitation}
+                  onCopy={() => void copyInvitationLink(invitation)}
+                  onOpen={() => setSelectedInvitationId(invitation.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
-        <p className="mt-6 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#64748B]">
-          No invitations yet.
-        </p>
+        <div className="grid justify-items-start gap-4 py-1">
+          <p className="max-w-md text-[15px] font-semibold leading-6 text-[#0F172A]">
+            No scheduling links yet. Create one and share it so people can book a time with you.
+          </p>
+          <button
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-5 text-[15px] font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]"
+            onClick={startNewInvitation}
+            type="button"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+            Create scheduling link
+          </button>
+        </div>
       )}
-
-      <button
-        className="mt-5 flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-[22px] border border-dashed border-[#BFDBFE] bg-[#F8FBFF] px-4 text-center text-sm font-black text-[#1D4ED8] transition-colors hover:border-[#2563EB] hover:bg-[#EBF2FF]"
-        onClick={startNewInvitation}
-        type="button"
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] text-white shadow-[0_12px_24px_rgba(37,99,235,0.2)]">
-          <Plus className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
-        </span>
-        New Invitation
-      </button>
 
       {selectedInvitation ? (
         <InvitationDetailSheet
@@ -18710,47 +19011,84 @@ function CalendarAgendaEventRow({
   );
 }
 
-function CalendarDayAgenda({
-  date,
+type CalendarDayState = "future" | "past" | "today";
+
+function calendarDayState(dateKey: string): CalendarDayState {
+  const offset = dayOffsetFromToday(dateKey);
+
+  return offset === null || offset === 0 ? "today" : offset < 0 ? "past" : "future";
+}
+
+/* USA-246 (founder correction 2): the Day view. Tapping a date opens this
+   sheet, which is what makes the calendar an entry point rather than a
+   picture. It knows which kind of day it is showing and offers only what
+   makes sense there: a future day can be scheduled, today can be scheduled
+   or logged, a past day can only be logged. A day with meetings lists them
+   in time order and each one opens on its own. It is a Sheet, so it sits
+   above the bottom navigation and the floating action rather than beneath
+   them, and Escape closes it. */
+function CalendarDayView({
+  dateKey,
   items,
   onClose,
+  onLogMeeting,
   onOpenItem,
+  onScheduleMeeting,
 }: {
-  date: Date;
+  dateKey: string;
   items: MeetingCalendarItem[];
   onClose: () => void;
+  onLogMeeting: () => void;
   onOpenItem: (item: MeetingCalendarItem) => void;
+  onScheduleMeeting: () => void;
 }) {
   const sortedItems = [...items].sort((first, second) => dateSortValue(first.date) - dateSortValue(second.date));
+  const dayState = calendarDayState(dateKey);
+  const itemCount = sortedItems.length;
+  const description = itemCount
+    ? `${itemCount} on the calendar`
+    : dayState === "past"
+      ? "No meetings recorded"
+      : "No meetings";
+  const primaryActionClass = "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-4 text-[15px] font-bold text-white shadow-[0_12px_26px_rgba(37,99,235,0.18)]";
+  const secondaryActionClass = "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-4 text-[15px] font-bold text-[#1D4ED8]";
 
   return (
-    <section className="grid gap-2 border-t border-[#EFF6FF] bg-[#F8FBFF] px-3 py-3">
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-black leading-5 text-[#0F172A]">
-            {calendarSelectedDayLabel(calendarDateKey(date))}
-          </h3>
-          <p className="text-xs font-semibold text-[#64748B]">{sortedItems.length ? `${sortedItems.length} event${sortedItems.length === 1 ? "" : "s"}` : "No events"}</p>
-        </div>
-        <button
-          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1D4ED8]"
-          onClick={onClose}
-          style={{ fontFamily: font.rajdhani }}
-          type="button"
-        >
-          Full Month
-        </button>
-      </div>
-      <div className="grid gap-2">
-        {sortedItems.length ? sortedItems.map((item) => (
-          <CalendarAgendaEventRow item={item} key={item.id} onOpen={() => onOpenItem(item)} />
-        )) : (
-          <div className="rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-3 text-sm font-semibold text-[#64748B]">
-            Nothing scheduled for this day.
-          </div>
+    <Sheet description={description} onClose={onClose} showEyebrow={false} title={calendarSelectedDayLabel(dateKey)}>
+      <div className="grid gap-4">
+        {itemCount ? (
+          <ol aria-label="Meetings on this day" className="grid gap-2">
+            {sortedItems.map((item) => (
+              <li key={item.id}>
+                <CalendarAgendaEventRow item={item} onOpen={() => onOpenItem(item)} />
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-[14px] font-semibold leading-5 text-[#334155]">
+            {dayState === "past" ? "No meeting was recorded for this day." : dayState === "today" ? "Nothing on the calendar today." : "Nothing scheduled yet."}
+          </p>
         )}
+        <div className="grid gap-2">
+          {dayState === "past" ? (
+            <button className={primaryActionClass} onClick={onLogMeeting} type="button">
+              Log a past meeting
+            </button>
+          ) : (
+            <>
+              <button className={primaryActionClass} onClick={onScheduleMeeting} type="button">
+                Schedule meeting
+              </button>
+              {dayState === "today" ? (
+                <button className={secondaryActionClass} onClick={onLogMeeting} type="button">
+                  Log meeting
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
-    </section>
+    </Sheet>
   );
 }
 
@@ -18963,10 +19301,12 @@ function MeetingCalendarView({
   onCalendarSettingsOpenChange,
   onToggleCalendarCoreSource,
   onToggleGoogleCalendarSource,
+  onLogMeetingOnDate,
   onLogTable,
   onLogScheduledMeeting,
   onOpenMeeting,
   onOpenInvitations,
+  onScheduleMeetingOnDate,
   onSelectDate,
   onSyncGoogleCalendar,
   people,
@@ -18996,10 +19336,13 @@ function MeetingCalendarView({
   onCalendarSettingsOpenChange?: (isOpen: boolean) => void;
   onToggleCalendarCoreSource: (source: CalendarCoreSource) => void;
   onToggleGoogleCalendarSource: (sourceId: string) => void;
+  /* USA-246 Day view actions: open Log / Schedule on the day being viewed. */
+  onLogMeetingOnDate: (dateKey: string) => void;
   onLogTable: (personIds?: string[], meetingType?: DosAppMeetingType) => void;
   onLogScheduledMeeting: (meeting: DosAppMeeting) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenInvitations: () => void;
+  onScheduleMeetingOnDate: (dateKey: string) => void;
   onSelectDate: (date: Date) => void;
   onSyncGoogleCalendar: () => void;
   people: DosAppPerson[];
@@ -19013,7 +19356,7 @@ function MeetingCalendarView({
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const [isDayAgendaOpen, setIsDayAgendaOpen] = useState(false);
+  const [isDayViewOpen, setIsDayViewOpen] = useState(false);
   const [internalCalendarMenuOpen, setInternalCalendarMenuOpen] = useState(false);
   const [locallyCompletedItemIds, setLocallyCompletedItemIds] = useState<string[]>([]);
   const isCalendarMenuOpen = isCalendarSettingsOpen ?? internalCalendarMenuOpen;
@@ -19059,8 +19402,8 @@ function MeetingCalendarView({
     return Boolean(date && date.getTime() >= weekStart.getTime() && date.getTime() <= weekEndDay.getTime());
   });
 
-  function openDayAgenda(date: Date) {
-    setIsDayAgendaOpen(true);
+  function openDayView(date: Date) {
+    setIsDayViewOpen(true);
     onSelectDate(date);
   }
 
@@ -19269,7 +19612,7 @@ function MeetingCalendarView({
 
                 return (
 	                  <button
-	                    aria-label={new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}
+	                    aria-label={`${new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}${dayItems.length ? `, ${dayItems.length} on the calendar` : ""}`}
 	                    aria-pressed={isSelected}
 	                    className={`grid min-h-[64px] content-start rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[58px] max-[350px]:rounded-[14px] md:min-h-[86px] md:px-2 ${
 	                      isSelected
@@ -19279,7 +19622,7 @@ function MeetingCalendarView({
 	                          : "bg-[#F8FAFC] text-[#0F172A] hover:bg-[#EBF2FF]"
 	                    } ${isOutsideMonth && !isSelected ? "opacity-70" : ""}`}
 	                    key={key}
-	                    onClick={() => openDayAgenda(date)}
+	                    onClick={() => openDayView(date)}
 	                    type="button"
 	                  >
 	                    <span className="block text-center text-xs font-bold leading-none max-[350px]:text-[11px]">{date.getDate()}</span>
@@ -19372,17 +19715,23 @@ function MeetingCalendarView({
           </div>
         )}
 	        <CalendarKey items={filteredItems} />
-	        {isDayAgendaOpen ? (
-	          <CalendarDayAgenda
-	            date={selectedDate}
+	        {isDayViewOpen ? (
+	          <CalendarDayView
+	            dateKey={selectedDateKey}
 	            items={selectedDayItems}
-	            onClose={() => {
-	              setIsDayAgendaOpen(false);
-	              if (viewMode === "week") {
-	                onViewModeChange("month");
-	              }
+	            onClose={() => setIsDayViewOpen(false)}
+	            onLogMeeting={() => {
+	              setIsDayViewOpen(false);
+	              onLogMeetingOnDate(selectedDateKey);
 	            }}
-	            onOpenItem={openCalendarItem}
+	            onOpenItem={(item) => {
+	              setIsDayViewOpen(false);
+	              openCalendarItem(item);
+	            }}
+	            onScheduleMeeting={() => {
+	              setIsDayViewOpen(false);
+	              onScheduleMeetingOnDate(selectedDateKey);
+	            }}
 	          />
 	        ) : null}
 	      </div>
@@ -20522,27 +20871,6 @@ const scheduledDurationChoices = [
   { label: "2h", value: "120" },
 ] as const;
 
-function ScheduledDurationSelect({ defaultMinutes = "60", name }: { defaultMinutes?: number | string | null; name: string }) {
-  /* USA-217 (spec §5.4): the same 15-minute stepper as Log Meeting replaces
-     the preset menu and its custom-minutes input. Same hidden field, same
-     default (60); an existing scheduled duration keeps its exact minutes. */
-  const [durationMinutes, setDurationMinutes] = useState(normalizedDurationMinutes(defaultMinutes, 60));
-
-  return (
-    <Stepper
-      decrementLabel="15 minutes less"
-      format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
-      incrementLabel="15 minutes more"
-      label="Duration"
-      min={15}
-      name={name}
-      onChange={setDurationMinutes}
-      step={15}
-      value={durationMinutes}
-    />
-  );
-}
-
 function ScheduledTableTimingFields({
   dateDefault,
   dateName,
@@ -20562,6 +20890,45 @@ function ScheduledTableTimingFields({
   timeDefault?: string | null;
   timeName: string;
 }) {
+  /* USA-246: Google-like time entry. Date, Start, End, and the duration derived
+     from them. The stepper is gone from scheduling — it still belongs to Log
+     Meeting, where a real meeting's length is what gets adjusted.
+
+     End follows Start until the user edits End: change Start and End moves by
+     the same interval, so a 6:00–7:00 meeting dragged to 6:30 is still an hour.
+     Once End has been chosen deliberately it stays put, and if it no longer
+     follows Start the field says so and the form will not submit. A meeting
+     that would run past midnight is not representable here on purpose: with
+     two clock times on one date, "End before Start" is far more likely to be a
+     slip than an after-midnight plan, so it is treated as one. */
+  const initialStart = timeInputMinutes(timeDefault) !== null ? (timeDefault as string) : "18:00";
+  const [startTime, setStartTime] = useState(initialStart);
+  const [endTime, setEndTime] = useState(() => timeInputFromMinutes((timeInputMinutes(initialStart) ?? 0) + normalizedDurationMinutes(durationDefault, 60)));
+  const [endTouched, setEndTouched] = useState(false);
+  const startMinutes = timeInputMinutes(startTime);
+  const endMinutes = timeInputMinutes(endTime);
+  const durationMinutes = startMinutes !== null && endMinutes !== null && endMinutes > startMinutes ? endMinutes - startMinutes : null;
+  const endInvalidMessage = durationMinutes === null ? "End time must be after the start time." : null;
+
+  function changeStart(nextStart: string) {
+    const nextStartMinutes = timeInputMinutes(nextStart);
+    const previousStartMinutes = timeInputMinutes(startTime);
+    const currentEndMinutes = timeInputMinutes(endTime);
+
+    setStartTime(nextStart);
+
+    if (!endTouched && nextStartMinutes !== null && previousStartMinutes !== null && currentEndMinutes !== null) {
+      const interval = Math.max(timeInputStepMinutes, currentEndMinutes - previousStartMinutes);
+      /* Kept on the same date: the latest an End can be is 11:45 PM. */
+      setEndTime(timeInputFromMinutes(Math.min(nextStartMinutes + interval, 24 * 60 - timeInputStepMinutes)));
+    }
+  }
+
+  function changeEnd(nextEnd: string) {
+    setEndTouched(true);
+    setEndTime(nextEnd);
+  }
+
   return (
     <>
       {/* A date is a short value; it does not need the full width. */}
@@ -20576,20 +20943,19 @@ function ScheduledTableTimingFields({
           defaultValue={dateDefault}
         />
       </div>
-      {/* USA-245: Start time sits full width above a full-width Duration at
-          every width. The pair used to share DosFormGrid's two columns from
-          380px, which squeezed a time input and the three-region stepper into
-          ~170px each on a phone (and ~230px on a tablet sheet, where
-          "3 hrs 30 min" still clipped). Each control keeps its own row in
-          normal flow; nothing is positioned. */}
-      <div className="grid gap-3">
-        <DosFormField label="Start time" labelVariant="sentence">
-          <input className={FieldTimeInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time" />
-        </DosFormField>
-        <DosFormField label="Duration" labelVariant="sentence">
-          <ScheduledDurationSelect defaultMinutes={durationDefault} name={durationName} />
-        </DosFormField>
+      {/* Start and End carry equal weight: same control, same width, one row
+          at every width. Each picker expands inline beneath its own field. */}
+      <div className="grid grid-cols-2 gap-3">
+        <DosTimeInput label="Start time" name={timeName} onChange={changeStart} required value={startTime} />
+        <DosTimeInput invalidMessage={endInvalidMessage} label="End time" name="scheduled_end_time" onChange={changeEnd} required value={endTime} />
       </div>
+      {/* Both submit paths already read a duration; it is derived here so the
+          posted contract is unchanged. */}
+      <input name={durationName} readOnly type="hidden" value={durationMinutes ?? ""} />
+      <p aria-live="polite" className="flex items-center gap-1.5 text-[13px] font-semibold text-dos-secondary">
+        <Clock aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+        {durationMinutes ? formatDurationLabel(durationMinutes) : "Choose an end time"}
+      </p>
     </>
   );
 }
@@ -21101,6 +21467,7 @@ function CalendarConnectionCard({
 function ScheduleMeetingForm({
   allPeople,
   calendarConnection,
+  dateDefault,
   errorMessage,
   isCalendarDisconnecting = false,
   isCreatingPerson = false,
@@ -21123,6 +21490,8 @@ function ScheduleMeetingForm({
   workspaceSlug,
 }: {
   allPeople: DosAppPerson[];
+  /* USA-246: the date a Day view was opened on, when scheduling started there. */
+  dateDefault?: string;
   calendarConnection: DosAppCalendarConnection;
   errorMessage?: string;
   isCalendarDisconnecting?: boolean;
@@ -21146,7 +21515,7 @@ function ScheduleMeetingForm({
   workspaceSlug: string;
 }) {
   const canSyncToGoogle = calendarConnectionIsHealthy(calendarConnection);
-  const [scheduledDate, setScheduledDate] = useState(todayDateValue());
+  const [scheduledDate, setScheduledDate] = useState(dateDefault ?? todayDateValue());
   const [syncToGoogle, setSyncToGoogle] = useState(canSyncToGoogle);
   // Opened from a Person, the header already reads "Set a time with <name>",
   // so a full search-and-select control asks a question that is already
@@ -36520,6 +36889,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
   const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => restoredAppView.meetingsCalendarDate ?? calendarDateKey(new Date()));
+  /* USA-246: the date a Log or Schedule form opens on when it started from a Day view; null means today. */
+  const [meetingDraftDate, setMeetingDraftDate] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [isDesktopActionMenuOpen, setIsDesktopActionMenuOpen] = useState(false);
@@ -37538,6 +37909,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function closeForm() {
     meetingWorkflowIdsRef.current = null;
     loggingOperationKeyRef.current = null;
+    setMeetingDraftDate(null);
     setErrorMessage("");
     setFormMode(null);
     setReviewLinkMeetingId(null);
@@ -37585,6 +37957,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setFormMode(mode);
+    setMeetingDraftDate(null);
     if (mode === "meeting" || mode === "scheduleMeeting") {
       meetingFlowOriginRef.current = currentMeetingFlowOrigin();
     }
@@ -38700,6 +39073,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedExternalCalendarEventId(null);
     setErrorMessage("");
     setFormMode("meeting");
+    setMeetingDraftDate(null);
     resetMeetingDraft(personIds);
     setSelectedMeetingContext(meetingType ?? "kitchen_table");
   }
@@ -38712,7 +39086,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setLoggingScheduledMeetingId(null);
     setErrorMessage("");
     setFormMode("scheduleMeeting");
+    setMeetingDraftDate(null);
     resetMeetingDraft(Array.isArray(personId) ? personId : personId ? [personId] : []);
+  }
+
+  /* USA-246 Day view: the form opens on the day the user was looking at, and
+     saving returns to that day on the calendar. */
+  function openLogMeetingOnDate(dateKey: string) {
+    openLogTableFromCalendar();
+    meetingFlowOriginRef.current = { calendarDateKey: dateKey, kind: "calendar" };
+    setMeetingDraftDate(dateKey);
+  }
+
+  function openScheduleMeetingOnDate(dateKey: string) {
+    openScheduleMeeting();
+    meetingFlowOriginRef.current = { calendarDateKey: dateKey, kind: "calendar" };
+    setMeetingDraftDate(dateKey);
   }
 
   function openReminderForm(personId?: string, reminderType: DosAppRelationshipReminder["reminderType"] = "follow_up", suggestedTitle = "") {
@@ -42594,9 +42983,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : [];
   const suppressGlobalFabForMyRecord = activeTab === "more" && activeMoreAppView === "my_record";
   const suppressGlobalFabForLibrary = activeTab === "more" && activeMoreAppView === "library";
+  /* USA-246: Links has its own single create action; no floating plus beside it. */
+  const suppressGlobalFabForLinks = activeTab === "meetings" && meetingsView === "links";
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
     && !suppressGlobalFabForLibrary
+    && !suppressGlobalFabForLinks
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -42630,6 +43022,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
     && !suppressGlobalFabForLibrary
+    && !suppressGlobalFabForLinks
     && !formMode
     && !isCirclesOpen
     && !isEditProfileOpen
@@ -42899,14 +43292,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     title="Faithful at the table."
                   />
                 </div>
-                {meetingsView === "links" ? null : (
+                {/* USA-246 (founder correction 1): search belongs to the
+                    Timeline, where there is history to search. The Calendar
+                    is navigated by date and Links by its own list. */}
+                {meetingsView === "timeline" ? (
                   <DesktopSectionSearch
                     ariaLabel="Search meetings"
                     onChange={setTableQuery}
                     placeholder="Search meetings, people, or context"
                     query={tableQuery}
                   />
-                )}
+                ) : null}
                 {/* The same canonical control as the Person record's
                     Overview / Timeline / Details rail: equal-width segments,
                     44px targets, aligned to the content margins (USA-246). */}
@@ -42916,7 +43312,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   options={meetingsViewOptions}
                   value={meetingsView}
                 />
-                {meetingsView === "links" ? null : (
+                {meetingsView === "timeline" ? (
                   <MobileSectionSearch
                     alwaysVisible
                     ariaLabel="Search meetings"
@@ -42926,7 +43322,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     placeholder="Search meetings"
                     query={tableQuery}
                   />
-                )}
+                ) : null}
                 {meetingsView === "timeline" ? (
                   <MeetingsTimeline groups={meetingsTimelineGroups} onOpenMeeting={openMeetingDetail} people={people} />
                 ) : null}
@@ -42938,7 +43334,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   <section aria-label="Scheduling Links" className="space-y-3">
                     <div className="min-w-0">
                       <h2 className="text-2xl font-black leading-tight text-[#0F172A]" style={{ fontFamily: font.oswald }}>Scheduling Links</h2>
-                      <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">Create and share booking links for meetings.</p>
+                      <p className="mt-1 text-[15px] font-semibold leading-6 text-[#334155]">Create and share links people use to book a time with you.</p>
                     </div>
                     <DesktopInvitePanel
                       calendarConnection={calendarConnection}
@@ -42976,8 +43372,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onCalendarSettingsOpenChange={setIsMeetingsCalendarSettingsOpen}
                     onEditMeeting={openMeetingEdit}
                     onEditReminder={openReminderEdit}
+                    onLogMeetingOnDate={openLogMeetingOnDate}
                     onLogTable={openLogTableFromCalendar}
                     onLogScheduledMeeting={openScheduledMeetingLog}
+                    onScheduleMeetingOnDate={openScheduleMeetingOnDate}
                     onOpenExternalEvent={openExternalCalendarEventDetail}
                     onOpenInvitations={openSchedulingLinks}
                     onOpenMeeting={openMeetingDetail}
@@ -44613,7 +45011,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             allowConversationFlows={data.workspace.isUsamWorkspace}
             buttonText="Log meeting"
             conversationResponses={conversationResponses}
-            dateDefault={todayDateValue()}
+            dateDefault={meetingDraftDate ?? todayDateValue()}
             errorMessage={errorMessage}
             growthReflectionDefault={null}
             householdMembers={data.householdMembers}
@@ -44665,6 +45063,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <ScheduleMeetingForm
             allPeople={people}
             calendarConnection={calendarConnection}
+            dateDefault={meetingDraftDate ?? undefined}
             errorMessage={errorMessage}
             isCalendarDisconnecting={isCalendarDisconnecting}
             isCreatingPerson={isCreatingMeetingPerson}

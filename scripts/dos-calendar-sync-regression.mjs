@@ -75,12 +75,12 @@ assert(
   "Month cells must show compact event labels plus +X more instead of anonymous dots only.",
 );
 assert(
-  client.includes("CalendarDayAgenda") &&
-    client.includes("setIsDayAgendaOpen(true)") &&
-    client.includes("onClick={() => openDayAgenda(date)}") &&
+  client.includes("CalendarDayView") &&
+    client.includes("setIsDayViewOpen(true)") &&
+    client.includes("onClick={() => openDayView(date)}") &&
     !client.includes("CalendarQuickView") &&
     !client.includes("selectedQuickItem"),
-  "Clicking a date must open a day agenda and must not render the old selected-event card above the calendar.",
+  "Clicking a date must open the Day view and must not render the old selected-event card above the calendar.",
 );
 assert(
   client.includes("meetingCalendarWeekHours") &&

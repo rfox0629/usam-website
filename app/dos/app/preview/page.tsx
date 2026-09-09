@@ -14,6 +14,7 @@ import {
   type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
+import { createDefaultDosTableInvitation, type DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
 import { PrimitivesGallery } from "./PrimitivesGallery";
@@ -187,7 +188,37 @@ function withManualCircleOverride(
   };
 }
 
-function buildDosPreviewDemoData(): DosAppData {
+/* USA-246 founder preview: the Links tab in its active state needs saved
+   scheduling links, which the DB-free demo route otherwise has none of.
+   `?links=active` adds two synthetic ones (one active, one paused). */
+type DosPreviewDemoOptions = { links?: "active" | null };
+
+function buildDemoTableInvitations(): DosTableInvitation[] {
+  const kitchenTable = createDefaultDosTableInvitation("kitchen_table");
+  const coffee = createDefaultDosTableInvitation("coffee");
+
+  return [
+    {
+      ...kitchenTable,
+      createdAt: daysAgoIso(30),
+      id: "demo-invitation-kitchen-table",
+      title: "Kitchen Table with Ryan",
+      token: "demo-token-kitchen-table",
+      updatedAt: daysAgoIso(2),
+    },
+    {
+      ...coffee,
+      createdAt: daysAgoIso(45),
+      id: "demo-invitation-coffee",
+      status: "paused",
+      title: "Coffee with Ryan",
+      token: "demo-token-coffee",
+      updatedAt: daysAgoIso(9),
+    },
+  ];
+}
+
+function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppData {
   const people: DosAppPerson[] = [
     {
       church: "City Chapel",
@@ -408,6 +439,55 @@ function buildDosPreviewDemoData(): DosAppData {
       title: "Coffee",
       type: "coffee",
       updatedAt: daysAgoIso(0),
+    },
+    /* USA-246 founder preview: a second meeting on the same day as Naomi's
+       coffee, so the Day view shows a multi-meeting agenda. */
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(-3, 10),
+      fieldPersonIds: ["demo-person-philip-saco"],
+      googleSyncEnabled: false,
+      id: "demo-meeting-philip-same-day",
+      meetingStatus: "scheduled",
+      notes: "Walk through the next chapter before Sunday.",
+      participantNames: ["Philip John Saco"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(-3, 10, 45),
+      scheduledStartAt: daysAgoIso(-3, 10),
+      source: "table",
+      timezone: "America/Chicago",
+      title: "Scripture",
+      type: "kitchen_table",
+      updatedAt: daysAgoIso(0),
+    },
+    /* USA-246 founder preview: a meeting that was scheduled for an hour and
+       logged as ninety minutes. The planned snapshot is kept beside the
+       actual time, which is what the record shows. */
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(1, 18),
+      fieldPersonIds: ["demo-person-george-jenko"],
+      googleSyncEnabled: false,
+      id: "demo-meeting-george-planned-actual",
+      loggedAt: daysAgoIso(1, 20),
+      meetingStatus: "logged",
+      notes: "Ran long. George wanted to talk through the group launch.",
+      participantNames: ["George Jenko"],
+      plannedDurationMinutes: 60,
+      plannedEndAt: daysAgoIso(1, 19),
+      plannedStartAt: daysAgoIso(1, 18),
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(1, 19, 30),
+      scheduledStartAt: daysAgoIso(1, 18),
+      source: "table",
+      timezone: "America/Chicago",
+      title: "Kitchen Table",
+      type: "kitchen_table",
+      updatedAt: daysAgoIso(1, 20),
     },
     {
       conversationFlowKey: "kitchen_table_gospel",
@@ -2035,7 +2115,7 @@ function buildDosPreviewDemoData(): DosAppData {
         workspaceId: demoWorkspaceId,
       },
     ],
-    tableInvitations: [],
+    tableInvitations: options.links === "active" ? buildDemoTableInvitations() : [],
     usamApplication: {
       applicationId: "demo-usam-application",
       appliedAt: demoTimestamp,
@@ -2084,7 +2164,7 @@ function buildDosPreviewDemoData(): DosAppData {
 export default async function DosAppPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string; form?: string; gallery?: string; workspace?: string }>;
+  searchParams: Promise<{ demo?: string; form?: string; gallery?: string; links?: string; workspace?: string }>;
 }) {
   if (!isDemoPreviewRouteEnabled) {
     redirect("/dos");
@@ -2110,5 +2190,5 @@ export default async function DosAppPreviewPage({
     return <RecipientFormsGallery form={form as RecipientFormPreviewKey} />;
   }
 
-  return <DosMvpAppClient data={buildDosPreviewDemoData()} />;
+  return <DosMvpAppClient data={buildDosPreviewDemoData({ links: params.links === "active" ? "active" : null })} />;
 }

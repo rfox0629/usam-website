@@ -63,44 +63,57 @@ assert(
   "Schedule Meeting must inherit the relationship role while still posting table_role.",
 );
 
-/* The duration control is a designed DOS control, not an OS select. */
-/* USA-245: Start time is a full-width row above a full-width Duration
-   stepper at every width, each in its own row of a one-column grid, in
-   normal flow. The time input uses the shared time-input class so iOS Safari
-   cannot let it spill under the stepper, and the shared Stepper keeps three
-   width-based regions so the label never shifts or clips. */
+/* USA-246 (founder correction 3): Schedule Meeting asks for Date, Start
+   time and End time, and derives the duration. Start and End are the same
+   DOS control at the same width in one row; each picker expands inline
+   beneath its own field, in normal flow, so nothing floats over the sticky
+   action or clips. The scheduling stepper is gone; Log Meeting keeps its
+   15-minute duration stepper (founder correction 4). */
 const timingStart = appClient.indexOf("function ScheduledTableTimingFields(");
 const timingEnd = appClient.indexOf("\nfunction ", timingStart + 1);
 const timingBlock = appClient.slice(timingStart, timingEnd);
-const primitives = read("src/components/dos/forms/FormPrimitives.tsx");
-const stepper = read("src/components/dos/forms/primitives.tsx");
+const timeInputStart = appClient.indexOf("function DosTimeInput(");
+const timeInputEnd = appClient.indexOf("\nfunction ", timeInputStart + 1);
+const timeInputBlock = appClient.slice(timeInputStart, timeInputEnd);
 
 assert(timingStart !== -1 && timingEnd !== -1, "ScheduledTableTimingFields must exist in DosMvpAppClient.tsx.");
+assert(timeInputStart !== -1 && timeInputEnd !== -1, "DosTimeInput must exist in DosMvpAppClient.tsx.");
 assert(
-  timingBlock.includes('<div className="grid gap-3">')
-    && !timingBlock.includes("<DosFormGrid")
-    && !timingBlock.includes("grid-cols")
-    && timingBlock.indexOf('label="Start time"') < timingBlock.indexOf('label="Duration"')
+  timingBlock.includes('<div className="grid grid-cols-2 gap-3">')
+    && timingBlock.includes('label="Start time" name={timeName}')
+    && timingBlock.includes('label="End time" name="scheduled_end_time"')
+    && timingBlock.indexOf('label="Start time"') < timingBlock.indexOf('label="End time"')
+    && !timingBlock.includes('label="Duration"')
+    && !timingBlock.includes("<Stepper")
     && !timingBlock.includes("absolute"),
-  "Schedule Meeting must stack Start time above Duration in a one-column grid, in normal flow, at every width.",
+  "Schedule Meeting must present Start time and End time as equal-weight DOS time controls in one row, with no duration stepper.",
 );
 assert(
-  timingBlock.includes('className={FieldTimeInputClass()} defaultValue={timeDefault ?? "18:00"} name={timeName} required type="time"')
-    && primitives.includes("export function FieldTimeInputClass(")
-    && primitives.includes("block min-w-0 appearance-none [&::-webkit-date-and-time-value]:text-left"),
-  "The scheduled Start time input must use the shared time-input class that keeps it inside its grid cell on iOS Safari.",
+  timingBlock.includes("<input name={durationName} readOnly type=\"hidden\" value={durationMinutes ?? \"\"} />")
+    && timingBlock.includes("formatDurationLabel(durationMinutes)"),
+  "Schedule Meeting must derive the duration from Start and End and still post it under the existing duration field name.",
 );
 assert(
-  stepper.includes('grid h-14 w-full grid-cols-[1fr_1.4fr_1fr] overflow-hidden rounded-dos-3 border border-dos-line bg-white min-[360px]:grid-cols-3')
-    && stepper.includes("whitespace-nowrap"),
-  "The shared Stepper must keep three equal full-width regions so a longer duration label never shifts the layout.",
+  timingBlock.includes("End time must be after the start time.")
+    && timingBlock.includes("if (!endTouched && nextStartMinutes !== null")
+    && timingBlock.includes("setEndTouched(true);"),
+  "End must follow Start until it is edited, and an End at or before Start must be rejected.",
 );
-
 assert(
-  formBlock.includes("<ScheduledTableTimingFields")
-    && appClient.includes("function ScheduledDurationSelect(")
-    && appClient.includes("<CompactOptionSelect"),
-  "Duration must use a designed DOS control rather than a native select.",
+  timeInputBlock.includes('type="hidden" value={value}')
+    && timeInputBlock.includes('role="combobox"')
+    && timeInputBlock.includes('role="listbox"')
+    && timeInputBlock.includes('role="option"')
+    && timeInputBlock.includes("mt-2 max-h-56 overflow-y-auto")
+    && !timeInputBlock.includes("absolute mt-2")
+    && !timeInputBlock.includes('type="time"'),
+  "The DOS time control must post HH:MM from a hidden input, accept typed entry, and open an inline (non-floating, non-native) 15-minute listbox.",
+);
+assert(
+  !appClient.includes("function ScheduledDurationSelect(")
+    && appClient.includes("function MeetingDurationSelector(")
+    && appClient.includes('incrementLabel="15 minutes more"'),
+  "The scheduling stepper must be gone while Log Meeting keeps its 15-minute duration stepper.",
 );
 
 assert(
