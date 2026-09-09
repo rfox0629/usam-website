@@ -51,6 +51,10 @@ Removed from Home: Today's Alignment (My Record stays its own destination), Rece
 
 USA-257 officially supersedes spec rule B1 ("Home unchanged") for the approved Home sections (Ryan, 2026-09-09); decision log §F. On the same review Learning's non-functional "future sharing" checkbox and its promise were removed; book notes are private until a real explicit-sharing feature exists.
 
+## Colour language (founder, 2026-09-09)
+
+No yellow, amber, orange, or red anywhere in Reports or on Home. Blue (`dos-blue50` / `dos-blueText` and the blue StatusPill tone) means neutral information, partial or incomplete data, unresolved direction, attention, and next actions. Green (the green StatusPill tone) means only genuinely confirmed status: a Recorded row. White and grey are ordinary surfaces and secondary information; No qualifying activity is the grey pill. Conflict notes (Sam's Person / My Record disagreement, Dirk's unconfirmed direction) are calm blue notices. Home's Accountability counts are dark text on the ordinary surface. Guarded by `scripts/dos-ministry-report-regression.mjs` and `scripts/dos-home-v1-regression.mjs`, which fail on any warning-colour class or hex in these surfaces.
+
 ## Screenshots
 
 `screenshots/` — `mobile-390-*` at 390×844 @2x and `desktop-1440-*` at 1440×900: `home`, `report-30-days` (all three lists: Time I invested, Time invested in me, Direction unresolved), `report-philip-expanded` (Partial row with drill-through), `report-dirk-expanded` (Time invested in me, with the Person-canonical conflict note and the pointer to his unresolved legacy meeting), `report-unresolved-austin-expanded` (no direction), `report-unresolved-sam-expanded` (conflicting Person / My Record direction), `report-7-days`, `report-custom`.

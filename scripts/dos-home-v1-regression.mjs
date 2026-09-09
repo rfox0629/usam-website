@@ -87,7 +87,13 @@ for (const label of ['label: "Schedule"', 'label: "Add Person"', 'label: "Accoun
   assert(dashboard.includes(label), `Quick actions must include ${label}.`);
 }
 
-// 8. No mentor language on Home or Reports.
+// 8. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red on Home or in the Reports view; green only for confirmed status.
+const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
+for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityCard], ["Reports view", reportsView], ["Fruit and Reviews", reports]]) {
+  assert(!warningColour.test(region), `${label} must not use yellow, amber, orange, or red.`);
+}
+
+// 9. No mentor language on Home or Reports.
 assert(!/mentor/i.test(dashboard.replace(/dashboardMentor|MentorMeeting|mentorRelationships/g, "")), "Home copy uses discipleship language.");
 
 console.log("DOS Home V1 (USA-257) regression passed.");

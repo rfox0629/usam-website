@@ -329,4 +329,11 @@ assert.ok(inputTypes.includes('source: "person_relationship"') && inputTypes.inc
 assert.ok(loader.includes("tableRoleRecorded: dosAppTableRoles.includes(meeting.table_role as DosAppTableRole)"), "The loader says whether a role was stored, so a default never classifies a meeting.");
 assert.ok(inputTypes.includes("tableRoleRecorded: boolean"), "The report reads whether the role was recorded.");
 
+// 14. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red in the report; green only for confirmed status.
+const reportUi = readFileSync(new URL("../src/components/dos/reports/MinistryTimeInvestmentReport.tsx", import.meta.url), "utf8");
+const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
+assert.ok(!warningColour.test(reportUi.replace(/\/\*[\s\S]*?\*\//g, "")), "The report never uses yellow, amber, orange, or red.");
+assert.ok(/partial: "blue"/.test(reportUi) && /unresolved: "blue"/.test(reportUi) && /none: "grey"/.test(reportUi) && /recorded: "green"/.test(reportUi), "Partial and unresolved are blue, no activity is grey, recorded is the only green.");
+assert.ok(reportUi.includes("bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText\">{row.directionConflict}"), "Conflict notes are calm blue notices.");
+
 console.log("DOS ministry report (USA-251) regression passed.");

@@ -26,11 +26,15 @@ import {
  * place to enter ministry.
  */
 
+/* Founder colour language (2026-09-09): green only for genuinely confirmed
+   status; blue for neutral information, partial or incomplete data,
+   unresolved direction, and attention; white / grey for ordinary surfaces.
+   No yellow, amber, orange, or red anywhere in Reports or Home. */
 const completenessTone: Record<DosMinistryCompleteness, StatusTone> = {
   recorded: "green",
-  partial: "amber",
+  partial: "blue",
   none: "grey",
-  unresolved: "amber",
+  unresolved: "blue",
 };
 
 /* The shared StatusPill is 100px wide by design (spec §3), so the pill
@@ -124,7 +128,7 @@ function RowDetail({
       </div>
 
       {row.directionConflict ? (
-        <p className="rounded-dos-1 bg-dos-amberBg px-3 py-2 text-dos-meta text-dos-amber">{row.directionConflict}</p>
+        <p className="rounded-dos-1 bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText">{row.directionConflict}</p>
       ) : null}
 
       <DownstreamLine row={row} />
