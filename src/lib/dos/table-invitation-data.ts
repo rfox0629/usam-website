@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-import { assignBookingHost, type BookingHostBusyInterval, type BookingHostMember } from "@/src/lib/dos/booking-host";
+import { bookingHostCandidates, type BookingHostMember } from "@/src/lib/dos/booking-host";
 import { matchBookingPerson, normalizeBookingEmail, type BookingPersonCandidate, type BookingPersonMatchCandidate } from "@/src/lib/dos/booking-person-match";
 import { syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
@@ -714,31 +714,6 @@ async function loadBookingHostMembers(supabase: SupabaseAdminClient, workspaceId
   });
 }
 
-/* Scheduled meetings that belong to a specific host (booking-created meetings
-   carry the host as created_by). Used only to pick a free host on a team link. */
-async function loadHostBusyIntervals(supabase: SupabaseAdminClient, workspaceId: string, slot: DosTableInvitationSlot): Promise<BookingHostBusyInterval[]> {
-  const result = await supabase
-    .from("missionary_tables")
-    .select("created_by, scheduled_start_at, scheduled_end_at")
-    .or(workspaceScopeFilter(workspaceId))
-    .eq("meeting_status", "scheduled")
-    .not("created_by", "is", null)
-    .lt("scheduled_start_at", slot.endAt)
-    .gt("scheduled_end_at", slot.startAt);
-
-  if (result.error) {
-    return [];
-  }
-
-  return (result.data ?? []).flatMap((row): BookingHostBusyInterval[] => {
-    const meeting = row as { created_by: string | null; scheduled_end_at: string | null; scheduled_start_at: string | null };
-
-    return meeting.scheduled_start_at && meeting.scheduled_end_at
-      ? [{ endAt: meeting.scheduled_end_at, hostUserId: meeting.created_by, startAt: meeting.scheduled_start_at }]
-      : [];
-  });
-}
-
 async function loadBookingPeople(supabase: SupabaseAdminClient, workspaceId: string): Promise<BookingPersonCandidate[]> {
   const scoped = await supabase
     .from("missionary_field_people")
@@ -767,7 +742,7 @@ async function loadBookingPeople(supabase: SupabaseAdminClient, workspaceId: str
 function bookingRpcErrorCode(message: string | null | undefined) {
   const text = (message ?? "").toLowerCase();
 
-  for (const code of ["already_booked", "invitation_unavailable", "slot_unavailable", "limit_reached", "invalid_input"]) {
+  for (const code of ["already_booked", "invitation_unavailable", "slot_unavailable", "host_unavailable", "limit_reached", "invalid_input"]) {
     if (text.includes(code)) {
       return code;
     }
@@ -778,6 +753,7 @@ function bookingRpcErrorCode(message: string | null | undefined) {
 
 type BookingRpcResult = {
   booking_id: string;
+  host_member_id: string | null;
   person_id: string | null;
   status: "already_booked" | "booked";
   table_id: string | null;
@@ -893,19 +869,19 @@ async function createPublicTableInvitationBookingV2(
     return { message: "That time is no longer available.", status: "unavailable" as const };
   }
 
-  const [members, people, hostBusy] = await Promise.all([
+  const [members, people] = await Promise.all([
     loadBookingHostMembers(supabase, workspaceId),
     loadBookingPeople(supabase, workspaceId),
-    loadHostBusyIntervals(supabase, workspaceId, selectedSlot),
   ]);
-  const host = assignBookingHost({
-    busy: hostBusy,
-    hostMemberIds: invitation.hostMemberIds,
-    hostMode: invitation.hostMode,
-    members,
-    slot: selectedSlot,
-  });
-  const hostUserId = host.member && isUuid(host.member.dosUserId) ? host.member.dosUserId : null;
+  /* The ordered candidate list; the transaction picks the first one who is
+     free, or refuses the slot. A member without a linked DOS user can still
+     host (their bookings are tracked by member id), but cannot sync to a
+     calendar. */
+  const hosts = bookingHostCandidates({ hostMemberIds: invitation.hostMemberIds, members });
+  const hostCandidates = hosts.candidates.map((candidate) => ({
+    member_id: candidate.memberId,
+    user_id: isUuid(candidate.userId) ? candidate.userId : null,
+  }));
   const personMatch = matchBookingPerson({ email, name, phone }, people);
   const rpc = await supabase.rpc("dos_create_table_booking", {
     p_input: {
@@ -914,8 +890,7 @@ async function createPublicTableInvitationBookingV2(
       create_meeting: settings.calendarRules.createDosMeeting,
       create_person: personMatch.status === "create",
       end_at: selectedSlot.endAt,
-      host_member_id: host.member?.id ?? null,
-      host_user_id: hostUserId,
+      host_candidates: hostCandidates,
       invitation_id: invitation.id,
       max_per_day: settings.bookingRules.maxPerDay,
       max_per_week: settings.bookingRules.maxPerWeek,
@@ -948,7 +923,7 @@ async function createPublicTableInvitationBookingV2(
       return { status: "invalid" as const };
     }
 
-    if (code === "slot_unavailable") {
+    if (code === "slot_unavailable" || code === "host_unavailable") {
       return { message: "That time is no longer available.", status: "unavailable" as const };
     }
 
@@ -964,6 +939,8 @@ async function createPublicTableInvitationBookingV2(
   }
 
   const result = rpc.data as BookingRpcResult;
+  const assignedHost = hosts.candidates.find((candidate) => candidate.memberId === result.host_member_id) ?? null;
+  const hostUserId = assignedHost && isUuid(assignedHost.userId) ? assignedHost.userId : null;
   let calendarEventSynced = false;
 
   if (result.table_id && settings.calendarRules.createGoogleCalendarEvent) {
@@ -988,7 +965,7 @@ async function createPublicTableInvitationBookingV2(
     alreadyBooked: result.status === "already_booked",
     bookingId: result.booking_id,
     calendarEventSynced,
-    hostMemberId: host.member?.id ?? null,
+    hostMemberId: result.host_member_id,
     invitation,
     personMatchStatus: personMatch.status === "create" ? "created" as const : personMatch.status,
     slot: selectedSlot,

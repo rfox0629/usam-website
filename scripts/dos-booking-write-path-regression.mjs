@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { assignBookingHost } from "../src/lib/dos/booking-host.ts";
+import { bookingHostCandidates } from "../src/lib/dos/booking-host.ts";
 import { matchBookingPerson, normalizeBookingPhone } from "../src/lib/dos/booking-person-match.ts";
 
 function read(path) {
@@ -39,7 +39,7 @@ assert.deepEqual([match.status, match.status === "review" && match.reason, match
 match = matchBookingPerson({ email: "brand.new@example.com", name: "Brand New", phone: "555-999-0000" }, people);
 assert.deepEqual([match.status, match.candidates.length], ["create", 0], "nothing credible: create a Person");
 
-/* ---- Host assignment (founder rule 4) ---------------------------------- */
+/* ---- Host candidates (founder rule 4, corrected 2026-09-09) ------------- */
 const members = [
   { displayName: "Ryan Fox", dosUserId: "user-ryan", id: "m-ryan", relationship: "owner", sortOrder: 1, status: "active" },
   { displayName: "Brooke Fox", dosUserId: null, id: "m-brooke", relationship: "spouse", sortOrder: 2, status: "active" },
@@ -47,34 +47,21 @@ const members = [
   { displayName: "Andy Leenstra", dosUserId: "user-andy", id: "m-andy", relationship: "other", sortOrder: 4, status: "active" },
   { displayName: "Old Member", dosUserId: "user-old", id: "m-old", relationship: "other", sortOrder: 0, status: "archived" },
 ];
-const slot = { endAt: "2026-09-15T00:30:00.000Z", startAt: "2026-09-14T23:00:00.000Z" };
 
-let host = assignBookingHost({ busy: [], hostMemberIds: [], hostMode: "single", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-ryan", "workspace_owner"], "a single link with no configured host falls back to the workspace owner (the production case for all three live links)");
+let hosts = bookingHostCandidates({ hostMemberIds: [], members });
+assert.deepEqual([hosts.rule, hosts.candidates], ["workspace_owner", [{ memberId: "m-ryan", userId: "user-ryan" }]], "no configured hosts -> the workspace owner is the only candidate (the live links); the transaction still checks the owner is free");
 
-host = assignBookingHost({ busy: [], hostMemberIds: ["m-andy"], hostMode: "single", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-andy", "single_configured_host"], "a single link with a configured host uses it");
+hosts = bookingHostCandidates({ hostMemberIds: ["m-andy", "m-ryan"], members });
+assert.deepEqual([hosts.rule, hosts.candidates.map((c) => c.memberId)], ["configured_hosts", ["m-andy", "m-ryan"]], "configured hosts are the candidates in the order listed on the link, not sort order");
 
-host = assignBookingHost({ busy: [], hostMemberIds: ["m-parker", "m-old"], hostMode: "single", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-ryan", "workspace_owner"], "a child or archived member is never a host; fallback applies");
+hosts = bookingHostCandidates({ hostMemberIds: ["m-parker", "m-old", "m-brooke"], members });
+assert.deepEqual([hosts.rule, hosts.candidates], ["configured_hosts", [{ memberId: "m-brooke", userId: null }]], "children and archived members are never candidates; a member without a linked account still can host");
 
-host = assignBookingHost({ busy: [{ endAt: "2026-09-15T01:00:00.000Z", hostUserId: "user-ryan", startAt: "2026-09-14T23:30:00.000Z" }], hostMemberIds: ["m-ryan", "m-andy"], hostMode: "household", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-andy", "team_first_free_host"], "a team link skips a configured host who is busy at that slot");
+hosts = bookingHostCandidates({ hostMemberIds: ["m-parker"], members });
+assert.deepEqual([hosts.rule, hosts.candidates.map((c) => c.memberId)], ["workspace_owner", ["m-ryan"]], "a link whose only configured host is ineligible behaves as a link with no configured hosts");
 
-host = assignBookingHost({ busy: [{ endAt: "2026-09-15T01:00:00.000Z", hostUserId: "user-ryan", startAt: "2026-09-14T23:30:00.000Z" }, { endAt: "2026-09-15T01:00:00.000Z", hostUserId: "user-andy", startAt: "2026-09-14T23:30:00.000Z" }], hostMemberIds: ["m-ryan", "m-andy"], hostMode: "household", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-ryan", "team_first_configured_host"], "when every configured host is busy the first configured host is assigned, deterministically");
-
-host = assignBookingHost({ busy: [], hostMemberIds: ["m-brooke", "m-ryan"], hostMode: "household", members, slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-brooke", "team_first_free_host"], "configured order is respected, not sort order");
-
-host = assignBookingHost({ busy: [], hostMemberIds: [], hostMode: "single", members: members.filter((member) => member.id !== "m-ryan"), slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-andy", "first_linked_member"], "with no owner, the first active member with a linked DOS account hosts");
-
-host = assignBookingHost({ busy: [], hostMemberIds: [], hostMode: "single", members: [members[1]], slot });
-assert.deepEqual([host.member?.id, host.rule], ["m-brooke", "first_active_member"]);
-
-host = assignBookingHost({ busy: [], hostMemberIds: [], hostMode: "single", members: [members[2]], slot });
-assert.deepEqual([host.member, host.rule], [null, "none"], "a workspace with only a child member has no host; the caller books without host attribution");
+hosts = bookingHostCandidates({ hostMemberIds: [], members: members.filter((member) => member.id !== "m-ryan") });
+assert.deepEqual([hosts.rule, hosts.candidates], ["none", []], "no configured hosts and no owner -> no candidate; the transaction refuses the slot");
 
 /* ---- Structural guards on the write path ------------------------------ */
 const data = read("src/lib/dos/table-invitation-data.ts");
@@ -87,7 +74,10 @@ assert.ok(migration.includes("raise exception 'slot_unavailable'") && migration.
 assert.ok(migration.includes("planned_start_at, planned_end_at, planned_date, planned_duration_minutes, planned_timezone"), "the meeting is created with the complete planned snapshot");
 assert.ok(rollback.includes("drop function if exists public.dos_create_table_booking(jsonb)") && rollback.includes("drop column if exists operation_key"), "the rollback removes the function and the new columns");
 assert.ok(data.includes('.rpc("dos_create_table_booking"'), "the JS write path goes through the transactional function");
-assert.ok(data.includes("matchBookingPerson(") && data.includes("assignBookingHost("), "the JS write path uses the shared matching and host modules");
+assert.ok(data.includes("matchBookingPerson(") && data.includes("bookingHostCandidates("), "the JS write path uses the shared matching and host modules");
+assert.ok(data.includes("host_candidates: hostCandidates") && !data.includes("host_member_id: host.member"), "the write path sends the ordered candidate list and lets the transaction choose the free host");
+const hostMigration = read("supabase/migrations/20260909120000_usa_246_booking_host_availability.sql");
+assert.ok(hostMigration.includes("raise exception 'host_unavailable'") && hostMigration.includes("for v_candidate in select value from jsonb_array_elements(v_host_candidates) loop") && hostMigration.includes("and t.created_by = v_candidate_user"), "host availability (live bookings as that host, meetings they own) is decided inside the transaction and a busy host is never assigned");
 assert.ok(data.includes("bookingWritePathV2Enabled()"), "the new path is gated until the founder enables it in production");
 const v2Start = data.indexOf("async function createPublicTableInvitationBookingV2(");
 const v2End = data.indexOf("function formatBookingSlotDate(", v2Start);

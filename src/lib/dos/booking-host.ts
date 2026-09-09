@@ -1,13 +1,19 @@
-/* USA-246 booking write path: which workspace member hosts a booked slot.
+/* USA-246 booking write path: which workspace members may host a booked slot.
  *
- * Founder rule: a single-host link's host owns and records the meeting; a
- * team link uses the host assigned to the booked slot, with a documented
- * deterministic fallback. The workspace's slot model has no per-host
- * availability today, so "assigned to the slot" is resolved here as the
- * first configured host who is free at that time (by their own scheduled
- * meetings), then the first configured host. When a link names no host, the
- * workspace owner hosts; failing that, the first active member with a linked
- * DOS account; failing that, the first active adult member.
+ * Founder rules (2026-09-09): a team link uses the first AVAILABLE configured
+ * host in a stable documented order; a busy host is never assigned; if hosts
+ * are configured and none is available the slot is unavailable; a link with
+ * no configured hosts falls back to the workspace owner, whose availability
+ * is verified the same way; concurrent bookings can never share a host.
+ *
+ * This module decides only the ORDERED CANDIDATE LIST. Availability is
+ * decided by `dos_create_table_booking` inside the booking transaction,
+ * under the per-workspace lock, which is what makes the concurrency rule
+ * hold. The ordering:
+ *   1. configured hosts, in the order they are listed on the link
+ *      (`host_member_ids`), skipping members who are not active adults;
+ *   2. otherwise the workspace owner (`relationship_to_workspace = owner`);
+ *   3. otherwise nobody: the link cannot take bookings until a host is set.
  *
  * Dependency-free on purpose so the regression script can import it. */
 
@@ -20,23 +26,15 @@ export type BookingHostMember = {
   status: string;
 };
 
-export type BookingHostBusyInterval = {
-  endAt: string;
-  hostUserId: string | null;
-  startAt: string;
+export type BookingHostCandidate = {
+  memberId: string;
+  userId: string | null;
 };
 
-export type BookingHostRule =
-  | "first_active_member"
-  | "first_linked_member"
-  | "none"
-  | "single_configured_host"
-  | "team_first_configured_host"
-  | "team_first_free_host"
-  | "workspace_owner";
+export type BookingHostRule = "configured_hosts" | "none" | "workspace_owner";
 
-export type BookingHostAssignment = {
-  member: BookingHostMember | null;
+export type BookingHostCandidates = {
+  candidates: BookingHostCandidate[];
   rule: BookingHostRule;
 };
 
@@ -46,60 +44,33 @@ function isAdultActive(member: BookingHostMember) {
   return member.status === "active" && relationship !== "child";
 }
 
-function byOrder(first: BookingHostMember, second: BookingHostMember) {
-  return first.sortOrder - second.sortOrder || first.displayName.localeCompare(second.displayName);
+function toCandidate(member: BookingHostMember): BookingHostCandidate {
+  return { memberId: member.id, userId: member.dosUserId };
 }
 
-function overlaps(startAt: string, endAt: string, busy: BookingHostBusyInterval) {
-  return Date.parse(busy.startAt) < Date.parse(endAt) && Date.parse(busy.endAt) > Date.parse(startAt);
-}
-
-export function assignBookingHost({
-  busy,
+export function bookingHostCandidates({
   hostMemberIds,
-  hostMode,
   members,
-  slot,
 }: {
-  busy: BookingHostBusyInterval[];
   hostMemberIds: string[];
-  hostMode: "household" | "single";
   members: BookingHostMember[];
-  slot: { endAt: string; startAt: string };
-}): BookingHostAssignment {
-  const active = members.filter(isAdultActive).sort(byOrder);
+}): BookingHostCandidates {
+  const active = members.filter(isAdultActive);
   const configured = hostMemberIds
     .map((id) => active.find((member) => member.id === id) ?? null)
     .filter((member): member is BookingHostMember => Boolean(member));
 
-  if (hostMode === "household" && configured.length) {
-    const free = configured.find((member) => !busy.some((interval) => (
-      Boolean(interval.hostUserId)
-      && Boolean(member.dosUserId)
-      && interval.hostUserId === member.dosUserId
-      && overlaps(slot.startAt, slot.endAt, interval)
-    )));
-
-    return free
-      ? { member: free, rule: "team_first_free_host" }
-      : { member: configured[0], rule: "team_first_configured_host" };
-  }
-
   if (configured.length) {
-    return { member: configured[0], rule: "single_configured_host" };
+    return { candidates: configured.map(toCandidate), rule: "configured_hosts" };
   }
 
-  const owner = active.find((member) => (member.relationship ?? "").toLowerCase() === "owner");
+  const owner = active
+    .filter((member) => (member.relationship ?? "").toLowerCase() === "owner")
+    .sort((first, second) => first.sortOrder - second.sortOrder || first.displayName.localeCompare(second.displayName))[0];
 
   if (owner) {
-    return { member: owner, rule: "workspace_owner" };
+    return { candidates: [toCandidate(owner)], rule: "workspace_owner" };
   }
 
-  const linked = active.find((member) => Boolean(member.dosUserId));
-
-  if (linked) {
-    return { member: linked, rule: "first_linked_member" };
-  }
-
-  return active[0] ? { member: active[0], rule: "first_active_member" } : { member: null, rule: "none" };
+  return { candidates: [], rule: "none" };
 }
