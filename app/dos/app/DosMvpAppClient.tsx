@@ -26062,7 +26062,17 @@ function RelationshipScorePicker({
  *                       gone.
  *
  * Prayer and Calendar are independent underneath, so they are independent
- * here: two toggles, not one either/or. Each says what it does in one line. */
+ * here: two toggles, not one either/or. Each says what it does in one line.
+ *
+ * What actually alerts anybody (founder question, 2026-09-09): only the
+ * calendar option. `POST /api/dos/app/reminders` syncs an important date to
+ * Google with reminderMinutes [10080, 1440] -- popups a week and a day
+ * before -- and passes the yearly recurrence through as an RRULE. DOS itself
+ * has no notification delivery for these: everything else here decides where
+ * the date is LISTED (person timeline, Prayer, the Dashboard's Upcoming).
+ * So this is an important date that can optionally become a real calendar
+ * reminder, and it is named that way rather than promising an alert DOS does
+ * not send. */
 function ImportantDatesReminderSection({ calendarConnected }: { calendarConnected: boolean }) {
   const [tag, setTag] = useState<ImportantReminderTag>("prayer");
   const [repeat, setRepeat] = useState<ImportantReminderRepeat>(importantReminderRepeatForTag("prayer"));
@@ -26085,13 +26095,13 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
       <input name="important_reminder_prayer" type="hidden" value={showInPrayer ? "on" : ""} />
       <input name="important_reminder_calendar" type="hidden" value={addToCalendar && calendarConnected ? "on" : ""} />
       <input name="important_reminder_show_dashboard" type="hidden" value={showOnDashboard ? "on" : ""} />
-      <DosFormField labelVariant="sentence" label="Title">
-        <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday text, memorial date..." />
+      <DosFormField labelVariant="sentence" label="What is the date?">
+        <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday, memorial date..." />
       </DosFormField>
       <div className="max-w-[15rem]">
         <DosDateInput label="Date" labelVariant="sentence" name="important_reminder_date" />
       </div>
-      <DisclosureSection description="Category, repeat, where it shows up, and notes." title="More reminder options">
+      <DisclosureSection description="Category, repeat, where it appears, and notes." title="More options">
         <div className="grid gap-3 min-[380px]:grid-cols-2">
           <CompactOptionSelect label="Category" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
           <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
@@ -26109,16 +26119,16 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
           />
           <DosFormToggleRow
             checked={addToCalendar && calendarConnected}
-            description={calendarConnected ? "Also adds it to your connected Google Calendar on that date." : "Connect Google Calendar in Settings to use this."}
+            description={calendarConnected ? "Adds it to your Google Calendar, which alerts you a week and a day before. This is the only option that notifies you." : "Connect Google Calendar in Settings to be alerted before the date."}
             disabled={!calendarConnected}
             onChange={(event) => setAddToCalendar(event.target.checked)}
             title="Add to my calendar"
           />
           <DosFormToggleRow
             checked={showOnDashboard}
-            description="Shows in Upcoming on your Dashboard as the date approaches."
+            description="Lists it in Upcoming on your Dashboard as the date approaches."
             onChange={(event) => setShowOnDashboard(event.target.checked)}
-            title="Remind me on the Dashboard"
+            title="Show in Upcoming"
           />
         </div>
         <DosFormField labelVariant="sentence" label="Notes">
@@ -26275,11 +26285,14 @@ function PersonFormContent({
   const contextLabel = relationshipContextOptions.find((option) => option.value === contextValue)?.label ?? "";
   const childCount = householdDraft.children.filter((child) => joinNameParts(child.firstName, child.lastName)).length;
 
-  /* The contact basics. First name is required on both forms. Mobile phone is
-     required only when ADDING: an existing person may have no phone (the
-     household sync creates them that way), and demanding one on Edit made
-     those records impossible to save at all. The duplicate check runs on blur
-     exactly as before. */
+  /* The contact basics. First name is required -- it is the person's identity.
+     Mobile phone is optional on BOTH forms (founder decision, 2026-09-09):
+     not every ministry relationship begins with contact information, the
+     create route has only ever required a name, and the household sync
+     already creates people from a name alone. Demanding a phone on Edit was
+     what made those records impossible to save at all. The duplicate check
+     runs on blur exactly as before and still uses the phone when there is
+     one. */
   const contactFields = (
     <>
       <DosFormGrid>
@@ -26290,7 +26303,7 @@ function PersonFormContent({
           <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
         </DosFormField>
       </DosFormGrid>
-      <DosFormField labelVariant="sentence" label={<>Mobile Phone{isEditMode ? null : <RequiredMark />}</>}>
+      <DosFormField labelVariant="sentence" label="Mobile Phone">
         <input
           className={FieldInputClass()}
           inputMode="tel"
@@ -26300,7 +26313,6 @@ function PersonFormContent({
             setDuplicateDismissed(false);
           }}
           placeholder="(651) 456-8974"
-          required={!isEditMode}
           type="tel"
           value={formatPhoneNumber(phoneDraft)}
         />
@@ -26559,8 +26571,8 @@ function PersonFormContent({
     ...(isEditMode ? [] : [{
       content: <ImportantDatesReminderSection calendarConnected={calendarConnected} />,
       key: "reminder" as const,
-      summary: "One dated reminder for this person",
-      title: "Reminder",
+      summary: "A date to remember for this person",
+      title: "Important date",
     }]),
     {
       content: notesField,
@@ -37338,6 +37350,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [data.accountabilityCheckIns, data.circles, data.meetings]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
   const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
+  /* How many household-only people the toggle is actually withholding right
+     now: the ones that match the current search, because that is how many
+     more rows expanding would add. A raw total would promise rows the search
+     has already excluded. */
+  const hiddenHouseholdCount = useMemo(
+    () => filteredPeople(people.filter((person) => person.fieldVisibility === "secondary"), peopleQuery).length,
+    [people, peopleQuery],
+  );
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   // Workflow subtitles name the person when the flow was launched from their
   // record, so the user is never asked to re-select someone they came from.
@@ -37485,6 +37505,34 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [data.circles, fieldListPeople]);
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
+  /* USA-247: what each number on the People rail counts.
+     Every count is taken AFTER the same two filters the list itself uses --
+     the household/secondary toggle (`fieldListPeople`) and the search box --
+     so a tab never promises rows the list will not show. Workspace scope,
+     permissions and privacy are already applied upstream: `people` is loaded
+     for one workspace, `hidden` people are excluded from the field list
+     entirely, and archived people never reach it.
+     The four circles are EXCLUSIVE: a person holds exactly one
+     `circle_assignment`, so the four never double-count. They also do not sum
+     to All -- a person whose stored circle is `field` (not yet placed in a
+     circle) is in All and in none of the four, which is why All carries the
+     unplaced note rather than a total that quietly disagrees with its parts. */
+  const peopleCircleCounts = useMemo(() => {
+    const count = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery).length;
+
+    return {
+      all: count(allCirclePeople),
+      my_120: count(circlePeopleByLayer.my120),
+      seventy: count(circlePeopleByLayer.seventy),
+      three: count(circlePeopleByLayer.three),
+      twelve: count(circlePeopleByLayer.twelve),
+    };
+  }, [allCirclePeople, circlePeopleByLayer, peopleQuery]);
+  const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - (peopleCircleCounts.three + peopleCircleCounts.twelve + peopleCircleCounts.seventy + peopleCircleCounts.my_120));
+  const peopleCircleTabsWithCounts = useMemo(
+    () => peopleCircleTabs.map((tab) => ({ ...tab, count: peopleCircleCounts[tab.value] })),
+    [peopleCircleCounts],
+  );
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   /* Which circle each person is in, read from the same layer groups the tabs
@@ -43367,22 +43415,45 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div className="md:hidden">
                   <SearchField label="Search field" onChange={setPeopleQuery} placeholder="Search people" value={peopleQuery} />
                 </div>
-                {secondaryFieldPeopleCount ? (
-                  /* Household and secondary people stay hidden behind a Show row
-                     (production behavior, spec §5.11). */
-                  <button
-                    aria-pressed={showSecondaryFieldPeople}
-                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue sm:w-fit sm:gap-4 ${
-                      showSecondaryFieldPeople ? "border-dos-blue text-dos-blueText" : "border-dos-line text-dos-primary hover:border-dos-blue100"
-                    }`}
-                    onClick={() => setShowSecondaryFieldPeople((current) => !current)}
-                    type="button"
-                  >
-                    <span>{showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary</span>
-                    <StatusPill tone={showSecondaryFieldPeople ? "blue" : "grey"}>{secondaryFieldPeopleCount}</StatusPill>
-                  </button>
+                {/* USA-247: the circle rail and, immediately after My 120, the
+                    compact control for household-only people. It replaces the
+                    full-width Show row that used to sit under Search. It only
+                    expands or collapses the list: nobody's saved visibility
+                    changes, which is what the copy says. */}
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabsWithCounts} value={peopleCircleView} />
+                  </div>
+                  {secondaryFieldPeopleCount ? (
+                    <button
+                      aria-label={showSecondaryFieldPeople
+                        ? "Hide household-only people. Their saved visibility does not change."
+                        : `Show ${hiddenHouseholdCount} household-only ${hiddenHouseholdCount === 1 ? "person" : "people"} currently hidden. Their saved visibility does not change.`}
+                      aria-pressed={showSecondaryFieldPeople}
+                      className={`flex h-9 shrink-0 items-center gap-1.5 rounded-dos-3 border px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
+                        showSecondaryFieldPeople ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
+                      }`}
+                      onClick={() => setShowSecondaryFieldPeople((current) => !current)}
+                      type="button"
+                    >
+                      <Users aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      <span>Household</span>
+                      {!showSecondaryFieldPeople && hiddenHouseholdCount
+                        ? <span className="tabular-nums text-dos-secondary">{hiddenHouseholdCount}</span>
+                        : null}
+                    </button>
+                  ) : null}
+                </div>
+                {secondaryFieldPeopleCount && showSecondaryFieldPeople ? (
+                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+                    Including {hiddenHouseholdCount} household-only {hiddenHouseholdCount === 1 ? "person" : "people"}. Their saved visibility is unchanged.
+                  </p>
                 ) : null}
-                <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
+                {peopleCircleView === "all" && unplacedPeopleCount ? (
+                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+                    Includes {unplacedPeopleCount} not yet placed in a circle, so All is larger than My 3, 12, 70 and 120 combined.
+                  </p>
+                ) : null}
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
@@ -43419,7 +43490,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   ) : fieldListPeople.length ? (
                     <DosEmptyState>{peopleQuery.trim() ? `No matching field results. Try a different search inside ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}`}</DosEmptyState>
                   ) : people.length ? (
-                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty}`}</DosEmptyState>
+                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use the Household filter to include household-only people." : peopleCircleContent.empty}`}</DosEmptyState>
                   ) : (
                     <DosEmptyState action={<Button onClick={() => openForm("person")} variant="tinted">Add Person</Button>}>Start by adding someone you are walking with.</DosEmptyState>
                   )}

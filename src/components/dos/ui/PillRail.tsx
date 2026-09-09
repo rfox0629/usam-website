@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type PillRailOption<T extends string> = { label: string; value: T };
+export type PillRailOption<T extends string> = {
+  /** Optional tally shown after the label. Omit it and the pill is unchanged. */
+  count?: number;
+  label: string;
+  value: T;
+};
 
 /**
  * Scrollable pill tab rail (canonical spec §3, V10 treatment A).
@@ -107,6 +112,9 @@ export function PillRail<T extends string>({
                 }`}
               >
                 {option.label}
+                {typeof option.count === "number" ? (
+                  <span className={`ml-1.5 tabular-nums ${selected ? "text-white/75" : "text-dos-secondary"}`}>{option.count}</span>
+                ) : null}
               </span>
             </button>
           );

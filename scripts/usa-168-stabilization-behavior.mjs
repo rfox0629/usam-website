@@ -2003,7 +2003,7 @@ await check("Edit Person no longer creates reminders, and Save outranks Delete",
      enforced by the section list itself: the reminder section is spread in
      only when this is not Edit. */
   assert(
-    /\.\.\.\(isEditMode \? \[\] : \[\{[\s\S]*?<ImportantDatesReminderSection[\s\S]*?title: "Reminder",[\s\S]*?\}\]\)/.test(form),
+    /\.\.\.\(isEditMode \? \[\] : \[\{[\s\S]*?<ImportantDatesReminderSection[\s\S]*?title: "Important date",[\s\S]*?\}\]\)/.test(form),
     "Add a reminder must not render inside Edit Person.",
   );
   assert(

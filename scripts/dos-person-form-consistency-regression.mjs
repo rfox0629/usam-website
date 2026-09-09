@@ -55,14 +55,20 @@ assert.ok(
   "the submitted payload carries the chosen visibility, falling back to the stored value rather than to a default",
 );
 
-/* Phone is required when adding and optional when editing. */
+/* Phone is optional on BOTH forms: DOS must allow a name-only person, and
+   creating one has only ever required a name. */
+const contactFields = client.slice(client.indexOf("const contactFields = ("), client.indexOf("const contextSelect = ("));
 assert.ok(
-  client.includes("required={!isEditMode}"),
-  "mobile phone is required only when adding a person",
+  contactFields.includes('label="Mobile Phone"') && !contactFields.includes("Mobile Phone<RequiredMark"),
+  "mobile phone is not marked required on either form",
 );
 assert.ok(
-  client.includes("label={<>Mobile Phone{isEditMode ? null : <RequiredMark />}</>}"),
-  "the required marker matches the rule it describes",
+  !/name="phone"[^>]*required|required[^>]*type="tel"/.test(contactFields) && !contactFields.includes("required={!isEditMode}"),
+  "the phone input carries no required attribute on either form",
+);
+assert.ok(
+  /First Name<RequiredMark \/>/.test(contactFields) && contactFields.includes("required value={nameDraft.firstName}"),
+  "first name stays required: it is the person's identity",
 );
 
 /* Any invalid control in a collapsed section opens that section instead of
@@ -112,7 +118,7 @@ assert.ok(
   "a collapsed section is hidden, never unmounted, so it still submits its values",
 );
 assert.ok(
-  formBlock.includes("...(isEditMode ? [] : [{") && formBlock.includes('title: "Reminder",'),
+  formBlock.includes("...(isEditMode ? [] : [{") && formBlock.includes('title: "Important date",'),
   "the reminder shortcut is offered while adding, where a date is in hand, and sits in the shared order",
 );
 
@@ -173,8 +179,16 @@ assert.ok(
   "the calendar option is only offered when a calendar is actually connected",
 );
 assert.ok(
-  reminderBlock.includes('title="Remind me on the Dashboard"'),
-  "the dashboard toggle describes the reminder, not a storage location",
+  reminderBlock.includes('title="Show in Upcoming"'),
+  "the dashboard toggle says it lists the date, because DOS sends no notification of its own",
+);
+assert.ok(
+  reminderBlock.includes("This is the only option that notifies you."),
+  "the one option that actually alerts anybody says so: the Google Calendar sync carries the week-and-a-day popups",
+);
+assert.ok(
+  formBlock.includes('title: "Important date",') && !formBlock.includes('title: "Reminder",'),
+  "the section is named for what it stores -- a date to remember -- not for an alert DOS does not send",
 );
 assert.ok(
   !reminderBlock.includes('label="Reminder timing"') && !client.includes("importantReminderTimingOptions = ["),
@@ -185,7 +199,7 @@ assert.ok(
   "the short path is still title and date",
 );
 assert.ok(
-  reminderBlock.indexOf('title="More reminder options"') > reminderBlock.indexOf('name="important_reminder_date"'),
+  reminderBlock.indexOf('title="More options"') > reminderBlock.indexOf('name="important_reminder_date"'),
   "category, repeat, placement and notes sit behind progressive disclosure",
 );
 
@@ -209,3 +223,58 @@ assert.ok(
 );
 
 console.log("DOS Person form consistency (USA-244 follow-up) regression passed.");
+
+/* ---- 6. People list filters (USA-247) ----------------------------------- */
+const railSource = read("src/components/dos/ui/PillRail.tsx");
+
+assert.ok(
+  railSource.includes("count?: number;") && railSource.includes('typeof option.count === "number"'),
+  "the canonical pill rail can carry an optional count without changing pills that pass none",
+);
+
+/* The standalone full-width row under Search is gone; the control is a
+   compact pill immediately after the circle rail. */
+assert.ok(
+  !client.includes('{showSecondaryFieldPeople ? "Showing" : "Show"} household')
+    && !client.includes("flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label"),
+  "the full-width Show household row beneath Search is gone",
+);
+const peopleFilterBlock = client.slice(client.indexOf('<PillRail edgeInset={4} label="Field circles"') - 1200, client.indexOf('<PillRail edgeInset={4} label="Field circles"') + 2200);
+assert.ok(
+  peopleFilterBlock.indexOf('label="Field circles"') < peopleFilterBlock.indexOf('aria-pressed={showSecondaryFieldPeople}'),
+  "the household control sits immediately after the circle rail, not above it",
+);
+assert.ok(
+  peopleFilterBlock.includes("<span>Household</span>") && peopleFilterBlock.includes("{hiddenHouseholdCount}"),
+  "the control names what it reveals and shows how many are hidden right now",
+);
+assert.ok(
+  peopleFilterBlock.includes("Their saved visibility does not change.")
+    && peopleFilterBlock.includes("Their saved visibility is unchanged."),
+  "the control says, in both states, that expanding does not change anyone's stored visibility",
+);
+
+/* Counts are taken after the same filters the list uses. */
+assert.ok(
+  client.includes("const count = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery).length;"),
+  "every rail count respects the search box, because it counts the same filtered items the list renders",
+);
+assert.ok(
+  client.includes("const peopleCircleCounts = useMemo(") && client.includes("all: count(allCirclePeople),"),
+  "All is counted from the same visibility-filtered list as the circles",
+);
+assert.ok(
+  client.includes("filteredPeople(people.filter((person) => person.fieldVisibility === \"secondary\"), peopleQuery).length"),
+  "the hidden-household tally respects the search too, so it never promises rows the search excluded",
+);
+assert.ok(
+  client.includes("const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - (peopleCircleCounts.three + peopleCircleCounts.twelve + peopleCircleCounts.seventy + peopleCircleCounts.my_120));")
+    && client.includes("not yet placed in a circle, so All is larger than My 3, 12, 70 and 120 combined."),
+  "All explains what the circles exclude instead of showing a total that silently disagrees with its parts",
+);
+assert.ok(
+  client.includes("The four circles are EXCLUSIVE"),
+  "the exclusive circle model is documented where the counts are computed",
+);
+
+console.log("DOS People list filters (USA-247) regression passed.");
