@@ -410,6 +410,52 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       status: "active",
       updatedAt: demoTimestamp,
     },
+    /* USA-244 follow-up: a household member created without a phone -- the
+       shape of 28 of the 73 real people in the founder's workspace, and the
+       shape that could not be saved at all before this change. Editing her
+       is the reproduction case for the Household-only save bug. */
+    {
+      church: null,
+      createdAt: daysAgoIso(2),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "primary",
+      id: "demo-person-skylar-gaffney",
+      lastActivityAt: daysAgoIso(2),
+      name: "Skylar Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "other",
+      relationshipType: "New · Other · Exploring",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "new",
+      updatedAt: daysAgoIso(2),
+    },
+    /* USA-247: a household-only person, so the People list's Household
+       control has something real to reveal in the founder preview. */
+    {
+      church: null,
+      createdAt: daysAgoIso(30),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "secondary",
+      id: "demo-person-selah-gaffney",
+      lastActivityAt: daysAgoIso(30),
+      name: "Selah Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "family",
+      relationshipType: "New · Family · Exploring",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "new",
+      updatedAt: daysAgoIso(30),
+    },
     // Kept from main: Tanner backs the Wednesday Men's Group Journey QA.
     {
       church: "Wednesday Men's Group",

@@ -1099,11 +1099,11 @@ const importantReminderRepeatOptions = [
   { label: "Never", value: "none" },
   { label: "Yearly", value: "yearly" },
 ] as const;
-const importantReminderTimingOptions = [
-  { label: "Day of", value: "day_of" },
-  { label: "1 day before", value: "one_day_before" },
-  { label: "1 week before", value: "one_week_before" },
-] as const;
+/* Legacy values only. The lead-time picker these came from was removed in the
+   USA-244 follow-up: it was written into the reminder's stored metadata and
+   read by nothing, so it promised a lead time nothing delivered. They stay
+   here so reminders saved with one still parse. */
+const importantReminderTimingValues = ["day_of", "one_day_before", "one_week_before"] as const;
 const importantReminderDestinationOptions = [
   { label: "Person Timeline only", value: "person_timeline" },
   { label: "Prayer", value: "prayer" },
@@ -1112,7 +1112,7 @@ const importantReminderDestinationOptions = [
 
 type ImportantReminderTag = typeof importantReminderTagOptions[number]["value"];
 type ImportantReminderRepeat = typeof importantReminderRepeatOptions[number]["value"];
-type ImportantReminderTiming = typeof importantReminderTimingOptions[number]["value"];
+type ImportantReminderTiming = typeof importantReminderTimingValues[number];
 type ImportantReminderDestination = typeof importantReminderDestinationOptions[number]["value"];
 type ImportantReminderMeta = {
   destination: ImportantReminderDestination;
@@ -2811,7 +2811,7 @@ function normalizeImportantReminderTag(value: FormDataEntryValue | string | null
 function normalizeImportantReminderTiming(value: FormDataEntryValue | string | null | undefined): ImportantReminderTiming {
   const nextValue = String(value ?? "");
 
-  return importantReminderTimingOptions.some((option) => option.value === nextValue) ? nextValue as ImportantReminderTiming : "day_of";
+  return importantReminderTimingValues.some((value) => value === nextValue) ? nextValue as ImportantReminderTiming : "day_of";
 }
 
 function normalizeImportantReminderDestination(value: FormDataEntryValue | string | null | undefined): ImportantReminderDestination {
@@ -26041,11 +26041,43 @@ function RelationshipScorePicker({
   );
 }
 
-function ImportantDatesReminderSection() {
+/* USA-244: "Add a reminder", rewritten around what the system actually does.
+ *
+ * Audited first (docs/dos-ui-refresh/usa-244/reminder-audit.md). What each old
+ * control really did:
+ *   Tag              -> reminder_type (prayer / anniversary / custom) and, for
+ *                       custom types, a "Tag: " title prefix. Real.
+ *   Repeats          -> the recurrence column. Real.
+ *   Reminder timing  -> written into the notes metadata and read by nothing.
+ *                       It never moved the date and never scheduled anything
+ *                       earlier, so "1 week before" was decoration. Removed
+ *                       rather than left there implying a promise.
+ *   Show on Dashboard-> notes metadata, read by reminderShowsOnDashboard().
+ *                       Real, and now says so in its own words.
+ *   The old destination
+ *   picker           -> a single choice that set reminder_type = "prayer" OR
+ *                       google_sync_enabled. It transmitted nothing to
+ *                       anybody: it decided where the reminder shows up. Its
+ *                       label implied a message to another person, so it is
+ *                       gone.
+ *
+ * Prayer and Calendar are independent underneath, so they are independent
+ * here: two toggles, not one either/or. Each says what it does in one line.
+ *
+ * What actually alerts anybody (founder question, 2026-09-09): only the
+ * calendar option. `POST /api/dos/app/reminders` syncs an important date to
+ * Google with reminderMinutes [10080, 1440] -- popups a week and a day
+ * before -- and passes the yearly recurrence through as an RRULE. DOS itself
+ * has no notification delivery for these: everything else here decides where
+ * the date is LISTED (person timeline, Prayer, the Dashboard's Upcoming).
+ * So this is an important date that can optionally become a real calendar
+ * reminder, and it is named that way rather than promising an alert DOS does
+ * not send. */
+function ImportantDatesReminderSection({ calendarConnected }: { calendarConnected: boolean }) {
   const [tag, setTag] = useState<ImportantReminderTag>("prayer");
   const [repeat, setRepeat] = useState<ImportantReminderRepeat>(importantReminderRepeatForTag("prayer"));
-  const [timing, setTiming] = useState<ImportantReminderTiming>("day_of");
-  const [destination, setDestination] = useState<ImportantReminderDestination>(importantReminderDestinationForTag("prayer"));
+  const [showInPrayer, setShowInPrayer] = useState(true);
+  const [addToCalendar, setAddToCalendar] = useState(false);
   const [showOnDashboard, setShowOnDashboard] = useState(true);
 
   function handleTagChange(nextValue: string) {
@@ -26053,53 +26085,64 @@ function ImportantDatesReminderSection() {
 
     setTag(nextTag);
     setRepeat(importantReminderRepeatForTag(nextTag));
-    setDestination(importantReminderDestinationForTag(nextTag));
+    setShowInPrayer(importantReminderDestinationForTag(nextTag) === "prayer");
   }
 
   return (
-    <details className="group rounded-[20px] border border-[#D6E4F7] bg-white">
-      <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F8FBFF] [&::-webkit-details-marker]:hidden">
-        <span>
-          <span className="block text-sm font-bold text-[#0F172A]">Add a reminder</span>
-          <span className="mt-1 block text-xs font-semibold leading-5 text-[#64748B]">Add one dated reminder to this person.</span>
-        </span>
-        <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-[#94A3B8] transition-transform group-open:-rotate-90" aria-hidden="true" strokeWidth={1.9} />
-      </summary>
-      <div className="grid gap-3 border-t border-[#EAF2FF] bg-white p-3">
-        <input name="important_reminder_tag" type="hidden" value={tag} />
-        <input name="important_reminder_repeats" type="hidden" value={repeat} />
-        <input name="important_reminder_timing" type="hidden" value={timing} />
-        <input name="important_reminder_destination" type="hidden" value={destination} />
-        <DosFormField label="Title">
-          <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday text, memorial date..." />
-        </DosFormField>
-        <div className="grid gap-3 min-[380px]:grid-cols-2">
-          <CompactOptionSelect label="Tag" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
-          <DosDateInput label="Date" name="important_reminder_date" />
-        </div>
-        <div className="grid gap-3 min-[380px]:grid-cols-2">
-          <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
-          <CompactOptionSelect label="Reminder timing" onChange={(value) => setTiming(normalizeImportantReminderTiming(value))} options={importantReminderTimingOptions} value={timing} />
-        </div>
-        <DosFormToggleRow
-          checked={showOnDashboard}
-          description="Eligible for Upcoming and notifications."
-          name="important_reminder_show_dashboard"
-          onChange={(event) => setShowOnDashboard(event.target.checked)}
-          title="Show on Dashboard"
-        />
-        <CompactOptionSelect label="Send to app" onChange={(value) => setDestination(normalizeImportantReminderDestination(value))} options={importantReminderDestinationOptions} value={destination} />
-        <DosFormField label="Notes">
-          <VoiceTextarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
-        </DosFormField>
+    <div className="grid gap-3">
+      <input name="important_reminder_tag" type="hidden" value={tag} />
+      <input name="important_reminder_repeats" type="hidden" value={repeat} />
+      <input name="important_reminder_prayer" type="hidden" value={showInPrayer ? "on" : ""} />
+      <input name="important_reminder_calendar" type="hidden" value={addToCalendar && calendarConnected ? "on" : ""} />
+      <input name="important_reminder_show_dashboard" type="hidden" value={showOnDashboard ? "on" : ""} />
+      <DosFormField labelVariant="sentence" label="What is the date?">
+        <input className={FieldInputClass()} name="important_reminder_title" placeholder="Surgery, birthday, memorial date..." />
+      </DosFormField>
+      <div className="max-w-[15rem]">
+        <DosDateInput label="Date" labelVariant="sentence" name="important_reminder_date" />
       </div>
-    </details>
+      <DisclosureSection description="Category, repeat, where it appears, and notes." title="More options">
+        <div className="grid gap-3 min-[380px]:grid-cols-2">
+          <CompactOptionSelect label="Category" onChange={handleTagChange} options={importantReminderTagOptions} value={tag} />
+          <CompactOptionSelect label="Repeats" onChange={(value) => setRepeat(value as ImportantReminderRepeat)} options={importantReminderRepeatOptions} value={repeat} />
+        </div>
+        <div className="grid gap-2 border-t border-dos-rule pt-3">
+          <span className="text-dos-label text-dos-secondary">Where should this appear?</span>
+          <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+            Person timeline — always recorded here.
+          </p>
+          <DosFormToggleRow
+            checked={showInPrayer}
+            description="Also shows this date in Prayer. Nothing is sent to anyone."
+            onChange={(event) => setShowInPrayer(event.target.checked)}
+            title="Show in Prayer"
+          />
+          <DosFormToggleRow
+            checked={addToCalendar && calendarConnected}
+            description={calendarConnected ? "Adds it to your Google Calendar, which alerts you a week and a day before. This is the only option that notifies you." : "Connect Google Calendar in Settings to be alerted before the date."}
+            disabled={!calendarConnected}
+            onChange={(event) => setAddToCalendar(event.target.checked)}
+            title="Add to my calendar"
+          />
+          <DosFormToggleRow
+            checked={showOnDashboard}
+            description="Lists it in Upcoming on your Dashboard as the date approaches."
+            onChange={(event) => setShowOnDashboard(event.target.checked)}
+            title="Show in Upcoming"
+          />
+        </div>
+        <DosFormField labelVariant="sentence" label="Notes">
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for this date." />
+        </DosFormField>
+      </DisclosureSection>
+    </div>
   );
 }
 
 function PersonFormContent({
   additionalDefaults,
   buttonText,
+  calendarConnected = false,
   errorMessage,
   isSubmitting,
   nameDefault,
@@ -26118,6 +26161,9 @@ function PersonFormContent({
 }: {
   additionalDefaults?: PersonFormDefaults;
   buttonText: string;
+  /* Whether this workspace has a healthy Google Calendar connection; the
+     reminder's calendar toggle is only offered when it can actually work. */
+  calendarConnected?: boolean;
   errorMessage: string;
   isSubmitting: boolean;
   nameDefault?: string | null;
@@ -26213,13 +26259,40 @@ function PersonFormContent({
   const linkedSpouse = findPersonByName(people, spouseDraftName, isEditMode ? nameDefault : null);
   const [openSection, setOpenSection] = useState<PersonEditSectionKey>("basic");
   const toggleSection = (key: PersonEditSectionKey) => setOpenSection((current) => (current === key ? null : key));
+
+  /* A required input inside a collapsed section is hidden, and the browser
+     refuses to submit a form whose invalid control cannot be focused -- it
+     shows nothing at all, which is indistinguishable from a dead Save button.
+     Catch the invalid event, open the section that owns the control, then
+     focus it and let the browser say what is wrong. */
+  function revealInvalidSection(event: FormEvent<HTMLFormElement>) {
+    const control = event.target as (HTMLElement & { reportValidity?: () => boolean }) | null;
+    const owner = control?.closest?.("[data-person-section]");
+    const key = owner?.getAttribute("data-person-section") as PersonEditSectionKey | null;
+
+    if (!key || key === openSection) {
+      return;
+    }
+
+    setOpenSection(key);
+    window.setTimeout(() => {
+      control?.focus?.();
+      control?.reportValidity?.();
+    }, 0);
+  }
   const visibilityLabel = listVisibilityOptions.find((option) => option.value === personRole)?.label ?? "Active person";
   const stageLabel = relationshipStageChoiceOptions.find((option) => option.value === stageValue)?.label ?? "";
   const contextLabel = relationshipContextOptions.find((option) => option.value === contextValue)?.label ?? "";
   const childCount = householdDraft.children.filter((child) => joinNameParts(child.firstName, child.lastName)).length;
 
-  /* The contact basics. First name and mobile phone stay required; the
-     duplicate check runs on blur exactly as before. */
+  /* The contact basics. First name is required -- it is the person's identity.
+     Mobile phone is optional on BOTH forms (founder decision, 2026-09-09):
+     not every ministry relationship begins with contact information, the
+     create route has only ever required a name, and the household sync
+     already creates people from a name alone. Demanding a phone on Edit was
+     what made those records impossible to save at all. The duplicate check
+     runs on blur exactly as before and still uses the phone when there is
+     one. */
   const contactFields = (
     <>
       <DosFormGrid>
@@ -26230,7 +26303,7 @@ function PersonFormContent({
           <input className={FieldInputClass()} onChange={(event) => setNameDraft((current) => ({ ...current, lastName: event.target.value }))} value={nameDraft.lastName} />
         </DosFormField>
       </DosFormGrid>
-      <DosFormField labelVariant="sentence" label={<>Mobile Phone<RequiredMark /></>}>
+      <DosFormField labelVariant="sentence" label="Mobile Phone">
         <input
           className={FieldInputClass()}
           inputMode="tel"
@@ -26240,7 +26313,6 @@ function PersonFormContent({
             setDuplicateDismissed(false);
           }}
           placeholder="(651) 456-8974"
-          required
           type="tel"
           value={formatPhoneNumber(phoneDraft)}
         />
@@ -26439,8 +26511,8 @@ function PersonFormContent({
     </div>
   ) : null;
 
-  /* Every stored value travels as a plain field, so the submit path never
-     depends on which section is open. */
+  /* Every stored value travels as a plain hidden input, so the submit path
+     never depends on which section is open. */
   const hiddenFields = (
     <>
       <input name="name" type="hidden" value={composedName} />
@@ -26454,93 +26526,98 @@ function PersonFormContent({
     </>
   );
 
-  if (isEditMode) {
-    /* Edit Person: compact sections, one open at a time, every field stays
-       mounted so a collapsed section still submits its values unchanged. */
-    return (
-      <form className="space-y-2" onSubmit={onSubmit}>
-        {hiddenFields}
-        <PersonEditSection id="basic" onToggle={() => toggleSection("basic")} open={openSection === "basic"} summary={[formatPhoneNumber(phoneDraft) || phoneDraft, additionalDefaults?.email].filter(Boolean).join(" · ") || "Name, phone, email"} title="Basic information">
-          {contactFields}
-        </PersonEditSection>
-        <PersonEditSection id="relationship" onToggle={() => toggleSection("relationship")} open={openSection === "relationship"} summary={[stageLabel, contextLabel, visibilityLabel].filter(Boolean).join(" · ")} title="Relationship">
+  /* USA-244: Add and Edit are the same form. Same sections, same order, same
+     components, same summaries -- the only differences are which sections a
+     new record can meaningfully offer (no Delete, and the reminder shortcut
+     that only makes sense while a birthday or surgery date is in hand). */
+  const sections: ReadonlyArray<{ content: ReactNode; key: Exclude<PersonEditSectionKey, null>; summary: string; title: string }> = [
+    {
+      content: contactFields,
+      key: "basic",
+      summary: [formatPhoneNumber(phoneDraft) || phoneDraft, additionalDefaults?.email].filter(Boolean).join(" · ") || "Name, phone, email",
+      title: "Basic information",
+    },
+    {
+      /* Engagement Level lives here, after the connection questions and List
+         visibility, on BOTH forms. It is a property of the relationship, not a
+         separate "Advanced" destination. */
+      content: (
+        <>
           {stageSelect}
           {contextSelect}
           {visibilitySelect}
-        </PersonEditSection>
-        <PersonEditSection id="household" onToggle={() => toggleSection("household")} open={openSection === "household"} summary={[spouseDraftName ? `Spouse: ${spouseDraftName}` : "", childCount ? `${childCount} ${childCount === 1 ? "child" : "children"}` : ""].filter(Boolean).join(" · ") || "No household members yet"} title="Household">
-          {householdFields}
-        </PersonEditSection>
-        <PersonEditSection id="details" onToggle={() => toggleSection("details")} open={openSection === "details"} summary={[additionalDefaults?.city, additionalDefaults?.church, additionalDefaults?.occupation].filter(Boolean).join(" · ") || "Address, church, occupation, birthday"} title="Details">
-          {detailsFields}
-        </PersonEditSection>
-        <PersonEditSection id="notes" onToggle={() => toggleSection("notes")} open={openSection === "notes"} summary={additionalDefaults?.notes?.trim() ? "Notes on file" : "No notes yet"} title="Notes">
-          {notesField}
-        </PersonEditSection>
-        {showEngagement ? (
-          <PersonEditSection id="advanced" onToggle={() => toggleSection("advanced")} open={openSection === "advanced"} summary={`Engagement ${relationshipScoreLabel(scoreValue)}`} title="Advanced">
-            {engagementField}
-          </PersonEditSection>
-        ) : null}
-        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-        {/* Delete stays below everything, behind a rule, as a quiet text
-            button; its confirmation flow is unchanged. */}
-        {onDelete ? (
-          <div className="mt-2 border-t border-dos-rule pt-4">
-            <button
-              className="text-[13.5px] font-semibold text-[#B42318] underline underline-offset-2 transition-colors hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isSubmitting}
-              onClick={onDelete}
-              type="button"
-            >
-              Delete this person
-            </button>
-            <p className="mt-1 text-[12px] leading-[1.45] text-dos-secondary">This cannot be undone.</p>
-          </div>
-        ) : null}
-        <StickyFormFooter>
-          <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
-        </StickyFormFooter>
-      </form>
-    );
-  }
+          {engagementField}
+        </>
+      ),
+      key: "relationship",
+      summary: [stageLabel, contextLabel, visibilityLabel, showEngagement ? `Engagement ${relationshipScoreLabel(scoreValue)}` : ""].filter(Boolean).join(" · "),
+      title: "Relationship",
+    },
+    {
+      content: householdFields,
+      key: "household",
+      summary: [spouseDraftName ? `Spouse: ${spouseDraftName}` : "", childCount ? `${childCount} ${childCount === 1 ? "child" : "children"}` : ""].filter(Boolean).join(" · ") || "No household members yet",
+      title: "Household",
+    },
+    {
+      content: detailsFields,
+      key: "details",
+      summary: [additionalDefaults?.city, additionalDefaults?.church, additionalDefaults?.occupation].filter(Boolean).join(" · ") || "Address, church, occupation, birthday",
+      title: "Details",
+    },
+    /* Creating a person is the one moment a birthday or surgery date is in
+       hand, so the reminder shortcut stays on Add. On Edit, reminders live in
+       the person's own reminder list rather than being created from here. */
+    ...(isEditMode ? [] : [{
+      content: <ImportantDatesReminderSection calendarConnected={calendarConnected} />,
+      key: "reminder" as const,
+      summary: "A date to remember for this person",
+      title: "Important date",
+    }]),
+    {
+      content: notesField,
+      key: "notes",
+      summary: additionalDefaults?.notes?.trim() ? "Notes on file" : "No notes yet",
+      title: "Notes",
+    },
+  ];
 
-  /* Add Person: the short path first; everything else behind one disclosure. */
   return (
-    <form className="space-y-4" onSubmit={onSubmit}>
+    <form className="space-y-2" onInvalidCapture={revealInvalidSection} onSubmit={onSubmit}>
       {hiddenFields}
-      <DosFormSection icon="people" title="Person" variant="label">
-        {contactFields}
-      </DosFormSection>
-      {duplicateNotice}
-      <DosFormSection icon="people" title="Connection" variant="label">
-        {contextSelect}
-        {stageSelect}
-      </DosFormSection>
-      <DisclosureSection description="Visibility, household, address, and notes." title="Add more details">
-        {visibilitySelect}
-        {engagementField}
-        <div className="grid gap-3 border-t border-dos-rule pt-3">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Household &amp; Family</span>
-          {householdFields}
-        </div>
-        <div className="grid gap-3 border-t border-dos-rule pt-3">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Address &amp; Details</span>
-          {detailsFields}
-        </div>
-        <div className="grid gap-3 border-t border-dos-rule pt-3">
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Notes</span>
-          {notesField}
-        </div>
-        {/* Creating a person is the one moment a birthday or surgery date is
-            in hand, so the reminder shortcut stays on Add (inside the details
-            disclosure) and is not offered on Edit, where reminders live in
-            their own list. */}
-        <div className="border-t border-dos-rule pt-3">
-          <ImportantDatesReminderSection />
-        </div>
-      </DisclosureSection>
+      {sections.map((section) => (
+        <PersonEditSection
+          id={section.key}
+          key={section.key}
+          onToggle={() => toggleSection(section.key)}
+          open={openSection === section.key}
+          summary={section.summary}
+          title={section.title}
+        >
+          {section.key === "basic" ? (
+            <>
+              {section.content}
+              {duplicateNotice}
+            </>
+          ) : section.content}
+        </PersonEditSection>
+      ))}
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
+      {/* Delete stays below everything, behind a rule, as a quiet text
+          button; its confirmation flow is unchanged. */}
+      {onDelete ? (
+        <div className="mt-2 border-t border-dos-rule pt-4">
+          <button
+            className="text-[13.5px] font-semibold text-[#B42318] underline underline-offset-2 transition-colors hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting}
+            onClick={onDelete}
+            type="button"
+          >
+            Delete this person
+          </button>
+          <p className="mt-1 text-[12px] leading-[1.45] text-dos-secondary">This cannot be undone.</p>
+        </div>
+      ) : null}
       <StickyFormFooter>
         <Button disabled={isSubmitting} fullWidth type="submit" variant="primary">{isSubmitting ? submittingText : buttonText}</Button>
       </StickyFormFooter>
@@ -26548,7 +26625,7 @@ function PersonFormContent({
   );
 }
 
-type PersonEditSectionKey = "advanced" | "basic" | "details" | "household" | "notes" | "relationship" | null;
+type PersonEditSectionKey = "basic" | "details" | "household" | "notes" | "reminder" | "relationship" | null;
 
 /* One Edit Person section: a 48px header with a one-line summary, and content
    that is hidden rather than unmounted so a collapsed section still submits
@@ -26585,7 +26662,7 @@ function PersonEditSection({
         </span>
         <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 text-dos-secondary transition-transform ${open ? "-rotate-90" : "rotate-90"}`} strokeWidth={1.9} />
       </button>
-      <div className={open ? "grid gap-3 pb-4" : "hidden"} hidden={!open} id={`person-section-${id}`}>
+      <div className={open ? "grid gap-3 pb-4" : "hidden"} data-person-section={id} hidden={!open} id={`person-section-${id}`}>
         {children}
       </div>
     </section>
@@ -37273,6 +37350,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [data.accountabilityCheckIns, data.circles, data.meetings]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
   const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
+  /* How many household-only people the toggle is actually withholding right
+     now: the ones that match the current search, because that is how many
+     more rows expanding would add. A raw total would promise rows the search
+     has already excluded. */
+  const hiddenHouseholdCount = useMemo(
+    () => filteredPeople(people.filter((person) => person.fieldVisibility === "secondary"), peopleQuery).length,
+    [people, peopleQuery],
+  );
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   // Workflow subtitles name the person when the flow was launched from their
   // record, so the user is never asked to re-select someone they came from.
@@ -40835,14 +40920,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     const tag = normalizeImportantReminderTag(formData.get("important_reminder_tag"));
-    const timing = normalizeImportantReminderTiming(formData.get("important_reminder_timing"));
-    const destination = normalizeImportantReminderDestination(formData.get("important_reminder_destination"));
+    /* USA-244: Prayer and Calendar are independent underneath (reminder_type
+       vs google_sync_enabled), so the form now asks for them independently.
+       `destination` is still written into the stored metadata, with Prayer
+       winning, so reminders saved before this change keep parsing. */
+    const showInPrayer = formData.get("important_reminder_prayer") === "on";
+    const addToCalendar = formData.get("important_reminder_calendar") === "on";
+    const destination: ImportantReminderDestination = showInPrayer ? "prayer" : addToCalendar ? "calendar" : "person_timeline";
+    const timing: ImportantReminderTiming = "day_of";
     const repeatValue = String(formData.get("important_reminder_repeats") ?? importantReminderRepeatForTag(tag));
     const recurrence: ImportantReminderRepeat = repeatValue === "yearly" || importantReminderRepeatForTag(tag) === "yearly" ? "yearly" : "none";
     const showOnDashboard = formData.get("important_reminder_show_dashboard") === "on";
     const title = String(formData.get("important_reminder_title") ?? "").trim();
     const tagLabel = importantReminderTagLabel(tag);
-    const reminderType = destination === "prayer" || tag === "prayer" ? "prayer" : reminderTypeForImportantTag(tag);
+    const reminderType = showInPrayer || tag === "prayer" ? "prayer" : reminderTypeForImportantTag(tag);
     const defaultTitle = tag === "prayer" ? "Prayer" : tag === "anniversary" ? "Anniversary" : tagLabel;
     const visibleTitle = title || defaultTitle;
     const notes = String(formData.get("important_reminder_notes") ?? "");
@@ -40856,8 +40947,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return {
       method: "POST" as const,
       payload: {
-        googleSyncEnabled: destination === "calendar" && calendarConnectionIsHealthy(calendarConnection),
-        google_sync_enabled: destination === "calendar" && calendarConnectionIsHealthy(calendarConnection),
+        googleSyncEnabled: addToCalendar && calendarConnectionIsHealthy(calendarConnection),
+        google_sync_enabled: addToCalendar && calendarConnectionIsHealthy(calendarConnection),
         notes: joinReminderNotesMetadata(notes, meta),
         personId,
         person_id: personId,
@@ -43296,22 +43387,47 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 <div className="md:hidden">
                   <SearchField label="Search field" onChange={setPeopleQuery} placeholder="Search people" value={peopleQuery} />
                 </div>
-                {secondaryFieldPeopleCount ? (
-                  /* Household and secondary people stay hidden behind a Show row
-                     (production behavior, spec §5.11). */
-                  <button
-                    aria-pressed={showSecondaryFieldPeople}
-                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue sm:w-fit sm:gap-4 ${
-                      showSecondaryFieldPeople ? "border-dos-blue text-dos-blueText" : "border-dos-line text-dos-primary hover:border-dos-blue100"
-                    }`}
-                    onClick={() => setShowSecondaryFieldPeople((current) => !current)}
-                    type="button"
-                  >
-                    <span>{showSecondaryFieldPeople ? "Showing" : "Show"} household & secondary</span>
-                    <StatusPill tone={showSecondaryFieldPeople ? "blue" : "grey"}>{secondaryFieldPeopleCount}</StatusPill>
-                  </button>
+                {/* USA-247: the circle rail and, immediately after My 120, the
+                    compact control for household-only people. It replaces the
+                    full-width Show row that used to sit under Search. It only
+                    expands or collapses the list: nobody's saved visibility
+                    changes, which is what the copy says. */}
+                {/* The rail scrolls horizontally when it cannot fit, so on a
+                    narrow screen a control pinned to its right edge would look
+                    like it followed whichever tab happened to be visible. Below
+                    sm the control wraps onto its own line directly under the
+                    rail; from sm up, where My 120 is on screen, it sits inline
+                    immediately after it. */}
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
+                  </div>
+                  {secondaryFieldPeopleCount ? (
+                    <button
+                      aria-label={showSecondaryFieldPeople
+                        ? "Hide household-only people. Their saved visibility does not change."
+                        : `Show ${hiddenHouseholdCount} household-only ${hiddenHouseholdCount === 1 ? "person" : "people"} currently hidden. Their saved visibility does not change.`}
+                      aria-pressed={showSecondaryFieldPeople}
+                      className={`flex h-9 shrink-0 items-center gap-1.5 rounded-dos-3 border px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
+                        showSecondaryFieldPeople ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
+                      }`}
+                      onClick={() => setShowSecondaryFieldPeople((current) => !current)}
+                      type="button"
+                    >
+                      <Users aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+                      <span>Household</span>
+                      {!showSecondaryFieldPeople && hiddenHouseholdCount
+                        ? <span className="tabular-nums text-dos-secondary">{hiddenHouseholdCount}</span>
+                        : null}
+                    </button>
+                  ) : null}
+                </div>
+                {secondaryFieldPeopleCount && showSecondaryFieldPeople ? (
+                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+                    Including {hiddenHouseholdCount} household-only {hiddenHouseholdCount === 1 ? "person" : "people"}. Their saved visibility is unchanged.
+                  </p>
                 ) : null}
-                <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
+
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
@@ -43348,7 +43464,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   ) : fieldListPeople.length ? (
                     <DosEmptyState>{peopleQuery.trim() ? `No matching field results. Try a different search inside ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}`}</DosEmptyState>
                   ) : people.length ? (
-                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use Show household & secondary to include household participants." : peopleCircleContent.empty}`}</DosEmptyState>
+                    <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use the Household filter to include household-only people." : peopleCircleContent.empty}`}</DosEmptyState>
                   ) : (
                     <DosEmptyState action={<Button onClick={() => openForm("person")} variant="tinted">Add Person</Button>}>Start by adding someone you are walking with.</DosEmptyState>
                   )}
@@ -45073,6 +45189,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent
             buttonText="Add person"
+            calendarConnected={calendarConnectionIsHealthy(calendarConnection)}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onOpenExistingPerson={(person) => {
@@ -45092,10 +45209,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ) : null}
 
       {formMode === "editPerson" && selectedPerson ? (
-        <DosWorkflowPage onClose={closeForm} title="Edit Person">
+        <DosWorkflowPage identity={selectedPerson.name} onClose={closeForm} title="Edit Person">
           <PersonFormContent
             additionalDefaults={selectedPersonDefaults}
-            buttonText="Save person"
+            /* "Save Skylar" says whose record is being saved from the one
+               control the user is actually looking at (USA-244). */
+            buttonText={splitNameParts(selectedPerson.name).firstName ? `Save ${splitNameParts(selectedPerson.name).firstName}` : "Save person"}
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             nameDefault={selectedPerson.name}

@@ -1999,14 +1999,16 @@ await check("Edit Person no longer creates reminders, and Save outranks Delete",
   const form = personFormSource();
 
   /* The reminder shortcut belongs to creating a person, not editing one.
-     Since USA-244 the two shapes are separate returns: it renders only in
-     the Add branch (after the `if (isEditMode)` return). */
-  const addFormStart = form.lastIndexOf('<form className="space-y-4" onSubmit={onSubmit}>');
-  const editReturn = form.slice(form.indexOf("if (isEditMode) {"), addFormStart);
-  const addReturn = form.slice(addFormStart);
+     Add and Edit now share one form body (USA-244 follow-up), so the rule is
+     enforced by the section list itself: the reminder section is spread in
+     only when this is not Edit. */
   assert(
-    editReturn.length > 0 && !editReturn.includes("<ImportantDatesReminderSection />") && addReturn.includes("<ImportantDatesReminderSection />"),
+    /\.\.\.\(isEditMode \? \[\] : \[\{[\s\S]*?<ImportantDatesReminderSection[\s\S]*?title: "Important date",[\s\S]*?\}\]\)/.test(form),
     "Add a reminder must not render inside Edit Person.",
+  );
+  assert(
+    form.indexOf("<ImportantDatesReminderSection") > form.indexOf("isEditMode ? [] : [{"),
+    "The reminder section is the one the Edit form drops.",
   );
 
   /* Save is the sticky action, alone. */
