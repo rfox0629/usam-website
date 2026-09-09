@@ -351,8 +351,16 @@ export async function PATCH(request: Request) {
   const name = asString(payload.name);
   const phone = asString(payload.phone);
 
-  if (!workspaceId || !isUuid(id) || !name || !phone) {
-    return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  /* USA-244: name is the identity, so it stays required. Phone is NOT.
+     Creation (POST, above) has only ever required a name, and the household
+     sync creates spouses and children with a name alone -- 28 of the 73
+     people in the founder's workspace have no phone. Requiring one here made
+     every one of those records permanently uneditable: the PATCH returned
+     400 and nothing was written, which is exactly how "Save Person" appeared
+     to do nothing. An edit must never demand a field the record was allowed
+     to be created without. */
+  if (!workspaceId || !isUuid(id) || !name) {
+    return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
 
   const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);

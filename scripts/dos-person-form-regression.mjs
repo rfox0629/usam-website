@@ -52,16 +52,20 @@ for (const name of ["name", "phone", "spouse_name", "children_names", "household
   assert(form.includes(`<input name="${name}" type="hidden"`), `${name} travels as a plain hidden field.`);
 }
 
-// 3. Add Person is short; Edit Person is compact sections.
-const addBlock = form.slice(form.indexOf("/* Add Person: the short path first"));
-assert(addBlock.indexOf('title="Person"') < addBlock.indexOf('title="Connection"') && addBlock.indexOf('title="Connection"') < addBlock.indexOf('title="Add more details"'), "Add Person: Person, Connection, Add more details.");
-assert(addBlock.includes("{visibilitySelect}") && addBlock.indexOf("{visibilitySelect}") > addBlock.indexOf('title="Add more details"'), "List visibility sits behind Add more details on Add.");
-assert(addBlock.includes("{householdFields}") && addBlock.includes("{detailsFields}") && addBlock.includes("{notesField}") && addBlock.includes("<ImportantDatesReminderSection />"), "Household, details, notes and the reminder shortcut all remain, behind Add more details.");
-const editBlock = form.slice(form.indexOf("if (isEditMode) {"), form.indexOf("/* Add Person: the short path first"));
-equal([...editBlock.matchAll(/<PersonEditSection id="([a-z]+)"/g)].map((match) => match[1]), ["basic", "relationship", "household", "details", "notes", "advanced"], "Edit Person sections in order.");
-assert(client.includes('<div className={open ? "grid gap-3 pb-4" : "hidden"} hidden={!open} id={`person-section-${id}`}>'), "Collapsed Edit sections hide their fields rather than unmounting them, so every value still submits.");
-assert(client.includes("setOpenSection((current) => (current === key ? null : key))"), "One Edit section is open at a time.");
-assert(editBlock.indexOf("Delete this person") > editBlock.lastIndexOf("</PersonEditSection>"), "Delete stays separate at the bottom of Edit Person.");
+// 3. Add and Edit are one form: the same sections, in the same order.
+//    (USA-244 follow-up: Add Person's single oversized "more details"
+//    expansion was replaced by the progressive sections Edit already used.)
+equal(
+  [...form.matchAll(/key: "(basic|relationship|household|details|reminder|notes)"/g)].map((match) => match[1]),
+  ["basic", "relationship", "household", "details", "reminder", "notes"],
+  "Person sections in the approved order, shared by Add and Edit.",
+);
+assert(!form.includes("if (isEditMode) {"), "Add and Edit share one form body rather than two layouts.");
+assert(form.includes("{visibilitySelect}") && form.includes("{engagementField}"), "List visibility and Engagement Level both live in the Relationship section.");
+assert(form.includes("content: householdFields,") && form.includes("content: detailsFields,") && form.includes("content: notesField,") && form.includes("<ImportantDatesReminderSection calendarConnected={calendarConnected} />"), "Household, details, notes and the reminder shortcut all remain.");
+assert(client.includes('<div className={open ? "grid gap-3 pb-4" : "hidden"} data-person-section={id} hidden={!open} id={`person-section-${id}`}>'), "Collapsed sections hide their fields rather than unmounting them, so every value still submits.");
+assert(client.includes("setOpenSection((current) => (current === key ? null : key))"), "One optional section is open at a time.");
+assert(form.indexOf("Delete this person") > form.lastIndexOf("</PersonEditSection>"), "Delete stays separate at the bottom of the form.");
 assert(between(client, 'formMode === "editPerson" && selectedPerson ?', "</DosWorkflowPage>").includes("people={people}"), "Edit Person receives the people list so household names can link to existing people.");
 
 // 4. Household members carry their own visibility; linked people keep theirs.

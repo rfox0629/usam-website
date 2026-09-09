@@ -383,8 +383,8 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       status: "new",
       updatedAt: demoTimestamp,
     },
-    // Acceptance fixture: a real first mentoring meeting. Philip asked to be
-    // mentored during a 2h30m first meeting; the mentoring relationship and
+    // Acceptance fixture: a real first discipleship meeting. Philip asked to be
+    // discipled during a 2h30m first meeting; the discipleship relationship and
     // monthly cadence are recorded on the Person, homework became
     // Accountability, and the next meeting is scheduled. Encouraging him to
     // begin discipling other men is Accountability — NOT Fruit, because
@@ -401,7 +401,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       lastActivityAt: daysAgoIso(6),
       meetingRhythm: "Monthly",
       name: "Philip John Saco",
-      notes: "Asked to be mentored after the men's breakfast.",
+      notes: "Asked to be discipled after the men's breakfast.",
       phone: "918-555-0173",
       relationshipContext: "church",
       relationshipType: "discipling",
@@ -409,6 +409,52 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       roleInMyLife: "discipling_them",
       status: "active",
       updatedAt: demoTimestamp,
+    },
+    /* USA-244 follow-up: a household member created without a phone -- the
+       shape of 28 of the 73 real people in the founder's workspace, and the
+       shape that could not be saved at all before this change. Editing her
+       is the reproduction case for the Household-only save bug. */
+    {
+      church: null,
+      createdAt: daysAgoIso(2),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "primary",
+      id: "demo-person-skylar-gaffney",
+      lastActivityAt: daysAgoIso(2),
+      name: "Skylar Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "other",
+      relationshipType: "New · Other · Exploring",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "new",
+      updatedAt: daysAgoIso(2),
+    },
+    /* USA-247: a household-only person, so the People list's Household
+       control has something real to reveal in the founder preview. */
+    {
+      church: null,
+      createdAt: daysAgoIso(30),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "secondary",
+      id: "demo-person-selah-gaffney",
+      lastActivityAt: daysAgoIso(30),
+      name: "Selah Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "family",
+      relationshipType: "New · Family · Exploring",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "new",
+      updatedAt: daysAgoIso(30),
     },
     // Kept from main: Tanner backs the Wednesday Men's Group Journey QA.
     {
@@ -441,14 +487,14 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       fieldPersonIds: ["demo-person-philip-saco"],
       growthReflection: emptyGrowthReflection,
       id: "demo-meeting-philip-first",
-      notes: "Philip asked me to mentor him. We talked through where he is with God, his marriage, and the men he already has influence with. Agreed to meet monthly.",
+      notes: "Philip asked me to disciple him. We talked through where he is with God, his marriage, and the men he already has influence with. Agreed to meet monthly.",
       participantNames: ["Philip John Saco"],
       recommendedResources: [],
       review: buildDemoReview(),
       scheduledEndAt: daysAgoIso(6, 12, 30),
       scheduledStartAt: daysAgoIso(6, 10),
       source: "table",
-      title: "First mentoring meeting",
+      title: "First discipleship meeting",
       type: "kitchen_table",
       updatedAt: daysAgoIso(6, 13),
     },
@@ -2012,7 +2058,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
           finalSummary: "A private personal summary will live here after finishing the book.",
           finishedOn: null,
           id: "demo-my-record-learning-book",
-          personalApplication: "Bring reading into prayer and mentor conversations.",
+          personalApplication: "Bring reading into prayer and discipleship conversations.",
           shareEligible: false,
           startedOn: "2026-07-01",
           status: "reading",
@@ -2027,13 +2073,13 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       prayerLogs: [],
       propheticWords: [
         {
-          confirmations: "Confirmed through mentor counsel and John 15.",
+          confirmations: "Confirmed through counsel from the person discipling me and John 15.",
           context: "Prayer night",
           createdAt: demoTimestamp,
           dateReceived: "2026-07-01",
           givenBy: "Leif Hetland",
           id: "demo-my-record-prophetic-word",
-          notes: "Testing this with Brooke and mentors.",
+          notes: "Testing this with Brooke and the people discipling me.",
           scriptureReferences: ["John 15", "Isaiah 61"],
           status: "testing",
           tags: ["Abide", "Family", "Calling"],

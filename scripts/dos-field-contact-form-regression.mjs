@@ -37,19 +37,22 @@ const formBlock = appClient.slice(formStart, formEnd);
 
 assert(formStart !== -1 && formEnd !== -1, "PersonFormContent must exist in DosMvpAppClient.tsx.");
 
-/* USA-244 Add order: the core Person section, then Connection (two
-   dropdowns, always visible), then everything else behind "Add more details"
-   with Household & Family before Address & Details before Notes. */
-const addStart = formBlock.indexOf("/* Add Person: the short path first");
-const addBlock = formBlock.slice(addStart);
+/* USA-244 follow-up: Add and Edit share one progressive section list, in the
+   founder-approved order. Basic information (name, phone, email) comes first
+   and starts open; the connection questions and list visibility sit together
+   in Relationship; household, details, the reminder shortcut and notes
+   follow. */
+const sectionOrder = [...formBlock.matchAll(/key: "(basic|relationship|household|details|reminder|notes)"/g)].map((match) => match[1]);
 assert(
-  addStart !== -1
-    && addBlock.indexOf('title="Person"') !== -1
-    && addBlock.indexOf('title="Person"') < addBlock.indexOf('title="Connection"')
-    && addBlock.indexOf('title="Connection"') < addBlock.indexOf('title="Add more details"')
-    && addBlock.indexOf("Household &amp; Family") < addBlock.indexOf("Address &amp; Details")
-    && addBlock.indexOf("Address &amp; Details") < addBlock.indexOf(">Notes<"),
-  "Add Person must present Person, then Connection, then Add more details (Household & Family, Address & Details, Notes), in that order.",
+  sectionOrder.join(",") === "basic,relationship,household,details,reminder,notes",
+  `Add Person must present the shared sections in the approved order (got ${sectionOrder.join(",") || "none"}).`,
+);
+assert(
+  formBlock.indexOf("content: contactFields,") < formBlock.indexOf("{stageSelect}")
+    && formBlock.indexOf("{stageSelect}") < formBlock.indexOf("content: householdFields,")
+    && formBlock.indexOf("content: householdFields,") < formBlock.indexOf("content: detailsFields,")
+    && formBlock.indexOf("content: detailsFields,") < formBlock.indexOf("content: notesField,"),
+  "The section contents follow the same order as the section keys.",
 );
 
 assert(
@@ -62,54 +65,51 @@ assert(
   "The old single all-or-nothing Additional Information toggle must be replaced by independent disclosure sections.",
 );
 
+/* USA-244 follow-up: the oversized single disclosure on Add is gone. The
+   optional groups are the shared progressive sections instead. */
 assert(
-  addBlock.includes('<DisclosureSection description="Visibility, household, address, and notes." title="Add more details">')
-    && (addBlock.match(/<DisclosureSection /g) ?? []).length === 1,
-  "Add Person's optional groups must sit behind exactly one \"Add more details\" disclosure.",
+  !formBlock.includes('title="Add more details"'),
+  "Add Person's optional groups must no longer sit behind one oversized disclosure.",
 );
 
-/* Connection is a visible section, never a disclosure: the two dropdowns
-   are the Basic form. */
+/* Connection is asked in the Relationship section, never as a nested
+   disclosure of its own. */
 assert(
   !/<DisclosureSection[^>]*title="Connection"/.test(formBlock),
-  "Connection must stay a visible section, not a collapsed disclosure.",
+  "The connection questions must stay a plain section, not a collapsed disclosure.",
 );
 
 /* Engagement Levels is an Advanced Feature: present only when the workspace
-   flag is on, inside Add more details on Add and its own Advanced section on Edit. */
+   flag is on, and it lives in Relationship on both forms. */
 assert(
   formBlock.includes("const engagementField = showEngagement ? (")
-    && addBlock.includes("{engagementField}")
-    && /showEngagement \? \(\s*<PersonEditSection id="advanced"/.test(formBlock),
-  "Engagement must be gated by the Advanced Feature on both shapes of the form.",
+    && /\{visibilitySelect\}\s*\{engagementField\}/.test(formBlock)
+    && !formBlock.includes('<PersonEditSection id="advanced"'),
+  "Engagement must be gated by the Advanced Feature and sit inside Relationship on both forms.",
 );
 
 assert(
-  addBlock.includes("<ImportantDatesReminderSection />")
+  formBlock.includes("<ImportantDatesReminderSection calendarConnected={calendarConnected} />")
     && !formBlock.includes('description="Add one dated reminder to this person." title="Reminders"'),
-  "Reminders must render its own single collapsible (ImportantDatesReminderSection) directly on Add, not nested inside a second outer DisclosureSection with duplicate copy.",
+  "The reminder shortcut renders as its own section on Add, not nested inside a second outer disclosure with duplicate copy.",
 );
 
-/* Edit Person: compact sections, one open at a time, fields hidden rather
-   than unmounted so a collapsed section still submits its values. */
-const editStart = formBlock.indexOf("if (isEditMode) {");
-const editBlock = formBlock.slice(editStart, addStart);
-const editSectionIds = [...editBlock.matchAll(/<PersonEditSection id="([a-z]+)"/g)].map((match) => match[1]);
+/* One shared set of compact sections, one open at a time, contents hidden
+   rather than unmounted so a collapsed section still submits its values. */
+const sectionIds = [...formBlock.matchAll(/key: "(basic|relationship|household|details|reminder|notes)"/g)].map((match) => match[1]);
 assert(
   formBlock.includes("const isEditMode = !showDetailsToggle;")
-    && editStart !== -1
-    && editSectionIds.join(",") === "basic,relationship,household,details,notes,advanced"
-    && editBlock.includes('const [openSection, setOpenSection] = useState<PersonEditSectionKey>("basic");') === false
+    && sectionIds.join(",") === "basic,relationship,household,details,reminder,notes"
     && formBlock.includes('const [openSection, setOpenSection] = useState<PersonEditSectionKey>("basic");')
     && formBlock.includes("setOpenSection((current) => (current === key ? null : key))")
-    && appClient.includes('<div className={open ? "grid gap-3 pb-4" : "hidden"} hidden={!open} id={`person-section-${id}`}>'),
-  "Edit Person must be compact sections (Basic information, Relationship, Household, Details, Notes, Advanced), one open at a time, with collapsed fields kept mounted.",
+    && appClient.includes('<div className={open ? "grid gap-3 pb-4" : "hidden"} data-person-section={id} hidden={!open} id={`person-section-${id}`}>'),
+  "Add and Edit must share compact sections (Basic information, Relationship, Household, Details, Reminder, Notes), one open at a time, with collapsed contents kept mounted.",
 );
 
 assert(
-  editBlock.indexOf("Delete this person") > editBlock.lastIndexOf("</PersonEditSection>")
-    && editBlock.indexOf("Delete this person") < editBlock.indexOf("<StickyFormFooter>"),
-  "Delete must stay separate at the bottom of Edit Person, below every section and above the sticky footer.",
+  formBlock.indexOf("Delete this person") > formBlock.lastIndexOf("</PersonEditSection>")
+    && formBlock.indexOf("Delete this person") < formBlock.indexOf("<StickyFormFooter>"),
+  "Delete must stay separate at the bottom of the form, below every section and above the sticky footer.",
 );
 
 assert(
