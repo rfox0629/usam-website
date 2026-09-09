@@ -20,11 +20,15 @@ const font = { rajdhani: "'Inter', sans-serif" };
  * for the whole application rather than one per form. */
 export function DosWorkflowPage({
   children,
+  identity,
   onClose,
   subtitle,
   title,
 }: {
   children: ReactNode;
+  /* The record this page is about (a person's name). When set, the page uses
+     the compact sticky header instead of the tall one. */
+  identity?: string | null;
   onClose: () => void;
   subtitle?: string;
   title: string;
@@ -47,19 +51,41 @@ export function DosWorkflowPage({
   return (
     <div className="fixed inset-0 z-[120] overflow-y-auto bg-white [scrollbar-width:none] md:left-[232px] xl:left-[260px]">
       <div className="mx-auto w-full max-w-[620px] px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-6 md:px-8 md:pb-16 md:pt-10" ref={bodyRef}>
-        <header>
-          <button
-            aria-label="Back"
-            className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
-            onClick={requestClose}
-            type="button"
-          >
-            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
-          </button>
-          <h2 className="mt-2 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{title}</h2>
-          {subtitle ? <p className="mt-1.5 text-[14.5px] leading-[1.5] text-dos-body">{subtitle}</p> : null}
-        </header>
-        <div className="mt-6">{children}</div>
+        {/* USA-244: when the page names a record, the Back button and that
+            name ride along at the top. Open an accordion, scroll, and it is
+            still obvious whose record this is. Compact by design: one 44px
+            row, below the safe area, above the content but below the sticky
+            save action, so it never covers either. */}
+        {identity ? (
+          <header className="sticky top-0 z-10 -mx-4 mb-4 flex min-h-14 items-center gap-2 border-b border-dos-rule bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:-mx-8 md:px-8">
+            <button
+              aria-label="Back"
+              className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+              onClick={requestClose}
+              type="button"
+            >
+              <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+            </button>
+            <span className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.13em] text-dos-eyebrow">{title}</span>
+              <h2 className="truncate text-[17px] font-bold leading-[1.2] tracking-[-0.01em] text-dos-primary">{identity}</h2>
+            </span>
+          </header>
+        ) : (
+          <header>
+            <button
+              aria-label="Back"
+              className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+              onClick={requestClose}
+              type="button"
+            >
+              <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+            </button>
+            <h2 className="mt-2 text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">{title}</h2>
+            {subtitle ? <p className="mt-1.5 text-[14.5px] leading-[1.5] text-dos-body">{subtitle}</p> : null}
+          </header>
+        )}
+        <div className={identity ? "" : "mt-6"}>{children}</div>
       </div>
       {guard.confirmation}
     </div>
