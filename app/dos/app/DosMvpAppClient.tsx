@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Target, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -28,6 +28,20 @@ import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
 import { accountabilityDraftFrequency, accountabilityDraftSummary, accountabilityTrackingModeFor, type AccountabilityDraft, type AccountabilityTrackingMode } from "@/src/lib/dos/accountability-presentation";
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FieldTimeInputClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
+import {
+  capacityConflicts,
+  capacityReport,
+  circleTierCapacity,
+  circleTierLabel,
+  circleTiers,
+  placedTotal,
+  placementChanges,
+  tierCounts,
+  viewCounts,
+  type CirclePlacement,
+  type CirclePlacementChange,
+  type CircleTier,
+} from "@/src/lib/dos/circle-tiers";
 import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
@@ -25716,6 +25730,270 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
   );
 }
 
+/* USA-247: Manage circles.
+ *
+ * A prototype for founder review. It changes nothing: there is no confirmed
+ * placement stored anywhere yet, so everything currently in a circle is shown
+ * as an unconfirmed machine recommendation, which is exactly what production
+ * holds. Saving produces the change set that WOULD be written and says so.
+ *
+ * Two rules the surface exists to make visible:
+ *   - a placement is a human decision, so nothing here moves on its own;
+ *   - a recommendation must show its reasons and be approved one person at a
+ *     time.
+ * Storage is the exclusive tier; the familiar My 3 / 12 / 70 / 120 numbers are
+ * cumulative views computed from those tiers (src/lib/dos/circle-tiers.ts). */
+function ManageCirclesWorkflow({
+  onClose,
+  people,
+  recommendations,
+}: {
+  onClose: () => void;
+  people: DosAppPerson[];
+  /* The existing score engine's output, used ONLY as a suggestion with
+     reasons. It never places anyone. */
+  recommendations: Map<string, { reasons: string[]; suggested: CircleTier; summary: string }>;
+}) {
+  /* Confirmed placements. Empty today, because production has none: every
+     stored circle is machine-assigned and none was ever confirmed. */
+  const [draft, setDraft] = useState<Map<string, CirclePlacement>>(() => new Map());
+  const [confirmedBaseline] = useState<Map<string, CirclePlacement>>(() => new Map());
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [savedSummary, setSavedSummary] = useState<CirclePlacementChange[] | null>(null);
+  const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
+  const placementOf = (personId: string): CirclePlacement => draft.get(personId) ?? "not_placed";
+  const counts = useMemo(() => tierCounts(people.map((person) => placementOf(person.id))), [draft, people]);
+  const capacity = useMemo(() => capacityReport(counts), [counts]);
+  const conflicts = useMemo(() => capacityConflicts(counts), [counts]);
+  const changes = useMemo(() => placementChanges(confirmedBaseline, draft), [confirmedBaseline, draft]);
+  const views = useMemo(() => viewCounts(counts), [counts]);
+
+  function place(personId: string, placement: CirclePlacement) {
+    setSavedSummary(null);
+    setDraft((current) => {
+      const next = new Map(current);
+
+      if (placement === "not_placed") {
+        next.delete(personId);
+      } else {
+        next.set(personId, placement);
+      }
+
+      return next;
+    });
+  }
+
+  const placedByTier = circleTiers.map((tier) => ({
+    people: people.filter((person) => placementOf(person.id) === tier),
+    tier,
+  }));
+  const unplaced = people.filter((person) => placementOf(person.id) === "not_placed");
+
+  return (
+    <DosWorkflowPage identity="Manage circles" onClose={onClose} title="People">
+      <div className="grid gap-4">
+        <p className="text-[14.5px] leading-[1.5] text-dos-body">
+          Circle placement is your decision. Nothing here moves anyone automatically, and no meeting, minute, Fruit entry or engagement rating will change a placement you have confirmed.
+        </p>
+
+        {/* Capacity, per exclusive tier, with the cumulative view it feeds. */}
+        <section aria-label="Circle capacity" className="grid gap-2 rounded-[20px] border border-dos-line bg-white p-3.5">
+          <h3 className="text-[15px] font-bold text-dos-primary">Capacity</h3>
+          {capacity.map((row) => (
+            <div className="flex min-w-0 items-baseline justify-between gap-3" key={row.tier}>
+              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{circleTierLabel[row.tier]}</span>
+              <span className={`shrink-0 text-[13px] tabular-nums ${row.overBy ? "font-bold text-[#B42318]" : "text-dos-secondary"}`}>
+                {row.used} of {row.capacity}
+                {row.overBy ? ` · ${row.overBy} over` : row.remaining ? ` · ${row.remaining} open` : " · full"}
+              </span>
+            </div>
+          ))}
+          <p className="mt-1 border-t border-dos-rule pt-2 text-[12.5px] leading-[1.45] text-dos-secondary">
+            These four tiers are what gets stored, and a person is only ever in one of them. The circles you read are cumulative: My 3 {views.my_3}, My 12 {views.my_12}, My 70 {views.my_70}, My 120 {views.my_120}. {placedTotal(counts)} {placedTotal(counts) === 1 ? "person is" : "people are"} placed in total.
+          </p>
+        </section>
+
+        {placedByTier.map(({ people: tierPeople, tier }) => (
+          <section aria-label={circleTierLabel[tier]} className="grid gap-2" key={tier}>
+            <h3 className="text-[15px] font-bold text-dos-primary">
+              {circleTierLabel[tier]} <span className="font-medium text-dos-secondary">({tierPeople.length} of {circleTierCapacity[tier]})</span>
+            </h3>
+            {tierPeople.length ? tierPeople.map((person) => (
+              <ManageCirclesRow
+                key={person.id}
+                onPlace={(next) => place(person.id, next)}
+                person={person}
+                placement={tier}
+                recommendation={recommendations.get(person.id) ?? null}
+              />
+            )) : (
+              <p className="rounded-[16px] border border-dashed border-dos-line px-3 py-2.5 text-[13px] text-dos-secondary">Nobody confirmed here yet.</p>
+            )}
+          </section>
+        ))}
+
+        <section aria-label="Not placed" className="grid gap-2">
+          <h3 className="text-[15px] font-bold text-dos-primary">
+            Not placed <span className="font-medium text-dos-secondary">({unplaced.length})</span>
+          </h3>
+          <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+            Everyone in your field who has no confirmed circle. Suggestions come from the existing score and are only suggestions.
+          </p>
+          {unplaced.map((person) => (
+            <ManageCirclesRow
+              key={person.id}
+              onPlace={(next) => place(person.id, next)}
+              person={person}
+              placement="not_placed"
+              recommendation={recommendations.get(person.id) ?? null}
+            />
+          ))}
+        </section>
+
+        {conflicts.length ? (
+          <section aria-label="Capacity conflicts" className="grid gap-1 rounded-[18px] border border-[#F0A5A5] bg-[#FEF2F2] p-3.5">
+            <p className="text-[14px] font-bold text-[#B42318]">Over capacity</p>
+            {conflicts.map((row) => (
+              <p className="text-[13px] leading-[1.45] text-[#912018]" key={row.tier}>
+                {circleTierLabel[row.tier]} holds {row.used}, which is {row.overBy} more than {circleTierCapacity[row.tier]}. Move someone out before saving.
+              </p>
+            ))}
+          </section>
+        ) : null}
+
+        {savedSummary ? (
+          <section aria-label="Save result" className="grid gap-1.5 rounded-[18px] border border-[#BFDBFE] bg-[#F8FBFF] p-3.5" role="status">
+            <p className="text-[14px] font-bold text-dos-blueText">Prototype — nothing was saved</p>
+            <p className="text-[13px] leading-[1.5] text-dos-body">
+              This is the change set a real save would write, once you approve the data contract and migration:
+            </p>
+            <ul className="grid gap-1">
+              {savedSummary.length ? savedSummary.map((change) => (
+                <li className="text-[13px] leading-[1.5] text-dos-body" key={change.personId}>
+                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : circleTierLabel[change.from]} → {change.to === "not_placed" ? "not placed" : circleTierLabel[change.to]}
+                </li>
+              )) : <li className="text-[13px] text-dos-secondary">No changes.</li>}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+
+      <StickyFormFooter>
+        {isReviewing ? (
+          <>
+            <p className="text-[13px] leading-[1.5] text-dos-body">
+              {changes.length ? `Save ${changes.length} placement ${changes.length === 1 ? "change" : "changes"}?` : "Nothing has changed yet."}
+              {conflicts.length ? " Resolve the capacity conflict first." : ""}
+            </p>
+            <Button
+              disabled={Boolean(conflicts.length) || !changes.length}
+              fullWidth
+              onClick={() => {
+                setSavedSummary(changes);
+                setIsReviewing(false);
+              }}
+              variant="primary"
+            >
+              Confirm these changes
+            </Button>
+            <Button fullWidth onClick={() => setIsReviewing(false)} variant="secondary">Keep editing</Button>
+          </>
+        ) : (
+          <Button disabled={!changes.length} fullWidth onClick={() => setIsReviewing(true)} variant="primary">
+            {changes.length ? `Review ${changes.length} ${changes.length === 1 ? "change" : "changes"}` : "No changes to review"}
+          </Button>
+        )}
+      </StickyFormFooter>
+    </DosWorkflowPage>
+  );
+}
+
+/* One person: where they are, where they could go, and -- kept visually
+   distinct from the placement itself -- what the score suggests and why. */
+function ManageCirclesRow({
+  onPlace,
+  person,
+  placement,
+  recommendation,
+}: {
+  onPlace: (placement: CirclePlacement) => void;
+  person: DosAppPerson;
+  placement: CirclePlacement;
+  recommendation: { reasons: string[]; suggested: CircleTier; summary: string } | null;
+}) {
+  const [isExplaining, setIsExplaining] = useState(false);
+  const suggestsElsewhere = recommendation && recommendation.suggested !== placement;
+
+  return (
+    <article className="grid gap-2 rounded-[16px] border border-dos-line bg-white p-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-bold text-dos-primary">{person.name}</p>
+          <p className="mt-0.5 truncate text-[12.5px] text-dos-secondary">
+            {placement === "not_placed" ? "Not placed" : `Confirmed: ${circleTierLabel[placement]}`}
+          </p>
+        </div>
+        {suggestsElsewhere ? (
+          <button
+            aria-expanded={isExplaining}
+            className="shrink-0 rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-1 text-[11.5px] font-bold text-[#92400E]"
+            onClick={() => setIsExplaining((current) => !current)}
+            type="button"
+          >
+            Suggested: {circleTierLabel[recommendation.suggested]}
+          </button>
+        ) : null}
+      </div>
+
+      {isExplaining && recommendation ? (
+        <div className="grid gap-1 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
+          <p className="text-[12.5px] font-semibold leading-[1.45] text-[#92400E]">{recommendation.summary}</p>
+          <ul className="grid gap-0.5">
+            {recommendation.reasons.map((reason) => (
+              <li className="text-[12.5px] leading-[1.45] text-[#78350F]" key={reason}>· {reason}</li>
+            ))}
+          </ul>
+          <button
+            className="mt-1 w-fit rounded-full bg-[#92400E] px-3 py-1.5 text-[12.5px] font-bold text-white"
+            onClick={() => {
+              onPlace(recommendation.suggested);
+              setIsExplaining(false);
+            }}
+            type="button"
+          >
+            Accept and place in {circleTierLabel[recommendation.suggested]}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-1.5">
+        {circleTiers.map((tier) => (
+          <button
+            aria-pressed={placement === tier}
+            className={`min-h-9 rounded-full border px-3 text-[12.5px] font-bold transition-colors ${
+              placement === tier ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
+            }`}
+            key={tier}
+            onClick={() => onPlace(tier)}
+            type="button"
+          >
+            {circleTierLabel[tier]}
+          </button>
+        ))}
+        {placement === "not_placed" ? null : (
+          <button
+            className="min-h-9 rounded-full border border-dos-line bg-white px-3 text-[12.5px] font-bold text-[#B42318] transition-colors hover:border-[#F0A5A5]"
+            onClick={() => onPlace("not_placed")}
+            type="button"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 function PersonFormContent({
   additionalDefaults,
   buttonText,
@@ -36792,6 +37070,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(restoredAppView.selectedPersonId ?? null);
   const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
   const [showSecondaryFieldPeople, setShowSecondaryFieldPeople] = useState(false);
+  const [isManageCirclesOpen, setIsManageCirclesOpen] = useState(false);
   const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
   const [selectedRelationshipScore, setSelectedRelationshipScore] = useState<RelationshipScoreValue>(0);
   const [selectedOutcomeTags, setSelectedOutcomeTags] = useState<string[]>([]);
@@ -37092,6 +37371,80 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [data.circles, fieldListPeople]);
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
+  /* USA-247: the existing score engine, used ONLY as a suggestion with its
+     stored reasons. Its legacy circle maps to the tier a person would be
+     placed in if a human accepted it; it places nobody by itself. */
+  const circleRecommendations = useMemo(() => {
+    const suggestedTierFor = (circle: string): CircleTier | null => (
+      circle === "three" ? "inner_3"
+        : circle === "twelve" ? "next_9"
+          : circle === "seventy" ? "next_58"
+            : circle === "my_120" ? "next_50"
+              : null
+    );
+    const map = new Map<string, { reasons: string[]; suggested: CircleTier; summary: string }>();
+    const scores = data.circles
+      ? [...data.circles.my3, ...data.circles.my12, ...data.circles.my70, ...data.circles.my120]
+      : [];
+
+    scores.forEach((score) => {
+      const suggested = suggestedTierFor(score.circle);
+
+      if (!suggested) {
+        return;
+      }
+
+      map.set(score.person.id, {
+        reasons: [
+          ...(score.explanation?.positive_factors ?? []),
+          ...(score.explanation?.negative_factors ?? []).map((factor) => `Against: ${factor}`),
+        ],
+        suggested,
+        summary: score.explanation?.summary ?? "Suggested by the existing relationship score.",
+      });
+    });
+
+    return map;
+  }, [data.circles]);
+  /* USA-247: what each number on the People rail counts.
+     Storage is exclusive (one tier per person); the rail is CUMULATIVE, so
+     My 12 includes My 3 and My 120 includes them all. Both come from the same
+     tier tallies via src/lib/dos/circle-tiers.ts, which is why a person is
+     never counted twice when the whole field is aggregated.
+     Every count is taken AFTER the two filters the list itself uses -- the
+     household/secondary toggle (`fieldListPeople`) and the search box -- so a
+     tab never promises rows the list will not show. Workspace scope,
+     permissions and privacy are applied upstream: `people` is loaded for one
+     workspace, `hidden` people never enter the field list, and archived
+     people never reach it.
+     Today every stored placement is an unconfirmed machine assignment, so
+     these numbers describe suggestions, not confirmed circles. */
+  const peopleCircleCounts = useMemo(() => {
+    const searched = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery);
+    const counts = tierCounts([
+      ...searched(circlePeopleByLayer.three).map(() => "inner_3" as const),
+      ...searched(circlePeopleByLayer.twelve).map(() => "next_9" as const),
+      ...searched(circlePeopleByLayer.seventy).map(() => "next_58" as const),
+      ...searched(circlePeopleByLayer.my120).map(() => "next_50" as const),
+    ]);
+    const cumulative = viewCounts(counts);
+
+    return {
+      all: searched(allCirclePeople).length,
+      my_120: cumulative.my_120,
+      placed: placedTotal(counts),
+      seventy: cumulative.my_70,
+      three: cumulative.my_3,
+      twelve: cumulative.my_12,
+    };
+  }, [allCirclePeople, circlePeopleByLayer, peopleQuery]);
+  /* All is everyone listed. The circles hold only those with a placement, so
+     All is larger by exactly the people who have none. */
+  const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - peopleCircleCounts.placed);
+  const peopleCircleTabsWithCounts = useMemo(
+    () => peopleCircleTabs.map((tab) => ({ ...tab, count: peopleCircleCounts[tab.value] })),
+    [peopleCircleCounts],
+  );
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   /* Which circle each person is in, read from the same layer groups the tabs
@@ -42930,7 +43283,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     immediately after it. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
+                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabsWithCounts} value={peopleCircleView} />
                   </div>
                   {secondaryFieldPeopleCount ? (
                     <button
@@ -42951,10 +43304,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         : null}
                     </button>
                   ) : null}
+                  {/* USA-247: circle placement is a deliberate decision, so it
+                      has its own surface rather than living in a filter. */}
+                  <button
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                    onClick={() => setIsManageCirclesOpen(true)}
+                    type="button"
+                  >
+                    <Target aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    <span>Manage circles</span>
+                  </button>
                 </div>
                 {secondaryFieldPeopleCount && showSecondaryFieldPeople ? (
                   <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
                     Including {hiddenHouseholdCount} household-only {hiddenHouseholdCount === 1 ? "person" : "people"}. Their saved visibility is unchanged.
+                  </p>
+                ) : null}
+                {peopleCircleView === "all" && unplacedPeopleCount ? (
+                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+                    All is everyone in your field, including {unplacedPeopleCount} with no circle placement. My 12 includes My 3, and My 120 includes them all, so the circles overlap by design and cannot be added together.
                   </p>
                 ) : null}
 
@@ -44711,6 +45079,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           backdrop destroyed a half-finished edit -- the exact failure this
           pass exists to remove. Both route Back through the unsaved-work
           guard. */}
+      {isManageCirclesOpen ? (
+        <ManageCirclesWorkflow
+          onClose={() => setIsManageCirclesOpen(false)}
+          people={fieldListPeople}
+          recommendations={circleRecommendations}
+        />
+      ) : null}
+
       {formMode === "person" ? (
         <DosWorkflowPage onClose={closeForm} subtitle="Start with what you know. You can fill in the rest later." title="Add Person">
           <PersonFormContent

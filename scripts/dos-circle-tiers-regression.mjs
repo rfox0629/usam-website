@@ -1,0 +1,185 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import {
+  capacityConflicts,
+  capacityReport,
+  circleTierCapacity,
+  circleTiers,
+  circleViewCapacity,
+  circleViewTiers,
+  circleViews,
+  normalizeCirclePlacement,
+  placedTotal,
+  placementChanges,
+  tierCounts,
+  viewCounts,
+} from "../src/lib/dos/circle-tiers.ts";
+
+function read(path) {
+  return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+/* ---- Storage is exclusive; display is cumulative -------------------------
+ *
+ * The whole point of the contract. Tiers never overlap, views nest, and no
+ * aggregate over the field may count a person twice. */
+
+assert.deepEqual([...circleTiers], ["inner_3", "next_9", "next_58", "next_50"], "the four exclusive tiers, innermost first");
+assert.deepEqual([...circleViews], ["my_3", "my_12", "my_70", "my_120"], "the four cumulative views");
+
+/* Tier capacities produce the familiar view sizes, and are not written twice. */
+assert.deepEqual(
+  circleViews.map((view) => circleViewCapacity(view)),
+  [3, 12, 70, 120],
+  "cumulative capacities are 3 / 12 / 70 / 120, derived from tiers of 3 / 9 / 58 / 50",
+);
+assert.equal(circleTierCapacity.inner_3 + circleTierCapacity.next_9, circleViewCapacity("my_12"));
+assert.equal(circleTiers.reduce((total, tier) => total + circleTierCapacity[tier], 0), 120, "the tiers add up to 120 exactly once");
+
+/* Views nest: each view's tiers are a prefix of the next. */
+circleViews.forEach((view, index) => {
+  if (index === 0) {
+    return;
+  }
+
+  const previous = circleViewTiers[circleViews[index - 1]];
+  const current = circleViewTiers[view];
+
+  assert.deepEqual(current.slice(0, previous.length), [...previous], `${view} contains every tier of ${circleViews[index - 1]}`);
+  assert.ok(current.length > previous.length, `${view} is strictly wider`);
+});
+
+/* ---- Counting ----------------------------------------------------------- */
+const placements = [
+  "inner_3", "inner_3", "inner_3",
+  "next_9", "next_9",
+  "next_58",
+  "next_50", "next_50", "next_50", "next_50",
+  "not_placed", "not_placed",
+];
+const counts = tierCounts(placements);
+
+assert.deepEqual(counts, { inner_3: 3, next_9: 2, next_50: 4, next_58: 1 }, "tier tallies are exclusive");
+assert.deepEqual(viewCounts(counts), { my_12: 5, my_120: 10, my_3: 3, my_70: 6 }, "view tallies are cumulative");
+assert.equal(placedTotal(counts), 10, "the exclusive total is the only correct answer to how many people are placed");
+
+/* The invariant that protects reporting: the widest view equals the
+   exclusive total, so aggregating the field never double-counts. */
+assert.equal(viewCounts(counts).my_120, placedTotal(counts), "My 120 equals the number of placed people, counted once each");
+assert.ok(
+  viewCounts(counts).my_3 <= viewCounts(counts).my_12
+    && viewCounts(counts).my_12 <= viewCounts(counts).my_70
+    && viewCounts(counts).my_70 <= viewCounts(counts).my_120,
+  "cumulative counts never decrease as the circle widens",
+);
+assert.notEqual(
+  viewCounts(counts).my_3 + viewCounts(counts).my_12 + viewCounts(counts).my_70 + viewCounts(counts).my_120,
+  placedTotal(counts),
+  "summing the four VIEWS is not a headcount -- that is the double-count this contract exists to prevent",
+);
+
+/* Unknown or legacy values are never silently treated as a placement. */
+["three", "twelve", "seventy", "my_120", "field", null, undefined, "", 7].forEach((value) => {
+  assert.equal(normalizeCirclePlacement(value), "not_placed", `${JSON.stringify(value)} is not a confirmed placement`);
+});
+circleTiers.forEach((tier) => assert.equal(normalizeCirclePlacement(tier), tier));
+
+/* ---- Capacity ----------------------------------------------------------- */
+const report = capacityReport({ inner_3: 3, next_9: 2, next_50: 0, next_58: 1 });
+const inner = report.find((row) => row.tier === "inner_3");
+
+assert.deepEqual({ capacity: inner.capacity, overBy: inner.overBy, remaining: inner.remaining, used: inner.used }, { capacity: 3, overBy: 0, remaining: 0, used: 3 }, "a full tier reports no remaining space and no overflow");
+assert.equal(report.find((row) => row.tier === "next_9").remaining, 7, "remaining capacity is per tier");
+assert.deepEqual(capacityConflicts({ inner_3: 3, next_9: 0, next_50: 0, next_58: 0 }), [], "a draft within capacity has no conflicts");
+
+const conflicts = capacityConflicts({ inner_3: 5, next_9: 0, next_50: 0, next_58: 0 });
+
+assert.equal(conflicts.length, 1, "an over-full tier is reported");
+assert.deepEqual({ overBy: conflicts[0].overBy, tier: conflicts[0].tier }, { overBy: 2, tier: "inner_3" }, "the conflict says which tier and by how many");
+
+/* ---- What a save would write -------------------------------------------- */
+const current = new Map([["a", "inner_3"], ["b", "next_9"], ["c", "not_placed"]]);
+const draft = new Map([["a", "inner_3"], ["b", "not_placed"], ["c", "next_58"], ["d", "inner_3"]]);
+
+assert.deepEqual(
+  placementChanges(current, draft),
+  [
+    { from: "next_9", personId: "b", to: "not_placed" },
+    { from: "not_placed", personId: "c", to: "next_58" },
+    { from: "not_placed", personId: "d", to: "inner_3" },
+  ],
+  "only people whose tier actually changed are written, including removals",
+);
+assert.deepEqual(placementChanges(current, current), [], "an unchanged draft writes nothing");
+
+/* ---- Placement can never be computed ------------------------------------ */
+const source = read("src/lib/dos/circle-tiers.ts");
+
+assert.ok(
+  !/score|meeting|minute|fruit|engagement|momentum|recency|last_activity/i.test(source.replace(/\/\*[\s\S]*?\*\//g, "")),
+  "the placement model reads no activity signal of any kind, so it cannot move anyone on its own",
+);
+
+console.log("DOS circle tiers (USA-247) regression passed.");
+
+/* ---- The Manage circles surface honours the contract -------------------- */
+const client = read("app/dos/app/DosMvpAppClient.tsx");
+const manageStart = client.indexOf("function ManageCirclesWorkflow(");
+const manageEnd = client.indexOf("\nfunction PersonFormContent(", manageStart);
+const manage = client.slice(manageStart, manageEnd);
+
+assert.ok(manageStart !== -1 && manageEnd !== -1, "the Manage circles workflow exists");
+assert.ok(
+  client.includes('<button') && client.includes("<span>Manage circles</span>") && client.includes("setIsManageCirclesOpen(true)"),
+  "Manage circles is reachable from the People screen",
+);
+
+/* Every founder requirement for the workflow, asserted where it lives. */
+assert.ok(manage.includes("circleTiers.map((tier)") && manage.includes("placedByTier"), "it shows every confirmed placement, tier by tier");
+assert.ok(manage.includes("onPlace={(next) => place(person.id, next)}"), "a person can be moved deliberately");
+assert.ok(manage.includes('onPlace("not_placed")') && /Remove\s*<\/button>/.test(manage), "a person can be removed from placement");
+assert.ok(manage.includes("capacityReport(counts)") && manage.includes("row.remaining") && manage.includes("row.capacity"), "remaining capacity is shown per circle");
+assert.ok(
+  manage.includes("Confirmed: ${circleTierLabel[placement]}") && manage.includes("Suggested: {circleTierLabel[recommendation.suggested]}"),
+  "a confirmed placement and a recommendation are visibly different things",
+);
+assert.ok(manage.includes("capacityConflicts(counts)") && manage.includes("Over capacity"), "capacity conflicts are surfaced");
+assert.ok(
+  manage.includes("setIsReviewing(true)") && manage.includes("Confirm these changes") && manage.includes("disabled={Boolean(conflicts.length) || !changes.length}"),
+  "saving takes an explicit confirmation and is blocked while a conflict stands",
+);
+assert.ok(
+  manage.includes("Prototype — nothing was saved"),
+  "the prototype says plainly that it writes nothing",
+);
+
+/* Recommendations explain themselves and are never applied automatically. */
+assert.ok(
+  manage.includes("recommendation.reasons.map((reason)") && manage.includes("recommendation.summary"),
+  "a recommendation shows the concrete reasons behind it",
+);
+assert.ok(
+  manage.includes("Accept and place in") && manage.includes("onPlace(recommendation.suggested)"),
+  "a recommendation is applied only when a human accepts it",
+);
+assert.ok(
+  !/useEffect\([^)]*\)\s*=>\s*\{[^}]*place\(/.test(manage),
+  "nothing places a person as a side effect",
+);
+
+/* The People rail is cumulative on top of exclusive tiers. */
+assert.ok(
+  client.includes("const cumulative = viewCounts(counts);") && client.includes("three: cumulative.my_3,") && client.includes("twelve: cumulative.my_12,"),
+  "the rail counts are cumulative views computed from exclusive tier tallies",
+);
+assert.ok(
+  client.includes("const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - peopleCircleCounts.placed);")
+    && client.includes("the circles overlap by design and cannot be added together"),
+  "All explains both the unplaced people it includes and why the circles cannot be summed",
+);
+assert.ok(
+  client.includes("placed: placedTotal(counts),"),
+  "the headcount of placed people uses the exclusive total, never the sum of views",
+);
+
+console.log("DOS circle management (USA-247) regression passed.");
