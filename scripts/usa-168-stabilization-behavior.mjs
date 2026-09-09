@@ -1493,10 +1493,11 @@ await check("Person check-in is small, canonical, and writes no meeting", async 
   /* Done finishes a one-time goal. A rhythm has no done: ending it is Pause. */
   assert(sheetBody.includes("const canComplete = Boolean(commitment) && !schedule;"), "Done is offered only where it means something.");
 
-  // Person V2 is off the legacy sheet, which still serves the Dashboard.
+  // Person V2 is off the legacy sheet. USA-257 then took the check-in
+  // workflow off Home, which was the legacy form's only caller, so it is gone.
   assert(!personDetail.includes("LogCheckInSheet"), "The Person never opens the legacy form.");
-  assert(client.includes("function LogCheckInSheet("), "The legacy form stays for the Dashboard.");
-  assert(client.includes("onLogAccountabilityCheckIn={openAccountabilityCheckInForSchedule}"), "And the Dashboard still uses it.");
+  assert(!client.includes("function LogCheckInSheet("), "The legacy form left with Home's workflow (USA-257).");
+  assert(!client.includes("openAccountabilityCheckInForSchedule"), "Home no longer logs check-ins.");
 
   // Direct progress writes progress, and nothing else.
   const handler = client.slice(client.indexOf("async function handlePersonAccountabilityCheckInSubmit("));
@@ -2034,11 +2035,15 @@ await check("Basic DOS surfaces do not leak engagement values when the feature i
      relationship and stop, rather than "Discipling · +3" or a placeholder. */
   const line = strip(client.slice(
     client.indexOf("function dashboardTimeInvestmentRelationshipLine("),
-    client.indexOf("function DashboardAlignmentRow("),
+    /* USA-257 removed DashboardAlignmentRow with Today's Alignment; the
+       helper is now followed by the Notifications panel. */
+    client.indexOf("function DashboardNotificationsPanel("),
   ));
 
   assert(
-    /function dashboardTimeInvestmentRelationshipLine\(person: DosAppPerson, showEngagement: boolean\)/.test(line),
+    /* USA-251: the third parameter lets Home show the report's own direction;
+       the engagement rule below is unchanged. */
+    /function dashboardTimeInvestmentRelationshipLine\(person: DosAppPerson, showEngagement: boolean(, relationship = dashboardDiscipleshipRelationshipLabel\(person\))?\)/.test(line),
     "The dashboard line takes the advanced-feature state rather than assuming it.",
   );
   assert(
@@ -2050,7 +2055,8 @@ await check("Basic DOS surfaces do not leak engagement values when the feature i
 
   /* It is wired to the real flag at the call site, not to a local default. */
   assert(
-    client.includes("dashboardTimeInvestmentRelationshipLine(item.person, engagementLevelsEnabled)"),
+    /* USA-251: the row is a report row; the person is looked up for the flag. */
+    client.includes("dashboardTimeInvestmentRelationshipLine(person, engagementLevelsEnabled, row.directionLabel)"),
     "The dashboard row passes the workspace's actual setting.",
   );
   assert(
@@ -2308,7 +2314,8 @@ await check("Every editable sheet declares itself, and the primitive protects it
      criterion: a new editable sheet added without kind="editable" fails here. */
   const editableTitles = [
     "Edit Journey", "New Group", "Resource Check-In", "Check in", "Add progress",
-    "Log Check-In", "Add Prayer Partner", "Add Prayer Request", "Edit Prayer Request",
+    /* "Log Check-In" (the legacy Home sheet) left with Home's workflow, USA-257. */
+    "Add Prayer Partner", "Add Prayer Request", "Edit Prayer Request",
     "Log Prayer", "Import Contacts",
   ];
 

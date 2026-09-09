@@ -87,3 +87,13 @@ All six pilots (USA-216, 217, 218, 222, 220, 223; PRs #87–#92) were built on t
 
 PL-1 … PL-10 remain open product-logic questions; production behavior stands for each.
 
+
+## F. Reports & Ministry Intelligence (USA-249 / USA-251 / USA-257 / USA-260, 2026-09-09)
+
+| Id | Outcome | Recorded in |
+| --- | --- | --- |
+| B1 (Home) | **Superseded for Home only by USA-257**, on founder direction of 2026-09-09: Today's Alignment leaves Home (My Record stays its own destination); Top Time Investments becomes the first reporting element with a **View Report** action that opens the Master Ministry Report; Table Activity is renamed **Meeting Activity** with honest definitions and moves up; Accountability becomes a compact attention summary; Recent Fruit and Recent Reviews move into Reports; Assigned Resources leaves Home until USA-258 proves the status source. Pending Ryan's acknowledgement on the USA-251 PR because B1 was settled by Ryan on 2026-09-07. | spec §1 B1 note, `scripts/dos-home-v1-regression.mjs` |
+| R-1 | Reports is no longer a Coming Soon screen: it renders the Master Ministry Report / Time Investment (read-only, no data entry) followed by the Recent Fruit and Recent Reviews lists that left Home. | `src/components/dos/reports/`, `src/lib/dos/ministry-report.ts` |
+| R-2 | Report contract (USA-250 recommendation, prototype only): 30-day default with 7 / 90 / custom; one row per person with qualifying activity; recorded time only, no estimates; check-ins separate; group time credited per person but never summed as elapsed time; Recorded / Partial / No qualifying activity; no circle field; no multiplication without an explicit record. Founder decisions listed in `docs/dos-ui-refresh/usa-249/metric-registry.md` §5. | metric registry, `scripts/dos-ministry-report-regression.mjs` |
+| R-3 | Data contract: `DosAppData.discipleshipChain?` (explicit downstream links). The loader returns none; only the preview fixture fills it. The production source is an open founder decision. | `missionary-app.ts`, metric registry §5.1 |
+| L-1 | Visible product language is discipleship language (USA-260): "Discipling me", "I am discipling", "Being discipled by …", "People Discipling Me", "Discipleship meeting". Legacy enum values, API keys, columns, and stored labels ("Mentor") are unchanged and rendered through the new words. | PR #129 (reconciled) |

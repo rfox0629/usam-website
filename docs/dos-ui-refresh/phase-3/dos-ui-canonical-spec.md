@@ -21,7 +21,7 @@ Superseded documents are listed in §10 and are archived (moved, never deleted) 
 
 | # | Rule | Where it is enforced today |
 | --- | --- | --- |
-| B1 | **Home (mobile) and Dashboard (desktop) are unchanged** in layout, content, and order for the life of this project. Only shared tokens may touch them, and only when a re-screenshot shows no visible change beyond color/typography values. | `CircleFocusHero`, `DesktopHomeDashboard` |
+| B1 | **Home (mobile) and Dashboard (desktop) are unchanged** in layout, content, and order for the life of this project. Only shared tokens may touch them, and only when a re-screenshot shows no visible change beyond color/typography values. *[Superseded for Home only by USA-257 on 2026-09-09 — see decision log §F; the circle hero and navigation are still protected.]* | `CircleFocusHero`, `DesktopHomeDashboard` |
 | B2 | **Bottom navigation is three tabs — Home, Meetings, More** — with the production inline icons (`Icon` names `home`, `meetings`, `apps`). Field is never a tab; it stays reachable from More and from Home's circle target. The label is "More" (D2 settled: not renamed to "Apps"). | `mobileTabs` (line 425), `MobileTabBar` |
 | B3 | **Person is the canonical relationship record** (`missionary_field_people`). No screen introduces a second person-like entity. | README |
 | B4 | **Circle placement is human-confirmed.** Recommendations are deterministic and visible with their reason; nothing places or moves a person except an explicit tap that names the person and the circle. `POST /api/dos/circles/recalculate` refreshes metrics only. | `circle-placement.ts` line 19, `/api/dos/circles/override` |
