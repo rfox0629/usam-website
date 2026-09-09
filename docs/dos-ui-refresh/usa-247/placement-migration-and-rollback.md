@@ -63,7 +63,7 @@ After the rollback the People counts return to zero confirmed placements, which 
 
 ## Proof
 
-45 assertions against a real Postgres 17, in `evidence/placement-proofs.sql`. Every one passes.
+38 assertions against a real Postgres 17, in `evidence/placement-proofs.sql`. Every one passes.
 
 | Founder requirement | Result |
 |---|---|
