@@ -66,14 +66,14 @@ for (const copy of [
   // pre-rename noun for a meeting.
   "Your role in this meeting",
   "Ministering",
-  "Being Mentored",
+  "Being Discipled",
   "Mutual Discipleship",
   "Leadership / Planning",
   "Growth Reflection",
   "What did God teach you?",
   "What Scriptures were discussed?",
   "What action will you take?",
-  "Did your mentor give you an assignment?",
+  "Did the person discipling you give you an assignment?",
   "Planning Notes",
   "Decisions made",
   "Action items",
@@ -81,7 +81,7 @@ for (const copy of [
   assert(appClient.includes(copy), `DOS table role UI missing: ${copy}.`);
 }
 
-for (const emojiCopy of ["🍞 Ministering", "📖 Being Mentored", "🤝 Mutual Discipleship", "📅 Leadership / Planning"]) {
+for (const emojiCopy of ["🍞 Ministering", "📖 Being Discipled", "🤝 Mutual Discipleship", "📅 Leadership / Planning"]) {
   assert(!appClient.includes(emojiCopy), `DOS table role UI must not include emoji label: ${emojiCopy}.`);
 }
 
@@ -96,7 +96,7 @@ assert(
   "Ministry metrics must exclude received discipleship and leadership planning meetings.",
 );
 assert(
-  appClient.includes("Mentored by") &&
+  appClient.includes("Discipled by") &&
   appClient.includes("Ministered to") &&
   appClient.includes("Mutual Discipleship with") &&
   appClient.includes("Leadership Planning with"),

@@ -614,7 +614,7 @@ const meetingContextChoices: ReadonlyArray<DosAppMeetingType> = ["kitchen_table"
 
 const tableRoleOptions: ReadonlyArray<{ helper: string; label: string; value: DosAppTableRole }> = [
   { helper: "I am pouring into others.", label: "Ministering", value: "ministering" },
-  { helper: "Someone is pouring into me.", label: "Being Mentored", value: "being_mentored" },
+  { helper: "Someone is pouring into me.", label: "Being Discipled", value: "being_mentored" },
   { helper: "We are sharpening each other.", label: "Mutual Discipleship", value: "mutual_discipleship" },
   { helper: "We are aligning next steps.", label: "Leadership / Planning", value: "leadership_planning" },
 ];
@@ -639,7 +639,7 @@ const supportingAttendeeSubRoleOptions: ReadonlyArray<{ label: string; value: Do
 
 const discipleshipRelationshipOptions: ReadonlyArray<{ label: string; value: DosAppDiscipleshipRelationship | "" }> = [
   { label: "Not set", value: "" },
-  { label: "Mentor", value: "mentor" },
+  { label: "Discipling me", value: "mentor" },
   { label: "Mentee", value: "mentee" },
   { label: "Peer", value: "peer" },
   { label: "Pastor", value: "pastor" },
@@ -2722,7 +2722,7 @@ function tableRoleActivityLabel(meeting: DosAppMeeting) {
 
   switch (meeting.tableRole) {
     case "being_mentored":
-      return participantLabel ? `Mentored by ${participantLabel}` : "Being Mentored";
+      return participantLabel ? `Discipled by ${participantLabel}` : "Being Discipled";
     case "mutual_discipleship":
       return participantLabel ? `Mutual Discipleship with ${participantLabel}` : "Mutual Discipleship";
     case "leadership_planning":
@@ -12190,7 +12190,7 @@ function buildDashboardWeeklyReportCard(myRecord: DosAppUserRecord, loggedMeetin
 
 function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
   if (person.discipleshipRelationship === "mentor" || person.discipleshipRelationship === "pastor" || person.discipleshipRelationship === "coach" || person.discipleshipRelationship === "spiritual_parent") {
-    return "Being Mentored";
+    return "Discipling me";
   }
 
   if (person.discipleshipRelationship === "mentee") {
@@ -12212,7 +12212,7 @@ function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
   }
 
   if (model.roleInMyLife === "mentoring_me") {
-    return "Being Mentored";
+    return "Discipling me";
   }
 
   if (model.roleInMyLife === "peer_encouragement") {
@@ -12230,7 +12230,7 @@ function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
   }
 
   if (relationshipType === "mentor") {
-    return "Being Mentored";
+    return "Discipling me";
   }
 
   return "New";
@@ -14887,7 +14887,7 @@ function DesktopHomeDashboard({
                   actionLabel={nextMentorMeeting ? undefined : "Schedule Meeting"}
                   helper={dashboardMentorMeetingHelper(nextMentorMeeting)}
                   icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Next Mentor Meeting"
+                  label="Next Discipleship Meeting"
                   onClick={nextMentorMeeting ? () => onOpenMyRecord() : onScheduleMentorMeeting}
                   value={dashboardMentorMeetingDateLine(nextMentorMeeting)}
                 />
@@ -15912,7 +15912,7 @@ const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>
 
 const desktopPrayerPartnerSamples = [
   { id: "sample-brooke-fox", lastContacted: "2 days ago", name: "Brooke Fox", notes: "Prays over family and field rhythm.", prayerTeam: "household_family", relationship: "Family", relationshipContext: "family", status: "Active" },
-  { id: "sample-dirk-bond", lastContacted: "1 week ago", name: "Dirk Bond", notes: "Mentor covering table conversations.", prayerTeam: "household_family", relationship: "Ministry Partner", relationshipContext: "ministry_partner", status: "Active" },
+  { id: "sample-dirk-bond", lastContacted: "1 week ago", name: "Dirk Bond", notes: "Discipling me; covers table conversations.", prayerTeam: "household_family", relationship: "Ministry Partner", relationshipContext: "ministry_partner", status: "Active" },
   { id: "sample-prayer-team-group", lastContacted: "3 days ago", name: "Prayer Team Group", notes: "Shared covering for upcoming meetings.", prayerTeam: "household_family", relationship: "Church", relationshipContext: "church", status: "Active" },
 ] as const;
 
@@ -20789,9 +20789,9 @@ function MeetingGrowthReflectionSection({
             required
           />
         </DosFormField>
-        <DosFormField label="Did your mentor give you an assignment?">
+        <DosFormField label="Did the person discipling you give you an assignment?">
           <VoiceTextarea
-            aria-label="Did your mentor give you an assignment?"
+            aria-label="Did the person discipling you give you an assignment?"
             className={`${FieldTextareaClass(true)} min-h-20`}
             defaultValue={defaultValue?.mentorAssignment ?? ""}
             name="growth_mentor_assignment"
@@ -21367,7 +21367,7 @@ function MeetingFormContent({
         {compactPeopleSelector}
       </DosFormSection>
       {/* A Person meeting is my relationship with them; it does not need me to
-          declare a role first. Being mentored belongs in My Record. The value
+          declare a role first. Being discipled belongs in My Record. The value
           still posts so the backend contract is unchanged. */}
       <input name="table_role" type="hidden" value={selectedTableRole} />
       <DisclosureSection
@@ -27754,7 +27754,19 @@ const myRecordMentorRoleOptions = [
   "Spiritual Father/Mother",
   "Accountability Partner",
   "Other",
-].map((label) => ({ label, value: label }));
+].map((label) => ({ label: myRecordRelationshipLabelText(label), value: label }));
+
+/* USA-260: "Mentor" stays a stored relationship label on existing records;
+   it is rendered as the discipleship relationship it describes. */
+function myRecordRelationshipLabelText(label: string | null | undefined) {
+  const trimmed = label?.trim() ?? "";
+
+  if (!trimmed || trimmed.toLowerCase() === "mentor") {
+    return "Discipling me";
+  }
+
+  return trimmed;
+}
 
 const myRecordMentorRhythmOptions = [
   { label: "Weekly", value: "Weekly" },
@@ -27819,7 +27831,7 @@ function MyRecordMentorRelationshipForm({
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="people" title={isEditing ? "Edit Mentor" : "Add Mentor"}>
+      <DosFormSection icon="people" title={isEditing ? "Edit Person Discipling Me" : "Add Person Discipling Me"}>
         <FormOptionSelect
           label="Linked Field Contact"
           name="field_person_id"
@@ -27834,7 +27846,7 @@ function MyRecordMentorRelationshipForm({
           ]}
         />
         <DosFormField helper="Use a name even when they are not in Field yet." label="Name">
-          <input className={FieldInputClass()} defaultValue={mentor?.fieldPersonId ? "" : mentor?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
+          <input className={FieldInputClass()} defaultValue={mentor?.fieldPersonId ? "" : mentor?.mentorName ?? ""} name="mentor_name" placeholder="Their name" />
         </DosFormField>
         <FormOptionSelect
           label="Role / Type"
@@ -27862,7 +27874,7 @@ function MyRecordMentorRelationshipForm({
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Mentor" : "Add Mentor"}</AppButton>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Person" : "Add Person Discipling Me"}</AppButton>
         {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
       </div>
     </form>
@@ -27932,7 +27944,7 @@ function MyRecordMentorMeetingForm({
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="people" title="Mentor Meeting">
+      <DosFormSection icon="people" title="Discipleship Meeting">
         <DosFormGrid>
           <DosDateInput defaultValue={meeting?.meetingDate ?? todayDateValue()} label="Date" name="date" />
           <DosFormField label="Duration">
@@ -27941,13 +27953,13 @@ function MyRecordMentorMeetingForm({
         </DosFormGrid>
         {activeMentors.length ? (
           <FormOptionSelect
-            label="Saved Mentor"
+            label="Saved Person Discipling Me"
             name="relationship_id"
             defaultValue={defaultRelationshipId}
             options={[
-              { label: "Manual mentor", value: "" },
+              { label: "Enter a name", value: "" },
               ...activeMentors.map((mentor) => ({
-                helper: [mentor.relationshipLabel, mentor.meetingRhythm].filter(Boolean).join(" · ") || undefined,
+                helper: [myRecordRelationshipLabelText(mentor.relationshipLabel), mentor.meetingRhythm].filter(Boolean).join(" · ") || undefined,
                 label: mentor.mentorName,
                 value: mentor.id,
               })),
@@ -27957,12 +27969,12 @@ function MyRecordMentorMeetingForm({
           <>
             <input name="relationship_id" type="hidden" value="" />
             <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">
-              No mentors saved yet. Add a mentor first or enter a manual name.
+              No one discipling you is saved yet. Add the person first or enter a name.
             </div>
           </>
         )}
-        <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved mentor." : "Enter the mentor name for this meeting."} label="Manual Mentor Name">
-          <input className={FieldInputClass()} defaultValue={defaultRelationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Mentor name" />
+        <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved person." : "Enter the name of the person discipling you for this meeting."} label="Name (if not saved)">
+          <input className={FieldInputClass()} defaultValue={defaultRelationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Their name" />
         </DosFormField>
         <FormOptionSelect
           label="Field Contact"
@@ -27993,7 +28005,7 @@ function MyRecordMentorMeetingForm({
       </DosFormSection>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Meeting" : "Log Mentor Meeting"}</AppButton>
+        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Meeting" : "Log Discipleship Meeting"}</AppButton>
         {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
       </div>
     </form>
@@ -28057,7 +28069,7 @@ function MyRecordPropheticWordForm({
           </DosFormField>
         </DosFormGrid>
         <DosFormField label="Location / Context">
-          <input className={FieldInputClass()} defaultValue={word?.context ?? ""} name="context" placeholder="Prayer night, mentor meeting, church, conference" />
+          <input className={FieldInputClass()} defaultValue={word?.context ?? ""} name="context" placeholder="Prayer night, discipleship meeting, church, conference" />
         </DosFormField>
         <DosFormField label="Full Prophetic Word">
           <VoiceTextarea className={`${FieldTextareaClass()} min-h-36`} defaultValue={word?.wordText ?? ""} name="word_text" placeholder="Record the word as faithfully as possible." required />
@@ -28231,7 +28243,7 @@ function MyRecordLifePlanForm({
             <input className={FieldInputClass()} defaultValue={resolvedPlan.nextReviewDate ?? ""} name="next_review_date" type="date" />
           </DosFormField>
           <DosFormField label="Review Rhythm">
-            <input className={FieldInputClass()} defaultValue={resolvedPlan.reviewRhythm ?? ""} name="review_rhythm" placeholder="Monthly, quarterly, mentor meeting" />
+            <input className={FieldInputClass()} defaultValue={resolvedPlan.reviewRhythm ?? ""} name="review_rhythm" placeholder="Monthly, quarterly, discipleship meeting" />
           </DosFormField>
         </DosFormGrid>
         <DosFormField label="Focus Allocation">
@@ -28263,7 +28275,7 @@ function MyRecordLifePlanForm({
       </DosFormSection>
       <DosFormSection icon="calendar" title="Review History">
         <DosFormField label="Review Notes">
-          <VoiceTextarea className={FieldTextareaClass()} defaultValue={myRecordLifePlanReviewHistoryText(resolvedPlan)} name="review_history" placeholder="2026-07-08 - Reviewed with mentor." />
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={myRecordLifePlanReviewHistoryText(resolvedPlan)} name="review_history" placeholder="2026-07-08 - Reviewed with the person discipling me." />
         </DosFormField>
         <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
           <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={resolvedPlan.shareEligible} name="share_eligible" type="checkbox" />
@@ -28317,7 +28329,7 @@ function MyRecordLearningBookForm({
       finishedOn: String(formData.get("finished_on") ?? ""),
       kind: "learning_book",
       personalApplication: String(formData.get("personal_application") ?? ""),
-      shareEligible: formData.get("share_eligible") === "on",
+      shareEligible: book?.shareEligible ?? false,
       startedOn: String(formData.get("started_on") ?? ""),
       status: String(formData.get("status") ?? "reading"),
       title: String(formData.get("title") ?? ""),
@@ -28368,13 +28380,11 @@ function MyRecordLearningBookForm({
       <DosFormField label="Final Summary">
         <VoiceTextarea className={`${FieldTextareaClass()} min-h-32`} defaultValue={book?.finalSummary ?? ""} name="final_summary" placeholder="Write your own summary after finishing the book." />
       </DosFormField>
-      <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
-        <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={book?.shareEligible ?? false} name="share_eligible" type="checkbox" />
-        <span>
-          <span className="block font-bold text-[#0F172A]">Eligible for future mentor sharing</span>
-          Book notes stay private until you explicitly share them later.
-        </span>
-      </label>
+      {/* USA-260 founder decision: the "future sharing" checkbox promised a
+          feature that does not exist. Book notes are private; a stored value
+          is carried through untouched until a real explicit-sharing feature
+          exists. */}
+      <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">Book notes are private.</p>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Book" : "Add Book"}</AppButton>
     </form>
@@ -28697,12 +28707,12 @@ const myRecordReportRanges = [
   { label: "YTD", value: "ytd" },
 ] as const;
 
-const myRecordFutureSharingRoles = ["Mentor", "Spouse", "Board Member", "Accountability Partner", "Pastor", "Custom Viewer"] as const;
+const myRecordFutureSharingRoles = ["Person discipling me", "Spouse", "Board Member", "Accountability Partner", "Pastor", "Custom Viewer"] as const;
 const myRecordFutureShareableSections = [
   "Quiet Time",
   "Prayer",
   "Journal",
-  "Mentor Meetings",
+  "Discipleship Meetings",
   "Assessments",
   "Ministry Activity",
   "Fruit",
@@ -29238,7 +29248,7 @@ function MyRecordAssessmentDetailPanel({
             </div>
           </div>
           <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Mentor Summary</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discipleship Summary</p>
             <p className="mt-2 text-sm leading-6 text-[#0F172A]">{item.shortSummary}</p>
           </div>
           <div className="rounded-[20px] border border-[#EAF2FF] bg-white p-4">
@@ -29259,7 +29269,7 @@ function MyRecordAssessmentDetailPanel({
             </div>
           </div>
           <div className="rounded-[20px] border border-[#EAF2FF] bg-[#F8FBFF] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Mentor Summary</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Discipleship Summary</p>
             <p className="mt-2 text-sm leading-6 text-[#0F172A]">{item.shortSummary}</p>
           </div>
           <p className="rounded-[20px] border border-[#EAF2FF] bg-white p-4 text-sm leading-6 text-[#475569]">{item.notes}</p>
@@ -29452,7 +29462,7 @@ function MyRecordExternalAssessmentForm({
         </DosFormField>
       </div>
       <DosFormField label="Short Summary">
-        <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={assessmentResult?.shortSummary ?? ""} name="short_summary" placeholder="A brief mentor-friendly summary in your own words." />
+        <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={assessmentResult?.shortSummary ?? ""} name="short_summary" placeholder="A brief summary in your own words for the person discipling you." />
       </DosFormField>
       <DosFormField label="Key Results / Bullets">
         <VoiceTextarea className={`${FieldTextareaClass()} min-h-24`} defaultValue={assessmentResult?.topStrengths.join("\n") ?? ""} name="top_strengths" placeholder="One per line or comma separated." />
@@ -29628,7 +29638,7 @@ function MyRecordReportPanel({
       <div className="grid gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
         <MyRecordMetricCard icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Quiet Time" value={formatRecordDuration(quietMinutes)} />
         <MyRecordMetricCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Prayer Time" value={formatRecordDuration(prayerMinutes)} />
-        <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Mentor Meetings" value={`${mentorMeetings}`} />
+        <MyRecordMetricCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Discipleship Meetings" value={`${mentorMeetings}`} />
         <MyRecordMetricCard icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Assessments" value={`${assessmentsCompleted}`} />
         <MyRecordMetricCard icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Ministry Tables" value={`${ministryTables.length}`} />
         <MyRecordMetricCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Fruit Observed" value={`${fruitObserved}`} />
@@ -29964,7 +29974,7 @@ function myRecordRecordVisual(kind: MyRecordRecordKind): MyRecordRecordVisual {
       badgeClassName: "bg-[#ECFDF5] text-[#15803D]",
       icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
       iconClassName: "bg-[#ECFDF5] text-[#15803D] ring-[#BBF7D0]",
-      label: "Mentor",
+      label: "Discipleship",
     };
   }
 
@@ -30338,14 +30348,14 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
     };
   });
   const mentorItems = record.mentorMeetings.map((meeting) => ({
-    badge: "Mentor",
+    badge: "Discipleship",
     body: meeting.counselReceived ?? meeting.discussed ?? meeting.notes,
     date: meeting.meetingDate,
     icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
     id: `mentor-${meeting.id}`,
     kind: "mentor" as const,
     meta: [meeting.mentorName, meeting.durationMinutes ? formatRecordDuration(meeting.durationMinutes) : null].filter(Boolean).join(" · "),
-    title: "Mentor Meeting",
+    title: "Discipleship Meeting",
   }));
   const assessmentItems = record.assessmentResults.map((result) => ({
     badge: "Assessment",
@@ -30566,7 +30576,7 @@ function MyRecordMentorCard({
     ?? lastMeeting?.counselReceived
     ?? lastMeeting?.notes
     ?? mentor.notes
-    ?? (mentor.meetingRhythm ? `Rhythm: ${mentor.meetingRhythm}` : "Mentor relationship");
+    ?? (mentor.meetingRhythm ? `Rhythm: ${mentor.meetingRhythm}` : "Discipleship relationship");
 
   return (
     <MyRecordCompactRecordCard
@@ -30576,7 +30586,7 @@ function MyRecordMentorCard({
       meta={[lastMeeting ? (lastMeeting.durationMinutes ? formatRecordDuration(lastMeeting.durationMinutes) : "Recent meeting") : "No meetings yet", nextFollowUp !== "—" ? `Next ${nextFollowUp}` : mentor.meetingRhythm].filter(Boolean).join(" · ")}
       onClick={onView}
       title={mentor.mentorName}
-      typeLabel={mentor.relationshipLabel || "Mentor"}
+      typeLabel={myRecordRelationshipLabelText(mentor.relationshipLabel)}
     />
   );
 }
@@ -30631,11 +30641,11 @@ function MyRecordGrowthPanel({
   const activeAssignments = assignments.filter((assignment) => assignment.status !== "completed");
   const completedAssignments = assignments.filter((assignment) => assignment.status === "completed");
   const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
-    ? "Add your MCode result so mentors can quickly understand your wiring."
+    ? "Add your MCode result so the people discipling you can quickly understand your wiring."
     : visibleBooks.length === 0
       ? "Add the first book you are reading and capture one chapter note."
       : record.mentorMeetings.length === 0
-        ? "Review your latest assessment or book insight with a mentor."
+        ? "Review your latest assessment or book insight with the person discipling you."
         : "Choose one growth insight to turn into a concrete next step this week.";
 
   return (
@@ -30683,7 +30693,7 @@ function MyRecordGrowthPanel({
         ) : null}
       </section>
       <section className="grid gap-2">
-        <SectionHeading title="Mentors" />
+        <SectionHeading title="People Discipling Me" />
         {activeMentorItems.length ? (
           <div className="grid gap-1.5">
             {activeMentorItems.map(({ meetings, mentor }) => (
@@ -30698,8 +30708,8 @@ function MyRecordGrowthPanel({
         ) : (
           <MyRecordCompactEmptyRow
             icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Mentors added through the plus menu will appear here."
-            title="No mentors saved yet."
+            text="People added through the plus menu will appear here."
+            title="No one discipling you is saved yet."
           />
         )}
       </section>
@@ -30942,8 +30952,8 @@ function myRecordSheetTitle(sheet: MyRecordSheetState) {
   if (sheet.kind === "encounter") return sheet.title ?? (sheet.mode === "new" ? "Time With God" : "Encounter");
   if (sheet.kind === "journal") return sheet.title ?? (sheet.mode === "new" ? "Add Journal Entry" : "Journal Entry");
   if (sheet.kind === "prayer") return sheet.mode === "new" ? "Log Prayer Time" : "Prayer Time";
-  if (sheet.kind === "mentor_meeting") return sheet.mode === "new" ? "Log Mentor Meeting" : "Mentor Meeting";
-  if (sheet.kind === "mentor_relationship") return sheet.mode === "new" ? "Add Mentor" : "Mentor";
+  if (sheet.kind === "mentor_meeting") return sheet.mode === "new" ? "Log Discipleship Meeting" : "Discipleship Meeting";
+  if (sheet.kind === "mentor_relationship") return sheet.mode === "new" ? "Add Person Discipling Me" : "Person Discipling Me";
   if (sheet.kind === "prophetic_word") return sheet.mode === "new" ? "Add Prophetic Word" : "Prophetic Word";
   if (sheet.kind === "external_assessment") return sheet.mode === "new" ? "Add Assessment Result" : "Assessment Result";
   if (sheet.kind === "assessment_detail") return sheet.item.name;
@@ -31193,8 +31203,8 @@ function MyRecordSheetContent({
 
     return mentor ? (
       <div className="grid gap-3">
-        <MyRecordDetailBlock label="Mentor" value={mentor.mentorName} />
-        <MyRecordDetailBlock label="Relationship" value={mentor.relationshipLabel} />
+        <MyRecordDetailBlock label="Name" value={mentor.mentorName} />
+        <MyRecordDetailBlock label="Relationship" value={myRecordRelationshipLabelText(mentor.relationshipLabel)} />
         <MyRecordDetailBlock label="Meeting Rhythm" value={mentor.meetingRhythm} />
         <MyRecordDetailBlock label="Email" value={mentor.email} />
         <MyRecordDetailBlock label="Phone" value={mentor.phone} />
@@ -31205,7 +31215,7 @@ function MyRecordSheetContent({
         </div>
         <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_relationship", mentor.id)} onEdit={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "edit" })} />
       </div>
-    ) : <SectionEmptyState title="Mentor not found." />;
+    ) : <SectionEmptyState title="Relationship not found." />;
   }
 
   if (sheet.kind === "mentor_meeting") {
@@ -31219,7 +31229,7 @@ function MyRecordSheetContent({
       <div className="grid gap-3">
         <MyRecordDetailBlock label="Date" value={formatDate(meeting.meetingDate)} />
         <MyRecordDetailBlock label="Duration" value={formatRecordDuration(meeting.durationMinutes)} />
-        <MyRecordDetailBlock label="Mentor" value={meeting.mentorName} />
+        <MyRecordDetailBlock label="With" value={meeting.mentorName} />
         <MyRecordDetailBlock label="What Was Discussed" value={meeting.discussed} />
         <MyRecordDetailBlock label="Counsel Received" value={meeting.counselReceived} />
         <MyRecordDetailBlock label="Action Steps" value={meeting.actionSteps} />
@@ -31227,7 +31237,7 @@ function MyRecordSheetContent({
         <MyRecordDetailBlock label="Notes" value={meeting.notes} />
         <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_meeting", meeting.id)} onEdit={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })} />
       </div>
-    ) : <SectionEmptyState title="Mentor meeting not found." />;
+    ) : <SectionEmptyState title="Discipleship meeting not found." />;
   }
 
   if (sheet.kind === "prophetic_word") {
@@ -31730,8 +31740,8 @@ function MyRecordWorkspace({
 
     if (activeMyRecordTab === "growth") {
       return [
-        { icon: "people", label: "Add Mentor", onClick: addMentor },
-        { icon: "people", label: "Log Mentor Meeting", onClick: mentorMeeting },
+        { icon: "people", label: "Add Person Discipling Me", onClick: addMentor },
+        { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
         { icon: "library", label: "Add Assessment", onClick: assessment },
         { icon: "library", label: "Add Book", onClick: book },
       ];
@@ -31751,7 +31761,7 @@ function MyRecordWorkspace({
 
     return [
       { icon: "library", label: "Time With God", onClick: encounter },
-      { icon: "people", label: "Log Mentor Meeting", onClick: mentorMeeting },
+      { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
       { icon: "library", label: "Add Assessment", onClick: assessment },
     ];
   })();
@@ -31851,7 +31861,7 @@ function MyRecordWorkspace({
               <MyRecordCompactEmptyRow
                 action={<MyRecordActionButton onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
                 icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                text="Time with God, mentors, assessments, and words collect here."
+                text="Time with God, people discipling you, assessments, and words collect here."
                 title="No personal activity yet."
               />
             )}
@@ -35033,7 +35043,7 @@ function PersonDetailOverlay({
     const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection";
     const leadClass = "mt-1.5 block text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
     // Two lines rather than an ellipsis: at half-width a real meeting title
-    // ("First mentoring meeting") is unreadable truncated to one line.
+    // ("First discipleship meeting") is unreadable truncated to one line.
     const bodyClass = "mt-0.5 line-clamp-2 block text-[13.5px] font-semibold leading-[1.35] text-dos-body";
     const metaClass = "mt-1 block truncate text-dos-meta text-dos-secondary";
     const chevron = <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />;

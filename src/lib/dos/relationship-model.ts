@@ -13,7 +13,7 @@ export const relationshipContextOptions = [
 export const roleInMyLifeOptions = [
   { label: "I am discipling them", value: "discipling_them" },
   { label: "I am walking with them", value: "walking_with_them" },
-  { label: "They are mentoring me", value: "mentoring_me" },
+  { label: "They are discipling me", value: "mentoring_me" },
   { label: "Peer encouragement", value: "peer_encouragement" },
   { label: "Not active yet", value: "not_active" },
 ] as const;
@@ -30,16 +30,16 @@ export const relationshipTypeOptions = [
   { helper: "Just getting started", label: "New", value: "new" },
   { helper: "Staying close", label: "Walking With", value: "walking_with" },
   { helper: "Intentional investment", label: "Discipling", value: "discipling" },
-  { helper: "They invest in me", label: "Mentor", value: "mentor" },
+  { helper: "They invest in me", label: "Discipling me", value: "mentor" },
 ] as const;
 
 /* USA-244: the same four stored relationship types, in plain language and
-   with the direction stated ("They mentor me" rather than "Mentor"). */
+   with the direction stated ("They are discipling me" rather than a vague role noun). */
 export const relationshipStageChoiceOptions = [
   { helper: "Early days", label: "Getting to know them", value: "new" },
   { helper: "Staying close", label: "Staying connected", value: "walking_with" },
   { helper: "Intentional investment", label: "I am discipling them", value: "discipling" },
-  { helper: "They invest in me", label: "They mentor me", value: "mentor" },
+  { helper: "They invest in me", label: "They are discipling me", value: "mentor" },
 ] as const;
 
 /* USA-244: list visibility only. The stored values are unchanged

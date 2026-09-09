@@ -35,11 +35,11 @@ const form = between(client, "function PersonFormContent(", "\nfunction PersonEd
 
 // 1. The same stored values, in plain language. Nothing is remapped.
 equal(relationshipStageChoiceOptions.map((option) => option.value), relationshipTypeOptions.map((option) => option.value), "The stage choices are the four existing relationship types.");
-equal(relationshipStageChoiceOptions.map((option) => option.label), ["Getting to know them", "Staying connected", "I am discipling them", "They mentor me"], "Stage labels say the direction in plain words.");
+equal(relationshipStageChoiceOptions.map((option) => option.label), ["Getting to know them", "Staying connected", "I am discipling them", "They are discipling me"], "Stage labels say the direction in plain words.");
 equal(listVisibilityOptions.map((option) => option.value), ["primary", "secondary", "hidden"], "List visibility keeps primary / secondary / hidden.");
 equal(listVisibilityOptions.map((option) => option.label), ["Active person", "Household only", "Private"], "List visibility labels never read as a household role.");
 equal(listVisibilityLabel("secondary"), "Household only", "The label helper follows the option list.");
-equal(relationshipModelFromRelationshipType("mentor", { relationshipContext: "friend", relationshipType: "new", roleInMyLife: "not_active", discipleshipStage: "not_started" }).roleInMyLife, "mentoring_me", "\"They mentor me\" still stores mentoring_me.");
+equal(relationshipModelFromRelationshipType("mentor", { relationshipContext: "friend", relationshipType: "new", roleInMyLife: "not_active", discipleshipStage: "not_started" }).roleInMyLife, "mentoring_me", "\"They are discipling me\" still preserves the legacy mentoring_me value.");
 assert(!client.includes("personRoleOptions") && !client.includes("function PersonChoiceField("), "The old Person role button grid is gone, not left as dead code.");
 assert(!/Primary Contact|Household Member|kept selectable for tables/.test(form), "The old role wording and the \"tables\" wording are gone from the form.");
 

@@ -66,7 +66,7 @@ export function PrimitivesGallery() {
 
       <Eyebrow count="3">Rows</Eyebrow>
       <Row chevron leading={<Avatar name="Tanner Kent" />} onClick={() => undefined} primary="Tanner Kent" secondary="Discipling · My 3 · met 2 days ago" trailing={<StatusPill tone="green">On rhythm</StatusPill>} />
-      <Row chevron leading={<Avatar name="Garrett Grahl" overdue />} onClick={() => undefined} primary="Garrett Grahl" secondary="Mentoring · My 12 · met 34 days ago" trailing={<StatusPill tone="amber">Overdue</StatusPill>} />
+      <Row chevron leading={<Avatar name="Garrett Grahl" overdue />} onClick={() => undefined} primary="Garrett Grahl" secondary="Discipling · My 12 · met 34 days ago" trailing={<StatusPill tone="amber">Overdue</StatusPill>} />
       <Row chevron leading={<IconTile><Icon name="meetings" size={18} /></IconTile>} onClick={() => undefined} primary="Wed, Sep 2 · 2:00 PM" secondary="Tanner Kent · Coffee · 2h 30m · prayed together · 1 fruit" />
 
       <Eyebrow>Cards</Eyebrow>

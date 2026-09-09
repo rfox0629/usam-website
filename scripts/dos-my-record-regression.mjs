@@ -228,7 +228,7 @@ assert(canonicalTabsSource.includes("{ label: \"Purpose\", value: \"calling\" }"
 assert(canonicalTabsSource.includes("{ label: \"Faithfulness\", value: \"legacy\" }"), "Canonical My Record should expose Faithfulness as the display label for the legacy tab.");
 assert(!canonicalTabsSource.includes("{ label: \"Calling\", value: \"calling\" }"), "Canonical My Record should not show Calling as the tab label.");
 assert(!canonicalTabsSource.includes("{ label: \"Legacy\", value: \"legacy\" }"), "Canonical My Record should not show Legacy as the tab label.");
-["Journal", "Prayer", "Mentors", "Assessments", "Timeline", "Scripture", "Learning", "Prophetic Words"].forEach((label) => {
+["Journal", "Prayer", "People Discipling Me", "Assessments", "Timeline", "Scripture", "Learning", "Prophetic Words"].forEach((label) => {
   assert(!canonicalTabsSource.includes(`label: \"${label}\"`), `Legacy or nested tab ${label} must not be rendered as a top-level My Record tab.`);
 });
 assert(client.includes("Today's Alignment"), "Dashboard should include Today's Alignment for every authenticated DOS workspace.");
@@ -236,8 +236,8 @@ assert(client.includes("+ data.myRecord.propheticWords.length"), "Prophetic word
 assert(client.includes("Time With God"), "Client should expose Time With God as the unified Walk entry concept.");
 assert(client.includes("Prayer Encounter"), "Client should support explicit prayer-only encounters without rendering an empty Prayer card.");
 assert(client.includes("Reflection"), "Client should keep reflection language inside the unified Encounter model.");
-assert(client.includes("Add Mentor"), "Client should expose Add Mentor as a distinct mentor relationship action.");
-assert(client.includes("Log Mentor Meeting"), "Client should expose Log Mentor Meeting quick action.");
+assert(client.includes("Add Person Discipling Me"), "Client should expose the person discipling me as a distinct relationship action.");
+assert(client.includes("Log Discipleship Meeting"), "Client should expose the discipleship meeting quick action.");
 assert(client.includes("Take Assessment"), "Client should expose Take Assessment quick action.");
 assert(client.includes("MyRecordSheetFrame"), "V2 should use drawers/sheets for My Record editing.");
 assert(client.includes("MyRecordContextualFloatingActions"), "V2 should expose contextual My Record floating actions.");
@@ -268,8 +268,8 @@ assert(!myRecordWorkspaceSource.includes("<TabHero"), "My Record overview should
 assert(!myRecordWorkspaceSource.includes("SectionHeading title=\"Quick Actions\""), "My Record overview should not render a visible Quick Actions section.");
 const myRecordFabSource = client.slice(client.indexOf("const myRecordFabItems"), client.indexOf("// TODO: Future: Permission-based My Record sharing"));
 assert(myRecordFabSource.includes('label: "Time With God"'), "My Record FAB should keep one unified Time With God action.");
-assert(myRecordFabSource.includes('label: "Add Mentor"'), "Growth FAB should own mentor creation.");
-assert(myRecordFabSource.includes('label: "Log Mentor Meeting"'), "My Record FAB should label mentor logging as Log Mentor Meeting.");
+assert(myRecordFabSource.includes('label: "Add Person Discipling Me"'), "Growth FAB should own creation of a person discipling me.");
+assert(myRecordFabSource.includes('label: "Log Discipleship Meeting"'), "My Record FAB should label the relationship meeting as a discipleship meeting.");
 assert(myRecordFabSource.includes('label: "Add Assessment"'), "My Record FAB should label manual assessment-result entry as Add Assessment.");
 assert(myRecordFabSource.includes('label: "Add Book"'), "Growth FAB should label private book creation as Add Book.");
 assert(myRecordFabSource.includes('label: "Add Prophetic Word"'), "Purpose FAB should own prophetic word creation.");
@@ -329,13 +329,13 @@ assert(!walkPanelSource.includes("latestPrayer"), "Walk should not drive an empt
 assert(client.includes("function MyRecordGrowthPanel"), "V2 should group Assessments, Learning, and Mentors under Growth.");
 const growthPanelSource = client.slice(client.indexOf("function MyRecordGrowthPanel"), client.indexOf("function MyRecordCallingPanel"));
 assert(growthPanelSource.includes("title=\"Assigned to Me\""), "Growth should label assigned resources as Assigned to Me.");
-assert(growthPanelSource.indexOf("title=\"Assigned to Me\"") < growthPanelSource.indexOf("title=\"Mentors\""), "Growth should show assigned resources separately before mentors.");
-assert(growthPanelSource.indexOf("title=\"Mentors\"") < growthPanelSource.indexOf("title=\"Assessments\""), "Growth should show Mentors before Assessments.");
+assert(growthPanelSource.indexOf("title=\"Assigned to Me\"") < growthPanelSource.indexOf("title=\"People Discipling Me\""), "Growth should show assigned resources separately before people discipling me.");
+assert(growthPanelSource.indexOf("title=\"People Discipling Me\"") < growthPanelSource.indexOf("title=\"Assessments\""), "Growth should show People Discipling Me before Assessments.");
 assert(growthPanelSource.indexOf("title=\"Assessments\"") < growthPanelSource.indexOf("title=\"Learning\""), "Growth should show Assessments before Learning.");
 assert(growthPanelSource.includes("MyRecordResourceAssignmentRow"), "Growth assigned resources should render as compact rows.");
 assert(!growthPanelSource.includes("<ResourceAssignmentCard"), "Growth should not render large resource assignment cards by default.");
 assert(!growthPanelSource.includes("<MyRecordPreviewCard"), "Growth should not render large preview cards by default.");
-assert(!growthPanelSource.includes("+ Add Mentor"), "Growth should not duplicate Add Mentor outside the floating plus menu.");
+assert(!growthPanelSource.includes("+ Add Person Discipling Me"), "Growth should not duplicate the add action outside the floating plus menu.");
 assert(!growthPanelSource.includes("Add External Result"), "Growth should not duplicate assessment creation outside the floating plus menu.");
 assert(!growthPanelSource.includes("Add Book"), "Growth should not duplicate book creation outside the floating plus menu.");
 assert(!growthPanelSource.includes("Recent Mentor Meetings"), "Growth should summarize mentor meetings in mentor rows instead of a disconnected meeting list.");
@@ -346,13 +346,13 @@ assert(client.includes("| { kind: \"mentor_meeting\"; meeting?: DosAppUserMentor
 assert(client.includes("const defaultMeetingMentor = meeting?.relationshipId"), "Mentor meeting form should resolve the saved mentor for new and edit flows.");
 assert(client.includes("defaultValue={defaultRelationshipId}"), "Mentor meeting form should submit the selected saved mentor relationship.");
 assert(client.includes("defaultValue={defaultFieldPersonId}"), "Mentor meeting form should keep the linked Field contact aligned with the saved mentor.");
-assert(client.includes("No mentors saved yet. Add a mentor first or enter a manual name."), "Mentor meeting drawer should explain the empty saved mentor state.");
-assert(client.includes("Meeting Rhythm") && client.includes("2x/week"), "Add Mentor should capture frequent mentor meeting rhythm.");
+assert(client.includes("No one discipling you is saved yet. Add the person first or enter a name."), "Discipleship meeting drawer should explain the empty saved relationship state.");
+assert(client.includes("Meeting Rhythm") && client.includes("2x/week"), "The discipling relationship should capture frequent meeting rhythm.");
 assert(client.includes("mentorEmail") && client.includes("mentorPhone") && client.includes("meetingRhythm"), "Add Mentor should submit mentor contact and rhythm fields.");
 assert(loader.includes("mentor_email") && loader.includes("mentor_phone") && loader.includes("meeting_rhythm"), "Loader should hydrate mentor contact and rhythm fields.");
 assert(route.includes("mentor_email") && route.includes("mentor_phone") && route.includes("meeting_rhythm"), "My Record route should persist mentor contact and rhythm fields.");
 assert(route.includes("selectedRelationshipId = asString(payload.relationshipId)"), "Mentor meeting API should read the saved mentor relationship from the payload.");
-assert(route.includes("Mentor meeting requires a saved mentor or manual mentor name."), "Mentor meeting API should return a clear validation error when no mentor is provided.");
+assert(route.includes("A discipleship meeting requires a saved person or a name."), "Discipleship meeting API should return a clear validation error when no person is provided.");
 assert(route.includes(".from(\"dos_user_mentor_meetings\")") && route.includes(".insert({") && route.includes(".update(mentorMeetingPayload)"), "Mentor meeting API should support create and edit saves.");
 assert(route.includes(".select(\"id\")") && loader.includes(".from(\"dos_user_mentor_meetings\")") && loader.includes("relationship_id"), "Saved mentor meetings should reload from the private My Record loader.");
 assert(route.includes("myRecordDatabaseErrorResponse(mentorMeetingId.id ? \"mentor meeting update\" : \"mentor meeting insert\""), "Mentor meeting database failures should return and log the real backend error.");
@@ -435,7 +435,12 @@ assert(client.includes("Learning / Book Notes"), "V2 should include the Learning
 assert(client.includes("Upload Highlight Image"), "Learning should support optional chapter highlight image uploads.");
 assert(client.includes("Generate Summary from Highlights"), "Learning should expose the future AI summary placeholder CTA.");
 assert(client.includes("Coming Soon"), "Learning AI summary CTA should be marked Coming Soon.");
-assert(client.includes("Eligible for future mentor sharing"), "Learning should be future share-compatible while private by default.");
+/* Founder decision (USA-260 review): the non-functional "future sharing"
+   checkbox and its promise are gone. Book notes are private until a real
+   explicit-sharing feature exists; the stored value is carried through. */
+assert(!client.includes("Eligible for future sharing"), "Learning must not promise a sharing feature that does not exist.");
+assert(client.includes("Book notes are private."), "Learning states plainly that book notes are private.");
+assert(client.includes("shareEligible: book?.shareEligible ?? false"), "A stored share flag is preserved, never rewritten by the form.");
 assert(client.includes("Books Read"), "Learning should show a books read count.");
 assert(client.includes("kind: \"learning_book\""), "Client should save Learning books through the private My Record API.");
 assert(client.includes("kind: \"learning_chapter_note\""), "Client should save Learning chapter notes through the private My Record API.");

@@ -607,7 +607,7 @@ async function findOrCreateMentorRelationship({
 }) {
   if (relationshipId) {
     if (!isUuid(relationshipId)) {
-      return { response: NextResponse.json({ error: "Selected mentor is invalid." }, { status: 400 }) };
+      return { response: NextResponse.json({ error: "The selected person is invalid." }, { status: 400 }) };
     }
 
     const { data, error } = await supabase
@@ -623,7 +623,7 @@ async function findOrCreateMentorRelationship({
     }
 
     if (!data) {
-      return { response: NextResponse.json({ error: "Mentor relationship not found." }, { status: 404 }) };
+      return { response: NextResponse.json({ error: "Discipleship relationship not found." }, { status: 404 }) };
     }
 
     return { relationship: data as MentorRelationshipRow };
@@ -632,7 +632,7 @@ async function findOrCreateMentorRelationship({
   const resolvedName = mentorName || fieldPerson?.name || "";
 
   if (!resolvedName) {
-    return { response: NextResponse.json({ error: "Mentor name is required." }, { status: 400 }) };
+    return { response: NextResponse.json({ error: "The name of the person discipling you is required." }, { status: 400 }) };
   }
 
   const existingQuery = supabase
@@ -836,7 +836,7 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "mentor_relationship") {
-    const relationshipId = validateOptionalUuid(payload.relationshipId, "Mentor relationship");
+    const relationshipId = validateOptionalUuid(payload.relationshipId, "Discipleship relationship");
 
     if ("response" in relationshipId) {
       return relationshipId.response;
@@ -857,7 +857,7 @@ async function handleMyRecordPost(request: Request) {
     const notes = asNullableText(payload.notes);
 
     if (!mentorName) {
-      return NextResponse.json({ error: "Mentor name is required." }, { status: 400 });
+      return NextResponse.json({ error: "The name of the person discipling you is required." }, { status: 400 });
     }
 
     if (relationshipId.id) {
@@ -924,7 +924,7 @@ async function handleMyRecordPost(request: Request) {
   }
 
   if (kind === "mentor_meeting") {
-    const mentorMeetingId = validateOptionalUuid(payload.mentorMeetingId, "Mentor meeting");
+    const mentorMeetingId = validateOptionalUuid(payload.mentorMeetingId, "Discipleship meeting");
 
     if ("response" in mentorMeetingId) {
       return mentorMeetingId.response;
@@ -941,7 +941,7 @@ async function handleMyRecordPost(request: Request) {
     const manualMentorName = asString(payload.mentorName);
 
     if (!selectedRelationshipId && !manualMentorName && !personValidation.person?.name) {
-      return NextResponse.json({ error: "Mentor meeting requires a saved mentor or manual mentor name." }, { status: 400 });
+      return NextResponse.json({ error: "A discipleship meeting requires a saved person or a name." }, { status: 400 });
     }
 
     const relationshipResult = await findOrCreateMentorRelationship({
