@@ -28329,7 +28329,7 @@ function MyRecordLearningBookForm({
       finishedOn: String(formData.get("finished_on") ?? ""),
       kind: "learning_book",
       personalApplication: String(formData.get("personal_application") ?? ""),
-      shareEligible: formData.get("share_eligible") === "on",
+      shareEligible: book?.shareEligible ?? false,
       startedOn: String(formData.get("started_on") ?? ""),
       status: String(formData.get("status") ?? "reading"),
       title: String(formData.get("title") ?? ""),
@@ -28380,13 +28380,11 @@ function MyRecordLearningBookForm({
       <DosFormField label="Final Summary">
         <VoiceTextarea className={`${FieldTextareaClass()} min-h-32`} defaultValue={book?.finalSummary ?? ""} name="final_summary" placeholder="Write your own summary after finishing the book." />
       </DosFormField>
-      <label className="flex items-start gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">
-        <input className="mt-1 h-4 w-4 accent-[#2563EB]" defaultChecked={book?.shareEligible ?? false} name="share_eligible" type="checkbox" />
-        <span>
-          <span className="block font-bold text-[#0F172A]">Eligible for future sharing with the person discipling you</span>
-          Book notes stay private until you explicitly share them later.
-        </span>
-      </label>
+      {/* USA-260 founder decision: the "future sharing" checkbox promised a
+          feature that does not exist. Book notes are private; a stored value
+          is carried through untouched until a real explicit-sharing feature
+          exists. */}
+      <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#475569]">Book notes are private.</p>
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Book" : "Add Book"}</AppButton>
     </form>

@@ -435,7 +435,12 @@ assert(client.includes("Learning / Book Notes"), "V2 should include the Learning
 assert(client.includes("Upload Highlight Image"), "Learning should support optional chapter highlight image uploads.");
 assert(client.includes("Generate Summary from Highlights"), "Learning should expose the future AI summary placeholder CTA.");
 assert(client.includes("Coming Soon"), "Learning AI summary CTA should be marked Coming Soon.");
-assert(client.includes("Eligible for future sharing with the person discipling you"), "Learning stays private by default and future share-compatible, in discipleship language.");
+/* Founder decision (USA-260 review): the non-functional "future sharing"
+   checkbox and its promise are gone. Book notes are private until a real
+   explicit-sharing feature exists; the stored value is carried through. */
+assert(!client.includes("Eligible for future sharing"), "Learning must not promise a sharing feature that does not exist.");
+assert(client.includes("Book notes are private."), "Learning states plainly that book notes are private.");
+assert(client.includes("shareEligible: book?.shareEligible ?? false"), "A stored share flag is preserved, never rewritten by the form.");
 assert(client.includes("Books Read"), "Learning should show a books read count.");
 assert(client.includes("kind: \"learning_book\""), "Client should save Learning books through the private My Record API.");
 assert(client.includes("kind: \"learning_chapter_note\""), "Client should save Learning chapter notes through the private My Record API.");
