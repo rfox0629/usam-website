@@ -225,13 +225,6 @@ assert.ok(
 console.log("DOS Person form consistency (USA-244 follow-up) regression passed.");
 
 /* ---- 6. People list filters (USA-247) ----------------------------------- */
-const railSource = read("src/components/dos/ui/PillRail.tsx");
-
-assert.ok(
-  railSource.includes("count?: number;") && railSource.includes('typeof option.count === "number"'),
-  "the canonical pill rail can carry an optional count without changing pills that pass none",
-);
-
 /* The standalone full-width row under Search is gone; the control is a
    compact pill immediately after the circle rail. */
 assert.ok(
@@ -252,29 +245,6 @@ assert.ok(
   peopleFilterBlock.includes("Their saved visibility does not change.")
     && peopleFilterBlock.includes("Their saved visibility is unchanged."),
   "the control says, in both states, that expanding does not change anyone's stored visibility",
-);
-
-/* Counts are taken after the same filters the list uses. */
-assert.ok(
-  client.includes("const count = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery).length;"),
-  "every rail count respects the search box, because it counts the same filtered items the list renders",
-);
-assert.ok(
-  client.includes("const peopleCircleCounts = useMemo(") && client.includes("all: count(allCirclePeople),"),
-  "All is counted from the same visibility-filtered list as the circles",
-);
-assert.ok(
-  client.includes("filteredPeople(people.filter((person) => person.fieldVisibility === \"secondary\"), peopleQuery).length"),
-  "the hidden-household tally respects the search too, so it never promises rows the search excluded",
-);
-assert.ok(
-  client.includes("const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - (peopleCircleCounts.three + peopleCircleCounts.twelve + peopleCircleCounts.seventy + peopleCircleCounts.my_120));")
-    && client.includes("not yet placed in a circle, so All is larger than My 3, 12, 70 and 120 combined."),
-  "All explains what the circles exclude instead of showing a total that silently disagrees with its parts",
-);
-assert.ok(
-  client.includes("The four circles are EXCLUSIVE"),
-  "the exclusive circle model is documented where the counts are computed",
 );
 
 console.log("DOS People list filters (USA-247) regression passed.");

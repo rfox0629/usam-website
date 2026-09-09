@@ -37505,34 +37505,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     };
   }, [data.circles, fieldListPeople]);
   const allCirclePeople = useMemo<CircleListItem[]>(() => fieldListPeople.map((person) => ({ person })), [fieldListPeople]);
-  /* USA-247: what each number on the People rail counts.
-     Every count is taken AFTER the same two filters the list itself uses --
-     the household/secondary toggle (`fieldListPeople`) and the search box --
-     so a tab never promises rows the list will not show. Workspace scope,
-     permissions and privacy are already applied upstream: `people` is loaded
-     for one workspace, `hidden` people are excluded from the field list
-     entirely, and archived people never reach it.
-     The four circles are EXCLUSIVE: a person holds exactly one
-     `circle_assignment`, so the four never double-count. They also do not sum
-     to All -- a person whose stored circle is `field` (not yet placed in a
-     circle) is in All and in none of the four, which is why All carries the
-     unplaced note rather than a total that quietly disagrees with its parts. */
-  const peopleCircleCounts = useMemo(() => {
-    const count = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery).length;
-
-    return {
-      all: count(allCirclePeople),
-      my_120: count(circlePeopleByLayer.my120),
-      seventy: count(circlePeopleByLayer.seventy),
-      three: count(circlePeopleByLayer.three),
-      twelve: count(circlePeopleByLayer.twelve),
-    };
-  }, [allCirclePeople, circlePeopleByLayer, peopleQuery]);
-  const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - (peopleCircleCounts.three + peopleCircleCounts.twelve + peopleCircleCounts.seventy + peopleCircleCounts.my_120));
-  const peopleCircleTabsWithCounts = useMemo(
-    () => peopleCircleTabs.map((tab) => ({ ...tab, count: peopleCircleCounts[tab.value] })),
-    [peopleCircleCounts],
-  );
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   /* Which circle each person is in, read from the same layer groups the tabs
@@ -43428,7 +43400,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     immediately after it. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabsWithCounts} value={peopleCircleView} />
+                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
                   </div>
                   {secondaryFieldPeopleCount ? (
                     <button
@@ -43455,11 +43427,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     Including {hiddenHouseholdCount} household-only {hiddenHouseholdCount === 1 ? "person" : "people"}. Their saved visibility is unchanged.
                   </p>
                 ) : null}
-                {peopleCircleView === "all" && unplacedPeopleCount ? (
-                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
-                    Includes {unplacedPeopleCount} not yet placed in a circle, so All is larger than My 3, 12, 70 and 120 combined.
-                  </p>
-                ) : null}
+
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
