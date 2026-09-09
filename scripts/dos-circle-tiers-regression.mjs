@@ -124,29 +124,71 @@ console.log("DOS circle tiers (USA-247) regression passed.");
 
 /* ---- The Manage circles surface honours the contract -------------------- */
 const client = read("app/dos/app/DosMvpAppClient.tsx");
-const manageStart = client.indexOf("function ManageCirclesWorkflow(");
+const manageStart = client.indexOf("/* USA-247: Manage circles.");
 const manageEnd = client.indexOf("\nfunction PersonFormContent(", manageStart);
 const manage = client.slice(manageStart, manageEnd);
 
-assert.ok(manageStart !== -1 && manageEnd !== -1, "the Manage circles workflow exists");
+assert.ok(manageStart !== -1 && manageEnd !== -1 && client.includes("function ManageCirclesWorkflow("), "the Manage circles workflow exists");
 assert.ok(
   client.includes('<button') && client.includes("<span>Manage circles</span>") && client.includes("setIsManageCirclesOpen(true)"),
   "Manage circles is reachable from the People screen",
 );
 
 /* Every founder requirement for the workflow, asserted where it lives. */
-assert.ok(manage.includes("circleTiers.map((tier)") && manage.includes("placedByTier"), "it shows every confirmed placement, tier by tier");
+assert.ok(manage.includes("visiblePeople.map((person)") && manage.includes("placementOf(person.id)"), "it lists people with their confirmed placement");
 assert.ok(manage.includes("onPlace={(next) => place(person.id, next)}"), "a person can be moved deliberately");
-assert.ok(manage.includes('onPlace("not_placed")') && /Remove\s*<\/button>/.test(manage), "a person can be removed from placement");
+assert.ok(manage.includes('onPlace("not_placed")') && /Remove from circles\s*<\/button>/.test(manage), "a person can be removed from placement");
 assert.ok(manage.includes("capacityReport(counts)") && manage.includes("row.remaining") && manage.includes("row.capacity"), "remaining capacity is shown per circle");
 assert.ok(
-  manage.includes("Confirmed: ${circleTierLabel[placement]}") && manage.includes("Suggested: {circleTierLabel[recommendation.suggested]}"),
-  "a confirmed placement and a recommendation are visibly different things",
+  manage.includes("Confirmed: ${manageCircleLabel(placement)}") && manage.includes("Possible {manageCircleLabel(recommendation.suggested)}"),
+  "a confirmed placement and a possibility are visibly different things",
+);
+
+/* Built for 73-120 people: search, filters, and compact rows. */
+assert.ok(manage.includes("<SearchField label=\"Search people to place\""), "the list is searchable");
+assert.ok(
+  manage.includes('{ label: "Confirmed", value: "confirmed" }') && manage.includes('{ label: "Unplaced", value: "unplaced" }')
+    && manage.includes('{ label: "Possible", value: "possible" }') && manage.includes('{ label: "Changed", value: "changed" }'),
+  "Confirmed, Unplaced, Possible and Changed filters exist",
+);
+assert.ok(!manage.includes("No suggestion"), "the repetitive no-suggestion copy is gone");
+
+/* The missionary reads circles; tiers stay internal. */
+assert.ok(
+  manage.includes('{ helper: "Your closest three.", label: "My 3", tier: "inner_3" }')
+    && manage.includes('label: "My 12", tier: "next_9"'),
+  "placement is asked in My 3 / My 12 language, stored as the exclusive tier",
+);
+assert.ok(
+  manage.includes("Inside your twelve, outside your three."),
+  "choosing a circle explains what it means, so cumulative naming is never ambiguous",
+);
+assert.ok(
+  manage.includes("Which circle is") && manage.includes("closest to?"),
+  "placing someone asks for their closest circle",
+);
+assert.ok(
+  !/circleTierLabel/.test(manage),
+  "internal tier names are not shown on this screen",
+);
+
+/* Neutral language: DOS has not pinned anyone. */
+assert.ok(
+  manage.includes("This is an observation, not a decision."),
+  "a possibility says outright that it is not a decision",
+);
+assert.ok(
+  !/\bSuggested:/.test(manage) && !/Pinned to/.test(manage) && !/Accept and place/.test(manage),
+  "no wording implies DOS has already assigned or pinned someone",
 );
 assert.ok(manage.includes("capacityConflicts(counts)") && manage.includes("Over capacity"), "capacity conflicts are surfaced");
 assert.ok(
   manage.includes("setIsReviewing(true)") && manage.includes("Confirm these changes") && manage.includes("disabled={Boolean(conflicts.length) || !changes.length}"),
   "saving takes an explicit confirmation and is blocked while a conflict stands",
+);
+assert.ok(
+  manage.includes("{changes.length} {changes.length === 1 ? \"change\" : \"changes\"} to save") && manage.includes("changes.map((change)"),
+  "the final review lists only the proposed changes",
 );
 assert.ok(
   manage.includes("Prototype — nothing was saved"),
@@ -155,12 +197,12 @@ assert.ok(
 
 /* Recommendations explain themselves and are never applied automatically. */
 assert.ok(
-  manage.includes("recommendation.reasons.map((reason)") && manage.includes("recommendation.summary"),
-  "a recommendation shows the concrete reasons behind it",
+  manage.includes("recommendation.reasons.map((reason)"),
+  "a possibility shows the concrete reasons behind it",
 );
 assert.ok(
-  manage.includes("Accept and place in") && manage.includes("onPlace(recommendation.suggested)"),
-  "a recommendation is applied only when a human accepts it",
+  manage.includes("Place in {manageCircleLabel(recommendation.suggested)}") && manage.includes("onPlace(recommendation.suggested)"),
+  "a possibility is applied only when a human presses the button",
 );
 assert.ok(
   !/useEffect\([^)]*\)\s*=>\s*\{[^}]*place\(/.test(manage),

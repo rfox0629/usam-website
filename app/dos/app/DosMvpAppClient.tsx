@@ -25732,17 +25732,38 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
 
 /* USA-247: Manage circles.
  *
- * A prototype for founder review. It changes nothing: there is no confirmed
- * placement stored anywhere yet, so everything currently in a circle is shown
- * as an unconfirmed machine recommendation, which is exactly what production
- * holds. Saving produces the change set that WOULD be written and says so.
+ * The governing sentence: the missionary chooses intended placement, DOS
+ * measures whether lived investment aligns with it, and DOS never silently
+ * moves anyone. Nothing on this screen moves a person, and the only way a
+ * suggestion becomes a placement is a person pressing a button that says so.
  *
- * Two rules the surface exists to make visible:
- *   - a placement is a human decision, so nothing here moves on its own;
- *   - a recommendation must show its reasons and be approved one person at a
- *     time.
- * Storage is the exclusive tier; the familiar My 3 / 12 / 70 / 120 numbers are
- * cumulative views computed from those tiers (src/lib/dos/circle-tiers.ts). */
+ * Language: the missionary reads My 3 / My 12 / My 70 / My 120, which are
+ * cumulative. Storage is the mutually exclusive tier underneath, so choosing
+ * "My 12" records the Next 9 tier -- inside the twelve, outside the three.
+ * The screen says that in words rather than making anyone infer it.
+ *
+ * A prototype for founder review: it writes nothing, and says so. */
+const manageCircleChoices: ReadonlyArray<{ helper: string; label: string; tier: CircleTier }> = [
+  { helper: "Your closest three.", label: "My 3", tier: "inner_3" },
+  { helper: "Inside your twelve, outside your three.", label: "My 12", tier: "next_9" },
+  { helper: "Inside your seventy, outside your twelve.", label: "My 70", tier: "next_58" },
+  { helper: "Inside your hundred and twenty, outside your seventy.", label: "My 120", tier: "next_50" },
+];
+
+function manageCircleLabel(tier: CircleTier) {
+  return manageCircleChoices.find((choice) => choice.tier === tier)?.label ?? "My 120";
+}
+
+type ManageCirclesFilter = "all" | "changed" | "confirmed" | "possible" | "unplaced";
+
+const manageCirclesFilters: ReadonlyArray<{ label: string; value: ManageCirclesFilter }> = [
+  { label: "All", value: "all" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Unplaced", value: "unplaced" },
+  { label: "Possible", value: "possible" },
+  { label: "Changed", value: "changed" },
+];
+
 function ManageCirclesWorkflow({
   onClose,
   people,
@@ -25750,30 +25771,34 @@ function ManageCirclesWorkflow({
 }: {
   onClose: () => void;
   people: DosAppPerson[];
-  /* The existing score engine's output, used ONLY as a suggestion with
-     reasons. It never places anyone. */
+  /* The existing score engine's output, used ONLY as a possibility with its
+     stored reasons. It never places anyone. */
   recommendations: Map<string, { reasons: string[]; suggested: CircleTier; summary: string }>;
 }) {
-  /* Confirmed placements. Empty today, because production has none: every
-     stored circle is machine-assigned and none was ever confirmed. */
-  const [draft, setDraft] = useState<Map<string, CirclePlacement>>(() => new Map());
+  /* Confirmed placements. Empty today, because production holds none: every
+     stored circle is an unconfirmed machine assignment. */
   const [confirmedBaseline] = useState<Map<string, CirclePlacement>>(() => new Map());
+  const [draft, setDraft] = useState<Map<string, CirclePlacement>>(() => new Map());
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<ManageCirclesFilter>("all");
   const [isReviewing, setIsReviewing] = useState(false);
   const [savedSummary, setSavedSummary] = useState<CirclePlacementChange[] | null>(null);
   const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
-  const placementOf = (personId: string): CirclePlacement => draft.get(personId) ?? "not_placed";
+  const placementOf = (personId: string): CirclePlacement => draft.get(personId) ?? confirmedBaseline.get(personId) ?? "not_placed";
   const counts = useMemo(() => tierCounts(people.map((person) => placementOf(person.id))), [draft, people]);
   const capacity = useMemo(() => capacityReport(counts), [counts]);
   const conflicts = useMemo(() => capacityConflicts(counts), [counts]);
   const changes = useMemo(() => placementChanges(confirmedBaseline, draft), [confirmedBaseline, draft]);
   const views = useMemo(() => viewCounts(counts), [counts]);
+  const changedIds = useMemo(() => new Set(changes.map((change) => change.personId)), [changes]);
 
   function place(personId: string, placement: CirclePlacement) {
     setSavedSummary(null);
     setDraft((current) => {
       const next = new Map(current);
+      const confirmed = confirmedBaseline.get(personId) ?? "not_placed";
 
-      if (placement === "not_placed") {
+      if (placement === confirmed) {
         next.delete(personId);
       } else {
         next.set(personId, placement);
@@ -25783,25 +25808,49 @@ function ManageCirclesWorkflow({
     });
   }
 
-  const placedByTier = circleTiers.map((tier) => ({
-    people: people.filter((person) => placementOf(person.id) === tier),
-    tier,
-  }));
-  const unplaced = people.filter((person) => placementOf(person.id) === "not_placed");
+  const visiblePeople = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+
+    return people.filter((person) => {
+      if (normalized && !person.name.toLowerCase().includes(normalized)) {
+        return false;
+      }
+
+      const placement = placementOf(person.id);
+
+      if (filter === "confirmed") {
+        return placement !== "not_placed";
+      }
+
+      if (filter === "unplaced") {
+        return placement === "not_placed";
+      }
+
+      if (filter === "possible") {
+        const recommendation = recommendations.get(person.id);
+
+        return Boolean(recommendation) && recommendation?.suggested !== placement;
+      }
+
+      if (filter === "changed") {
+        return changedIds.has(person.id);
+      }
+
+      return true;
+    });
+  }, [changedIds, draft, filter, people, query, recommendations]);
 
   return (
     <DosWorkflowPage identity="Manage circles" onClose={onClose} title="People">
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         <p className="text-[14.5px] leading-[1.5] text-dos-body">
-          Circle placement is your decision. Nothing here moves anyone automatically, and no meeting, minute, Fruit entry or engagement rating will change a placement you have confirmed.
+          You choose who is closest. DOS never moves anyone on its own: no meeting, minute, Fruit entry or engagement rating will change a circle you have confirmed.
         </p>
 
-        {/* Capacity, per exclusive tier, with the cumulative view it feeds. */}
-        <section aria-label="Circle capacity" className="grid gap-2 rounded-[20px] border border-dos-line bg-white p-3.5">
-          <h3 className="text-[15px] font-bold text-dos-primary">Capacity</h3>
+        <section aria-label="Circle capacity" className="grid gap-1.5 rounded-[20px] border border-dos-line bg-white p-3.5">
           {capacity.map((row) => (
             <div className="flex min-w-0 items-baseline justify-between gap-3" key={row.tier}>
-              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{circleTierLabel[row.tier]}</span>
+              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{manageCircleLabel(row.tier)}</span>
               <span className={`shrink-0 text-[13px] tabular-nums ${row.overBy ? "font-bold text-[#B42318]" : "text-dos-secondary"}`}>
                 {row.used} of {row.capacity}
                 {row.overBy ? ` · ${row.overBy} over` : row.remaining ? ` · ${row.remaining} open` : " · full"}
@@ -25809,53 +25858,55 @@ function ManageCirclesWorkflow({
             </div>
           ))}
           <p className="mt-1 border-t border-dos-rule pt-2 text-[12.5px] leading-[1.45] text-dos-secondary">
-            These four tiers are what gets stored, and a person is only ever in one of them. The circles you read are cumulative: My 3 {views.my_3}, My 12 {views.my_12}, My 70 {views.my_70}, My 120 {views.my_120}. {placedTotal(counts)} {placedTotal(counts) === 1 ? "person is" : "people are"} placed in total.
+            Each row is that ring on its own, which is what gets stored. Read together the circles are cumulative: My 3 {views.my_3}, My 12 {views.my_12}, My 70 {views.my_70}, My 120 {views.my_120}, and {placedTotal(counts)} {placedTotal(counts) === 1 ? "person" : "people"} placed in total.
           </p>
         </section>
 
-        {placedByTier.map(({ people: tierPeople, tier }) => (
-          <section aria-label={circleTierLabel[tier]} className="grid gap-2" key={tier}>
-            <h3 className="text-[15px] font-bold text-dos-primary">
-              {circleTierLabel[tier]} <span className="font-medium text-dos-secondary">({tierPeople.length} of {circleTierCapacity[tier]})</span>
-            </h3>
-            {tierPeople.length ? tierPeople.map((person) => (
-              <ManageCirclesRow
-                key={person.id}
-                onPlace={(next) => place(person.id, next)}
-                person={person}
-                placement={tier}
-                recommendation={recommendations.get(person.id) ?? null}
-              />
-            )) : (
-              <p className="rounded-[16px] border border-dashed border-dos-line px-3 py-2.5 text-[13px] text-dos-secondary">Nobody confirmed here yet.</p>
-            )}
-          </section>
-        ))}
+        <SearchField label="Search people to place" onChange={setQuery} placeholder="Search people" value={query} />
 
-        <section aria-label="Not placed" className="grid gap-2">
-          <h3 className="text-[15px] font-bold text-dos-primary">
-            Not placed <span className="font-medium text-dos-secondary">({unplaced.length})</span>
-          </h3>
-          <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
-            Everyone in your field who has no confirmed circle. Suggestions come from the existing score and are only suggestions.
-          </p>
-          {unplaced.map((person) => (
-            <ManageCirclesRow
-              key={person.id}
-              onPlace={(next) => place(person.id, next)}
-              person={person}
-              placement="not_placed"
-              recommendation={recommendations.get(person.id) ?? null}
-            />
+        <div className="flex flex-wrap gap-1.5">
+          {manageCirclesFilters.map((option) => (
+            <button
+              aria-pressed={filter === option.value}
+              className={`min-h-9 rounded-dos-3 border px-3 text-[12.5px] font-bold transition-colors ${
+                filter === option.value ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
+              }`}
+              key={option.value}
+              onClick={() => setFilter(option.value)}
+              type="button"
+            >
+              {option.label}
+              {option.value === "changed" && changes.length ? <span className="ml-1.5 tabular-nums">{changes.length}</span> : null}
+            </button>
           ))}
-        </section>
+        </div>
+
+        {visiblePeople.length ? (
+          <ul aria-label="People" className="grid gap-2">
+            {visiblePeople.map((person) => (
+              <li key={person.id}>
+                <ManageCirclesRow
+                  isChanged={changedIds.has(person.id)}
+                  onPlace={(next) => place(person.id, next)}
+                  person={person}
+                  placement={placementOf(person.id)}
+                  recommendation={recommendations.get(person.id) ?? null}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-[16px] border border-dashed border-dos-line px-3 py-3 text-[13.5px] text-dos-secondary">
+            {query.trim() ? "Nobody matches that search." : "Nobody in this view."}
+          </p>
+        )}
 
         {conflicts.length ? (
           <section aria-label="Capacity conflicts" className="grid gap-1 rounded-[18px] border border-[#F0A5A5] bg-[#FEF2F2] p-3.5">
             <p className="text-[14px] font-bold text-[#B42318]">Over capacity</p>
             {conflicts.map((row) => (
               <p className="text-[13px] leading-[1.45] text-[#912018]" key={row.tier}>
-                {circleTierLabel[row.tier]} holds {row.used}, which is {row.overBy} more than {circleTierCapacity[row.tier]}. Move someone out before saving.
+                {manageCircleLabel(row.tier)} holds {row.used}, which is {row.overBy} more than {row.capacity}. Move someone out before saving.
               </p>
             ))}
           </section>
@@ -25864,15 +25915,13 @@ function ManageCirclesWorkflow({
         {savedSummary ? (
           <section aria-label="Save result" className="grid gap-1.5 rounded-[18px] border border-[#BFDBFE] bg-[#F8FBFF] p-3.5" role="status">
             <p className="text-[14px] font-bold text-dos-blueText">Prototype — nothing was saved</p>
-            <p className="text-[13px] leading-[1.5] text-dos-body">
-              This is the change set a real save would write, once you approve the data contract and migration:
-            </p>
+            <p className="text-[13px] leading-[1.5] text-dos-body">This is the change set a real save would write, once you approve the data contract and migration:</p>
             <ul className="grid gap-1">
-              {savedSummary.length ? savedSummary.map((change) => (
+              {savedSummary.map((change) => (
                 <li className="text-[13px] leading-[1.5] text-dos-body" key={change.personId}>
-                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : circleTierLabel[change.from]} → {change.to === "not_placed" ? "not placed" : circleTierLabel[change.to]}
+                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : manageCircleLabel(change.from)} → {change.to === "not_placed" ? "not placed" : manageCircleLabel(change.to)}
                 </li>
-              )) : <li className="text-[13px] text-dos-secondary">No changes.</li>}
+              ))}
             </ul>
           </section>
         ) : null}
@@ -25881,10 +25930,15 @@ function ManageCirclesWorkflow({
       <StickyFormFooter>
         {isReviewing ? (
           <>
-            <p className="text-[13px] leading-[1.5] text-dos-body">
-              {changes.length ? `Save ${changes.length} placement ${changes.length === 1 ? "change" : "changes"}?` : "Nothing has changed yet."}
-              {conflicts.length ? " Resolve the capacity conflict first." : ""}
-            </p>
+            <div className="grid gap-1 rounded-[16px] border border-dos-line bg-white p-3">
+              <p className="text-[13.5px] font-bold text-dos-primary">{changes.length} {changes.length === 1 ? "change" : "changes"} to save</p>
+              {changes.map((change) => (
+                <p className="text-[13px] leading-[1.45] text-dos-body" key={change.personId}>
+                  {peopleById.get(change.personId)?.name ?? change.personId}: {change.from === "not_placed" ? "not placed" : manageCircleLabel(change.from)} → {change.to === "not_placed" ? "not placed" : manageCircleLabel(change.to)}
+                </p>
+              ))}
+              {conflicts.length ? <p className="text-[13px] font-bold text-[#B42318]">Resolve the capacity conflict first.</p> : null}
+            </div>
             <Button
               disabled={Boolean(conflicts.length) || !changes.length}
               fullWidth
@@ -25908,46 +25962,54 @@ function ManageCirclesWorkflow({
   );
 }
 
-/* One person: where they are, where they could go, and -- kept visually
-   distinct from the placement itself -- what the score suggests and why. */
+/* One compact row: who they are, the circle they are confirmed in, and -- kept
+   visually and verbally distinct -- what the score thinks is possible and why.
+   A person with nothing to suggest simply has no such line; the old repeated
+   placeholder copy said nothing and is gone. */
 function ManageCirclesRow({
+  isChanged,
   onPlace,
   person,
   placement,
   recommendation,
 }: {
+  isChanged: boolean;
   onPlace: (placement: CirclePlacement) => void;
   person: DosAppPerson;
   placement: CirclePlacement;
   recommendation: { reasons: string[]; suggested: CircleTier; summary: string } | null;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
-  const suggestsElsewhere = recommendation && recommendation.suggested !== placement;
+  const possibleElsewhere = recommendation && recommendation.suggested !== placement;
 
   return (
-    <article className="grid gap-2 rounded-[16px] border border-dos-line bg-white p-3">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold text-dos-primary">{person.name}</p>
-          <p className="mt-0.5 truncate text-[12.5px] text-dos-secondary">
-            {placement === "not_placed" ? "Not placed" : `Confirmed: ${circleTierLabel[placement]}`}
-          </p>
-        </div>
-        {suggestsElsewhere ? (
+    <article className={`grid gap-2 rounded-[16px] border bg-white p-3 ${isChanged ? "border-dos-blue" : "border-dos-line"}`}>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <button className="min-w-0 flex-1 text-left" onClick={() => setIsOpen((current) => !current)} aria-expanded={isOpen} type="button">
+          <span className="block truncate text-[15px] font-bold text-dos-primary">{person.name}</span>
+          <span className="mt-0.5 block truncate text-[12.5px] text-dos-secondary">
+            {placement === "not_placed" ? "Not placed" : `Confirmed: ${manageCircleLabel(placement)}`}
+            {isChanged ? " · changed, not saved" : ""}
+          </span>
+        </button>
+        {possibleElsewhere ? (
           <button
             aria-expanded={isExplaining}
             className="shrink-0 rounded-full border border-[#FDE68A] bg-[#FFFBEB] px-2.5 py-1 text-[11.5px] font-bold text-[#92400E]"
             onClick={() => setIsExplaining((current) => !current)}
             type="button"
           >
-            Suggested: {circleTierLabel[recommendation.suggested]}
+            Possible {manageCircleLabel(recommendation.suggested)}
           </button>
         ) : null}
       </div>
 
       {isExplaining && recommendation ? (
         <div className="grid gap-1 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
-          <p className="text-[12.5px] font-semibold leading-[1.45] text-[#92400E]">{recommendation.summary}</p>
+          <p className="text-[12.5px] font-semibold leading-[1.45] text-[#92400E]">
+            Possible {manageCircleLabel(recommendation.suggested)} placement. This is an observation, not a decision.
+          </p>
           <ul className="grid gap-0.5">
             {recommendation.reasons.map((reason) => (
               <li className="text-[12.5px] leading-[1.45] text-[#78350F]" key={reason}>· {reason}</li>
@@ -25961,35 +26023,42 @@ function ManageCirclesRow({
             }}
             type="button"
           >
-            Accept and place in {circleTierLabel[recommendation.suggested]}
+            Place in {manageCircleLabel(recommendation.suggested)}
           </button>
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-1.5">
-        {circleTiers.map((tier) => (
-          <button
-            aria-pressed={placement === tier}
-            className={`min-h-9 rounded-full border px-3 text-[12.5px] font-bold transition-colors ${
-              placement === tier ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
-            }`}
-            key={tier}
-            onClick={() => onPlace(tier)}
-            type="button"
-          >
-            {circleTierLabel[tier]}
-          </button>
-        ))}
-        {placement === "not_placed" ? null : (
-          <button
-            className="min-h-9 rounded-full border border-dos-line bg-white px-3 text-[12.5px] font-bold text-[#B42318] transition-colors hover:border-[#F0A5A5]"
-            onClick={() => onPlace("not_placed")}
-            type="button"
-          >
-            Remove
-          </button>
-        )}
-      </div>
+      {isOpen ? (
+        <div className="grid gap-2 border-t border-dos-rule pt-2">
+          <p className="text-[12.5px] leading-[1.45] text-dos-secondary">Which circle is {person.name.split(" ")[0]} closest to?</p>
+          {manageCircleChoices.map((choice) => (
+            <button
+              aria-pressed={placement === choice.tier}
+              className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-[12px] border px-3 text-left transition-colors ${
+                placement === choice.tier ? "border-dos-blue bg-[#EBF2FF]" : "border-dos-line bg-white hover:border-dos-blue100"
+              }`}
+              key={choice.tier}
+              onClick={() => onPlace(choice.tier)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block text-[13.5px] font-bold text-dos-primary">{choice.label}</span>
+                <span className="block text-[12px] text-dos-secondary">{choice.helper}</span>
+              </span>
+              {placement === choice.tier ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-blue" strokeWidth={2.2} /> : null}
+            </button>
+          ))}
+          {placement === "not_placed" ? null : (
+            <button
+              className="min-h-10 w-fit rounded-full border border-dos-line bg-white px-3 text-[12.5px] font-bold text-[#B42318] transition-colors hover:border-[#F0A5A5]"
+              onClick={() => onPlace("not_placed")}
+              type="button"
+            >
+              Remove from circles
+            </button>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
