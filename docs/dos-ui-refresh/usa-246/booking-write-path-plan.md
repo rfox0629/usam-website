@@ -87,10 +87,36 @@ They are accepted by the public form, stored on `dos_table_invitation_bookings` 
 - **Person matching in production:** a second form booking with the same phone as an earlier test guest was `linked` (one exact phone match, no duplicate Person); a booking named "Brooke Fox" with a new email was booked and **flagged for review with both existing "Brooke Fox" people as candidates, no Person created, meeting created with no people attached**.
 - Historical bookings: the four July rows still have `operation_key`, `host_member_id`, `person_match_status` null and their July/August `updated_at`.
 
-**Test data left on production (all in the founder's workspace, all clearly labelled):** five test bookings and their meetings were set to `canceled` (they do not block availability or appear in Needs Logging); two test Persons ("Preview Test … (delete me)") were archived. **One live booking was kept on purpose** so the review flow can be exercised in the preview: guest "Brooke Fox" (`preview.review.…@example.com`), Thu Oct 1 6:00 PM CT, `person_match_status = review` — it appears under Links → Needs review and as a scheduled meeting on Oct 1. Cancel or resolve it after review; say the word and I will remove all test rows.
+**Re-run after the host correction (preview with the corrected function, production database):** 10 concurrent requests for one slot → 1 booked, 9 refused; the winner's host is the workspace owner (the only candidate for a link with no configured hosts) and its meeting's `created_by` is the owner's user; same-key retry → same ids; taken slot → 409; unknown token → 404; missing key → 400; a double tap sends one request; no two live bookings share a host for overlapping times (query over all live bookings: 0). The form booking that carried a phone number stored it on the booking only; its meeting notes are null.
+
+**Test data left on production (all in the founder's workspace, all clearly labelled):** seven test bookings and their meetings are `canceled` (they do not block availability or appear in Needs Logging); five test Persons ("Preview Test … (delete me)") are archived. **One live booking was kept on purpose** so the review flow can be exercised in the preview: guest "Brooke Fox" (`preview.review.…@example.com`), Thu Oct 1 6:00 PM CT, `person_match_status = review` — it appears under Links → Needs review and as a scheduled meeting on Oct 1. Cancel or resolve it after review; say the word and I will remove all test rows.
 
 **Enabling in production:** set `DOS_BOOKING_WRITE_PATH_V2=true` in the Vercel Production environment and redeploy (or remove the gate in code after approval). Until then production keeps the legacy path; the migration is already applied and inert.
 
 ## 7. Screenshots
 
 `screenshots/booking/`: Links → Needs review with the two candidate actions and Add as a new person (390 and 1440); the meeting detail's "Booked through … by …" line; the public confirmation page from the preview run.
+
+## 8. Bounded cleanup of the identified test records (to run only after the review flow is approved)
+
+Scope is exactly the rows this work created, identified by the synthetic `@example.com` addresses that begin with `preview.` and the `(delete me)` names, all created after 2026-09-08. The four historical July bookings are excluded by construction (they predate the cutoff and carry a real address).
+
+```sql
+-- 1. Preview: what will be removed (expect: 8 bookings incl. the kept review example, 8 meetings, 5 people).
+select 'bookings', count(*) from dos_table_invitation_bookings where created_at > '2026-09-08' and (requester_email like 'preview.%@example.com' or requester_name like 'Preview Test%')
+union all select 'meetings', count(*) from missionary_tables where id in (select table_id from dos_table_invitation_bookings where created_at > '2026-09-08' and (requester_email like 'preview.%@example.com' or requester_name like 'Preview Test%'))
+union all select 'people', count(*) from missionary_field_people where email like 'preview.%@example.com' and created_at > '2026-09-08';
+
+-- 2. Remove, in one transaction, in dependency order (bookings reference meetings and people).
+begin;
+delete from dos_table_invitation_bookings where created_at > '2026-09-08' and (requester_email like 'preview.%@example.com' or requester_name like 'Preview Test%');
+delete from missionary_tables where meeting_status = 'canceled' and source = 'field' and created_at > '2026-09-08' and participant_names[1] like 'Preview Test%';
+delete from missionary_tables where id = '<meeting id of the kept Brooke Fox review example, f7f676f0-d673-4a68-b325-ce27a7938f28>';
+delete from missionary_field_people where email like 'preview.%@example.com' and created_at > '2026-09-08';
+commit;
+
+-- 3. Confirm the historical bookings are exactly as before (expect 4).
+select count(*) from dos_table_invitation_bookings where created_at < '2026-09-01' and operation_key is null and host_member_id is null and person_match_status is null;
+```
+
+The kept review example (booking `58a12df2-d14e-43c7-8815-00a274332585`, guest "Brooke Fox", meeting `f7f676f0-…`) is included in step 2 on purpose; if it has been resolved to a Person by then, that link is removed with the booking and the Person it was resolved to is not touched.
