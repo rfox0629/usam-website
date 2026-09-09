@@ -196,4 +196,35 @@ assert.ok(
   "people are never ordered by Fruit or multiplication",
 );
 
+/* ---- One query layer, owned elsewhere ----------------------------------
+ *
+ * The rules module must never grow its own production query: Reports (USA-251)
+ * owns the single facts loader, and Manage circles consumes the same shape. */
+assert.ok(
+  !/supabase|createClient|\.from\(|SELECT /i.test(code),
+  "the alignment rules contain no query, no client and no SQL: they receive normalized evidence",
+);
+assert.ok(
+  source.includes("THE SHARED EVIDENCE INTERFACE"),
+  "the evidence object is documented as the shared interface between the loader and its consumers",
+);
+assert.ok(
+  source.includes("owned by the Reports") && source.includes("USA-251"),
+  "the module names which issue owns the production facts loader",
+);
+
+/* The evidence shape is exercised in full, so a loader has an exact target. */
+const everyField = person({
+  accountability: 1, activeJourneys: 1, confirmedAt: LONG_AGO, consistencyWeeks: 3, fruitEvents: 1,
+  lastInteractionAt: NOW, meetings: 3, ministryMinutes: 180, multiplicationEvents: 1, personName: "Complete",
+  placement: "inner_3", prayer: 1, tables: 2,
+});
+
+assert.deepEqual(
+  Object.keys(everyField).sort(),
+  ["accountability", "activeJourneys", "confirmedAt", "consistencyWeeks", "fruitEvents", "lastInteractionAt", "meetings", "ministryMinutes", "multiplicationEvents", "personId", "personName", "placement", "prayer", "tables"],
+  "the evidence interface is exactly these fields; a loader has one target to satisfy",
+);
+assert.equal(evaluateCircleAlignment({ evidence: [everyField], now: NOW })[0].state, "aligned");
+
 console.log("DOS circle alignment (USA-247) regression passed.");

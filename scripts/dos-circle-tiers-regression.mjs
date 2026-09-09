@@ -84,18 +84,29 @@ assert.notEqual(
 });
 circleTiers.forEach((tier) => assert.equal(normalizeCirclePlacement(tier), tier));
 
-/* ---- Capacity ----------------------------------------------------------- */
+/* ---- Capacity is a cumulative hard cap ----------------------------------
+ *
+ * Founder decision, 2026-09-09: My 3 at most 3, My 12 at most 12 counting the
+ * three, My 70 at most 70, My 120 at most 120. */
 const report = capacityReport({ inner_3: 3, next_9: 2, next_50: 0, next_58: 1 });
-const inner = report.find((row) => row.tier === "inner_3");
+const my3 = report.find((row) => row.view === "my_3");
+const my12 = report.find((row) => row.view === "my_12");
 
-assert.deepEqual({ capacity: inner.capacity, overBy: inner.overBy, remaining: inner.remaining, used: inner.used }, { capacity: 3, overBy: 0, remaining: 0, used: 3 }, "a full tier reports no remaining space and no overflow");
-assert.equal(report.find((row) => row.tier === "next_9").remaining, 7, "remaining capacity is per tier");
-assert.deepEqual(capacityConflicts({ inner_3: 3, next_9: 0, next_50: 0, next_58: 0 }), [], "a draft within capacity has no conflicts");
+assert.deepEqual(report.map((row) => row.capacity), [3, 12, 70, 120], "the caps are the cumulative circle sizes");
+assert.deepEqual({ capacity: my3.capacity, overBy: my3.overBy, remaining: my3.remaining, used: my3.used }, { capacity: 3, overBy: 0, remaining: 0, used: 3 }, "a full My 3 reports no remaining space and no overflow");
+assert.deepEqual({ remaining: my12.remaining, used: my12.used }, { remaining: 7, used: 5 }, "My 12 counts the three inside it");
+assert.deepEqual(capacityConflicts({ inner_3: 3, next_9: 9, next_50: 50, next_58: 58 }), [], "a completely full field is still within every cap");
 
-const conflicts = capacityConflicts({ inner_3: 5, next_9: 0, next_50: 0, next_58: 0 });
+/* A fourth person in My 3 is refused; the same person inside My 12 is fine. */
+const fourthInThree = capacityConflicts({ inner_3: 4, next_9: 0, next_50: 0, next_58: 0 });
 
-assert.equal(conflicts.length, 1, "an over-full tier is reported");
-assert.deepEqual({ overBy: conflicts[0].overBy, tier: conflicts[0].tier }, { overBy: 2, tier: "inner_3" }, "the conflict says which tier and by how many");
+assert.equal(fourthInThree.length, 1, "a fourth person in My 3 is a conflict");
+assert.deepEqual({ capacity: fourthInThree[0].capacity, overBy: fourthInThree[0].overBy, view: fourthInThree[0].view }, { capacity: 3, overBy: 1, view: "my_3" }, "the conflict names the circle, its cap, and by how many");
+assert.deepEqual(capacityConflicts({ inner_3: 3, next_9: 1, next_50: 0, next_58: 0 }), [], "that fourth relationship belongs in My 12, which accepts it");
+
+/* Cumulative, not per ring: a small three leaves room for a larger next ring. */
+assert.deepEqual(capacityConflicts({ inner_3: 1, next_9: 11, next_50: 0, next_58: 0 }), [], "one person in My 3 and eleven more still makes a legal My 12 of twelve");
+assert.equal(capacityConflicts({ inner_3: 1, next_9: 12, next_50: 0, next_58: 0 })[0].view, "my_12", "thirteen in My 12 is refused");
 
 /* ---- What a save would write -------------------------------------------- */
 const current = new Map([["a", "inner_3"], ["b", "next_9"], ["c", "not_placed"]]);

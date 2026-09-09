@@ -28,6 +28,7 @@ import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
 import { accountabilityDraftFrequency, accountabilityDraftSummary, accountabilityTrackingModeFor, type AccountabilityDraft, type AccountabilityTrackingMode } from "@/src/lib/dos/accountability-presentation";
 import { DisclosureSection, DosFormField, DosFormGrid, DosFormSection, FieldInputClass, FieldLabel, FieldSelectClass, FieldTextareaClass, FieldTimeInputClass, FormMessage, OptionalTag, RequiredMark, StickyFormFooter } from "@/src/components/dos/forms/FormPrimitives";
+import { circleViewName } from "@/src/lib/dos/circle-alignment";
 import {
   capacityConflicts,
   capacityReport,
@@ -25849,8 +25850,8 @@ function ManageCirclesWorkflow({
 
         <section aria-label="Circle capacity" className="grid gap-1.5 rounded-[20px] border border-dos-line bg-white p-3.5">
           {capacity.map((row) => (
-            <div className="flex min-w-0 items-baseline justify-between gap-3" key={row.tier}>
-              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{manageCircleLabel(row.tier)}</span>
+            <div className="flex min-w-0 items-baseline justify-between gap-3" key={row.view}>
+              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{circleViewName[row.view]}</span>
               <span className={`shrink-0 text-[13px] tabular-nums ${row.overBy ? "font-bold text-[#B42318]" : "text-dos-secondary"}`}>
                 {row.used} of {row.capacity}
                 {row.overBy ? ` · ${row.overBy} over` : row.remaining ? ` · ${row.remaining} open` : " · full"}
@@ -25858,7 +25859,7 @@ function ManageCirclesWorkflow({
             </div>
           ))}
           <p className="mt-1 border-t border-dos-rule pt-2 text-[12.5px] leading-[1.45] text-dos-secondary">
-            Each row is that ring on its own, which is what gets stored. Read together the circles are cumulative: My 3 {views.my_3}, My 12 {views.my_12}, My 70 {views.my_70}, My 120 {views.my_120}, and {placedTotal(counts)} {placedTotal(counts) === 1 ? "person" : "people"} placed in total.
+            Each circle counts the ones inside it: My 12 includes your My 3. {placedTotal(counts)} {placedTotal(counts) === 1 ? "person is" : "people are"} placed in total, each counted once.
           </p>
         </section>
 
@@ -25905,8 +25906,8 @@ function ManageCirclesWorkflow({
           <section aria-label="Capacity conflicts" className="grid gap-1 rounded-[18px] border border-[#F0A5A5] bg-[#FEF2F2] p-3.5">
             <p className="text-[14px] font-bold text-[#B42318]">Over capacity</p>
             {conflicts.map((row) => (
-              <p className="text-[13px] leading-[1.45] text-[#912018]" key={row.tier}>
-                {manageCircleLabel(row.tier)} holds {row.used}, which is {row.overBy} more than {row.capacity}. Move someone out before saving.
+              <p className="text-[13px] leading-[1.45] text-[#912018]" key={row.view}>
+                {circleViewName[row.view]} holds {row.used}, which is {row.overBy} more than {row.capacity}. Move someone further out before saving.
               </p>
             ))}
           </section>

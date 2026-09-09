@@ -117,26 +117,40 @@ export type CircleCapacityRow = {
   capacity: number;
   overBy: number;
   remaining: number;
-  tier: CircleTier;
   used: number;
+  view: CircleView;
 };
 
+/**
+ * Capacity is a HARD CAP measured on the CUMULATIVE circles (founder decision,
+ * 2026-09-09): My 3 holds at most 3, My 12 at most 12 counting the three, My 70
+ * at most 70, My 120 at most 120.
+ *
+ * Measuring cumulatively rather than per ring is deliberate. Someone with only
+ * one person in their closest three may still carry eleven others inside their
+ * twelve; that is a real shape of ministry and the cap should not forbid it.
+ * What the cap does forbid is a fourth person in My 3 -- that relationship
+ * belongs in My 12, where it may raise a Circle Alignment observation, and it
+ * never expands the three.
+ */
 export function capacityReport(counts: CircleTierCounts): CircleCapacityRow[] {
-  return circleTiers.map((tier) => {
-    const capacity = circleTierCapacity[tier];
-    const used = counts[tier];
+  const cumulative = viewCounts(counts);
+
+  return circleViews.map((view) => {
+    const capacity = circleViewCapacity(view);
+    const used = cumulative[view];
 
     return {
       capacity,
       overBy: Math.max(0, used - capacity),
       remaining: Math.max(0, capacity - used),
-      tier,
       used,
+      view,
     };
   });
 }
 
-/** Tiers a draft would leave over capacity. Empty means the draft is safe. */
+/** Circles a draft would leave over capacity. Empty means the draft is safe. */
 export function capacityConflicts(counts: CircleTierCounts) {
   return capacityReport(counts).filter((row) => row.overBy > 0);
 }

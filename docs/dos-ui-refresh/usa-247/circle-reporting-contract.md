@@ -6,6 +6,7 @@
 |---|---|---|
 | Tiers, views, capacity, change sets | `src/lib/dos/circle-tiers.ts` | `scripts/dos-circle-tiers-regression.mjs` |
 | Alignment windows, states, evidence, dismissals | `src/lib/dos/circle-alignment.ts` | `scripts/dos-circle-alignment-regression.mjs` |
+| Normalized activity facts (meetings, minutes, tables, recency, Fruit, multiplication) | not built yet — owned by USA-251 | — |
 
 Both are dependency-free and importable directly under Node's type stripping. The alignment module restates the tier order; a cross-module assertion proves the two agree, so they cannot drift.
 
@@ -24,6 +25,19 @@ Both are dependency-free and importable directly under Node's type stripping. Th
 | `not_placed` | — | | | | |
 
 A person holds exactly one tier, or none. `closestCircleForTier()` maps a tier to the circle a missionary reads.
+
+### Capacity is a cumulative hard stop
+
+Capacity is enforced on the **cumulative view**, never on the tier in isolation. My 3 holds at most three people, My 12 at most twelve **including** those three, My 70 at most seventy, My 120 at most 120.
+
+Consequences, all asserted in `scripts/dos-circle-tiers-regression.mjs`:
+
+- One person in My 3 plus eleven in the next ring is legal. My 12 holds twelve.
+- One person in My 3 plus twelve in the next ring is refused. My 12 would hold thirteen.
+- A fourth person in My 3 is refused no matter how empty the outer rings are.
+- A fourth heavily invested relationship belongs in **My 12**. It may raise a Circle Alignment observation. It never expands My 3.
+
+`capacityReport()` returns one row per view with `capacity`, `used`, `remaining` and `overBy`. `capacityConflicts()` returns only the rows over the cap. Manage circles blocks the save while any row is over, and names the view, not the tier.
 
 ## 2. Rules Reports must follow
 
@@ -114,6 +128,23 @@ Guard rails asserted in tests:
 
 The missionary may keep the placement, move the person, or **dismiss with an optional reason**. A dismissal records that the observation was considered; it never edits, hides or deletes the underlying activity.
 
+## 6b. The shared evidence interface
+
+Alignment rules never reach a database. They receive a normalized `CircleEvidence` object and return findings. The interface is declared in `src/lib/dos/circle-alignment.ts` and a regression asserts both that the module contains no query, client or SQL and that the evidence shape is exactly these fields:
+
+`accountability`, `activeJourneys`, `confirmedAt`, `consistencyWeeks`, `fruitEvents`, `lastInteractionAt`, `meetings`, `ministryMinutes`, `multiplicationEvents`, `personId`, `personName`, `placement`, `prayer`, `tables`.
+
+**Ownership, so that two branches never build the same loader:**
+
+| Layer | Owner | Responsibility |
+|---|---|---|
+| `circle-tiers.ts` | USA-247 | Circle semantics, exclusive and cumulative calculations, capacity |
+| `circle-alignment.ts` | USA-247 | Pure alignment rules over normalized evidence |
+| Activity facts loader | **USA-251** | The single production query layer for meetings, actual minutes, tables, recency, Fruit and multiplication |
+| Reports, Manage circles | USA-251, USA-247 | Consumers of that normalized evidence |
+
+Neither branch owns a facts loader today; no Reports branch or open pull request contains one. USA-251 (Phase 1, Master Ministry Report / Time Investment) is the natural owner because it needs the same facts first. USA-247 will **import** that loader once it exists and will not write a second implementation. Until then Manage circles stays database-free and the alignment rules are exercised only by fixtures.
+
 ## 7. Explainability rules for any recommendation
 
 1. Visibly not a placement — different container, different words ("Possible My 12" vs "Confirmed: My 12").
@@ -125,4 +156,4 @@ The missionary may keep the placement, move the person, or **dismiss with an opt
 
 ## 8. Status
 
-**Blocked for reporting until a missionary confirms placements.** The Manage circles surface exists as a founder-review prototype and writes nothing. The correction plan for the 73 unconfirmed assignments is documented in `circle-data-contract.md` §4 and has not been run.
+**Blocked for reporting until a missionary confirms placements.** No migration has been run, no production override exists, and nothing here is deployed. The Manage circles surface exists as a founder-review prototype and writes nothing. The correction plan for the 73 unconfirmed assignments is documented in `circle-data-contract.md` §4 and has not been run.

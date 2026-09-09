@@ -60,8 +60,26 @@ export function tierDepth(tier: CircleTier) {
   return alignmentTierOrder.indexOf(tier);
 }
 
-/* Every signal that may inform an observation. All are facts already recorded
-   elsewhere in DOS; none of them may move a person. */
+/* THE SHARED EVIDENCE INTERFACE.
+ *
+ * This is the contract between whoever loads production facts and everyone who
+ * reasons about them. Ownership, agreed 2026-09-09:
+ *
+ *   circle-tiers.ts      circle semantics, cumulative/exclusive arithmetic
+ *   circle-alignment.ts  pure rules, receiving already-normalized evidence
+ *   facts loader         ONE production query layer (meetings, actual minutes,
+ *                        tables, recency, consistency, Journeys, Accountability,
+ *                        Prayer, Fruit, multiplication) -- owned by the Reports
+ *                        work, USA-251; it does not exist yet
+ *   Reports & Manage circles   consumers of that one normalized shape
+ *
+ * This module therefore contains NO query, no Supabase client and no SQL, and
+ * a regression asserts that. Manage circles must not grow its own loader: when
+ * USA-251 publishes one, #128 imports it. Building a second implementation is
+ * the specific mistake this note exists to prevent.
+ *
+ * Every field is a fact already recorded elsewhere in DOS; none of them may
+ * move a person. */
 export type CircleEvidence = {
   /** Accountability touches inside the window. */
   accountability: number;
