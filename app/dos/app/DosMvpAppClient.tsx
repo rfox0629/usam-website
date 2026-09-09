@@ -26113,7 +26113,7 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
           </p>
           <DosFormToggleRow
             checked={showInPrayer}
-            description="Also lists it with your prayer reminders. Nothing is sent to anyone."
+            description="Also shows this date in Prayer. Nothing is sent to anyone."
             onChange={(event) => setShowInPrayer(event.target.checked)}
             title="Show in Prayer"
           />
@@ -26132,7 +26132,7 @@ function ImportantDatesReminderSection({ calendarConnected }: { calendarConnecte
           />
         </div>
         <DosFormField labelVariant="sentence" label="Notes">
-          <VoiceTextarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for the reminder." />
+          <VoiceTextarea className={`${FieldTextareaClass()} min-h-20`} name="important_reminder_notes" placeholder="Context for this date." />
         </DosFormField>
       </DisclosureSection>
     </div>

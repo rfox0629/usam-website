@@ -174,6 +174,14 @@ assert.ok(
   reminderBlock.includes('title="Show in Prayer"') && reminderBlock.includes("Nothing is sent to anyone."),
   "Prayer is a placement, and the copy says so: it never implies a message to another person",
 );
+
+/* The section is an Important date throughout. The only surviving uses of the
+   word are the wire field names, which are not user-facing and are left alone
+   so the submit contract does not churn. */
+const reminderCopy = [...reminderBlock.matchAll(/(?:"([^"\n]*[Rr]eminder[^"\n]*)"|>([^<>{}\n]*[Rr]eminder[^<>{}\n]*)<)/g)]
+  .map((match) => match[1] ?? match[2])
+  .filter((text) => text && !text.startsWith("important_reminder_"));
+assert.deepEqual(reminderCopy, [], `no stale Reminder wording is shown to a person (found ${JSON.stringify(reminderCopy)})`);
 assert.ok(
   reminderBlock.includes('title="Add to my calendar"') && reminderBlock.includes("disabled={!calendarConnected}"),
   "the calendar option is only offered when a calendar is actually connected",
