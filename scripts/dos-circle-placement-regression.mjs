@@ -197,4 +197,49 @@ assert.ok(
   "the rollback touches nothing that existed before the migration",
 );
 
+/* ------------------------------- one canonical source, and only one writer */
+const overrideRoute = read("app/api/dos/circles/override/route.ts");
+const overrideRouteCode = overrideRoute.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+assert.ok(
+  /status: 410/.test(overrideRouteCode) && !/updateCircleOverride|dos_circle_overrides|createSupabaseAdminClient/.test(overrideRouteCode),
+  "the old override route is retired and writes nothing",
+);
+assert.ok(
+  !/fetch\("\/api\/dos\/circles\/override"/.test(client),
+  "no client code calls the retired override route",
+);
+assert.ok(
+  (client.match(/\/api\/dos\/app\/circle-placements/g) ?? []).length >= 1,
+  "the app writes placement through the transactional route",
+);
+assert.ok(
+  !/updateCircleOverride/.test(client),
+  "the app does not reach the override writer by any other name",
+);
+
+/* Founder decision 6, enforced at the one switch that governs it. */
+assert.ok(
+  /const automatedCirclePlacementSuggestionsEnabled = false;/.test(client),
+  "automated placement suggestions are off for production release one",
+);
+assert.ok(
+  /automatedCirclePlacementSuggestionsEnabled\s*\n?\s*\?\s*computeCircleSuggestion|automatedCirclePlacementSuggestionsEnabled$/m.test(client)
+    || client.includes("automatedCirclePlacementSuggestionsEnabled\n    ? computeCircleSuggestion({"),
+  "the suggestion engine is gated behind that switch rather than called directly",
+);
+
+/* The machine score never names anybody's circle. */
+assert.ok(
+  !/circleScore\?\.circle \?\? "field"/.test(client),
+  "a Person's circle is no longer read from the machine score",
+);
+assert.ok(
+  /const currentCircleKey: CircleKey = confirmedPlacement && isCircleTier\(confirmedPlacement\)/.test(client),
+  "a Person's circle is read from the confirmed placement",
+);
+assert.ok(
+  /confirmedPlacement === reviewedNotPlaced/.test(client) && /"Not reviewed"/.test(client),
+  "a Person with no confirmed placement says so rather than showing a circle",
+);
+
 console.log("DOS circle placement (USA-247) regression passed.");

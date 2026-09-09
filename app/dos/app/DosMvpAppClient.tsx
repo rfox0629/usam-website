@@ -17740,6 +17740,21 @@ function previewCircleLayerItems(activeCircle: CircleFocusView, items: CirclePer
 // confirms through the existing dos_circle_overrides pathway.
 type CircleKey = CircleFocusView | "field";
 
+/* USA-247, founder decision 6. One switch, off for production release one:
+   DOS shows no automated Possible-placement suggestion anywhere. Turning this
+   on again is a product decision that requires confirmed placement data and
+   the shared reporting evidence layer, not a code tidy-up. */
+const automatedCirclePlacementSuggestionsEnabled = false;
+
+/* A confirmed tier, expressed in the older CircleKey vocabulary the Person
+   record still speaks. Storage stays the exclusive tier. */
+const circleKeyForTier: Record<CircleTier, CircleKey> = {
+  inner_3: "three",
+  next_50: "my_120",
+  next_58: "seventy",
+  next_9: "twelve",
+};
+
 const circleProximityOrder: CircleKey[] = ["three", "twelve", "seventy", "my_120", "field"];
 
 function closerCircle(circle: CircleKey): CircleKey | null {
@@ -34327,6 +34342,7 @@ function PersonDetailOverlay({
   assessmentResults,
   circleBenchmarks,
   circleScore,
+  confirmedPlacement,
   commitments,
   commitmentsEnabled,
   engagementLevelsEnabled,
@@ -34386,6 +34402,9 @@ function PersonDetailOverlay({
   assessmentResults: DosAppAssessmentResult[];
   circleBenchmarks: Record<CircleKey, CircleBenchmark>;
   circleScore?: DosRelationshipScore | null;
+  /* USA-247: the placement a human confirmed, or null when this person has
+     not been reviewed. Never derived from the score. */
+  confirmedPlacement?: CircleDecision | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   engagementLevelsEnabled: boolean;
@@ -34588,18 +34607,34 @@ function PersonDetailOverlay({
   const nextMeeting = personScheduledMeetings[0] ?? null;
   const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
   const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
-  const currentCircleKey: CircleKey = circleScore?.circle ?? "field";
-  const circleSuggestion = computeCircleSuggestion({
-    accountabilityCheckIns,
-    benchmarks: circleBenchmarks,
-    currentCircle: currentCircleKey,
-    meetings,
-    personId: person.id,
-  });
+  /* USA-247. The circle shown on a Person is the one a human confirmed. The
+     machine score no longer names anybody's circle anywhere in DOS. */
+  const currentCircleKey: CircleKey = confirmedPlacement && isCircleTier(confirmedPlacement)
+    ? circleKeyForTier[confirmedPlacement]
+    : "field";
+  /* USA-247, founder decision 6: production release one carries no automated
+     Possible-placement suggestion. The deterministic engine still exists and
+     is still tested, but nothing in the product shows its output or offers to
+     act on it, because every input it has today is derived from the 121
+     unconfirmed machine rows. It returns when confirmed placements and the
+     shared reporting evidence layer exist. */
+  const circleSuggestion = automatedCirclePlacementSuggestionsEnabled
+    ? computeCircleSuggestion({
+      accountabilityCheckIns,
+      benchmarks: circleBenchmarks,
+      currentCircle: currentCircleKey,
+      meetings,
+      personId: person.id,
+    })
+    : null;
   const suggestionDismissKey = circleSuggestion ? `${person.id}:${circleSuggestion.currentCircle}:${circleSuggestion.suggestedCircle}` : null;
   const visibleCircleSuggestion = confirmedCircleMove || !suggestionDismissKey || dismissedCircleSuggestion === suggestionDismissKey ? null : circleSuggestion;
   const activeCircleKey = confirmedCircleMove ?? currentCircleKey;
-  const currentCircleLabel = circleDisplayName(activeCircleKey);
+  const currentCircleLabel = confirmedPlacement && isCircleTier(confirmedPlacement)
+    ? decisionLabel(confirmedPlacement)
+    : confirmedPlacement === reviewedNotPlaced
+      ? "Not in a circle"
+      : "Not reviewed";
   const overviewNotes = defaults.notes?.trim() ?? "";
   // Journey assignments auto-create a follow-up schedule (title-marker tagged) and a shadow
   // commitment (linkedCommitmentId) so the Journey itself stays checked-in-on — but showing
@@ -39327,38 +39362,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function confirmPersonCircleMove(personId: string, circle: CircleKey) {
-    setErrorMessage("");
+  /* USA-247. The old confirm-a-suggestion write path is gone. It wrote a single
+     row to dos_circle_overrides, overwriting the previous placement and hard
+     deleting on removal, and it was reached only from the automated suggestion
+     that founder decision 6 removes from release one. Confirmed placement is
+     written in one place now: saveCirclePlacements above, through the
+     transactional route. The API route itself answers 410 so a stale client
+     fails loudly rather than writing where nothing reads. */
+  async function confirmPersonCircleMove() {
+    setErrorMessage("Circle placement moved to Manage circles.");
 
-    if (isPreview) {
-      setErrorMessage("Preview mode is read-only. Circle changes are not saved.");
-      return false;
-    }
-
-    try {
-      const response = await fetch("/api/dos/circles/override", {
-        body: JSON.stringify({
-          circle,
-          locked: true,
-          personId,
-          reason: "Confirmed from Person circle suggestion",
-          workspaceId: data.workspace.id,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      });
-      const result = await response.json().catch(() => ({})) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Unable to update circle.");
-      }
-
-      router.refresh();
-      return true;
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to update circle.");
-      return false;
-    }
+    return false;
   }
 
   function openMeetingForPerson(personId: string) {
@@ -44483,6 +44497,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               circleBenchmarks={circleBenchmarks}
               guidedResourceProgress={data.guidedResourceProgress}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
+              confirmedPlacement={confirmedPlacementByPersonId.get(selectedPerson.id) ?? null}
               workspace={data.workspace}
             />
         ) : null}
