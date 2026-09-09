@@ -28,6 +28,10 @@ function createOperationKey() {
 export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }) {
   const firstSlotId = data.slots[0]?.id ?? "";
   const operationKeyRef = useRef<string | null>(null);
+  /* State updates are not synchronous, so a double tap in one tick would pass
+     an isSubmitting check twice. The ref closes that gap; the server would
+     dedupe by key anyway, but one request is the honest behaviour. */
+  const inFlightRef = useRef(false);
 
   if (operationKeyRef.current === null) {
     operationKeyRef.current = createOperationKey();
@@ -54,10 +58,11 @@ export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }
       return;
     }
 
-    if (isSubmitting) {
+    if (inFlightRef.current) {
       return;
     }
 
+    inFlightRef.current = true;
     setIsSubmitting(true);
     setMessage("");
 
@@ -78,6 +83,7 @@ export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }
         method: "POST",
       });
     } catch {
+      inFlightRef.current = false;
       setIsSubmitting(false);
       setMessage("We could not reach the server. Check your connection and try again; your request will not be duplicated.");
       return;
@@ -85,6 +91,7 @@ export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }
 
     const body = await response.json().catch(() => ({})) as BookingResponse;
 
+    inFlightRef.current = false;
     setIsSubmitting(false);
 
     if (!response.ok || body.error) {
