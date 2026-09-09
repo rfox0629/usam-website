@@ -56,8 +56,8 @@ function daysAgoIso(days: number, hour = 9, minute = 0) {
   date.setHours(hour, minute, 0, 0);
   return date.toISOString();
 }
-type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">
-  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone">>;
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "loggedAt">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "loggedAt">>;
 const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
   actionStep: null,
   followUpNeeded: false,
@@ -122,6 +122,10 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
     reviewLinks: [],
     scheduledEndAt: null,
     scheduledStartAt: null,
+    plannedStartAt: null,
+    plannedEndAt: null,
+    plannedDurationMinutes: null,
+    loggedAt: null,
     supportingAttendees: [],
     tableRole: "ministering",
     timezone: "America/Chicago",
