@@ -94,7 +94,7 @@ Nothing in this plan deletes a person, a score, a history row or a meeting.
 
 1. **Where confirmed placement lives** — reuse `dos_circle_overrides` (my recommendation, no new table) or add a dedicated column on the person.
 2. **What happens to the 73 legacy values** — leave them in place as recommendation inputs (my recommendation) or null them once confirmations exist.
-3. **Whether capacity is a hard stop or a warning.** The prototype blocks saving over capacity. A softer rule ("warn, allow, show over by N") may fit real ministry better.
+3. ~~**Whether capacity is a hard stop or a warning.**~~ **RESOLVED 2026-09-09: hard stop, enforced cumulatively.** My 3 holds at most three, My 12 at most twelve including those three, My 70 seventy, My 120 a hundred and twenty. A fourth heavily invested relationship belongs in My 12 and may raise an alignment observation; it never expands My 3.
 4. **Whether Not placed is a real state or an absence.** The prototype treats it as an absence, which keeps the data clean; an explicit "deliberately not placed" marker would let Ryan record that he has considered someone and chosen not to place them.
 5. **Whether a person may be placed while household-only or private.** Currently the People list hides them; the prototype does not exclude them.
 6. **Whether suggestions should appear at all in the first release**, or whether the first pass should be purely manual to establish trust.
