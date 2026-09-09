@@ -175,6 +175,69 @@ const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
 type ActiveTab = "home" | "meetings" | "more" | "people";
+
+/* USA-246: the small amount of "where was I" that must survive a
+   router.refresh() or a shell remount. Saving a meeting refreshes the route,
+   and anything held only in component state came back at its default — which
+   is Home — so the user lost the person or the date they were working from.
+   Scoped per workspace so a restored view can never leak across workspaces,
+   and every field is re-validated on the way back in. */
+type PersistedAppView = {
+  activeTab: ActiveTab;
+  meetingsCalendarDate: string | null;
+  meetingsView: MeetingsView;
+  selectedPersonId: string | null;
+};
+
+const persistedAppViewTabs = new Set<ActiveTab>(["home", "meetings", "more", "people"]);
+const persistedMeetingsViews = new Set<MeetingsView>(["calendar", "links", "timeline"]);
+
+function persistedAppViewKey(workspaceId: string) {
+  return `dos-app-view:${workspaceId}`;
+}
+
+function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(persistedAppViewKey(workspaceId));
+    const parsed = raw ? JSON.parse(raw) as Partial<PersistedAppView> : {};
+
+    return {
+      ...(persistedAppViewTabs.has(parsed.activeTab as ActiveTab) ? { activeTab: parsed.activeTab } : {}),
+      ...(persistedMeetingsViews.has(parsed.meetingsView as MeetingsView) ? { meetingsView: parsed.meetingsView } : {}),
+      ...(typeof parsed.selectedPersonId === "string" ? { selectedPersonId: parsed.selectedPersonId } : {}),
+      ...(typeof parsed.meetingsCalendarDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.meetingsCalendarDate)
+        ? { meetingsCalendarDate: parsed.meetingsCalendarDate }
+        : {}),
+    };
+  } catch {
+    /* A browser that refuses session storage simply gets today's behaviour. */
+    return {};
+  }
+}
+
+function writePersistedAppView(workspaceId: string, view: PersistedAppView) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(persistedAppViewKey(workspaceId), JSON.stringify(view));
+  } catch {
+    /* Persisting is a convenience; failing to persist must never break a save. */
+  }
+}
+
+/* Where a Log or Schedule Meeting flow was launched from (USA-246). */
+type MeetingFlowOrigin =
+  | { calendarDateKey: string; kind: "calendar" }
+  | { kind: "home" }
+  | { kind: "meetings" }
+  | { kind: "person"; personId: string }
+  | { kind: "timeline" };
 type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 
 const moreAppViewValues = new Set<MoreAppView>([
@@ -433,8 +496,14 @@ type LocalPrayerLogEntry = {
   prayerId: string;
 };
 
+/* USA-246: four destinations. People was already a real destination — it was
+   simply unreachable except through More, which also meant the nav lit up
+   "More" while you were looking at People. Home stays first and stays the
+   landing screen. The label is the product-facing "People" even though older
+   internal code still says Field. */
 const mobileTabs: ReadonlyArray<{ icon: IconName; label: string; value: ActiveTab }> = [
   { icon: "home", label: "Home", value: "home" },
+  { icon: "people", label: "People", value: "people" },
   { icon: "meetings", label: "Meetings", value: "meetings" },
   { icon: "apps", label: "More", value: "more" },
 ];
@@ -494,7 +563,7 @@ const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }
   {
     label: "Core",
     items: [
-      { icon: "people", label: "Field", type: "tab", value: "people" },
+      { icon: "people", label: "People", type: "tab", value: "people" },
       { icon: "meetings", label: "Meetings", type: "tab", value: "meetings" },
       { icon: "prayer", label: "Prayer", type: "moreApp", value: "prayer" },
     ],
@@ -32034,9 +32103,9 @@ function BottomNavigation({
 }) {
   return (
     <nav aria-label="Primary" className="absolute inset-x-0 bottom-0 z-dos-nav px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] md:hidden">
-      <div className="mx-auto grid w-full grid-cols-3 gap-1 rounded-full border border-dos-line bg-white p-1.5 shadow-dos-float">
+      <div className="mx-auto grid w-full grid-cols-4 gap-1 rounded-full border border-dos-line bg-white p-1.5 shadow-dos-float">
         {mobileTabs.map((tab) => {
-          const selected = activeTab === tab.value || (tab.value === "more" && activeTab === "people");
+          const selected = activeTab === tab.value;
 
           return (
           <button
@@ -36418,7 +36487,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      person's stored engagement_level is loaded either way and is submitted back
      untouched when the control is hidden. */
   const engagementLevelsEnabled = data.featureFlags.engagementLevels === true;
-  const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  /* Home is still the landing screen on a genuine first visit; this only
+     restores the view a refresh interrupted (USA-246). */
+  const restoredAppView = useRef(readPersistedAppView(data.workspace.id)).current;
+  const [activeTab, setActiveTab] = useState<ActiveTab>(restoredAppView.activeTab ?? "home");
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
@@ -36426,7 +36498,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   /* USA-218 (spec §5.1/5.2): Calendar and Timeline are mutually exclusive views. */
-  const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>(restoredAppView.meetingsView ?? "calendar");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
@@ -36447,7 +36519,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
-  const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
+  const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => restoredAppView.meetingsCalendarDate ?? calendarDateKey(new Date()));
   const [errorMessage, setErrorMessage] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [isDesktopActionMenuOpen, setIsDesktopActionMenuOpen] = useState(false);
@@ -36526,6 +36598,24 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      open so a retry after a failure reuses it and cannot apply twice. Cleared
      with the rest of the meeting form state. */
   const loggingOperationKeyRef = useRef<string | null>(null);
+  /* USA-246: where the meeting flow started, so a successful save returns
+     there. Saving used to send everyone to the Meetings tab regardless, and a
+     router.refresh() that remounted the shell could drop them on Home — losing
+     the person or the date they were working from. */
+  const meetingFlowOriginRef = useRef<MeetingFlowOrigin>({ kind: "home" });
+  /* Returning to Home is the one case with nothing on screen to prove the save
+     worked, so it gets one short confirmation rather than a second screen. */
+  const [meetingSaveConfirmation, setMeetingSaveConfirmation] = useState("");
+
+  useEffect(() => {
+    if (!meetingSaveConfirmation) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setMeetingSaveConfirmation(""), 4000);
+
+    return () => window.clearTimeout(timeout);
+  }, [meetingSaveConfirmation]);
   const [reviewLinkMeetingId, setReviewLinkMeetingId] = useState<string | null>(null);
   const [reviewShareMessage, setReviewShareMessage] = useState("");
   const [reviewOptionsLinksByMeetingId, setReviewOptionsLinksByMeetingId] = useState<Record<string, string>>({});
@@ -36566,7 +36656,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMobilePrayerPartner, setSelectedMobilePrayerPartner] = useState<LocalPrayerPartner | null>(null);
   const [selectedMobilePrayerRequest, setSelectedMobilePrayerRequest] = useState<DosAppPrayerRequest | null>(null);
   const [showPrayerTeamCount, setShowPrayerTeamCount] = useState(data.workspace.showPrayerTeamCount);
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(restoredAppView.selectedPersonId ?? null);
   const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
   const [showSecondaryFieldPeople, setShowSecondaryFieldPeople] = useState(false);
   const [selectedRelationshipModel, setSelectedRelationshipModel] = useState<DosRelationshipModel>(defaultRelationshipModel);
@@ -36629,6 +36719,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       ...quickAddedPeople.filter((person) => !loadedPersonIds.has(person.id)),
     ];
   }, [data.people, quickAddedPeople]);
+
+  /* Persist the view on every change, and drop a restored person who is not in
+     this workspace's loaded people — a stale or foreign id must never select
+     someone. */
+  useEffect(() => {
+    if (selectedPersonId && people.length && !people.some((person) => person.id === selectedPersonId)) {
+      setSelectedPersonId(null);
+      return;
+    }
+
+    writePersistedAppView(data.workspace.id, {
+      activeTab,
+      meetingsCalendarDate: selectedMeetingsCalendarDate,
+      meetingsView,
+      selectedPersonId,
+    });
+  }, [activeTab, data.workspace.id, meetingsView, people, selectedMeetingsCalendarDate, selectedPersonId]);
   const personNamesById = useMemo(() => personNameById(people), [people]);
   const groups = useMemo(() => [...data.groups, ...localGroupAdditions.filter((group) => !data.groups.some((loadedGroup) => loadedGroup.id === group.id))].map((group) => {
     const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
@@ -37392,6 +37499,42 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedOutcomeTags([]);
   }
 
+  /* Return to where the flow began, with the saved meeting visible. Only the
+     Home origin lands on Home, and it says so rather than leaving the user
+     wondering whether the save worked. */
+  function returnAfterMeetingSave(meetingId: string | null) {
+    const origin = meetingFlowOriginRef.current;
+
+    setSelectedMeetingId(meetingId);
+
+    if (origin.kind === "person") {
+      setSelectedPersonId(origin.personId);
+      setActiveTab("people");
+      return;
+    }
+
+    if (origin.kind === "calendar") {
+      setActiveTab("meetings");
+      setMeetingsView("calendar");
+      setSelectedMeetingsCalendarDate(origin.calendarDateKey);
+      return;
+    }
+
+    if (origin.kind === "timeline") {
+      setActiveTab("meetings");
+      setMeetingsView("timeline");
+      return;
+    }
+
+    if (origin.kind === "meetings") {
+      setActiveTab("meetings");
+      return;
+    }
+
+    setActiveTab("home");
+    setMeetingSaveConfirmation("Meeting logged.");
+  }
+
   function closeForm() {
     meetingWorkflowIdsRef.current = null;
     loggingOperationKeyRef.current = null;
@@ -37413,11 +37556,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     resetMeetingDraft();
   }
 
+  /* The origin of a meeting flow is the screen it was launched from, so it is
+     read from the current view rather than threaded through every entry point
+     (USA-246). Explicit callers — the calendar and a scheduled meeting — set it
+     themselves, because they know the date they came from. */
+  function currentMeetingFlowOrigin(): MeetingFlowOrigin {
+    if (activeTab === "people" && selectedPersonId) {
+      return { kind: "person", personId: selectedPersonId };
+    }
+
+    if (activeTab === "meetings") {
+      if (meetingsView === "timeline") {
+        return { kind: "timeline" };
+      }
+
+      if (meetingsView === "calendar") {
+        return { calendarDateKey: selectedMeetingsCalendarDate, kind: "calendar" };
+      }
+
+      return { kind: "meetings" };
+    }
+
+    return { kind: "home" };
+  }
+
   function openForm(mode: Exclude<FormMode, null>) {
     setErrorMessage("");
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setFormMode(mode);
+    if (mode === "meeting" || mode === "scheduleMeeting") {
+      meetingFlowOriginRef.current = currentMeetingFlowOrigin();
+    }
     if (mode === "meeting") {
       meetingWorkflowIdsRef.current = null;
     loggingOperationKeyRef.current = null;
@@ -38518,6 +38688,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   function openLogTableFromCalendar(personIds: string[] = [], meetingType?: DosAppMeetingType) {
+    meetingFlowOriginRef.current = { calendarDateKey: selectedMeetingsCalendarDate, kind: "calendar" };
     meetingWorkflowIdsRef.current = null;
     loggingOperationKeyRef.current = null;
     setCircleSheetView(null);
@@ -39568,6 +39739,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return;
     }
 
+    /* Completing a scheduled meeting returns to the day it was on, which is
+       where the user was looking when they started (USA-246). */
+    meetingFlowOriginRef.current = {
+      calendarDateKey: calendarDateKeyFromValue(meeting.date) ?? selectedMeetingsCalendarDate,
+      kind: "calendar",
+    };
     setErrorMessage("");
     setFormMode("editMeeting");
     setLoggingScheduledMeetingId(meeting.id);
@@ -41124,8 +41301,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }
 
         closeForm();
-        setActiveTab("meetings");
-        setSelectedMeetingId(workflowIds.meetingId);
+        returnAfterMeetingSave(workflowIds.meetingId);
         setPostMeetingFollowUpId(shouldUseLeaderReflection ? workflowIds.meetingId : null);
         router.refresh();
       } catch (error) {
@@ -42215,7 +42391,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         {
           description: "People God has entrusted to your care.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Field",
+          label: "People",
           onClick: () => openPeopleCircle("all"),
           section: "installed",
           status: `${people.length} people`,
@@ -42526,6 +42702,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <main className={`min-w-0 max-w-full transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${isTabSettling ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"} ${activeTab === "home" ? "mt-10 md:mt-0" : ""}`}>
             {activeTab === "home" ? (
               <>
+              {/* Returning to Home after a save is the one case with nothing on
+                  screen to show the save worked, so it gets one short line
+                  rather than a confirmation screen (USA-246). */}
+              {meetingSaveConfirmation ? (
+                <p
+                  aria-live="polite"
+                  className="mb-4 flex min-h-11 items-center gap-2 rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] px-3.5 text-[14px] font-semibold text-[#15803D]"
+                  role="status"
+                >
+                  <Check aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+                  {meetingSaveConfirmation}
+                </p>
+              ) : null}
               <div className="space-y-5 md:hidden">
                 <CircleFocusHero
                   circleGroups={circlePeopleByLayer}
@@ -42595,7 +42784,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         </span>
                       </button>
                     )}
-                    title="Field"
+                    title="People"
                   />
                 </div>
                 <div className="hidden md:block">
