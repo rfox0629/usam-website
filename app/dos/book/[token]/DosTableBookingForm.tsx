@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, CheckCircle2, Clock, Mail, Phone, User } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import type { PublicDosTableInvitation } from "@/src/lib/dos/table-invitation-data";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
@@ -15,8 +15,27 @@ type BookingResponse = {
   status?: "booked";
 };
 
+/* USA-246: one request key per form. A double tap, a timeout and a retry all
+   carry the same key, and the server treats the same key as the same booking. */
+function createOperationKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }) {
   const firstSlotId = data.slots[0]?.id ?? "";
+  const operationKeyRef = useRef<string | null>(null);
+  /* State updates are not synchronous, so a double tap in one tick would pass
+     an isSubmitting check twice. The ref closes that gap; the server would
+     dedupe by key anyway, but one request is the honest behaviour. */
+  const inFlightRef = useRef(false);
+
+  if (operationKeyRef.current === null) {
+    operationKeyRef.current = createOperationKey();
+  }
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
@@ -39,23 +58,40 @@ export function DosTableBookingForm({ data }: { data: PublicDosTableInvitation }
       return;
     }
 
+    if (inFlightRef.current) {
+      return;
+    }
+
+    inFlightRef.current = true;
     setIsSubmitting(true);
     setMessage("");
 
-    const response = await fetch(`/api/dos/book/${encodeURIComponent(data.invitation.token)}`, {
-      body: JSON.stringify({
-        email,
-        name,
-        notes,
-        phone,
-        prayerRequest,
-        startAt: selectedSlot.startAt,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`/api/dos/book/${encodeURIComponent(data.invitation.token)}`, {
+        body: JSON.stringify({
+          email,
+          name,
+          notes,
+          operationKey: operationKeyRef.current,
+          phone,
+          prayerRequest,
+          startAt: selectedSlot.startAt,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    } catch {
+      inFlightRef.current = false;
+      setIsSubmitting(false);
+      setMessage("We could not reach the server. Check your connection and try again; your request will not be duplicated.");
+      return;
+    }
+
     const body = await response.json().catch(() => ({})) as BookingResponse;
 
+    inFlightRef.current = false;
     setIsSubmitting(false);
 
     if (!response.ok || body.error) {

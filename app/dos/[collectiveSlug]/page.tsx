@@ -281,6 +281,7 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
       peopleCount: people.length,
       relationshipStewardship: relationshipModelCounts([]),
     },
+    tableInvitationBookings: [],
     tableInvitations: [],
     usamApplication: emptySharedGroupUsamApplication(data.usamApplication),
     workspace: data.workspace,

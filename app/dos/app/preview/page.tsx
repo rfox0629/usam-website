@@ -14,6 +14,7 @@ import {
   type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
+import type { DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import { createDefaultDosTableInvitation, type DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
 import { DosMvpAppClient } from "../DosMvpAppClient";
@@ -214,6 +215,58 @@ function buildDemoTableInvitations(): DosTableInvitation[] {
       title: "Coffee with Ryan",
       token: "demo-token-coffee",
       updatedAt: daysAgoIso(9),
+    },
+  ];
+}
+
+/* Bookings for the active-links preview: one linked to Naomi's scheduled
+   coffee, and one whose guest matched two people and waits for review. */
+function buildDemoTableInvitationBookings(): DosTableInvitationBooking[] {
+  return [
+    {
+      calendarEventSynced: true,
+      calendarSyncError: null,
+      createdAt: daysAgoIso(2),
+      endAt: daysAgoIso(-3, 19),
+      hostMemberId: null,
+      id: "demo-booking-naomi",
+      invitationId: "demo-invitation-coffee",
+      personId: "demo-person-naomi-lee",
+      personMatchCandidates: [{ name: "Naomi Lee", personId: "demo-person-naomi-lee", reasons: ["email_exact"] }],
+      personMatchStatus: "linked",
+      prayerRequest: null,
+      requesterEmail: "naomi@example.com",
+      requesterName: "Naomi Lee",
+      requesterNotes: null,
+      requesterPhone: null,
+      startAt: daysAgoIso(-3, 18),
+      status: "booked",
+      tableId: "demo-meeting-naomi-scheduled",
+      timezone: "America/Chicago",
+    },
+    {
+      calendarEventSynced: false,
+      calendarSyncError: null,
+      createdAt: daysAgoIso(1),
+      endAt: daysAgoIso(-9, 19, 30),
+      hostMemberId: null,
+      id: "demo-booking-review",
+      invitationId: "demo-invitation-kitchen-table",
+      personId: null,
+      personMatchCandidates: [
+        { name: "Caleb Rivera", personId: "demo-person-caleb-rivera", reasons: ["phone_exact"] },
+        { name: "Tim Tran", personId: "demo-person-tim-tran", reasons: ["phone_exact"] },
+      ],
+      personMatchStatus: "review",
+      prayerRequest: null,
+      requesterEmail: "sam.rivera@example.com",
+      requesterName: "Sam Rivera",
+      requesterNotes: "Referred by Caleb.",
+      requesterPhone: "(555) 010-0014",
+      startAt: daysAgoIso(-9, 18),
+      status: "booked",
+      tableId: null,
+      timezone: "America/Chicago",
     },
   ];
 }
@@ -2115,6 +2168,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         workspaceId: demoWorkspaceId,
       },
     ],
+    tableInvitationBookings: options.links === "active" ? buildDemoTableInvitationBookings() : [],
     tableInvitations: options.links === "active" ? buildDemoTableInvitations() : [],
     usamApplication: {
       applicationId: "demo-usam-application",

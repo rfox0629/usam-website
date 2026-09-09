@@ -5,6 +5,7 @@ type BookingPayload = {
   email?: unknown;
   name?: unknown;
   notes?: unknown;
+  operationKey?: unknown;
   phone?: unknown;
   prayerRequest?: unknown;
   startAt?: unknown;
@@ -38,6 +39,7 @@ export async function POST(
       email: asString(payload.email),
       name: asString(payload.name),
       notes: asString(payload.notes),
+      operationKey: asString(payload.operationKey),
       phone: asString(payload.phone),
       prayerRequest: asString(payload.prayerRequest),
       startAt: asString(payload.startAt),
@@ -52,11 +54,16 @@ export async function POST(
       return NextResponse.json({ error: "Booking link is not available." }, { status: 404 });
     }
 
-    if (result.status === "invalid_input" || result.status === "unavailable") {
+    if (result.status === "invalid_input") {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
+    if (result.status === "unavailable") {
+      return NextResponse.json({ error: result.message }, { status: 409 });
+    }
+
     return NextResponse.json({
+      alreadyBooked: "alreadyBooked" in result ? result.alreadyBooked === true : false,
       bookingId: result.bookingId,
       slot: result.slot,
       status: "booked",
