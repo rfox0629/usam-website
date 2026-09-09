@@ -19,7 +19,8 @@ const between = (start, end) => client.slice(client.indexOf(start), client.index
 const fields = between("function AccountabilityFields({", "\ntype MeetingAccountabilityComposerDraft");
 const composer = between("function MeetingAccountabilityComposer(", "\nfunction AccountabilityScheduleSheet(");
 const leader = between("function MeetingLeaderReflectionSection(", "\nfunction MeetingGrowthReflectionSection(");
-const personAdd = between("function AccountabilityScheduleSheet(", "\nfunction LogCheckInSheet(");
+/* USA-257 removed the legacy Home LogCheckInSheet that used to follow this sheet. */
+const personAdd = between("function AccountabilityScheduleSheet(", "\nfunction DesktopHomeDashboard(");
 const personEdit = between("function PersonAccountabilityEditSheet(", "\nfunction PersonAccountabilityCheckInSheet(");
 
 // 1. The goal comes first and needs no taxonomy; suggestions are a collapsed disclosure.

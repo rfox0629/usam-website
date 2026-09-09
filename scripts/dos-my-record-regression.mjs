@@ -231,7 +231,8 @@ assert(!canonicalTabsSource.includes("{ label: \"Legacy\", value: \"legacy\" }")
 ["Journal", "Prayer", "People Discipling Me", "Assessments", "Timeline", "Scripture", "Learning", "Prophetic Words"].forEach((label) => {
   assert(!canonicalTabsSource.includes(`label: \"${label}\"`), `Legacy or nested tab ${label} must not be rendered as a top-level My Record tab.`);
 });
-assert(client.includes("Today's Alignment"), "Dashboard should include Today's Alignment for every authenticated DOS workspace.");
+/* USA-257: Today's Alignment left Home; My Record remains its own destination. */
+assert(!client.includes("Today's Alignment"), "Home no longer renders Today's Alignment (USA-257).");
 assert(client.includes("+ data.myRecord.propheticWords.length"), "Prophetic words should affect only the private My Record activity count.");
 assert(client.includes("Time With God"), "Client should expose Time With God as the unified Walk entry concept.");
 assert(client.includes("Prayer Encounter"), "Client should support explicit prayer-only encounters without rendering an empty Prayer card.");

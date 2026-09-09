@@ -34,6 +34,8 @@ import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, P
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
+import { buildDosMinistryReport, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
@@ -1183,7 +1185,6 @@ type CommitmentSheetState =
   | { commitment: DosAppPersonCommitment; kind: "person_edit" }
   | { commitment: DosAppPersonCommitment; kind: "person_progress" }
   | { kind: "schedule"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
-  | { kind: "check_in"; personId: string; schedule?: DosAppAccountabilitySchedule | null }
   | null;
 type CommitmentNotice = { personId?: string | null; text: string; tone: "error" | "success" } | null;
 type ResourceAssignmentSheetState =
@@ -12118,76 +12119,6 @@ type DashboardNotificationItem = {
 
 type MyRecordLaunchAction = "mentor_meeting" | "prayer_time" | "time_with_god" | "weekly_report";
 
-type DashboardWeeklyReportCard = {
-  completionPercent: number;
-  summary: string;
-  status: string;
-};
-
-function latestDashboardJournalEntry(record: DosAppUserRecord) {
-  return [...record.journalEntries]
-    .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date))[0] ?? null;
-}
-
-function latestDashboardPrayerLog(record: DosAppUserRecord) {
-  return [...record.prayerLogs]
-    .sort((first, second) => dateSortValue(second.prayedAt) - dateSortValue(first.prayedAt))[0] ?? null;
-}
-
-function nextDashboardMentorMeeting(record: DosAppUserRecord) {
-  return record.mentorMeetings
-    .filter((meeting) => isUpcomingDate(meeting.meetingDate))
-    .sort((first, second) => dateSortValue(first.meetingDate) - dateSortValue(second.meetingDate))[0] ?? null;
-}
-
-function dashboardLastLoggedStatus(value: string | null | undefined) {
-  return value ? `Last logged ${formatRelativeDate(value ?? null)}` : "Not logged yet";
-}
-
-function dashboardMentorMeetingDateLine(meeting: DosAppUserMentorMeeting | null) {
-  if (!meeting) {
-    return "Not scheduled";
-  }
-
-  return [formatDate(meeting.meetingDate), formatTime(meeting.meetingDate) || "Time TBD"].filter(Boolean).join(" · ");
-}
-
-function dashboardMentorMeetingHelper(meeting: DosAppUserMentorMeeting | null) {
-  return meeting ? `With ${meeting.mentorName}` : undefined;
-}
-
-function buildDashboardWeeklyReportCard(myRecord: DosAppUserRecord, loggedMeetings: DosAppMeeting[]): DashboardWeeklyReportCard {
-  const { end, start } = currentWeekRange();
-  const journalEntriesThisWeek = myRecord.journalEntries.filter((entry) => isDateWithinRange(entry.date, start, end));
-  const prayerLogsThisWeek = myRecord.prayerLogs.filter((log) => isDateWithinRange(log.prayedAt, start, end));
-  const mentorMeetingsThisWeek = myRecord.mentorMeetings.filter((meeting) => isDateWithinRange(meeting.meetingDate, start, end));
-  const tablesThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date ?? meeting.scheduledStartAt, start, end));
-  const peopleMinisteredThisWeek = new Set(tablesThisWeek.flatMap((meeting) => meeting.fieldPersonIds));
-  const goals = [
-    journalEntriesThisWeek.length > 0,
-    prayerLogsThisWeek.length > 0,
-    mentorMeetingsThisWeek.length > 0,
-    tablesThisWeek.length > 0,
-    peopleMinisteredThisWeek.size > 0,
-  ];
-  const completedGoals = goals.filter(Boolean).length;
-  const totalGoals = goals.length;
-  const completionPercent = Math.round((completedGoals / totalGoals) * 100);
-  const status = completedGoals >= 4
-    ? "On Track"
-    : completedGoals >= 2
-      ? "Building"
-      : completedGoals === 1
-        ? "Started"
-        : "Needs Attention";
-
-  return {
-    completionPercent,
-    status,
-    summary: `${completedGoals} of ${totalGoals} goals this week`,
-  };
-}
-
 function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
   if (person.discipleshipRelationship === "mentor" || person.discipleshipRelationship === "pastor" || person.discipleshipRelationship === "coach" || person.discipleshipRelationship === "spiritual_parent") {
     return "Discipling me";
@@ -12251,72 +12182,9 @@ function dashboardEngagementScoreLabel(person: DosAppPerson) {
 
    Visibility only: the person's engagement_level is still loaded and still
    stored, and this reads it rather than deciding it. */
-function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson, showEngagement: boolean) {
-  const relationship = dashboardDiscipleshipRelationshipLabel(person);
+function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson, showEngagement: boolean, relationship = dashboardDiscipleshipRelationshipLabel(person)) {
 
   return showEngagement ? `${relationship} · ${dashboardEngagementScoreLabel(person)}` : relationship;
-}
-
-function DashboardAlignmentRow({
-  actionLabel,
-  helper,
-  icon,
-  label,
-  onClick,
-  progress,
-  showHelperOnMobile = false,
-  value,
-}: {
-  actionLabel?: string;
-  helper?: string;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-  progress?: number;
-  showHelperOnMobile?: boolean;
-  value: string;
-}) {
-  const boundedProgress = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
-
-  return (
-    <button
-      className="grid min-h-[48px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-2.5 py-1 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:min-h-[54px] sm:grid-cols-[36px_minmax(0,1fr)_auto] sm:gap-2.5 sm:px-3 sm:py-1.5"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="flex h-7 w-7 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF] sm:h-8 sm:w-8">
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[9px] font-black uppercase leading-3 tracking-[0.1em] text-[#1D4ED8] sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>{label}</span>
-        <span className="block truncate text-sm font-black leading-4 text-[#0F172A] sm:text-[15px]">{value}</span>
-        {helper ? (
-          <span className={`${showHelperOnMobile ? "block" : "hidden sm:block"} truncate text-[10px] font-semibold leading-3 text-[#64748B] sm:text-xs sm:leading-4`}>
-            {helper}
-          </span>
-        ) : null}
-      </span>
-      <span className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
-        {actionLabel ? (
-          <span className="inline-flex max-w-[88px] justify-center truncate rounded-full bg-[#F1F6FF] px-2 py-1 text-[10px] font-black leading-none text-[#1D4ED8] sm:max-w-[112px] sm:px-2.5 sm:py-1.5 sm:text-xs">
-            {actionLabel}
-          </span>
-        ) : null}
-        {boundedProgress !== null ? (
-          <span
-            aria-label={`${boundedProgress}% complete`}
-            className="flex h-8 w-8 items-center justify-center rounded-full sm:h-9 sm:w-9"
-            style={{ background: `conic-gradient(#2563EB ${boundedProgress}%, #EAF2FF ${boundedProgress}% 100%)` }}
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-black text-[#1D4ED8] sm:h-7 sm:w-7 sm:text-[10px]">
-              {boundedProgress}%
-            </span>
-          </span>
-        ) : null}
-        <ChevronRight className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
-      </span>
-    </button>
-  );
 }
 
 function DashboardNotificationsPanel({ items }: { items: DashboardNotificationItem[] }) {
@@ -12664,20 +12532,12 @@ function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people
 }
 
 function AccountabilityDashboardCard({
-  onLogCheckIn,
-  onLogResourceCheckIn,
-  onMarkResourceAssignmentComplete,
   onOpenPerson,
-  onRescheduleResourceAssignment,
   people,
   resourceAssignments,
   schedules,
 }: {
-  onLogCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
-  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
-  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onOpenPerson: (personId: string) => void;
-  onRescheduleResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   people: DosAppPerson[];
   resourceAssignments: DosAppResourceAssignment[];
   schedules: DosAppAccountabilitySchedule[];
@@ -12686,6 +12546,10 @@ function AccountabilityDashboardCard({
   const dueToday = rows.filter((row) => row.bucket === "Due Today").length;
   const overdue = rows.filter((row) => row.bucket === "Overdue").length;
   const dueSoon = rows.filter((row) => row.bucket === "Next 7 Days").length;
+  /* USA-257: Home shows what needs attention and hands off. Logging a
+     check-in, marking a resource complete, and rescheduling all live on the
+     Person, so none of those controls are here. */
+  const attentionRows = rows.slice(0, 3);
 
   return (
     <DesktopPanel className="min-w-0" compact eyebrow="Accountability">
@@ -12702,135 +12566,47 @@ function AccountabilityDashboardCard({
         ))}
       </div>
       <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => {
+        {attentionRows.length ? attentionRows.map((row) => {
           const assignment = row.assignment;
           const person = row.person;
           const personName = person?.name ?? "Field person";
           const isResourceFollowUp = Boolean(assignment);
           const resourceTitle = assignment ? resourceAssignmentTitle(assignment) : null;
-
-          return (
-            <div className="grid gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0 min-[760px]:grid-cols-[minmax(0,1fr)_auto] min-[760px]:items-center" key={row.schedule.id}>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-[#0F172A]">{isResourceFollowUp ? resourceAssignmentFollowUpScheduleHeading : personName}</p>
-                <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">
+          const content = (
+            <>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-[#0F172A]">{isResourceFollowUp ? resourceAssignmentFollowUpScheduleHeading : personName}</span>
+                <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">
                   {isResourceFollowUp && resourceTitle
                     ? `Check in with ${personName} about "${resourceTitle}".`
                     : accountabilityScheduleDisplayTitle(row.schedule)}
                   {" "}&middot; {row.bucket} &middot; {formatDate(row.schedule.nextCheckIn)}
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-start gap-2 min-[760px]:justify-end">
-                {person ? (
-                  <button
-                    className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
-                    onClick={() => onOpenPerson(person.id)}
-                    type="button"
-                  >
-                    Open Person
-                  </button>
-                ) : null}
-                <button
-                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-bold text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
-                  onClick={() => assignment ? onLogResourceCheckIn(assignment) : onLogCheckIn(row.schedule)}
-                  type="button"
-                >
-                  Log Check-In
-                </button>
-                {assignment ? (
-                  <>
-                    <button
-                      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#BBF7D0] bg-[#F7FEFA] px-3 text-xs font-bold text-[#15803D] transition-colors hover:bg-[#DCFCE7]"
-                      onClick={() => onMarkResourceAssignmentComplete(assignment)}
-                      type="button"
-                    >
-                      Mark Complete
-                    </button>
-                    <button
-                      className="inline-flex min-h-9 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A] transition-colors hover:bg-[#F8FBFF]"
-                      onClick={() => onRescheduleResourceAssignment(assignment)}
-                      type="button"
-                    >
-                      Reschedule
-                    </button>
-                  </>
-                ) : null}
-              </div>
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
+            </>
+          );
+
+          return person ? (
+            <button
+              className="grid min-h-[52px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
+              key={row.schedule.id}
+              onClick={() => onOpenPerson(person.id)}
+              type="button"
+            >
+              {content}
+            </button>
+          ) : (
+            <div className="grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0" key={row.schedule.id}>
+              {content}
             </div>
           );
         }) : (
           <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No check-ins due.</p>
         )}
-      </div>
-    </DesktopPanel>
-  );
-}
-
-function resourceAssignmentDashboardRows(assignments: DosAppResourceAssignment[], people: DosAppPerson[]) {
-  const personById = new Map(people.map((person) => [person.id, person]));
-  const today = todayResourceAssignmentDateKey();
-
-  return assignments
-    .filter((assignment) => assignment.status !== "completed")
-    .map((assignment) => ({
-      assignment,
-      bucket: assignment.status === "paused"
-        ? "Paused"
-        : dateSortValue(assignment.startDate) > dateSortValue(today)
-          ? `Starts ${formatDate(assignment.startDate)}`
-          : resourceAssignmentFollowUpLabel(assignment),
-      person: personById.get(assignment.personId) ?? null,
-    }))
-    .sort((first, second) => dateSortValue(first.assignment.startDate) - dateSortValue(second.assignment.startDate));
-}
-
-function ResourceAssignmentsDashboardCard({
-  assignments,
-  onOpenPerson,
-  people,
-}: {
-  assignments: DosAppResourceAssignment[];
-  onOpenPerson: (personId: string) => void;
-  people: DosAppPerson[];
-}) {
-  const rows = resourceAssignmentDashboardRows(assignments, people);
-  const active = assignments.filter((assignment) => assignment.status !== "completed").length;
-  const completed = assignments.filter((assignment) => assignment.status === "completed").length;
-  const paused = assignments.filter((assignment) => assignment.status === "paused").length;
-
-  return (
-    <DesktopPanel className="min-w-0" compact eyebrow="Assigned Resources">
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          ["Active", active],
-          ["Completed", completed],
-          ["Paused", paused],
-        ].map(([label, value]) => (
-          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
-            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-            <p className="mt-1 text-xl font-black text-[#0F172A]">{value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-        {rows.slice(0, 5).length ? rows.slice(0, 5).map((row) => (
-          <button
-            className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left last:border-b-0 hover:bg-[#F8FBFF]"
-            key={row.assignment.id}
-            onClick={() => onOpenPerson(row.assignment.personId)}
-            type="button"
-          >
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black text-[#0F172A]">{row.person?.name ?? "Field person"}</span>
-              <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{resourceAssignmentTitle(row.assignment)} · {row.bucket}</span>
-            </span>
-            <span className="shrink-0 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-              {resourceAssignmentStatusLabels[row.assignment.status]}
-            </span>
-          </button>
-        )) : (
-          <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No assigned resource follow-ups.</p>
-        )}
+        {rows.length > attentionRows.length ? (
+          <p className="border-t border-[#EAF2FF] px-3 py-2 text-xs font-semibold text-[#64748B]">{rows.length - attentionRows.length} more on the people themselves.</p>
+        ) : null}
       </div>
     </DesktopPanel>
   );
@@ -14524,257 +14300,68 @@ function AccountabilityScheduleSheet({
   );
 }
 
-function LogCheckInSheet({
-  commitments,
-  errorMessage,
-  isSubmitting,
-  onClose,
-  onSubmit,
-  person,
-  schedule,
-}: {
-  commitments: DosAppPersonCommitment[];
-  errorMessage: string;
-  isSubmitting: boolean;
-  onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>, selectedCommitmentIds: string[]) => void;
-  person: DosAppPerson;
-  schedule?: DosAppAccountabilitySchedule | null;
-}) {
-  const activeCommitments = commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused");
-  const [selectedCommitmentIds, setSelectedCommitmentIds] = useState<string[]>(activeCommitments.slice(0, 3).map((commitment) => commitment.id));
-
-  function toggleCommitment(commitmentId: string) {
-    setSelectedCommitmentIds((current) => current.includes(commitmentId)
-      ? current.filter((id) => id !== commitmentId)
-      : [...current, commitmentId]);
-  }
-
-  return (
-    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Log Check-In">
-      <form className="grid gap-4" onSubmit={(event) => onSubmit(event, selectedCommitmentIds)}>
-        <input name="person_id" type="hidden" value={person.id} />
-        {schedule ? <input name="schedule_id" type="hidden" value={schedule.id} /> : null}
-        <DosFormSection icon="log" title={schedule ? accountabilityScheduleDisplayTitle(schedule) : "Accountability Check-In"}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Date">
-              <input className={FieldInputClass(false)} defaultValue={todayCommitmentDateKey()} name="date" type="date" />
-            </DosFormField>
-            <DosFormField label="Duration">
-              <input className={FieldInputClass(false)} min={0} name="duration_minutes" placeholder="Minutes" type="number" />
-            </DosFormField>
-          </div>
-          <DosFormField label="General update">
-            <VoiceTextarea autoFocus className={`${FieldTextareaClass(false)} min-h-32`} name="general_update" required />
-          </DosFormField>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Wins">
-              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="wins" />
-            </DosFormField>
-            <DosFormField label="Struggles">
-              <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="struggles" />
-            </DosFormField>
-          </div>
-          <DosFormField label="Prayer needs">
-            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="prayer_needs" />
-          </DosFormField>
-          <DosFormField label="Follow-up">
-            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="follow_up" />
-          </DosFormField>
-        </DosFormSection>
-
-        <DosFormSection icon="commitment" title="Accountability Discussed">
-          {activeCommitments.length ? activeCommitments.map((commitment) => {
-            const selected = selectedCommitmentIds.includes(commitment.id);
-
-            return (
-              <div className="rounded-[20px] border border-[#DCEBFF] bg-white p-3" key={commitment.id}>
-                <label className="flex min-h-10 items-start gap-3 text-sm font-bold text-[#0F172A]">
-                  <input checked={selected} className="mt-1 h-4 w-4 accent-[#2563EB]" onChange={() => toggleCommitment(commitment.id)} type="checkbox" />
-                  <span className="min-w-0">
-                    <span className="block">{commitment.title}</span>
-                    <span className="mt-1 block text-xs font-semibold text-[#64748B]">{commitmentDueLabel(commitment)}</span>
-                  </span>
-                </label>
-                {selected ? (
-                  <div className="mt-3 grid gap-2">
-                    <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name={`commitment_note_${commitment.id}`} placeholder="Progress note" />
-                    <select className={FieldSelectClass(false)} defaultValue="" name={`commitment_state_${commitment.id}`}>
-                      <option value="">Not set</option>
-                      {dosCommitmentProgressStates.map((state) => (
-                        <option key={state} value={state}>{commitmentProgressLabels[state]}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-              </div>
-            );
-          }) : (
-            <p className="rounded-2xl bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-[#64748B]">No active commitments yet.</p>
-          )}
-        </DosFormSection>
-
-        <DosFormSection icon="add" title="New Accountability">
-          <DosFormField label="Title">
-            <input className={FieldInputClass(false)} name="new_commitment_title" placeholder="Optional" />
-          </DosFormField>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DosFormField label="Category">
-              <select className={FieldSelectClass(false)} defaultValue="" name="new_commitment_category">
-                <option value="">None</option>
-                {dosCommitmentCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </DosFormField>
-            <DosFormField label="Target Date">
-              <input className={FieldInputClass(false)} name="new_commitment_target_date" type="date" />
-            </DosFormField>
-          </div>
-          <DosFormField label="Description">
-            <VoiceTextarea className={`${FieldTextareaClass(false)} min-h-20`} name="new_commitment_description" />
-          </DosFormField>
-        </DosFormSection>
-
-        {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
-        <div className="grid gap-2">
-          <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
-          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Cancel</AppButton>
-        </div>
-      </form>
-    </Sheet>
-  );
-}
-
 function DesktopHomeDashboard({
-  accountabilityCheckIns,
   accountabilitySchedules,
-  commitmentsEnabled,
   engagementLevelsEnabled,
-  fruitEvents,
-  fruitItems,
-  loggedMeetings,
-  meetings,
-  myRecord,
+  meetingActivity,
   onAddPerson,
-  onLogPrayerTime,
-  onLogTimeWithGod,
   onCreateCommitment,
-  onEditResourceAssignment,
   onLogMeeting,
-  onLogAccountabilityCheckIn,
-  onLogResourceCheckIn,
-  onMarkResourceAssignmentComplete,
-  onOpenFruit,
   onOpenGroupJoinRequests,
   onOpenMeeting,
-  onOpenMyRecord,
   onOpenPerson,
-  onOpenReview,
-  onOpenReviews,
+  onOpenReport,
   onOpenTable,
   onOpenTableCalendar,
-  onOpenWeeklyReport,
-  onScheduleMentorMeeting,
   onScheduleMeeting,
-  participantReviews = [],
-  participantTestimonies = [],
   pendingGroupJoinRequestItems = [],
   people,
-  personTableStatsByPersonId,
   resourceAssignments,
+  timeInvestments,
   upcomingItems,
 }: {
-  accountabilityCheckIns: DosAppAccountabilityCheckIn[];
   accountabilitySchedules: DosAppAccountabilitySchedule[];
-  commitmentsEnabled: boolean;
   /* The Engagement Levels Advanced Feature, resolved from the workspace's
      feature flags by the same helper every other surface uses. */
   engagementLevelsEnabled: boolean;
-  fruitEvents: DosAppFruitEvent[];
-  fruitItems: DosAppFruit[];
-  loggedMeetings: DosAppMeeting[];
-  meetings: DosAppMeeting[];
-  myRecord: DosAppUserRecord;
+  /* Last 30 days from the same calculation as the Master Ministry Report:
+     logged meetings only, logged duration only, each meeting counted once,
+     check-ins separate, time invested in the missionary kept apart. */
+  meetingActivity: DosMinistryReportTotals;
   onAddPerson: () => void;
-  onLogPrayerTime: () => void;
-  onLogTimeWithGod: () => void;
   onCreateCommitment: () => void;
-  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onLogMeeting: () => void;
-  onLogAccountabilityCheckIn: (schedule: DosAppAccountabilitySchedule) => void;
-  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
-  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
-  onOpenFruit: () => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
-  onOpenMyRecord: () => void;
   onOpenPerson: (personId: string) => void;
-  onOpenReview: (item: SubmittedReviewListItem) => void;
-  onOpenReviews: () => void;
+  onOpenReport: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
-  onOpenWeeklyReport: () => void;
-  onScheduleMentorMeeting: () => void;
   onScheduleMeeting: () => void;
-  participantReviews?: DosAppParticipantReview[];
-  participantTestimonies?: DosAppParticipantTestimony[];
   pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
-  personTableStatsByPersonId: Map<string, PersonTableStats>;
   resourceAssignments: DosAppResourceAssignment[];
+  /* The report's "Time I invested" rows, already ranked by logged duration.
+     Time invested in the missionary (being discipled) is reported, never
+     ranked here. */
+  timeInvestments: DosMinistryReportRow[];
   upcomingItems: UpcomingTimelineItem[];
 }) {
-  const totalDurationMinutes = loggedMeetings.reduce((sum, meeting) => sum + tableDurationMinutes(meeting), 0)
-    + accountabilityCheckIns.reduce((sum, checkIn) => sum + accountabilityCheckInDurationMinutes(checkIn), 0);
-  const totalPeopleMet = new Set([
-    ...loggedMeetings.flatMap((meeting) => meeting.fieldPersonIds),
-    ...accountabilityCheckIns.map((checkIn) => checkIn.personId),
-  ].filter(Boolean)).size;
-  const submittedReviewItems = buildSubmittedReviewItems({
-    meetings,
-    participantReviews,
-    participantTestimonies,
-    people,
-  });
-  const totalReviews = submittedReviewItems.length;
-  const recentReviewItems = submittedReviewItems.slice(0, 3);
-  const recentFruitItems: DashboardFruitItem[] = [
-    ...fruitItems.map((fruit) => ({
-      date: fruit.testimonyDate,
-      description: fruit.submittedByName ? `${fruit.submittedByName} shared fruit` : "Fruit story recorded",
-      id: `fruit-${fruit.id}`,
-      title: fruit.summary || "Fruit recorded",
-    })),
-    ...fruitEvents.filter(isObservableFruitOutcome).map((event) => {
-      const person = people.find((item) => item.id === event.personId) ?? null;
-
-      return {
-        date: event.date,
-        description: person ? `${person.name} · ${formatDate(event.date)}` : formatDate(event.date),
-        id: `event-${event.id}`,
-        title: fruitOutcomeLabel(event),
-      };
-    }),
-  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 4);
-  const topTimeInvestments = people
-    .map((person) => ({
-      person,
-      stats: personTableStatsByPersonId.get(person.id) ?? { meetings: 0, timeMinutes: 0 },
-    }))
-    .filter((item) => item.stats.timeMinutes > 0 || item.stats.meetings > 0)
-    .sort((first, second) => second.stats.timeMinutes - first.stats.timeMinutes || second.stats.meetings - first.stats.meetings)
-    .slice(0, 5);
+  const personById = new Map(people.map((person) => [person.id, person]));
+  const topTimeInvestments = timeInvestments.slice(0, 5);
   const quickActionItems: Array<{ icon: IconName; label: string; onClick: () => void }> = [
     { icon: "calendar", label: "Schedule", onClick: onScheduleMeeting },
     { icon: "people", label: "Add Person", onClick: onAddPerson },
     { icon: "commitment", label: "Accountability", onClick: onCreateCommitment },
   ];
-  const tableActivityMetrics = [
-    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total meetings", value: loggedMeetings.length + accountabilityCheckIns.length },
-    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total hours logged", value: formatDashboardDuration(totalDurationMinutes) },
-    { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: totalPeopleMet },
-    { icon: <CheckCircle2 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Total reviews", onClick: onOpenReviews, value: totalReviews },
+  /* USA-257: Meeting Activity says what it counts. Check-ins are their own
+     activity and are never added to meetings or to logged duration; a meeting
+     without a logged duration adds nothing rather than an estimate. */
+  const meetingActivityMetrics = [
+    { icon: <CalendarDays className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Logged meetings", value: `${meetingActivity.meetings}` },
+    { icon: <Clock className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Logged duration", value: formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesInvested) },
+    { icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "People met with", value: `${meetingActivity.peopleWithActivity}` },
+    { icon: <ClipboardCheck className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />, label: "Check-ins (separate)", value: `${meetingActivity.checkIns}` },
   ];
   const realUpcomingRows: DashboardUpcomingRow[] = upcomingItems.slice(0, 6).map((item, index) => {
     const previewDate = !item.meeting && item.icon === "birthday" ? upcomingDashboardPreviewDate(index) : null;
@@ -14793,10 +14380,6 @@ function DesktopHomeDashboard({
   const todayDashboardRows = dashboardUpcomingRows
     .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
     .slice(0, 3);
-  const latestTimeWithGodEntry = latestDashboardJournalEntry(myRecord);
-  const latestPrayerLog = latestDashboardPrayerLog(myRecord);
-  const nextMentorMeeting = nextDashboardMentorMeeting(myRecord);
-  const weeklyReportCard = buildDashboardWeeklyReportCard(myRecord, loggedMeetings);
 
   function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
     if (item.meeting) {
@@ -14827,6 +14410,12 @@ function DesktopHomeDashboard({
     })),
   ];
 
+  /* USA-257 Home order: notifications and primary actions, then Top Time
+     Investments as the doorway into the Master Ministry Report, Meeting
+     Activity, a compact Accountability summary, and Upcoming. Today's
+     Alignment (My Record remains its own destination), Recent Fruit and
+     Recent Reviews (now in Reports), and Assigned Resources (blocked on
+     USA-258) are no longer on Home. */
   return (
     <div className="mt-5 block md:mt-0">
       <header className="mb-3 hidden items-start justify-between gap-4 md:flex">
@@ -14866,45 +14455,10 @@ function DesktopHomeDashboard({
                 ))}
               </div>
             </section>
-
-            <DesktopPanel action={<DashboardHeaderAction onClick={onOpenMyRecord}>Open My Record</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Today's Alignment">
-              <div className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white">
-                <DashboardAlignmentRow
-                  actionLabel="Log Now"
-                  icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Time With God"
-                  onClick={onLogTimeWithGod}
-                  value={dashboardLastLoggedStatus(latestTimeWithGodEntry?.date)}
-                />
-                <DashboardAlignmentRow
-                  actionLabel="Log Now"
-                  icon={<Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Prayer Time"
-                  onClick={onLogPrayerTime}
-                  value={dashboardLastLoggedStatus(latestPrayerLog?.prayedAt)}
-                />
-                <DashboardAlignmentRow
-                  actionLabel={nextMentorMeeting ? undefined : "Schedule Meeting"}
-                  helper={dashboardMentorMeetingHelper(nextMentorMeeting)}
-                  icon={<Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Next Discipleship Meeting"
-                  onClick={nextMentorMeeting ? () => onOpenMyRecord() : onScheduleMentorMeeting}
-                  value={dashboardMentorMeetingDateLine(nextMentorMeeting)}
-                />
-                <DashboardAlignmentRow
-                  helper={weeklyReportCard.summary}
-                  icon={<BarChart3 className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                  label="Weekly Report Card"
-                  onClick={onOpenWeeklyReport}
-                  progress={weeklyReportCard.completionPercent}
-                  showHelperOnMobile
-                  value={weeklyReportCard.status}
-                />
-              </div>
-            </DesktopPanel>
           </div>
 
-          <DesktopPanel action={<DashboardHeaderAction onClick={onOpenWeeklyReport}>View Time Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
+          <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReport}>View Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
+            <p className="mb-2 text-xs font-semibold text-[#64748B]">Last 30 days · logged duration I invested · check-ins not included</p>
             <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF]">
               <div className="grid grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] bg-[#F8FBFF] px-2.5 py-1.5 text-[9px] font-bold tracking-[0.06em] text-[#64748B] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>
                 <span aria-hidden="true" />
@@ -14913,52 +14467,67 @@ function DesktopHomeDashboard({
                 <span className="text-center">Meetings</span>
                 <span className="text-right">Time</span>
               </div>
-              {topTimeInvestments.length ? topTimeInvestments.map((item, index) => (
-                <button
-                  className="grid w-full grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] px-2.5 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:py-2.5"
-                  key={item.person.id}
-                  onClick={() => onOpenPerson(item.person.id)}
-                  type="button"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-xs font-black text-white sm:h-8 sm:w-8 sm:text-sm">{index + 1}</span>
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold sm:h-7 sm:w-7 sm:text-[10px] ${avatarTone(index)}`}>{initials(item.person.name)}</span>
-                  <span className="min-w-0">
-                    <span className="block whitespace-normal break-words text-sm font-black leading-4 text-[#0F172A] sm:text-base sm:leading-5">{item.person.name}</span>
-                    <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">{dashboardTimeInvestmentRelationshipLine(item.person, engagementLevelsEnabled)}</span>
-                  </span>
-                  <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{item.stats.meetings}</span>
-                  <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDashboardDuration(item.stats.timeMinutes)}</span>
-                </button>
-              )) : (
-                <p className="px-4 py-5 text-sm text-[#64748B]">No logged meeting duration yet.</p>
+              {topTimeInvestments.length ? topTimeInvestments.map((row, index) => {
+                const person = personById.get(row.personId) ?? null;
+
+                return (
+                  <button
+                    className="grid w-full grid-cols-[28px_26px_minmax(0,1fr)_34px_42px] items-center gap-1.5 border-b border-[#EAF2FF] px-2.5 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_30px_minmax(0,1fr)_64px_80px] sm:gap-2.5 sm:px-3 sm:py-2.5"
+                    key={row.personId}
+                    onClick={() => onOpenPerson(row.personId)}
+                    type="button"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-xs font-black text-white sm:h-8 sm:w-8 sm:text-sm">{index + 1}</span>
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold sm:h-7 sm:w-7 sm:text-[10px] ${avatarTone(index)}`}>{initials(row.personName)}</span>
+                    <span className="min-w-0">
+                      <span className="block whitespace-normal break-words text-sm font-black leading-4 text-[#0F172A] sm:text-base sm:leading-5">{row.personName}</span>
+                      <span className="mt-0.5 block whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748B] sm:text-sm sm:leading-5">
+                        {person ? dashboardTimeInvestmentRelationshipLine(person, engagementLevelsEnabled, row.directionLabel) : row.directionLabel}
+                        {row.completeness === "partial" ? " · duration missing on a meeting" : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{row.meetingCount}</span>
+                    <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDosMinistryMinutes(row.loggedMinutes)}</span>
+                  </button>
+                );
+              }) : (
+                <p className="px-4 py-5 text-sm text-[#64748B]">No logged meeting duration in the last 30 days. Log a meeting with its duration to see it here.</p>
               )}
             </div>
           </DesktopPanel>
         </div>
 
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Meetings</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Meeting Activity">
+          <p className="mb-2 text-xs font-semibold text-[#64748B]">
+            Last 30 days · logged meetings and logged duration I invested · each meeting counted once
+            {meetingActivity.uniqueLoggedMinutesReceived ? ` · ${formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesReceived)} invested in me is in Reports` : ""}
+            {meetingActivity.unresolvedMeetings ? ` · ${meetingActivity.unresolvedMeetings} with unresolved direction in Reports` : ""}
+          </p>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {meetingActivityMetrics.map((metric) => (
+              <article className="min-h-[68px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-2.5" key={metric.label}>
+                <div className="flex h-full min-w-0 items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                    {metric.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[22px] font-black leading-none tracking-[-0.02em] text-[#0F172A] sm:text-2xl">{metric.value}</span>
+                    <span className="mt-1 block text-[9px] font-black uppercase leading-tight tracking-[0.08em] text-[#64748B] sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </DesktopPanel>
+
         <AccountabilityDashboardCard
-          onLogCheckIn={onLogAccountabilityCheckIn}
-          onLogResourceCheckIn={onLogResourceCheckIn}
-          onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
           onOpenPerson={onOpenPerson}
-          onRescheduleResourceAssignment={onEditResourceAssignment}
           people={people}
           resourceAssignments={resourceAssignments}
           schedules={accountabilitySchedules}
         />
 
-        {commitmentsEnabled ? (
-          <>
-            <ResourceAssignmentsDashboardCard
-              assignments={resourceAssignments}
-              onOpenPerson={onOpenPerson}
-              people={people}
-            />
-          </>
-        ) : null}
-
-        <div className="grid gap-3 lg:grid-cols-3">
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Upcoming">
+        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Upcoming">
           <div className="grid">
             {dashboardUpcomingRows.length ? dashboardUpcomingRows.map((item) => (
               <button
@@ -14982,85 +14551,93 @@ function DesktopHomeDashboard({
             )}
           </div>
         </DesktopPanel>
-
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenFruit}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Fruit">
-          <div className="grid gap-1">
-            {recentFruitItems.length ? recentFruitItems.map((item) => (
-              <div className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#D7F3DD]">
-                  <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
-                  <span className="mt-1 block truncate text-xs text-[#475569]">{item.description}</span>
-                </span>
-                <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold text-[#64748B]">{formatRelativeDate(item.date)}</span>
-              </div>
-            )) : (
-              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No recent fruit recorded yet.</p>
-            )}
-          </div>
-        </DesktopPanel>
-
-        <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReviews}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Reviews">
-          <div className="grid gap-1">
-            {recentReviewItems.length ? recentReviewItems.map((item) => (
-              <article className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                  {item.kind === "testimony_review" ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-[#0F172A]">{item.personName}</span>
-                  <span className="mt-1 block truncate text-xs text-[#475569]">{item.reviewType} · {formatDate(item.date)}</span>
-                </span>
-                <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
-              </article>
-            )) : (
-              <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No reviews submitted yet.</p>
-            )}
-          </div>
-        </DesktopPanel>
       </div>
+    </div>
+  );
+}
 
-      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTable}>View Meetings</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Table Activity">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {tableActivityMetrics.map((metric) => {
-            const isInteractiveMetric = Boolean(metric.onClick);
+/* Recent Fruit and Recent Reviews moved from Home into Reports (USA-257).
+   The lists are unchanged; only where they live. */
+function ReportsFruitAndReviews({
+  fruitEvents,
+  fruitItems,
+  meetings,
+  onOpenFruit,
+  onOpenReview,
+  onOpenReviews,
+  participantReviews,
+  participantTestimonies,
+  people,
+}: {
+  fruitEvents: DosAppFruitEvent[];
+  fruitItems: DosAppFruit[];
+  meetings: DosAppMeeting[];
+  onOpenFruit: () => void;
+  onOpenReview: (item: SubmittedReviewListItem) => void;
+  onOpenReviews: () => void;
+  participantReviews: DosAppParticipantReview[];
+  participantTestimonies: DosAppParticipantTestimony[];
+  people: DosAppPerson[];
+}) {
+  const recentReviewItems = buildSubmittedReviewItems({ meetings, participantReviews, participantTestimonies, people }).slice(0, 6);
+  const recentFruitItems: DashboardFruitItem[] = [
+    ...fruitItems.map((fruit) => ({
+      date: fruit.testimonyDate,
+      description: fruit.submittedByName ? `${fruit.submittedByName} shared fruit` : "Fruit story recorded",
+      id: `fruit-${fruit.id}`,
+      title: fruit.summary || "Fruit recorded",
+    })),
+    ...fruitEvents.filter(isObservableFruitOutcome).map((event) => {
+      const person = people.find((item) => item.id === event.personId) ?? null;
 
-            return (
-              <article
-                aria-label={isInteractiveMetric ? "Open reviews" : undefined}
-                className={`min-h-[68px] min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-2.5 ${
-                  isInteractiveMetric
-                    ? "cursor-pointer transition-colors hover:border-[#BFDBFE] hover:bg-[#FBFDFF] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30"
-                    : ""
-                }`}
-                key={metric.label}
-                onClick={metric.onClick}
-                onKeyDown={isInteractiveMetric ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    metric.onClick?.();
-                  }
-                } : undefined}
-                role={isInteractiveMetric ? "button" : undefined}
-                tabIndex={isInteractiveMetric ? 0 : undefined}
-              >
-                <div className="flex h-full min-w-0 items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                    {metric.icon}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[22px] font-black leading-none tracking-[-0.02em] text-[#0F172A] sm:text-2xl">{metric.value}</span>
-                    <span className="mt-1 block text-[9px] font-black uppercase leading-tight tracking-[0.08em] text-[#64748B] sm:text-[10px]" style={{ fontFamily: font.rajdhani }}>{metric.label}</span>
-                  </span>
-                </div>
-              </article>
-            );
-          })}
+      return {
+        date: event.date,
+        description: person ? `${person.name} · ${formatDate(event.date)}` : formatDate(event.date),
+        id: `event-${event.id}`,
+        title: fruitOutcomeLabel(event),
+      };
+    }),
+  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 6);
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenFruit}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Fruit">
+        <div className="grid gap-1">
+          {recentFruitItems.length ? recentFruitItems.map((item) => (
+            <div className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#D7F3DD]">
+                <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
+                <span className="mt-1 block truncate text-xs text-[#475569]">{item.description}</span>
+              </span>
+              <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold text-[#64748B]">{formatRelativeDate(item.date)}</span>
+            </div>
+          )) : (
+            <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No recent fruit recorded yet.</p>
+          )}
         </div>
       </DesktopPanel>
-      </div>
+
+      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReviews}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Reviews">
+        <div className="grid gap-1">
+          {recentReviewItems.length ? recentReviewItems.map((item) => (
+            <article className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+                {item.kind === "testimony_review" ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-[#0F172A]">{item.personName}</span>
+                <span className="mt-1 block truncate text-xs text-[#475569]">{item.reviewType} · {formatDate(item.date)}</span>
+              </span>
+              <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
+            </article>
+          )) : (
+            <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No reviews submitted yet.</p>
+          )}
+        </div>
+      </DesktopPanel>
     </div>
   );
 }
@@ -37568,6 +37145,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return latestDates;
   }, [data.accountabilityCheckIns, loggedMeetings]);
+  /* USA-251: the Master Ministry Report and Home's Top Time Investments
+     share one calculation. The adapter narrows the loaded data to the fields
+     the report may read; nothing private is passed. */
+  const ministryReportInput = useMemo(() => dosMinistryReportInputFromAppData({
+    accountabilityCheckIns: data.accountabilityCheckIns,
+    accountabilitySchedules: data.accountabilitySchedules,
+    disciplingMe: data.myRecord.mentorRelationships,
+    meetings: data.meetings,
+    people,
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.meetings, data.myRecord.mentorRelationships, people]);
+  const reportNow = useMemo(() => new Date(), []);
+  const homeMinistryReport = useMemo(
+    () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
+    [ministryReportInput, reportNow],
+  );
   const personTableStatsByPersonId = useMemo(() => {
     const stats = new Map<string, PersonTableStats>();
 
@@ -39529,16 +39121,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  function openAccountabilityCheckIn(personId: string, schedule?: DosAppAccountabilitySchedule | null) {
-    setErrorMessage("");
-    setCommitmentNotice(null);
-    setCommitmentSheet({ kind: "check_in", personId, schedule: schedule ?? null });
-  }
-
-  function openAccountabilityCheckInForSchedule(schedule: DosAppAccountabilitySchedule) {
-    openAccountabilityCheckIn(schedule.personId, schedule);
-  }
-
   function openResourceAssignmentCreate(
     resource: DosResource,
     personId?: string | null,
@@ -40260,49 +39842,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setCommitmentNotice({
         personId: result.schedule?.personId ?? result.commitment?.personId ?? personId,
         text: "Accountability saved.",
-        tone: "success",
-      });
-    }
-  }
-
-  async function handleAccountabilityCheckInSubmit(event: FormEvent<HTMLFormElement>, selectedCommitmentIds: string[]) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const newCommitmentTitle = String(formData.get("new_commitment_title") ?? "").trim();
-    const commitments = selectedCommitmentIds.map((commitmentId) => ({
-      commitmentId,
-      progressNote: String(formData.get(`commitment_note_${commitmentId}`) ?? ""),
-      progressState: String(formData.get(`commitment_state_${commitmentId}`) ?? ""),
-    }));
-    const result = await submitJson(
-      "/api/dos/app/accountability/check-ins",
-      {
-        commitments,
-        date: String(formData.get("date") ?? ""),
-        durationMinutes: String(formData.get("duration_minutes") ?? ""),
-        followUp: String(formData.get("follow_up") ?? ""),
-        generalUpdate: String(formData.get("general_update") ?? ""),
-        newCommitment: newCommitmentTitle ? {
-          category: String(formData.get("new_commitment_category") ?? ""),
-          description: String(formData.get("new_commitment_description") ?? ""),
-          targetDate: String(formData.get("new_commitment_target_date") ?? ""),
-          title: newCommitmentTitle,
-        } : null,
-        personId: String(formData.get("person_id") ?? ""),
-        prayerNeeds: String(formData.get("prayer_needs") ?? ""),
-        scheduleId: String(formData.get("schedule_id") ?? ""),
-        struggles: String(formData.get("struggles") ?? ""),
-        wins: String(formData.get("wins") ?? ""),
-      },
-      "POST",
-      false,
-    ) as { checkIn?: DosAppAccountabilityCheckIn } | null;
-
-    if (result?.checkIn) {
-      setCommitmentSheet(null);
-      setCommitmentNotice({
-        personId: result.checkIn.personId,
-        text: "Check-in saved.",
         tone: "success",
       });
     }
@@ -43314,44 +42853,25 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 />
               </div>
               <DesktopHomeDashboard
-                accountabilityCheckIns={data.accountabilityCheckIns}
                 accountabilitySchedules={data.accountabilitySchedules}
-                commitmentsEnabled={commitmentsEnabled}
                 engagementLevelsEnabled={engagementLevelsEnabled}
-                fruitEvents={data.fruitEvents}
-                fruitItems={data.fruit}
-                loggedMeetings={ministryLoggedMeetings}
-                meetings={data.meetings}
-                myRecord={data.myRecord}
+                meetingActivity={homeMinistryReport.totals}
                 onAddPerson={() => openForm("person")}
-                onLogPrayerTime={() => launchMyRecordAction("prayer_time")}
-                onLogTimeWithGod={() => launchMyRecordAction("time_with_god")}
                 onCreateCommitment={() => openCommitmentCreate()}
-                onEditResourceAssignment={openResourceAssignmentEdit}
                 onLogMeeting={() => openForm("meeting")}
-                onLogAccountabilityCheckIn={openAccountabilityCheckInForSchedule}
-                onLogResourceCheckIn={openResourceAssignmentCheckIn}
-                onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
-                onOpenFruit={() => openMoreApp("fruit")}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
-                onOpenMyRecord={() => openMoreApp("my_record")}
                 onOpenPerson={openPersonDetail}
-                onOpenReview={openSubmittedReview}
-                onOpenReviews={openReviewsList}
-		                onOpenTable={() => setActiveTab("meetings")}
-		                onOpenTableCalendar={() => {
-		                  setActiveTab("meetings");
-		                }}
-                onOpenWeeklyReport={() => launchMyRecordAction("weekly_report")}
-                onScheduleMentorMeeting={() => launchMyRecordAction("mentor_meeting")}
+                onOpenReport={() => openMoreApp("reports")}
+                onOpenTable={() => setActiveTab("meetings")}
+                onOpenTableCalendar={() => {
+                  setActiveTab("meetings");
+                }}
                 onScheduleMeeting={() => openScheduleMeeting()}
-                participantReviews={data.participantReviews}
-                participantTestimonies={data.participantTestimonies}
                 pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
-                personTableStatsByPersonId={personTableStatsByPersonId}
                 resourceAssignments={data.resourceAssignments}
+                timeInvestments={homeMinistryReport.investedRows}
                 upcomingItems={upcomingTimelineItems}
               />
               </>
@@ -44248,20 +43768,28 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 ) : null}
 
                 {activeMoreAppView === "reports" ? (
-                  <>
+                  <div className="space-y-6">
                     <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
-                    <TabHero
-                      icon={<Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-                      onScriptureClick={openScriptureQuickView}
-                      scripture={scriptureReferences.luke1610}
-                      subtitle="Future analytics, multiplication reporting, state reporting, and dashboards."
-                      title="Coming soon."
+                    {/* USA-251: the first Master Ministry Report. Read-only; it
+                        opens records, it never creates them. */}
+                    <MinistryTimeInvestmentReport
+                      input={ministryReportInput}
+                      now={reportNow}
+                      onOpenMeeting={openMeetingDetail}
+                      onOpenPerson={openPersonDetail}
                     />
-                    <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-5 text-sm leading-6 text-[#334155] shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
-                      <p className="font-bold text-[#0F172A]">Reports are coming soon.</p>
-                      <p className="mt-2 font-medium text-[#334155]">Reports are being built for leaders and teams. DOS stays focused on your next faithful step.</p>
-                    </section>
-                  </>
+                    <ReportsFruitAndReviews
+                      fruitEvents={data.fruitEvents}
+                      fruitItems={data.fruit}
+                      meetings={data.meetings}
+                      onOpenFruit={() => openMoreApp("fruit")}
+                      onOpenReview={openSubmittedReview}
+                      onOpenReviews={openReviewsList}
+                      participantReviews={data.participantReviews}
+                      participantTestimonies={data.participantTestimonies}
+                      people={people}
+                    />
+                  </div>
                 ) : null}
 
                 {activeMoreAppView === "organizations" ? (
@@ -44951,18 +44479,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             isSubmitting={isSubmitting}
             onClose={() => setCommitmentSheet(null)}
             onSubmit={handlePersonAccountabilityProgressSubmit}
-          />
-        ) : null}
-
-        {commitmentSheet?.kind === "check_in" && people.find((person) => person.id === commitmentSheet.personId) ? (
-          <LogCheckInSheet
-            commitments={data.commitments.filter((commitment) => commitment.personId === commitmentSheet.personId)}
-            errorMessage={errorMessage}
-            isSubmitting={isSubmitting}
-            onClose={() => setCommitmentSheet(null)}
-            onSubmit={handleAccountabilityCheckInSubmit}
-            person={people.find((person) => person.id === commitmentSheet.personId) as DosAppPerson}
-            schedule={commitmentSheet.schedule ?? null}
           />
         ) : null}
 

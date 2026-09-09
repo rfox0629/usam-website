@@ -107,7 +107,10 @@ assert(
   client.includes("const latestMeetingDateByPersonId = useMemo(() =>") &&
     client.includes("latestDates.set(personId, meeting.date)") &&
     client.includes("const meetingsThisWeek = ministryLoggedMeetings.filter((meeting) => isDateWithinRange(meeting.date, start, end));") &&
-    client.includes("const tablesThisWeek = loggedMeetings.filter((meeting) => isDateWithinRange(meeting.date ?? meeting.scheduledStartAt, start, end));") &&
+    /* USA-257 removed the weekly report card; the Master Ministry Report now
+       consumes the same canonical date through its adapter and date-key rule. */
+    readFileSync("src/lib/dos/ministry-report.ts", "utf8").includes("inPeriod(dosMinistryReportDateKey(meeting.date), period)") &&
+    readFileSync("src/lib/dos/ministry-report.ts", "utf8").includes("      date: meeting.date,\n") &&
     client.includes("const ministryTables = meetings.filter((meeting) => meeting.source === \"table\" && isMyRecordDateInRange(meeting.date, range));"),
   "Last-meeting and time/reporting calculations must consume the canonical loaded meeting date.",
 );

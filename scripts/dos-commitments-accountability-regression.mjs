@@ -115,7 +115,8 @@ assertIncludes(client, "function PersonAccountabilityCheckInSheet(", "purpose-bu
 assertIncludes(client, "function PersonAccountabilityProgressSheet(", "purpose-built progress sheet");
 assertIncludes(client, "function CommitmentSubjectSheet(", "purpose-built add person sheet");
 assertNotIncludes(client, "CommitmentUpdateSheet", "the generic progress update sheet is gone");
-assertIncludes(client, "LogCheckInSheet", "accountability logging sheet");
+/* USA-257: the legacy Home LogCheckInSheet is gone; the Person's purpose-built sheet is the logging sheet. */
+assertIncludes(client, "PersonAccountabilityCheckInSheet", "accountability logging sheet");
 assertIncludes(client, 'type="submit"', "commitment sheets use native form submission");
 assertIncludes(client, "new FormData(event.currentTarget)", "commitment handlers read one submitted form");
 // The six-across tab grid this guarded no longer exists: USA-168 reduced the
@@ -129,8 +130,10 @@ assertIncludes(client, "commitment.status === \"paused\" ? \"active\" : \"paused
 assertIncludes(client, "function accountabilityCheckInDurationMinutes", "client normalizes check-in duration for aggregation");
 assertIncludes(client, "data.accountabilityCheckIns.forEach((checkIn) => {", "client includes check-ins in person aggregation");
 assertIncludes(client, "addPersonInteractionStats(stats, checkIn.personId, accountabilityCheckInDurationMinutes(checkIn))", "person meeting stats include check-in duration");
-assertIncludes(client, "loggedMeetings.length + accountabilityCheckIns.length", "dashboard meeting count includes accountability check-ins");
-assertIncludes(client, "accountabilityCheckIns.map((checkIn) => checkIn.personId)", "dashboard people-met count includes check-in people");
+/* USA-257 / USA-250: a check-in is its own activity type. Home shows it as a
+   separate count and never adds it to meetings or to recorded time. */
+assertNotIncludes(client, "loggedMeetings.length + accountabilityCheckIns.length", "dashboard meeting count must not add accountability check-ins");
+assertIncludes(client, 'label: "Check-ins (separate)"', "dashboard shows check-ins as their own count");
 // The Growth milestone list was folded into the unified Person Timeline, where
 // check-ins are ordinary chronological events carrying their own date and note.
 assertIncludes(client, "id: `history-check-in-${checkIn.id}`", "check-ins are Person timeline entries");

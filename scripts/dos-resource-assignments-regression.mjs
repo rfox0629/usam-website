@@ -289,16 +289,21 @@ assertIncludes(client, "Assigned Resources", "person Growth/My Record show assig
 // appear in the Person Timeline.
 assertIncludes(client, "completedResourceAssignments", "completed journeys remain derived for the Person");
 assertIncludes(client, "`Completed ${resourceAssignmentTitle(assignment)}`", "completed journeys appear in the Person timeline");
-assertIncludes(client, "ResourceAssignmentsDashboardCard", "dashboard has resource follow-up presentation");
+/* USA-257: the Assigned Resources card left Home until USA-258 proves the
+   status source; resource follow-ups still surface through the compact
+   Accountability summary (accountabilityDueRows takes resourceAssignments). */
+assertIncludes(client, "accountabilityDueRows(schedules, people, resourceAssignments)", "dashboard has resource follow-up presentation");
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
 assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");
 assertIncludes(client, "resourceAssignmentFollowUpScheduleHeading", "dashboard uses growth follow-up heading");
 assertIncludes(client, "Check in with ${personName} about", "dashboard displays resource follow-up item text");
-assertIncludes(client, "Open Person", "dashboard exposes person action for due follow-ups");
-assertIncludes(client, "Log Check-In", "dashboard exposes check-in action for due follow-ups");
-assertIncludes(client, "Mark Complete", "dashboard exposes completion action for due follow-ups");
-assertIncludes(client, "Reschedule", "dashboard exposes reschedule action for due follow-ups");
-assertIncludes(client, "onLogResourceCheckIn(assignment)", "dashboard uses resource check-in flow for resource follow-ups");
+/* USA-257: Home is a compact attention summary. Each due follow-up opens the
+   Person; check-in, completion, and rescheduling run from the Person and
+   Library surfaces, which still wire the same handlers. */
+assertIncludes(client, "onClick={() => onOpenPerson(person.id)}", "dashboard opens the person for a due follow-up");
+assertIncludes(client, "onLogResourceCheckIn={openResourceAssignmentCheckIn}", "resource check-in flow stays reachable");
+assertIncludes(client, 'onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}', "completion action stays reachable");
+assertIncludes(client, "onEditResourceAssignment={openResourceAssignmentEdit}", "reschedule/edit action stays reachable");
 assertIncludes(client, "resourceAssignmentFollowUpScheduleDisplayTitle", "client hides resource assignment schedule marker");
 assertIncludes(client, "onAssign={openAssignTargetPicker}", "Library list routes Assign through target picker");
 assertIncludes(client, "openResourceAssignmentCreate(resource, myPersonId, { assignmentContext: \"self\" })", "Library Assign supports Myself target");
