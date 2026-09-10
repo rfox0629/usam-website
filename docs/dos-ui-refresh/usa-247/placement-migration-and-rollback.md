@@ -50,6 +50,19 @@ Retrofitting all five is not an additive migration. It is a rewrite of a table t
 
 ### What the old table now represents
 
+**Approved and deprecated as of 2026-09-10.** `dos_circle_overrides` is no longer a source of circle placement in any sense:
+
+- No People, Person, Reports, alignment or circle surface reads it.
+- No user-facing route writes it. `PATCH /api/dos/circles/override` answers **410 Gone** and imports no database client.
+- The client function behind it is inert and must stay inert.
+- `scripts/dos-circle-placement-regression.mjs` fails if any of that regresses.
+
+**Its one remaining use is legacy cleanup during Person merges.** `dos_merge_dos_person_records` (migration `20260806111227`) still moves and counts its rows so a merge of two people does not leave an orphan. **That use carries no current circle meaning.** The rows it moves are historical residue of a retired pathway; the merge function is tidying storage, not making or preserving a placement decision. Nothing reads the result as a circle. The table holds zero rows today, so in practice the merge function moves nothing.
+
+**Removal is scheduled separately**, after the new system has been stable in production and at least one missionary has confirmed placements. That cleanup migration drops `dos_circle_overrides`, removes the `locked`-row branches from `circle-scoring.ts`, and removes the merge function's references to it. It is deliberately not part of this release, whose whole value is that it changes nothing existing.
+
+### What the old table represented before
+
 **Nothing, going forward.** It holds zero rows, no code writes it, and no product surface offers to. It stays in the schema only so the person-merge function (`20260806111227_dos_person_merge_records.sql`) keeps working unchanged, and so this pull request touches nothing it does not have to.
 
 ### How every read and write resolves to one source
