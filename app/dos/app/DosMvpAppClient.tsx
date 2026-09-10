@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Target, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -37771,10 +37771,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      person's stored engagement_level is loaded either way and is submitted back
      untouched when the control is hidden. */
   const engagementLevelsEnabled = data.featureFlags.engagementLevels === true;
-  /* Home is still the landing screen on a genuine first visit; this only
-     restores the view a refresh interrupted (USA-246). */
-  const restoredAppView = useRef(readPersistedAppView(data.workspace.id)).current;
-  const [activeTab, setActiveTab] = useState<ActiveTab>(restoredAppView.activeTab ?? "home");
+  /* Home is still the landing screen on a genuine first visit; the view a
+     refresh interrupted is restored below (USA-246). USA-261: every view
+     field starts at its default so the first client render matches the
+     server HTML; storage is read only in the restore effect after hydration,
+     never during a render. */
+  const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [isViewRestored, setIsViewRestored] = useState(false);
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
@@ -37782,7 +37785,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
   /* USA-218 (spec §5.1/5.2): Calendar and Timeline are mutually exclusive views. */
-  const [meetingsView, setMeetingsView] = useState<MeetingsView>(restoredAppView.meetingsView ?? "calendar");
+  const [meetingsView, setMeetingsView] = useState<MeetingsView>("calendar");
   const [externalCalendarEvents, setExternalCalendarEvents] = useState(data.externalCalendarEvents);
   const [calendarDisplaySettings, setCalendarDisplaySettings] = useState<CalendarDisplaySettings>(() => syncCalendarDisplaySettingsWithSources(
     createDefaultCalendarDisplaySettings(),
@@ -37803,7 +37806,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
-  const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => restoredAppView.meetingsCalendarDate ?? calendarDateKey(new Date()));
+  const [selectedMeetingsCalendarDate, setSelectedMeetingsCalendarDate] = useState(() => calendarDateKey(new Date()));
   /* USA-246: the date a Log or Schedule form opens on when it started from a Day view; null means today. */
   const [meetingDraftDate, setMeetingDraftDate] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -37942,7 +37945,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [selectedMobilePrayerPartner, setSelectedMobilePrayerPartner] = useState<LocalPrayerPartner | null>(null);
   const [selectedMobilePrayerRequest, setSelectedMobilePrayerRequest] = useState<DosAppPrayerRequest | null>(null);
   const [showPrayerTeamCount, setShowPrayerTeamCount] = useState(data.workspace.showPrayerTeamCount);
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(restoredAppView.selectedPersonId ?? null);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
   const [showSecondaryFieldPeople, setShowSecondaryFieldPeople] = useState(false);
   const [isManageCirclesOpen, setIsManageCirclesOpen] = useState(false);
@@ -38007,10 +38010,51 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     ];
   }, [data.people, quickAddedPeople]);
 
-  /* Persist the view on every change, and drop a restored person who is not in
-     this workspace's loaded people — a stale or foreign id must never select
-     someone. */
+  /* USA-261: restore the persisted view after hydration, in a layout effect
+     so it lands before the first paint (no Home flash). Every field is
+     re-validated by readPersistedAppView; a missing or invalid saved view
+     leaves the defaults in place. Desktop has no launcher screen (spec §5.7),
+     so a saved bare More tab stays on the Dashboard there. */
+  useLayoutEffect(() => {
+    const restored = readPersistedAppView(data.workspace.id);
+    const restoredTab = restored.activeTab ?? "home";
+    const restoredMoreApp = normalizeMoreAppView(restored.moreAppView);
+    const bareMoreTab = restoredTab === "more" && (!restoredMoreApp || restoredMoreApp === "apps");
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+
+    if (!(bareMoreTab && desktop)) {
+      setActiveTab(restoredTab);
+    }
+
+    if (restoredTab === "more" && restoredMoreApp && restoredMoreApp !== "apps") {
+      setMoreAppView(restoredMoreApp);
+    }
+
+    if (restored.meetingsView) {
+      setMeetingsView(restored.meetingsView);
+    }
+
+    if (restored.meetingsCalendarDate) {
+      setSelectedMeetingsCalendarDate(restored.meetingsCalendarDate);
+      setMeetingsCalendarMonth(startOfCalendarMonth(dateFromCalendarKey(restored.meetingsCalendarDate)));
+    }
+
+    if (restored.selectedPersonId) {
+      setSelectedPersonId(restored.selectedPersonId);
+    }
+
+    setIsViewRestored(true);
+  }, [data.workspace.id]);
+
+  /* Persist the view on every change (only once the saved view has been
+     restored, so the defaults never overwrite it), and drop a restored person
+     who is not in this workspace's loaded people — a stale or foreign id must
+     never select someone. */
   useEffect(() => {
+    if (!isViewRestored) {
+      return;
+    }
+
     if (selectedPersonId && people.length && !people.some((person) => person.id === selectedPersonId)) {
       setSelectedPersonId(null);
       return;
@@ -38023,35 +38067,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       moreAppView: activeTab === "more" ? moreAppView : null,
       selectedPersonId,
     });
-  }, [activeTab, data.workspace.id, meetingsView, moreAppView, people, selectedMeetingsCalendarDate, selectedPersonId]);
+  }, [activeTab, data.workspace.id, isViewRestored, meetingsView, moreAppView, people, selectedMeetingsCalendarDate, selectedPersonId]);
 
   /* Desktop has no launcher screen (spec §5.7, v1.1): the sidebar is the
      launcher, and the More grid mounts only on the mobile tab. So landing on
-     the bare More tab on desktop, whether from a More app's back control or
-     from a restored view, goes to the Dashboard. The open More app is
-     restored here, after hydration, on purpose: reading storage during the
-     first render is the USA-261 mismatch. */
-  const moreAppViewRestored = useRef(false);
-
+     the bare More tab on desktop, from a More app's back control, goes to
+     the Dashboard. */
   useEffect(() => {
-    if (activeTab !== "more" || (moreAppView !== null && moreAppView !== "apps")) {
+    if (!isViewRestored || activeTab !== "more" || (moreAppView !== null && moreAppView !== "apps")) {
       return;
-    }
-
-    if (!moreAppViewRestored.current) {
-      moreAppViewRestored.current = true;
-      const restored = normalizeMoreAppView(restoredAppView.moreAppView);
-
-      if (restored && restored !== "apps") {
-        setMoreAppView(restored);
-        return;
-      }
     }
 
     if (window.matchMedia("(min-width: 768px)").matches) {
       selectTab("home");
     }
-  }, [activeTab, moreAppView]);
+  }, [activeTab, isViewRestored, moreAppView]);
   const personNamesById = useMemo(() => personNameById(people), [people]);
   const groups = useMemo(() => [...data.groups, ...localGroupAdditions.filter((group) => !data.groups.some((loadedGroup) => loadedGroup.id === group.id))].map((group) => {
     const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
