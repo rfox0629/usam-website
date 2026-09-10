@@ -64,7 +64,7 @@ assert(
 assert(
   leaderReflectionSectionBlock.includes("<MeetingAccountabilityComposer")
     && appClient.includes("<AccountabilityFields")
-    && leaderReflectionSectionBlock.includes('name="follow_up_note"'),
+    && leaderReflectionSectionBlock.includes("<MeetingReminderComposer"),
   "Log Meeting must capture what they agreed to as Accountability and what the user must remember as a Reminder.",
 );
 

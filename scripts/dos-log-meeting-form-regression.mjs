@@ -112,10 +112,26 @@ assert(
 
 assert(
   leaderBlock.includes('label: "Accountability"')
-    && leaderBlock.includes('label: "Prayer request"')
-    && leaderBlock.includes('label: "Reminder"')
+    && leaderBlock.includes('"Prayer request"')
+    && leaderBlock.includes('"Reminder"')
     && leaderBlock.includes('label: "Observed Fruit"'),
   "Accountability, Prayer request, Reminder and Observed Fruit must be reachable as optional inline actions.",
+);
+
+/* USA-258: Prayer request and Reminder repeat. Each collapses to an accurate
+   count, and "+ Add" stays available so another can always be created. */
+assert(
+  leaderBlock.includes('meetingOutcomeSummary(prayerDraftCount, "prayer request")')
+    && leaderBlock.includes('meetingOutcomeSummary(reminderDraftCount, "reminder")'),
+  "A collapsed Prayer request or Reminder section must say how many it holds.",
+);
+assert(
+  leaderBlock.includes("<MeetingPrayerComposer") && leaderBlock.includes("<MeetingReminderComposer"),
+  "Both sections must use the repeatable composers, not single-value fields.",
+);
+assert(
+  !leaderBlock.includes('name="prayer_needs"') && !leaderBlock.includes('name="follow_up_note"'),
+  "The single-value Prayer and Reminder inputs must be gone.",
 );
 
 // Every one is a true toggle: re-tapping collapses it and clears the values it
@@ -153,10 +169,42 @@ assert(
    against Accountability, which is what the person agreed to do. It still
    collects a specific note and a date rather than a bare checkbox. */
 assert(
-  leaderBlock.includes('name="follow_up_note"')
-    && leaderBlock.includes("What do you want to remember?")
-    && leaderBlock.includes('name="follow_up_date"'),
+  appClient.includes("What do you want to remember?")
+    && appClient.includes("meeting_reminder_${index}_date")
+    && appClient.includes("meeting_reminder_${index}_title"),
   "Reminder must collect a specific note and a date, not just a checkbox.",
+);
+
+/* Each reminder owns its destinations, and the wording never claims DOS sends
+   anything: the calendar is the only path that produces an alert. */
+assert(
+  appClient.includes("Show in Upcoming") && appClient.includes("Add to my calendar")
+    && appClient.includes("meeting_reminder_${index}_upcoming")
+    && appClient.includes("meeting_reminder_${index}_calendar"),
+  "Each reminder must carry its own Show in Upcoming and Add to Calendar settings.",
+);
+assert(
+  appClient.includes("DOS does not send you a notification.")
+    && appClient.includes("only option that produces an alert"),
+  "The reminder wording must say DOS sends nothing and the calendar is the only alert.",
+);
+assert(
+  !/\bNotification\b/.test(appClient),
+  "The item is a Reminder; Notification is not a DOS item name.",
+);
+
+/* One record per request: nothing is joined into a single string. */
+assert(
+  appClient.includes("meetingPrayerDraftsFromForm") && appClient.includes("meetingReminderDraftsFromForm"),
+  "Both repeatable sections must be read back from the form as lists.",
+);
+assert(
+  appClient.includes("prayers: prayerDrafts.map((draft)") && appClient.includes("reminders: reminderDrafts.map((draft)"),
+  "Every draft must become its own write, never a joined string.",
+);
+assert(
+  appClient.includes("operationId: draft.uid"),
+  "Each item must carry its own operation id so a retry cannot duplicate it.",
 );
 
 /* Accountability is captured inline now rather than launching a sheet, and it
@@ -196,23 +244,31 @@ assert(
 assert(
   appClient.includes("followUpNote?: string;")
     && appClient.includes("const trimmedFollowUpNote = followUpNote?.trim() ?? \"\";")
-    && appClient.includes('notes: joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId)')
+    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId)")
     && appClient.includes("title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : \"Reminder from meeting\","),
   "saveTableFollowUpReminder must use the specific reminder note as the record's title/notes when provided, not a generic label.",
 );
 
-const saveReminderCallCount = (appClient.match(/await saveTableFollowUpReminder\(\{[^}]*followUpNote,/gs) ?? []).length;
-
+/* Both paths still carry the specific note, now once per reminder rather than
+   once per meeting: the log path posts each draft, the edit path saves each. */
 assert(
-  saveReminderCallCount >= 2
-    && appClient.includes('return postWorkflowJson("/api/dos/app/reminders"')
-    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || meetingNotes, meetingId)"),
-  "Create and edit Log Meeting paths must forward the specific follow-up note through their retry-safe reminder saves.",
+  appClient.includes('return postWorkflowJson("/api/dos/app/reminders"')
+    && appClient.includes("joinTableFollowUpReminderMetadata(draft.title, meetingId)")
+    && appClient.includes("followUpNote: draft.title,"),
+  "Create and edit Log Meeting paths must forward each reminder's own note through their retry-safe saves.",
+);
+
+/* A meeting with several reminders must not have the second overwrite the
+   first by reusing one row. */
+assert(
+  appClient.includes("const existingReminder = operationId ? null : tableFollowUpReminderForMeeting("),
+  "The repeatable reminder path must never reuse an existing row for a different item.",
 );
 
 assert(
-  appClient.includes("const followUpNote = String(formData.get(\"follow_up_note\") ?? \"\");"),
-  "Meeting submit handlers must read the new follow_up_note field out of the form.",
+  appClient.includes("const editPrayerDrafts = meetingPrayerDraftsFromForm(formData);")
+    && appClient.includes("const editReminderDrafts = meetingReminderDraftsFromForm(formData);"),
+  "Editing a meeting must read the same repeatable lists the log path does.",
 );
 
 assert(
@@ -221,8 +277,11 @@ assert(
   "createPrayerRequestFromMeeting must accept an explicit primary person so prayer needs attach to the right participant when there are multiple attendees.",
 );
 
+/* Each request names its own participant, so two requests from one meeting can
+   belong to two different people. */
 assert(
-  appClient.includes('name="prayer_needs_person_id"'),
+  appClient.includes("meeting_prayer_${index}_person_id")
+    && appClient.includes("Who is this for?"),
   "The Prayer Need action must let the user choose which participant a request belongs to when more than one is selected.",
 );
 
