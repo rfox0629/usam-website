@@ -4,7 +4,8 @@
 // (USA-250 and the two PR #130 reviews): logged duration only; invested
 // time kept apart from time invested in the missionary; a meeting's
 // direction classified by a recorded role, else by the confirmed Person
-// direction of everyone present, else honestly "Direction unresolved" and
+// direction of everyone present, else honestly "Relationship not set" (the
+// founder's 2026-09-10 wording for what was "Direction unresolved") and
 // never defaulted; check-ins separate from meetings; group time credited per
 // person but never summed as unique elapsed time; the Person record canonical
 // for direction; completeness stated rather than inferred; no circle input;
@@ -16,6 +17,10 @@ import {
   buildDosMinistryReport,
   buildDosSafeMinistrySummary,
   dosLoggedMeetingMinutes,
+  dosMinistryFruitEntriesFromAppData,
+  dosMinistryMultiplicationLabel,
+  dosMinistryReportFilterOptions,
+  dosMinistryRowMatchesFilter,
   dosMinistryClassifyMeeting,
   dosMinistryCompletenessLabels,
   dosMinistryDirectionForPerson,
@@ -152,7 +157,7 @@ const directionByPersonId = new Map(people.map((person) => [person.id, { ...dosM
 const classify = (meeting) => dosMinistryClassifyMeeting(meeting, directionByPersonId);
 
 // 2. Classification rules, one by one.
-assert.deepEqual(dosMinistryTimeBucketLabels, { invested: "Time I invested", received: "Time invested in me", unresolved: "Direction unresolved" });
+assert.deepEqual(dosMinistryTimeBucketLabels, { invested: "Time I invested", received: "Time invested in me", unresolved: "Relationship not set" });
 assert.equal(dosMinistryTimeBucketForRole("being_mentored"), "received");
 assert.equal(dosMinistryTimeBucketForRole("mutual_discipleship"), "invested");
 assert.equal(classify(meetings.find((meeting) => meeting.id === "m-dirk-recorded")).bucket, "received", "Rule 1: a recorded being-discipled role.");
@@ -167,7 +172,7 @@ assert.equal(dirkProdClassification.bucket, "unresolved", "Rule 4: only My Recor
 assert.ok(dirkProdClassification.reason.includes("only My Record says so"));
 const austinClassification = classify(meetings.find((meeting) => meeting.id === "m-austin"));
 assert.equal(austinClassification.bucket, "unresolved", "Rule 4: no direction.");
-assert.ok(austinClassification.reason.includes("no direction recorded"));
+assert.ok(austinClassification.reason.includes("relationship not set"));
 const samClassification = classify(meetings.find((meeting) => meeting.id === "m-sam"));
 assert.equal(samClassification.bucket, "unresolved", "Rule 4: conflicting Person / My Record direction.");
 assert.ok(samClassification.reason.includes("conflicting"));
@@ -194,20 +199,20 @@ assert.equal(invested("tanner-dup"), undefined, "Archived rows never appear.");
 // 4. Unresolved rows: completeness, next action, reasons, and nothing counted.
 const austin = unresolved("austin");
 assert.equal(austin.completeness, "unresolved");
-assert.equal(austin.completenessLabel, "Direction unresolved");
+assert.equal(austin.completenessLabel, "Relationship not set");
 assert.equal(austin.nextAction.kind, "confirm_direction");
-assert.equal(austin.nextAction.label, "Confirm the direction on the Person record");
+assert.equal(austin.nextAction.label, "Set the relationship on the Person record");
 assert.ok(austin.completenessDetail.includes("nothing is counted as invested or received"));
-assert.ok(austin.records.every((record) => record.kind === "meeting" && record.bucket === "unresolved" && record.bucketReason.includes("no direction recorded")));
+assert.ok(austin.records.every((record) => record.kind === "meeting" && record.bucket === "unresolved" && record.bucketReason.includes("relationship not set")));
 assert.equal(unresolved("sam").directionConflict !== null, true, "The conflict is stated on Sam's row.");
 assert.equal(unresolved("sam").directionStatus, "conflicting");
 assert.equal(unresolved("dirk-prod").directionStatus, "unconfirmed");
 assert.equal(unresolved("tanner").meetingCount, 1, "Tanner's unresolved row holds only the mixed meeting.");
-assert.ok(invested("tanner").completenessDetail.includes("1 more meeting with this person is under Direction unresolved"), "The invested row points at the unresolved meeting.");
+assert.ok(invested("tanner").completenessDetail.includes("1 more meeting with this person is not counted because the relationship is not set"), "The invested row points at the not-counted meeting.");
 assert.equal(invested("tanner").completeness, "recorded", "The unresolved meeting does not degrade the resolved row's duration completeness.");
 assert.equal(report.totals.unresolvedMeetings, 5, "Dirk as stored, Austin, Sam, the mixed meeting, and the meeting linked only to an archived person.");
 assert.equal(report.totals.uniqueLoggedMinutesUnresolved, 70 + 60 + 60 + 75 + 60);
-assert.ok(report.notes.some((note) => note.includes("Direction unresolved")), "The unresolved count is named in the notes.");
+assert.ok(report.notes.some((note) => note.includes("counted as neither invested nor received")), "The not-set count is named in the notes.");
 
 // 5. Duration: logged only; check-ins separate; group time credited per person; totals per bucket, each meeting once.
 const tanner = invested("tanner");
@@ -250,13 +255,13 @@ assert.equal(tanner.directionStatus, "confirmed");
 assert.equal(unresolved("sam").direction, "i_am_discipling", "When My Record disagrees with a canonical Person role, the Person wins for the label.");
 assert.ok(unresolved("sam").directionConflict?.includes("is canonical"));
 assert.equal(dosMinistryDirectionForPerson(people[1], []).direction, "none", "Without My Record, the display summary alone does not become a direction.");
-assert.ok(dosMinistryDirectionForPerson(people[1], []).directionConflict?.includes("Confirm the direction"));
+assert.ok(dosMinistryDirectionForPerson(people[1], []).directionConflict?.includes("Set the relationship"));
 assert.equal(dirk.nextAction.kind, "scheduled");
 assert.equal(dirk.nextAction.label, `Next meeting ${formatDosMinistryDate(day(-5), now)}`, "The next-action label carries a readable date.");
 assert.equal(formatDosMinistryDate("2025-12-03", now), "Dec 3, 2025");
 
 // 7. Completeness language: never "inactive"; duration language, not clock time; no mentor language.
-assert.deepEqual(Object.values(dosMinistryCompletenessLabels), ["Recorded", "Partial", "No qualifying activity", "Direction unresolved"]);
+assert.deepEqual(Object.values(dosMinistryCompletenessLabels), ["Recorded", "Partial", "No qualifying activity", "Relationship not set"]);
 const naomi = invested("naomi");
 assert.equal(naomi.completeness, "partial", "A check-in without a duration is Partial.");
 assert.equal(naomi.nextAction.kind, "log_check_in");
@@ -265,7 +270,7 @@ assert.ok(!/inactive/i.test(serialized), "The word inactive never appears.");
 assert.ok(!/recorded time|clock/i.test(serialized), "Nothing implies clock-in / clock-out precision.");
 const visible = JSON.stringify([...report.investedRows, ...report.receivedRows, ...report.unresolvedRows].map((row) => [row.directionLabel, row.nextAction, row.records.map((record) => record.label), row.completenessDetail]));
 assert.ok(!/mentor/i.test(visible), "No visible mentor language.");
-assert.deepEqual(Object.values(dosMinistryRelationshipDirectionLabels), ["Discipling me", "I am discipling", "Walking with", "Peer encouragement", "No direction recorded"]);
+assert.deepEqual(Object.values(dosMinistryRelationshipDirectionLabels), ["Discipling me", "I am discipling", "Walking with", "Peer encouragement", "Not set"]);
 assert.equal(formatDosMinistryMinutes(null), "Not logged");
 assert.equal(formatDosMinistryMinutes(210), "3h 30m");
 
@@ -275,13 +280,23 @@ assert.equal(narrow.relationshipRows.some((row) => row.personId === "dirk"), tru
 assert.equal(narrow.relationshipRows.find((row) => row.personId === "dirk").completenessLabel, "No qualifying activity");
 assert.equal(report.relationshipRows.some((row) => row.personId === "quiet"), false, "No direction and no activity means no row.");
 
-// 9. Multiplication only from a resolved Person relationship; otherwise honestly not linked.
-assert.equal(tanner.downstreamStatus, "not_linked", "Without a resolved Person relationship nothing is claimed.");
+// 9. Multiplication only from a resolved Person relationship; otherwise an honest state, never a zero or a "No".
+assert.equal(tanner.downstreamStatus, "not_connected", "Without a verified DOS identity nothing can be read, so nothing is claimed.");
+assert.equal(dosMinistryMultiplicationLabel(tanner), "Not connected");
 assert.deepEqual(tanner.downstream, []);
-const resolved = build("30d", undefined, { downstream }).investedRows.find((row) => row.personId === "tanner");
+const linkedOnly = build("30d", undefined, { linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
+assert.equal(linkedOnly.downstreamStatus, "not_resolved", "A linked identity alone does not let the report say Not recorded; the reader is not built.");
+assert.equal(dosMinistryMultiplicationLabel(linkedOnly), "Not resolved yet");
+const readEmpty = build("30d", undefined, { downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
+assert.equal(readEmpty.downstreamStatus, "not_recorded", "Only a person whose own records were read can be Not recorded.");
+assert.equal(dosMinistryMultiplicationLabel(readEmpty), "Not recorded");
+const resolved = build("30d", undefined, { downstream, downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
 assert.equal(resolved.downstreamStatus, "resolved");
 assert.deepEqual(resolved.downstream, [{ name: "Micah", personId: "tanner-ws-micah" }], "The ended relationship is not counted.");
+assert.equal(dosMinistryMultiplicationLabel(resolved), "1 person");
 assert.equal(naomi.downstreamStatus, "not_applicable");
+assert.equal(dosMinistryMultiplicationLabel(naomi), "—");
+assert.ok(!/\b0 people\b|: No\b/.test(JSON.stringify([tanner, linkedOnly, readEmpty, resolved].map(dosMinistryMultiplicationLabel))), "Never a zero, never a No.");
 assert.equal(report.investedRows.every((row) => !("circle" in row) && !("score" in row)), true, "No circle field on any row.");
 
 // 10. Drill-through: every row lists its contributing records with a target to open and the rule that placed it.
@@ -318,8 +333,10 @@ assert.equal(dosUpstreamViewers(people, disciplingMe.map((relationship) => ({ ..
 // 13. The module reads nothing private, keeps no chain model, and never defaults a direction.
 const source = readFileSync(new URL("../src/lib/dos/ministry-report.ts", import.meta.url), "utf8");
 const inputTypes = source.slice(source.indexOf("/* ---------- inputs"), source.indexOf("/* ---------- outputs"));
-for (const forbidden of ["notes", "prayerNeeds", "privateNotes", "whatHappened", "conversationResponses", "story", "journal", "reflection"]) {
-  assert.ok(!new RegExp(`\\b${forbidden}\\b`).test(inputTypes), `Report inputs must not read ${forbidden}.`);
+for (const forbidden of ["notes", "prayerNeeds", "privateNotes", "whatHappened", "conversationResponses", "story", "journal", "reflection", "description", "comments", "whatChanged", "decisionMade", "nextStep", "prayerFocus", "actionStep", "body", "summary"]) {
+  /* A declared input field, e.g. `  story: string;`. Display labels such as
+     "Fruit story" are not fields. */
+  assert.ok(!new RegExp(`^\\s*${forbidden}\\??:`, "m").test(inputTypes), `Report inputs must not read ${forbidden}.`);
 }
 assert.ok(!source.includes('import "server-only"'), "The report module stays pure so it can run anywhere.");
 assert.ok(!/45|75/.test(source.replace(/\/\*[\s\S]*?\*\//g, "")), "No duration estimate constants in the calculation.");
@@ -335,5 +352,110 @@ const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#
 assert.ok(!warningColour.test(reportUi.replace(/\/\*[\s\S]*?\*\//g, "")), "The report never uses yellow, amber, orange, or red.");
 assert.ok(/partial: "blue"/.test(reportUi) && /unresolved: "blue"/.test(reportUi) && /none: "grey"/.test(reportUi) && /recorded: "green"/.test(reportUi), "Partial and unresolved are blue, no activity is grey, recorded is the only green.");
 assert.ok(reportUi.includes("bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText\">{row.directionConflict}"), "Conflict notes are calm blue notices.");
+
+// 15. One primary table (founder, 2026-09-10): one row per person; per-direction figures kept apart; "Relationship not set" language.
+const rowOf = (id) => report.rows.find((row) => row.personId === id);
+assert.equal(report.rows.filter((row) => row.personId === "dirk").length, 1, "Dirk appears once, not once per direction.");
+const dirkRow = rowOf("dirk");
+assert.equal(dirkRow.meetingCount, 5, "Legacy, recorded, mutual, mixed, and mixed-recorded meetings all sit on the one row.");
+assert.deepEqual(dirkRow.minutesByBucket, { invested: 30 + 40, received: 60 + 120, unresolved: 75 }, "The row keeps invested, invested-in-me, and not-counted time apart.");
+assert.equal(dirkRow.loggedMinutes, 70 + 180 + 75);
+assert.equal(dirkRow.checkInCount, 1);
+assert.equal(dirkRow.relationshipLabel, "Discipling me");
+assert.equal(dirkRow.relationshipNote, null);
+assert.equal(dirkRow.completeness, "recorded", "A confirmed person whose only not-counted meeting is a mixed group is not 'needs relationship'.");
+assert.ok(dirkRow.completenessDetail.includes("1 meeting not counted in either direction"), "The row says which meeting is not counted and why.");
+assert.equal(dirkRow.lastActivity.date, day(2), "Latest activity across every direction (the legacy meeting, two days ago; his check-in was four).");
+const samuelLike = rowOf("austin");
+assert.equal(samuelLike.relationshipLabel, "Not set", "The Samuel Gaffney case: the relationship is Not set, never inferred.");
+assert.equal(samuelLike.completeness, "unresolved");
+assert.equal(samuelLike.completenessLabel, "Relationship not set");
+assert.equal(samuelLike.meetingCount, 1, "The meeting is kept.");
+assert.equal(samuelLike.loggedMinutes, 60, "The duration is kept.");
+assert.deepEqual(samuelLike.minutesByBucket, { invested: 0, received: 0, unresolved: 60 }, "Counted in neither direction.");
+assert.equal(rowOf("dirk-prod").relationshipLabel, "Discipling me", "Dirk as stored keeps the My Record label so the relationship is not hidden.");
+assert.equal(rowOf("dirk-prod").relationshipNote, "Not confirmed on the Person record");
+assert.equal(rowOf("dirk-prod").completeness, "unresolved");
+assert.equal(rowOf("sam").relationshipNote, "My Record disagrees");
+assert.equal(rowOf("sam").completeness, "unresolved");
+assert.equal(rowOf("tanner").completeness, "recorded");
+assert.equal(rowOf("philip").completeness, "partial");
+assert.equal(rowOf("quiet"), undefined, "No relationship and no activity means no row.");
+assert.equal(rowOf("tanner-dup"), undefined, "Archived rows never appear.");
+assert.ok(rowOf("naomi").direction === "walking_with", "Walking-with rows are on the table.");
+const narrowRows = build("custom", { end: day(25), start: day(28) }).rows;
+const dirkNoActivity = narrowRows.find((row) => row.personId === "dirk");
+assert.equal(dirkNoActivity.completeness, "none", "A confirmed relationship with no activity is on the table as No qualifying activity, never a task.");
+assert.equal(dirkNoActivity.meetingCount, 0);
+assert.equal(dirkNoActivity.loggedMinutes, 0);
+assert.ok(!/inactive/i.test(JSON.stringify(report.rows)));
+assert.ok(!/Direction unresolved/.test(JSON.stringify(report)), "The old wording is gone from every output.");
+// Filters.
+assert.deepEqual(dosMinistryReportFilterOptions.map((option) => option.value), ["all", "i_am_discipling", "discipling_me", "not_set"]);
+const filtered = (filter) => report.rows.filter((row) => dosMinistryRowMatchesFilter(row, filter)).map((row) => row.personId);
+assert.deepEqual(filtered("all"), report.rows.map((row) => row.personId));
+assert.ok(filtered("i_am_discipling").includes("tanner") && filtered("i_am_discipling").includes("sam") && !filtered("i_am_discipling").includes("dirk"));
+assert.ok(filtered("discipling_me").includes("dirk") && filtered("discipling_me").includes("dirk-prod") && !filtered("discipling_me").includes("tanner"));
+assert.deepEqual(filtered("not_set").sort(), ["austin", "dirk-prod", "sam"].sort(), "Not set, not confirmed, and conflicting all need the relationship set.");
+assert.ok(report.rows[0].loggedMinutes >= report.rows[1].loggedMinutes, "Rows sort by logged duration.");
+
+// 16. Ministry Fruit: structured sources only, stored links only, honest status.
+const fruitEntries = dosMinistryFruitEntriesFromAppData({
+  fruit: [{ fieldPersonId: "tanner", id: "story-1", outcomeTags: ["Joined Discipleship"], permissionToShare: true, sourceApp: null, status: "approved", submittedByName: "Ryan", summary: "A private story that must never appear", tableId: null, testimonyDate: stamp(3, 9), updatedAt: null }],
+  fruitEvents: [
+    { confidenceLevel: "verified", date: stamp(2, 9), debugContext: {}, description: "Narrative that must never appear", fruitType: "Gospel Conversation", generatedBy: "leader_review", generationKey: null, id: "ev-1", meetingId: "m-tanner-1", personId: "tanner", sourceId: null, sourceType: "leader_reflection", status: "submitted", title: "A leader-written title", visibility: "internal" },
+    { confidenceLevel: "observed", date: stamp(4, 9), debugContext: {}, description: null, fruitType: "Prayer Received", generatedBy: null, generationKey: null, id: "ev-2", meetingId: "m-group", personId: null, sourceId: null, sourceType: "leader_reflection", status: "submitted", title: null, visibility: "internal" },
+    { confidenceLevel: "confirmed", date: stamp(5, 9), debugContext: {}, description: null, fruitType: "Hidden", generatedBy: null, generationKey: null, id: "ev-3", meetingId: null, personId: "tanner", sourceId: null, sourceType: "manual", status: "hidden", title: null, visibility: "private" },
+    { confidenceLevel: "observed", date: null, debugContext: {}, description: null, fruitType: "Undated", generatedBy: null, generationKey: null, id: "ev-4", meetingId: null, personId: "tanner", sourceId: null, sourceType: "manual", status: "submitted", title: null, visibility: "internal" },
+  ],
+  guidedResourceProgress: [
+    { actionStep: "private", assignmentId: null, completedAt: stamp(6, 9), createdAt: null, createdByUserId: null, id: "prog-1", personId: "philip", prayerFocus: "private", reflection: "private", resourceSlug: "marks-of-discipleship", sessionId: "week-1", updatedAt: null, workspaceId: "ws" },
+    { actionStep: "private", assignmentId: null, completedAt: null, createdAt: null, createdByUserId: null, id: "prog-2", personId: "philip", prayerFocus: "private", reflection: "private", resourceSlug: "marks-of-discipleship", sessionId: "week-2", updatedAt: null, workspaceId: "ws" },
+  ],
+  participantReviews: [
+    { comments: "Private comment that must never appear", conversationHelpful: null, feltCaredFor: null, feltHeard: null, id: "rev-1", meetingId: "m-tanner-1", outcomeTags: ["Felt encouraged", "Discipling"], overallRating: "very_meaningful", personId: null, status: "submitted", submittedAt: stamp(1, 20), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
+    { comments: null, conversationHelpful: null, feltCaredFor: null, feltHeard: null, id: "rev-draft", meetingId: "m-tanner-1", outcomeTags: [], overallRating: null, personId: "tanner", status: "draft", submittedAt: stamp(1, 21), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
+  ],
+  participantTestimonies: [
+    { decisionMade: "private", id: "test-1", meetingId: "m-philip-no-duration", nextStep: "private", outcomeTags: ["Discipleship growth"], permissionToShare: true, personId: "philip", publicDisplayName: null, status: "approved", story: "Private story that must never appear", submittedAt: stamp(2, 19), submittedEmail: null, submittedName: null, whatChanged: "private" },
+  ],
+  resolveJourneySession: (slug, session) => ({ resourceTitle: slug === "marks-of-discipleship" ? "Marks of Discipleship" : null, sessionTitle: session === "week-1" ? "Week 1: Follow Me" : null }),
+});
+const withFruit = build("30d", undefined, { fruit: fruitEntries });
+const fruitById = new Map(withFruit.fruitRows.map((row) => [row.id, row]));
+assert.deepEqual(withFruit.fruitRows.map((row) => row.id), ["review-rev-1", "testimony-test-1", "fruit_event-ev-1", "fruit_story-story-1", "fruit_event-ev-2", "journey_progress-prog-1"], "Newest first (same-day entries by person name); hidden, draft, incomplete, and undated entries are not rows.");
+assert.deepEqual([fruitById.get("fruit_event-ev-1").text, fruitById.get("fruit_event-ev-1").sourceLabel, fruitById.get("fruit_event-ev-1").statusLabel, fruitById.get("fruit_event-ev-1").statusTone], ["Gospel Conversation", "Fruit", "Verified", "green"], "A fruit event shows its fruit type; verified is the only green.");
+assert.deepEqual(fruitById.get("fruit_event-ev-1").open, { id: "m-tanner-1", kind: "meeting" }, "The stored meeting link opens the meeting.");
+assert.equal(fruitById.get("fruit_event-ev-1").personName, "Tanner Kent");
+assert.deepEqual([fruitById.get("fruit_event-ev-2").personName, fruitById.get("fruit_event-ev-2").personSource, fruitById.get("fruit_event-ev-2").statusLabel, fruitById.get("fruit_event-ev-2").statusTone], ["Not linked", "none", "Observed", "blue"], "A meeting with two people does not pick one; observed is blue.");
+assert.deepEqual([fruitById.get("review-rev-1").text, fruitById.get("review-rev-1").personName, fruitById.get("review-rev-1").personSource, fruitById.get("review-rev-1").statusLabel], ["Very meaningful · Felt encouraged · Discipling", "Tanner Kent", "meeting", "Submitted"], "A review shows its rating and chosen tags; the person comes from the meeting's single stored link.");
+assert.deepEqual([fruitById.get("testimony-test-1").text, fruitById.get("testimony-test-1").statusLabel, fruitById.get("testimony-test-1").statusTone], ["Testimony shared · Discipleship growth", "Approved", "green"]);
+assert.deepEqual([fruitById.get("fruit_story-story-1").text, fruitById.get("fruit_story-story-1").sourceLabel], ["Joined Discipleship", "Fruit story"]);
+assert.deepEqual([fruitById.get("journey_progress-prog-1").text, fruitById.get("journey_progress-prog-1").relatedLabel, fruitById.get("journey_progress-prog-1").statusLabel, fruitById.get("journey_progress-prog-1").open], ["Completed Week 1: Follow Me", "Marks of Discipleship", "Completed", null], "Journey progress is a completed session, related to its resource, with no fabricated meeting link.");
+const fruitSerialized = JSON.stringify(withFruit.fruitRows);
+for (const secret of ["private", "Private", "never appear", "A leader-written title"]) {
+  assert.ok(!fruitSerialized.includes(secret), `Narrative never reaches the fruit table (${secret}).`);
+}
+assert.equal(withFruit.rows.find((row) => row.personId === "tanner").fruitCount, 3, "The Fruit column counts entries that name the person (the story and the event) plus one resolved through the meeting's single link (the review).");
+assert.equal(withFruit.rows.find((row) => row.personId === "philip").fruitCount, 2);
+assert.equal(withFruit.rows.find((row) => row.personId === "dirk").fruitCount, 0);
+assert.ok(withFruit.notes.some((note) => note.includes("no date")), "Undated fruit is named, not silently dropped.");
+assert.deepEqual(report.fruitRows, [], "No fruit input, no fruit rows.");
+assert.ok(!JSON.stringify(fruitEntries).includes("never appear"), "The adapter never carries narrative, so the calculation cannot show it.");
+
+// 17. The revised UI: one table in a scroll container with a sticky Person column; removed sections stay removed; founder wording.
+const reportUiCode = reportUi.replace(/\/\*[\s\S]*?\*\//g, "");
+assert.ok(reportUiCode.includes("overflow-x-auto") && reportUiCode.includes("<table") && reportUiCode.includes("sticky left-0"), "The table scrolls inside its own container and keeps the Person column visible.");
+assert.ok(!reportUiCode.includes("overflow-hidden"), "Nothing in the report clips its own content.");
+assert.ok(reportUiCode.includes("grid min-w-0 gap-6"), "The report root never inherits a forced intrinsic width.");
+assert.equal((reportUiCode.match(/<table/g) ?? []).length, 2, "Exactly two tables: Time Investment and Ministry Fruit.");
+for (const gone of ["What flows upward", "Where discipleship is multiplying", "without activity in this range", "Next action", "nextAction", "Direction unresolved", "Recent Fruit", "Recent Reviews", "buildDosSafeMinistrySummary", "dosUpstreamViewers"]) {
+  assert.ok(!reportUiCode.includes(gone), `The report no longer renders ${gone}.`);
+}
+for (const kept of ["Relationship not set", "Needs relationship", "Not connected", "Ministry Fruit", "How this is calculated", "Relationship filter", "Contributing records", "Report range", "Duration I invested", "Invested in me"]) {
+  assert.ok(reportUiCode.includes(kept), `The report keeps ${kept}.`);
+}
+assert.ok(!/\b0 people\b|"No"/.test(reportUiCode), "Multiplication never renders a zero or a No.");
+assert.ok(!reportUiCode.includes("StatusPill"), "The 100px StatusPill would truncate 'Needs relationship'; the local pill uses the same tokens.");
 
 console.log("DOS ministry report (USA-251) regression passed.");

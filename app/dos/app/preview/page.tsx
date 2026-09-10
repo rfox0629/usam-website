@@ -479,6 +479,30 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       status: "active",
       updatedAt: daysAgoIso(5),
     },
+    // Production-shaped (Ryan's workspace, 2026-09-10): summary "New · Other ·
+    // Exploring", structured relationship Not active, one logged hour. The
+    // relationship is not set, so the meeting is kept but counted in neither
+    // direction and nothing is inferred.
+    {
+      church: null,
+      createdAt: daysAgoIso(60),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "primary",
+      id: "demo-person-samuel-gaffney",
+      lastActivityAt: daysAgoIso(21),
+      name: "Samuel Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "other",
+      relationshipType: "New · Other · Exploring",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "active",
+      updatedAt: daysAgoIso(21),
+    },
     // Acceptance fixture: a real first discipleship meeting. Philip asked to be
     // discipled during a 2h30m first meeting; the discipleship relationship and
     // monthly cadence are recorded on the Person, homework became
@@ -791,6 +815,24 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       title: "Coffee",
       type: "coffee",
       updatedAt: daysAgoIso(13, 12),
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(21, 12),
+      fieldPersonIds: ["demo-person-samuel-gaffney"],
+      growthReflection: emptyGrowthReflection,
+      id: "demo-meeting-samuel-legacy",
+      notes: "",
+      participantNames: ["Samuel Gaffney"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(21, 12, 60),
+      scheduledStartAt: daysAgoIso(21, 12),
+      source: "table",
+      title: "Coffee",
+      type: "coffee",
+      updatedAt: daysAgoIso(21, 12),
     },
     {
       conversationFlowKey: "none",
@@ -1969,6 +2011,10 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
   return {
     accountabilityCheckInCommitments: [],
     circlePlacements,
+    /* USA-251: George has a verified DOS identity in this fixture; Tanner and
+       Philip do not, exactly as production. The downstream reader is not
+       built, so George reads "Not resolved yet" and the others "Not connected". */
+    identityLinkedPersonIds: ["demo-person-george-jenko"],
     accountabilityCheckIns: [
       {
         checkInDate: "2026-08-11",

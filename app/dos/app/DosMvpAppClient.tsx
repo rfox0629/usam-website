@@ -57,7 +57,7 @@ import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
-import { buildDosMinistryReport, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
+import { buildDosMinistryReport, dosMinistryFruitEntriesFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
@@ -12113,13 +12113,6 @@ function formatDashboardDuration(minutes: number) {
   return formatLoggedTime(minutes);
 }
 
-type DashboardFruitItem = {
-  date: string | null;
-  description: string;
-  id: string;
-  title: string;
-};
-
 type DashboardUpcomingRow = {
   badge: string;
   icon: UpcomingTimelineIcon;
@@ -14509,7 +14502,7 @@ function DesktopHomeDashboard({
                       </span>
                     </span>
                     <span className="shrink-0 text-center text-sm font-black text-[#0F172A] sm:text-base">{row.meetingCount}</span>
-                    <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{formatDosMinistryMinutes(row.loggedMinutes)}</span>
+                    <span className="shrink-0 text-right text-xs font-black text-[#0F172A] sm:text-sm">{row.loggedMinutes === 0 && row.meetingsMissingDuration === row.meetingCount ? "Not logged" : formatDosMinistryMinutes(row.loggedMinutes)}</span>
                   </button>
                 );
               }) : (
@@ -14523,7 +14516,7 @@ function DesktopHomeDashboard({
           <p className="mb-2 text-xs font-semibold text-[#64748B]">
             Last 30 days · logged meetings and logged duration I invested · each meeting counted once
             {meetingActivity.uniqueLoggedMinutesReceived ? ` · ${formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesReceived)} invested in me is in Reports` : ""}
-            {meetingActivity.unresolvedMeetings ? ` · ${meetingActivity.unresolvedMeetings} with unresolved direction in Reports` : ""}
+            {meetingActivity.unresolvedMeetings ? ` · ${meetingActivity.unresolvedMeetings} with the relationship not set in Reports` : ""}
           </p>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {meetingActivityMetrics.map((metric) => (
@@ -14580,90 +14573,6 @@ function DesktopHomeDashboard({
 
 /* Recent Fruit and Recent Reviews moved from Home into Reports (USA-257).
    The lists are unchanged; only where they live. */
-function ReportsFruitAndReviews({
-  fruitEvents,
-  fruitItems,
-  meetings,
-  onOpenFruit,
-  onOpenReview,
-  onOpenReviews,
-  participantReviews,
-  participantTestimonies,
-  people,
-}: {
-  fruitEvents: DosAppFruitEvent[];
-  fruitItems: DosAppFruit[];
-  meetings: DosAppMeeting[];
-  onOpenFruit: () => void;
-  onOpenReview: (item: SubmittedReviewListItem) => void;
-  onOpenReviews: () => void;
-  participantReviews: DosAppParticipantReview[];
-  participantTestimonies: DosAppParticipantTestimony[];
-  people: DosAppPerson[];
-}) {
-  const recentReviewItems = buildSubmittedReviewItems({ meetings, participantReviews, participantTestimonies, people }).slice(0, 6);
-  const recentFruitItems: DashboardFruitItem[] = [
-    ...fruitItems.map((fruit) => ({
-      date: fruit.testimonyDate,
-      description: fruit.submittedByName ? `${fruit.submittedByName} shared fruit` : "Fruit story recorded",
-      id: `fruit-${fruit.id}`,
-      title: fruit.summary || "Fruit recorded",
-    })),
-    ...fruitEvents.filter(isObservableFruitOutcome).map((event) => {
-      const person = people.find((item) => item.id === event.personId) ?? null;
-
-      return {
-        date: event.date,
-        description: person ? `${person.name} · ${formatDate(event.date)}` : formatDate(event.date),
-        id: `event-${event.id}`,
-        title: fruitOutcomeLabel(event),
-      };
-    }),
-  ].sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date)).slice(0, 6);
-
-  return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenFruit}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Fruit">
-        <div className="grid gap-1">
-          {recentFruitItems.length ? recentFruitItems.map((item) => (
-            <div className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#ECFDF3] text-[#16A34A] ring-1 ring-[#D7F3DD]">
-                <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-[#0F172A]">{item.title}</span>
-                <span className="mt-1 block truncate text-xs text-[#475569]">{item.description}</span>
-              </span>
-              <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2 py-1 text-[10px] font-bold text-[#64748B]">{formatRelativeDate(item.date)}</span>
-            </div>
-          )) : (
-            <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No recent fruit recorded yet.</p>
-          )}
-        </div>
-      </DesktopPanel>
-
-      <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReviews}>View all</DashboardHeaderAction>} className="min-h-[176px]" compact eyebrow="Recent Reviews">
-        <div className="grid gap-1">
-          {recentReviewItems.length ? recentReviewItems.map((item) => (
-            <article className="flex min-w-0 items-center gap-2.5 border-b border-[#EAF2FF] px-1 py-2.5 last:border-b-0" key={item.id}>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-                {item.kind === "testimony_review" ? <Mic className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} /> : <MessageCircle className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold text-[#0F172A]">{item.personName}</span>
-                <span className="mt-1 block truncate text-xs text-[#475569]">{item.reviewType} · {formatDate(item.date)}</span>
-              </span>
-              <SubmittedReviewViewButton onClick={() => onOpenReview(item)} />
-            </article>
-          )) : (
-            <p className="rounded-[18px] bg-[#F8FAFC] px-4 py-4 text-sm leading-6 text-[#64748B]">No reviews submitted yet.</p>
-          )}
-        </div>
-      </DesktopPanel>
-    </div>
-  );
-}
-
 function DesktopMoreLauncher({
   apps,
 }: {
@@ -37663,13 +37572,31 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   /* USA-251: the Master Ministry Report and Home's Top Time Investments
      share one calculation. The adapter narrows the loaded data to the fields
      the report may read; nothing private is passed. */
+  /* USA-251 (2026-09-10): fruit reaches the report only through the
+     structured adapter (types, tags, ratings, completed sessions), and the
+     multiplication column learns only which people carry a verified DOS
+     identity link. Nothing narrative is passed. */
   const ministryReportInput = useMemo(() => dosMinistryReportInputFromAppData({
     accountabilityCheckIns: data.accountabilityCheckIns,
     accountabilitySchedules: data.accountabilitySchedules,
     disciplingMe: data.myRecord.mentorRelationships,
+    fruit: dosMinistryFruitEntriesFromAppData({
+      fruit: data.fruit,
+      fruitEvents: data.fruitEvents,
+      guidedResourceProgress: data.guidedResourceProgress,
+      participantReviews: data.participantReviews,
+      participantTestimonies: data.participantTestimonies,
+      resolveJourneySession: (resourceSlug, sessionId) => {
+        const resource = getDosResourceBySlug(resourceSlug);
+        const session = resource?.content?.guidedResource?.sessions.find((item) => item.id === sessionId) ?? null;
+
+        return { resourceTitle: resource?.title ?? null, sessionTitle: session?.title ?? null };
+      },
+    }),
+    linkedPersonIds: data.identityLinkedPersonIds,
     meetings: data.meetings,
     people,
-  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.meetings, data.myRecord.mentorRelationships, people]);
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, people]);
   const reportNow = useMemo(() => new Date(), []);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
@@ -38392,11 +38319,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function launchMyRecordAction(action: MyRecordLaunchAction) {
     setMyRecordLaunchAction(action);
     openMyRecordTab(action === "mentor_meeting" ? "growth" : "overview");
-  }
-
-  function openReviewsList() {
-    openMoreApp("fruit");
-    setFruitView("reviews");
   }
 
   function openSubmittedReview(item: SubmittedReviewListItem) {
@@ -44334,17 +44256,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       now={reportNow}
                       onOpenMeeting={openMeetingDetail}
                       onOpenPerson={openPersonDetail}
-                    />
-                    <ReportsFruitAndReviews
-                      fruitEvents={data.fruitEvents}
-                      fruitItems={data.fruit}
-                      meetings={data.meetings}
-                      onOpenFruit={() => openMoreApp("fruit")}
-                      onOpenReview={openSubmittedReview}
-                      onOpenReviews={openReviewsList}
-                      participantReviews={data.participantReviews}
-                      participantTestimonies={data.participantTestimonies}
-                      people={people}
                     />
                   </div>
                 ) : null}
