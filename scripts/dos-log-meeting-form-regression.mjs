@@ -160,9 +160,48 @@ assert(
    Person "Add observed fruit" path requests it. */
 assert(
   leaderBlock.includes("useState(selectedOutcomeTags.length > 0 || openFruitSection)")
-    && leaderBlock.includes("const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));")
-    && leaderBlock.includes("const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);"),
+    && leaderBlock.includes("const [isPrayerOpen, setIsPrayerOpen] = useState(outcomeSeeds.prayers.length > 0);")
+    && leaderBlock.includes("const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(outcomeSeeds.reminders.length > 0);"),
   "Optional sections with existing data must start open so editing a meeting never hides previously saved fruit, prayer or reminder.",
+);
+
+/* USA-262 correction: a reflection's old follow-up flag is not a reminder, and
+   must never open an empty Reminder editor on its own. */
+assert(
+  !leaderBlock.includes("useState(followUpNeededDefault)"),
+  "An old follow-up flag must not open the Reminder section when nothing is saved.",
+);
+
+/* Items already saved on a meeting load by record id, so re-saving updates
+   them instead of creating a second copy. */
+assert(
+  appClient.includes("uid: seed.id ?? newDraftUid()")
+    && appClient.includes("operationId: draft.existingId ?? draft.uid"),
+  "Saved prayers and reminders must reload by id and re-save to the same record.",
+);
+
+/* Removing a saved item goes through the existing archive and soft-delete
+   paths; it is never a silent drop. */
+assert(
+  appClient.includes('updatePrayerRequest(id, { status: "archived" })')
+    && appClient.includes("meeting_prayer_removed_${index}")
+    && appClient.includes("meeting_reminder_removed_${index}"),
+  "Removing a saved prayer archives it and removing a saved reminder soft-deletes it.",
+);
+
+/* Text typed into an editor that was never confirmed still submits. */
+assert(
+  appClient.includes("{editing.draft.request.trim() ? <MeetingPrayerDraftInputs draft={editing.draft} index={index} /> : null}")
+    && appClient.includes("{editing.draft.title.trim() ? <MeetingReminderDraftInputs"),
+  "An open editor holding text must still submit, so nothing typed is lost.",
+);
+
+/* A reminder with text but no valid date is refused with a message, never
+   given an invented date. */
+assert(
+  appClient.includes("invalidReminderMessage(reminderRead.invalid)")
+    && appClient.includes("invalidReminderMessage(editReminderRead.invalid)"),
+  "Both meeting paths must refuse a dated-less reminder before anything is saved.",
 );
 
 /* Follow-up is Reminder in V2: something the DOS user needs to remember, as
@@ -244,9 +283,9 @@ assert(
 assert(
   appClient.includes("followUpNote?: string;")
     && appClient.includes("const trimmedFollowUpNote = followUpNote?.trim() ?? \"\";")
-    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId)")
-    && appClient.includes("title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : \"Reminder from meeting\","),
-  "saveTableFollowUpReminder must use the specific reminder note as the record's title/notes when provided, not a generic label.",
+    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote, meetingId)")
+    && appClient.includes("title: trimmedFollowUpNote.slice(0, 80),"),
+  "saveTableFollowUpReminder must use the reminder's own note as its title, and never a generic label.",
 );
 
 /* Both paths still carry the specific note, now once per reminder rather than
@@ -266,8 +305,9 @@ assert(
 );
 
 assert(
-  appClient.includes("const editPrayerDrafts = meetingPrayerDraftsFromForm(formData);")
-    && appClient.includes("const editReminderDrafts = meetingReminderDraftsFromForm(formData);"),
+  appClient.includes("const editPrayerRead = meetingPrayerDraftsFromForm(formData);")
+    && appClient.includes("const editReminderRead = meetingReminderDraftsFromForm(formData);")
+    && (appClient.match(/await persistMeetingOutcomeEdits\(\{/g) ?? []).length === 2,
   "Editing a meeting must read the same repeatable lists the log path does.",
 );
 

@@ -1268,8 +1268,11 @@ await check("A Person never opens the generic record inspector", async () => {
   assert(!personCode.includes("MobileBottomSheet"), "Person detail surfaces use the canonical sheet, not the absolutely positioned popup.");
   const fruitSheet = client.slice(client.indexOf("function PersonFruitDetailSheet("));
   const fruitBody = fruitSheet.slice(0, fruitSheet.indexOf("\nfunction "));
-  assert(fruitBody.includes("<Sheet "), "Fruit detail uses the canonical DOS sheet.");
-  assert(!fruitBody.includes("Source") && !fruitBody.includes("People Involved"), "Fruit detail shows the fact, not how DOS stored it.");
+  assert(fruitBody.includes("<DosDetailSheet"), "Fruit detail uses the shared detail shell.");
+  /* USA-264: Fruit shows where it came from in plain words and can open its
+     source, but never how DOS stored it. */
+  assert(fruitBody.includes("fruitSourceDescription(entry.event)") && fruitBody.includes("View source"), "Fruit detail names its source and can open it.");
+  assert(!/sourceType|generatedBy|People Involved/.test(fruitBody), "Fruit detail never shows storage fields.");
 });
 
 /* Overview and Timeline must land on the same surface for the same record. */
@@ -1319,7 +1322,11 @@ await check("Person Prayer opens their requests, not the resource library", asyn
      than the resource library. */
   const prayerSection = personDetail.slice(personDetail.indexOf('aria-label="Prayer"'));
   const prayerSectionBody = prayerSection.slice(0, prayerSection.indexOf("</section>"));
-  assert(prayerSectionBody.includes("onOpen={() => setIsPersonPrayerOpen(true)}"), "A prayer record opens this Person's prayer.");
+  /* USA-264: an individual prayer opens that prayer, not an undifferentiated
+     list; the list is the fallback for rows with no record of their own. */
+  assert(prayerSectionBody.includes("onOpen={item.onOpen ?? (() => setIsPersonPrayerOpen(true))}"), "A prayer record opens that prayer.");
+  assert(personDetail.includes("onOpen: (() => setOpenPrayerRequestId(request.id))"), "Each request row carries its own record.");
+  assert(personDetail.includes("<PrayerRequestDetailSheet"), "That record's detail is mounted from the Person.");
   assert(/onClick=\{onAddPrayerRequest\}[\s\S]{0,140}\+ Add/.test(prayerSectionBody), "The section action creates another request.");
   assert(!prayerSectionBody.includes("onOpenPrayerResources"), "The card must not route to the resource library.");
   assert(personDetail.includes("<PersonPrayerSheet"), "That sheet exists and is mounted.");
@@ -1327,8 +1334,11 @@ await check("Person Prayer opens their requests, not the resource library", asyn
   const prayerSheet = client.slice(client.indexOf("function PersonPrayerSheet("));
   const prayerBody = prayerSheet.slice(0, prayerSheet.indexOf("\nfunction "));
   assert(prayerBody.includes("Prayer requests"), "Requests lead.");
-  assert(prayerBody.indexOf("Prayer requests") < prayerBody.indexOf("Prayer resources"),
-    "Requests come first; resources are the secondary action.");
+  /* USA-264: the requests are the body; Prayer resources lives in the shell's
+     fixed action area as the secondary, white action beside Add. */
+  assert(/<PersonDetailLabel>Prayer requests<\/PersonDetailLabel>/.test(prayerBody), "Requests are the body of the sheet.");
+  assert(/actions=\{\([\s\S]*Add prayer request[\s\S]*tone="white">Prayer resources<\/AppButton>/.test(prayerBody),
+    "Resources are the secondary action, after Add.");
   assert(prayerBody.includes("Add prayer request"), "Adding one is available from here.");
   assert(prayerBody.includes('tone="white"') && prayerBody.includes("onOpenPrayerResources"),
     "Prayer Resources is retained, clearly separate and secondary.");
@@ -2315,7 +2325,7 @@ await check("Every editable sheet declares itself, and the primitive protects it
   const editableTitles = [
     "Edit Journey", "New Group", "Resource Check-In", "Check in", "Add progress",
     /* "Log Check-In" (the legacy Home sheet) left with Home's workflow, USA-257. */
-    "Add Prayer Partner", "Add Prayer Request", "Edit Prayer Request",
+    "Add Prayer Partner", "Add Prayer Request",
     "Log Prayer", "Import Contacts",
   ];
 
@@ -2328,11 +2338,33 @@ await check("Every editable sheet declares itself, and the primitive protects it
 
   /* The Accountability, gathering, reminder and meeting sheets carry computed
      titles, so they are checked by their surrounding expression instead. */
-  for (const marker of ['"Edit Accountability" : "New Accountability"', '"Edit Accountability" : "Add Accountability"', '"Log Meeting" : "Edit Meeting"', '"Edit Reminder"']) {
+  for (const marker of ['"Edit Accountability" : "New Accountability"', '"Edit Accountability" : "Add Accountability"', '"Log Meeting" : "Edit Meeting"']) {
     const line = client.split("\n").find((row) => row.includes("<Sheet ") && row.includes(marker));
 
     assert(line, `Expected an editable sheet for ${marker}.`);
     assert(line.includes('kind="editable"'), `The sheet for ${marker} must declare kind="editable".`);
+  }
+});
+
+/* USA-264: Person records open in one shared detail shell. Editing inside it
+   is explicit and carries the same unsaved-work protection as Sheet. */
+await check("The shared detail shell protects editing exactly as Sheet does", async () => {
+  const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
+  const shell = surfaces.slice(surfaces.indexOf("export function DosDetailSheet({"), surfaces.indexOf("export function DosDetailSection("));
+
+  assert(shell.includes("useUnsavedWorkGuard({"), "The shell owns the guard.");
+  assert(shell.includes("isEditing && formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current))"), "Dirtiness is read from the rendered controls, only while editing.");
+  assert(shell.includes("onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}"), "An editing shell's backdrop cannot discard work.");
+  assert(shell.includes("onClick={requestClose}") && shell.includes("{guard.confirmation}"), "Close routes through the guard.");
+  assert(/h-\[calc\(100dvh-2\.75rem\)\]/.test(shell) && /md:h-\[min\(720px/.test(shell), "The shell has a fixed height, so short content cannot collapse it.");
+  assert(shell.includes("min-h-0 flex-1 overflow-y-auto"), "Only the body scrolls.");
+
+  for (const title of ['title="Edit prayer request"', '? "Edit prayer request" : "Edit reminder"']) {
+    const index = client.indexOf(title);
+
+    assert(index !== -1, `Expected the shared shell to title ${title}.`);
+    assert(/isEditing/.test(client.slice(Math.max(0, index - 1400), index + 200)), `${title} must be declared as editing.`);
   }
 });
 

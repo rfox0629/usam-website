@@ -86,10 +86,20 @@ assert(
 
 assert(
   appClient.includes("function tableFollowUpReminderForMeeting(reminders: DosAppRelationshipReminder[], meetingId: string)")
-    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId)")
+    && appClient.includes("joinTableFollowUpReminderMetadata(trimmedFollowUpNote, meetingId)")
     && appClient.includes("async function saveTableFollowUpReminder")
-    && appClient.includes("name=\"follow_up_date\""),
-  "Follow-Up Needed must create/update/delete one Table-linked relationship_reminder with a due date.",
+    && appClient.includes("meeting_reminder_${index}_date"),
+  "A meeting reminder must create or update a Table-linked relationship_reminder with a due date.",
+);
+
+/* The Danny Lundquist defect: a blank Reminder section became a saved
+   "Reminder from meeting" due tomorrow. An empty note creates nothing, there
+   is no invented title, and a missing date is refused rather than defaulted. */
+assert(
+  !appClient.includes('"Reminder from meeting"')
+    && appClient.includes("    if (!trimmedFollowUpNote) {\n      return true;\n    }")
+    && !/reminderDate = \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/\.test\(followUpDate\) \? followUpDate : dateValueFromToday\(1\)/.test(appClient),
+  "An empty meeting reminder must create nothing and a missing date must never default to tomorrow.",
 );
 
 assert(

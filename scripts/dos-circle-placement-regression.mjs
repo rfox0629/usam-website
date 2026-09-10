@@ -174,9 +174,12 @@ assert.ok(
     && client.includes("(data.circlePlacements ?? []).forEach((row) => {"),
   "the app reads confirmed placement from its own field, not from the score engine",
 );
+/* USA-264: the circle tabs carry no counts. Circle membership on People is
+   still built only from confirmed placement, never from the machine score. */
 assert.ok(
-  /const counts = tierCounts\(\s*searched\(allCirclePeople\)\.map\(\(item\) => placementForDecision\(confirmedPlacementByPersonId/.test(client),
-  "the People rail counts confirmed placements only",
+  client.includes("const decision = data.circlePlacements?.find((row) => row.personId === person.id)?.placement;")
+    && !client.includes("peopleCircleTabsWithCounts"),
+  "People circles are built from confirmed placements only, with no counts on the tabs",
 );
 assert.ok(
   !/data\.circles\?\.my3|data\.circles\?\.my12|data\.circles\?\.my70|data\.circles\?\.my120/.test(client),

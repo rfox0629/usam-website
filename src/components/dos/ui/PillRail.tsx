@@ -21,6 +21,7 @@ export type PillRailOption<T extends string> = {
  */
 export function PillRail<T extends string>({
   edgeInset = 5,
+  fit = false,
   label,
   onChange,
   options,
@@ -28,6 +29,10 @@ export function PillRail<T extends string>({
 }: {
   /** The page's horizontal padding the rail bleeds into so pills scroll edge to edge: 5 (20px, spec pages) or 4 (16px, the current app container). */
   edgeInset?: 4 | 5;
+  /** Share the width equally and never scroll. For short rails whose every
+   * option must be visible at once (People's five circles). Each pill keeps a
+   * 44px hit area. */
+  fit?: boolean;
   /** Accessible name for the rail, e.g. "My Record sections". */
   label: string;
   onChange: (value: T) => void;
@@ -84,6 +89,36 @@ export function PillRail<T extends string>({
 
     return () => observer.disconnect();
   }, [options.length]);
+
+  if (fit) {
+    return (
+      <div aria-label={label} className="grid gap-1" role="tablist" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+        {options.map((option) => {
+          const selected = option.value === value;
+
+          return (
+            <button
+              aria-selected={selected}
+              className="group flex h-11 min-w-0 items-center rounded-dos-3 focus:outline-none"
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              role="tab"
+              tabIndex={selected ? 0 : -1}
+              type="button"
+            >
+              <span
+                className={`flex h-9 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-dos-3 border px-1 text-dos-label transition-colors group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2 ${
+                  selected ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary group-hover:border-dos-blue100"
+                }`}
+              >
+                {option.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className={`relative ${edgeInset === 4 ? "-mx-4" : "-mx-5"}`}>

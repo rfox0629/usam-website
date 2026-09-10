@@ -431,3 +431,149 @@ export function MobileBottomSheet({
     </div>
   );
 }
+
+/* One detail shell for the records a Person holds: Accountability, Prayer,
+ * Fruit, Reminder and Feedback.
+ *
+ * The same dimensions and behaviour for every one of them, so opening a prayer
+ * and opening a reminder feel like the same application:
+ *
+ *   - Mobile is a near-full-height sheet; desktop is a bounded panel. Both have
+ *     a FIXED height, so a one-line record never collapses the shell into a
+ *     thin strip at the bottom of the screen.
+ *   - The header (title, the Person it belongs to, close) and the action area
+ *     never scroll. Only the body does, so a long record is still readable and
+ *     its actions are always reachable.
+ *   - Opening a record shows it. Editing is a separate state the caller turns
+ *     on with `isEditing`; while editing, the backdrop cannot discard work and
+ *     every exit routes through the one unsaved-work guard.
+ *
+ * It holds no content of its own: nothing is manufactured to fill it. */
+export function DosDetailSheet({
+  actions,
+  children,
+  identity,
+  isEditing = false,
+  onClose,
+  title,
+}: {
+  /* Type-specific actions, rendered in the fixed area at the bottom. */
+  actions?: ReactNode;
+  children: ReactNode;
+  /* The Person this record belongs to, shown once, compactly, in the header. */
+  identity?: string | null;
+  isEditing?: boolean;
+  onClose: () => void;
+  title: string;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
+  const kind: DosSurfaceKind = isEditing ? "editable" : "inspection";
+  const guard = useUnsavedWorkGuard({
+    getIsDirty: () => isEditing && formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)),
+    onExit: onClose,
+  });
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  /* Snapshot what editing started from, each time editing starts, so typing a
+     word and deleting it again leaves the record clean. */
+  useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+
+    initialValuesRef.current = isEditing ? readSurfaceValues(bodyRef.current) : null;
+  }, [isEditing, isMounted]);
+
+  /* Keyboard users land inside the dialog, and return where they were. */
+  useEffect(() => {
+    if (!isMounted) {
+      return undefined;
+    }
+
+    const previous = typeof document !== "undefined" ? document.activeElement as HTMLElement | null : null;
+
+    panelRef.current?.focus({ preventScroll: true });
+
+    return () => previous?.focus?.({ preventScroll: true });
+  }, [isMounted]);
+
+  const requestClose = guard.requestExit;
+
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        requestClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, onClose]);
+
+  const content = (
+    <div
+      className="fixed inset-0 z-[1000] bg-[#0F172A]/25 backdrop-blur-[3px] md:flex md:items-center md:justify-center md:p-8"
+      onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}
+      role="presentation"
+    >
+      <div
+        aria-labelledby="dos-detail-sheet-title"
+        aria-modal="true"
+        className="fixed inset-x-0 bottom-0 flex h-[calc(100dvh-2.75rem)] flex-col overflow-hidden rounded-t-[28px] border border-white/80 bg-white shadow-[0_-18px_60px_rgba(15,23,42,0.18)] outline-none md:static md:h-[min(720px,calc(100dvh-4rem))] md:w-[min(560px,calc(100vw-4rem))] md:rounded-[28px] md:shadow-[0_26px_90px_rgba(37,99,235,0.16)]"
+        data-dos-detail-sheet=""
+        onMouseDown={(event) => event.stopPropagation()}
+        ref={panelRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <header className="shrink-0 px-5 pt-2.5">
+          <div className="mx-auto mb-2.5 h-1 w-10 rounded-full bg-[#E2E8F0] md:hidden" aria-hidden="true" />
+          <div className="flex items-start justify-between gap-3 border-b border-dos-rule pb-3 md:pt-2.5">
+            <div className="min-w-0">
+              <h2 className="truncate text-[20px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary" id="dos-detail-sheet-title">{title}</h2>
+              {identity ? <p className="mt-0.5 truncate text-[13.5px] font-semibold text-dos-secondary">{identity}</p> : null}
+            </div>
+            <button
+              aria-label="Close"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-dos-line bg-white text-dos-primary transition-colors hover:bg-dos-band"
+              onClick={requestClose}
+              type="button"
+            >
+              <X className="h-4 w-4" aria-hidden="true" strokeWidth={2} />
+            </button>
+          </div>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4" ref={bodyRef}>
+          {children}
+        </div>
+        {actions ? (
+          <div className="shrink-0 border-t border-dos-rule bg-white px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] md:pb-4">
+            {actions}
+          </div>
+        ) : null}
+      </div>
+      {guard.confirmation}
+    </div>
+  );
+
+  return isMounted ? createPortal(content, document.body) : null;
+}
+
+/* A labelled block inside a detail shell, so every record uses the same label
+   and body typography. */
+export function DosDetailSection({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <section className="border-t border-dos-rule py-3 first:border-t-0 first:pt-0">
+      <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{label}</p>
+      <div className="mt-1.5 text-[15px] leading-[1.55] text-dos-primary">{children}</div>
+    </section>
+  );
+}
