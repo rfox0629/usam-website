@@ -118,7 +118,7 @@ assert(
   "Accountability, Prayer request, Reminder and Observed Fruit must be reachable as optional inline actions.",
 );
 
-/* USA-258: Prayer request and Reminder repeat. Each collapses to an accurate
+/* USA-262: Prayer request and Reminder repeat. Each collapses to an accurate
    count, and "+ Add" stays available so another can always be created. */
 assert(
   leaderBlock.includes('meetingOutcomeSummary(prayerDraftCount, "prayer request")')

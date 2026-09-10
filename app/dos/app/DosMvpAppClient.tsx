@@ -14928,7 +14928,7 @@ function DesktopHomeDashboard({
      Activity, a compact Accountability summary, and Upcoming. Today's
      Alignment (My Record remains its own destination), Recent Fruit and
      Recent Reviews (now in Reports), and Assigned Resources (blocked on
-     USA-258) are no longer on Home. */
+     USA-262) are no longer on Home. */
   return (
     <div className="mt-5 block md:mt-0">
       <header className="mb-3 hidden items-start justify-between gap-4 md:flex">
@@ -40813,7 +40813,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return failures;
   }
 
-  /* USA-258. The repeatable meeting outcomes, read from the same FormData the
+  /* USA-262. The repeatable meeting outcomes, read from the same FormData the
      Accountability composer uses. Each draft carries the uid it was created
      with, which becomes its operation id: a retry re-sends the same id for the
      same item, so repeated saves create nothing twice, and a draft the user
