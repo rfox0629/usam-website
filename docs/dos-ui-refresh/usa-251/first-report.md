@@ -117,6 +117,7 @@ Each of the three lists laid its rows out with a desktop grid whose column minim
 
 - **Multiplication "N people" / "Not recorded":** needs a reader of the linked person's own workspace, not built; production's only verified identity link is Ryan's own Person record, so every production disciple shows *Not connected*.
 - **Kitchen Table Gospel responses** are not a fruit source (USA-243; production has none).
+- **Imported feedback forms** are not a fruit source (USA-264, 2026-09-10). A review carrying `legacyForm`, such as Danny Lundquist's Planning Center reflection (submission 42200110), is Feedback on the Person and never a Ministry Fruit row, Fruit count, total or upward figure. Fruit recorded independently for the same person still counts. Guarded behaviourally in §16b of the report regression, including a probe proving the exclusion is by provenance.
 - **Production fruit sources today:** 38 leader-observed fruit events (all *Observed*), 4 submitted reviews, 0 testimonies, 0 fruit stories, 3 completed Journey sessions (one is Ryan's own record).
 - Production still has no `table_role` column and no Person marked "They are discipling me", so Dirk's and Marty's rows keep the My Record label with *Not confirmed* until their Person records are set.
 - Authenticated production UI verification remains blocked (Claude in Chrome not connected); the pre-existing reload hydration mismatch is USA-261.

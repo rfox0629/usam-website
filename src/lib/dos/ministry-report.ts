@@ -1365,7 +1365,10 @@ export function dosMinistryFruitEntriesFromAppData({
       status: item.status,
       tags: stringTags(item.outcomeTags),
     })),
-    ...participantReviews.map((review): DosMinistryFruitEntry => ({
+    /* An imported feedback form (a Planning Center reflection, USA-264) is
+       Feedback, not Fruit: it records no rating or outcome the person chose,
+       so existing is not evidence of anything. Only native reviews qualify. */
+    ...participantReviews.filter((review) => !review.legacyForm).map((review): DosMinistryFruitEntry => ({
       confidence: null,
       date: review.submittedAt,
       id: review.id,
