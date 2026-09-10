@@ -413,8 +413,8 @@ const fruitEntries = dosMinistryFruitEntriesFromAppData({
     { actionStep: "private", assignmentId: null, completedAt: null, createdAt: null, createdByUserId: null, id: "prog-2", personId: "philip", prayerFocus: "private", reflection: "private", resourceSlug: "marks-of-discipleship", sessionId: "week-2", updatedAt: null, workspaceId: "ws" },
   ],
   participantReviews: [
-    { comments: "Private comment that must never appear", conversationHelpful: null, feltCaredFor: null, feltHeard: null, id: "rev-1", meetingId: "m-tanner-1", outcomeTags: ["Felt encouraged", "Discipling"], overallRating: "very_meaningful", personId: null, status: "submitted", submittedAt: stamp(1, 20), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
-    { comments: null, conversationHelpful: null, feltCaredFor: null, feltHeard: null, id: "rev-draft", meetingId: "m-tanner-1", outcomeTags: [], overallRating: null, personId: "tanner", status: "draft", submittedAt: stamp(1, 21), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
+    { comments: "Private comment that must never appear", conversationHelpful: null, feltCaredFor: null, feltHeard: null, legacyForm: null, id: "rev-1", meetingId: "m-tanner-1", outcomeTags: ["Felt encouraged", "Discipling"], overallRating: "very_meaningful", personId: null, status: "submitted", submittedAt: stamp(1, 20), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
+    { comments: null, conversationHelpful: null, feltCaredFor: null, feltHeard: null, legacyForm: null, id: "rev-draft", meetingId: "m-tanner-1", outcomeTags: [], overallRating: null, personId: "tanner", status: "draft", submittedAt: stamp(1, 21), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null },
   ],
   participantTestimonies: [
     { decisionMade: "private", id: "test-1", meetingId: "m-philip-no-duration", nextStep: "private", outcomeTags: ["Discipleship growth"], permissionToShare: true, personId: "philip", publicDisplayName: null, status: "approved", story: "Private story that must never appear", submittedAt: stamp(2, 19), submittedEmail: null, submittedName: null, whatChanged: "private" },
@@ -442,6 +442,57 @@ assert.equal(withFruit.rows.find((row) => row.personId === "dirk").fruitCount, 0
 assert.ok(withFruit.notes.some((note) => note.includes("no date")), "Undated fruit is named, not silently dropped.");
 assert.deepEqual(report.fruitRows, [], "No fruit input, no fruit rows.");
 assert.ok(!JSON.stringify(fruitEntries).includes("never appear"), "The adapter never carries narrative, so the calculation cannot show it.");
+
+// 16b. Imported feedback is Feedback, not Fruit (USA-264 × USA-251). Shaped on
+// Danny Lundquist's Planning Center reflection: submitted, no rating, no
+// outcome tags, linked to a Person and no meeting, answer "Still processing".
+// Its existence must change no Fruit list, count, total or multiplication
+// figure, while Fruit recorded independently for the same person still counts.
+const danny = { id: "danny", name: "Danny Lundquist", relationshipType: "Discipling · Friend · Exploring", roleInMyLife: "discipling_them", status: "new" };
+const dannyMeeting = legacyMeeting("m-danny", 7, ["danny"], 60);
+const reviewFixture = (overrides) => ({ comments: null, conversationHelpful: null, feltCaredFor: null, feltHeard: null, legacyForm: null, meetingId: "m-danny", outcomeTags: [], overallRating: null, personId: "danny", status: "submitted", submittedAt: stamp(1, 17), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null, ...overrides });
+const importedLegacyForm = {
+  answers: [{ answers: ["Still processing"], question: "Did anything shift for you? (Select all that apply)" }],
+  formName: "2 Minute Reflection (After Coffee)",
+  importedAt: stamp(0, 9),
+  privacyNote: "Your responses are kept private and handled with care.",
+  sourceFormId: "1199861",
+  sourceLabel: "Planning Center",
+  sourceSubmissionId: "42200110",
+  submittedAtLocal: `${day(2)}T17:55`,
+  submittedTimezone: null,
+};
+const importedFeedback = reviewFixture({ id: "rev-danny-imported", legacyForm: importedLegacyForm, meetingId: "", submittedAt: stamp(2, 17, 55) });
+const nativeReview = reviewFixture({ id: "rev-danny-native", outcomeTags: ["Felt encouraged"], overallRating: "meaningful" });
+const independentFruit = { confidenceLevel: "confirmed", date: stamp(3, 9), debugContext: {}, description: null, fruitType: "Gospel Conversation", generatedBy: null, generationKey: null, id: "ev-danny", meetingId: null, personId: "danny", sourceId: null, sourceType: "manual", status: "submitted", title: null, visibility: "internal" };
+const dannyEntries = (participantReviews) => dosMinistryFruitEntriesFromAppData({ fruit: [], fruitEvents: [independentFruit], guidedResourceProgress: [], participantReviews, participantTestimonies: [] });
+const dannyDownstream = [{ discipleDisplayName: "Eli", disciplePersonId: "danny-ws-eli", disciplerPersonId: "danny", disciplerWorkspaceId: "danny-ws", identityLinkId: "link-danny", roleInMyLife: "discipling_them", source: "person_relationship", status: "active" }];
+const dannyBuild = (participantReviews, range = "30d", period) => build(range, period, {
+  downstream: dannyDownstream,
+  downstreamReadPersonIds: ["danny"],
+  fruit: dannyEntries(participantReviews),
+  linkedPersonIds: ["danny"],
+  meetings: [...meetings, dannyMeeting],
+  people: [...people, danny],
+});
+const withImport = dannyBuild([importedFeedback, nativeReview]);
+const withoutImport = dannyBuild([nativeReview]);
+assert.deepEqual(dannyEntries([importedFeedback, nativeReview]), dannyEntries([nativeReview]), "The adapter emits nothing for imported feedback.");
+assert.deepEqual(withImport.fruitRows, withoutImport.fruitRows, "Imported feedback adds no Ministry Fruit row.");
+assert.deepEqual(withImport.rows, withoutImport.rows, "Imported feedback changes no person row: Fruit count, multiplication, or anything else.");
+assert.deepEqual(withImport.totals, withoutImport.totals, "Imported feedback changes no total.");
+assert.deepEqual(withImport.notes, withoutImport.notes, "Imported feedback adds no note.");
+assert.deepEqual(buildDosSafeMinistrySummary(withImport), buildDosSafeMinistrySummary(withoutImport), "Imported feedback changes nothing that flows upward.");
+const dannyRow = withImport.rows.find((row) => row.personId === "danny");
+assert.equal(dannyRow.fruitCount, 2, "Danny's independently recorded Fruit and his native review still count.");
+assert.deepEqual(withImport.fruitRows.filter((row) => row.personId === "danny").map((row) => row.id).sort(), ["fruit_event-ev-danny", "review-rev-danny-native"], "Legitimate Fruit is preserved; the import is not a row.");
+assert.ok(!withImport.fruitRows.some((row) => row.id === "review-rev-danny-imported" || (row.personId === "danny" && row.text === "Review submitted")), "No 'Review submitted' Fruit for the imported reflection.");
+assert.equal(dosMinistryMultiplicationLabel(dannyRow), "1 person", "Multiplication comes only from the resolved relationship.");
+assert.deepEqual(dannyBuild([importedFeedback], "custom", { end: day(0), start: day(60) }).fruitRows.map((row) => row.id), ["fruit_event-ev-danny"], "No range reaches the import as Fruit.");
+// Non-vacuity: the same record without import provenance is in range and linked, so provenance alone is what excludes it.
+const unmarked = dannyBuild([{ ...importedFeedback, legacyForm: null }, nativeReview]);
+assert.ok(unmarked.fruitRows.some((row) => row.id === "review-rev-danny-imported"), "Probe: without legacyForm the fixture would be a Fruit row.");
+assert.equal(unmarked.rows.find((row) => row.personId === "danny").fruitCount, 3, "Probe: and it would be counted.");
 
 // 17. The revised UI: one table in a scroll container with a sticky Person column; removed sections stay removed; founder wording.
 const reportUiCode = reportUi.replace(/\/\*[\s\S]*?\*\//g, "");
