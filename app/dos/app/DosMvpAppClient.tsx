@@ -210,6 +210,9 @@ type PersistedAppView = {
   activeTab: ActiveTab;
   meetingsCalendarDate: string | null;
   meetingsView: MeetingsView;
+  /* Which More app was open, so a reload inside Reports returns to Reports
+     rather than the bare More tab. */
+  moreAppView: MoreAppView | null;
   selectedPersonId: string | null;
 };
 
@@ -232,6 +235,7 @@ function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
     return {
       ...(persistedAppViewTabs.has(parsed.activeTab as ActiveTab) ? { activeTab: parsed.activeTab } : {}),
       ...(persistedMeetingsViews.has(parsed.meetingsView as MeetingsView) ? { meetingsView: parsed.meetingsView } : {}),
+      ...(normalizeMoreAppView(parsed.moreAppView) ? { moreAppView: normalizeMoreAppView(parsed.moreAppView) } : {}),
       ...(typeof parsed.selectedPersonId === "string" ? { selectedPersonId: parsed.selectedPersonId } : {}),
       ...(typeof parsed.meetingsCalendarDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.meetingsCalendarDate)
         ? { meetingsCalendarDate: parsed.meetingsCalendarDate }
@@ -15177,22 +15181,6 @@ function DesktopHomeDashboard({
 
 /* Recent Fruit and Recent Reviews moved from Home into Reports (USA-257).
    The lists are unchanged; only where they live. */
-function DesktopMoreLauncher({
-  apps,
-}: {
-  apps: DesktopMoreAppItem[];
-}) {
-  return (
-    <div className="hidden md:block">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-        {apps.map((item) => (
-          <DesktopMoreAppCard item={item} key={item.label} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function desktopOrganizationCopy(connection: DosAppOrganizationConnection, application: DosAppData["usamApplication"]) {
   if (connection.type === "independent") {
     return "Your DOS workspace can operate independently for now.";
@@ -38032,9 +38020,38 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       activeTab,
       meetingsCalendarDate: selectedMeetingsCalendarDate,
       meetingsView,
+      moreAppView: activeTab === "more" ? moreAppView : null,
       selectedPersonId,
     });
-  }, [activeTab, data.workspace.id, meetingsView, people, selectedMeetingsCalendarDate, selectedPersonId]);
+  }, [activeTab, data.workspace.id, meetingsView, moreAppView, people, selectedMeetingsCalendarDate, selectedPersonId]);
+
+  /* Desktop has no launcher screen (spec §5.7, v1.1): the sidebar is the
+     launcher, and the More grid mounts only on the mobile tab. So landing on
+     the bare More tab on desktop, whether from a More app's back control or
+     from a restored view, goes to the Dashboard. The open More app is
+     restored here, after hydration, on purpose: reading storage during the
+     first render is the USA-261 mismatch. */
+  const moreAppViewRestored = useRef(false);
+
+  useEffect(() => {
+    if (activeTab !== "more" || (moreAppView !== null && moreAppView !== "apps")) {
+      return;
+    }
+
+    if (!moreAppViewRestored.current) {
+      moreAppViewRestored.current = true;
+      const restored = normalizeMoreAppView(restoredAppView.moreAppView);
+
+      if (restored && restored !== "apps") {
+        setMoreAppView(restored);
+        return;
+      }
+    }
+
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      selectTab("home");
+    }
+  }, [activeTab, moreAppView]);
   const personNamesById = useMemo(() => personNameById(people), [people]);
   const groups = useMemo(() => [...data.groups, ...localGroupAdditions.filter((group) => !data.groups.some((loadedGroup) => loadedGroup.id === group.id))].map((group) => {
     const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
@@ -44078,6 +44095,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           section: "installed",
           status: "Installed",
         },
+        {
+          /* USA-251: live since PR #130. */
+          description: "Time Investment and Ministry Fruit.",
+          icon: <Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
+          label: "Reports",
+          onClick: () => openMoreApp("reports"),
+          section: "installed",
+          status: "Installed",
+        },
       ],
     },
     {
@@ -44114,14 +44140,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       description: "Future optional tools that can be installed without changing the DOS core.",
       label: "Coming Soon",
       items: [
-        {
-          description: "Reports for leaders and teams.",
-          icon: <Megaphone className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "Reports",
-          onClick: () => openMoreApp("reports"),
-          section: "coming_soon",
-          status: "Coming Soon",
-        },
         {
           description: "Generosity, budgeting, and ministry stewardship tools.",
           icon: <Briefcase className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
@@ -44704,7 +44722,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         <EmptyState text="Try a different name." title="No items found." />
                       )}
                     </div>
-                    <DesktopMoreLauncher apps={desktopAppCatalogItems} />
                   </>
                 ) : null}
 
@@ -45290,7 +45307,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "reports" ? (
                   <div className="space-y-6">
-                    <TabPageHeader back={<MoreBackButton onClick={() => setMoreAppView(null)} />} title="Reports" />
+                    <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Reports" />
                     {/* USA-251: the first Master Ministry Report. Read-only; it
                         opens records, it never creates them. */}
                     <MinistryTimeInvestmentReport
