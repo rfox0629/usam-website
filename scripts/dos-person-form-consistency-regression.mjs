@@ -240,19 +240,24 @@ assert.ok(
     && !client.includes("flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label"),
   "the full-width Show household row beneath Search is gone",
 );
-const peopleFilterBlock = client.slice(client.indexOf('<PillRail edgeInset={4} label="Field circles"') - 1400, client.indexOf('<PillRail edgeInset={4} label="Field circles"') + 3400);
+const peopleRailAnchor = client.indexOf('<PillRail edgeInset={4} fit label="Field circles"');
+assert.ok(peopleRailAnchor !== -1, "the People circle rail exists");
+const peopleFilterBlock = client.slice(peopleRailAnchor - 1400, peopleRailAnchor + 3400);
 assert.ok(
   peopleFilterBlock.indexOf('label="Field circles"') < peopleFilterBlock.indexOf('aria-pressed={showSecondaryFieldPeople}'),
   "the household control sits immediately after the circle rail, not above it",
 );
+/* USA-264: one count on People -- the visible results -- so the Household
+   toggle carries a clear selected state and no competing number. */
 assert.ok(
-  peopleFilterBlock.includes("<span>Household</span>") && peopleFilterBlock.includes("{hiddenHouseholdCount}"),
-  "the control names what it reveals and shows how many are hidden right now",
+  peopleFilterBlock.includes("<span>Household</span>") && !peopleFilterBlock.includes("hiddenHouseholdCount"),
+  "the control names what it reveals without a second, competing count",
 );
 assert.ok(
-  peopleFilterBlock.includes("Their saved visibility does not change.")
-    && peopleFilterBlock.includes("Their saved visibility is unchanged."),
-  "the control says, in both states, that expanding does not change anyone's stored visibility",
+  peopleFilterBlock.includes("aria-pressed={showSecondaryFieldPeople}")
+    && peopleFilterBlock.includes('"Household-only people are included. Their saved visibility does not change."')
+    && peopleFilterBlock.includes('"Include household-only people. Their saved visibility does not change."'),
+  "the control says, in both states, that it does not change anyone's stored visibility",
 );
 
 console.log("DOS People list filters (USA-247) regression passed.");

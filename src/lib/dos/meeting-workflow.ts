@@ -8,10 +8,34 @@ export type MeetingWorkflowIds = {
 export type MeetingWorkflowStepName = "meeting" | "prayer" | "reflection" | "reminder";
 export type MeetingWorkflowStepStatus = "failed" | "not_requested" | "partial" | "pending" | "saved" | "skipped";
 
+/* One repeatable child of a meeting: a prayer request or a reminder. Each
+   carries its own operation id, generated when the draft was created, so a
+   retry re-sends the same id for the same item and the route treats it as the
+   same record. Reordering or removing another draft cannot shift an id onto a
+   different item, which an index-based key would allow. */
+export type MeetingWorkflowItem = {
+  label: string;
+  operationId: string;
+  run: MeetingWorkflowStep;
+};
+
+export type MeetingWorkflowItemFailure = {
+  kind: "prayer" | "reminder";
+  label: string;
+  message: string;
+  operationId: string;
+};
+
 export type MeetingWorkflowResult = {
   complete: boolean;
   errors: Partial<Record<MeetingWorkflowStepName, string>>;
   ids: MeetingWorkflowIds;
+  /* Which individual repeatable items failed, so the surface can name them and
+     keep every entered value on screen. Empty when nothing repeatable failed. */
+  itemFailures: MeetingWorkflowItemFailure[];
+  /* Operation ids that saved, so a retry can skip them even though the drafts
+     are still on screen. */
+  savedItemOperationIds: string[];
   statuses: Record<MeetingWorkflowStepName, MeetingWorkflowStepStatus>;
 };
 
@@ -26,9 +50,13 @@ export class PersistedWorkflowStepError extends Error {
 
 export type MeetingWorkflowSteps = {
   meeting: MeetingWorkflowStep;
+  /* The original single-item steps. Still supported unchanged so an existing
+     caller keeps working; a caller that captures several uses the arrays. */
   prayer?: MeetingWorkflowStep;
+  prayers?: MeetingWorkflowItem[];
   reflection?: MeetingWorkflowStep;
   reminder?: MeetingWorkflowStep;
+  reminders?: MeetingWorkflowItem[];
 };
 
 export function createMeetingWorkflowIds(randomUuid: () => string = () => crypto.randomUUID()): MeetingWorkflowIds {
@@ -45,12 +73,17 @@ function errorMessage(error: unknown) {
 }
 
 export async function runMeetingWorkflow({
+  alreadySavedItemOperationIds = [],
   ids,
   requestPrayer,
   requestReflection,
   requestReminder,
   steps,
 }: {
+  /* Items that saved on an earlier attempt. A retry skips them rather than
+     relying on the route to dedupe, so a partial failure never re-posts work
+     that already succeeded. */
+  alreadySavedItemOperationIds?: string[];
   ids: MeetingWorkflowIds;
   requestPrayer: boolean;
   requestReflection: boolean;
@@ -58,11 +91,16 @@ export async function runMeetingWorkflow({
   steps: MeetingWorkflowSteps;
 }): Promise<MeetingWorkflowResult> {
   const errors: MeetingWorkflowResult["errors"] = {};
+  const itemFailures: MeetingWorkflowItemFailure[] = [];
+  const savedItemOperationIds = [...alreadySavedItemOperationIds];
+  const alreadySaved = new Set(alreadySavedItemOperationIds);
+  const prayerItems = steps.prayers ?? [];
+  const reminderItems = steps.reminders ?? [];
   const statuses: MeetingWorkflowResult["statuses"] = {
     meeting: "pending",
-    prayer: requestPrayer ? "pending" : "not_requested",
+    prayer: requestPrayer || prayerItems.length ? "pending" : "not_requested",
     reflection: requestReflection ? "pending" : "not_requested",
-    reminder: requestReminder ? "pending" : "not_requested",
+    reminder: requestReminder || reminderItems.length ? "pending" : "not_requested",
   };
 
   try {
@@ -78,7 +116,7 @@ export async function runMeetingWorkflow({
       }
     });
 
-    return { complete: false, errors, ids, statuses };
+    return { complete: false, errors, ids, itemFailures, savedItemOperationIds, statuses };
   }
 
   const childSteps: Array<{
@@ -112,10 +150,46 @@ export async function runMeetingWorkflow({
     }
   }
 
+  /* Every repeatable item is its own record, so one failure must not stop the
+     others: each is attempted, and the ones that fail are named. */
+  for (const [kind, items] of [["prayer", prayerItems], ["reminder", reminderItems]] as const) {
+    if (!items.length) {
+      continue;
+    }
+
+    let failed = 0;
+
+    for (const item of items) {
+      if (alreadySaved.has(item.operationId)) {
+        continue;
+      }
+
+      try {
+        await item.run({ meetingId: ids.meetingId, operationId: item.operationId });
+        savedItemOperationIds.push(item.operationId);
+      } catch (error) {
+        failed += 1;
+        itemFailures.push({ kind, label: item.label, message: errorMessage(error), operationId: item.operationId });
+      }
+    }
+
+    if (failed) {
+      statuses[kind] = "failed";
+      errors[kind] = itemFailures
+        .filter((failure) => failure.kind === kind)
+        .map((failure) => `${failure.label}: ${failure.message}`)
+        .join("; ");
+    } else if (statuses[kind] === "pending") {
+      statuses[kind] = "saved";
+    }
+  }
+
   return {
     complete: Object.keys(errors).length === 0,
     errors,
     ids,
+    itemFailures,
+    savedItemOperationIds,
     statuses,
   };
 }
