@@ -22,7 +22,7 @@ function sliceBetween(source, startNeedle, endNeedle) {
 
 const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function DesktopMoreLauncher"));
+const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function desktopOrganizationCopy"));
 const reportUi = readFileSync("src/components/dos/reports/MinistryTimeInvestmentReport.tsx", "utf8");
 const accountabilityCard = sliceBetween(client, "function AccountabilityDashboardCard", "function CommitmentSuccessSheet");
 const reportsView = sliceBetween(client, 'activeMoreAppView === "reports" ? (', 'activeMoreAppView === "organizations" ? (');
