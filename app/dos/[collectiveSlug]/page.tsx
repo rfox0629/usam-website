@@ -240,6 +240,9 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
   return {
     accountabilityCheckInCommitments: [],
     accountabilityCheckIns: [],
+    /* Identity links are the missionary's own and are never shared into a
+       collective view. */
+    identityLinkedPersonIds: [],
     /* Circle placement is the missionary's own and is never shared into a
        collective view. */
     circlePlacements: [],

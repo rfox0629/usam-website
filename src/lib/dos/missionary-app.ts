@@ -976,6 +976,11 @@ export type DosAppData = {
   /* USA-247: human-confirmed placement. A person absent from this list has
      not been reviewed; DOS must not infer a circle for them. */
   circlePlacements: ConfirmedPlacement[];
+  /* USA-251 (2026-09-10): people in this workspace with a verified DOS
+     identity link. Reports use it only to say whether a person's own records
+     could be reached at all ("Not connected" otherwise). Nothing is read from
+     the linked person's workspace here. */
+  identityLinkedPersonIds: string[];
   commitments: DosAppPersonCommitment[];
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   featureFlags: DosAppFeatureFlags;
@@ -5442,6 +5447,7 @@ export async function loadDosAppData(
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
       circlePlacements: await loadConfirmedPlacementsSafely(workspace.id),
+      identityLinkedPersonIds: await loadIdentityLinkedPersonIdsSafely(supabase, workspace.id, people.map((person) => person.id)),
       commitments,
       externalCalendarEvents,
       featureFlags,
@@ -5511,6 +5517,32 @@ export async function loadDosAppData(
 async function loadConfirmedPlacementsSafely(workspaceId: string): Promise<ConfirmedPlacement[]> {
   try {
     return await loadConfirmedPlacements(workspaceId);
+  } catch {
+    return [];
+  }
+}
+
+/* USA-251. Verified identity links for people of this workspace, read
+   in-workspace only. An unreadable table means no one is known to be
+   connected, which is the honest day-one answer. */
+async function loadIdentityLinkedPersonIdsSafely(supabase: SupabaseAdminClient, workspaceId: string, personIds: string[]): Promise<string[]> {
+  if (!personIds.length) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("dos_identity_links")
+      .select("person_id")
+      .eq("workspace_id", workspaceId)
+      .eq("verification_status", "verified")
+      .in("person_id", personIds);
+
+    if (error) {
+      return [];
+    }
+
+    return Array.from(new Set(((data ?? []) as Array<{ person_id: string | null }>).map((row) => row.person_id).filter((id): id is string => Boolean(id))));
   } catch {
     return [];
   }

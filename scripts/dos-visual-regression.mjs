@@ -52,7 +52,8 @@ const scenes = [
   { name: "home", viewport: "mobile", go: async (page) => {} },
   { name: "meetings", viewport: "mobile", go: async (page) => clickButton(page, "Meetings") },
   { name: "more", viewport: "mobile", go: async (page) => clickButton(page, "More") },
-  { name: "field", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, "All"); } },
+  /* USA-247 (#128) appends a count to each People tab, so the accessible name is "All 13". */
+  { name: "field", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, /^All\b/); } },
   { name: "groups", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Groups/, false); } },
   { name: "fruit", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Fruit/, false); } },
   { name: "library", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); } },
@@ -68,7 +69,7 @@ const scenes = [
     viewport: "mobile",
     go: async (page) => {
       await clickButton(page, /Open My 12/, false);
-      await clickTab(page, "All");
+      await clickTab(page, /^All\b/);
       await clickButton(page, "Open Naomi Lee");
     },
   },
