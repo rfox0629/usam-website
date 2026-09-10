@@ -1331,6 +1331,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       feltCaredFor: "yes",
       feltHeard: "yes",
       id: "demo-participant-review-tim",
+      legacyForm: null,
       meetingId: "demo-meeting-table-george-brooke-tim",
       overallRating: "very_meaningful",
       outcomeTags: ["Encouragement", "Discipling"],
@@ -1351,6 +1352,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       feltCaredFor: "yes",
       feltHeard: "yes",
       id: "demo-participant-review-naomi",
+      legacyForm: null,
       meetingId: "demo-meeting-naomi-recent-3",
       overallRating: "very_meaningful",
       outcomeTags: ["Encouragement", "Discipling"],
@@ -1368,6 +1370,45 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       wouldMeetAgainResponse: "yes",
     },
   ];
+  /* USA-264: feedback imported from another system, belonging to a Person and to
+     no meeting. Demo wording only; it mirrors the shape of a real import so the
+     Feedback detail can be exercised without any real person's answers. */
+  participantReviews.push({
+    comments: "The questions made me slow down and actually think.",
+    conversationHelpful: null,
+    feltCaredFor: null,
+    feltHeard: null,
+    id: "demo-participant-review-caleb-imported",
+    legacyForm: {
+      answers: [
+        { answers: ["Life giving", "Challenging (in a good way)"], question: "How would you describe your experience?" },
+        { answers: ["The questions made me slow down and actually think."], question: "What stood out most to you?" },
+        { answers: ["Still processing"], question: "Did anything shift for you? (Select all that apply)" },
+        { answers: ["Wisdom about a job decision"], question: "(Optional) Is there anything you'd like us to be praying for?" },
+      ],
+      formName: "2 Minute Reflection (After Coffee)",
+      importedAt: "2026-09-10T09:30:00-05:00",
+      privacyNote: "Your responses are kept private and handled with care.",
+      sourceFormId: "demo-form",
+      sourceLabel: "Planning Center",
+      sourceSubmissionId: "demo-submission",
+      submittedAtLocal: "2026-05-13T17:55",
+      submittedTimezone: null,
+    },
+    meetingId: "",
+    overallRating: null,
+    outcomeTags: [],
+    personId: "demo-person-caleb-rivera",
+    status: "submitted",
+    submittedAt: "2026-05-13T17:55:00-05:00",
+    submittedEmail: null,
+    submittedFirstName: "Caleb",
+    submittedLastName: "Rivera",
+    submittedName: "Caleb Rivera",
+    wantsFollowUp: null,
+    wouldMeetAgain: null,
+    wouldMeetAgainResponse: null,
+  });
   const participantTestimonies: DosAppParticipantTestimony[] = [
     {
       decisionMade: "Keep meeting weekly and bring my sister along.",
