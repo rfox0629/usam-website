@@ -363,3 +363,11 @@ comment on table public.dos_circle_placements is
 
 comment on table public.dos_circle_placement_batches is
   'USA-247. One confirmed review-and-save action. Unique on (workspace_id, operation_key), which makes dos_confirm_circle_placements idempotent.';
+
+-- Applied to production 2026-09-10 as a follow-up: the two new tables picked up
+-- the schema default grant to `anon`, which dos_circle_overrides and
+-- missionary_field_people do not carry. RLS already refused anonymous access,
+-- so this changes no behaviour; it removes a privilege that should never have
+-- been there. Confirmed placement is operator data and is never public.
+revoke all on public.dos_circle_placements from anon;
+revoke all on public.dos_circle_placement_batches from anon;
