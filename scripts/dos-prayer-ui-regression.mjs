@@ -105,9 +105,9 @@ assertIncludes(requestDetailSheet, "PrayerRequestPersonPicker", "Prayer request 
 assertIncludes(requestDetailSheet, "onOpenPerson", "Prayer request detail must expose linked person navigation when available.");
 assertIncludes(requestDetailSheet, "PrayerRequestGroupSelectField", "Prayer request detail must display and edit group context.");
 assertIncludes(requestDetailSheet, "if (!isEditing)", "Prayer row click must open read-only detail before edit mode.");
-assertIncludes(requestDetailSheet, 'title="Edit Prayer Request"', "Prayer edit form must stay behind explicit Edit.");
+assertIncludes(requestDetailSheet, 'title="Edit prayer request"', "Prayer edit form must stay behind explicit Edit, inside the shared detail shell.");
 assertIncludes(requestDetailSheet, "Private Prayer Notes", "Prayer detail must clearly identify private prayer notes.");
-assertIncludes(requestDetailSheet, "Log Prayer / Add Prayer Note", "Prayer detail must preserve private note logging.");
+assertIncludes(requestDetailSheet, "Log prayer or add a note", "Prayer detail must preserve private note logging.");
 assertIncludes(requestDetailSheet, "Mark Answered", "Prayer request detail must preserve mark answered.");
 assertIncludes(requestDetailSheet, "Archive", "Prayer request detail must preserve archive.");
 assertIncludes(requestDetailSheet, "Delete", "Prayer request detail must preserve cleanup actions.");

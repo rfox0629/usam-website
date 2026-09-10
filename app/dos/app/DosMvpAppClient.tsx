@@ -50,7 +50,7 @@ import {
   type CirclePlacementChange,
   type CircleTier,
 } from "@/src/lib/dos/circle-tiers";
-import { DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
+import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
@@ -353,6 +353,9 @@ type DosPrayerRequestDraft = {
   groupId?: string | null;
   linkedPersonIds?: string[];
   meetingId?: string | null;
+  /* One id per request, so a retry of the same request is the same record
+     rather than a second one. */
+  operationId?: string;
   organizationId?: string | null;
   personTags: string[];
   priority?: DosAppPrayerRequest["priority"];
@@ -2888,6 +2891,17 @@ function splitReminderNotesMetadata(value: string | null | undefined): { meta: I
   }
 }
 
+/* A meeting reminder carries only the Upcoming flag. It deliberately does not
+   reuse the Important date meta shape: an Important Date is profile
+   information, a Reminder from a meeting is follow-up, and the two must not
+   drift into each other. The reader only ever looks at showOnDashboard. */
+function joinMeetingReminderNotes(notes: string, showInUpcoming: boolean) {
+  return [`<!-- DOS_REMINDER_META ${JSON.stringify({ showOnDashboard: showInUpcoming })} -->`, notes.trim()]
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
 function joinReminderNotesMetadata(notes: string, meta: ImportantReminderMeta) {
   return [`<!-- DOS_REMINDER_META ${JSON.stringify(meta)} -->`, notes.trim()].filter(Boolean).join("\n").trim();
 }
@@ -3294,6 +3308,22 @@ function fruitNarrative(event: DosAppFruitEvent) {
   }
 
   return "Recorded as structured Fruit.";
+}
+
+/* Where a piece of Fruit came from, in the words a missionary uses. How DOS
+   stored it (a source type, a generator) is never shown. */
+function fruitSourceDescription(event: DosAppFruitEvent) {
+  const source = fruitEventSourceLabel(event);
+
+  if (source === "Quick Review") {
+    return "From their feedback";
+  }
+
+  if (source === "Testimony Review") {
+    return "From a story they shared";
+  }
+
+  return event.meetingId ? "Recorded after a meeting" : "Recorded in DOS";
 }
 
 const observableFruitOutcomeKeywords = [
@@ -13381,6 +13411,7 @@ function PersonAccountabilityDetailSheet({
   onCheckIn,
   onClose,
   onEdit,
+  personName = null,
   progressKind,
   recentProgress,
   title,
@@ -13393,12 +13424,28 @@ function PersonAccountabilityDetailSheet({
   onCheckIn?: () => void;
   onClose: () => void;
   onEdit?: () => void;
+  /* The Person this belongs to, shown once in the header. */
+  personName?: string | null;
   progressKind: AccountabilityProgressKind;
   recentProgress: Array<{ date: string | null; id: string; text: string }>;
   title: string;
 }) {
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title="Accountability">
+    <DosDetailSheet
+      actions={(
+        <div className="grid grid-cols-2 gap-2">
+          {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
+          {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
+          {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
+          {/* System-generated Journey follow-ups keep their own semantics and
+              are not editable as though someone had written them. */}
+          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+        </div>
+      )}
+      identity={personName}
+      onClose={onClose}
+      title="Accountability"
+    >
       <div className="grid gap-3.5">
         <div>
           <p className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{title}</p>
@@ -13418,14 +13465,6 @@ function PersonAccountabilityDetailSheet({
           </ul>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-2 border-t border-dos-rule pt-3">
-          {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
-          {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
-          {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
-          {/* System-generated Journey follow-ups keep their own semantics and
-              are not editable as though someone had written them. */}
-          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
-        </div>
 
         {recentProgress.length ? (
           <div className="border-t border-dos-rule pt-3">
@@ -13443,7 +13482,7 @@ function PersonAccountabilityDetailSheet({
           </div>
         ) : null}
       </div>
-    </Sheet>
+    </DosDetailSheet>
   );
 }
 
@@ -14026,6 +14065,571 @@ function blankAccountabilityDraft(key: number): MeetingAccountabilityComposerDra
   return { date: todayDateValue(), frequency: "weekly", key, targetCount: "", targetKind: "people", title: "", trackingMode: "regular" };
 }
 
+/* Repeatable meeting outcomes.
+ *
+ * A meeting can produce several prayer requests and several reminders, so both
+ * follow the Accountability composer's shape exactly: one editor open at a
+ * time, every committed draft a compact row that still submits through hidden
+ * indexed inputs, and "+ Add" always available so another can be created.
+ *
+ * Each draft carries a uid generated when it was created. That uid becomes the
+ * operation id for its own write, so a retry re-sends the same id for the same
+ * item and creates nothing twice. An index would shift onto a different item
+ * when an earlier draft is removed; a uid cannot.
+ *
+ * A prayer request becomes its own row in prayer_requests, carrying meeting_id,
+ * so it can be answered, updated and reported on independently. Nothing is
+ * concatenated. A reminder becomes its own row in relationship_reminders with
+ * its own date and destinations.
+ */
+
+/* Items already saved on the meeting being edited. Each carries its record id,
+   which is also the operation id of every later save, so re-saving updates
+   that record instead of creating a second one. A prayer seed with a null id
+   is legacy reflection text that has no prayer request yet: saving creates
+   one, once, and the next edit loads it by id. */
+export type MeetingOutcomeSeeds = {
+  prayers: ReadonlyArray<{ id: string | null; personId: string; request: string }>;
+  reminders: ReadonlyArray<{ addToCalendar: boolean; date: string; id: string; showInUpcoming: boolean; title: string }>;
+};
+
+export const emptyMeetingOutcomeSeeds: MeetingOutcomeSeeds = { prayers: [], reminders: [] };
+
+type MeetingPrayerDraft = { existingId: string | null; key: number; personId: string; request: string; uid: string };
+type MeetingReminderDraft = {
+  addToCalendar: boolean;
+  date: string;
+  existingId: string | null;
+  key: number;
+  showInUpcoming: boolean;
+  title: string;
+  uid: string;
+};
+
+function newDraftUid() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  /* Both routes require a UUID, so the fallback produces one rather than a
+     readable string that would be rejected. */
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (character) => {
+    const digit = Number(character);
+
+    return (digit ^ (Math.floor(Math.random() * 256) & (15 >> (digit / 4)))).toString(16);
+  });
+}
+
+/* A prayer captured while logging a meeting used to be stored twice: once as
+   the reflection's prayer_needs text and once as a prayer_requests row carrying
+   that meeting's id. They are one prayer. The prayer_requests row is the
+   canonical record, so a reflection's prayer text is shown only when no
+   prayer request exists for that meeting. The match is by meeting id -- stable
+   provenance -- never by comparing text, and it ignores status on purpose: a
+   request that was answered or archived must not let its old reflection copy
+   reappear as an open prayer. */
+export function meetingIdsWithCanonicalPrayer(prayerRequests: ReadonlyArray<{ meetingId: string | null }>) {
+  const ids = new Set<string>();
+
+  prayerRequests.forEach((request) => {
+    if (request.meetingId) {
+      ids.add(request.meetingId);
+    }
+  });
+
+  return ids;
+}
+
+function blankPrayerDraft(key: number, personId: string): MeetingPrayerDraft {
+  return { existingId: null, key, personId, request: "", uid: newDraftUid() };
+}
+
+/* No date is prefilled into a new reminder's saved value on its own: the
+   editor offers tomorrow as a starting point, but a reminder is only ever
+   written when it also has something to remember. */
+function blankReminderDraft(key: number): MeetingReminderDraft {
+  return {
+    addToCalendar: false,
+    date: dateValueFromToday(1).slice(0, 10),
+    existingId: null,
+    key,
+    showInUpcoming: true,
+    title: "",
+    uid: newDraftUid(),
+  };
+}
+
+export function meetingOutcomeSummary(count: number, singular: string) {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+/* The values one prayer submits. Rendered for a committed row and, when it
+   holds text, for an editor that is still open, so pressing Log meeting
+   without first pressing Add never drops what was typed. */
+function MeetingPrayerDraftInputs({ draft, index }: { draft: MeetingPrayerDraft; index: number }) {
+  return (
+    <>
+      <input name={`meeting_prayer_${index}_request`} type="hidden" value={draft.request.trim()} />
+      <input name={`meeting_prayer_${index}_person_id`} type="hidden" value={draft.personId} />
+      <input name={`meeting_prayer_${index}_uid`} type="hidden" value={draft.uid} />
+      <input name={`meeting_prayer_${index}_existing`} type="hidden" value={draft.existingId ? "1" : "0"} />
+    </>
+  );
+}
+
+function MeetingReminderDraftInputs({ calendarConnected, draft, index }: { calendarConnected: boolean; draft: MeetingReminderDraft; index: number }) {
+  return (
+    <>
+      <input name={`meeting_reminder_${index}_title`} type="hidden" value={draft.title.trim()} />
+      <input name={`meeting_reminder_${index}_date`} type="hidden" value={draft.date} />
+      <input name={`meeting_reminder_${index}_uid`} type="hidden" value={draft.uid} />
+      <input name={`meeting_reminder_${index}_existing`} type="hidden" value={draft.existingId ? "1" : "0"} />
+      <input name={`meeting_reminder_${index}_upcoming`} type="hidden" value={draft.showInUpcoming ? "on" : "off"} />
+      <input name={`meeting_reminder_${index}_calendar`} type="hidden" value={draft.addToCalendar && calendarConnected ? "on" : "off"} />
+    </>
+  );
+}
+
+function MeetingPrayerComposer({
+  attendeeOptions,
+  defaultPersonId,
+  onDraftCountChange,
+  onEmpty,
+  seeds,
+}: {
+  attendeeOptions: DosAppPerson[];
+  defaultPersonId: string;
+  onDraftCountChange: (count: number) => void;
+  onEmpty: () => void;
+  seeds: MeetingOutcomeSeeds["prayers"];
+}) {
+  const [drafts, setDrafts] = useState<MeetingPrayerDraft[]>(() => seeds.map((seed, index) => ({
+    existingId: seed.id,
+    key: index,
+    personId: seed.personId || defaultPersonId,
+    request: seed.request,
+    uid: seed.id ?? newDraftUid(),
+  })));
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [editing, setEditing] = useState<{ draft: MeetingPrayerDraft; isNew: boolean } | null>(() => (
+    seeds.length ? null : { draft: blankPrayerDraft(seeds.length, defaultPersonId), isNew: true }
+  ));
+  const [editorError, setEditorError] = useState("");
+  const nextKeyRef = useRef(seeds.length + 1);
+  const countRef = useRef(onDraftCountChange);
+  countRef.current = onDraftCountChange;
+
+  useEffect(() => {
+    countRef.current(drafts.length);
+  }, [drafts.length]);
+
+  function commit() {
+    if (!editing) {
+      return;
+    }
+
+    const request = editing.draft.request.trim();
+
+    if (!request) {
+      setEditorError("Write what you are praying about, or remove this one.");
+      return;
+    }
+
+    setEditorError("");
+    setDrafts((current) => (
+      current.some((draft) => draft.key === editing.draft.key)
+        ? current.map((draft) => (draft.key === editing.draft.key ? { ...editing.draft, request } : draft))
+        : [...current, { ...editing.draft, request }]
+    ));
+    setEditing(null);
+  }
+
+  function startNew() {
+    if (editing && editing.draft.request.trim()) {
+      commit();
+    }
+
+    const key = nextKeyRef.current;
+
+    nextKeyRef.current += 1;
+    setEditorError("");
+    setEditing({ draft: blankPrayerDraft(key, defaultPersonId), isNew: true });
+  }
+
+  /* Removing a draft that was never saved simply forgets it. Removing one that
+     was saved records its id, and saving the meeting then archives that
+     prayer request through the normal archive path -- it is never deleted. */
+  function removeDraft(key: number) {
+    const target = drafts.find((draft) => draft.key === key) ?? null;
+    const remaining = drafts.filter((draft) => draft.key !== key);
+    const removedExisting = Boolean(target?.existingId) || removedIds.length > 0;
+
+    if (target?.existingId) {
+      const existingId = target.existingId;
+
+      setRemovedIds((current) => (current.includes(existingId) ? current : [...current, existingId]));
+    }
+
+    setDrafts(remaining);
+
+    if (editing?.draft.key === key) {
+      setEditing(null);
+    }
+
+    if (!remaining.length && !removedExisting && (editing === null || editing.draft.key === key)) {
+      onEmpty();
+    }
+  }
+
+  const ordered = editing?.isNew ? [...drafts, editing.draft] : drafts;
+
+  return (
+    <div className="grid gap-2">
+      {removedIds.map((id, index) => (
+        <input key={`removed-prayer-${id}`} name={`meeting_prayer_removed_${index}`} type="hidden" value={id} />
+      ))}
+      {ordered.map((draft, index) => {
+        const isEditing = editing?.draft.key === draft.key;
+
+        if (isEditing && editing) {
+          return (
+            <div className="grid gap-3 rounded-dos-2 border border-dos-blue100 bg-white p-3" key={`prayer-editor-${draft.key}`}>
+              {editing.draft.request.trim() ? <MeetingPrayerDraftInputs draft={editing.draft} index={index} /> : null}
+              {attendeeOptions.length > 1 ? (
+                <DosFormField label="Who is this for?" labelVariant="sentence">
+                  <select
+                    className={FieldSelectClass(false)}
+                    onChange={(event) => setEditing({ ...editing, draft: { ...editing.draft, personId: event.target.value } })}
+                    value={editing.draft.personId}
+                  >
+                    {attendeeOptions.map((person) => (
+                      <option key={person.id} value={person.id}>{person.name}</option>
+                    ))}
+                  </select>
+                </DosFormField>
+              ) : null}
+              <DosFormField label="What are you praying about?" labelVariant="sentence">
+                <VoiceTextarea
+                  aria-label="Prayer request"
+                  autoFocus
+                  className={`${FieldTextareaClass(false)} min-h-20`}
+                  onChange={(event) => {
+                    setEditing({ ...editing, draft: { ...editing.draft, request: event.target.value } });
+
+                    if (editorError && event.target.value.trim()) {
+                      setEditorError("");
+                    }
+                  }}
+                  value={editing.draft.request}
+                />
+              </DosFormField>
+              {editorError ? <p className="text-dos-meta font-semibold text-[#B42318]" role="alert">{editorError}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 bg-dos-blue px-4 text-dos-label font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                  onClick={commit}
+                  type="button"
+                >
+                  {editing.isNew ? "Add prayer request" : "Done"}
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 border border-dos-line bg-white px-4 text-dos-label font-semibold text-dos-primary transition-colors hover:bg-dos-band"
+                  onClick={() => {
+                    setEditorError("");
+
+                    if (editing.isNew) {
+                      removeDraft(editing.draft.key);
+                    } else {
+                      /* Cancel keeps the saved text exactly as it was. */
+                      setEditing(null);
+                    }
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        const person = attendeeOptions.find((option) => option.id === draft.personId);
+
+        return (
+          <div className="flex items-center gap-2 rounded-dos-2 border border-dos-line bg-white py-1.5 pl-3.5 pr-1.5" key={`prayer-draft-${draft.key}`}>
+            <MeetingPrayerDraftInputs draft={draft} index={index} />
+            <div className="min-w-0 flex-1 py-1">
+              <p className="truncate text-dos-body font-semibold text-dos-primary">{draft.request}</p>
+              <p className="text-dos-meta font-medium text-dos-secondary">{person ? `For ${person.name}` : "Prayer request"}</p>
+            </div>
+            <button
+              aria-label={`Edit prayer request: ${draft.request}`}
+              className="min-h-11 rounded-dos-3 px-3 text-dos-meta font-bold text-dos-blue"
+              onClick={() => { setEditorError(""); setEditing({ draft, isNew: false }); }}
+              type="button"
+            >
+              Edit
+            </button>
+            <button
+              aria-label={`Remove prayer request: ${draft.request}`}
+              className="min-h-11 rounded-dos-3 px-3 text-dos-meta font-bold text-[#B42318]"
+              onClick={() => removeDraft(draft.key)}
+              type="button"
+            >
+              Remove
+            </button>
+          </div>
+        );
+      })}
+
+      <button
+        className="inline-flex min-h-11 w-fit items-center rounded-dos-3 border border-dos-line bg-white px-3.5 text-dos-label font-bold text-dos-blue transition-colors hover:border-dos-blue100"
+        onClick={startNew}
+        type="button"
+      >
+        + Add prayer request
+      </button>
+    </div>
+  );
+}
+
+function MeetingReminderComposer({
+  calendarConnected,
+  onDraftCountChange,
+  onEmpty,
+  seeds,
+}: {
+  calendarConnected: boolean;
+  onDraftCountChange: (count: number) => void;
+  onEmpty: () => void;
+  seeds: MeetingOutcomeSeeds["reminders"];
+}) {
+  const [drafts, setDrafts] = useState<MeetingReminderDraft[]>(() => seeds.map((seed, index) => ({
+    addToCalendar: seed.addToCalendar,
+    date: seed.date,
+    existingId: seed.id,
+    key: index,
+    showInUpcoming: seed.showInUpcoming,
+    title: seed.title,
+    uid: seed.id,
+  })));
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [editing, setEditing] = useState<{ draft: MeetingReminderDraft; isNew: boolean } | null>(() => (
+    seeds.length ? null : { draft: blankReminderDraft(seeds.length), isNew: true }
+  ));
+  const [editorError, setEditorError] = useState("");
+  const nextKeyRef = useRef(seeds.length + 1);
+  const countRef = useRef(onDraftCountChange);
+  countRef.current = onDraftCountChange;
+
+  useEffect(() => {
+    countRef.current(drafts.length);
+  }, [drafts.length]);
+
+  function commit() {
+    if (!editing) {
+      return;
+    }
+
+    const title = editing.draft.title.trim();
+
+    if (!title) {
+      setEditorError("Write what you want to remember, or remove this one.");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editing.draft.date)) {
+      setEditorError("Choose a date for this reminder.");
+      return;
+    }
+
+    setEditorError("");
+    setDrafts((current) => (
+      current.some((draft) => draft.key === editing.draft.key)
+        ? current.map((draft) => (draft.key === editing.draft.key ? { ...editing.draft, title } : draft))
+        : [...current, { ...editing.draft, title }]
+    ));
+    setEditing(null);
+  }
+
+  function startNew() {
+    if (editing && editing.draft.title.trim()) {
+      commit();
+    }
+
+    const key = nextKeyRef.current;
+
+    nextKeyRef.current += 1;
+    setEditorError("");
+    setEditing({ draft: blankReminderDraft(key), isNew: true });
+  }
+
+  /* A saved reminder that is removed here is removed through the existing
+     reminder removal, which is a recoverable soft delete. */
+  function removeDraft(key: number) {
+    const target = drafts.find((draft) => draft.key === key) ?? null;
+    const remaining = drafts.filter((draft) => draft.key !== key);
+    const removedExisting = Boolean(target?.existingId) || removedIds.length > 0;
+
+    if (target?.existingId) {
+      const existingId = target.existingId;
+
+      setRemovedIds((current) => (current.includes(existingId) ? current : [...current, existingId]));
+    }
+
+    setDrafts(remaining);
+
+    if (editing?.draft.key === key) {
+      setEditing(null);
+    }
+
+    if (!remaining.length && !removedExisting && (editing === null || editing.draft.key === key)) {
+      onEmpty();
+    }
+  }
+
+  const ordered = editing?.isNew ? [...drafts, editing.draft] : drafts;
+
+  return (
+    <div className="grid gap-2">
+      {removedIds.map((id, index) => (
+        <input key={`removed-reminder-${id}`} name={`meeting_reminder_removed_${index}`} type="hidden" value={id} />
+      ))}
+      {ordered.map((draft, index) => {
+        const isEditing = editing?.draft.key === draft.key;
+
+        if (isEditing && editing) {
+          return (
+            <div className="grid gap-3 rounded-dos-2 border border-dos-blue100 bg-white p-3" key={`reminder-editor-${draft.key}`}>
+              {editing.draft.title.trim() ? <MeetingReminderDraftInputs calendarConnected={calendarConnected} draft={editing.draft} index={index} /> : null}
+              <DosFormField label="What do you want to remember?" labelVariant="sentence">
+                <input
+                  autoFocus
+                  className={FieldInputClass()}
+                  onChange={(event) => {
+                    setEditing({ ...editing, draft: { ...editing.draft, title: event.target.value } });
+
+                    if (editorError && event.target.value.trim()) {
+                      setEditorError("");
+                    }
+                  }}
+                  placeholder="Text him Friday, send the book, ask how discipling is going..."
+                  value={editing.draft.title}
+                />
+              </DosFormField>
+              <DosDateInput
+                label="When?"
+                labelVariant="sentence"
+                name={`meeting_reminder_editor_${editing.draft.key}_date`}
+                onChange={(value) => setEditing({ ...editing, draft: { ...editing.draft, date: value } })}
+                value={editing.draft.date}
+              />
+              <div className="grid gap-2 rounded-dos-2 border border-dos-line bg-dos-surface p-3">
+                <p className="text-dos-meta font-bold uppercase tracking-[0.12em] text-dos-eyebrow">Where should this appear?</p>
+                <label className="flex items-start gap-2.5 text-dos-body text-dos-primary">
+                  <input
+                    checked={editing.draft.showInUpcoming}
+                    className="mt-0.5 h-4 w-4"
+                    onChange={(event) => setEditing({ ...editing, draft: { ...editing.draft, showInUpcoming: event.target.checked } })}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="block font-semibold">Show in Upcoming</span>
+                    <span className="block text-dos-meta text-dos-secondary">Lists it with everything else coming up. DOS does not send you a notification.</span>
+                  </span>
+                </label>
+                <label className={`flex items-start gap-2.5 text-dos-body ${calendarConnected ? "text-dos-primary" : "text-dos-secondary"}`}>
+                  <input
+                    checked={editing.draft.addToCalendar && calendarConnected}
+                    className="mt-0.5 h-4 w-4"
+                    disabled={!calendarConnected}
+                    onChange={(event) => setEditing({ ...editing, draft: { ...editing.draft, addToCalendar: event.target.checked } })}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="block font-semibold">Add to Google Calendar</span>
+                    <span className="block text-dos-meta text-dos-secondary">
+                      {calendarConnected
+                        ? "Your calendar alerts you there. This is the only option that produces an alert."
+                        : "Connect Google Calendar in Calendar settings to use this."}
+                    </span>
+                  </span>
+                </label>
+              </div>
+              {editorError ? <p className="text-dos-meta font-semibold text-[#B42318]" role="alert">{editorError}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 bg-dos-blue px-4 text-dos-label font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+                  onClick={commit}
+                  type="button"
+                >
+                  {editing.isNew ? "Add reminder" : "Done"}
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center rounded-dos-3 border border-dos-line bg-white px-4 text-dos-label font-semibold text-dos-primary transition-colors hover:bg-dos-band"
+                  onClick={() => {
+                    setEditorError("");
+
+                    if (editing.isNew) {
+                      removeDraft(editing.draft.key);
+                    } else {
+                      setEditing(null);
+                    }
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        const destinations = [
+          draft.showInUpcoming ? "Upcoming" : null,
+          draft.addToCalendar && calendarConnected ? "Google Calendar" : null,
+        ].filter(Boolean).join(" · ");
+
+        return (
+          <div className="flex items-center gap-2 rounded-dos-2 border border-dos-line bg-white py-1.5 pl-3.5 pr-1.5" key={`reminder-draft-${draft.key}`}>
+            <MeetingReminderDraftInputs calendarConnected={calendarConnected} draft={draft} index={index} />
+            <div className="min-w-0 flex-1 py-1">
+              <p className="truncate text-dos-body font-semibold text-dos-primary">{draft.title}</p>
+              <p className="text-dos-meta font-medium text-dos-secondary">
+                {formatShortDate(draft.date)}{destinations ? ` · ${destinations}` : " · Person record only"}
+              </p>
+            </div>
+            <button
+              aria-label={`Edit reminder: ${draft.title}`}
+              className="min-h-11 rounded-dos-3 px-3 text-dos-meta font-bold text-dos-blue"
+              onClick={() => { setEditorError(""); setEditing({ draft, isNew: false }); }}
+              type="button"
+            >
+              Edit
+            </button>
+            <button
+              aria-label={`Remove reminder: ${draft.title}`}
+              className="min-h-11 rounded-dos-3 px-3 text-dos-meta font-bold text-[#B42318]"
+              onClick={() => removeDraft(draft.key)}
+              type="button"
+            >
+              Remove
+            </button>
+          </div>
+        );
+      })}
+
+      <button
+        className="inline-flex min-h-11 w-fit items-center rounded-dos-3 border border-dos-line bg-white px-3.5 text-dos-label font-bold text-dos-blue transition-colors hover:border-dos-blue100"
+        onClick={startNew}
+        type="button"
+      >
+        + Add reminder
+      </button>
+    </div>
+  );
+}
+
 /* Log Meeting's accountability composer (USA-242). Exactly one editor is open
    at a time; every other draft is a compact summary row that still submits
    its values through hidden `meeting_accountability_<index>_*` inputs, so the
@@ -14430,7 +15034,7 @@ function DesktopHomeDashboard({
      Activity, a compact Accountability summary, and Upcoming. Today's
      Alignment (My Record remains its own destination), Recent Fruit and
      Recent Reviews (now in Reports), and Assigned Resources (blocked on
-     USA-258) are no longer on Home. */
+     USA-262) are no longer on Home. */
   return (
     <div className="mt-5 block md:mt-0">
       <header className="mb-3 hidden items-start justify-between gap-4 md:flex">
@@ -20099,6 +20703,8 @@ function TableRolePicker({
 
 function MeetingLeaderReflectionSection({
   allPeople,
+  calendarConnected = false,
+  outcomeSeeds = emptyMeetingOutcomeSeeds,
   nextStepDefault,
   followUpDateDefault,
   followUpNeededDefault = false,
@@ -20113,6 +20719,12 @@ function MeetingLeaderReflectionSection({
   selectedPersonIds,
 }: {
   allPeople: DosAppPerson[];
+  /* Google Calendar is the only reminder destination that produces an alert,
+     so the control is disabled and says so when it is unavailable rather
+     than silently doing nothing. */
+  calendarConnected?: boolean;
+  /* Prayers and reminders already saved on the meeting being edited. */
+  outcomeSeeds?: MeetingOutcomeSeeds;
   followUpDateDefault?: string | null;
   followUpNeededDefault?: boolean;
   followUpNoteDefault?: string | null;
@@ -20127,13 +20739,16 @@ function MeetingLeaderReflectionSection({
   selectedPersonIds: string[];
 }) {
   const [isFruitOpen, setIsFruitOpen] = useState(selectedOutcomeTags.length > 0 || openFruitSection);
-  const [isPrayerOpen, setIsPrayerOpen] = useState(Boolean(prayerNeedsDefault?.trim()));
-  const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(followUpNeededDefault);
+  /* A section opens on its own only when it holds something already saved.
+     A reflection's old "follow-up needed" flag is not a reminder, and must not
+     open an empty Reminder editor. */
+  const [isPrayerOpen, setIsPrayerOpen] = useState(outcomeSeeds.prayers.length > 0);
+  const [isFollowUpNeeded, setIsFollowUpNeeded] = useState(outcomeSeeds.reminders.length > 0);
   const [prayerPersonId, setPrayerPersonId] = useState(primaryPersonId || selectedPersonIds[0] || "");
 
   useEffect(() => {
-    setIsFollowUpNeeded(followUpNeededDefault);
-  }, [followUpNeededDefault]);
+    setIsFollowUpNeeded(outcomeSeeds.reminders.length > 0);
+  }, [outcomeSeeds.reminders.length]);
 
   const attendeeOptions = selectedPersonIds
     .map((personId) => allPeople.find((person) => person.id === personId))
@@ -20146,6 +20761,9 @@ function MeetingLeaderReflectionSection({
      saves its own record there. */
   const [prayerKey, setPrayerKey] = useState(0);
   const [followUpKey, setFollowUpKey] = useState(0);
+  /* Accurate collapsed summaries: "2 prayer requests", "3 reminders". */
+  const [prayerDraftCount, setPrayerDraftCount] = useState(0);
+  const [reminderDraftCount, setReminderDraftCount] = useState(0);
   // Accountability is captured inline like everything else here. The composer
   // (USA-242) keeps one editor open at a time and collapses saved drafts into
   // summaries; re-tapping the header collapses an editor but never discards a
@@ -20155,44 +20773,15 @@ function MeetingLeaderReflectionSection({
   const [accountabilityDraftCount, setAccountabilityDraftCount] = useState(0);
   const [accountabilityCollapseSignal, setAccountabilityCollapseSignal] = useState(0);
   const closeAccountability = () => { setIsAccountabilityOpen(false); setAccountabilityDraftCount(0); setAccountabilityKey((key) => key + 1); };
-  const closePrayer = () => { setIsPrayerOpen(false); setPrayerKey((key) => key + 1); };
-  const closeFollowUp = () => { setIsFollowUpNeeded(false); setFollowUpKey((key) => key + 1); };
+  const closePrayer = () => { setIsPrayerOpen(false); setPrayerDraftCount(0); setPrayerKey((key) => key + 1); };
+  const closeFollowUp = () => { setIsFollowUpNeeded(false); setReminderDraftCount(0); setFollowUpKey((key) => key + 1); };
   const closeFruit = () => {
     setIsFruitOpen(false);
     selectedOutcomeTags.forEach((tag) => onToggleOutcomeTag(tag));
   };
-  const prayerFields = (
-    <div className="grid gap-3" key={`prayer-${prayerKey}`}>
-      {attendeeOptions.length > 1 ? (
-        <DosFormField label="Who is this for?" labelVariant="sentence">
-          <select className={FieldSelectClass(false)} name="prayer_needs_person_id" onChange={(event) => setPrayerPersonId(event.target.value)} value={prayerPersonId}>
-            {attendeeOptions.map((person) => (
-              <option key={person.id} value={person.id}>{person.name}</option>
-            ))}
-          </select>
-        </DosFormField>
-      ) : (
-        <input name="prayer_needs_person_id" type="hidden" value={prayerPersonId} />
-      )}
-      <DosFormField label="What are you praying about?" labelVariant="sentence">
-        <VoiceTextarea aria-label="Prayer request" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={prayerNeedsDefault ?? ""} name="prayer_needs" />
-      </DosFormField>
-    </div>
-  );
-  const reminderFields = (
-    <div className="grid gap-3" key={`reminder-${followUpKey}`}>
-      <input name="follow_up_needed" type="hidden" value="on" />
-      <DosFormField label="What do you want to remember?" labelVariant="sentence">
-        <input className={FieldInputClass()} defaultValue={followUpNoteDefault ?? ""} name="follow_up_note" placeholder="Text him Friday, send the book, ask how discipling is going..." />
-      </DosFormField>
-      <DosDateInput
-        defaultValue={(followUpDateDefault ?? dateValueFromToday(1)).slice(0, 10)}
-        label="Remind me"
-        labelVariant="sentence"
-        name="follow_up_date"
-      />
-    </div>
-  );
+  /* The single-value Prayer and Reminder fields are gone. A meeting produces as
+     many of each as the conversation did, and both are now repeatable
+     composers that write one record per item. */
   const fruitFields = (
     <div className="grid gap-3">
       {selectedOutcomeTags.map((tag) => (
@@ -20220,8 +20809,18 @@ function MeetingLeaderReflectionSection({
         }
       },
     },
-    { active: isPrayerOpen, key: "prayer", label: "Prayer request", onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)) },
-    { active: isFollowUpNeeded, key: "reminder", label: "Reminder", onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)) },
+    {
+      active: isPrayerOpen,
+      key: "prayer",
+      label: prayerDraftCount ? meetingOutcomeSummary(prayerDraftCount, "prayer request") : "Prayer request",
+      onClick: () => (isPrayerOpen ? closePrayer() : setIsPrayerOpen(true)),
+    },
+    {
+      active: isFollowUpNeeded,
+      key: "reminder",
+      label: reminderDraftCount ? meetingOutcomeSummary(reminderDraftCount, "reminder") : "Reminder",
+      onClick: () => (isFollowUpNeeded ? closeFollowUp() : setIsFollowUpNeeded(true)),
+    },
     { active: isFruitOpen, key: "fruit", label: "Observed Fruit", onClick: () => (isFruitOpen ? closeFruit() : setIsFruitOpen(true)) },
   ];
 
@@ -20266,8 +20865,27 @@ function MeetingLeaderReflectionSection({
                   />
                 </div>
               ) : null}
-              {action.key === "prayer" && isPrayerOpen ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{prayerFields}</div> : null}
-              {action.key === "reminder" && isFollowUpNeeded ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{reminderFields}</div> : null}
+              {action.key === "prayer" && isPrayerOpen ? (
+                <div className="mt-3" key={`prayer-${prayerKey}`}>
+                  <MeetingPrayerComposer
+                    attendeeOptions={attendeeOptions}
+                    defaultPersonId={prayerPersonId}
+                    seeds={outcomeSeeds.prayers}
+                    onDraftCountChange={setPrayerDraftCount}
+                    onEmpty={closePrayer}
+                  />
+                </div>
+              ) : null}
+              {action.key === "reminder" && isFollowUpNeeded ? (
+                <div className="mt-3" key={`reminder-${followUpKey}`}>
+                  <MeetingReminderComposer
+                    calendarConnected={calendarConnected}
+                    seeds={outcomeSeeds.reminders}
+                    onDraftCountChange={setReminderDraftCount}
+                    onEmpty={closeFollowUp}
+                  />
+                </div>
+              ) : null}
               {action.key === "fruit" && isFruitOpen ? <div className="mt-3 grid gap-3 border-l-2 border-[#DCEBFF] pl-4">{fruitFields}</div> : null}
             </div>
           ))}
@@ -20371,6 +20989,8 @@ function MeetingPlanningReflectionSection({
 
 function MeetingRoleReflectionSections({
   allPeople,
+  calendarConnected = false,
+  outcomeSeeds = emptyMeetingOutcomeSeeds,
   followUpDateDefault,
   followUpNoteDefault,
   growthReflectionDefault,
@@ -20386,6 +21006,9 @@ function MeetingRoleReflectionSections({
   tableRole,
 }: {
   allPeople: DosAppPerson[];
+  calendarConnected?: boolean;
+  /* Prayers and reminders already saved on the meeting being edited. */
+  outcomeSeeds?: MeetingOutcomeSeeds;
   followUpDateDefault?: string | null;
   followUpNoteDefault?: string | null;
   growthReflectionDefault?: DosAppMeeting["growthReflection"] | null;
@@ -20409,6 +21032,8 @@ function MeetingRoleReflectionSections({
       {tableRoleIncludesMinistering(tableRole) ? (
         <MeetingLeaderReflectionSection
           allPeople={allPeople}
+          calendarConnected={calendarConnected}
+          outcomeSeeds={outcomeSeeds}
           nextStepDefault={leaderReflectionDefault?.nextStep}
           followUpDateDefault={followUpDateDefault}
           followUpNeededDefault={leaderReflectionDefault?.followUpNeeded}
@@ -20663,6 +21288,8 @@ function MeetingFormContent({
   allPeople,
   allowConversationFlows,
   buttonText,
+  calendarConnected = false,
+  outcomeSeeds = emptyMeetingOutcomeSeeds,
   conversationResponses,
   dateDefault,
   durationDefault,
@@ -20721,6 +21348,12 @@ function MeetingFormContent({
   allPeople: DosAppPerson[];
   allowConversationFlows: boolean;
   buttonText: string;
+  /* Whether Google Calendar is connected. It is the only reminder destination
+     that produces an alert, so the control is disabled and says so when it is
+     unavailable rather than silently doing nothing. */
+  calendarConnected?: boolean;
+  /* Prayers and reminders already saved on the meeting being edited. */
+  outcomeSeeds?: MeetingOutcomeSeeds;
   conversationResponses: DosConversationResponses;
   dateDefault: string;
   durationDefault?: number | string | null;
@@ -20976,6 +21609,8 @@ function MeetingFormContent({
       {showRoleReflectionFields ? (
         <MeetingRoleReflectionSections
           allPeople={allPeople}
+          calendarConnected={calendarConnected}
+          outcomeSeeds={outcomeSeeds}
           followUpDateDefault={followUpDateDefault}
           followUpNoteDefault={followUpNoteDefault}
           growthReflectionDefault={growthReflectionDefault}
@@ -21246,22 +21881,72 @@ function ScheduleMeetingForm({
   );
 }
 
+/* A reminder as a record: what to remember, when, and exactly where it shows.
+   The calendar line reports what actually happened, including a failure, and
+   a failure can be retried without creating a second reminder or event. */
+function ReminderDetailContent({
+  errorMessage,
+  isRetrying,
+  onOpenCalendarSettings,
+  onRetryCalendarSync,
+  reminder,
+}: {
+  errorMessage?: string;
+  isRetrying: boolean;
+  onOpenCalendarSettings: () => void;
+  onRetryCalendarSync: () => void;
+  reminder: DosAppRelationshipReminder;
+}) {
+  const notes = reminderVisibleNotes(reminder.notes);
+  const repeats = reminderRecurrenceOptions.find((option) => option.value === reminder.recurrence)?.label ?? null;
+  const calendarFailed = reminder.googleSyncEnabled && reminder.googleSyncStatus === "failed";
+
+  return (
+    <div>
+      <p className="text-[19px] font-bold leading-[1.25] tracking-[-0.015em] text-dos-primary">{reminder.title?.trim() || "Untitled reminder"}</p>
+      <DosDetailSection label="When">
+        {formatDate(nextReminderDate(reminder))}
+        {repeats && reminder.recurrence !== "none" ? <span className="text-dos-secondary"> · Repeats {repeats.toLowerCase()}</span> : null}
+      </DosDetailSection>
+      {notes ? <DosDetailSection label="Notes"><span className="whitespace-pre-line">{notes}</span></DosDetailSection> : null}
+      <DosDetailSection label="Where it shows">
+        <span className="block">{reminderShowsOnDashboard(reminder) ? "Listed in Upcoming" : "Not listed in Upcoming"}</span>
+        <span className="mt-0.5 block text-[13px] text-dos-secondary">DOS itself does not send a notification.</span>
+      </DosDetailSection>
+      <DosDetailSection label="Google Calendar">
+        {!reminder.googleSyncEnabled ? (
+          <span>Not added to your calendar</span>
+        ) : calendarFailed ? (
+          <span className="block">
+            <span className="block font-semibold text-[#B42318]">Could not be added to Google Calendar</span>
+            <span className="mt-2 flex flex-wrap gap-2">
+              <AppButton disabled={isRetrying} onClick={onRetryCalendarSync} tone="white">{isRetrying ? "Retrying..." : "Retry"}</AppButton>
+              <button className="min-h-11 px-1 text-[13px] font-semibold text-dos-blue" onClick={onOpenCalendarSettings} type="button">Calendar settings</button>
+            </span>
+          </span>
+        ) : reminder.googleSyncStatus === "synced" ? (
+          <span>Added to your calendar</span>
+        ) : (
+          <span>Being added to your calendar</span>
+        )}
+      </DosDetailSection>
+      {errorMessage ? <p className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p> : null}
+    </div>
+  );
+}
+
 function ReminderFormContent({
   calendarConnection,
   defaultReminderType,
   defaultPersonId,
   defaultTitle,
   errorMessage,
+  formId,
   householdPerson,
-  isCalendarDisconnecting = false,
-  isSubmitting,
-  onDelete,
-  onDisconnectCalendar,
+  onOpenCalendarSettings,
   onSubmit,
   people,
   reminder,
-  workspaceId,
-  workspaceSlug,
 }: {
   calendarConnection: DosAppCalendarConnection;
   defaultReminderType?: DosAppRelationshipReminder["reminderType"];
@@ -21269,16 +21954,14 @@ function ReminderFormContent({
   /* A starting point the leader edits, never a saved decision. */
   defaultTitle?: string;
   errorMessage?: string;
+  /* The shell's Save button submits this form from its fixed action area. */
+  formId: string;
   householdPerson?: DosAppPerson | null;
-  isCalendarDisconnecting?: boolean;
-  isSubmitting: boolean;
-  onDelete?: () => void;
-  onDisconnectCalendar?: () => void;
+  /* Calendar connection lives in Calendar settings, not in a reminder. */
+  onOpenCalendarSettings: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   people: DosAppPerson[];
   reminder?: DosAppRelationshipReminder | null;
-  workspaceId: string;
-  workspaceSlug: string;
 }) {
   const fallbackPersonId = defaultPersonId ?? people[0]?.id ?? "";
   const resolvedReminderType = reminder?.reminderType ?? defaultReminderType ?? "follow_up";
@@ -21313,28 +21996,21 @@ function ReminderFormContent({
   }
 
   return (
-    <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title="Calendar">
-        <CalendarConnectionCard
-          calendarConnection={calendarConnection}
-          isDisconnecting={isCalendarDisconnecting}
-          onDisconnect={onDisconnectCalendar}
-          workspaceId={workspaceId}
-          workspaceSlug={workspaceSlug}
-        />
-      </DosFormSection>
-      <DosFormSection
-        description={isPrayerReminder ? "Write this like something you want to remember in prayer." : "Keep the reminder tied to the person it belongs to."}
-        icon={isPrayerReminder ? "prayer" : "bell"}
-        title={isPrayerReminder ? "Prayer Request" : "Reminder"}
-      >
-        <DosFormField label="Person">
-          <select className={FieldSelectClass()} defaultValue={reminder?.personId ?? fallbackPersonId} name="person_id" required>
-            {people.map((person) => (
-              <option key={person.id} value={person.id}>{person.name}</option>
-            ))}
-          </select>
-        </DosFormField>
+    <form className="space-y-5" id={formId} onSubmit={onSubmit}>
+      <DosFormSection icon={isPrayerReminder ? "prayer" : "bell"} title={isPrayerReminder ? "Prayer request" : "Reminder"}>
+        {/* Opened from a Person, the reminder already belongs to them and the
+            header names them. A picker is offered only when there is no one yet. */}
+        {reminder?.personId || defaultPersonId ? (
+          <input name="person_id" type="hidden" value={reminder?.personId ?? fallbackPersonId} />
+        ) : (
+          <DosFormField label="Person">
+            <select className={FieldSelectClass()} defaultValue={fallbackPersonId} name="person_id" required>
+              {people.map((person) => (
+                <option key={person.id} value={person.id}>{person.name}</option>
+              ))}
+            </select>
+          </DosFormField>
+        )}
         {isPrayerReminder ? (
           <input name="reminder_type" type="hidden" value="prayer" />
         ) : (
@@ -21381,57 +22057,60 @@ function ReminderFormContent({
             options={reminderRecurrenceOptions}
           />
         </DosFormGrid>
-        <div>
-          <FieldLabel>Prayer Cadence</FieldLabel>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {[
-              { label: "Pray Once", value: "none" },
-              { label: "Weekly", value: "weekly" },
-              { label: "Monthly", value: "monthly" },
-            ].map((cadence) => (
-              <button
-                className="min-h-8 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#1D4ED8] transition-colors hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-                key={cadence.value}
-                onClick={(event) => applyReminderRecurrence(event, cadence.value as DosAppRelationshipReminder["recurrence"])}
-                type="button"
-              >
-                {cadence.label}
-              </button>
-            ))}
-            <span aria-disabled="true" className="inline-flex min-h-8 cursor-not-allowed items-center rounded-full border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-3 text-[11px] font-bold text-[#94A3B8] opacity-70">
-              Daily soon
-            </span>
+        {/* Prayer rhythm belongs only to a prayer reminder. There is no
+            placeholder for a cadence DOS does not support. */}
+        {isPrayerReminder ? (
+          <div>
+            <FieldLabel>Prayer rhythm</FieldLabel>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {[
+                { label: "Pray once", value: "none" },
+                { label: "Weekly", value: "weekly" },
+                { label: "Monthly", value: "monthly" },
+              ].map((cadence) => (
+                <button
+                  className="min-h-11 rounded-full border border-dos-line bg-white px-3.5 text-[12.5px] font-bold text-dos-blueText transition-colors hover:border-dos-blue100"
+                  key={cadence.value}
+                  onClick={(event) => applyReminderRecurrence(event, cadence.value as DosAppRelationshipReminder["recurrence"])}
+                  type="button"
+                >
+                  {cadence.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
       </DosFormSection>
       <DosFormSection icon="log" title="Notes">
         <DosFormField>
           <VoiceTextarea aria-label="Notes" className={`${FieldTextareaClass(false)} min-h-20`} defaultValue={reminderVisibleNotes(reminder?.notes)} name="notes" />
         </DosFormField>
       </DosFormSection>
-      <DosFormSection icon="calendar" title="Sync">
-        <DosFormToggleRow
-          defaultChecked={canSyncToGoogle && reminder?.googleSyncEnabled !== false}
-          description={canSyncToGoogle ? "Create or update a calendar event." : calendarConnectionNeedsReconnect(calendarConnection) ? "Reconnect Google Calendar to sync. Local save still works." : "Connect Google Calendar to sync. Local save still works."}
-          disabled={!canSyncToGoogle}
-          name="google_sync_enabled"
-          title="Sync to Google"
-        />
-      </DosFormSection>
-      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
-      <AppButton disabled={isSubmitting || !people.length} tone="black" type="submit">
-        {isSubmitting ? "Saving..." : reminder ? (isPrayerReminder ? "Save Prayer Request" : "Save Reminder") : (isPrayerReminder ? "Add Prayer Request" : "Add Reminder")}
-      </AppButton>
-      {reminder && onDelete ? (
-        <button
-          className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
-          onClick={onDelete}
-          type="button"
-        >
-          Delete Reminder
-        </button>
-      ) : null}
+      {/* One item-level choice. It never changes a global preference, and an
+          existing reminder is only on the calendar if it already was. */}
+      <div className="rounded-dos-2 border border-dos-line bg-white p-3">
+        <label className={`flex items-start gap-2.5 ${canSyncToGoogle ? "text-dos-primary" : "text-dos-secondary"}`}>
+          <input
+            className="mt-0.5 h-4 w-4"
+            defaultChecked={canSyncToGoogle && reminder?.googleSyncEnabled === true}
+            disabled={!canSyncToGoogle}
+            name="google_sync_enabled"
+            type="checkbox"
+          />
+          <span className="min-w-0">
+            <span className="block text-[14.5px] font-semibold">Add to Google Calendar</span>
+            <span className="block text-[13px] text-dos-secondary">
+              {canSyncToGoogle
+                ? "Your calendar alerts you there. DOS itself does not send a notification."
+                : calendarConnectionNeedsReconnect(calendarConnection)
+                  ? "Google Calendar needs reconnecting. The reminder still saves in DOS."
+                  : "Google Calendar is not connected. The reminder still saves in DOS."}
+            </span>
+          </span>
+        </label>
+        <button className="mt-2 min-h-11 text-[13px] font-semibold text-dos-blue" onClick={onOpenCalendarSettings} type="button">Calendar settings</button>
+      </div>
+      {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{errorMessage}</p> : null}
     </form>
   );
 }
@@ -23980,12 +24659,31 @@ function PrayerRequestDetailSheet({
         title,
         visibility,
       });
-      onClose();
+      /* Save returns to the updated detail rather than closing it. */
+      setIsEditing(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to save prayer request.");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  /* Cancel leaves the record exactly as it was saved. */
+  function cancelEditing() {
+    setAnswerTestimony(request.answerTestimony ?? "");
+    setAnsweredDate(answerDateInputValue(request.answeredAt));
+    setAudienceValues(prayerRequestAudienceValuesFromRequest(request, householdMembers));
+    setCategory(request.category ?? "Other");
+    setFollowUpAt(prayerRequestFollowUpInputValue(request.followUpAt));
+    setGroupId(request.groupId ?? "");
+    setPriority(request.priority);
+    setRequestText(request.request);
+    setSelectedPersonIds(prayerRequestLinkedPeople(request, personById).map((person) => person.id));
+    setStatus(request.status);
+    setTitle(request.title);
+    setVisibility(request.visibility);
+    setErrorMessage("");
+    setIsEditing(false);
   }
 
   async function handleDelete() {
@@ -24008,9 +24706,23 @@ function PrayerRequestDetailSheet({
 
   if (!isEditing) {
     return (
-      <Sheet onClose={onClose} showEyebrow={false} title={title}>
+      <DosDetailSheet
+        actions={(
+          <div className="grid grid-cols-2 gap-2">
+            <AppButton disabled={isSubmitting} onClick={() => setIsEditing(true)} tone="black">Edit</AppButton>
+            {status === "active"
+              ? <AppButton disabled={isSubmitting} onClick={() => void markAnsweredFromDetail()} tone="white">Mark answered</AppButton>
+              : status === "answered"
+                ? <AppButton disabled={isSubmitting} onClick={() => void archiveFromDetail()} tone="white">Archive</AppButton>
+                : null}
+          </div>
+        )}
+        identity={linkedPeople.length ? linkedPeople.map((person) => person.name).join(", ") : null}
+        onClose={onClose}
+        title="Prayer request"
+      >
         <div className="space-y-5">
-          <DosFormSection icon="prayer" title="Prayer Request">
+          <DosFormSection icon="prayer" title={title}>
             <p className="whitespace-pre-line text-base font-black leading-7 text-[#0F172A]">{requestText}</p>
             {category ? <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">{category}</p> : null}
           </DosFormSection>
@@ -24068,12 +24780,10 @@ function PrayerRequestDetailSheet({
             <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
           ) : null}
 
-          <DosFormSection icon="settings" title="Actions">
+          <DosFormSection icon="settings" title="More">
             <div className="grid gap-2">
-              <AppButton disabled={isSubmitting} onClick={() => setIsEditing(true)} tone="black">Edit</AppButton>
-              {status !== "answered" ? <AppButton disabled={isSubmitting} onClick={() => void markAnsweredFromDetail()} tone="white">Mark Answered</AppButton> : null}
-              <AppButton disabled={isSubmitting} onClick={() => setIsAddingPrayerNote(true)} tone="white">Log Prayer / Add Prayer Note</AppButton>
-              {status !== "archived" ? <AppButton disabled={isSubmitting} onClick={() => void archiveFromDetail()} tone="white">Archive</AppButton> : null}
+              <AppButton disabled={isSubmitting} onClick={() => setIsAddingPrayerNote(true)} tone="white">Log prayer or add a note</AppButton>
+              {status === "answered" ? null : status !== "archived" ? <AppButton disabled={isSubmitting} onClick={() => void archiveFromDetail()} tone="white">Archive</AppButton> : null}
               {onDelete ? (
                 isConfirmingDelete ? (
                   <div className="grid gap-2 rounded-2xl border border-[#D6E4F7] bg-[#F8FBFF] p-3">
@@ -24090,17 +24800,27 @@ function PrayerRequestDetailSheet({
                   }} tone="white">Delete</AppButton>
                 )
               ) : null}
-              <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
             </div>
           </DosFormSection>
         </div>
-      </Sheet>
+      </DosDetailSheet>
     );
   }
 
   return (
-    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title="Edit Prayer Request">
-      <form className="space-y-5" onSubmit={handleSubmit}>
+    <DosDetailSheet
+      actions={(
+        <div className="grid grid-cols-2 gap-2">
+          <AppButton disabled={!canSave || isSubmitting} onClick={() => (document.getElementById(`prayer-request-edit-${request.id}`) as HTMLFormElement | null)?.requestSubmit()} tone="black">{isSubmitting ? "Saving..." : "Save"}</AppButton>
+          <AppButton disabled={isSubmitting} onClick={cancelEditing} tone="white">Cancel</AppButton>
+        </div>
+      )}
+      identity={linkedPeople.length ? linkedPeople.map((person) => person.name).join(", ") : null}
+      isEditing
+      onClose={onClose}
+      title="Edit prayer request"
+    >
+      <form className="space-y-5" id={`prayer-request-edit-${request.id}`} onSubmit={handleSubmit}>
         <DosFormSection icon="prayer" title="Request">
           <DosFormGrid>
             <DosFormField label="Title">
@@ -24217,13 +24937,8 @@ function PrayerRequestDetailSheet({
         {errorMessage ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         ) : null}
-        <div className="grid gap-2">
-          <AppButton disabled={!canSave || isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Request"}</AppButton>
-          <AppButton disabled={isSubmitting} onClick={() => setIsEditing(false)} tone="white">Back to Detail</AppButton>
-          <AppButton disabled={isSubmitting} onClick={onClose} tone="white">Close</AppButton>
-        </div>
       </form>
-    </Sheet>
+    </DosDetailSheet>
   );
 }
 
@@ -25008,8 +25723,9 @@ function DesktopPrayerWorkspace({
       partner.notes,
     )
   ));
+  const desktopMeetingsWithCanonicalPrayer = meetingIdsWithCanonicalPrayer(prayerRequests ?? []);
   const prayingForRows: PrayerDetail[] = [
-    ...localPrayerNeeds.map((item) => {
+    ...localPrayerNeeds.filter((item) => !desktopMeetingsWithCanonicalPrayer.has(item.meetingId)).map((item) => {
       const id = `local-${item.id}`;
       const meeting = meetingById.get(item.meetingId) ?? null;
       const latestPrayerLog = localPrayerLogs.find((log) => log.prayerId === id);
@@ -25033,6 +25749,7 @@ function DesktopPrayerWorkspace({
     }),
     ...leaderReflections
       .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
+      .filter((reflection) => !desktopMeetingsWithCanonicalPrayer.has(reflection.meetingId))
       .map((reflection) => {
         const id = `reflection-${reflection.id}`;
         const person = personById.get(reflection.personId ?? "") ?? null;
@@ -25831,24 +26548,27 @@ function ManageCirclesWorkflow({
   return (
     <DosWorkflowPage identity="Manage circles" onClose={onClose} title="People">
       <div className="grid gap-3">
-        <p className="text-[14.5px] leading-[1.5] text-dos-body">
-          You choose who is closest. DOS never moves anyone on its own: no meeting, minute, Fruit entry or engagement rating will change a circle you have confirmed.
-        </p>
-
-        <section aria-label="Circle capacity" className="grid gap-1.5 rounded-[20px] border border-dos-line bg-white p-3.5">
+        {/* A compact summary: one cell per circle, used of capacity. */}
+        <section aria-label="Circle capacity" className="grid grid-cols-4 gap-1.5">
           {capacity.map((row) => (
-            <div className="flex min-w-0 items-baseline justify-between gap-3" key={row.view}>
-              <span className="min-w-0 truncate text-[14px] font-semibold text-dos-primary">{circleViewName[row.view]}</span>
-              <span className={`shrink-0 text-[13px] tabular-nums ${row.overBy ? "font-bold text-[#B42318]" : "text-dos-secondary"}`}>
-                {row.used} of {row.capacity}
-                {row.overBy ? ` · ${row.overBy} over` : row.remaining ? ` · ${row.remaining} open` : " · full"}
-              </span>
+            <div
+              aria-label={`${circleViewName[row.view]}: ${row.used} of ${row.capacity}, ${row.overBy ? `${row.overBy} over` : row.remaining ? `${row.remaining} open` : "full"}`}
+              className={`min-w-0 rounded-dos-2 border px-2 py-2 text-center ${row.overBy ? "border-[#F0A5A5] bg-[#FEF2F2]" : "border-dos-line bg-white"}`}
+              key={row.view}
+              role="group"
+            >
+              <span className="block truncate text-[12px] font-semibold text-dos-secondary">{circleViewName[row.view]}</span>
+              <span className={`block text-[15px] font-bold tabular-nums ${row.overBy ? "text-[#B42318]" : "text-dos-primary"}`}>{row.used}/{row.capacity}</span>
             </div>
           ))}
-          <p className="mt-1 border-t border-dos-rule pt-2 text-[12.5px] leading-[1.45] text-dos-secondary">
-            Each circle counts the ones inside it: My 12 includes your My 3. {placedTotal(counts)} {placedTotal(counts) === 1 ? "person is" : "people are"} placed in total, each counted once.
-          </p>
         </section>
+
+        {/* The explanation is available, not in the way. */}
+        <details className="rounded-dos-2 border border-dos-line bg-white px-3 py-2 text-[13.5px] leading-[1.5] text-dos-body">
+          <summary className="min-h-9 cursor-pointer py-1.5 text-[13px] font-semibold text-dos-blue">How circles work</summary>
+          <p className="mt-1">You choose who is closest. DOS never moves anyone on its own: no meeting, minute, Fruit entry or engagement rating will change a circle you have confirmed.</p>
+          <p className="mt-1.5">Each circle counts the ones inside it, so My 12 includes your My 3. {placedTotal(counts)} {placedTotal(counts) === 1 ? "person is" : "people are"} placed, each counted once.</p>
+        </details>
 
         <SearchField label="Search people to place" onChange={setQuery} placeholder="Search people" value={query} />
 
@@ -26069,9 +26789,9 @@ function PersonFormContent({
 }: {
   additionalDefaults?: PersonFormDefaults;
   buttonText: string;
+  calendarConnected?: boolean;
   /* Whether this workspace has a healthy Google Calendar connection; the
      reminder's calendar toggle is only offered when it can actually work. */
-  calendarConnected?: boolean;
   errorMessage: string;
   isSubmitting: boolean;
   nameDefault?: string | null;
@@ -34082,14 +34802,33 @@ function PersonDetailLabel({ children }: { children: string }) {
 }
 
 /* What this person reported about meeting with us. */
+/* The submission time exactly as the source stated it. A source that recorded
+   no time zone is shown as local wall time and never converted. */
+function legacyFeedbackSubmittedLabel(submittedAtLocal: string | null, fallbackDate: string | null) {
+  const match = submittedAtLocal?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+
+  if (!match) {
+    return fallbackDate ? `Submitted ${formatDate(fallbackDate)}` : "Submission date not recorded";
+  }
+
+  const [, year, month, day, hour, minute] = match;
+  const monthName = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(month) - 1];
+  const hour24 = Number(hour);
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+  return `Submitted ${monthName} ${Number(day)}, ${year} at ${hour12}:${minute} ${hour24 < 12 ? "AM" : "PM"}`;
+}
+
 function PersonFeedbackDetailSheet({
   item,
   onAddFollowUpReminder,
   onClose,
+  personName = null,
 }: {
   item: SubmittedReviewListItem;
   onAddFollowUpReminder: () => void;
   onClose: () => void;
+  personName?: string | null;
 }) {
   const review = item.review ?? null;
   const testimony = item.testimony ?? null;
@@ -34100,11 +34839,51 @@ function PersonFeedbackDetailSheet({
     ? historicalReviewAnswers(review).filter(([, value]) => value.toLowerCase() !== "skipped")
     : [];
   const experienced = review?.outcomeTags.filter((tag) => tag !== "Follow Up Requested") ?? [];
+  const legacyForm = review?.legacyForm ?? null;
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={isQuickReview ? "Quick Review" : "Testimony"}>
+    <DosDetailSheet
+      actions={reviewRequestedFollowUp(review) ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-[14px] font-bold text-dos-blue">Follow-up requested</span>
+          <PDButton onClick={() => { onClose(); onAddFollowUpReminder(); }}>Add reminder</PDButton>
+        </div>
+      ) : undefined}
+      identity={personName}
+      onClose={onClose}
+      title={legacyForm ? legacyForm.formName : isQuickReview ? "Quick Review" : "Testimony"}
+    >
       <div className="grid gap-4">
-        <p className="text-[13px] font-semibold text-dos-secondary">{formatDate(item.date)}</p>
+        {legacyForm ? (
+          /* Imported feedback reads exactly as it was submitted: every original
+             question, every answer verbatim, in order. Nothing is mapped onto
+             DOS's own questions, and nothing here is editable. */
+          <>
+            <p className="text-[13px] font-semibold text-dos-secondary">
+              {legacyFeedbackSubmittedLabel(legacyForm.submittedAtLocal, item.date)}
+              {legacyForm.submittedAtLocal && !legacyForm.submittedTimezone ? " · time zone not recorded" : ""}
+            </p>
+            {legacyForm.answers.map((entry) => (
+              <DosDetailSection key={entry.question} label={entry.question}>
+                {entry.answers.length > 1 ? (
+                  <ul className="grid gap-1">
+                    {entry.answers.map((answer) => <li key={answer}>{answer}</li>)}
+                  </ul>
+                ) : entry.answers.length ? (
+                  <span className="whitespace-pre-line">{entry.answers[0]}</span>
+                ) : (
+                  <span className="text-dos-secondary">No answer</span>
+                )}
+              </DosDetailSection>
+            ))}
+            <DosDetailSection label="Source">
+              <span className="block">{[legacyForm.sourceLabel, legacyForm.sourceFormId ? `Form ${legacyForm.sourceFormId}` : null, legacyForm.sourceSubmissionId ? `Submission ${legacyForm.sourceSubmissionId}` : null].filter(Boolean).join(" · ")}</span>
+              {legacyForm.importedAt ? <span className="mt-0.5 block text-[13px] text-dos-secondary">Imported {formatDate(legacyForm.importedAt)}</span> : null}
+              {legacyForm.privacyNote ? <span className="mt-0.5 block text-[13px] text-dos-secondary">{legacyForm.privacyNote}</span> : null}
+            </DosDetailSection>
+          </>
+        ) : null}
+        {legacyForm ? null : <p className="text-[13px] font-semibold text-dos-secondary">{formatDate(item.date)}</p>}
 
         {isQuickReview && item.overallRating ? (
           <p className="text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-dos-primary">{item.overallRating}</p>
@@ -34121,7 +34900,7 @@ function PersonFeedbackDetailSheet({
           </div>
         ) : null}
 
-        {review?.comments?.trim() ? (
+        {review?.comments?.trim() && !legacyForm ? (
           <div className="border-t border-dos-rule pt-3">
             <PersonDetailLabel>What they shared</PersonDetailLabel>
             <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.5] text-dos-primary">&ldquo;{review.comments.trim()}&rdquo;</p>
@@ -34160,14 +34939,8 @@ function PersonFeedbackDetailSheet({
           </div>
         ) : null}
 
-        {reviewRequestedFollowUp(review) ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dos-rule pt-3">
-            <span className="text-[14px] font-bold text-dos-blue">Follow-up requested</span>
-            <PDButton onClick={() => { onClose(); onAddFollowUpReminder(); }}>Add reminder</PDButton>
-          </div>
-        ) : null}
       </div>
-    </Sheet>
+    </DosDetailSheet>
   );
 }
 
@@ -34177,27 +34950,31 @@ function PersonFeedbackDetailSheet({
 function PersonFruitDetailSheet({
   entry,
   onClose,
+  onViewSource,
+  personName = null,
 }: {
   entry: PersonOutcomeEntry;
   onClose: () => void;
+  /* Present only when the record has a meeting to open. */
+  onViewSource?: (() => void) | null;
+  personName?: string | null;
 }) {
   const description = fruitNarrative(entry.event);
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} title={entry.event.title || entry.event.fruitType}>
-      <div className="grid gap-3">
-        <p className="text-[13px] font-semibold text-dos-secondary">{entry.date ? formatDate(entry.date) : "Date not recorded"}</p>
-        {description ? (
-          <p className="whitespace-pre-line border-t border-dos-rule pt-3 text-[15px] leading-[1.55] text-dos-primary">{description}</p>
-        ) : null}
-      </div>
-    </Sheet>
+    <DosDetailSheet
+      actions={onViewSource ? <AppButton onClick={() => { onClose(); onViewSource(); }} tone="white">View source</AppButton> : undefined}
+      identity={personName}
+      onClose={onClose}
+      title={entry.event.title || entry.event.fruitType}
+    >
+      <DosDetailSection label="When">{entry.date ? formatDate(entry.date) : "Date not recorded"}</DosDetailSection>
+      {description ? <DosDetailSection label="Details"><span className="whitespace-pre-line">{description}</span></DosDetailSection> : null}
+      <DosDetailSection label="From">{fruitSourceDescription(entry.event)}</DosDetailSection>
+    </DosDetailSheet>
   );
 }
 
-/* This person's prayer requests. The Overview card summarises requests, so its
-   Open must show requests: it used to open the Prayer Resources browser, which
-   is a library of prayers to send someone and answers a different question. */
 function PersonPrayerSheet({
   items,
   onAddPrayerRequest,
@@ -34212,7 +34989,19 @@ function PersonPrayerSheet({
   person: DosAppPerson;
 }) {
   return (
-    <Sheet description={person.name} onClose={onClose} showEyebrow={false} title="Prayer">
+    <DosDetailSheet
+      actions={(
+        <div className="grid grid-cols-2 gap-2">
+          <AppButton icon="prayer" onClick={() => { onClose(); onAddPrayerRequest(); }} tone="black">Add prayer request</AppButton>
+          {/* A separate question: something to send them, not something they
+              asked for. Secondary, and clearly its own action. */}
+          <AppButton onClick={() => { onClose(); onOpenPrayerResources(); }} tone="white">Prayer resources</AppButton>
+        </div>
+      )}
+      identity={person.name}
+      onClose={onClose}
+      title="Prayer"
+    >
       <div className="grid gap-4">
         <div>
           <PersonDetailLabel>Prayer requests</PersonDetailLabel>
@@ -34232,14 +35021,8 @@ function PersonPrayerSheet({
             <p className="mt-2 text-[14.5px] leading-[1.5] text-dos-body">Nothing recorded yet.</p>
           )}
         </div>
-        <div className="grid gap-2 border-t border-dos-rule pt-3">
-          <AppButton icon="prayer" onClick={() => { onClose(); onAddPrayerRequest(); }} tone="black">Add prayer request</AppButton>
-          {/* A separate question: something to send them, not something they
-              asked for. Secondary, and clearly its own action. */}
-          <AppButton onClick={() => { onClose(); onOpenPrayerResources(); }} tone="white">Prayer resources</AppButton>
-        </div>
       </div>
-    </Sheet>
+    </DosDetailSheet>
   );
 }
 
@@ -34276,6 +35059,10 @@ function PersonDetailOverlay({
   onAddReminder,
   onLogMeetingWithFruit,
   onAddPrayerRequest,
+  onDeletePrayerRequest,
+  onSavePrayerRequest,
+  prayerHouseholdMembers,
+  prayerPeople,
   onAssignResource,
   onCompleteCommitment,
   onConfirmCircleMove,
@@ -34341,6 +35128,10 @@ function PersonDetailOverlay({
   onAddReminder: () => void;
   onLogMeetingWithFruit: () => void;
   onAddPrayerRequest: () => void;
+  onDeletePrayerRequest: (id: string) => Promise<unknown> | unknown;
+  onSavePrayerRequest: (id: string, patch: DosPrayerRequestPatch) => Promise<DosAppPrayerRequest>;
+  prayerHouseholdMembers: DosAppHouseholdMember[];
+  prayerPeople: DosAppPerson[];
   onAssignResource: (personId: string) => void;
   onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
   onConfirmCircleMove: (personId: string, circle: CircleKey) => Promise<boolean>;
@@ -34379,6 +35170,8 @@ function PersonDetailOverlay({
   const [isFruitReviewsOpen, setIsFruitReviewsOpen] = useState(false);
   const [isPersonFruitOpen, setIsPersonFruitOpen] = useState(false);
   const [isPersonPrayerOpen, setIsPersonPrayerOpen] = useState(false);
+  /* One prayer request opened from this Person: its own detail, not the list. */
+  const [openPrayerRequestId, setOpenPrayerRequestId] = useState<string | null>(null);
   /* RIGHT NOW lists cap at three (spec §5.6); "View all N" reveals the rest
      in place, or opens the record surface where one already exists. */
   const [expandedRightNow, setExpandedRightNow] = useState<Record<string, boolean>>({});
@@ -34445,8 +35238,10 @@ function PersonDetailOverlay({
   // Prayer needs captured in Leader Reflections stay discoverable from the
   // Person record: direct person link, or single-person meeting fallback so
   // group-meeting prayer is not copied to every attendee (USA-168 audit fix).
+  const meetingsWithCanonicalPrayer = meetingIdsWithCanonicalPrayer(prayerRequests);
   const reflectionPrayerRows = leaderReflections
     .filter((reflection) => Boolean(reflection.prayerNeeds?.trim()))
+    .filter((reflection) => !meetingsWithCanonicalPrayer.has(reflection.meetingId))
     .filter((reflection) => reflection.personId === person.id
       || (!reflection.personId && personLoggedMeetings.some((meeting) => meeting.id === reflection.meetingId && meeting.fieldPersonIds.length === 1)))
     .sort((first, second) => dateSortValue(second.createdAt) - dateSortValue(first.createdAt))
@@ -34801,22 +35596,20 @@ function PersonDetailOverlay({
   const isMultiplying = personIsMultiplying(commitments);
   const relationshipSignal = isMultiplying ? `${relationshipTypePill} · Multiplying` : relationshipTypePill;
   const relationshipLine = `${relationshipSignal} · ${currentCircleLabel}`;
-  const openPrayerCount = activePersonPrayerRequests.length + activePrayerReminders.length;
+  /* Declared after conceptPrayerItems below so the summary counts exactly the
+     rows the list renders; the count and the list can no longer disagree. */
   const answeredPrayerCount = answeredPersonPrayerRequests.length + answeredPrayerReminders.length;
-  const prayerCountLine = openPrayerCount + answeredPrayerCount > 0
-    ? `${openPrayerCount} open${answeredPrayerCount ? ` · ${answeredPrayerCount} answered` : ""}`
-    : "";
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
   const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
   const conceptPrayerItems = [
     ...activePersonPrayerRequests.map((request) => ({
       id: `request-${request.id}`,
-      onOpen: undefined as (() => void) | undefined,
+      onOpen: (() => setOpenPrayerRequestId(request.id)) as (() => void) | undefined,
       text: request.request?.trim() || request.title,
     })),
     ...activePrayerReminders.map((reminder) => ({
       id: `reminder-${reminder.id}`,
-      onOpen: undefined as (() => void) | undefined,
+      onOpen: (() => onEditReminder(reminder.id)) as (() => void) | undefined,
       text: reminderVisibleNotes(reminder.notes) || reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request",
     })),
     ...reflectionPrayerRows.map((reflection) => ({
@@ -34825,6 +35618,10 @@ function PersonDetailOverlay({
       text: reflection.prayerNeeds?.trim() ?? "",
     })),
   ].filter((item) => Boolean(item.text));
+  const openPrayerCount = conceptPrayerItems.length;
+  const prayerCountLine = openPrayerCount + answeredPrayerCount > 0
+    ? `${openPrayerCount} open${answeredPrayerCount ? ` · ${answeredPrayerCount} answered` : ""}`
+    : "";
   const conceptJourneys = activeResourceAssignments.map((assignment) => {
     const resource = resourceAssignmentResource(assignment);
     const isInAppJourney = Boolean(resource && isGuidedResource(resource));
@@ -35333,7 +36130,7 @@ function PersonDetailOverlay({
                     {conceptPrayerItems.length ? (
                       <div className="divide-y divide-dos-rule">
                         {cappedRows("prayer", conceptPrayerItems).map((item) => (
-                          <PersonRecordRow key={item.id} onOpen={() => setIsPersonPrayerOpen(true)}>
+                          <PersonRecordRow key={item.id} onOpen={item.onOpen ?? (() => setIsPersonPrayerOpen(true))}>
                             <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
                           </PersonRecordRow>
                         ))}
@@ -36217,15 +37014,32 @@ function PersonDetailOverlay({
         </Sheet>
       ) : null}
       {selectedOutcomeEntry ? (
-        <PersonFruitDetailSheet entry={selectedOutcomeEntry} onClose={() => setSelectedOutcomeEntry(null)} />
+        <PersonFruitDetailSheet entry={selectedOutcomeEntry} onClose={() => setSelectedOutcomeEntry(null)} onViewSource={selectedOutcomeEntry.event.meetingId ? () => onOpenMeeting(selectedOutcomeEntry.event.meetingId as string, person.id) : null} personName={person.name} />
       ) : null}
       {selectedFeedbackItem ? (
         <PersonFeedbackDetailSheet
           item={selectedFeedbackItem}
+          personName={person.name}
           onAddFollowUpReminder={onAddFollowUpReminder}
           onClose={() => setSelectedFeedbackItem(null)}
         />
       ) : null}
+      {openPrayerRequestId ? (() => {
+        const openPrayerRequest = prayerRequests.find((request) => request.id === openPrayerRequestId) ?? null;
+
+        return openPrayerRequest ? (
+          <PrayerRequestDetailSheet
+            groups={groups}
+            householdMembers={prayerHouseholdMembers}
+            onClose={() => setOpenPrayerRequestId(null)}
+            onDelete={onDeletePrayerRequest}
+            onOpenPerson={undefined}
+            onSave={onSavePrayerRequest}
+            people={prayerPeople}
+            request={openPrayerRequest}
+          />
+        ) : null;
+      })() : null}
       {isPersonPrayerOpen ? (
         <PersonPrayerSheet
           items={conceptPrayerItems}
@@ -37289,14 +38103,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }), [data.accountabilityCheckIns, data.circles, data.meetings]);
   const fieldListPeople = useMemo(() => people.filter((person) => showPersonInFieldList(person, showSecondaryFieldPeople)), [people, showSecondaryFieldPeople]);
   const secondaryFieldPeopleCount = useMemo(() => people.filter((person) => person.fieldVisibility === "secondary").length, [people]);
-  /* How many household-only people the toggle is actually withholding right
-     now: the ones that match the current search, because that is how many
-     more rows expanding would add. A raw total would promise rows the search
-     has already excluded. */
-  const hiddenHouseholdCount = useMemo(
-    () => filteredPeople(people.filter((person) => person.fieldVisibility === "secondary"), peopleQuery).length,
-    [people, peopleQuery],
-  );
   const meetingPeopleOptions = useMemo(() => filteredPeople(people, meetingPeopleQuery), [people, meetingPeopleQuery]);
   // Workflow subtitles name the person when the flow was launched from their
   // record, so the user is never asked to re-select someone they came from.
@@ -37480,42 +38286,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
     return map;
   }, [data.circlePlacements]);
-  /* USA-247: what each number on the People rail counts.
-     Storage is exclusive (one tier per person); the rail is CUMULATIVE, so
-     My 12 includes My 3 and My 120 includes them all. Both come from the same
-     tier tallies via src/lib/dos/circle-tiers.ts, which is why a person is
-     never counted twice when the whole field is aggregated.
-     Every count is taken AFTER the two filters the list itself uses -- the
-     household/secondary toggle (`fieldListPeople`) and the search box -- so a
-     tab never promises rows the list will not show. Workspace scope,
-     permissions and privacy are applied upstream: `people` is loaded for one
-     workspace, `hidden` people never enter the field list, and archived
-     people never reach it.
-     Today every stored placement is an unconfirmed machine assignment, so
-     these numbers describe suggestions, not confirmed circles. */
-  const peopleCircleCounts = useMemo(() => {
-    const searched = (items: CircleListItem[]) => filterCircleItems(items, peopleQuery);
-    const counts = tierCounts(
-      searched(allCirclePeople).map((item) => placementForDecision(confirmedPlacementByPersonId.get(item.person.id) ?? notReviewed)),
-    );
-    const cumulative = viewCounts(counts);
-
-    return {
-      all: searched(allCirclePeople).length,
-      my_120: cumulative.my_120,
-      placed: placedTotal(counts),
-      seventy: cumulative.my_70,
-      three: cumulative.my_3,
-      twelve: cumulative.my_12,
-    };
-  }, [allCirclePeople, confirmedPlacementByPersonId, peopleQuery]);
-  /* All is everyone listed. The circles hold only those with a placement, so
-     All is larger by exactly the people who have none. */
-  const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - peopleCircleCounts.placed);
-  const peopleCircleTabsWithCounts = useMemo(
-    () => peopleCircleTabs.map((tab) => ({ ...tab, count: peopleCircleCounts[tab.value] })),
-    [peopleCircleCounts],
-  );
+  /* The circle tabs carry no counts (founder decision, USA-264). The only
+     number on People is the visible result count, taken from the list itself. */
   const peopleCircleContent = useMemo(() => peopleCircleDetails(peopleCircleView, circlePeopleByLayer, allCirclePeople), [allCirclePeople, circlePeopleByLayer, peopleCircleView]);
   const visibleCirclePeople = useMemo(() => filterCircleItems(peopleCircleContent.items, peopleQuery), [peopleCircleContent.items, peopleQuery]);
   /* Which circle each person is in, read from the same layer groups the tabs
@@ -39240,6 +40012,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      The key is generated per attempt and reused on a retry of that same
      attempt, so a dropped response can never apply the batch twice. A refusal
      returns its message to the surface, which keeps the proposed changes. */
+  /* Operation ids of repeatable meeting items that already saved. A retry
+     after a partial failure skips them, so pressing Log meeting again finishes
+     what is left instead of re-posting what succeeded. Cleared when the form
+     closes on a complete save. */
+  const savedMeetingItemIdsRef = useRef<string[]>([]);
+
   const circleSaveKeyRef = useRef<string | null>(null);
 
   async function saveCirclePlacements(changes: ReadonlyArray<{ personId: string; to: CircleDecision }>) {
@@ -39365,7 +40143,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setSelectedMeetingPersonIds(personId ? [personId] : []);
   }
 
+  /* Opening an existing reminder shows it; Edit is a separate, explicit step. */
+  const [isReminderSheetEditing, setIsReminderSheetEditing] = useState(false);
+
+  function openCalendarSettingsFromReminder() {
+    closeForm();
+    setActiveTab("meetings");
+    setMeetingsView("calendar");
+    setIsMeetingsCalendarSettingsOpen(true);
+  }
+
+  /* Re-sends the saved reminder unchanged. The route updates the same row and
+     the calendar link is keyed to that row, so a retry never creates a second
+     reminder or a second calendar event. */
+  function retryReminderCalendarSync() {
+    if (!selectedReminder) {
+      return;
+    }
+
+    void (async () => {
+      const result = await submitJson("/api/dos/app/reminders", {
+        googleSyncEnabled: true,
+        google_sync_enabled: true,
+        id: selectedReminder.id,
+        notes: selectedReminder.notes ?? "",
+        personId: selectedReminder.personId,
+        person_id: selectedReminder.personId,
+        recurrence: selectedReminder.recurrence,
+        reminderDate: selectedReminder.reminderDate.slice(0, 10),
+        reminder_date: selectedReminder.reminderDate.slice(0, 10),
+        reminderType: selectedReminder.reminderType,
+        reminder_type: selectedReminder.reminderType,
+        title: selectedReminder.title ?? "",
+      }, "PATCH", false);
+
+      if (result) {
+        router.refresh();
+      }
+    })();
+  }
+
   function openReminderEdit(reminderId: string) {
+    setIsReminderSheetEditing(false);
     setCircleSheetView(null);
     setIsCirclesOpen(false);
     setSelectedExternalCalendarEventId(null);
@@ -40220,6 +41039,172 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     return failures;
   }
 
+  /* USA-262. The repeatable meeting outcomes, read from the same FormData the
+     Accountability composer uses. Each draft carries the uid it was created
+     with, which becomes its operation id: a retry re-sends the same id for the
+     same item, so repeated saves create nothing twice, and a draft the user
+     removed before saving was never submitted and so creates nothing at all. */
+  function meetingPrayerDraftsFromForm(formData: FormData) {
+    const items: Array<{ existingId: string | null; personId: string; request: string; uid: string }> = [];
+    const removedIds: string[] = [];
+
+    for (let index = 0; index < 48; index += 1) {
+      if (!formData.has(`meeting_prayer_${index}_request`)) {
+        break;
+      }
+
+      const request = String(formData.get(`meeting_prayer_${index}_request`) ?? "").trim();
+      const uid = String(formData.get(`meeting_prayer_${index}_uid`) ?? "").trim();
+
+      /* An empty or never-filled prayer writes nothing. */
+      if (!request || !uid) {
+        continue;
+      }
+
+      items.push({
+        existingId: formData.get(`meeting_prayer_${index}_existing`) === "1" ? uid : null,
+        personId: String(formData.get(`meeting_prayer_${index}_person_id`) ?? "").trim(),
+        request,
+        uid,
+      });
+    }
+
+    for (let index = 0; index < 96; index += 1) {
+      const id = String(formData.get(`meeting_prayer_removed_${index}`) ?? "").trim();
+
+      if (!id) {
+        break;
+      }
+
+      removedIds.push(id);
+    }
+
+    return { items, removedIds };
+  }
+
+  /* A reminder is written only when it has something to remember. A reminder
+     that has text but no valid date is not silently given one: it is reported
+     back so the leader can fix it, and nothing is saved until they do. */
+  function meetingReminderDraftsFromForm(formData: FormData) {
+    const items: Array<{ addToCalendar: boolean; date: string; existingId: string | null; showInUpcoming: boolean; title: string; uid: string }> = [];
+    const invalid: string[] = [];
+    const removedIds: string[] = [];
+
+    for (let index = 0; index < 48; index += 1) {
+      if (!formData.has(`meeting_reminder_${index}_title`)) {
+        break;
+      }
+
+      const title = String(formData.get(`meeting_reminder_${index}_title`) ?? "").trim();
+      const uid = String(formData.get(`meeting_reminder_${index}_uid`) ?? "").trim();
+      const date = String(formData.get(`meeting_reminder_${index}_date`) ?? "").trim();
+
+      if (!title || !uid) {
+        continue;
+      }
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        invalid.push(title);
+        continue;
+      }
+
+      items.push({
+        addToCalendar: formData.get(`meeting_reminder_${index}_calendar`) === "on",
+        date,
+        existingId: formData.get(`meeting_reminder_${index}_existing`) === "1" ? uid : null,
+        showInUpcoming: formData.get(`meeting_reminder_${index}_upcoming`) !== "off",
+        title,
+        uid,
+      });
+    }
+
+    for (let index = 0; index < 96; index += 1) {
+      const id = String(formData.get(`meeting_reminder_removed_${index}`) ?? "").trim();
+
+      if (!id) {
+        break;
+      }
+
+      removedIds.push(id);
+    }
+
+    return { invalid, items, removedIds };
+  }
+
+  function invalidReminderMessage(titles: string[]) {
+    return `Choose a date for ${titles.map((title) => `"${title.slice(0, 40)}"`).join(", ")}. Nothing has been saved yet, and everything you entered is still here.`;
+  }
+
+  /* The edits a meeting's Prayer and Reminder sections make to records that
+     live beside the meeting. Used by both Edit Meeting branches, so the two
+     cannot drift apart again. Returns a message naming the first item that
+     failed, or null when every item saved. */
+  async function persistMeetingOutcomeEdits({
+    meetingId,
+    meetingNotes,
+    personIds,
+    prayer,
+    reminder,
+  }: {
+    meetingId: string;
+    meetingNotes: string;
+    personIds: string[];
+    prayer: ReturnType<typeof meetingPrayerDraftsFromForm>;
+    reminder: ReturnType<typeof meetingReminderDraftsFromForm>;
+  }): Promise<string | null> {
+    for (const draft of prayer.items) {
+      const draftPersonId = draft.personId || (personIds.length === 1 ? personIds[0] : null);
+
+      try {
+        await createPrayerRequestFromMeeting({
+          meetingId,
+          operationId: draft.existingId ?? draft.uid,
+          personIds,
+          prayerNeeds: draft.request,
+          primaryPersonId: draftPersonId,
+        });
+      } catch {
+        return `Meeting saved. This prayer request did not save: "${draft.request.slice(0, 60)}". Everything you entered is still here.`;
+      }
+    }
+
+    for (const id of prayer.removedIds) {
+      try {
+        await updatePrayerRequest(id, { status: "archived" });
+      } catch {
+        return "Meeting saved. A prayer request you removed could not be archived. It is still open.";
+      }
+    }
+
+    for (const draft of reminder.items) {
+      const saved = await saveTableFollowUpReminder({
+        addToCalendar: draft.addToCalendar,
+        followUpDate: draft.date,
+        followUpNeeded: true,
+        followUpNote: draft.title,
+        meetingId,
+        notes: meetingNotes,
+        operationId: draft.existingId ?? draft.uid,
+        personIds,
+        showInUpcoming: draft.showInUpcoming,
+      });
+
+      if (!saved) {
+        return `Meeting saved. This reminder did not save: "${draft.title.slice(0, 60)}". Everything you entered is still here.`;
+      }
+    }
+
+    for (const id of reminder.removedIds) {
+      const result = await submitJson("/api/dos/app/reminders", { id }, "DELETE", false);
+
+      if (!result) {
+        return "Meeting saved. A reminder you removed could not be removed. It is still listed.";
+      }
+    }
+
+    return null;
+  }
+
   function accountabilityFailureMessage(failures: string[]) {
     return `Meeting saved. These accountability items did not save and need adding from the person: ${failures.join(", ")}.`;
   }
@@ -40569,12 +41554,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   async function createPrayerRequestFromMeeting({
+    operationId,
     meetingId,
     personIds,
     prayerNeeds,
     primaryPersonId: explicitPrimaryPersonId,
   }: {
     meetingId: string;
+    /* One id per request, so a retry of the same request is the same record. */
+    operationId?: string;
     personIds: string[];
     prayerNeeds: string;
     primaryPersonId?: string | null;
@@ -40596,6 +41584,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       fieldPersonId: primaryPersonId,
       linkedPersonIds: personIds,
       meetingId,
+      operationId,
       personTags: linkedPeople.map((person) => person.name),
       priority: "normal",
       request: requestText,
@@ -41000,21 +41989,33 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }
 
   async function saveTableFollowUpReminder({
+    addToCalendar = false,
     followUpDate,
     followUpNeeded,
     followUpNote,
     meetingId,
     notes,
+    operationId,
     personIds,
+    showInUpcoming = true,
   }: {
+    /* Google Calendar is the only destination that produces an alert. */
+    addToCalendar?: boolean;
     followUpDate: string;
     followUpNeeded: boolean;
     followUpNote?: string;
     meetingId: string;
     notes: string;
+    operationId?: string;
     personIds: string[];
+    showInUpcoming?: boolean;
   }) {
-    const existingReminder = tableFollowUpReminderForMeeting(data.reminders, meetingId);
+    /* A meeting can now carry several reminders. Reusing "the" reminder for
+       this meeting would make the second draft overwrite the first, so the
+       repeatable path (which always supplies an operation id) never reuses a
+       row: the route's idempotency on that id is what stops a duplicate. Only
+       the legacy single-reminder path still updates in place. */
+    const existingReminder = operationId ? null : tableFollowUpReminderForMeeting(data.reminders, meetingId);
 
     if (!followUpNeeded) {
       if (!existingReminder) {
@@ -41028,20 +42029,36 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       return Boolean(result);
     }
 
-    const personId = personIds[0] ?? existingReminder?.personId ?? "";
+    const trimmedFollowUpNote = followUpNote?.trim() ?? "";
 
-    if (!personId) {
-      setErrorMessage("Choose a participant before setting a Table follow-up.");
+    /* An empty reminder creates nothing. There is no fallback title and no
+       fallback date: a blank form must never become a saved reminder. */
+    if (!trimmedFollowUpNote) {
+      return true;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(followUpDate)) {
+      setErrorMessage(invalidReminderMessage([trimmedFollowUpNote]));
       return false;
     }
 
-    const trimmedFollowUpNote = followUpNote?.trim() ?? "";
-    const reminderDate = /^\d{4}-\d{2}-\d{2}$/.test(followUpDate) ? followUpDate : dateValueFromToday(1);
+    const personId = personIds[0] ?? existingReminder?.personId ?? "";
+
+    if (!personId) {
+      setErrorMessage("Choose a participant before adding a reminder.");
+      return false;
+    }
+
+    const reminderDate = followUpDate;
     const result = await submitJson("/api/dos/app/reminders", {
-      googleSyncEnabled: false,
-      google_sync_enabled: false,
+      googleSyncEnabled: addToCalendar,
+      google_sync_enabled: addToCalendar,
       id: existingReminder?.id,
-      notes: joinTableFollowUpReminderMetadata(trimmedFollowUpNote || notes, meetingId),
+      notes: joinMeetingReminderNotes(
+        joinTableFollowUpReminderMetadata(trimmedFollowUpNote, meetingId),
+        showInUpcoming,
+      ),
+      operationId,
       personId,
       person_id: personId,
       recurrence: "none",
@@ -41049,7 +42066,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminder_date: reminderDate,
       reminderType: "follow_up",
       reminder_type: "follow_up",
-      title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Reminder from meeting",
+      title: trimmedFollowUpNote.slice(0, 80),
     }, existingReminder ? "PATCH" : "POST", false);
 
     return Boolean(result);
@@ -41696,11 +42713,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
     const observedFruit = formObservedFruit(formData);
-    const followUpNeeded = formData.get("follow_up_needed") === "on";
-    const followUpDate = String(formData.get("follow_up_date") ?? "");
-    const followUpNote = String(formData.get("follow_up_note") ?? "");
+    const reminderRead = meetingReminderDraftsFromForm(formData);
+    /* A reminder section that was opened and left empty is not a follow-up. */
+    const followUpNeeded = reminderRead.items.length > 0;
     const agreedNextStepInput = String(formData.get("next_step") ?? "").trim();
     const prayerNeeds = String(formData.get("prayer_needs") ?? "");
+    const prayerDrafts = meetingPrayerDraftsFromForm(formData).items;
+    const reminderDrafts = reminderRead.items;
     const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
     const spiritualOpenness = String(formData.get("spiritual_openness") ?? "");
     const relationshipTypeChange = String(formData.get("relationship_type_change") ?? "").trim();
@@ -41717,6 +42736,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       || spiritualOpenness.trim(),
     );
 
+    if (reminderRead.invalid.length) {
+      setErrorMessage(invalidReminderMessage(reminderRead.invalid));
+      return;
+    }
+
     if (isPreview) {
       setErrorMessage("Preview mode is read-only. Meetings are not saved.");
       return;
@@ -41729,8 +42753,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .map((personId) => people.find((person) => person.id === personId))
       .filter((person): person is DosAppPerson => Boolean(person));
     const reminderPersonId = selectedMeetingPersonIds[0] ?? "";
-    const reminderDate = /^\d{4}-\d{2}-\d{2}$/.test(followUpDate) ? followUpDate : dateValueFromToday(1);
-    const trimmedFollowUpNote = followUpNote.trim();
     const postWorkflowJson = async (url: string, payload: Record<string, unknown>) => {
       const response = await fetch(url, {
         body: JSON.stringify({ ...payload, workspaceId: data.workspace.id }),
@@ -41757,10 +42779,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     void (async () => {
       try {
         const workflow = await runMeetingWorkflow({
+          alreadySavedItemOperationIds: savedMeetingItemIdsRef.current,
           ids: workflowIds,
-          requestPrayer: shouldSaveReflection && Boolean(prayerNeeds.trim()),
+          requestPrayer: false,
           requestReflection: shouldSaveReflection,
-          requestReminder: shouldUseLeaderReflection && followUpNeeded,
+          requestReminder: false,
           steps: {
             meeting: ({ operationId }) => postWorkflowJson("/api/dos/app/meetings", {
               conversationFlowKey,
@@ -41776,17 +42799,27 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               tableType: selectedMeetingContext,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             }),
-            prayer: ({ meetingId, operationId }) => postWorkflowJson("/api/dos/app/prayer-requests", {
-              category: "Ministry",
-              fieldPersonId: primaryPrayerPersonId,
-              linkedPersonIds: selectedMeetingPersonIds,
-              meetingId,
-              operationId,
-              personTags: linkedPrayerPeople.map((person) => person.name),
-              priority: "normal",
-              request: prayerNeeds.trim(),
-              title: primaryPrayerPerson ? `Prayer for ${primaryPrayerPerson.name}` : "Prayer from Table",
-              visibility: "private",
+            /* One record per request, never a joined string, so each can be
+               answered, updated and reported on by itself. */
+            prayers: prayerDrafts.map((draft) => {
+              const person = people.find((candidate) => candidate.id === draft.personId) ?? primaryPrayerPerson;
+
+              return {
+                label: draft.request.slice(0, 60),
+                operationId: draft.uid,
+                run: ({ meetingId, operationId }: { meetingId: string; operationId: string }) => postWorkflowJson("/api/dos/app/prayer-requests", {
+                  category: "Ministry",
+                  fieldPersonId: draft.personId || primaryPrayerPersonId,
+                  linkedPersonIds: selectedMeetingPersonIds,
+                  meetingId,
+                  operationId,
+                  personTags: linkedPrayerPeople.map((candidate) => candidate.name),
+                  priority: "normal",
+                  request: draft.request,
+                  title: person ? `Prayer for ${person.name}` : "Prayer from Table",
+                  visibility: "private",
+                }),
+              };
             }),
             reflection: ({ meetingId, operationId }) => postWorkflowJson("/api/dos/app/reflections", {
               followUpNeeded,
@@ -41800,34 +42833,55 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               strictChildren: true,
               whatHappened: meetingNotes,
             }),
-            reminder: ({ meetingId, operationId }) => {
-              if (!reminderPersonId) {
-                throw new Error("Choose a participant before setting a Table follow-up.");
-              }
+            /* One record per reminder, each with its own date and its own
+               destinations. DOS itself sends nothing; the calendar option is
+               the only one that produces an alert. */
+            reminders: reminderDrafts.map((draft) => ({
+              label: draft.title.slice(0, 60),
+              operationId: draft.uid,
+              run: ({ meetingId, operationId }: { meetingId: string; operationId: string }) => {
+                if (!reminderPersonId) {
+                  throw new Error("Choose a participant before adding a reminder.");
+                }
 
-              return postWorkflowJson("/api/dos/app/reminders", {
-                googleSyncEnabled: false,
-                notes: joinTableFollowUpReminderMetadata(trimmedFollowUpNote || meetingNotes, meetingId),
-                operationId,
-                personId: reminderPersonId,
-                recurrence: "none",
-                reminderDate,
-                reminderType: "follow_up",
-                title: trimmedFollowUpNote ? trimmedFollowUpNote.slice(0, 80) : "Reminder from meeting",
-              });
-            },
+                return postWorkflowJson("/api/dos/app/reminders", {
+                  googleSyncEnabled: draft.addToCalendar,
+                  notes: joinMeetingReminderNotes(
+                    joinTableFollowUpReminderMetadata(draft.title, meetingId),
+                    draft.showInUpcoming,
+                  ),
+                  operationId,
+                  personId: reminderPersonId,
+                  recurrence: "none",
+                  reminderDate: draft.date,
+                  reminderType: "follow_up",
+                  title: draft.title.slice(0, 80),
+                });
+              },
+            })),
           },
         });
 
+        /* A failure keeps every entered item on screen and names the ones that
+           did not save, so nothing typed is lost and the retry is obvious. */
+        savedMeetingItemIdsRef.current = workflow.savedItemOperationIds;
+
         if (!workflow.complete) {
-          const failed = Object.entries(workflow.errors)
+          const itemDetail = workflow.itemFailures
+            .map((failure) => `${failure.kind === "prayer" ? "Prayer request" : "Reminder"} "${failure.label}": ${failure.message}`)
+            .join(" · ");
+          const stepDetail = Object.entries(workflow.errors)
+            .filter(([step]) => step !== "prayer" && step !== "reminder")
             .map(([step, message]) => `${step === "reflection" ? "Reflection/Fruit" : step.charAt(0).toUpperCase() + step.slice(1)}: ${message}`)
             .join(" · ");
+          const failed = [stepDetail, itemDetail].filter(Boolean).join(" · ");
           const meetingSaved = workflow.statuses.meeting === "saved" || workflow.statuses.meeting === "partial";
 
-          setErrorMessage(`${meetingSaved ? "Meeting saved. Retry to finish the remaining items" : "Meeting was not saved. Retry"}: ${failed}. The same operation IDs will be reused, so saved items will not be duplicated.`);
+          setErrorMessage(`${meetingSaved ? "Meeting saved. Retry to finish the remaining items" : "Meeting was not saved. Retry"}: ${failed}. Everything you entered is still here, and the items that saved will not be saved twice.`);
           return;
         }
+
+        savedMeetingItemIdsRef.current = [];
 
         if (prayerNeeds.trim()) {
           setLocalPrayerNeeds((current) => [
@@ -41984,12 +43038,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
     const observedFruit = formObservedFruit(formData);
-    const followUpNeeded = includesReflectionFields ? formData.get("follow_up_needed") === "on" : latestReflection?.followUpNeeded ?? false;
-    const followUpDate = String(formData.get("follow_up_date") ?? "");
-    const followUpNote = String(formData.get("follow_up_note") ?? "");
+    const editReminderRead = meetingReminderDraftsFromForm(formData);
+    const followUpNeeded = includesReflectionFields ? editReminderRead.items.length > 0 : latestReflection?.followUpNeeded ?? false;
     const nextStep = latestReflection?.nextStep ?? "";
-    const prayerNeeds = includesReflectionFields ? String(formData.get("prayer_needs") ?? "") : latestReflection?.prayerNeeds ?? "";
+    /* Prayer requests are their own records now; the form no longer has a
+       prayer_needs field. Re-sending the reflection must carry its existing
+       text forward, or saving an old meeting would erase it. */
+    const prayerNeeds = latestReflection?.prayerNeeds ?? "";
     const prayerNeedsPersonId = String(formData.get("prayer_needs_person_id") ?? "");
+    const editPrayerRead = meetingPrayerDraftsFromForm(formData);
+
+    if (includesReflectionFields && editReminderRead.invalid.length) {
+      setErrorMessage(invalidReminderMessage(editReminderRead.invalid));
+      return;
+    }
+
     const spiritualOpenness = formData.has("spiritual_openness") ? String(formData.get("spiritual_openness") ?? "") : latestReflection?.spiritualOpenness ?? "";
     const meetingNotes = String(formData.get("notes") ?? "");
     const shouldSaveReflection = shouldUseLeaderReflection && Boolean(
@@ -42067,16 +43130,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         }
 
         if (!isScheduledMeeting && includesReflectionFields) {
-          const reminderSaved = await saveTableFollowUpReminder({
-            followUpDate,
-            followUpNeeded: shouldUseLeaderReflection && followUpNeeded,
-            followUpNote,
+          const outcomeError = await persistMeetingOutcomeEdits({
             meetingId: selectedMeeting.id,
-            notes: meetingNotes,
+            meetingNotes,
             personIds: selectedMeetingPersonIds,
+            prayer: editPrayerRead,
+            reminder: editReminderRead,
           });
 
-          if (!reminderSaved) {
+          if (outcomeError) {
+            setErrorMessage(outcomeError);
             return;
           }
         }
@@ -42110,47 +43173,19 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         if (!reflectionResult) {
           return;
         }
-
-        if (prayerNeeds.trim()) {
-          const primaryPersonId = prayerNeedsPersonId || (selectedMeetingPersonIds.length === 1 ? selectedMeetingPersonIds[0] : null);
-          const newPrayerNeedId = String(reflectionResult.id ?? `local-${selectedMeeting.id}`);
-          const primaryPerson = primaryPersonId ? people.find((person) => person.id === primaryPersonId) ?? null : null;
-
-          setLocalPrayerNeeds((current) => [
-            {
-              createdAt: new Date().toISOString(),
-              id: newPrayerNeedId,
-              meetingId: selectedMeeting.id,
-              personId: primaryPersonId,
-              personName: primaryPerson?.name ?? null,
-              prayerNeeds: prayerNeeds.trim(),
-            },
-            ...current.filter((item) => item.id !== newPrayerNeedId),
-          ]);
-          try {
-            await createPrayerRequestFromMeeting({
-              meetingId: selectedMeeting.id,
-              personIds: selectedMeetingPersonIds,
-              prayerNeeds,
-              primaryPersonId,
-            });
-          } catch {
-            return;
-          }
-        }
       }
 
       if (includesReflectionFields) {
-        const reminderSaved = await saveTableFollowUpReminder({
-          followUpDate,
-          followUpNeeded: shouldUseLeaderReflection && followUpNeeded,
-          followUpNote,
+        const outcomeError = await persistMeetingOutcomeEdits({
           meetingId: selectedMeeting.id,
-          notes: meetingNotes,
+          meetingNotes,
           personIds: selectedMeetingPersonIds,
+          prayer: editPrayerRead,
+          reminder: editReminderRead,
         });
 
-        if (!reminderSaved) {
+        if (outcomeError) {
+          setErrorMessage(outcomeError);
           return;
         }
 
@@ -42232,7 +43267,20 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       title: String(formData.get("title") ?? ""),
     };
 
-    void submitJson("/api/dos/app/reminders", payload, selectedReminder ? "PATCH" : "POST");
+    if (!selectedReminder) {
+      void submitJson("/api/dos/app/reminders", payload, "POST");
+      return;
+    }
+
+    /* Saving an existing reminder returns to its updated detail. */
+    void (async () => {
+      const result = await submitJson("/api/dos/app/reminders", payload, "PATCH", false);
+
+      if (result) {
+        setIsReminderSheetEditing(false);
+        router.refresh();
+      }
+    })();
   }
 
   function handleDeleteReminder() {
@@ -42793,8 +43841,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       .filter((reminder) => reminder.reminderType === "prayer")
       .sort((first, second) => dateSortValue(nextReminderDate(first)) - dateSortValue(nextReminderDate(second)));
 
+    const mobileMeetingsWithCanonicalPrayer = meetingIdsWithCanonicalPrayer(data.prayerRequests);
+
     return [
-      ...localPrayerNeeds.map((item) => {
+      ...localPrayerNeeds.filter((item) => !mobileMeetingsWithCanonicalPrayer.has(item.meetingId)).map((item) => {
         const id = `local-${item.id}`;
         const meeting = meetingById.get(item.meetingId) ?? null;
         const latestPrayerLog = mobilePrayerLogs.find((log) => log.prayerId === id);
@@ -42818,6 +43868,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       }),
       ...data.leaderReflections
         .filter((reflection) => Boolean(normalizeText(reflection.prayerNeeds)))
+        .filter((reflection) => !mobileMeetingsWithCanonicalPrayer.has(reflection.meetingId))
         .map((reflection) => {
           const id = `reflection-${reflection.id}`;
           const person = personById.get(reflection.personId ?? "") ?? null;
@@ -43392,17 +44443,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     sm the control wraps onto its own line directly under the
                     rail; from sm up, where My 120 is on screen, it sits inline
                     immediately after it. */}
+                <PillRail edgeInset={4} fit label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
+                {/* One discreet row: how many people the list is showing right
+                    now, then the two list controls. The number is the list's own
+                    length, so search, circle and Household all move it together. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-                    <PillRail edgeInset={4} label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabsWithCounts} value={peopleCircleView} />
-                  </div>
+                  <p aria-live="polite" className="mr-auto text-[13px] font-semibold tabular-nums text-dos-secondary">
+                    {visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}
+                  </p>
                   {secondaryFieldPeopleCount ? (
                     <button
                       aria-label={showSecondaryFieldPeople
-                        ? "Hide household-only people. Their saved visibility does not change."
-                        : `Show ${hiddenHouseholdCount} household-only ${hiddenHouseholdCount === 1 ? "person" : "people"} currently hidden. Their saved visibility does not change.`}
+                        ? "Household-only people are included. Their saved visibility does not change."
+                        : "Include household-only people. Their saved visibility does not change."}
                       aria-pressed={showSecondaryFieldPeople}
-                      className={`flex h-9 shrink-0 items-center gap-1.5 rounded-dos-3 border px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
+                      className={`flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border px-3 text-dos-label transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue ${
                         showSecondaryFieldPeople ? "border-dos-blue bg-dos-blue text-white" : "border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
                       }`}
                       onClick={() => setShowSecondaryFieldPeople((current) => !current)}
@@ -43410,15 +44465,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     >
                       <Users aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
                       <span>Household</span>
-                      {!showSecondaryFieldPeople && hiddenHouseholdCount
-                        ? <span className="tabular-nums text-dos-secondary">{hiddenHouseholdCount}</span>
-                        : null}
                     </button>
                   ) : null}
                   {/* USA-247: circle placement is a deliberate decision, so it
                       has its own surface rather than living in a filter. */}
                   <button
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                    className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
                     onClick={() => setIsManageCirclesOpen(true)}
                     type="button"
                   >
@@ -43426,16 +44478,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     <span>Manage circles</span>
                   </button>
                 </div>
-                {secondaryFieldPeopleCount && showSecondaryFieldPeople ? (
-                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
-                    Including {hiddenHouseholdCount} household-only {hiddenHouseholdCount === 1 ? "person" : "people"}. Their saved visibility is unchanged.
-                  </p>
-                ) : null}
-                {peopleCircleView === "all" && unplacedPeopleCount ? (
-                  <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
-                    All is everyone in your field, including {unplacedPeopleCount} with no circle placement. My 12 includes My 3, and My 120 includes them all, so the circles overlap by design and cannot be added together.
-                  </p>
-                ) : null}
 
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
@@ -43471,7 +44513,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                       />
                     </>
                   ) : fieldListPeople.length ? (
-                    <DosEmptyState>{peopleQuery.trim() ? `No matching field results. Try a different search inside ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}`}</DosEmptyState>
+                    <DosEmptyState>{peopleQuery.trim() ? `No matches in ${circleDisplayName(peopleCircleView)}.` : `No one in ${circleDisplayName(peopleCircleView)}.`}</DosEmptyState>
                   ) : people.length ? (
                     <DosEmptyState>{`No primary field contacts. ${secondaryFieldPeopleCount && !showSecondaryFieldPeople ? "Use the Household filter to include household-only people." : peopleCircleContent.empty}`}</DosEmptyState>
                   ) : (
@@ -44375,6 +45417,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onAddReminder={() => openReminderForm(selectedPerson.id)}
             onAddFollowUpReminder={() => openReminderForm(selectedPerson.id, "follow_up", `Follow up with ${selectedPerson.name}`)}
             onAddPrayerRequest={() => openPrayerRequestForPerson(selectedPerson.id)}
+            onDeletePrayerRequest={deleteMobilePrayerRequest}
+            onSavePrayerRequest={saveMobilePrayerRequestUpdate}
+            prayerHouseholdMembers={data.householdMembers}
+            prayerPeople={people}
             onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
             onConfirmCircleMove={confirmPersonCircleMove}
@@ -44888,6 +45934,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
           return (
             <PersonAccountabilityDetailSheet
+              personName={people.find((candidate) => candidate.id === record.personId)?.name ?? null}
               confirmedSubjects={commitment ? accountabilityConfirmedSubjects(commitment.updates) : []}
               /* Journey follow-ups are written by DOS, not by a leader. */
               isSystemGenerated={Boolean(schedule && parseResourceAssignmentFollowUpScheduleTitle(schedule.title))}
@@ -45242,6 +46289,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           <MeetingFormContent
             allPeople={people}
             allowConversationFlows={data.workspace.isUsamWorkspace}
+            calendarConnected={calendarConnectionIsHealthy(calendarConnection)}
             buttonText="Log meeting"
             conversationResponses={conversationResponses}
             dateDefault={meetingDraftDate ?? todayDateValue()}
@@ -45321,33 +46369,93 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         </DosWorkflowPage>
       ) : null}
 
-      {formMode === "reminder" ? (
-        <Sheet kind="editable" onClose={closeForm} showEyebrow={false} title={selectedReminder ? (selectedReminder.reminderType === "prayer" ? "Edit Prayer Request" : "Edit Reminder") : (newReminderType === "prayer" ? "Add Prayer Request" : "Add Reminder")}>
-          <ReminderFormContent
-            calendarConnection={calendarConnection}
-            defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
-            defaultReminderType={newReminderType}
-            defaultTitle={newReminderTitle}
-            errorMessage={errorMessage}
-            householdPerson={selectedReminder ? people.find((person) => person.id === selectedReminder.personId) ?? null : selectedPerson}
-            isCalendarDisconnecting={isCalendarDisconnecting}
-            isSubmitting={isSubmitting}
-            onDelete={selectedReminder ? handleDeleteReminder : undefined}
-            onDisconnectCalendar={handleDisconnectCalendar}
-            onSubmit={handleReminderSubmit}
-            people={people}
-            reminder={selectedReminder}
-            workspaceId={data.workspace.id}
-            workspaceSlug={data.workspace.slug}
-          />
-        </Sheet>
-      ) : null}
+      {formMode === "reminder" ? (() => {
+        const reminderPerson = selectedReminder
+          ? people.find((person) => person.id === selectedReminder.personId) ?? null
+          : people.find((person) => person.id === (selectedMeetingPersonIds[0] ?? selectedPerson?.id)) ?? null;
+        const isPrayerReminderSheet = (selectedReminder?.reminderType ?? newReminderType) === "prayer";
+        const isEditingReminder = !selectedReminder || isReminderSheetEditing;
+        const reminderFormId = "reminder-sheet-form";
+
+        return (
+          <DosDetailSheet
+            actions={isEditingReminder ? (
+              <div className="grid grid-cols-2 gap-2">
+                <AppButton disabled={isSubmitting || !people.length} onClick={() => (document.getElementById(reminderFormId) as HTMLFormElement | null)?.requestSubmit()} tone="black">{isSubmitting ? "Saving..." : "Save"}</AppButton>
+                <AppButton disabled={isSubmitting} onClick={() => (selectedReminder ? setIsReminderSheetEditing(false) : closeForm())} tone="white">Cancel</AppButton>
+              </div>
+            ) : selectedReminder ? (
+              <div className="grid grid-cols-2 gap-2">
+                <AppButton onClick={() => setIsReminderSheetEditing(true)} tone="black">Edit</AppButton>
+                <AppButton disabled={isSubmitting} onClick={handleDeleteReminder} tone="white">Remove</AppButton>
+              </div>
+            ) : undefined}
+            identity={reminderPerson?.name ?? null}
+            isEditing={isEditingReminder}
+            onClose={closeForm}
+            title={isEditingReminder
+              ? (selectedReminder ? (isPrayerReminderSheet ? "Edit prayer request" : "Edit reminder") : (isPrayerReminderSheet ? "Add prayer request" : "Add reminder"))
+              : (isPrayerReminderSheet ? "Prayer request" : "Reminder")}
+          >
+            {isEditingReminder ? (
+              <ReminderFormContent
+                calendarConnection={calendarConnection}
+                defaultPersonId={selectedMeetingPersonIds[0] ?? selectedPerson?.id ?? null}
+                defaultReminderType={newReminderType}
+                defaultTitle={newReminderTitle}
+                errorMessage={errorMessage}
+                formId={reminderFormId}
+                householdPerson={selectedReminder ? reminderPerson : selectedPerson}
+                onOpenCalendarSettings={openCalendarSettingsFromReminder}
+                onSubmit={handleReminderSubmit}
+                people={people}
+                reminder={selectedReminder}
+              />
+            ) : selectedReminder ? (
+              <ReminderDetailContent
+                errorMessage={errorMessage}
+                isRetrying={isSubmitting}
+                onOpenCalendarSettings={openCalendarSettingsFromReminder}
+                onRetryCalendarSync={retryReminderCalendarSync}
+                reminder={selectedReminder}
+              />
+            ) : null}
+          </DosDetailSheet>
+        );
+      })() : null}
 
       {formMode === "editMeeting" && selectedMeeting ? (() => {
         const isLoggingSelectedScheduledMeeting = selectedMeeting.meetingStatus === "scheduled" && loggingScheduledMeetingId === selectedMeeting.id;
         const logDateDefault = dateInputValueFromDateTime(selectedMeeting.scheduledStartAt ?? selectedMeeting.date, selectedMeeting.date ?? todayDateValue());
         const reflectionDefault = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
         const followUpReminderDefault = tableFollowUpReminderForMeeting(data.reminders, selectedMeeting.id);
+        /* Load what is already saved on this meeting, by record id. Only OPEN
+           prayer requests are editable here: re-saving an answered or archived
+           one through the meeting would reopen it. Legacy reflection text is
+           offered once, only when the meeting has no prayer request at all. */
+        const meetingPrayerRequests = data.prayerRequests.filter((request) => request.meetingId === selectedMeeting.id);
+        const legacyReflectionPrayer = meetingPrayerRequests.length ? "" : normalizeText(reflectionDefault?.prayerNeeds);
+        const outcomeSeeds: MeetingOutcomeSeeds = {
+          prayers: [
+            ...meetingPrayerRequests
+              .filter((request) => request.status === "active")
+              .map((request) => ({ id: request.id, personId: request.fieldPersonId ?? "", request: request.request })),
+            ...(legacyReflectionPrayer ? [{ id: null, personId: reflectionDefault?.personId ?? "", request: legacyReflectionPrayer }] : []),
+          ],
+          reminders: data.reminders
+            .filter((reminder) => (
+              reminder.reminderType === "follow_up"
+              && Boolean(reminder.title?.trim())
+              && splitTableFollowUpReminderMetadata(splitReminderNotesMetadata(reminder.notes).notes).meta?.meetingId === selectedMeeting.id
+            ))
+            .map((reminder) => ({
+              addToCalendar: reminder.googleSyncEnabled === true,
+              date: reminder.reminderDate.slice(0, 10),
+              id: reminder.id,
+              showInUpcoming: reminderShowsOnDashboard(reminder),
+              title: reminder.title?.trim() ?? "",
+            })),
+        };
 
         return (
         <Sheet kind="editable" onClose={closeForm} title={isLoggingSelectedScheduledMeeting ? "Log Meeting" : "Edit Meeting"}>
@@ -45355,6 +46463,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             <MeetingFormContent
               allPeople={people}
               allowConversationFlows={data.workspace.isUsamWorkspace}
+              calendarConnected={calendarConnectionIsHealthy(calendarConnection)}
+              outcomeSeeds={outcomeSeeds}
               buttonText={isLoggingSelectedScheduledMeeting ? "Log meeting" : "Save meeting"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}

@@ -260,19 +260,31 @@ assert.ok(
   "the key is retired only after the save succeeds",
 );
 
-/* The People rail is cumulative on top of exclusive tiers. */
+/* USA-264 (founder decision): the People circle tabs read exactly
+   All | My 3 | My 12 | My 70 | My 120, with no counts on them, and fit without
+   scrolling. The one number on People is the visible result count. */
 assert.ok(
-  client.includes("const cumulative = viewCounts(counts);") && client.includes("three: cumulative.my_3,") && client.includes("twelve: cumulative.my_12,"),
-  "the rail counts are cumulative views computed from exclusive tier tallies",
+  client.includes('<PillRail edgeInset={4} fit label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />'),
+  "the circle tabs are the plain labels, in a rail that fits without scrolling",
 );
 assert.ok(
-  client.includes("const unplacedPeopleCount = Math.max(0, peopleCircleCounts.all - peopleCircleCounts.placed);")
-    && client.includes("the circles overlap by design and cannot be added together"),
-  "All explains both the unplaced people it includes and why the circles cannot be summed",
+  !client.includes("peopleCircleTabsWithCounts") && !client.includes("unplacedPeopleCount"),
+  "no count badges or unplaced tally remain on the circle tabs",
 );
 assert.ok(
-  client.includes("placed: placedTotal(counts),"),
-  "the headcount of placed people uses the exclusive total, never the sum of views",
+  client.includes('{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}'),
+  "one visible-result count, taken from the list itself",
+);
+assert.ok(
+  !client.includes("the circles overlap by design and cannot be added together")
+    && !client.includes("No one in ${circleDisplayName(peopleCircleView)}. ${peopleCircleContent.empty}"),
+  "the explanatory paragraphs and the doubled empty-state copy are gone",
+);
+
+/* Manage circles keeps its explanation, but out of the way. */
+assert.ok(
+  manage.includes("How circles work") && manage.includes("<details"),
+  "the essential explanation is optional help, not a paragraph in the default view",
 );
 
 console.log("DOS circle management (USA-247) regression passed.");

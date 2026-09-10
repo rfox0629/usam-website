@@ -291,12 +291,31 @@ export type DosAppLeaderReflection = {
   whatHappened: string | null;
 };
 
+/* Feedback captured outside DOS and imported as it was written. The questions
+   and answers are kept verbatim, in their original order, and the submission
+   time is kept exactly as the source stated it, with its time zone marked
+   unknown when the source did not record one. */
+export type DosAppLegacyFeedbackForm = {
+  answers: Array<{ answers: string[]; question: string }>;
+  formName: string;
+  importedAt: string | null;
+  privacyNote: string | null;
+  sourceFormId: string | null;
+  sourceLabel: string;
+  sourceSubmissionId: string | null;
+  submittedAtLocal: string | null;
+  submittedTimezone: string | null;
+};
+
 export type DosAppParticipantReview = {
   comments: string | null;
   conversationHelpful: string | null;
   feltCaredFor: string | null;
   feltHeard: string | null;
   id: string;
+  /* Present only for feedback imported from another system. */
+  legacyForm: DosAppLegacyFeedbackForm | null;
+  /* Empty for Person-level feedback that belongs to no meeting. */
   meetingId: string;
   overallRating: string | null;
   outcomeTags: string[];
@@ -1821,7 +1840,8 @@ type ParticipantReviewRow = {
   felt_cared_for: string | null;
   felt_heard: string | null;
   id: string;
-  meeting_id: string;
+  legacy_form?: DosAppLegacyFeedbackForm | null;
+  meeting_id: string | null;
   overall_rating?: string | null;
   outcome_tags?: string[] | null;
   person_id: string | null;
@@ -1842,9 +1862,10 @@ type CanonicalMeetingReviewRow = {
   felt_cared_for: string | null;
   felt_heard_response: string | null;
   id: string;
-  meeting_id: string;
+  meeting_id: string | null;
   overall_rating?: string | null;
   outcome_tags?: string[] | null;
+  response_details?: unknown;
   reviewer_person_id: string | null;
   status?: string | null;
   stood_out: string | null;
@@ -2026,6 +2047,53 @@ function mapFruitSourceType(value: string | null): DosAppFruitEvent["sourceType"
 
 function mapVisibility(value: string | null): DosAppFruitEvent["visibility"] {
   return value === "internal" || value === "public" ? value : "private";
+}
+
+/* Reads the verbatim form an import stored under response_details.import.
+   Anything malformed is treated as not imported rather than guessed at. */
+function legacyFeedbackFormFromDetails(details: unknown): DosAppLegacyFeedbackForm | null {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return null;
+  }
+
+  const imported = (details as Record<string, unknown>).import;
+
+  if (!imported || typeof imported !== "object" || Array.isArray(imported)) {
+    return null;
+  }
+
+  const record = imported as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  const answers = Array.isArray(record.answers)
+    ? record.answers.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return [];
+      }
+
+      const row = entry as Record<string, unknown>;
+      const question = text(row.question);
+      const values = Array.isArray(row.answers) ? row.answers.filter((value): value is string => typeof value === "string" && Boolean(value.trim())) : [];
+
+      return question ? [{ answers: values, question }] : [];
+    })
+    : [];
+  const formName = text(record.form_name);
+
+  if (!formName || !answers.length) {
+    return null;
+  }
+
+  return {
+    answers,
+    formName,
+    importedAt: text(record.imported_at),
+    privacyNote: text(record.privacy_note),
+    sourceFormId: text(record.form_id),
+    sourceLabel: text(record.system_label) ?? "Imported",
+    sourceSubmissionId: text(record.submission_id),
+    submittedAtLocal: text(record.submitted_at_local),
+    submittedTimezone: text(record.submitted_timezone),
+  };
 }
 
 function mapModerationStatus(value: string | null | undefined): "draft" | "submitted" | "reviewed" | "approved" | "hidden" {
@@ -3982,7 +4050,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     };
   }
 
-  const [leaderReflectionsResult, canonicalReviewsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsByMeetingResult, fruitEventsByPersonResult] = await Promise.all([
+  const [leaderReflectionsResult, canonicalReviewsResult, participantReviewsResult, participantTestimoniesResult, fruitEventsByMeetingResult, fruitEventsByPersonResult, personLevelReviewsResult] = await Promise.all([
     meetingIds.length
       ? supabase
         .from("meeting_reflections")
@@ -3993,7 +4061,7 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     meetingIds.length
       ? supabase
         .from("dos_meeting_reviews")
-        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, wants_follow_up, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email")
+        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, wants_follow_up, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email, response_details")
         .in("meeting_id", meetingIds)
         .in("review_type", [...dosExperienceReviewTypes])
         .order("created_at", { ascending: false })
@@ -4026,6 +4094,18 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
         .in("person_id", personIds)
         .order("occurred_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
+    /* Feedback that belongs to a Person and no meeting. The meeting-scoped
+       query above cannot see it by construction. */
+    personIds.length
+      ? supabase
+        .from("dos_meeting_reviews")
+        .select("id, meeting_id, reviewer_person_id, felt_cared_for, felt_heard_response, conversation_helpful, would_meet_again_response, overall_rating, outcome_tags, stood_out, wants_follow_up, status, created_at, submitted_name, submitted_first_name, submitted_last_name, submitted_email, response_details")
+        .eq("workspace_id", workspaceId)
+        .is("meeting_id", null)
+        .in("reviewer_person_id", personIds)
+        .in("review_type", [...dosExperienceReviewTypes])
+        .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
   ]);
   const canonicalReviewsError = canonicalReviewsResult.error && isMissingWorkflowTable(canonicalReviewsResult.error, "dos_meeting_reviews")
     ? null
@@ -4055,12 +4135,17 @@ async function loadReviewsFruitFoundationForWorkspace(supabase: SupabaseAdminCli
     };
   }
 
-  const canonicalParticipantReviews: ParticipantReviewRow[] = ((canonicalReviewsResult.data ?? []) as CanonicalMeetingReviewRow[]).map((review) => ({
+  const personLevelReviewRows = personLevelReviewsResult.error ? [] : ((personLevelReviewsResult.data ?? []) as CanonicalMeetingReviewRow[]);
+  const canonicalReviewRows = Array.from(new Map(
+    [...((canonicalReviewsResult.data ?? []) as CanonicalMeetingReviewRow[]), ...personLevelReviewRows].map((review) => [review.id, review]),
+  ).values());
+  const canonicalParticipantReviews: ParticipantReviewRow[] = canonicalReviewRows.map((review) => ({
     comments: review.stood_out,
     conversation_helpful: review.conversation_helpful,
     felt_cared_for: review.felt_cared_for,
     felt_heard: review.felt_heard_response,
     id: review.id,
+    legacy_form: legacyFeedbackFormFromDetails(review.response_details),
     meeting_id: review.meeting_id,
     overall_rating: review.overall_rating ?? null,
     outcome_tags: review.outcome_tags ?? [],
@@ -4553,7 +4638,7 @@ export async function loadDosAppData(
   });
 
   meetingReviewRows.forEach((review) => {
-    if (!meetingReviewByMeetingId.has(review.meeting_id)) {
+    if (review.meeting_id && !meetingReviewByMeetingId.has(review.meeting_id)) {
       meetingReviewByMeetingId.set(review.meeting_id, review);
     }
   });
@@ -5060,7 +5145,8 @@ export async function loadDosAppData(
     feltCaredFor: review.felt_cared_for,
     feltHeard: review.felt_heard,
     id: review.id,
-    meetingId: review.meeting_id,
+    legacyForm: review.legacy_form ?? null,
+    meetingId: review.meeting_id ?? "",
     overallRating: review.overall_rating ?? null,
     outcomeTags: Array.isArray(review.outcome_tags) ? review.outcome_tags.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())) : [],
     personId: review.person_id,
