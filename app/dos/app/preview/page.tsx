@@ -1955,8 +1955,20 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
     "Pinned to My 12 for workspace stewardship while this relationship is confirmed.",
   );
 
+  /* USA-247: a few confirmed placements so the preview shows the three states
+     the founder decided on: confirmed, reviewed but deliberately not placed,
+     and not reviewed at all (everyone absent from this list). */
+  const circlePlacements = [
+    { confirmedAt: "2026-08-20T09:00:00-05:00", confirmedByEmail: "ryan@usamissionaries.org", personId: "demo-person-philip-saco", placement: "inner_3" as const, reason: null },
+    { confirmedAt: "2026-08-20T09:00:00-05:00", confirmedByEmail: "ryan@usamissionaries.org", personId: "demo-person-caleb-rivera", placement: "inner_3" as const, reason: null },
+    { confirmedAt: "2026-08-21T09:00:00-05:00", confirmedByEmail: "ryan@usamissionaries.org", personId: "demo-person-selah-gaffney", placement: "next_9" as const, reason: null },
+    { confirmedAt: "2026-08-21T09:00:00-05:00", confirmedByEmail: "ryan@usamissionaries.org", personId: "demo-person-skylar-gaffney", placement: "next_58" as const, reason: null },
+    { confirmedAt: "2026-08-22T09:00:00-05:00", confirmedByEmail: "ryan@usamissionaries.org", personId: "demo-person-tanner-kent", placement: "reviewed_not_placed" as const, reason: null },
+  ];
+
   return {
     accountabilityCheckInCommitments: [],
+    circlePlacements,
     accountabilityCheckIns: [
       {
         checkInDate: "2026-08-11",

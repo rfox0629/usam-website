@@ -2,6 +2,7 @@ import "server-only";
 
 import { normalizeConversationResponses, normalizeConversationFlowKey, normalizeRecommendedResources, type DosConversationFlowKey, type DosConversationResponses, type DosRecommendedResource } from "@/src/lib/dos/meeting-engine";
 import { decideUsamWorkspace } from "@/src/lib/dos/usam-workspace";
+import { loadConfirmedPlacements, type ConfirmedPlacement } from "@/src/lib/dos/circle-placement-store";
 import { buildFallbackCircleDataFromActivity, loadCircleData, recalculateCircleScores, type DosCircleData } from "@/src/lib/dos/circle-scoring";
 import {
   normalizeRelationshipType,
@@ -953,6 +954,9 @@ export type DosAppData = {
   assessmentResults: DosAppAssessmentResult[];
   calendarConnection: DosAppCalendarConnection;
   circles: DosCircleData | null;
+  /* USA-247: human-confirmed placement. A person absent from this list has
+     not been reviewed; DOS must not infer a circle for them. */
+  circlePlacements: ConfirmedPlacement[];
   commitments: DosAppPersonCommitment[];
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   featureFlags: DosAppFeatureFlags;
@@ -5351,6 +5355,7 @@ export async function loadDosAppData(
       assessmentResults,
       calendarConnection,
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
+      circlePlacements: await loadConfirmedPlacementsSafely(workspace.id),
       commitments,
       externalCalendarEvents,
       featureFlags,
@@ -5411,6 +5416,18 @@ export async function loadDosAppData(
     },
     status: "ready",
   };
+}
+
+/* USA-247. A deployment can be ahead of its database, and People must stay
+   readable when it is. An unreadable placement table means nobody has been
+   confirmed yet, which is also the honest answer on day one. It never means
+   "fall back to the machine assignments". */
+async function loadConfirmedPlacementsSafely(workspaceId: string): Promise<ConfirmedPlacement[]> {
+  try {
+    return await loadConfirmedPlacements(workspaceId);
+  } catch {
+    return [];
+  }
 }
 
 export async function resolveDosAppWorkspaceId(workspaceId: string) {

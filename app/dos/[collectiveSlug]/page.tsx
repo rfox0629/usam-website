@@ -240,6 +240,9 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
   return {
     accountabilityCheckInCommitments: [],
     accountabilityCheckIns: [],
+    /* Circle placement is the missionary's own and is never shared into a
+       collective view. */
+    circlePlacements: [],
     accountabilitySchedules: [],
     assessmentResults: [],
     calendarConnection: {

@@ -1,83 +1,35 @@
 import { NextResponse } from "next/server";
-import { requireDosWorkspaceRouteAccess } from "@/src/lib/dos/api-auth";
-import { canWriteDosActivity, getDosAuthorization } from "@/src/lib/dos/auth";
-import { updateCircleOverride } from "@/src/lib/dos/circle-scoring";
-import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 
-const circles = ["three", "twelve", "seventy", "my_120", "field"] as const;
+/* USA-247. Retired.
+ *
+ * This route was the old way to confirm a circle: it upserted a single row in
+ * dos_circle_overrides, overwriting whatever was there, and "unlocking" someone
+ * DELETED the row outright. Neither is acceptable under the approved contract,
+ * which requires effective-dated history, a reviewed-but-not-placed state, and
+ * cumulative capacity enforced inside one transaction.
+ *
+ * Confirmed placement now lives in dos_circle_placements and is written only by
+ * POST /api/dos/app/circle-placements, which calls dos_confirm_circle_placements.
+ *
+ * The route is kept as an explicit refusal rather than deleted so that any stale
+ * client, bookmark or retry fails loudly and visibly instead of quietly writing
+ * to a table nothing reads. It cannot revive machine placement because it no
+ * longer writes anything at all.
+ */
 
-function asString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+const retired = {
+  error: "Circle placement moved. Use Manage circles, which records who confirmed the placement and when, and keeps the previous one.",
+  movedTo: "/api/dos/app/circle-placements",
+};
+
+export async function PATCH() {
+  return NextResponse.json(retired, { status: 410 });
 }
 
-function asCircle(value: unknown) {
-  const nextValue = asString(value);
-
-  return circles.includes(nextValue as typeof circles[number]) ? nextValue as typeof circles[number] : null;
+export async function POST() {
+  return NextResponse.json(retired, { status: 410 });
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-async function authorizeWrite() {
-  const authorization = await getDosAuthorization();
-
-  if (authorization.status === "unauthenticated") {
-    return { response: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
-  }
-
-  if (authorization.status === "configuration_error") {
-    return { response: NextResponse.json({ error: authorization.message }, { status: 500 }) };
-  }
-
-  if (authorization.status === "unauthorized" || !canWriteDosActivity(authorization)) {
-    return { response: NextResponse.json({ error: "DOS write access required." }, { status: 403 }) };
-  }
-
-  return { authorization };
-}
-
-export async function PATCH(request: Request) {
-  const authResult = await authorizeWrite();
-
-  if ("response" in authResult) {
-    return authResult.response;
-  }
-
-  let payload: Record<string, unknown>;
-
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-  }
-
-  const workspaceId = await resolveDosAppWorkspaceId(asString(payload.workspaceId));
-  const personId = asString(payload.personId);
-  const circle = asCircle(payload.circle);
-  const locked = payload.locked !== false;
-
-  if (!workspaceId || !isUuid(personId) || !circle) {
-    return NextResponse.json({ error: "Person and circle are required." }, { status: 400 });
-  }
-
-  const workspaceAccess = await requireDosWorkspaceRouteAccess(authResult.authorization, workspaceId);
-
-  if ("response" in workspaceAccess) {
-    return workspaceAccess.response;
-  }
-
-  try {
-    return NextResponse.json(await updateCircleOverride({
-      circle,
-      createdBy: authResult.authorization.userId,
-      locked,
-      personId,
-      reason: asString(payload.reason),
-      workspaceId,
-    }));
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update circle pin." }, { status: 500 });
-  }
+export async function DELETE() {
+  return NextResponse.json(retired, { status: 410 });
 }

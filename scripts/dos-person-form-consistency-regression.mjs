@@ -240,7 +240,7 @@ assert.ok(
     && !client.includes("flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-1 border bg-white px-4 text-dos-label"),
   "the full-width Show household row beneath Search is gone",
 );
-const peopleFilterBlock = client.slice(client.indexOf('<PillRail edgeInset={4} label="Field circles"') - 1200, client.indexOf('<PillRail edgeInset={4} label="Field circles"') + 2200);
+const peopleFilterBlock = client.slice(client.indexOf('<PillRail edgeInset={4} label="Field circles"') - 1400, client.indexOf('<PillRail edgeInset={4} label="Field circles"') + 3400);
 assert.ok(
   peopleFilterBlock.indexOf('label="Field circles"') < peopleFilterBlock.indexOf('aria-pressed={showSecondaryFieldPeople}'),
   "the household control sits immediately after the circle rail, not above it",
