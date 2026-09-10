@@ -75,7 +75,7 @@ No yellow, amber, orange, or red anywhere in Reports or on Home. Blue (`dos-blue
 - Production start times are a synthetic noon on every logged meeting, which is why the report says "logged duration" and never implies clock-in / clock-out. Production also has no `table_role` column, so every production meeting lands under *Time I invested* until that column exists.
 - My Record must be reconciled to the Person relationship (registry §5.2) before the My Record fallback and Dirk's conflict warning can be retired.
 - Custom range dates use the browser's local calendar.
-- Pre-existing, outside this PR: reloading the DOS app while on any non-Home view (Meetings, More → Reports, and so on) logs a React hydration mismatch (#418) because the persisted-view restore (`readPersistedAppView`, from USA-246, present on `main` before this work) reads browser storage during the first render. React recovers by re-rendering on the client; the page works. It reproduces with the untouched Meetings tab. A follow-up should restore the view in an effect after hydration.
+- Reloading on a non-Home view used to log a React hydration mismatch (USA-261: the persisted view was read from session storage during the first render). Fixed on 2026-09-10: the view now starts at its defaults and is restored in a layout effect after hydration, before the first paint; a missing or invalid saved view leaves the defaults in place.
 
 ---
 
@@ -120,4 +120,4 @@ Each of the three lists laid its rows out with a desktop grid whose column minim
 - **Imported feedback forms** are not a fruit source (USA-264, 2026-09-10). A review carrying `legacyForm`, such as Danny Lundquist's Planning Center reflection (submission 42200110), is Feedback on the Person and never a Ministry Fruit row, Fruit count, total or upward figure. Fruit recorded independently for the same person still counts. Guarded behaviourally in §16b of the report regression, including a probe proving the exclusion is by provenance.
 - **Production fruit sources today:** 38 leader-observed fruit events (all *Observed*), 4 submitted reviews, 0 testimonies, 0 fruit stories, 3 completed Journey sessions (one is Ryan's own record).
 - Production still has no `table_role` column and no Person marked "They are discipling me", so Dirk's and Marty's rows keep the My Record label with *Not confirmed* until their Person records are set.
-- Authenticated production UI verification remains blocked (Claude in Chrome not connected); the pre-existing reload hydration mismatch is USA-261.
+- Authenticated production UI verification remains blocked (Claude in Chrome not connected). The reload hydration mismatch (USA-261) is fixed in the follow-up branch `ryan/usa-261-hydration-safe-view-restore`.

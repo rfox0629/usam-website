@@ -26,7 +26,7 @@ assert(
 assert(client.includes('{ icon: "people", label: "People", type: "tab", value: "people" }'), "Desktop navigation must use the same product-facing name.");
 
 // 2. Home stays the landing screen and keeps its own surfaces.
-assert(client.includes('useState<ActiveTab>(restoredAppView.activeTab ?? "home")'), "Home remains the default landing destination.");
+assert(client.includes('useState<ActiveTab>("home")'), "Home remains the default landing destination.");
 assert(client.includes("<CircleFocusHero"), "The Home bullseye stays.");
 for (const action of ["Log Meeting", "Schedule Meeting", "Add Person"]) {
   assert(client.includes(`label: "${action}"`), `Home quick action ${action} must remain.`);
@@ -65,8 +65,18 @@ assert(
   client.includes("if (selectedPersonId && people.length && !people.some((person) => person.id === selectedPersonId)) {"),
   "A restored person must be re-validated against this workspace's people.",
 );
-assert(client.includes("useState<MeetingsView>(restoredAppView.meetingsView ?? \"calendar\")"), "The Meetings subview must survive a refresh.");
-assert(client.includes("restoredAppView.meetingsCalendarDate ?? calendarDateKey(new Date())"), "The selected calendar date must survive a refresh.");
+// USA-261: the saved view is restored after hydration, never read during a render.
+const restoreEffect = client.slice(client.indexOf("useLayoutEffect(() => {\n    const restored = readPersistedAppView(data.workspace.id);"), client.indexOf("setIsViewRestored(true);"));
+assert(restoreEffect.length > 0, "The saved view must be restored in a layout effect after hydration (USA-261).");
+assert(restoreEffect.includes("setActiveTab(restoredTab)"), "The tab must survive a refresh.");
+assert(restoreEffect.includes("setMeetingsView(restored.meetingsView)"), "The Meetings subview must survive a refresh.");
+assert(restoreEffect.includes("setSelectedMeetingsCalendarDate(restored.meetingsCalendarDate)") && restoreEffect.includes("setMeetingsCalendarMonth(startOfCalendarMonth(dateFromCalendarKey(restored.meetingsCalendarDate)))"), "The selected calendar date (and its month) must survive a refresh.");
+assert(restoreEffect.includes("setSelectedPersonId(restored.selectedPersonId)"), "The open Person must survive a refresh.");
+assert(restoreEffect.includes("setMoreAppView(restoredMoreApp)"), "The open More app must survive a refresh.");
+assert(restoreEffect.includes("bareMoreTab && desktop"), "A saved bare More tab stays on the Dashboard on desktop (spec §5.7).");
+assert((client.match(/readPersistedAppView\(/g) ?? []).length === 2, "readPersistedAppView is defined once and called once, from the restore effect.");
+assert(!/use(?:Ref|State|Memo)\([^\n]*readPersistedAppView\(/.test(client), "Storage must never be read during a render: that is the USA-261 hydration mismatch.");
+assert(client.includes("if (!isViewRestored) {\n      return;\n    }\n\n    if (selectedPersonId && people.length"), "The defaults must never be persisted over the saved view before it is restored.");
 assert(client.includes("catch {\n    /* A browser that refuses session storage simply gets today's behaviour. */"), "Storage failure must degrade, never throw.");
 
 // 5. A failed save keeps the user on the form with their work.
