@@ -695,3 +695,41 @@ export function DosDetailSection({ children, label }: { children: ReactNode; lab
     </section>
   );
 }
+
+/* USA-270: unsaved-work protection for a surface that holds work but is not
+ * Sheet or DosWorkflowPage -- My Record's side drawer and its inline editor.
+ *
+ * It is Sheet's composition exactly: the interaction-gated baseline
+ * (useSurfaceBaseline), the rendered-control snapshot (readSurfaceValues),
+ * surfaceIsDirty and the one guard (useUnsavedWorkGuard). It is gathered here
+ * so such a surface uses the shared pieces rather than growing a parallel
+ * copy. Sheet and DosWorkflowPage keep their own composition, which
+ * regression scripts pin.
+ *
+ * markSaved is savedRevision without waiting for a render. A form that saves
+ * and then closes itself in the same tick must find the surface already
+ * clean, so its close leaves silently; the next interaction starts a new
+ * baseline, so later edits are protected again. Call it only after a save
+ * that succeeded -- a failed save leaves the baseline, and the protection,
+ * where they are. */
+export function useEditableSurface({
+  kind,
+  onClose,
+  rootRef,
+}: {
+  kind: DosSurfaceKind;
+  onClose: () => void;
+  rootRef: RefObject<HTMLElement | null>;
+}) {
+  const baselineRef = useSurfaceBaseline(rootRef, kind === "editable", undefined);
+  const guard = useUnsavedWorkGuard({
+    getIsDirty: () => kind === "editable" && surfaceIsDirty(baselineRef.current, readSurfaceValues(rootRef.current)),
+    onExit: onClose,
+  });
+
+  function markSaved() {
+    baselineRef.current = null;
+  }
+
+  return { ...guard, markSaved };
+}

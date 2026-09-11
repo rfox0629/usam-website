@@ -2604,7 +2604,23 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
           updatedAt: daysAgoIso(40),
         },
       ],
-      prayerLogs: [],
+      /* USA-270: one logged prayer, so the Prayer editor (reached by editing a
+         logged prayer) can be exercised. Older than the Recent list. Demo
+         wording only. */
+      prayerLogs: [
+        {
+          answeredAt: null,
+          answeredStatus: "watching",
+          createdAt: daysAgoIso(20),
+          fieldPersonId: null,
+          id: "demo-my-record-prayer-log",
+          minutesSpent: 20,
+          notes: "Kept the morning quiet before the week began.",
+          prayedAt: daysAgoIso(20),
+          prayerFocus: "Rest for the team before the fall launch",
+          updatedAt: daysAgoIso(20),
+        },
+      ],
       propheticWords: [
         {
           confirmations: "Confirmed through counsel from the person discipling me and John 15.",
