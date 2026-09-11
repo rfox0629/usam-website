@@ -3,8 +3,8 @@
 import { ArrowLeft, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode } from "react";
-import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
+import type { ReactNode, RefObject } from "react";
+import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, isViewingControl, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 
 /* The DOS overlay primitives and the single unsaved-work guard. Moved verbatim
  * from app/dos/app/DosMvpAppClient.tsx in USA-211 (spec §3, B7). The order of
@@ -25,6 +25,7 @@ export function DosWorkflowPage({
   identity,
   isDirty,
   onClose,
+  savedRevision,
   subtitle,
   title,
 }: {
@@ -42,22 +43,22 @@ export function DosWorkflowPage({
      it keep the snapshot comparison, unchanged. */
   isDirty?: () => boolean;
   onClose: () => void;
+  /* Bump after a successful save that leaves the screen open: the values on
+     screen are now the saved ones, so they become the new baseline and a
+     close that follows with no further edit leaves without a warning. Only
+     bump when everything on the screen was saved; a surface holding an
+     unrelated draft must not re-baseline that draft away. */
+  savedRevision?: number | string;
   subtitle?: string;
   title: string;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
+  const initialValuesRef = useSurfaceBaseline(bodyRef, true, savedRevision);
   const guard = useUnsavedWorkGuard({
     copy: discardCopy,
-    getIsDirty: () => (isDirty ? isDirty() : formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current))),
+    getIsDirty: () => (isDirty ? isDirty() : surfaceIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current))),
     onExit: onClose,
   });
-
-  useEffect(() => {
-    if (initialValuesRef.current === null) {
-      initialValuesRef.current = readSurfaceValues(bodyRef.current);
-    }
-  }, []);
 
   const requestClose = guard.requestExit;
 
@@ -257,20 +258,112 @@ export function readSurfaceValues(root: HTMLElement | null) {
 
   const values: Record<string, unknown> = {};
 
+  /* A search box, a filter, an expander only change what the surface
+     shows; they are never unsaved work (founder, 2026-09-11). Keys prefer a
+     stable identity over the position in the tree, so a list that grows by
+     one row does not shift every later field into looking changed. */
   root.querySelectorAll("input, textarea, select").forEach((node, index) => {
     const field = node as HTMLInputElement;
-    const key = field.name || `${field.tagName}:${index}`;
+
+    if (isViewingControl(field)) {
+      return;
+    }
+
+    const key = field.name || field.id || field.getAttribute("aria-label") || `${field.tagName}:${index}`;
 
     values[key] = field.type === "checkbox" || field.type === "radio" ? field.checked : field.value;
   });
 
   /* The DOS pickers are buttons carrying aria-pressed, not inputs, so a
-     changed relationship or context would otherwise read as clean. */
+     changed relationship or context would otherwise read as clean. Filter
+     buttons carry the same attribute; a surface marks them as viewing
+     controls and they are skipped. */
   root.querySelectorAll("[aria-pressed]").forEach((node, index) => {
-    values[`pressed:${index}`] = node.getAttribute("aria-pressed");
+    if (isViewingControl(node as HTMLElement)) {
+      return;
+    }
+
+    const key = node.getAttribute("aria-label") || node.getAttribute("name") || (node.textContent ?? "").trim().slice(0, 40) || String(index);
+
+    values[`pressed:${key}`] = node.getAttribute("aria-pressed");
   });
 
   return values;
+}
+
+/* The unsaved-work baseline for a surface.
+ *
+ * Work begins with the user's first interaction, and the baseline is what the
+ * surface showed at that instant. Until then the surface is clean: every
+ * earlier render is the surface setting itself up (a date filled in by an
+ * effect, a default duration, a hidden field that follows state), and those
+ * happen in child components whose renders the primitive never sees. A
+ * snapshot taken on the primitive's first commit was the root of the false
+ * "unsaved changes" warnings across DOS (USA-269): the form finished
+ * initialising after it, and the difference read as work.
+ *
+ * pointerdown, keydown and focusin all fire before a control's value changes,
+ * so the baseline never includes the first keystroke, tap or pasted value.
+ * (focusin covers entry that arrives without a key or pointer, such as a
+ * pasted or autofilled value; a field the surface focuses on its own does so
+ * before this listener exists, so that focus never starts a baseline.) A successful save that
+ * keeps the surface open bumps savedRevision: the baseline is dropped, the
+ * surface is clean again, and the next interaction starts a new baseline, so
+ * a close with no further edit leaves silently and a later edit is protected. */
+function useSurfaceBaseline(rootRef: RefObject<HTMLElement | null>, enabled: boolean, savedRevision: number | string | undefined) {
+  const baselineRef = useRef<Record<string, unknown> | null>(null);
+  const revisionRef = useRef(savedRevision);
+  const listeningRef = useRef<HTMLElement | null>(null);
+
+  /* After every commit, because the root may appear later than the first one
+     (a sheet renders through a portal once mounted). */
+  useEffect(() => {
+    const root = rootRef.current;
+
+    if (!enabled || !root || listeningRef.current === root) {
+      return;
+    }
+
+    listeningRef.current = root;
+
+    for (const type of ["pointerdown", "keydown", "focusin"]) {
+      root.addEventListener(type, captureBaseline, true);
+    }
+  });
+
+  useEffect(() => () => {
+    const root = listeningRef.current;
+
+    if (root) {
+      for (const type of ["pointerdown", "keydown", "focusin"]) {
+        root.removeEventListener(type, captureBaseline, true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (savedRevision === undefined || revisionRef.current === savedRevision) {
+      revisionRef.current = savedRevision;
+      return;
+    }
+
+    revisionRef.current = savedRevision;
+    baselineRef.current = null;
+  }, [savedRevision]);
+
+  function captureBaseline() {
+    if (baselineRef.current === null && listeningRef.current) {
+      baselineRef.current = readSurfaceValues(listeningRef.current);
+    }
+  }
+
+  return baselineRef;
+}
+
+/* Clean until the user has interacted; afterwards, compared with what the
+   surface showed at that first interaction. */
+function surfaceIsDirty(baseline: Record<string, unknown> | null, current: Record<string, unknown>) {
+  return baseline !== null && formIsDirty(baseline, current);
 }
 
 /* A Sheet declares what it is, and its dismissal rules follow.
@@ -289,8 +382,10 @@ export function readSurfaceValues(root: HTMLElement | null) {
 export function Sheet({
   children,
   description,
+  isDirty,
   kind = "inspection",
   onClose,
+  savedRevision,
   showEyebrow = false,
   showHeader = true,
   size = "default",
@@ -298,8 +393,15 @@ export function Sheet({
 }: {
   children: ReactNode;
   description?: string;
+  /* An editable sheet that knows exactly what its unsaved work is may say so;
+     the rendered-control snapshot is then not consulted. */
+  isDirty?: () => boolean;
   kind?: DosSurfaceKind;
   onClose: () => void;
+  /* Bump after a successful save that leaves the sheet open with the saved
+     values on screen; they become the new baseline. Bump only when everything
+     on the sheet was saved. */
+  savedRevision?: number | string;
   showEyebrow?: boolean;
   showHeader?: boolean;
   size?: "default" | "wide";
@@ -307,24 +409,15 @@ export function Sheet({
 }) {
   const [isMounted, setIsMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const initialValuesRef = useRef<Record<string, unknown> | null>(null);
+  const initialValuesRef = useSurfaceBaseline(panelRef, kind === "editable", savedRevision);
   const guard = useUnsavedWorkGuard({
-    getIsDirty: () => kind === "editable" && formIsDirty(initialValuesRef.current, readSurfaceValues(panelRef.current)),
+    getIsDirty: () => kind === "editable" && (isDirty ? isDirty() : surfaceIsDirty(initialValuesRef.current, readSurfaceValues(panelRef.current))),
     onExit: onClose,
   });
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
-
-  /* Snapshot what the sheet opened with, once it has rendered. Everything the
-     user does afterwards is measured against this, so typing a word and
-     deleting it again leaves the sheet clean. */
-  useEffect(() => {
-    if (isMounted && kind === "editable" && initialValuesRef.current === null) {
-      initialValuesRef.current = readSurfaceValues(panelRef.current);
-    }
-  }, [isMounted, kind]);
 
   /* Every deliberate exit -- X, Escape, and whatever the caller wires to
      onClose -- comes through here. A clean sheet closes silently; a sheet
