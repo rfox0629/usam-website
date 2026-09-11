@@ -2519,7 +2519,57 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         },
       ],
       lifePlan: null,
-      mentorMeetings: [],
+      /* USA-265: discipleship meetings logged in My Record. Dirk's reach his
+         Person record and the report through the saved relationship; Marty's
+         carries its own Person link, and one keeps text from the earlier
+         separate fields. Demo wording only. */
+      mentorMeetings: [
+        {
+          actionSteps: null,
+          counselReceived: null,
+          createdAt: daysAgoIso(2),
+          discussed: null,
+          durationMinutes: 70,
+          fieldPersonId: "demo-person-dirk-bond",
+          followUpDate: null,
+          id: "demo-my-record-discipleship-meeting-dirk-recent",
+          meetingDate: daysAgoIso(2).slice(0, 10),
+          mentorName: "Dirk Bond",
+          notes: "Talked through rest and pace. Taking a real Sabbath this week.",
+          relationshipId: "demo-my-record-discipling-me-dirk",
+          updatedAt: daysAgoIso(2),
+        },
+        {
+          actionSteps: "Read Psalm 23 each morning.",
+          counselReceived: null,
+          createdAt: daysAgoIso(14),
+          discussed: "Leading from rest rather than urgency.",
+          durationMinutes: 120,
+          fieldPersonId: null,
+          followUpDate: null,
+          id: "demo-my-record-discipleship-meeting-dirk-earlier",
+          meetingDate: daysAgoIso(14).slice(0, 10),
+          mentorName: "Dirk Bond",
+          notes: null,
+          relationshipId: "demo-my-record-discipling-me-dirk",
+          updatedAt: daysAgoIso(14),
+        },
+        {
+          actionSteps: null,
+          counselReceived: null,
+          createdAt: daysAgoIso(4),
+          discussed: null,
+          durationMinutes: 60,
+          fieldPersonId: "demo-person-marty-vanderzanden",
+          followUpDate: null,
+          id: "demo-my-record-discipleship-meeting-marty",
+          meetingDate: daysAgoIso(4).slice(0, 10),
+          mentorName: "Marty Vanderzanden",
+          notes: "Prayed together about the fall launch.",
+          relationshipId: null,
+          updatedAt: daysAgoIso(4),
+        },
+      ],
       /* USA-251: the confirmed relationship that makes Dirk "Discipling me".
          The stored label is the legacy "Mentor"; it is rendered in
          discipleship language (USA-260). */

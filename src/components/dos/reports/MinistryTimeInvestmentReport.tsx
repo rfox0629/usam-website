@@ -151,7 +151,7 @@ function RowDetail({
   onOpenPerson,
   row,
 }: {
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void;
   onOpenPerson: (personId: string) => void;
   row: DosMinistryPersonRow;
 }) {
@@ -200,8 +200,8 @@ function RowDetail({
                     {record.kind === "check_in" ? " · not a meeting, not contact time" : ""}
                   </span>
                 </span>
-                <Button compact onClick={() => (record.open.kind === "meeting" ? onOpenMeeting(record.open.id) : onOpenPerson(record.open.id))} variant="secondary">
-                  {record.open.kind === "meeting" ? "Open meeting" : "Open person"}
+                <Button compact onClick={() => (record.open.kind === "person" ? onOpenPerson(record.open.id) : onOpenMeeting(record.open.id, record.open.kind))} variant="secondary">
+                  {record.open.kind === "person" ? "Open person" : "Open meeting"}
                 </Button>
               </li>
             ))}
@@ -226,7 +226,7 @@ function PersonRow({
   row,
 }: {
   expanded: boolean;
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void;
   onOpenPerson: (personId: string) => void;
   onToggle: () => void;
   row: DosMinistryPersonRow;
@@ -286,7 +286,7 @@ function PersonRow({
   );
 }
 
-function FruitTable({ onOpenMeeting, rows }: { onOpenMeeting: (meetingId: string) => void; rows: DosMinistryFruitRow[] }) {
+function FruitTable({ onOpenMeeting, rows }: { onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void; rows: DosMinistryFruitRow[] }) {
   if (!rows.length) {
     return (
       <div className="rounded-dos-2 border border-dos-line bg-white px-4 py-5 text-dos-body text-dos-secondary">
@@ -346,7 +346,7 @@ export function MinistryTimeInvestmentReport({
   input: Omit<DosMinistryReportInput, "now" | "period" | "range">;
   /* Injected so the visual suite's pinned clock applies. */
   now: Date;
-  onOpenMeeting: (meetingId: string) => void;
+  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void;
   onOpenPerson: (personId: string) => void;
 }) {
   const [range, setRange] = useState<DosMinistryReportRange>(dosMinistryReportDefaultRange);
