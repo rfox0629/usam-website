@@ -1,0 +1,433 @@
+# Route Ownership Manifest — rfox0629/usam-website
+#
+# EVERY route family below was verified to exist at commit b90dbc72183a.
+# Routes that appear in planning documents but do NOT exist are recorded in the
+# `absent_routes` section rather than invented here.
+#
+# This file changes nothing. No route, middleware, host-routing, or domain change.
+
+version: 1
+generated: '2026-07-28'
+evidence_commit: b90dbc72183a
+verification_method: >-
+  find app -name page.tsx / route.ts, normalized to route patterns.
+  83 page.tsx and 88 route.ts files enumerated.
+
+routes:
+
+  # ---- USAM public web ----
+  - pattern: /
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [missionary_profiles, missionary_households]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /mission
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: []
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /missionaries
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [missionary_profiles, missionary_people, missionary_households]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+    notes: Public missionary profiles; slug-addressed (e.g. fox-family).
+
+  - pattern: /missionary-intake
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [usam_missionary_applications]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /missionary-team
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [missionary_team_members]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+    notes: 5 LOC — effectively a stub/redirect.
+
+  - pattern: /partners
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: gated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    rewrite_expectations: >-
+      middleware.ts rewrites to /partners/gate unless PARTNERS_ACCESS_COOKIE validates.
+    database_coupling: [partners_documents]
+    auth_coupling: cookie-gate
+    migration_risk: medium
+    implementation_status: implemented
+
+  - pattern: /vision
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: gated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    rewrite_expectations: >-
+      middleware.ts rewrites to /vision/gate unless VISION_ACCESS_COOKIE validates.
+      /board-briefing 308-redirects to /vision.
+    database_coupling: []
+    auth_coupling: cookie-gate
+    migration_risk: medium
+    implementation_status: implemented
+
+  - pattern: /prayer
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [prayer_requests, prayer_partners, prayer_partner_applications]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+    notes: Shared table concern — prayer_requests is touched by dos, admin and public.
+
+  - pattern: /support
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [support_commitments, support_commitment_matches]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /join
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [usam_missionary_applications]
+    auth_coupling: none
+    migration_risk: medium
+    implementation_status: implemented
+    notes: Imports 2 modules from src/lib/dos — a cross-boundary import to remove in Stage B.
+
+  - pattern: /financialfreedom
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [financial_freedom_inquiries, financial_freedom_uploads]
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /briefing
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: false
+    database_coupling: []
+    auth_coupling: none
+    migration_risk: low
+    implementation_status: implemented
+
+  - pattern: /system
+    current_owner: usam-public-web
+    desired_owner: usam-public-web
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [system_access_codes]
+    auth_coupling: access-code
+    migration_risk: low
+    implementation_status: implemented
+    notes: >-
+      PUBLIC ecosystem/system marketing surface from USA-82, plus /system/preview,
+      /system/v1, /system/v2. USA-94 CODEOWNERS misfiled this as Organization OS.
+      Imports 1 module from src/lib/dos.
+
+  # ---- Marketing surfaces (host-routed) ----
+  - pattern: /domain-sites/kitchen-table-gospel
+    current_owner: kitchen-table-gospel
+    desired_owner: kitchen-table-gospel
+    access: public
+    current_domain: kitchentablegospel.org
+    must_preserve_url: false
+    rewrite_expectations: >-
+      Reached only via host rewrite from kitchentablegospel.org / ktgospel.com.
+      Direct access returns 404 unless x-usam-domain-route is set or VERCEL_ENV=preview.
+      Non-root paths on the alternate host 308 to usamissionaries.org.
+    database_coupling: []
+    auth_coupling: none
+    analytics_exclusions: 'analyticsBrand: kitchen_table_gospel'
+    migration_risk: high
+    implementation_status: implemented
+    notes: URL is an internal implementation detail; the DOMAIN is the contract.
+
+  - pattern: /domain-sites/discipleship-operating-system
+    current_owner: dos-marketing
+    desired_owner: dos-marketing
+    access: public
+    current_domain: discipleshipoperatingsystem.com
+    must_preserve_url: false
+    rewrite_expectations: Same host-rewrite mechanism as kitchen-table-gospel.
+    database_coupling: []
+    auth_coupling: none
+    analytics_exclusions: 'analyticsBrand: discipleship_operating_system'
+    migration_risk: high
+    implementation_status: implemented
+
+  # ---- Authenticated DOS ----
+  - pattern: /dos
+    current_owner: dos-app
+    desired_owner: dos-app
+    access: authenticated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [dos_user_records, dos_groups, profiles, people]
+    auth_coupling: supabase-session
+    migration_risk: high
+    implementation_status: implemented
+    notes: >-
+      Root portal. Subtrees verified: /dos/[collectiveSlug] (+/people, /meetings),
+      /dos/app (+/preview), /dos/admin, /dos/setup, /dos/onboarding,
+      /dos/workspaces/[slug], /dos/library/marriage-assessment.
+
+  - pattern: /dos/review/[token]
+    current_owner: dos-app
+    desired_owner: dos-app
+    access: token-gated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [dos_review_links, dos_meeting_reviews]
+    auth_coupling: one-time-token
+    migration_risk: high
+    implementation_status: implemented
+    notes: Also /dos/review-options/[token], /dos/book/[token], /dos/testimony/[token].
+
+  - pattern: /groups/[slug]
+    current_owner: dos-app
+    desired_owner: dos-app
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [dos_groups, dos_group_members, dos_group_rsvps, dos_group_gatherings]
+    auth_coupling: none
+    migration_risk: high
+    implementation_status: implemented
+    notes: >-
+      PUBLIC face of DOS Community. /groups/[slug]/member is token-gated via
+      dos_group_member_access_tokens. 4,015 LOC with app/groups + src/lib/groups.
+      Lives outside app/dos and had no explicit CODEOWNERS rule.
+
+  - pattern: /guide/[slug]
+    current_owner: dos-app
+    desired_owner: dos-app
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [dos_resource_assignments, dos_guided_resource_progress]
+    auth_coupling: none
+    migration_risk: medium
+    implementation_status: implemented
+    notes: Imports 1 module from src/lib/dos.
+
+  # ---- Admin (mixed ownership) ----
+  - pattern: /admin
+    current_owner: transitional-or-unclear
+    desired_owner: usam-public-web
+    shared: true
+    access: admin
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [admin_users, form_submissions, missionary_profiles, prayer_requests]
+    auth_coupling: admin-allowlist
+    migration_risk: high
+    implementation_status: implemented
+    notes: >-
+      28,076 LOC, ~91% usam-public-web back-office. Verified subroutes:
+      applications, dashboard, feedback, financial-freedom, forms, inquiries,
+      missionary-profiles, pages, partners, partners-documents, prayer, prayer-team,
+      product-feedback, profiles, public-experience, relationship-intelligence,
+      settings, site, stewardship, stewardship-sharing, support, support-team, uploads.
+      Marked shared because /admin/organizations, /admin/people/[id],
+      /admin/workspaces/[id]/preview and /admin/finance belong to organization-platform.
+
+  - pattern: /admin/organizations
+    current_owner: organization-platform
+    desired_owner: organization-platform
+    access: admin
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [organizations, organization_memberships]
+    auth_coupling: admin-allowlist
+    migration_risk: low
+    implementation_status: preview-only
+    notes: >-
+      Renders a hardcoded previewOrganizations array (isPreviewOnly:true).
+      /admin/organizations/[id] hosts UsamOrganizationHubClient.tsx (1,560 LOC).
+      /admin/organizations/usam redirects to /admin/organizations/usa-missionaries.
+
+  - pattern: /admin/people/[id]
+    current_owner: organization-platform
+    desired_owner: organization-platform
+    access: admin
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [people, person_roles, profiles]
+    auth_coupling: admin-allowlist
+    migration_risk: low
+    implementation_status: partial
+
+  - pattern: /admin/finance
+    current_owner: organization-platform
+    desired_owner: organization-platform
+    access: admin
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [form_submissions, support_commitments, major_gift_inquiries]
+    auth_coupling: admin-allowlist
+    migration_risk: low
+    implementation_status: partial
+    notes: >-
+      Thin wrapper over OperationsInboxPage, titled "Finance Inbox | USA Missionaries".
+      A form-submission inbox, NOT a finance system. Do not treat as finance capability.
+
+  - pattern: /admin/workspaces/[id]/preview
+    current_owner: organization-platform
+    desired_owner: organization-platform
+    access: admin
+    current_domain: usamissionaries.org
+    must_preserve_url: false
+    database_coupling: [organizations]
+    auth_coupling: admin-allowlist
+    migration_risk: low
+    implementation_status: preview-only
+
+  # ---- Token-gated DOS surfaces outside app/dos ----
+  - pattern: /review/[token]
+    current_owner: transitional-or-unclear
+    desired_owner: dos-app
+    access: token-gated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [dos_review_links]
+    auth_coupling: one-time-token
+    migration_risk: medium
+    implementation_status: implemented
+    notes: 14 LOC. Top-level alias distinct from /dos/review/[token].
+
+  - pattern: /testimony/[token]
+    current_owner: transitional-or-unclear
+    desired_owner: dos-app
+    access: token-gated
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [participant_testimonies]
+    auth_coupling: one-time-token
+    migration_risk: medium
+    implementation_status: implemented
+
+  # ---- Shared platform ----
+  - pattern: /auth
+    current_owner: shared-platform
+    desired_owner: shared-platform
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: ['auth.users', profiles]
+    auth_coupling: supabase-session
+    migration_risk: critical
+    implementation_status: implemented
+    notes: /auth/callback and /auth/session. Must remain shared across all applications.
+
+  - pattern: /login
+    current_owner: shared-platform
+    desired_owner: shared-platform
+    access: public
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: ['auth.users']
+    auth_coupling: supabase-session
+    migration_risk: critical
+    implementation_status: implemented
+    notes: /update-password is the companion route.
+
+  - pattern: /api
+    current_owner: transitional-or-unclear
+    shared: true
+    desired_owner: split-by-subtree
+    access: mixed
+    current_domain: usamissionaries.org
+    must_preserve_url: true
+    database_coupling: [many]
+    auth_coupling: mixed
+    migration_risk: high
+    implementation_status: implemented
+    notes: >-
+      15 verified subtrees. dos-app: /api/dos (54 files, 14,024 LOC).
+      transitional: /api/admin (16 files, 4,741 LOC).
+      usam-public-web: /api/join, /api/prayer-requests, /api/prayer-team,
+      /api/support-commitments, /api/major-gift-inquiries, /api/form-submissions,
+      /api/missionary-profile-views, /api/partners, /api/product-feedback,
+      /api/system-preview.
+      shared-platform: /api/access, /api/partners-access, /api/vision-access.
+
+# Routes named in planning documents that DO NOT EXIST at this commit.
+# Recorded so future planning does not reintroduce them as if they were real.
+absent_routes:
+  - pattern: /about
+    status: does-not-exist
+  - pattern: /ecosystem
+    status: does-not-exist
+    note: Ecosystem content is served under /system.
+  - pattern: /community
+    status: does-not-exist
+    note: Community is implemented at /groups and inside /dos, not /community.
+  - pattern: /meetings
+    status: does-not-exist
+    note: Meetings exist only under /dos/[collectiveSlug]/meetings.
+  - pattern: /organizations
+    status: does-not-exist
+    note: Only /admin/organizations exists.
+  - pattern: /communications
+    status: does-not-exist
+  - pattern: /newsletter
+    status: does-not-exist
+    note: communications_resend_subscribers table exists; no route consumes it yet.
+  - pattern: /finance
+    status: does-not-exist
+    note: Only /admin/finance exists, and it is a form inbox.
+  - pattern: /compliance
+    status: does-not-exist
+  - pattern: /governance
+    status: does-not-exist
+  - pattern: /board-briefing
+    status: redirect-only
+    note: 308-redirects to /vision in middleware.ts. Not a page.

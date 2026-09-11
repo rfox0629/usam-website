@@ -12,6 +12,32 @@ permissions:
   contents: read
 
 jobs:
+  # Static architecture validation. Zero dependencies, no install, no build,
+  # no network, no secrets, no database. Runs independently of the main CI job
+  # so it can never delay or destabilise the product pipeline.
+  architecture:
+    name: Architecture manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate architecture manifests
+        run: npm run arch:validate
+
+      - name: Check dependency boundaries against baseline
+        run: npm run arch:deps:check
+
+      - name: Architecture tests
+        run: npm run arch:test
+
   ci:
     name: Typecheck, build, and smoke
     runs-on: ubuntu-latest
