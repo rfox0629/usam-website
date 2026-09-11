@@ -29,12 +29,29 @@
 
 export type DosSurfaceKind = "editable" | "inspection";
 
-export const discardConfirmationCopy = {
+export type DiscardConfirmationCopy = {
+  cancel: string;
+  confirm: string;
+  description: string;
+  title: string;
+};
+
+export const discardConfirmationCopy: DiscardConfirmationCopy = {
   cancel: "Keep editing",
   confirm: "Discard",
   description: "Your unsaved changes will be lost.",
   title: "Discard changes?",
-} as const;
+};
+
+/* For a screen that saves in batches and keeps what it has already saved
+   (Manage circles): leaving drops only the pending edits, and the dialog
+   says so, so nobody fears losing a placement they confirmed a minute ago. */
+export const leaveWithoutSavingCopy: DiscardConfirmationCopy = {
+  cancel: "Keep editing",
+  confirm: "Leave without saving",
+  description: "Only your unsaved changes will be lost. Saved placements will stay.",
+  title: "Leave without saving?",
+};
 
 /* Can a tap on the backdrop close this surface?
  *

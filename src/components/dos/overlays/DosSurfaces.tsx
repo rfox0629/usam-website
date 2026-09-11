@@ -4,7 +4,7 @@ import { ArrowLeft, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
-import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
+import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 
 /* The DOS overlay primitives and the single unsaved-work guard. Moved verbatim
  * from app/dos/app/DosMvpAppClient.tsx in USA-211 (spec §3, B7). The order of
@@ -19,16 +19,28 @@ const font = { rajdhani: "'Inter', sans-serif" };
  * the same DOM snapshot as Sheet, so there is one dirty-state implementation
  * for the whole application rather than one per form. */
 export function DosWorkflowPage({
+  backDisabled = false,
   children,
+  discardCopy,
   identity,
+  isDirty,
   onClose,
   subtitle,
   title,
 }: {
+  /* True while a save is in flight: Back waits rather than losing the save. */
+  backDisabled?: boolean;
   children: ReactNode;
+  /* Wording for the leave confirmation; the default is the discard copy. */
+  discardCopy?: DiscardConfirmationCopy;
   /* The record this page is about (a person's name). When set, the page uses
      the compact sticky header instead of the tall one. */
   identity?: string | null;
+  /* When a screen knows exactly what its unsaved work is (Manage circles:
+     proposed placements that differ from confirmed ones), it says so here and
+     the rendered-control snapshot is not consulted. Screens that do not pass
+     it keep the snapshot comparison, unchanged. */
+  isDirty?: () => boolean;
   onClose: () => void;
   subtitle?: string;
   title: string;
@@ -36,7 +48,8 @@ export function DosWorkflowPage({
   const bodyRef = useRef<HTMLDivElement>(null);
   const initialValuesRef = useRef<Record<string, unknown> | null>(null);
   const guard = useUnsavedWorkGuard({
-    getIsDirty: () => formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)),
+    copy: discardCopy,
+    getIsDirty: () => (isDirty ? isDirty() : formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current))),
     onExit: onClose,
   });
 
@@ -59,8 +72,10 @@ export function DosWorkflowPage({
         {identity ? (
           <header className="sticky top-0 z-10 -mx-4 mb-4 flex min-h-14 items-center gap-2 border-b border-dos-rule bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:-mx-8 md:px-8">
             <button
+              aria-disabled={backDisabled}
               aria-label="Back"
-              className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+              className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6] aria-disabled:opacity-50"
+              disabled={backDisabled}
               onClick={requestClose}
               type="button"
             >
@@ -74,8 +89,10 @@ export function DosWorkflowPage({
         ) : (
           <header>
             <button
+              aria-disabled={backDisabled}
               aria-label="Back"
-              className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+              className="-ml-2.5 flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6] aria-disabled:opacity-50"
+              disabled={backDisabled}
               onClick={requestClose}
               type="button"
             >
@@ -102,9 +119,13 @@ export function DosWorkflowPage({
  * It renders above everything, including the sheet that raised it, at a z-index
  * above Sheet's own 1000. */
 export function DiscardChangesDialog({
+  copy = discardConfirmationCopy,
   onDiscard,
   onKeepEditing,
 }: {
+  /* Defaults to the discard wording; a batch-saving screen may say "Leave
+     without saving?" instead. Keep editing stays first either way. */
+  copy?: DiscardConfirmationCopy;
   onDiscard: () => void;
   onKeepEditing: () => void;
 }) {
@@ -138,22 +159,22 @@ export function DiscardChangesDialog({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{discardConfirmationCopy.title}</h2>
-        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">{discardConfirmationCopy.description}</p>
+        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{copy.title}</h2>
+        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">{copy.description}</p>
         <div className="mt-5 grid gap-2">
           <button
             className="flex min-h-11 w-full items-center justify-center rounded-full bg-dos-blue px-4 text-[14.5px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
             onClick={onKeepEditing}
             type="button"
           >
-            {discardConfirmationCopy.cancel}
+            {copy.cancel}
           </button>
           <button
             className="flex min-h-11 w-full items-center justify-center rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
             onClick={onDiscard}
             type="button"
           >
-            {discardConfirmationCopy.confirm}
+            {copy.confirm}
           </button>
         </div>
       </div>
@@ -175,9 +196,12 @@ export function DiscardChangesDialog({
  * user left it. That is the point of guarding the exit rather than saving a
  * copy of the state and restoring it. */
 export function useUnsavedWorkGuard({
+  copy,
   getIsDirty,
   onExit,
 }: {
+  /* Optional wording for the confirmation; omitted, the discard copy is used. */
+  copy?: DiscardConfirmationCopy;
   /* A getter rather than a value: dirtiness is read from the live surface at
      the moment the user tries to leave, so nothing has to be recomputed on
      every keystroke to keep a boolean current. */
@@ -204,6 +228,7 @@ export function useUnsavedWorkGuard({
 
   const confirmation = isConfirming ? (
     <DiscardChangesDialog
+      copy={copy}
       onDiscard={() => {
         setIsConfirming(false);
         onExit();
