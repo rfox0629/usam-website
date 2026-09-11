@@ -2079,6 +2079,8 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
        Philip do not, exactly as production. The downstream reader is not
        built, so George reads "Not resolved yet" and the others "Not connected". */
     identityLinkedPersonIds: ["demo-person-george-jenko"],
+    /* The preview behaves as if the covered / Journey columns exist. */
+    gatheringJourneyFieldsSupported: true,
     accountabilityCheckIns: [
       {
         checkInDate: "2026-08-11",

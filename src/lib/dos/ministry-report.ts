@@ -222,6 +222,20 @@ export type DosMinistryFruitEntry = {
   tags: string[];
 };
 
+/* A group gathering as the report reads it (2026-09-11): who was recorded
+   present. Membership alone is not attendance; only a saved attendance row
+   with status present or guest counts, and each gathering counts once per
+   person however many times it is saved. The leader's own meeting time is
+   a separate record and is never multiplied by attendees. */
+export type DosMinistryReportGathering = {
+  attendeePersonIds: string[];
+  date: string | null;
+  groupId: string;
+  groupName: string;
+  id: string;
+  status: "canceled" | "completed" | "scheduled";
+};
+
 export type DosMinistryReportInput = {
   checkIns: DosMinistryReportCheckIn[];
   disciplingMe: DosMinistryReportDisciplingMeRelationship[];
@@ -231,6 +245,7 @@ export type DosMinistryReportInput = {
      resolver is not built yet, so this is empty in production. */
   downstreamReadPersonIds?: string[];
   fruit?: DosMinistryFruitEntry[];
+  gatherings?: DosMinistryReportGathering[];
   /* People in this workspace with a verified DOS identity link. Without one
      a person's own records cannot be reached, so multiplication reads
      "Not connected". */
@@ -320,6 +335,9 @@ export type DosMinistryReportRow = {
   downstreamStatus: DosMinistryDownstreamStatus;
   /* Fruit entries in the range that name this person. */
   fruitCount: number;
+  /* Distinct completed group gatherings in the range with this person
+     recorded present or as a guest. Not meetings, not leader time. */
+  gatheringsAttended: number;
   lastActivity: { date: string; kind: "meeting" | "check_in" } | null;
   /* Logged duration in this row's bucket, credited per person. */
   loggedMinutes: number;
@@ -385,6 +403,9 @@ export type DosMinistryFruitRow = {
 
 export type DosMinistryReportTotals = {
   checkIns: number;
+  /* Distinct completed group gatherings in the range with at least one
+     recorded attendee. */
+  gatheringsWithAttendance: number;
   investedMeetings: number;
   meetings: number;
   meetingsMissingDuration: number;
@@ -798,6 +819,17 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   const linkedPersonIds = new Set(input.linkedPersonIds ?? []);
   const downstreamReadPersonIds = new Set(input.downstreamReadPersonIds ?? []);
   const fruitRows = buildFruitRows(input, period, peopleById);
+  const gatheringsInPeriod = (input.gatherings ?? []).filter((gathering) => gathering.status === "completed" && inPeriod(dosMinistryReportDateKey(gathering.date), period));
+  const gatheringsAttendedByPerson = new Map<string, Set<string>>();
+
+  gatheringsInPeriod.forEach((gathering) => {
+    Array.from(new Set(gathering.attendeePersonIds)).forEach((personId) => {
+      const set = gatheringsAttendedByPerson.get(personId) ?? new Set<string>();
+
+      set.add(gathering.id);
+      gatheringsAttendedByPerson.set(personId, set);
+    });
+  });
   const fruitCountByPerson = new Map<string, number>();
 
   fruitRows.forEach((row) => {
@@ -966,6 +998,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       downstream,
       downstreamStatus,
       fruitCount: fruitCountByPerson.get(person.id) ?? 0,
+      gatheringsAttended: gatheringsAttendedByPerson.get(person.id)?.size ?? 0,
       lastActivity,
       loggedMinutes,
       meetingCount: meetingRecords.length,
@@ -1001,8 +1034,8 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   /* The primary table: one row per person. */
   const rows = activePeople
     .map((person) => mergePersonRows(person, buildRow(person, "invested"), buildRow(person, "received"), buildRow(person, "unresolved")))
-    .filter((row) => row.meetingCount > 0 || row.checkInCount > 0 || row.direction !== "none")
-    .sort((first, second) => second.loggedMinutes - first.loggedMinutes || second.meetingCount - first.meetingCount || first.personName.localeCompare(second.personName));
+    .filter((row) => row.meetingCount > 0 || row.checkInCount > 0 || row.gatheringsAttended > 0 || row.direction !== "none")
+    .sort((first, second) => second.loggedMinutes - first.loggedMinutes || second.meetingCount - first.meetingCount || second.gatheringsAttended - first.gatheringsAttended || first.personName.localeCompare(second.personName));
 
   const inBucket = (bucket: DosMinistryTimeBucket) => qualifyingMeetings.filter((meeting) => bucketOf(meeting) === bucket);
   const sumUnique = (meetings: DosMinistryReportMeeting[]) => meetings.reduce((sum, meeting) => sum + (dosLoggedMeetingMinutes(meeting) ?? 0), 0);
@@ -1011,6 +1044,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   const unresolvedMeetings = inBucket("unresolved");
   const totals: DosMinistryReportTotals = {
     checkIns: qualifyingCheckIns.length,
+    gatheringsWithAttendance: gatheringsInPeriod.filter((gathering) => gathering.attendeePersonIds.length > 0).length,
     investedMeetings: investedMeetings.length,
     meetings: qualifyingMeetings.length,
     meetingsMissingDuration: qualifyingMeetings.filter((meeting) => dosLoggedMeetingMinutes(meeting) === null).length,
@@ -1090,6 +1124,7 @@ function mergePersonRows(person: DosMinistryReportPerson, invested: DosMinistryR
     downstream: invested.downstream,
     downstreamStatus: invested.downstreamStatus,
     fruitCount: invested.fruitCount,
+    gatheringsAttended: invested.gatheringsAttended,
     lastActivity,
     loggedMinutes: invested.loggedMinutes + received.loggedMinutes + unresolved.loggedMinutes,
     meetingCount: meetingRecords.length,
@@ -1322,7 +1357,7 @@ export function dosUpstreamViewers(
 
 /* ---------- adapter from the loaded workspace data ---------- */
 
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilitySchedule, DosAppFruit, DosAppFruitEvent, DosAppGuidedResourceProgress, DosAppMeeting, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppUserMentorMeeting, DosAppUserMentorRelationship } from "./missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilitySchedule, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGuidedResourceProgress, DosAppMeeting, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppUserMentorMeeting, DosAppUserMentorRelationship } from "./missionary-app";
 
 /* USA-265: the Person a My Record discipleship meeting belongs to. The
    meeting's own stored link, else its saved relationship's; never a name
@@ -1469,6 +1504,19 @@ export function dosMinistryFruitEntriesFromAppData({
   ];
 }
 
+/* Group gatherings narrowed to what the report reads: the gathering's date
+   and who was recorded present. Notes, prayer, and follow-up never enter. */
+export function dosMinistryGatheringsFromAppData(groups: DosAppGroup[]): DosMinistryReportGathering[] {
+  return groups.flatMap((group) => group.gatherings.map((gathering) => ({
+    attendeePersonIds: gathering.attendance.filter((row) => row.status === "present" || row.status === "guest").map((row) => row.personId),
+    date: gathering.completedAt ?? gathering.startsAt,
+    groupId: group.id,
+    groupName: group.name,
+    id: gathering.id,
+    status: gathering.status,
+  })));
+}
+
 export function dosMinistryReportInputFromAppData({
   accountabilityCheckIns,
   accountabilitySchedules,
@@ -1477,6 +1525,7 @@ export function dosMinistryReportInputFromAppData({
   downstream,
   downstreamReadPersonIds,
   fruit,
+  gatherings,
   linkedPersonIds,
   meetings,
   people,
@@ -1489,6 +1538,7 @@ export function dosMinistryReportInputFromAppData({
   downstream?: DosResolvedDownstreamRelationship[];
   downstreamReadPersonIds?: string[];
   fruit?: DosMinistryFruitEntry[];
+  gatherings?: DosMinistryReportGathering[];
   linkedPersonIds?: string[];
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
@@ -1496,6 +1546,7 @@ export function dosMinistryReportInputFromAppData({
   return {
     downstreamReadPersonIds: downstreamReadPersonIds ?? [],
     fruit: fruit ?? [],
+    gatherings: gatherings ?? [],
     linkedPersonIds: linkedPersonIds ?? [],
     checkIns: accountabilityCheckIns.map((checkIn) => ({
       checkInDate: checkIn.checkInDate,

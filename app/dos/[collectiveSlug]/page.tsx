@@ -243,6 +243,7 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     /* Identity links are the missionary's own and are never shared into a
        collective view. */
     identityLinkedPersonIds: [],
+    gatheringJourneyFieldsSupported: data.gatheringJourneyFieldsSupported,
     /* Circle placement is the missionary's own and is never shared into a
        collective view. */
     circlePlacements: [],
