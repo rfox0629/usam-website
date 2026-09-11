@@ -215,6 +215,9 @@ type PersistedAppView = {
   /* Which More app was open, so a reload inside Reports returns to Reports
      rather than the bare More tab. */
   moreAppView: MoreAppView | null;
+  /* USA-268: set while a full record opened from Reports is showing, so a
+     reload keeps its Back to Reports and the report's scroll position. */
+  reportsReturn: { scrollTop: number } | null;
   selectedPersonId: string | null;
 };
 
@@ -239,6 +242,9 @@ function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
       ...(persistedMeetingsViews.has(parsed.meetingsView as MeetingsView) ? { meetingsView: parsed.meetingsView } : {}),
       ...(normalizeMoreAppView(parsed.moreAppView) ? { moreAppView: normalizeMoreAppView(parsed.moreAppView) } : {}),
       ...(typeof parsed.selectedPersonId === "string" ? { selectedPersonId: parsed.selectedPersonId } : {}),
+      ...(typeof parsed.reportsReturn?.scrollTop === "number" && Number.isFinite(parsed.reportsReturn.scrollTop)
+        ? { reportsReturn: { scrollTop: parsed.reportsReturn.scrollTop } }
+        : {}),
       ...(typeof parsed.meetingsCalendarDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.meetingsCalendarDate)
         ? { meetingsCalendarDate: parsed.meetingsCalendarDate }
         : {}),
@@ -15562,7 +15568,6 @@ function DesktopHomeDashboard({
           <p className="mb-2 text-xs font-semibold text-[#64748B]">
             Last 30 days · logged meetings and logged duration I invested · each meeting counted once
             {meetingActivity.uniqueLoggedMinutesReceived ? ` · ${formatDosMinistryMinutes(meetingActivity.uniqueLoggedMinutesReceived)} invested in me is in Reports` : ""}
-            {meetingActivity.unresolvedMeetings ? ` · ${meetingActivity.unresolvedMeetings} with the relationship not set in Reports` : ""}
           </p>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {meetingActivityMetrics.map((metric) => (
@@ -32735,6 +32740,7 @@ function MyRecordSheetContent({
 }
 
 function MyRecordWorkspace({
+  backLabel = "Back to More",
   errorMessage,
   fruit,
   isSubmitting,
@@ -32758,6 +32764,9 @@ function MyRecordWorkspace({
   resourceAssignments,
   tab,
 }: {
+  /* USA-268: "Back to Reports" when a discipleship meeting was opened from
+     Reports; the back control then shows on desktop too. */
+  backLabel?: string;
   errorMessage: string;
   fruit: DosAppFruit[];
   isSubmitting: boolean;
@@ -33039,8 +33048,8 @@ function MyRecordWorkspace({
           back control. USA-265 removed the white Private chip beside the title:
           it opened a panel promising sharing that does not exist. */}
       <PageHeader
-        backLabel="Back to More"
-        mobileOnlyBack
+        backLabel={backLabel}
+        mobileOnlyBack={backLabel === "Back to More"}
         onBack={onBack}
         title="My Record"
       />
@@ -35665,6 +35674,7 @@ function PersonDetailOverlay({
   reminders,
   resourceAssignments,
   onBack,
+  returnLabel = null,
   onAddCommitmentSubject,
   onAddCommitmentUpdate,
   onCheckInCommitment,
@@ -35737,6 +35747,8 @@ function PersonDetailOverlay({
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
   onBack: () => void;
+  /* USA-268: "Reports" when the record was opened from Reports. */
+  returnLabel?: string | null;
   onAddCommitmentSubject: (commitment: DosAppPersonCommitment) => void;
   onAddCommitmentUpdate: (commitment: DosAppPersonCommitment) => void;
   /* An ordinary one-time goal checks in; a count target adds progress. */
@@ -36527,7 +36539,7 @@ function PersonDetailOverlay({
           <header>
             <div className="-mx-4 flex items-center justify-between px-2 md:mx-0 md:px-0">
               <button
-                className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+                className={`flex h-11 items-center justify-center gap-1.5 rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6] ${returnLabel && activeDetailTab === "overview" ? "px-2.5 text-[13.5px] font-semibold" : "w-11"}`}
                 onClick={() => {
                   if (activeDetailTab === "overview") {
                     onBack();
@@ -36537,9 +36549,10 @@ function PersonDetailOverlay({
                   }
                 }}
                 type="button"
-                aria-label={activeDetailTab === "overview" ? "Back to people" : `Back to ${firstName}`}
+                aria-label={activeDetailTab === "overview" ? `Back to ${returnLabel ?? "people"}` : `Back to ${firstName}`}
               >
                 <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+                {returnLabel && activeDetailTab === "overview" ? <span>{returnLabel}</span> : null}
               </button>
               {/* Maintaining the record is administration, not a relationship
                   action, so Edit sits here rather than among the things you
@@ -37947,6 +37960,7 @@ function MeetingDetailOverlay({
   booking = null,
   meeting,
   onBack,
+  returnLabel = null,
   onCopyReviewLink,
   onDelete,
   onEdit,
@@ -37982,6 +37996,8 @@ function MeetingDetailOverlay({
   booking?: { linkTitle: string; needsReview: boolean; requesterName: string } | null;
   meeting: DosAppMeeting;
   onBack: () => void;
+  /* USA-268: "Reports" when the meeting was opened from Reports. */
+  returnLabel?: string | null;
   onCopyReviewLink: () => void;
   onDelete: () => void;
   onDone: () => void;
@@ -38148,12 +38164,13 @@ function MeetingDetailOverlay({
         {/* Chrome: back to the person, deeper actions behind the overflow. */}
         <header className="-mx-1 flex items-center justify-between">
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6] ${returnLabel ? "px-2.5 text-[13.5px] font-semibold" : "w-11"}`}
             onClick={onBack}
             type="button"
-            aria-label="Back"
+            aria-label={returnLabel ? `Back to ${returnLabel}` : "Back"}
           >
             <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+            {returnLabel ? <span>{returnLabel}</span> : null}
           </button>
           <button
             className="flex h-11 w-11 items-center justify-center rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6]"
@@ -38445,6 +38462,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [isTabSettling, setIsTabSettling] = useState(false);
   const tabTransitionTimeoutRef = useRef<number | null>(null);
   const [moreAppView, setMoreAppView] = useState<MoreAppView | null>(null);
+  /* USA-268: a full record opened from Reports offers Back to Reports and
+     returns to the scroll position the report was left at. The ref mirrors
+     the state for the popstate listener. */
+  const [reportsReturn, setReportsReturn] = useState<{ scrollTop: number } | null>(null);
+  const reportsReturnRef = useRef<{ scrollTop: number } | null>(null);
+  const pendingReportsScrollRef = useRef<number | null>(null);
+  const returnToReportsRef = useRef<() => void>(() => undefined);
   const [libraryResourceView, setLibraryResourceView] = useState<LibraryResourceViewState>(null);
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
@@ -38709,6 +38733,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setSelectedPersonId(restored.selectedPersonId);
     }
 
+    if (restored.reportsReturn) {
+      reportsReturnRef.current = restored.reportsReturn;
+      setReportsReturn(restored.reportsReturn);
+    }
+
     setIsViewRestored(true);
   }, [data.workspace.id]);
 
@@ -38731,9 +38760,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       meetingsCalendarDate: selectedMeetingsCalendarDate,
       meetingsView,
       moreAppView: activeTab === "more" ? moreAppView : null,
+      reportsReturn,
       selectedPersonId,
     });
-  }, [activeTab, data.workspace.id, isViewRestored, meetingsView, moreAppView, people, selectedMeetingsCalendarDate, selectedPersonId]);
+  }, [activeTab, data.workspace.id, isViewRestored, meetingsView, moreAppView, people, reportsReturn, selectedMeetingsCalendarDate, selectedPersonId]);
 
   /* Desktop has no launcher screen (spec §5.7, v1.1): the sidebar is the
      launcher, and the More grid mounts only on the mobile tab. So landing on
@@ -38748,6 +38778,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       selectTab("home");
     }
   }, [activeTab, isViewRestored, moreAppView]);
+
+  useEffect(() => {
+    returnToReportsRef.current = returnToReportsNow;
+  });
+
+  /* USA-268: the browser's Back from a record opened in Reports returns to
+     Reports, exactly as Back to Reports does. */
+  useEffect(() => {
+    const handlePopState = () => {
+      const state = window.history.state as { dosReturnTo?: unknown } | null;
+
+      if (reportsReturnRef.current && state?.dosReturnTo !== "reports") {
+        returnToReportsRef.current();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  /* Once Reports is showing again, restore where it was scrolled. Two frames,
+     so this lands after openMoreApp's own scroll to the top. */
+  useEffect(() => {
+    if (activeMoreAppView !== "reports" || pendingReportsScrollRef.current === null) {
+      return;
+    }
+
+    const scrollTop = pendingReportsScrollRef.current;
+
+    pendingReportsScrollRef.current = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (appScrollRef.current) {
+        appScrollRef.current.scrollTop = scrollTop;
+      }
+    }));
+  }, [activeMoreAppView]);
   const personNamesById = useMemo(() => personNameById(people), [people]);
   const groups = useMemo(() => [...data.groups, ...localGroupAdditions.filter((group) => !data.groups.some((loadedGroup) => loadedGroup.id === group.id))].map((group) => {
     const overriddenGroup = { ...group, ...(groupOverrides[group.id] ?? {}) };
@@ -39725,6 +39792,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       pulseTabTransition();
     }
 
+    clearReportsReturn();
+
 	    setActiveTab(tab);
 	    setMoreAppView(null);
     setLibraryResourceView(null);
@@ -39761,6 +39830,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function openMoreApp(view: MoreAppView) {
     const nextView = normalizeMoreAppView(view) ?? "apps";
+
+    if (nextView !== "reports") {
+      clearReportsReturn();
+    }
 
     if (activeTab !== "more" || activeMoreAppView !== nextView) {
       pulseTabTransition();
@@ -39813,6 +39886,48 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openDiscipleshipMeeting(meetingId: string) {
     setSelectedPersonId(null);
     launchMyRecordAction(`mentor_meeting:${meetingId}`);
+  }
+
+  /* USA-268: Reports leaves for a full record only from its explicit Open
+     action. The report keeps its own range, filters, sort, expanded row and
+     open detail in session storage; this remembers where it was scrolled and
+     adds one history entry, so Back to Reports and the browser's Back both
+     return to it. */
+  function openRecordFromReports(open: () => void) {
+    const scrollTop = appScrollRef.current?.scrollTop ?? 0;
+
+    open();
+    reportsReturnRef.current = { scrollTop };
+    setReportsReturn({ scrollTop });
+
+    try {
+      window.history.pushState({ ...(window.history.state ?? {}), dosReturnTo: "reports" }, "");
+    } catch {
+      /* Without history, Back to Reports still works inside the app. */
+    }
+  }
+
+  function clearReportsReturn() {
+    reportsReturnRef.current = null;
+    setReportsReturn(null);
+  }
+
+  function returnToReportsNow() {
+    pendingReportsScrollRef.current = reportsReturnRef.current?.scrollTop ?? 0;
+    clearReportsReturn();
+    setSelectedPersonId(null);
+    setSelectedMeetingId(null);
+    openMoreApp("reports");
+  }
+
+  function backToReports() {
+    if ((window.history.state as { dosReturnTo?: unknown } | null)?.dosReturnTo === "reports") {
+      /* The popstate listener returns, so the history entry is consumed. */
+      window.history.back();
+      return;
+    }
+
+    returnToReportsNow();
   }
 
   function openSubmittedReview(item: SubmittedReviewListItem) {
@@ -45746,12 +45861,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "my_record" ? (
                   <MyRecordWorkspace
+                    backLabel={reportsReturn ? "Back to Reports" : "Back to More"}
                     errorMessage={errorMessage}
                     fruit={data.fruit}
                     isSubmitting={isSubmitting}
                     launchAction={myRecordLaunchAction}
                     meetings={data.meetings}
-                    onBack={() => setMoreAppView(null)}
+                    onBack={() => (reportsReturn ? backToReports() : setMoreAppView(null))}
                     onEditResourceAssignment={openResourceAssignmentEdit}
                     onLaunchActionHandled={() => setMyRecordLaunchAction(null)}
                     onLogResourceCheckIn={openResourceAssignmentCheckIn}
@@ -46297,14 +46413,16 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
                 {activeMoreAppView === "reports" ? (
                   <div className="space-y-6">
-                    <PageHeader backLabel="Back to More" mobileOnlyBack onBack={() => setMoreAppView(null)} title="Reports" />
-                    {/* USA-251: the first Master Ministry Report. Read-only; it
-                        opens records, it never creates them. */}
+                    <PageHeader backLabel="Back to More" lede="Where your time is going, and what is happening through it." mobileOnlyBack onBack={() => setMoreAppView(null)} title="Reports" />
+                    {/* USA-251: the Master Ministry Report. Read-only; ordinary
+                        clicks open detail over the report, and only its Open
+                        actions leave for the full record (USA-268). */}
                     <MinistryTimeInvestmentReport
                       input={ministryReportInput}
                       now={reportNow}
-                      onOpenMeeting={(meetingId, kind) => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId))}
-                      onOpenPerson={openPersonDetail}
+                      onOpenMeeting={(meetingId, kind) => openRecordFromReports(() => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId)))}
+                      onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}
+                      storageKey={`dos-report-view:${data.workspace.id}`}
                     />
                   </div>
                 ) : null}
@@ -46419,7 +46537,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               reminders={data.reminders}
               personNames={personNamesById}
               resourceAssignments={selectedPersonResourceAssignments}
-            onBack={() => setSelectedPersonId(null)}
+            onBack={() => (reportsReturn ? backToReports() : setSelectedPersonId(null))}
+            returnLabel={reportsReturn ? "Reports" : null}
             onAddCommitmentSubject={openCommitmentSubject}
             onAddCommitmentUpdate={openPersonAccountabilityProgress}
             onAddAccountabilitySchedule={() => openAccountabilitySchedule(selectedPerson.id)}
@@ -46507,8 +46626,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 setActiveTab("people");
                 setSelectedPersonId(originId);
                 scrollAppToTop();
+              } else if (reportsReturn) {
+                backToReports();
               }
             }}
+            returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}
             onCopyReviewLink={() => {
               if (selectedMeetingReviewUrl) {
                 void handleCopyExistingReviewLink(selectedMeetingReviewUrl);

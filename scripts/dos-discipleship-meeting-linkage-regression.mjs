@@ -28,12 +28,12 @@ assert.ok(
   "the report reads My Record discipleship meetings and recomputes when they change",
 );
 assert.ok(
-  client.includes('onOpenMeeting={(meetingId, kind) => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId))}'),
-  "a discipleship meeting in the report opens the discipleship meeting, not a missing logged meeting",
+  client.includes('onOpenMeeting={(meetingId, kind) => openRecordFromReports(() => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId)))}'),
+  "a discipleship meeting in the report opens the discipleship meeting, not a missing logged meeting, with Back to Reports (USA-268)",
 );
 assert.ok(
-  reportUi.includes('record.open.kind === "person" ? onOpenPerson(record.open.id) : onOpenMeeting(record.open.id, record.open.kind)'),
-  "the report passes the record's kind when it opens a meeting",
+  reportUi.includes("onOpenMeeting(meeting.open.id, meeting.open.kind)"),
+  "the report passes the meeting's kind when it opens the full record",
 );
 
 /* ---- Person record ------------------------------------------------------ */

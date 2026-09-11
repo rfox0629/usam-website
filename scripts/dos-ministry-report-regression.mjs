@@ -1,16 +1,16 @@
-// USA-251 — Master Ministry Report / Time Investment.
+// USA-251 / USA-268 — Master Ministry Report / Time Investment.
 //
 // These checks hold the report contract the founder set on 2026-09-09
-// (USA-250 and the two PR #130 reviews): logged duration only; invested
-// time kept apart from time invested in the missionary; a meeting's
-// direction classified by a recorded role, else by the confirmed Person
-// direction of everyone present, else honestly "Relationship not set" (the
-// founder's 2026-09-10 wording for what was "Direction unresolved") and
-// never defaulted; check-ins separate from meetings; group time credited per
-// person but never summed as unique elapsed time; the Person record canonical
-// for direction; completeness stated rather than inferred; no circle input;
-// no multiplication without a resolved Person relationship; nothing private
-// in what flows upward.
+// (USA-250 and the two PR #130 reviews), revised on 2026-09-10 (one table)
+// and 2026-09-11 (USA-268): logged duration only; time invested kept apart
+// from time invested in the missionary; EVERY logged meeting counted exactly
+// once, in one of those two totals, whatever the relationship (a relationship
+// is never an eligibility gate); Invested in me only when a record says so;
+// check-ins separate from meetings; group time credited per person but
+// counted once as elapsed time; the Person record canonical for direction;
+// completeness stated rather than inferred; no circle input; no
+// multiplication without a resolved Person relationship; nothing private in
+// what flows upward; report-local detail that keeps the reader's place.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
@@ -18,19 +18,24 @@ import {
   buildDosSafeMinistrySummary,
   dosDiscipleshipMeetingPersonId,
   dosLoggedMeetingMinutes,
-  dosMinistryDiscipleshipMeetings,
-  dosMinistryFruitEntriesFromAppData,
-  dosMinistryReportInputFromAppData,
-  dosMinistryMultiplicationLabel,
-  dosMinistryReportFilterOptions,
-  dosMinistryRowMatchesFilter,
   dosMinistryClassifyMeeting,
   dosMinistryCompletenessLabels,
   dosMinistryDirectionForPerson,
+  dosMinistryDiscipleshipMeetings,
+  dosMinistryFruitEntriesFromAppData,
+  dosMinistryGatheringsFromAppData,
+  dosMinistryMetricDefinitions,
+  dosMinistryMultiplicationCell,
+  dosMinistryMultiplicationLabel,
   dosMinistryRelationshipDirectionLabels,
   dosMinistryReportDefaultRange,
+  dosMinistryReportDefaultSort,
+  dosMinistryReportFilterOptions,
+  dosMinistryReportInputFromAppData,
   dosMinistryReportPeriod,
   dosMinistryReportRangeOptions,
+  dosMinistryRowMatchesFilter,
+  dosMinistrySortRows,
   dosMinistryTimeBucketForRole,
   dosMinistryTimeBucketLabels,
   dosSafeMinistrySummaryExcluded,
@@ -38,6 +43,7 @@ import {
   dosUpstreamViewers,
   formatDosMinistryDate,
   formatDosMinistryMinutes,
+  formatDosMinistryPeriod,
 } from "../src/lib/dos/ministry-report.ts";
 
 const now = new Date("2026-09-09T12:00:00");
@@ -74,44 +80,37 @@ function recordedMeeting(id, offset, personIds, tableRole, minutes = 60, extra =
   return { ...legacyMeeting(id, offset, personIds, minutes), tableRole, tableRoleRecorded: true, ...extra };
 }
 
-/* The founder's production-shaped cases. */
+/* The founder's production-shaped cases. `relationshipType` (the stored
+   display summary) is deliberately present: the report must never read it. */
 const people = [
-  // Dirk discipling Ryan, confirmed on the Person record (the reconciled end state).
+  // Dirk discipling Ryan, confirmed on the Person record.
   { id: "dirk", name: "Dirk Bond", relationshipType: "Discipling me · Friend · Exploring", roleInMyLife: "mentoring_me", status: "new" },
-  // Dirk as production has him today: legacy summary says Mentor, structured role Not active, My Record says discipling me.
+  // A Person with no direction set, whom only My Record names as discipling Ryan.
   { id: "dirk-prod", name: "Dirk Bond (as stored)", relationshipType: "Mentor · Friend · Exploring", roleInMyLife: "not_active", status: "new" },
-  // Ryan discipling Tanner (production).
   { id: "tanner", name: "Tanner Kent", relationshipType: "Discipling · Family · Exploring", roleInMyLife: "discipling_them", status: "new" },
   { id: "tanner-dup", name: "Tanner Kent", relationshipType: "new", roleInMyLife: "not_active", status: "archived" },
   { id: "philip", name: "Philip John Saco", relationshipType: "Discipling · Church · Exploring", roleInMyLife: "discipling_them", status: "new" },
   { id: "naomi", name: "Naomi Lee", relationshipType: "Walking With · Friend · Exploring", roleInMyLife: "walking_with_them", status: "new" },
-  // A person with no direction at all.
-  { id: "austin", name: "Austin Clifford", relationshipType: "new", roleInMyLife: "not_active", status: "new" },
+  // New (not_active): the Samuel Gaffney / Mike Anderson case.
+  { id: "austin", name: "Austin Clifford", relationshipType: "New · Other · Exploring", roleInMyLife: "not_active", status: "new" },
   // Conflicting: the Person says I am discipling Sam; My Record says Sam is discipling me.
   { id: "sam", name: "Sam Lucas", relationshipType: "Discipling · Friend · Exploring", roleInMyLife: "discipling_them", status: "new" },
   { id: "quiet", name: "Quiet Person", relationshipType: "new", roleInMyLife: "not_active", status: "new" },
 ];
 
 const meetings = [
-  // Dirk (confirmed): a legacy one-to-one meeting -> invested in me (rule 2); a recorded being-discipled meeting -> same (rule 1);
-  // a recorded mutual meeting -> Time I invested (rule 1) despite his direction; next one scheduled.
   legacyMeeting("m-dirk-legacy", 2, ["dirk"], 60),
   recordedMeeting("m-dirk-recorded", 12, ["dirk"], "being_mentored", 120),
   recordedMeeting("m-dirk-mutual", 15, ["dirk"], "mutual_discipleship", 30),
   recordedMeeting("m-dirk-next", -5, ["dirk"], "being_mentored", 60, { meetingStatus: "scheduled" }),
-  // Dirk as stored in production: legacy meeting -> unresolved (only My Record says so).
   legacyMeeting("m-dirk-prod-legacy", 6, ["dirk-prod"], 70),
-  // Tanner: two legacy meetings, one shared with Philip (both I am discipling) -> invested (rules 3, group agreement).
   legacyMeeting("m-tanner-1", 3, ["tanner"], 90),
   legacyMeeting("m-group", 10, ["tanner", "philip"], 120),
-  // Philip: legacy meeting without a duration -> Partial.
   legacyMeeting("m-philip-no-duration", 6, ["philip"], 0),
-  // Austin: no direction -> unresolved. Sam: conflicting -> unresolved.
   legacyMeeting("m-austin", 9, ["austin"], 60),
   legacyMeeting("m-sam", 8, ["sam"], 60),
-  // Mixed directions in one legacy meeting: Tanner (I am discipling) + Dirk (discipling me) -> unresolved for both.
+  // Mixed directions in one legacy meeting: Tanner (I am discipling) + Dirk (discipling me).
   legacyMeeting("m-mixed", 18, ["tanner", "dirk"], 75),
-  // A recorded role on a mixed meeting still decides (rule 1).
   recordedMeeting("m-mixed-recorded", 20, ["tanner", "dirk"], "ministering", 40),
   // Outside the 30-day window, inside 90.
   legacyMeeting("m-naomi-old", 45, ["naomi"], 60),
@@ -125,7 +124,6 @@ const meetings = [
 const checkIns = [
   { checkInDate: day(1), durationMinutes: 20, id: "c-tanner", personId: "tanner" },
   { checkInDate: day(8), durationMinutes: null, id: "c-naomi", personId: "naomi" },
-  // A check-in with Dirk is Ryan's own activity, so it lands in invested, never in received.
   { checkInDate: day(4), durationMinutes: 10, id: "c-dirk", personId: "dirk" },
 ];
 
@@ -144,6 +142,7 @@ const downstream = [
 const schedules = [{ id: "s-naomi", nextCheckIn: day(3), personId: "naomi", status: "active" }];
 
 const build = (range, period, extra = {}) => buildDosMinistryReport({ checkIns, disciplingMe, meetings, now, people, period, range, schedules, ...extra });
+const ids = (rows) => rows.map((row) => row.personId);
 
 // 1. Ranges: 30 days by default; 7 / 30 / 90 / custom offered; inclusive local days.
 assert.equal(dosMinistryReportDefaultRange, "30d");
@@ -151,76 +150,78 @@ assert.deepEqual(dosMinistryReportRangeOptions.map((option) => option.value), ["
 assert.deepEqual(dosMinistryReportPeriod("30d", now), { end: "2026-09-09", range: "30d", start: "2026-08-11" });
 assert.deepEqual(dosMinistryReportPeriod("7d", now), { end: "2026-09-09", range: "7d", start: "2026-09-03" });
 assert.deepEqual(dosMinistryReportPeriod("custom", now, { end: "2026-08-01", start: "2026-08-31" }), { end: "2026-08-31", range: "custom", start: "2026-08-01" }, "A reversed custom range is normalised rather than rejected.");
+assert.equal(formatDosMinistryPeriod({ end: "2026-09-10", start: "2026-08-12" }), "Aug 12 – Sep 10, 2026", "The period surface states the year once.");
+assert.equal(formatDosMinistryPeriod({ end: "2026-01-05", start: "2025-12-20" }), "Dec 20, 2025 – Jan 5, 2026");
 
 const report = build("30d");
 const invested = (id) => report.investedRows.find((row) => row.personId === id);
 const received = (id) => report.receivedRows.find((row) => row.personId === id);
-const unresolved = (id) => report.unresolvedRows.find((row) => row.personId === id);
-const directionByPersonId = new Map(people.map((person) => [person.id, { ...dosMinistryDirectionForPerson(person, disciplingMe), personName: person.name }]));
+const byId = (id) => meetings.find((meeting) => meeting.id === id);
+const directionByPersonId = new Map(people.filter((person) => person.status !== "archived").map((person) => [person.id, { ...dosMinistryDirectionForPerson(person, disciplingMe), personName: person.name }]));
 const classify = (meeting) => dosMinistryClassifyMeeting(meeting, directionByPersonId);
 
-// 2. Classification rules, one by one.
-assert.deepEqual(dosMinistryTimeBucketLabels, { invested: "Time I invested", received: "Time invested in me", unresolved: "Relationship not set" });
+// 2. Classification (USA-268): two totals; Invested in me only when a record says so.
+assert.deepEqual(dosMinistryTimeBucketLabels, { invested: "Time invested", received: "Invested in me" });
 assert.equal(dosMinistryTimeBucketForRole("being_mentored"), "received");
 assert.equal(dosMinistryTimeBucketForRole("mutual_discipleship"), "invested");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-dirk-recorded")).bucket, "received", "Rule 1: a recorded being-discipled role.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-dirk-mutual")).bucket, "invested", "Rule 1: a recorded mutual role is time I invested even with a Discipling-me Person.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-mixed-recorded")).bucket, "invested", "Rule 1: a recorded role decides even for a mixed meeting.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-dirk-legacy")).bucket, "received", "Rule 2: legacy one-to-one with a confirmed Discipling-me Person.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-tanner-1")).bucket, "invested", "Rule 3: legacy meeting with a person I am discipling.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-group")).bucket, "invested", "Rule 3: everyone present is someone I am discipling.");
-assert.equal(classify(meetings.find((meeting) => meeting.id === "m-naomi-old")).bucket, "invested", "Rule 3: walking with them is time I invested.");
-const dirkProdClassification = classify(meetings.find((meeting) => meeting.id === "m-dirk-prod-legacy"));
-assert.equal(dirkProdClassification.bucket, "unresolved", "Rule 4: only My Record says Dirk is discipling me; that is unconfirmed and cannot classify.");
-assert.ok(dirkProdClassification.reason.includes("only My Record says so"));
-const austinClassification = classify(meetings.find((meeting) => meeting.id === "m-austin"));
-assert.equal(austinClassification.bucket, "unresolved", "Rule 4: no direction.");
-assert.ok(austinClassification.reason.includes("relationship not set"));
-const samClassification = classify(meetings.find((meeting) => meeting.id === "m-sam"));
-assert.equal(samClassification.bucket, "unresolved", "Rule 4: conflicting Person / My Record direction.");
-assert.ok(samClassification.reason.includes("conflicting"));
-const mixedClassification = classify(meetings.find((meeting) => meeting.id === "m-mixed"));
-assert.equal(mixedClassification.bucket, "unresolved", "Rule 4: people present in both directions.");
-assert.ok(mixedClassification.reason.includes("both directions"));
-assert.equal(classify({ fieldPersonIds: ["nobody"], tableRole: "ministering", tableRoleRecorded: false }).bucket, "unresolved", "No linked person means no direction to read.");
+assert.deepEqual(classify(byId("m-dirk-recorded")), { bucket: "received", reason: "Role recorded on the meeting: being discipled" }, "Rule 1: a recorded being-discipled role.");
+assert.equal(classify(byId("m-dirk-mutual")).bucket, "invested", "Rule 1: a recorded mutual role is time invested even with a Discipling-me Person.");
+assert.equal(classify(byId("m-mixed-recorded")).bucket, "invested", "Rule 1: a recorded role decides even for a mixed meeting.");
+assert.deepEqual(classify(byId("m-dirk-legacy")), { bucket: "received", reason: "The Person record says they are discipling you" }, "Rule 2: everyone present is confirmed as discipling Ryan.");
+assert.deepEqual(classify(byId("m-dirk-prod-legacy")), { bucket: "received", reason: "My Record says they are discipling you" }, "Rule 2: My Record is the fallback when the Person carries no direction.");
+assert.deepEqual(classify(byId("m-austin")), { bucket: "invested", reason: "No recorded role" }, "Rule 3: a New person's meeting is counted, never dropped.");
+assert.equal(classify(byId("m-sam")).bucket, "invested", "Rule 3: in a conflict the Person record wins (I am discipling Sam).");
+assert.deepEqual(classify(byId("m-mixed")), { bucket: "invested", reason: "Mixed group with no recorded role, counted once as time invested" }, "Rule 3: a mixed group counts once, as time invested, and says so.");
+assert.equal(classify(byId("m-group")).bucket, "invested");
+assert.equal(classify(byId("m-naomi-old")).bucket, "invested", "Walking with is time invested.");
+assert.deepEqual(classify({ fieldPersonIds: ["nobody"], tableRole: "ministering", tableRoleRecorded: false }), { bucket: "invested", reason: "No recorded role and no linked person" });
+const twoDisciplers = new Map([["a", { direction: "discipling_me", directionStatus: "confirmed", personName: "A" }], ["b", { direction: "discipling_me", directionStatus: "confirmed", personName: "B" }]]);
+assert.deepEqual(dosMinistryClassifyMeeting({ fieldPersonIds: ["a", "b"], tableRole: "ministering", tableRoleRecorded: false }, twoDisciplers), { bucket: "received", reason: "Everyone present is discipling you" });
 
-// 3. The lists: never ranked together; nothing defaulted to Time I invested.
-assert.deepEqual(report.investedRows.map((row) => row.personId), ["tanner", "philip", "dirk", "naomi"], "Invested rows rank by duration I invested; Dirk appears only for the mutual and recorded-ministering meetings and his check-in.");
-assert.deepEqual(report.receivedRows.map((row) => row.personId), ["dirk"], "Only Dirk (confirmed) invested time in Ryan.");
-assert.deepEqual(report.unresolvedRows.map((row) => row.personId), ["dirk", "tanner", "dirk-prod", "austin", "sam"], "Unresolved rows ranked by unresolved duration: the mixed meeting for Dirk and Tanner, Dirk as stored, Austin, Sam.");
-assert.equal(invested("dirk").loggedMinutes, 30 + 40, "Dirk is never ranked by the time he invested in Ryan.");
-assert.equal(received("dirk").loggedMinutes, 60 + 120, "Rule 2 and rule 1 both land under time invested in me.");
-assert.equal(received("dirk").meetingCount, 2);
+// 3. The lists: never ranked together; nothing dropped for want of a relationship.
+assert.deepEqual(ids(report.investedRows), ["tanner", "philip", "dirk", "austin", "sam", "naomi"], "Invested rows rank by duration invested; New and conflicting people keep their time.");
+assert.deepEqual(ids(report.receivedRows), ["dirk", "dirk-prod"]);
+assert.equal(invested("dirk").loggedMinutes, 30 + 40, "Dirk's invested row holds only the recorded mutual and ministering meetings.");
+assert.equal(received("dirk").loggedMinutes, 60 + 120 + 75, "On Dirk's row the unrecorded mixed meeting is time with someone discipling Ryan.");
+assert.equal(received("dirk").meetingCount, 3);
 assert.equal(received("dirk").checkInCount, 0, "Check-ins are Ryan's own activity and never sit under time received.");
 assert.equal(invested("dirk").checkInCount, 1);
-assert.equal(invested("austin"), undefined, "A person with no direction is never defaulted into Time I invested.");
-assert.equal(invested("dirk-prod"), undefined, "Dirk as stored in production is not defaulted into Time I invested.");
-assert.equal(invested("sam"), undefined, "A conflicting direction is not defaulted into Time I invested.");
+assert.equal(invested("austin").loggedMinutes, 60, "Austin (New) keeps his time.");
+assert.equal(invested("sam").loggedMinutes, 60);
+assert.equal(received("dirk-prod").loggedMinutes, 70);
 assert.equal(invested("quiet"), undefined, "A person with no activity is not a row.");
 assert.equal(invested("tanner-dup"), undefined, "Archived rows never appear.");
 
-// 4. Unresolved rows: completeness, next action, reasons, and nothing counted.
-const austin = unresolved("austin");
-assert.equal(austin.completeness, "unresolved");
-assert.equal(austin.completenessLabel, "Relationship not set");
-assert.equal(austin.nextAction.kind, "confirm_direction");
-assert.equal(austin.nextAction.label, "Set the relationship on the Person record");
-assert.ok(austin.completenessDetail.includes("nothing is counted as invested or received"));
-assert.ok(austin.records.every((record) => record.kind === "meeting" && record.bucket === "unresolved" && record.bucketReason.includes("relationship not set")));
-assert.equal(unresolved("sam").directionConflict !== null, true, "The conflict is stated on Sam's row.");
-assert.equal(unresolved("sam").directionStatus, "conflicting");
-assert.equal(unresolved("dirk-prod").directionStatus, "unconfirmed");
-assert.equal(unresolved("tanner").meetingCount, 1, "Tanner's unresolved row holds only the mixed meeting.");
-assert.ok(invested("tanner").completenessDetail.includes("1 more meeting with this person is not counted because the relationship is not set"), "The invested row points at the not-counted meeting.");
-assert.equal(invested("tanner").completeness, "recorded", "The unresolved meeting does not degrade the resolved row's duration completeness.");
-assert.equal(report.totals.unresolvedMeetings, 5, "Dirk as stored, Austin, Sam, the mixed meeting, and the meeting linked only to an archived person.");
-assert.equal(report.totals.uniqueLoggedMinutesUnresolved, 70 + 60 + 60 + 75 + 60);
-assert.ok(report.notes.some((note) => note.includes("counted as neither invested nor received")), "The not-set count is named in the notes.");
+// 4. Reconciliation: Meetings = time invested meetings + invested in me meetings; each meeting once.
+assert.equal(report.totals.meetings, 12, "Canceled, connection-sourced, out-of-range, and scheduled records are not meetings.");
+assert.equal(report.totals.investedMeetings, 9);
+assert.equal(report.totals.receivedMeetings, 3);
+assert.equal(report.totals.investedMeetings + report.totals.receivedMeetings, report.totals.meetings, "Every logged meeting is in exactly one total.");
+assert.equal(report.meetings.length, report.totals.meetings, "The meeting list holds each meeting once.");
+assert.equal(new Set(report.meetings.map((meeting) => meeting.id)).size, report.meetings.length);
+assert.equal(report.totals.uniqueLoggedMinutesInvested, 30 + 90 + 120 + 60 + 60 + 75 + 40 + 60, "Invested total counts every group meeting once.");
+assert.equal(report.totals.uniqueLoggedMinutesReceived, 60 + 120 + 70);
+for (const bucket of ["invested", "received"]) {
+  const listed = report.meetings.filter((meeting) => meeting.bucket === bucket).reduce((sum, meeting) => sum + (meeting.minutes ?? 0), 0);
+  assert.equal(listed, bucket === "invested" ? report.totals.uniqueLoggedMinutesInvested : report.totals.uniqueLoggedMinutesReceived, `The ${bucket} metric detail lists exactly the meetings in its total.`);
+}
+assert.equal(report.totals.unlinkedMeetings, 1, "The meeting linked only to an archived person is counted and named in the Meetings detail.");
+assert.equal(report.totals.connectionLogs, 1);
+assert.deepEqual([report.meetings.find((meeting) => meeting.id === "m-archived").bucket, report.meetings.find((meeting) => meeting.id === "m-archived").people], ["invested", []]);
+assert.deepEqual(report.meetings.find((meeting) => meeting.id === "m-mixed").people.map((person) => person.id).sort(), ["dirk", "tanner"]);
+assert.equal(report.meetings.find((meeting) => meeting.id === "m-mixed").roleLabel, null, "No recorded role is stated as none, not defaulted.");
+assert.deepEqual(
+  [report.meetings.find((meeting) => meeting.id === "m-mixed").bucket, invested("tanner").records.find((record) => record.id === "m-mixed")?.bucket, received("dirk").records.find((record) => record.id === "m-mixed")?.bucket],
+  ["invested", "invested", "received"],
+  "An unrecorded mixed group counts once as time invested in the totals; on each row it follows that person's relationship, so someone discipling Ryan is never ranked as his time investment.",
+);
+assert.equal(report.meetings.find((meeting) => meeting.id === "m-dirk-recorded").roleLabel, "Being discipled");
+assert.ok(!/unresolved|Relationship not set|Not set\b|Needs relationship/.test(JSON.stringify(report)), "There is no third bucket and no not-set wording in any output.");
 
-// 5. Duration: logged only; check-ins separate; group time credited per person; totals per bucket, each meeting once.
+// 5. Duration: logged only; check-ins separate; group time credited per person.
 const tanner = invested("tanner");
-assert.equal(tanner.meetingCount, 3, "Two legacy meetings plus the recorded-ministering mixed meeting.");
-assert.equal(tanner.loggedMinutes, 90 + 120 + 40);
+assert.equal(tanner.meetingCount, 4, "tanner-1, the group, the mixed meeting, and the recorded mixed meeting.");
+assert.equal(tanner.loggedMinutes, 90 + 120 + 75 + 40);
 assert.equal(tanner.checkInCount, 1);
 assert.equal(tanner.checkInMinutes, 20);
 const philip = invested("philip");
@@ -229,101 +230,84 @@ assert.equal(philip.loggedMinutes, 120, "The meeting without a duration contribu
 assert.equal(philip.meetingsMissingDuration, 1);
 assert.equal(philip.completeness, "partial");
 assert.equal(philip.nextAction.kind, "complete_record");
-assert.equal(philip.nextAction.label, "Add the missing meeting duration");
-assert.equal(report.totals.meetings, 12, "Canceled, connection-sourced, out-of-range, and scheduled records are not meetings.");
-assert.equal(report.totals.investedMeetings, 5, "tanner-1, group, philip, dirk-mutual, mixed-recorded; the archived-only meeting has no direction to read.");
-assert.equal(report.totals.receivedMeetings, 2);
-assert.equal(report.totals.uniqueLoggedMinutesInvested, 90 + 120 + 0 + 30 + 40, "Invested total counts the group meeting once.");
-assert.equal(report.totals.uniqueLoggedMinutesReceived, 60 + 120);
-assert.ok(report.investedRows.reduce((sum, row) => sum + row.loggedMinutes, 0) > report.totals.uniqueLoggedMinutesInvested - 60, "Person rows over-count relative to unique time, which is why they are never summed as your time.");
 assert.equal(report.totals.checkIns, 3);
 assert.equal(report.totals.meetingsMissingDuration, 1);
 assert.equal(report.totals.peopleWithActivity, 7);
-assert.ok(report.notes.some((note) => note.includes("connection log")), "Connection logs are named, not silently folded in.");
-assert.ok(report.notes.some((note) => note.includes("no linked active person")), "A meeting linked only to an archived person is named in the notes.");
+assert.ok(report.rows.reduce((sum, row) => sum + row.loggedMinutes, 0) > report.totals.uniqueLoggedMinutesInvested + report.totals.uniqueLoggedMinutesReceived, "Person rows credit a group meeting to each person, so rows are never summed as your time.");
 assert.equal(dosLoggedMeetingMinutes({ scheduledEndAt: stamp(1, 12), scheduledStartAt: stamp(1, 13) }), null, "End before start logs nothing.");
 
-// 6. Direction: the Person's structured role is canonical; My Record is a fallback for the label only; conflicts are stated.
+// 6. Direction: the Person's structured role is canonical; My Record a fallback; the display summary never read.
 const dirk = received("dirk");
-assert.equal(dirk.direction, "discipling_me");
-assert.equal(dirk.directionSource, "person");
-assert.equal(dirk.directionStatus, "confirmed");
-assert.equal(dirk.directionConflict, null);
-const dirkProd = unresolved("dirk-prod");
-assert.equal(dirkProd.direction, "discipling_me", "The label still comes from My Record so the relationship is not hidden.");
-assert.equal(dirkProd.directionSource, "my_record");
-assert.ok(dirkProd.directionConflict?.includes("The Person record is canonical"), "The row says the Person record must be confirmed.");
-assert.equal(tanner.direction, "i_am_discipling");
-assert.equal(tanner.directionStatus, "confirmed");
-assert.equal(unresolved("sam").direction, "i_am_discipling", "When My Record disagrees with a canonical Person role, the Person wins for the label.");
-assert.ok(unresolved("sam").directionConflict?.includes("is canonical"));
-assert.equal(dosMinistryDirectionForPerson(people[1], []).direction, "none", "Without My Record, the display summary alone does not become a direction.");
-assert.ok(dosMinistryDirectionForPerson(people[1], []).directionConflict?.includes("Set the relationship"));
+assert.deepEqual([dirk.direction, dirk.directionSource, dirk.directionStatus, dirk.directionConflict], ["discipling_me", "person", "confirmed", null]);
+const dirkProd = received("dirk-prod");
+assert.deepEqual([dirkProd.direction, dirkProd.directionSource, dirkProd.directionStatus], ["discipling_me", "my_record", "unconfirmed"]);
+assert.ok(dirkProd.directionConflict?.includes("Only My Record says"), "The detail says the Person record should confirm it.");
+assert.deepEqual([tanner.direction, tanner.directionStatus], ["i_am_discipling", "confirmed"]);
+assert.deepEqual([invested("sam").direction, invested("sam").directionStatus], ["i_am_discipling", "conflicting"]);
+assert.ok(invested("sam").directionConflict?.includes("The Person record is used"));
+assert.deepEqual(dosMinistryDirectionForPerson(people[1], []), { direction: "none", directionConflict: null, directionLabel: "New", directionSource: "none", directionStatus: "none" }, "Without My Record, a stale summary such as \"Mentor · Friend · Exploring\" is not a direction and is not mentioned.");
+const adaptedPeople = dosMinistryReportInputFromAppData({ accountabilityCheckIns: [], accountabilitySchedules: [], disciplingMe: [], meetings: [], people: [{ id: "lyf", name: "Lyf Nimmo", relationshipType: "Discipling · Outreach · Exploring", roleInMyLife: "not_active", status: "new" }] }).people;
+assert.deepEqual(Object.keys(adaptedPeople[0]).sort(), ["id", "name", "roleInMyLife", "status"], "The stored display summary never reaches the report (Lyf Nimmo's stale \"Discipling · Outreach · Exploring\").");
 assert.equal(dirk.nextAction.kind, "scheduled");
-assert.equal(dirk.nextAction.label, `Next meeting ${formatDosMinistryDate(day(-5), now)}`, "The next-action label carries a readable date.");
+assert.equal(dirk.nextAction.label, `Next meeting ${formatDosMinistryDate(day(-5), now)}`);
 assert.equal(formatDosMinistryDate("2025-12-03", now), "Dec 3, 2025");
 
-// 7. Completeness language: never "inactive"; duration language, not clock time; no mentor language.
-assert.deepEqual(Object.values(dosMinistryCompletenessLabels), ["Recorded", "Partial", "No qualifying activity", "Relationship not set"]);
+// 7. Language: never "inactive"; duration, not clock time; no mentor language; direction is not stage.
+assert.deepEqual(Object.values(dosMinistryCompletenessLabels), ["Recorded", "Partial", "No activity"]);
 const naomi = invested("naomi");
 assert.equal(naomi.completeness, "partial", "A check-in without a duration is Partial.");
 assert.equal(naomi.nextAction.kind, "log_check_in");
 const serialized = JSON.stringify(report);
 assert.ok(!/inactive/i.test(serialized), "The word inactive never appears.");
 assert.ok(!/recorded time|clock/i.test(serialized), "Nothing implies clock-in / clock-out precision.");
-const visible = JSON.stringify([...report.investedRows, ...report.receivedRows, ...report.unresolvedRows].map((row) => [row.directionLabel, row.nextAction, row.records.map((record) => record.label), row.completenessDetail]));
+const visible = JSON.stringify([...report.investedRows, ...report.receivedRows].map((row) => [row.directionLabel, row.nextAction, row.records.map((record) => [record.label, record.kind === "meeting" ? record.bucketReason : ""]), row.completenessDetail]));
 assert.ok(!/mentor/i.test(visible), "No visible mentor language.");
-assert.deepEqual(Object.values(dosMinistryRelationshipDirectionLabels), ["Discipling me", "I am discipling", "Walking with", "Peer encouragement", "Not set"]);
+assert.deepEqual(dosMinistryRelationshipDirectionLabels, { discipling_me: "Discipling me", i_am_discipling: "Discipling", walking_with: "Walking with", peer: "Peer encouragement", none: "New" }, "The report's relationship words match the Person record's pill.");
+assert.ok(!Object.values(dosMinistryRelationshipDirectionLabels).includes("Exploring"), "Exploring is the spiritual-journey stage, never a relationship direction.");
+assert.deepEqual(Object.fromEntries(Object.entries(dosMinistryMetricDefinitions).map(([key, value]) => [key, value.label])), { invested: "Time invested", received: "Invested in me", meetings: "Meetings" }, "Exactly three summary figures.");
+assert.ok(Object.values(dosMinistryMetricDefinitions).every((metric) => metric.definition.length > 40), "Every figure carries its definition for the detail.");
 assert.equal(formatDosMinistryMinutes(null), "Not logged");
 assert.equal(formatDosMinistryMinutes(210), "3h 30m");
 
-// 8. Relationship rows: people with a direction but no activity in range are listed with "No qualifying activity".
+// 8. Relationship rows: people with a direction but no activity in range are listed with "No activity".
 const narrow = build("custom", { end: day(25), start: day(28) });
-assert.equal(narrow.relationshipRows.some((row) => row.personId === "dirk"), true);
-assert.equal(narrow.relationshipRows.find((row) => row.personId === "dirk").completenessLabel, "No qualifying activity");
+assert.equal(narrow.relationshipRows.find((row) => row.personId === "dirk").completenessLabel, "No activity");
 assert.equal(report.relationshipRows.some((row) => row.personId === "quiet"), false, "No direction and no activity means no row.");
 
-// 9. Multiplication only from a resolved Person relationship; otherwise an honest state, never a zero or a "No".
-assert.equal(tanner.downstreamStatus, "not_connected", "Without a verified DOS identity nothing can be read, so nothing is claimed.");
-assert.equal(dosMinistryMultiplicationLabel(tanner), "Not connected");
+// 9. Multiplication only from a resolved Person relationship: "0" is a verified zero, "—" is unavailable.
+assert.deepEqual([tanner.downstreamStatus, dosMinistryMultiplicationLabel(tanner), dosMinistryMultiplicationCell(tanner)], ["not_connected", "Not connected", "—"], "Without a verified DOS identity nothing can be read, so nothing is claimed.");
 assert.deepEqual(tanner.downstream, []);
 const linkedOnly = build("30d", undefined, { linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
-assert.equal(linkedOnly.downstreamStatus, "not_resolved", "A linked identity alone does not let the report say Not recorded; the reader is not built.");
-assert.equal(dosMinistryMultiplicationLabel(linkedOnly), "Not resolved yet");
+assert.deepEqual([linkedOnly.downstreamStatus, dosMinistryMultiplicationLabel(linkedOnly), dosMinistryMultiplicationCell(linkedOnly)], ["not_resolved", "Not resolved yet", "—"]);
 const readEmpty = build("30d", undefined, { downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
-assert.equal(readEmpty.downstreamStatus, "not_recorded", "Only a person whose own records were read can be Not recorded.");
-assert.equal(dosMinistryMultiplicationLabel(readEmpty), "Not recorded");
+assert.deepEqual([readEmpty.downstreamStatus, dosMinistryMultiplicationLabel(readEmpty), dosMinistryMultiplicationCell(readEmpty)], ["not_recorded", "Not recorded", "0"], "Only a person whose own records were read has a known zero.");
 const resolved = build("30d", undefined, { downstream, downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
 assert.equal(resolved.downstreamStatus, "resolved");
 assert.deepEqual(resolved.downstream, [{ name: "Micah", personId: "tanner-ws-micah" }], "The ended relationship is not counted.");
-assert.equal(dosMinistryMultiplicationLabel(resolved), "1 person");
-assert.equal(naomi.downstreamStatus, "not_applicable");
-assert.equal(dosMinistryMultiplicationLabel(naomi), "—");
-assert.ok(!/\b0 people\b|: No\b/.test(JSON.stringify([tanner, linkedOnly, readEmpty, resolved].map(dosMinistryMultiplicationLabel))), "Never a zero, never a No.");
+assert.deepEqual([dosMinistryMultiplicationLabel(resolved), dosMinistryMultiplicationCell(resolved)], ["1 person", "1"]);
+assert.deepEqual([naomi.downstreamStatus, dosMinistryMultiplicationCell(naomi)], ["not_applicable", "—"]);
 assert.equal(report.investedRows.every((row) => !("circle" in row) && !("score" in row)), true, "No circle field on any row.");
 
 // 10. Drill-through: every row lists its contributing records with a target to open and the rule that placed it.
-assert.deepEqual(tanner.records.map((record) => [record.kind, record.open.kind]), [["check_in", "person"], ["meeting", "meeting"], ["meeting", "meeting"], ["meeting", "meeting"]]);
-assert.ok(tanner.records.find((record) => record.id === "m-group").label.includes("with 1 other"));
-assert.ok(tanner.records.find((record) => record.id === "m-group").bucketReason.includes("everyone present"));
-assert.ok(tanner.records.find((record) => record.id === "m-tanner-1").label.includes("no recorded role"), "A legacy meeting says it has no recorded role.");
+assert.deepEqual(tanner.records.map((record) => [record.kind, record.open.kind]), [["check_in", "person"], ["meeting", "meeting"], ["meeting", "meeting"], ["meeting", "meeting"], ["meeting", "meeting"]]);
+assert.equal(tanner.records.find((record) => record.id === "m-group").label, "Coffee · with 1 other");
+assert.equal(tanner.records.find((record) => record.id === "m-tanner-1").label, "Coffee", "A legacy meeting's record is its type; the missing role is stated in the meeting detail.");
+assert.equal(tanner.records.find((record) => record.id === "m-mixed-recorded").label, "Coffee · Ministering · with 1 other");
 assert.equal(tanner.lastActivity.kind, "check_in");
 assert.ok(received("dirk").records.every((record) => record.bucket === "received"));
 
 // 11. The 90-day range picks up the older meeting.
 assert.equal(build("90d").investedRows.find((row) => row.personId === "naomi").meetingCount, 1);
 
-// 12. What flows upward: only the safe summary fields, invested / received / unresolved apart, only while the relationship is active.
+// 12. What flows upward: only the safe summary fields, invested and received apart.
 const summary = buildDosSafeMinistrySummary(report);
 assert.deepEqual(Object.keys(summary).sort(), [...dosSafeMinistrySummaryFields].sort());
 for (const field of dosSafeMinistrySummaryExcluded) {
   assert.ok(!(field in summary), `${field} must not be in the safe summary.`);
 }
 assert.ok(!JSON.stringify(summary).includes("Tanner"), "The safe summary carries counts, not names.");
-assert.equal(summary.loggedMinutesInvested, 280);
-assert.equal(summary.loggedMinutesReceived, 180);
-assert.equal(summary.loggedMinutesUnresolved, 325);
-assert.equal(summary.meetingsUnresolved, 5);
+assert.equal(summary.loggedMinutesInvested, 535);
+assert.equal(summary.loggedMinutesReceived, 250);
 assert.equal(summary.downstreamRelationships, 0);
 assert.equal(summary.completeness, "partial");
 assert.deepEqual(
@@ -331,78 +315,68 @@ assert.deepEqual(
   [["Dirk Bond", "person"], ["Dirk Bond", "my_record"], ["Sam Lucas", "my_record"]],
   "The Person record is first; My Record adds only what the Person does not carry; an archived relationship no longer receives the summary.",
 );
-assert.equal(dosUpstreamViewers(people, disciplingMe.map((relationship) => ({ ...relationship, status: "archived" }))).length, 1, "Ending every My Record relationship leaves only the canonical Person one.");
+assert.equal(dosUpstreamViewers(people, disciplingMe.map((relationship) => ({ ...relationship, status: "archived" }))).length, 1);
 
-// 13. The module reads nothing private, keeps no chain model, and never defaults a direction.
+// 13. The module reads nothing private, keeps no chain model, and never estimates.
 const source = readFileSync(new URL("../src/lib/dos/ministry-report.ts", import.meta.url), "utf8");
 const inputTypes = source.slice(source.indexOf("/* ---------- inputs"), source.indexOf("/* ---------- outputs"));
-for (const forbidden of ["notes", "prayerNeeds", "privateNotes", "whatHappened", "conversationResponses", "story", "journal", "reflection", "description", "comments", "whatChanged", "decisionMade", "nextStep", "prayerFocus", "actionStep", "body", "summary"]) {
-  /* A declared input field, e.g. `  story: string;`. Display labels such as
-     "Fruit story" are not fields. */
+for (const forbidden of ["notes", "prayerNeeds", "privateNotes", "whatHappened", "conversationResponses", "story", "journal", "reflection", "description", "comments", "whatChanged", "decisionMade", "nextStep", "prayerFocus", "actionStep", "body", "summary", "relationshipType"]) {
   assert.ok(!new RegExp(`^\\s*${forbidden}\\??:`, "m").test(inputTypes), `Report inputs must not read ${forbidden}.`);
 }
 assert.ok(!source.includes('import "server-only"'), "The report module stays pure so it can run anywhere.");
 assert.ok(!/45|75/.test(source.replace(/\/\*[\s\S]*?\*\//g, "")), "No duration estimate constants in the calculation.");
 const loader = readFileSync(new URL("../src/lib/dos/missionary-app.ts", import.meta.url), "utf8");
 assert.ok(!source.includes("discipleshipChain") && !loader.includes("discipleshipChain"), "Person is the canonical relationship record; no separate chain model.");
-assert.ok(inputTypes.includes('source: "person_relationship"') && inputTypes.includes("identityLinkId"), "Downstream relationships resolve from Person relationships through a DOS identity.");
-assert.ok(loader.includes("tableRoleRecorded: dosAppTableRoles.includes(meeting.table_role as DosAppTableRole)"), "The loader says whether a role was stored, so a default never classifies a meeting.");
-assert.ok(inputTypes.includes("tableRoleRecorded: boolean"), "The report reads whether the role was recorded.");
+assert.ok(inputTypes.includes('source: "person_relationship"') && inputTypes.includes("identityLinkId"));
+assert.ok(loader.includes("tableRoleRecorded: dosAppTableRoles.includes(meeting.table_role as DosAppTableRole)"), "The loader says whether a role was stored, so a default never decides a direction.");
+assert.ok(inputTypes.includes("tableRoleRecorded: boolean"));
 
 // 14. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red in the report; green only for confirmed status.
 const reportUi = readFileSync(new URL("../src/components/dos/reports/MinistryTimeInvestmentReport.tsx", import.meta.url), "utf8");
+const reportUiCode = reportUi.replace(/\/\*[\s\S]*?\*\//g, "");
 const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
-assert.ok(!warningColour.test(reportUi.replace(/\/\*[\s\S]*?\*\//g, "")), "The report never uses yellow, amber, orange, or red.");
-assert.ok(/partial: "blue"/.test(reportUi) && /unresolved: "blue"/.test(reportUi) && /none: "grey"/.test(reportUi) && /recorded: "green"/.test(reportUi), "Partial and unresolved are blue, no activity is grey, recorded is the only green.");
-assert.ok(reportUi.includes("bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText\">{row.directionConflict}"), "Conflict notes are calm blue notices.");
+assert.ok(!warningColour.test(reportUiCode), "The report never uses yellow, amber, orange, or red.");
+assert.ok(/recorded: "green"/.test(reportUi) && /partial: "blue"/.test(reportUi) && /none: "grey"/.test(reportUi), "Partial is blue, no activity is grey, recorded is the only green.");
+assert.ok(reportUi.includes("bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText\">{row.directionConflict}"), "A relationship disagreement is a calm blue notice inside the person detail.");
+assert.ok(!/#[0-9A-Fa-f]{3,8}\b/.test(reportUiCode), "The report uses DOS tokens, never raw hex values.");
 
-// 15. One primary table (founder, 2026-09-10): one row per person; per-direction figures kept apart; "Relationship not set" language.
+// 15. One primary table: one row per person; per-direction figures kept apart; relationship filters and sorting.
 const rowOf = (id) => report.rows.find((row) => row.personId === id);
-assert.equal(report.rows.filter((row) => row.personId === "dirk").length, 1, "Dirk appears once, not once per direction.");
+assert.deepEqual(ids(report.rows), ["dirk", "tanner", "philip", "dirk-prod", "austin", "sam", "naomi"], "One row per person, by logged duration (ties by meetings, then name).");
 const dirkRow = rowOf("dirk");
-assert.equal(dirkRow.meetingCount, 5, "Legacy, recorded, mutual, mixed, and mixed-recorded meetings all sit on the one row.");
-assert.deepEqual(dirkRow.minutesByBucket, { invested: 30 + 40, received: 60 + 120, unresolved: 75 }, "The row keeps invested, invested-in-me, and not-counted time apart.");
-assert.equal(dirkRow.loggedMinutes, 70 + 180 + 75);
-assert.equal(dirkRow.checkInCount, 1);
-assert.equal(dirkRow.relationshipLabel, "Discipling me");
-assert.equal(dirkRow.relationshipNote, null);
-assert.equal(dirkRow.completeness, "recorded", "A confirmed person whose only not-counted meeting is a mixed group is not 'needs relationship'.");
-assert.ok(dirkRow.completenessDetail.includes("1 meeting not counted in either direction"), "The row says which meeting is not counted and why.");
-assert.equal(dirkRow.lastActivity.date, day(2), "Latest activity across every direction (the legacy meeting, two days ago; his check-in was four).");
+assert.equal(dirkRow.meetingCount, 5);
+assert.deepEqual(dirkRow.minutesByBucket, { invested: 30 + 40, received: 60 + 120 + 75 }, "The row keeps time invested and invested in me apart.");
+assert.deepEqual(dirkRow.meetingsByBucket, { invested: 2, received: 3 });
+assert.equal(dirkRow.loggedMinutes, 145 + 180);
+assert.deepEqual([dirkRow.checkInCount, dirkRow.relationshipLabel, dirkRow.relationshipNote, dirkRow.completeness], [1, "Discipling me", null, "recorded"]);
+assert.equal(dirkRow.lastActivity.date, day(2));
 const samuelLike = rowOf("austin");
-assert.equal(samuelLike.relationshipLabel, "Not set", "The Samuel Gaffney case: the relationship is Not set, never inferred.");
-assert.equal(samuelLike.completeness, "unresolved");
-assert.equal(samuelLike.completenessLabel, "Relationship not set");
-assert.equal(samuelLike.meetingCount, 1, "The meeting is kept.");
-assert.equal(samuelLike.loggedMinutes, 60, "The duration is kept.");
-assert.deepEqual(samuelLike.minutesByBucket, { invested: 0, received: 0, unresolved: 60 }, "Counted in neither direction.");
-assert.equal(rowOf("dirk-prod").relationshipLabel, "Discipling me", "Dirk as stored keeps the My Record label so the relationship is not hidden.");
-assert.equal(rowOf("dirk-prod").relationshipNote, "Not confirmed on the Person record");
-assert.equal(rowOf("dirk-prod").completeness, "unresolved");
-assert.equal(rowOf("sam").relationshipNote, "My Record disagrees");
-assert.equal(rowOf("sam").completeness, "unresolved");
-assert.equal(rowOf("tanner").completeness, "recorded");
+assert.deepEqual([samuelLike.relationshipLabel, samuelLike.completeness, samuelLike.meetingCount, samuelLike.loggedMinutes], ["New", "recorded", 1, 60], "The Samuel Gaffney case: New, and the meeting and its time are counted.");
+assert.deepEqual(samuelLike.minutesByBucket, { invested: 60, received: 0 });
+assert.deepEqual([rowOf("dirk-prod").relationshipLabel, rowOf("dirk-prod").relationshipNote], ["Discipling me", "Not on the Person record"]);
+assert.deepEqual(rowOf("dirk-prod").minutesByBucket, { invested: 0, received: 70 });
+assert.deepEqual([rowOf("sam").relationshipLabel, rowOf("sam").relationshipNote], ["Discipling", "My Record differs"]);
 assert.equal(rowOf("philip").completeness, "partial");
 assert.equal(rowOf("quiet"), undefined, "No relationship and no activity means no row.");
-assert.equal(rowOf("tanner-dup"), undefined, "Archived rows never appear.");
-assert.ok(rowOf("naomi").direction === "walking_with", "Walking-with rows are on the table.");
-const narrowRows = build("custom", { end: day(25), start: day(28) }).rows;
-const dirkNoActivity = narrowRows.find((row) => row.personId === "dirk");
-assert.equal(dirkNoActivity.completeness, "none", "A confirmed relationship with no activity is on the table as No qualifying activity, never a task.");
-assert.equal(dirkNoActivity.meetingCount, 0);
-assert.equal(dirkNoActivity.loggedMinutes, 0);
+assert.equal(rowOf("tanner-dup"), undefined);
+const dirkNoActivity = narrow.rows.find((row) => row.personId === "dirk");
+assert.deepEqual([dirkNoActivity.completeness, dirkNoActivity.meetingCount, dirkNoActivity.loggedMinutes], ["none", 0, 0], "A relationship with no activity is on the table, never a task.");
+assert.deepEqual(dosMinistryReportFilterOptions.map((option) => [option.value, option.label]), [["all", "All"], ["i_am_discipling", "Discipling"], ["walking_with", "Walking with"], ["discipling_me", "Discipling me"], ["none", "New"]]);
+const filtered = (filter) => ids(report.rows.filter((row) => dosMinistryRowMatchesFilter(row, filter)));
+assert.deepEqual(filtered("all"), ids(report.rows));
+assert.deepEqual(filtered("i_am_discipling"), ["tanner", "philip", "sam"]);
+assert.deepEqual(filtered("walking_with"), ["naomi"]);
+assert.deepEqual(filtered("discipling_me"), ["dirk", "dirk-prod"]);
+assert.deepEqual(filtered("none"), ["austin"]);
+assert.deepEqual(dosMinistryReportDefaultSort, { direction: "desc", key: "time" });
+assert.deepEqual(ids(dosMinistrySortRows(report.rows, dosMinistryReportDefaultSort)), ids(report.rows), "The default sort is the report's own order.");
+assert.deepEqual(ids(dosMinistrySortRows(report.rows, { direction: "asc", key: "person" })), ["austin", "dirk", "dirk-prod", "naomi", "philip", "sam", "tanner"]);
+assert.deepEqual(ids(dosMinistrySortRows(report.rows, { direction: "desc", key: "meetings" })), ["dirk", "tanner", "philip", "dirk-prod", "austin", "sam", "naomi"]);
+assert.deepEqual(ids(dosMinistrySortRows(report.rows, { direction: "asc", key: "relationship" })), ["tanner", "philip", "sam", "naomi", "dirk", "dirk-prod", "austin"]);
+assert.deepEqual(ids(dosMinistrySortRows(report.rows, { direction: "asc", key: "time" })), ["naomi", "austin", "sam", "dirk-prod", "philip", "dirk", "tanner"], "Equal rows keep a stable order in either direction.");
 assert.ok(!/inactive/i.test(JSON.stringify(report.rows)));
-assert.ok(!/Direction unresolved/.test(JSON.stringify(report)), "The old wording is gone from every output.");
-// Filters.
-assert.deepEqual(dosMinistryReportFilterOptions.map((option) => option.value), ["all", "i_am_discipling", "discipling_me", "not_set"]);
-const filtered = (filter) => report.rows.filter((row) => dosMinistryRowMatchesFilter(row, filter)).map((row) => row.personId);
-assert.deepEqual(filtered("all"), report.rows.map((row) => row.personId));
-assert.ok(filtered("i_am_discipling").includes("tanner") && filtered("i_am_discipling").includes("sam") && !filtered("i_am_discipling").includes("dirk"));
-assert.ok(filtered("discipling_me").includes("dirk") && filtered("discipling_me").includes("dirk-prod") && !filtered("discipling_me").includes("tanner"));
-assert.deepEqual(filtered("not_set").sort(), ["austin", "dirk-prod", "sam"].sort(), "Not set, not confirmed, and conflicting all need the relationship set.");
-assert.ok(report.rows[0].loggedMinutes >= report.rows[1].loggedMinutes, "Rows sort by logged duration.");
 
-// 16. Ministry Fruit: structured sources only, stored links only, honest status.
+// 16. Ministry Fruit: structured sources only, stored links only, honest status, one-line outcome.
 const fruitEntries = dosMinistryFruitEntriesFromAppData({
   fruit: [{ fieldPersonId: "tanner", id: "story-1", outcomeTags: ["Joined Discipleship"], permissionToShare: true, sourceApp: null, status: "approved", submittedByName: "Ryan", summary: "A private story that must never appear", tableId: null, testimonyDate: stamp(3, 9), updatedAt: null }],
   fruitEvents: [
@@ -427,31 +401,37 @@ const fruitEntries = dosMinistryFruitEntriesFromAppData({
 const withFruit = build("30d", undefined, { fruit: fruitEntries });
 const fruitById = new Map(withFruit.fruitRows.map((row) => [row.id, row]));
 assert.deepEqual(withFruit.fruitRows.map((row) => row.id), ["review-rev-1", "testimony-test-1", "fruit_event-ev-1", "fruit_story-story-1", "fruit_event-ev-2", "journey_progress-prog-1"], "Newest first (same-day entries by person name); hidden, draft, incomplete, and undated entries are not rows.");
-assert.deepEqual([fruitById.get("fruit_event-ev-1").text, fruitById.get("fruit_event-ev-1").sourceLabel, fruitById.get("fruit_event-ev-1").statusLabel, fruitById.get("fruit_event-ev-1").statusTone], ["Gospel Conversation", "Fruit", "Verified", "green"], "A fruit event shows its fruit type; verified is the only green.");
+assert.deepEqual([fruitById.get("fruit_event-ev-1").text, fruitById.get("fruit_event-ev-1").sourceLabel, fruitById.get("fruit_event-ev-1").statusLabel, fruitById.get("fruit_event-ev-1").statusTone], ["Gospel Conversation", "Fruit", "Verified", "green"]);
 assert.deepEqual(fruitById.get("fruit_event-ev-1").open, { id: "m-tanner-1", kind: "meeting" }, "The stored meeting link opens the meeting.");
 assert.equal(fruitById.get("fruit_event-ev-1").personName, "Tanner Kent");
-assert.deepEqual([fruitById.get("fruit_event-ev-2").personName, fruitById.get("fruit_event-ev-2").personSource, fruitById.get("fruit_event-ev-2").statusLabel, fruitById.get("fruit_event-ev-2").statusTone], ["Not linked", "none", "Observed", "blue"], "A meeting with two people does not pick one; observed is blue.");
-assert.deepEqual([fruitById.get("review-rev-1").text, fruitById.get("review-rev-1").personName, fruitById.get("review-rev-1").personSource, fruitById.get("review-rev-1").statusLabel], ["Very meaningful · Felt encouraged · Discipling", "Tanner Kent", "meeting", "Submitted"], "A review shows its rating and chosen tags; the person comes from the meeting's single stored link.");
+assert.deepEqual([fruitById.get("fruit_event-ev-2").personName, fruitById.get("fruit_event-ev-2").personSource, fruitById.get("fruit_event-ev-2").statusLabel, fruitById.get("fruit_event-ev-2").statusTone], ["Not linked", "none", "Observed", "blue"], "A meeting with two people does not pick one.");
+assert.deepEqual([fruitById.get("review-rev-1").text, fruitById.get("review-rev-1").personName, fruitById.get("review-rev-1").personSource, fruitById.get("review-rev-1").statusLabel], ["Very meaningful · Felt encouraged · Discipling", "Tanner Kent", "meeting", "Submitted"]);
 assert.deepEqual([fruitById.get("testimony-test-1").text, fruitById.get("testimony-test-1").statusLabel, fruitById.get("testimony-test-1").statusTone], ["Testimony shared · Discipleship growth", "Approved", "green"]);
 assert.deepEqual([fruitById.get("fruit_story-story-1").text, fruitById.get("fruit_story-story-1").sourceLabel], ["Joined Discipleship", "Fruit story"]);
-assert.deepEqual([fruitById.get("journey_progress-prog-1").text, fruitById.get("journey_progress-prog-1").relatedLabel, fruitById.get("journey_progress-prog-1").statusLabel, fruitById.get("journey_progress-prog-1").open], ["Completed Week 1: Follow Me", "Marks of Discipleship", "Completed", null], "Journey progress is a completed session, related to its resource, with no fabricated meeting link.");
+assert.deepEqual([fruitById.get("journey_progress-prog-1").text, fruitById.get("journey_progress-prog-1").relatedLabel, fruitById.get("journey_progress-prog-1").statusLabel, fruitById.get("journey_progress-prog-1").open], ["Completed Week 1: Follow Me", "Marks of Discipleship", "Completed", null]);
+// USA-268: the table cell is one short outcome in the entry's own words; the tags move to the detail.
+assert.deepEqual(withFruit.fruitRows.map((row) => [row.id, row.summary, row.sourceLabel]), [
+  ["review-rev-1", "Very meaningful", "Review"],
+  ["testimony-test-1", "Testimony shared", "Testimony"],
+  ["fruit_event-ev-1", "Gospel Conversation", "Fruit"],
+  ["fruit_story-story-1", "Joined Discipleship", "Fruit story"],
+  ["fruit_event-ev-2", "Prayer Received", "Fruit"],
+  ["journey_progress-prog-1", "Week 1: Follow Me", "Journey progress"],
+], "A review stays a review and a completed session stays Journey progress: shortening never relabels feedback or activity as Fruit.");
+assert.deepEqual(fruitById.get("review-rev-1").tags, ["Felt encouraged", "Discipling"]);
 const fruitSerialized = JSON.stringify(withFruit.fruitRows);
 for (const secret of ["private", "Private", "never appear", "A leader-written title"]) {
   assert.ok(!fruitSerialized.includes(secret), `Narrative never reaches the fruit table (${secret}).`);
 }
-assert.equal(withFruit.rows.find((row) => row.personId === "tanner").fruitCount, 3, "The Fruit column counts entries that name the person (the story and the event) plus one resolved through the meeting's single link (the review).");
+assert.equal(withFruit.rows.find((row) => row.personId === "tanner").fruitCount, 3);
 assert.equal(withFruit.rows.find((row) => row.personId === "philip").fruitCount, 2);
 assert.equal(withFruit.rows.find((row) => row.personId === "dirk").fruitCount, 0);
-assert.ok(withFruit.notes.some((note) => note.includes("no date")), "Undated fruit is named, not silently dropped.");
+assert.equal(withFruit.totals.undatedFruit, 1, "Undated fruit is counted, not silently dropped.");
 assert.deepEqual(report.fruitRows, [], "No fruit input, no fruit rows.");
 assert.ok(!JSON.stringify(fruitEntries).includes("never appear"), "The adapter never carries narrative, so the calculation cannot show it.");
 
-// 16b. Imported feedback is Feedback, not Fruit (USA-264 × USA-251). Shaped on
-// Danny Lundquist's Planning Center reflection: submitted, no rating, no
-// outcome tags, linked to a Person and no meeting, answer "Still processing".
-// Its existence must change no Fruit list, count, total or multiplication
-// figure, while Fruit recorded independently for the same person still counts.
-const danny = { id: "danny", name: "Danny Lundquist", relationshipType: "Discipling · Friend · Exploring", roleInMyLife: "discipling_them", status: "new" };
+// 16b. Imported feedback is Feedback, not Fruit (USA-264 × USA-251).
+const danny = { id: "danny", name: "Danny Lundquist", roleInMyLife: "discipling_them", status: "new" };
 const dannyMeeting = legacyMeeting("m-danny", 7, ["danny"], 60);
 const reviewFixture = (overrides) => ({ comments: null, conversationHelpful: null, feltCaredFor: null, feltHeard: null, legacyForm: null, meetingId: "m-danny", outcomeTags: [], overallRating: null, personId: "danny", status: "submitted", submittedAt: stamp(1, 17), submittedEmail: null, submittedFirstName: null, submittedLastName: null, submittedName: null, wantsFollowUp: null, wouldMeetAgain: null, wouldMeetAgainResponse: null, ...overrides });
 const importedLegacyForm = {
@@ -482,27 +462,19 @@ const withImport = dannyBuild([importedFeedback, nativeReview]);
 const withoutImport = dannyBuild([nativeReview]);
 assert.deepEqual(dannyEntries([importedFeedback, nativeReview]), dannyEntries([nativeReview]), "The adapter emits nothing for imported feedback.");
 assert.deepEqual(withImport.fruitRows, withoutImport.fruitRows, "Imported feedback adds no Ministry Fruit row.");
-assert.deepEqual(withImport.rows, withoutImport.rows, "Imported feedback changes no person row: Fruit count, multiplication, or anything else.");
+assert.deepEqual(withImport.rows, withoutImport.rows, "Imported feedback changes no person row.");
 assert.deepEqual(withImport.totals, withoutImport.totals, "Imported feedback changes no total.");
-assert.deepEqual(withImport.notes, withoutImport.notes, "Imported feedback adds no note.");
 assert.deepEqual(buildDosSafeMinistrySummary(withImport), buildDosSafeMinistrySummary(withoutImport), "Imported feedback changes nothing that flows upward.");
 const dannyRow = withImport.rows.find((row) => row.personId === "danny");
 assert.equal(dannyRow.fruitCount, 2, "Danny's independently recorded Fruit and his native review still count.");
-assert.deepEqual(withImport.fruitRows.filter((row) => row.personId === "danny").map((row) => row.id).sort(), ["fruit_event-ev-danny", "review-rev-danny-native"], "Legitimate Fruit is preserved; the import is not a row.");
-assert.ok(!withImport.fruitRows.some((row) => row.id === "review-rev-danny-imported" || (row.personId === "danny" && row.text === "Review submitted")), "No 'Review submitted' Fruit for the imported reflection.");
-assert.equal(dosMinistryMultiplicationLabel(dannyRow), "1 person", "Multiplication comes only from the resolved relationship.");
+assert.deepEqual(withImport.fruitRows.filter((row) => row.personId === "danny").map((row) => row.id).sort(), ["fruit_event-ev-danny", "review-rev-danny-native"]);
+assert.equal(dosMinistryMultiplicationLabel(dannyRow), "1 person");
 assert.deepEqual(dannyBuild([importedFeedback], "custom", { end: day(0), start: day(60) }).fruitRows.map((row) => row.id), ["fruit_event-ev-danny"], "No range reaches the import as Fruit.");
-// Non-vacuity: the same record without import provenance is in range and linked, so provenance alone is what excludes it.
 const unmarked = dannyBuild([{ ...importedFeedback, legacyForm: null }, nativeReview]);
 assert.ok(unmarked.fruitRows.some((row) => row.id === "review-rev-danny-imported"), "Probe: without legacyForm the fixture would be a Fruit row.");
 assert.equal(unmarked.rows.find((row) => row.personId === "danny").fruitCount, 3, "Probe: and it would be counted.");
 
-// 16c. Discipleship meetings from My Record (USA-265). Shaped on production:
-// Ryan logged three with Dirk and one with Marty through Log Discipleship
-// Meeting, and the report read only logged meetings, so neither row showed
-// anything. The form records the direction (being discipled), so these are
-// time invested in Ryan whatever the Person relationship says. The Person is
-// the stored link, else the saved relationship's, never a name; notes never enter.
+// 16c. Discipleship meetings from My Record (USA-265): time invested in Ryan whatever the Person relationship says.
 const discipleshipRelationships = [{ fieldPersonId: "dirk", id: "rel-dirk" }, { fieldPersonId: "marty", id: "rel-marty" }];
 const discipleshipFixture = (id, offset, minutes, extra = {}) => ({ actionSteps: "private action", counselReceived: "private counsel", createdAt: null, discussed: "private discussion", durationMinutes: minutes, fieldPersonId: null, followUpDate: null, id, meetingDate: day(offset), mentorName: "Dirk Bond", notes: "private notes", relationshipId: "rel-dirk", updatedAt: null, ...extra });
 const discipleshipMeetings = [
@@ -516,11 +488,11 @@ const discipleshipMeetings = [
 const mappedDiscipleship = dosMinistryDiscipleshipMeetings(discipleshipMeetings, discipleshipRelationships);
 assert.deepEqual(mappedDiscipleship.map((meeting) => [meeting.id, meeting.fieldPersonIds]), [["dm-dirk-1", ["dirk"]], ["dm-dirk-2", ["dirk"]], ["dm-dirk-3", ["dirk"]], ["dm-marty", ["marty"]], ["dm-unlinked", []], ["dm-old", ["dirk"]]], "The Person comes from the stored link, else the saved relationship; an unknown relationship links no one.");
 assert.equal(dosDiscipleshipMeetingPersonId({ fieldPersonId: null, relationshipId: null }, discipleshipRelationships), null, "No link, no Person; names are never matched.");
-assert.ok(mappedDiscipleship.every((meeting) => meeting.source === "discipleship" && meeting.tableRole === "being_mentored" && meeting.tableRoleRecorded && meeting.meetingStatus === "logged"), "Every discipleship meeting is a logged meeting with the recorded direction.");
+assert.ok(mappedDiscipleship.every((meeting) => meeting.source === "discipleship" && meeting.tableRole === "being_mentored" && meeting.tableRoleRecorded && meeting.meetingStatus === "logged"));
 assert.ok(!JSON.stringify(mappedDiscipleship).includes("private"), "Notes, discussion, counsel and action steps never enter the report input.");
 assert.equal(dosLoggedMeetingMinutes(mappedDiscipleship[0]), 120, "Entered minutes are the logged duration.");
 assert.equal(dosLoggedMeetingMinutes({ ...mappedDiscipleship[0], durationMinutes: 0 }), null, "A zero duration is missing, never 0m.");
-const martyPerson = { id: "marty", name: "Marty Vanderzanden", relationshipType: "Mentor · Church · Exploring", roleInMyLife: "not_active", status: "new" };
+const martyPerson = { id: "marty", name: "Marty Vanderzanden", roleInMyLife: "not_active", status: "new" };
 const withDiscipleship = build("30d", undefined, { meetings: [...meetings, ...mappedDiscipleship], people: [...people, martyPerson] });
 const withoutDiscipleship = build("30d", undefined, { people: [...people, martyPerson] });
 const receivedRow = (result, id) => result.receivedRows.find((row) => row.personId === id);
@@ -528,28 +500,169 @@ assert.equal(receivedRow(withDiscipleship, "dirk").meetingCount - receivedRow(wi
 assert.equal(receivedRow(withDiscipleship, "dirk").loggedMinutes - receivedRow(withoutDiscipleship, "dirk").loggedMinutes, 260);
 assert.equal(receivedRow(withoutDiscipleship, "marty"), undefined, "Before USA-265 Marty had nothing logged.");
 const martyReceived = receivedRow(withDiscipleship, "marty");
-assert.ok(martyReceived && martyReceived.meetingCount === 1 && martyReceived.loggedMinutes === 120, "Marty's meeting is time invested in Ryan even though his Person relationship is not set: the form recorded the direction.");
-assert.deepEqual([martyReceived.records[0].label, martyReceived.records[0].open, martyReceived.records[0].bucketReason], ["Discipleship meeting · Being discipled", { id: "dm-marty", kind: "discipleship_meeting" }, "Logged in My Record as a discipleship meeting: being discipled"], "The record says what it is and opens the discipleship meeting, not a logged meeting.");
+assert.ok(martyReceived && martyReceived.meetingCount === 1 && martyReceived.loggedMinutes === 120, "Marty's meeting is time invested in Ryan even though his Person relationship is New: the form recorded the direction.");
+assert.deepEqual([martyReceived.records[0].label, martyReceived.records[0].open, martyReceived.records[0].bucketReason], ["Discipleship meeting · Being discipled", { id: "dm-marty", kind: "discipleship_meeting" }, "Logged in My Record as a discipleship meeting"]);
+assert.equal(withDiscipleship.meetings.find((meeting) => meeting.id === "dm-marty").label, "Discipleship meeting");
 assert.equal(withDiscipleship.totals.receivedMeetings - withoutDiscipleship.totals.receivedMeetings, 5, "Totals count each in-range discipleship meeting once, the unlinked one included.");
 assert.equal(withDiscipleship.totals.uniqueLoggedMinutesReceived - withoutDiscipleship.totals.uniqueLoggedMinutesReceived, 120 + 70 + 70 + 120 + 45);
-assert.equal(withDiscipleship.totals.uniqueLoggedMinutesInvested, withoutDiscipleship.totals.uniqueLoggedMinutesInvested, "Being discipled never adds to time I invested.");
-assert.ok(withoutDiscipleship.notes.some((note) => note.startsWith("1 logged meeting has no linked active person")) && withDiscipleship.notes.some((note) => note.startsWith("2 logged meetings have no linked active person")), "An unlinked discipleship meeting is named in the totals note, not silently dropped.");
+assert.equal(withDiscipleship.totals.uniqueLoggedMinutesInvested, withoutDiscipleship.totals.uniqueLoggedMinutesInvested, "Being discipled never adds to time invested.");
+assert.deepEqual([withoutDiscipleship.totals.unlinkedMeetings, withDiscipleship.totals.unlinkedMeetings], [1, 2], "An unlinked discipleship meeting is counted and named in the Meetings detail, not silently dropped.");
 const adaptedDiscipleship = dosMinistryReportInputFromAppData({ accountabilityCheckIns: [], accountabilitySchedules: [], disciplingMe: [{ fieldPersonId: "dirk", id: "rel-dirk", mentorName: "Dirk Bond", status: "active" }], discipleshipMeetings: [discipleshipFixture("dm-adapter", 2, 50)], meetings: [], people: [] });
-assert.deepEqual(adaptedDiscipleship.meetings.map((meeting) => [meeting.id, meeting.source, meeting.fieldPersonIds, meeting.durationMinutes]), [["dm-adapter", "discipleship", ["dirk"], 50]], "The app-data adapter carries My Record discipleship meetings into the report.");
+assert.deepEqual(adaptedDiscipleship.meetings.map((meeting) => [meeting.id, meeting.source, meeting.fieldPersonIds, meeting.durationMinutes]), [["dm-adapter", "discipleship", ["dirk"], 50]]);
 
-// 17. The revised UI: one table in a scroll container with a sticky Person column; removed sections stay removed; founder wording.
-const reportUiCode = reportUi.replace(/\/\*[\s\S]*?\*\//g, "");
-assert.ok(reportUiCode.includes("overflow-x-auto") && reportUiCode.includes("<table") && reportUiCode.includes("sticky left-0"), "The table scrolls inside its own container and keeps the Person column visible.");
+// 17. USA-268, production-shaped: Ryan's workspace (read-only audit, 2026-09-11). Aug 12 – Sep 10 holds
+// fourteen logged meetings, all with a synthetic noon start and no stored role, and Dirk's Sep 10
+// discipleship meeting. Mike Anderson, Lyf Nimmo (as the founder's screenshot showed him) and Samuel
+// Gaffney are New (role_in_my_life not_active; "Exploring" is only their stage). Before this revision
+// their four meetings (3h 30m) were "Relationship not set" and counted in neither total: 14 meetings,
+// 10 invested, 17h 30m. Every meeting now counts once.
+const prodNow = new Date("2026-09-11T09:00:00");
+const prodPeople = [
+  ["mike", "Mike Anderson", "not_active"],
+  ["lyf", "Lyf Nimmo", "not_active"],
+  ["samuel", "Samuel Gaffney", "not_active"],
+  ["danny-p", "Danny Lundquist", "discipling_them"],
+  ["philip-p", "Philip John Suaco", "discipling_them"],
+  ["tanner-p", "Tanner Kent", "discipling_them"],
+  ["release", "Release Test", "discipling_them"],
+  ["austin-p", "Austin Clifford", "discipling_them"],
+  ["kyle", "Kyle Loving", "discipling_them"],
+  ["coggins", "Ryan Coggins", "walking_with_them"],
+  ["dirk-p", "Dirk Bond", "mentoring_me"],
+  ["marty-p", "Marty Vanderzanden", "not_active"],
+].map(([id, name, roleInMyLife]) => ({ id, name, roleInMyLife, status: "new" }));
+const noon = (date) => new Date(`${date}T12:00:00`);
+const prodMeeting = (id, date, personIds, minutes, type) => ({
+  date,
+  fieldPersonIds: personIds,
+  id,
+  meetingStatus: "logged",
+  scheduledEndAt: minutes ? new Date(noon(date).getTime() + minutes * 60_000).toISOString() : null,
+  scheduledStartAt: minutes ? noon(date).toISOString() : null,
+  source: "table",
+  tableRole: "ministering",
+  tableRoleRecorded: false,
+  type,
+});
+const prodTableMeetings = [
+  prodMeeting("t-mike-1", "2026-09-10", ["mike"], 30, "kitchen_table"),
+  prodMeeting("t-lyf", "2026-09-10", ["lyf"], 60, "phone"),
+  prodMeeting("t-mike-2", "2026-09-10", ["mike"], 60, "zoom"),
+  prodMeeting("t-danny-1", "2026-09-09", ["danny-p"], 150, "zoom"),
+  prodMeeting("t-danny-2", "2026-09-05", ["danny-p"], 150, "kitchen_table"),
+  prodMeeting("t-philip", "2026-09-02", ["philip-p"], 210, "kitchen_table"),
+  prodMeeting("t-tanner", "2026-09-02", ["tanner-p"], 150, "kitchen_table"),
+  prodMeeting("t-release", "2026-09-02", ["release"], 60, "kitchen_table"),
+  prodMeeting("t-austin", "2026-08-21", ["austin-p"], 60, "coffee"),
+  prodMeeting("t-danny-3", "2026-08-20", ["danny-p"], 30, "phone"),
+  prodMeeting("t-samuel", "2026-08-20", ["samuel"], 60, "phone"),
+  prodMeeting("t-kyle", "2026-08-20", ["kyle"], 120, "coffee"),
+  prodMeeting("t-coggins-1", "2026-08-20", ["coggins"], 60, "phone"),
+  prodMeeting("t-coggins-2", "2026-08-17", ["coggins"], 60, "phone"),
+];
+const prodDiscipleship = dosMinistryDiscipleshipMeetings([
+  { durationMinutes: 120, fieldPersonId: "marty-p", id: "d-marty", meetingDate: "2026-07-06", notes: "private", relationshipId: "rel-marty" },
+  { durationMinutes: 120, fieldPersonId: "dirk-p", id: "d-dirk-1", meetingDate: "2026-07-07", notes: "private", relationshipId: "rel-dirk" },
+  { durationMinutes: 70, fieldPersonId: "dirk-p", id: "d-dirk-2", meetingDate: "2026-07-10", notes: "private", relationshipId: "rel-dirk" },
+  { durationMinutes: 70, fieldPersonId: "dirk-p", id: "d-dirk-3", meetingDate: "2026-07-21", notes: "private", relationshipId: "rel-dirk" },
+  { durationMinutes: 60, fieldPersonId: "dirk-p", id: "d-dirk-4", meetingDate: "2026-09-10", notes: "private", relationshipId: "rel-dirk" },
+], []);
+const prodBuild = (range, period, extra = {}) => buildDosMinistryReport({ checkIns: [], disciplingMe: [], meetings: [...prodTableMeetings, ...prodDiscipleship], now: prodNow, people: prodPeople, period, range, schedules: [], ...extra });
+const founder = prodBuild("custom", { end: "2026-09-10", start: "2026-08-12" });
+assert.deepEqual([founder.totals.meetings, founder.totals.investedMeetings, founder.totals.receivedMeetings], [15, 14, 1], "Aug 12 – Sep 10: 15 meetings = 14 time invested + 1 invested in me.");
+assert.deepEqual([founder.totals.uniqueLoggedMinutesInvested, founder.totals.uniqueLoggedMinutesReceived], [1260, 60], "21h invested (was 17h 30m) and Dirk's 1h.");
+const beforeRule = founder.meetings.filter((meeting) => meeting.source === "table" && meeting.people.every((person) => prodPeople.find((item) => item.id === person.id).roleInMyLife !== "not_active"));
+assert.deepEqual([beforeRule.length, beforeRule.reduce((sum, meeting) => sum + meeting.minutes, 0)], [10, 1050], "The meetings the 2026-09-09 rule could place: the founder's observed 10 of 14.");
+assert.deepEqual(founder.rows.filter((row) => ["mike", "lyf", "samuel"].includes(row.personId)).map((row) => [row.personId, row.relationshipLabel, row.meetingCount, row.minutesByBucket.invested]).sort(), [["lyf", "New", 1, 60], ["mike", "New", 2, 90], ["samuel", "New", 1, 60]], "New relationships keep every meeting and minute.");
+assert.deepEqual(["coggins", "danny-p", "dirk-p"].map((id) => { const row = founder.rows.find((item) => item.personId === id); return [row.relationshipLabel, row.minutesByBucket]; }), [["Walking with", { invested: 120, received: 0 }], ["Discipling", { invested: 330, received: 0 }], ["Discipling me", { invested: 0, received: 60 }]], "Walking with, Discipling, and Discipling me all keep their time.");
+assert.ok(!JSON.stringify(founder).includes("private"), "No note from a discipleship meeting reaches the report.");
+// July: the audited discipleship meetings are in July, outside the founder's screenshot range.
+const withJuly = prodBuild("custom", { end: "2026-09-10", start: "2026-07-01" });
+assert.deepEqual([withJuly.totals.receivedMeetings, withJuly.totals.uniqueLoggedMinutesReceived], [5, 440], "A range including July shows Dirk's and Marty's July meetings as invested in me.");
+assert.deepEqual(withJuly.rows.filter((row) => ["dirk-p", "marty-p"].includes(row.personId)).map((row) => [row.personId, row.relationshipLabel, row.minutesByBucket.received]).sort(), [["dirk-p", "Discipling me", 320], ["marty-p", "New", 120]], "Marty's meeting counts although his Person relationship is New.");
+assert.deepEqual([prodBuild("90d").totals.receivedMeetings, prodBuild("90d").totals.uniqueLoggedMinutesReceived], [5, 440], "The 90-day preset (Jun 14 – Sep 11) includes July.");
+const withoutJuly = prodBuild("custom", { end: "2026-09-10", start: "2026-07-22" });
+assert.deepEqual([withoutJuly.totals.receivedMeetings, withoutJuly.totals.uniqueLoggedMinutesReceived], [1, 60], "A range after Jul 21 shows none of July: nothing out of range is shown to make a figure nonzero.");
+const lastWeek = prodBuild("7d");
+assert.deepEqual([lastWeek.period.start, lastWeek.totals.uniqueLoggedMinutesInvested, lastWeek.totals.uniqueLoggedMinutesReceived], ["2026-09-05", 30 + 60 + 60 + 150 + 150, 60]);
+// A group meeting, a meeting without a duration, a record loaded twice, and a person listed twice.
+const groupNew = prodMeeting("t-group", "2026-09-01", ["mike", "lyf", "samuel"], 90, "kitchen_table");
+const edge = prodBuild("custom", { end: "2026-09-10", start: "2026-08-12" }, {
+  meetings: [...prodTableMeetings, ...prodDiscipleship, groupNew, { ...groupNew }, prodMeeting("t-samuel-no-duration", "2026-08-30", ["samuel"], 0, "phone"), prodMeeting("t-kyle-twice", "2026-08-25", ["kyle", "kyle"], 30, "coffee")],
+});
+assert.equal(edge.totals.meetings, 15 + 3, "The group meeting loaded twice counts once; the undated-duration meeting and the one listing Kyle twice count once each.");
+assert.equal(edge.totals.uniqueLoggedMinutesInvested, 1260 + 90 + 30, "Global elapsed time counts the group's 90 minutes once.");
+assert.deepEqual(["mike", "lyf", "samuel"].map((id) => edge.rows.find((row) => row.personId === id).records.filter((record) => record.id === "t-group").length), [1, 1, 1], "Each person present shows the group meeting once.");
+assert.deepEqual(["mike", "lyf", "samuel"].map((id) => edge.rows.find((row) => row.personId === id).loggedMinutes - founder.rows.find((row) => row.personId === id).loggedMinutes), [90, 90, 90], "Each row is credited the group's duration.");
+assert.equal(edge.meetings.find((meeting) => meeting.id === "t-group").people.length, 3);
+assert.equal(edge.rows.find((row) => row.personId === "kyle").meetingCount, 2);
+const samuelEdge = edge.rows.find((row) => row.personId === "samuel");
+assert.deepEqual([samuelEdge.meetingCount, samuelEdge.meetingsMissingDuration, samuelEdge.completeness, samuelEdge.loggedMinutes], [3, 1, "partial", 150], "Missing duration is not zero duration: the meeting counts, adds no minutes, and marks the row Partial.");
+assert.equal(edge.totals.meetingsMissingDuration, 1);
+
+// 17b. Group attendance (USA-271) under the USA-268 contract: recorded
+// attendance is its own count, never a meeting, never contact time, never Fruit.
+const gatheringFixture = (id, offset, attendeePersonIds, extra = {}) => ({ attendeePersonIds, date: day(offset), groupId: "group-1", groupName: "Tuesday Men's Group", id, status: "completed", ...extra });
+const withGatherings = build("30d", undefined, {
+  gatherings: [
+    gatheringFixture("g-1", 5, ["tanner", "quiet", "quiet"]),
+    gatheringFixture("g-2", 9, ["quiet"]),
+    gatheringFixture("g-old", 45, ["quiet"]),
+    gatheringFixture("g-scheduled", 3, ["quiet"], { status: "scheduled" }),
+    gatheringFixture("g-empty", 4, []),
+  ],
+});
+const quietRow = withGatherings.rows.find((row) => row.personId === "quiet");
+assert.ok(quietRow, "A person with only recorded attendance is on the table, even with no meeting and no relationship.");
+assert.deepEqual([quietRow.gatheringsAttended, quietRow.meetingCount, quietRow.loggedMinutes, quietRow.fruitCount], [2, 0, 0, 0], "Attendance is counted once per gathering and adds no meeting, minute, or Fruit.");
+assert.equal(withGatherings.rows.find((row) => row.personId === "tanner").gatheringsAttended, 1);
+assert.deepEqual([withGatherings.totals.meetings, withGatherings.totals.uniqueLoggedMinutesInvested], [report.totals.meetings, report.totals.uniqueLoggedMinutesInvested], "Gatherings change no meeting count and no time total.");
+assert.equal(withGatherings.totals.gatheringsWithAttendance, 2, "Only completed gatherings in range with a recorded attendee count.");
+assert.deepEqual(withGatherings.fruitRows, report.fruitRows, "Attendance is never Fruit.");
+assert.equal(dosMinistryGatheringsFromAppData([{ gatherings: [{ attendance: [{ personId: "a", status: "present" }, { personId: "b", status: "absent" }, { personId: "c", status: "guest" }], completedAt: day(2), id: "g", startsAt: day(2), status: "completed" }], id: "group-1", name: "Tuesday Men's Group" }])[0].attendeePersonIds.join(","), "a,c", "Only present and guest attendance reaches the report.");
+
+// 18. The revised surface (USA-268): one period surface, three figures, two tables, report-local detail.
+assert.ok(reportUiCode.includes("overflow-x-auto") && reportUiCode.includes("<table") && reportUiCode.includes("sticky left-0"), "The wide table scrolls inside its own container and keeps the Person column visible.");
 assert.ok(!reportUiCode.includes("overflow-hidden"), "Nothing in the report clips its own content.");
-assert.ok(reportUiCode.includes("grid min-w-0 gap-6"), "The report root never inherits a forced intrinsic width.");
+assert.ok(reportUiCode.includes("grid min-w-0 gap-5"), "The report root never inherits a forced intrinsic width.");
 assert.equal((reportUiCode.match(/<table/g) ?? []).length, 2, "Exactly two tables: Time Investment and Ministry Fruit.");
-for (const gone of ["What flows upward", "Where discipleship is multiplying", "without activity in this range", "Next action", "nextAction", "Direction unresolved", "Recent Fruit", "Recent Reviews", "buildDosSafeMinistrySummary", "dosUpstreamViewers"]) {
+assert.ok(reportUiCode.includes('aria-label="Report period"') && reportUiCode.includes("formatDosMinistryPeriod(report.period)") && reportUiCode.includes('label="Report range"'), "The period and its controls share one surface.");
+const summarySurface = reportUiCode.slice(reportUiCode.indexOf('aria-label="Summary"'), reportUiCode.indexOf("</section>", reportUiCode.indexOf('aria-label="Summary"')));
+assert.equal((summarySurface.match(/<MetricCard /g) ?? []).length, 3, "Three summary figures.");
+assert.ok(!/checkIns|Check-in|unresolved|meetingsMissingDuration|note=/.test(summarySurface), "No check-ins, not-set figure, repeated counts, or notes on the summary.");
+for (const gone of ["What flows upward", "Where discipleship is multiplying", "Next action", "nextAction", "Direction unresolved", "Relationship not set", "Needs relationship", "How this is calculated", "each counted once", "logged DOS activity only", "None recorded", " recorded`", "Not connected", "report.notes", "Duration I invested", "Master Ministry Report</"]) {
   assert.ok(!reportUiCode.includes(gone), `The report no longer renders ${gone}.`);
 }
-for (const kept of ["Relationship not set", "Needs relationship", "Not connected", "Ministry Fruit", "How this is calculated", "Relationship filter", "Contributing records", "Report range", "Duration I invested", "Invested in me"]) {
+for (const kept of ["Ministry Fruit", "Relationship filter", "Contributing records", "Time Investment", "DosDetailSheet", "Open person record", "Open meeting", "Open in My Record", "dosMinistryMultiplicationCell(row)", "<Pill tone=\"grey\">{row.relationshipLabel}</Pill>"]) {
   assert.ok(reportUiCode.includes(kept), `The report keeps ${kept}.`);
 }
-assert.ok(!/\b0 people\b|"No"/.test(reportUiCode), "Multiplication never renders a zero or a No.");
-assert.ok(!reportUiCode.includes("StatusPill"), "The 100px StatusPill would truncate 'Needs relationship'; the local pill uses the same tokens.");
+assert.ok(!reportUiCode.includes("StatusPill"), "The 100px StatusPill would truncate a relationship pill; the local pill uses the same tokens.");
+assert.ok(reportUiCode.includes("onClick={() => openPersonDetail(row.personId)}") && reportUiCode.includes("onClick={() => openDetail({ id: row.id, kind: \"fruit\" })}"), "Ordinary person and fruit clicks open report-local detail.");
+assert.equal((reportUiCode.match(/onOpenPerson\(/g) ?? []).length, 2, "The full Person record opens only from the detail's Open person record action.");
+assert.equal((reportUiCode.match(/onOpenMeeting\(/g) ?? []).length, 1, "The full meeting opens only from the meeting detail's Open action.");
+// View state survives detail, a full record, and a reload, without a hydration mismatch (USA-261).
+assert.ok(reportUiCode.includes("useLayoutEffect(() => {") && reportUiCode.includes("const saved = readReportView(storageKey);"), "The saved report view is restored in a layout effect after hydration.");
+assert.ok(!/use(?:Ref|State|Memo)\([^\n]*readReportView\(/.test(reportUiCode), "Storage is never read during a render.");
+assert.ok(reportUiCode.includes("writeReportView(storageKey, { customPeriod, detail, expandedId, filter, range, sort })"), "Range, custom dates, filter, sort, expanded row, and open detail are all remembered.");
+assert.ok(reportUiCode.includes("window.history.pushState") && reportUiCode.includes('window.addEventListener("popstate", handlePopState)'), "Browser Back closes detail one level at a time.");
+assert.ok(reportUi.includes("catch {\n    /* A browser that refuses session storage simply starts from the defaults. */"), "Storage failure degrades, never throws.");
 
-console.log("DOS ministry report (USA-251) regression passed.");
+// 19. Return to Reports from a full record, and the launcher (USA-268).
+const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+const reportsView = client.slice(client.indexOf('activeMoreAppView === "reports" ? ('), client.indexOf('activeMoreAppView === "organizations" ? ('));
+assert.ok(reportsView.includes("storageKey={`dos-report-view:${data.workspace.id}`}"), "The report view is remembered per workspace.");
+assert.ok(reportsView.includes("onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}"), "Opening a full Person from Reports records the way back.");
+assert.ok(client.includes("function openRecordFromReports(open: () => void)") && client.includes("appScrollRef.current?.scrollTop ?? 0") && client.includes('dosReturnTo: "reports"'), "The scroll position and a history entry are kept when a record opens from Reports.");
+assert.ok(client.includes('returnLabel={reportsReturn ? "Reports" : null}') && client.includes('returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}') && client.includes('backLabel={reportsReturn ? "Back to Reports" : "Back to More"}'), "Person, meeting, and My Record offer Back to Reports.");
+assert.ok(client.includes("if (reportsReturnRef.current && state?.dosReturnTo !== \"reports\")"), "The browser's Back from that record returns to Reports.");
+assert.ok(client.includes("reportsReturn: { scrollTop: number } | null;") && client.includes("reportsReturn,\n      selectedPersonId,"), "A reload keeps the return context.");
+const selectTabBody = client.slice(client.indexOf("function selectTab(tab: ActiveTab) {"), client.indexOf("setActiveTab(tab);", client.indexOf("function selectTab(tab: ActiveTab) {")));
+assert.ok(selectTabBody.includes("clearReportsReturn();"), "Choosing another destination ends the return context.");
+const catalog = client.slice(client.indexOf("const appCatalogSections: DosAppCatalogSection[] = ["), client.indexOf("const mobileAppCatalogItems = appCatalogSections"));
+const comingSoon = catalog.slice(catalog.indexOf('label: "Coming Soon",'));
+const reportsCard = catalog.slice(catalog.indexOf('label: "Reports",'), catalog.indexOf("},", catalog.indexOf('label: "Reports",')));
+assert.ok(reportsCard.includes('section: "installed"') && reportsCard.includes('status: "Installed"'), "Reports is an installed app on both launchers.");
+assert.ok(!comingSoon.includes('label: "Reports"'), "Reports is never listed under Coming Soon.");
+assert.ok(/dosMobileMoreLauncherAppLabels = \[[^\]]*"Reports"/.test(client) && /dosDesktopMoreLauncherAppLabels = \[[^\]]*"Reports"/.test(client));
+
+console.log("DOS ministry report (USA-251 / USA-268) regression passed.");
