@@ -297,7 +297,7 @@ assert.ok(
 );
 const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
 assert.ok(
-  surfaces.includes("getIsDirty: () => (isDirty ? isDirty() : formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)))"),
+  surfaces.includes("getIsDirty: () => (isDirty ? isDirty() : surfaceIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)))"),
   "the task-screen primitive keeps the snapshot comparison for every screen that does not declare its own unsaved work",
 );
 const unsaved = readFileSync(new URL("../src/lib/dos/unsaved-work.ts", import.meta.url), "utf8");

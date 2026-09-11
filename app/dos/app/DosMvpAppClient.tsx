@@ -10868,7 +10868,8 @@ function GroupInviteSheet({
   group: DosAppGroup;
   isSubmitting: boolean;
   message: { text: string; tone: "error" | "success" } | null;
-  onAddMember: (payload: GroupMemberAddPayload) => Promise<void>;
+  /* Resolves true only when the person was actually added. */
+  onAddMember: (payload: GroupMemberAddPayload) => Promise<boolean>;
   onClose: () => void;
   people: DosAppPerson[];
 }) {
@@ -10887,17 +10888,21 @@ function GroupInviteSheet({
   const nearDuplicatePerson = findNearDuplicatePerson(people, guestName, guestEmail, guestPhone);
   const blockedByDuplicateWarning = Boolean(nearDuplicatePerson) && !duplicateWarningDismissed;
 
+  /* A successful addition is saved work: the search that found the person is
+     cleared so the next person can be found, and nothing else is touched. A
+     guest being typed in the form below is a separate, unsaved draft and
+     stays exactly as it is (founder, 2026-09-11). */
   async function addExistingPerson(person: DosAppPerson) {
-    await onAddMember({
+    const added = await onAddMember({
       groupId: group.id,
       personId: person.id,
       role,
       status,
     });
-    setGuestEmail("");
-    setGuestName("");
-    setGuestPhone("");
-    setDuplicateWarningDismissed(false);
+
+    if (added) {
+      setQuery("");
+    }
   }
 
   async function addGuest(event: FormEvent<HTMLFormElement>) {
@@ -10907,7 +10912,7 @@ function GroupInviteSheet({
       return;
     }
 
-    await onAddMember({
+    const added = await onAddMember({
       confirmNearDuplicate: duplicateWarningDismissed,
       email: guestEmail,
       groupId: group.id,
@@ -10916,10 +10921,15 @@ function GroupInviteSheet({
       role,
       status,
     });
-    setGuestEmail("");
-    setGuestName("");
-    setGuestPhone("");
-    setDuplicateWarningDismissed(false);
+
+    /* Only a saved guest is cleared; a refused one stays for correction. */
+    if (added) {
+      setGuestEmail("");
+      setGuestName("");
+      setGuestPhone("");
+      setDuplicateWarningDismissed(false);
+      setQuery("");
+    }
   }
 
   return (
@@ -10975,8 +10985,10 @@ function GroupInviteSheet({
             <Search className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={2} />
             <input
               className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
+              data-unsaved="ignore"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, phone, or relationship"
+              type="search"
               value={query}
             />
           </div>
@@ -11299,7 +11311,8 @@ function GroupSettingsSheet({
   isSubmitting: boolean;
   message: { text: string; tone: "error" | "success" } | null;
   onClose: () => void;
-  onSave: (payload: GroupSettingsSavePayload) => Promise<void>;
+  /* Resolves true only when the settings were saved. */
+  onSave: (payload: GroupSettingsSavePayload) => Promise<boolean>;
   people: DosAppPerson[];
 }) {
   const scheduleDefaults = groupScheduleDefaults(group);
@@ -11465,14 +11478,20 @@ function GroupSettingsSheet({
     applyRhythmSlots(nextSlots.length ? nextSlots : [createGroupRhythmSlot(Date.now())]);
   }
 
+  /* The sheet stays open after a save, showing the saved values; they become
+     the unsaved-work baseline, so closing afterwards asks nothing. */
+  const [savedRevision, setSavedRevision] = useState(0);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    await onSave({ ...draft, slug: publicSlug });
+    if (await onSave({ ...draft, slug: publicSlug })) {
+      setSavedRevision((current) => current + 1);
+    }
   }
 
   return (
-    <Sheet kind="editable" onClose={onClose} showHeader={false} size="wide" title={`Edit ${group.name}`}>
+    <Sheet kind="editable" onClose={onClose} savedRevision={savedRevision} showHeader={false} size="wide" title={`Edit ${group.name}`}>
       <form className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 flex-col overflow-hidden" onSubmit={handleSubmit}>
         <header className="shrink-0 border-b border-[#EAF2FF] px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -13710,9 +13729,10 @@ function CommitmentSubjectSheet({
                 <input
                   autoFocus
                   className={FieldInputClass(false)}
+                  data-unsaved="ignore"
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search people..."
-                  type="text"
+                  type="search"
                   value={query}
                 />
               </DosFormField>
@@ -26094,6 +26114,7 @@ function PeopleImportSheet({
   const [isImporting, setIsImporting] = useState(false);
   const [parseError, setParseError] = useState("");
   const [rows, setRows] = useState<PeopleImportRow[]>([]);
+  const [savedRevision, setSavedRevision] = useState(0);
   const analysis = useMemo(() => analyzePeopleImportRows(rows, existingPeople), [existingPeople, rows]);
   const previewRows = rows.slice(0, 5);
   const canImport = analysis.readyRows.length > 0 && !isImporting;
@@ -26144,6 +26165,7 @@ function PeopleImportSheet({
       const result = await onImport(analysis.readyRows);
 
       setImportResult(result);
+      setSavedRevision((current) => current + 1);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Unable to import contacts.");
     } finally {
@@ -26152,7 +26174,7 @@ function PeopleImportSheet({
   }
 
   return (
-    <Sheet kind="editable" description="Upload a CSV to add people to your field." onClose={onClose} title="Import Contacts">
+    <Sheet kind="editable" description="Upload a CSV to add people to your field." onClose={onClose} savedRevision={savedRevision} title="Import Contacts">
       <div className="space-y-4">
         <label className="block rounded-[22px] border border-dashed border-[#BFDBFE] bg-white p-4">
           <FieldLabel>CSV File</FieldLabel>
@@ -39637,13 +39659,43 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function addGroupMember(payload: GroupMemberAddPayload) {
+  async function addGroupMember(payload: GroupMemberAddPayload): Promise<boolean> {
     setGroupInviteMessage(null);
     setErrorMessage("");
 
     if (isPreview) {
-      setGroupInviteMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
-      return;
+      /* The DB-free preview adds the member in memory so the sheet's own
+         behaviour (success, cleared search, honest exit) can be exercised.
+         Nothing is saved and the message says so. */
+      const person = payload.personId ? people.find((item) => item.id === payload.personId) ?? null : null;
+      const personName = person?.name ?? payload.name?.trim() ?? "";
+
+      if (!personName) {
+        setGroupInviteMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
+        return false;
+      }
+
+      const previewMember: DosAppGroupMember = {
+        id: `preview-member-${payload.groupId}-${person?.id ?? personName.toLowerCase().replace(/\s+/g, "-")}`,
+        joinedAt: new Date().toISOString(),
+        memberAccess: null,
+        notes: null,
+        permissions: {},
+        personId: person?.id ?? `preview-person-${personName.toLowerCase().replace(/\s+/g, "-")}`,
+        personName,
+        role: payload.role ?? "member",
+        status: payload.status,
+        title: null,
+      };
+
+      setGroupMemberAdditions((current) => ({
+        ...current,
+        [payload.groupId]: [...(current[payload.groupId] ?? []).filter((member) => member.personId !== previewMember.personId), previewMember],
+      }));
+      setGroupInviteMessage({ text: `${personName} added to ${selectedGroup?.name ?? "group"} in this preview only. Nothing is saved.`, tone: "success" });
+      setGroupDetailTab("members");
+
+      return true;
     }
 
     setIsSubmitting(true);
@@ -39691,8 +39743,12 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setGroupInviteMessage({ text: message, tone: "success" });
       setGroupDetailTab("members");
       router.refresh();
+
+      return true;
     } catch (error) {
       setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the group.", tone: "error" });
+
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -39759,16 +39815,17 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
   }
 
-  async function saveGroupSettings(payload: GroupSettingsSavePayload) {
+  async function saveGroupSettings(payload: GroupSettingsSavePayload): Promise<boolean> {
     setGroupSettingsMessage(null);
     setErrorMessage("");
 
     if (isPreview) {
       setGroupSettingsMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
-      return;
+      return false;
     }
 
     setIsSubmitting(true);
+    let settingsSaved = false;
 
     try {
       const response = await fetch("/api/dos/app/groups/settings", {
@@ -39814,6 +39871,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         setSelectedGroupId(result.group.id);
       }
       setGroupsNotice(`${result.group.name ?? selectedGroup?.name ?? "Group"} saved.`);
+      settingsSaved = true;
       setGroupSettingsMessage({ text: "Group settings saved.", tone: "success" });
 
       if (result.group.active === false) {
@@ -39827,6 +39885,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     } finally {
       setIsSubmitting(false);
     }
+
+    return settingsSaved;
   }
 
   function mergeGroupGatherings(groupId: string, updater: (gatherings: DosAppGroupGathering[]) => DosAppGroupGathering[]) {

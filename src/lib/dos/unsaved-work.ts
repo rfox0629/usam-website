@@ -36,12 +36,39 @@ export type DiscardConfirmationCopy = {
   title: string;
 };
 
+/* Founder wording (2026-09-11): the dialog names what is actually at risk.
+   Anything a surface has already saved is safe, and it says so, so nobody
+   fears that leaving undoes a save that already happened. */
 export const discardConfirmationCopy: DiscardConfirmationCopy = {
   cancel: "Keep editing",
-  confirm: "Discard",
-  description: "Your unsaved changes will be lost.",
-  title: "Discard changes?",
+  confirm: "Leave without saving",
+  description: "Your unsaved changes will be lost. Anything already saved will stay.",
+  title: "Leave without saving?",
 };
+
+/* Controls that only change what a surface SHOWS (a search box, a filter,
+   an expander) are never unsaved work. A surface marks such a control, or a
+   container of them, with this attribute and the snapshot reader skips it.
+   Search inputs are skipped by type as well, so the common case needs no
+   marking. */
+export const unsavedWorkIgnoreAttribute = "data-unsaved";
+export const unsavedWorkIgnoreValue = "ignore";
+
+export function isViewingControl(element: {
+  closest?: (selector: string) => unknown;
+  getAttribute: (name: string) => string | null;
+  tagName?: string;
+}) {
+  if (element.closest?.(`[${unsavedWorkIgnoreAttribute}="${unsavedWorkIgnoreValue}"]`)) {
+    return true;
+  }
+
+  const type = (element.getAttribute("type") ?? "").toLowerCase();
+  const role = (element.getAttribute("role") ?? "").toLowerCase();
+  const placeholder = element.getAttribute("placeholder") ?? "";
+
+  return type === "search" || role === "searchbox" || /^search\b/i.test(placeholder);
+}
 
 /* For a screen that saves in batches and keeps what it has already saved
    (Manage circles): leaving drops only the pending edits, and the dialog
