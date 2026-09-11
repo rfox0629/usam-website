@@ -66,4 +66,16 @@ assert.ok(
   "My Record shows the requested discipleship meeting as a record",
 );
 
+/* ---- Saving the simplified form ----------------------------------------- */
+/* Coordinated with the shared saved-state rule (unsaved-work.ts, USA-266 /
+   USA-268): a successful save leaves without a discard prompt, a failed save
+   keeps the form and every value. */
+const mentorForm = slice("function MyRecordMentorMeetingForm({");
+assert.ok(
+  client.includes('import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";')
+    && mentorForm.includes("if (!exitAfterSaveNeedsConfirmation(saved)) {\n        onCancel?.();\n      }"),
+  "the discipleship form closes through the shared save contract, never through a discard path",
+);
+assert.ok(!/if \(!saved\)[\s\S]{0,80}onCancel/.test(mentorForm), "a failed save never closes the form");
+
 console.log("DOS discipleship meeting linkage (USA-265) regression passed.");
