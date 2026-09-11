@@ -50,8 +50,8 @@ import {
   type CirclePlacementChange,
   type CircleTier,
 } from "@/src/lib/dos/circle-tiers";
-import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet } from "@/src/components/dos/overlays/DosSurfaces";
-import { leaveWithoutSavingCopy } from "@/src/lib/dos/unsaved-work";
+import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
+import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
@@ -28086,39 +28086,113 @@ function MyRecordDetailBlock({ label, value }: { label: string; value?: ReactNod
   );
 }
 
+/* The DB-free preview writes nothing. USA-270's browser verification rehearses
+   a save outcome instead -- sessionStorage `dos-preview-my-record-save` set to
+   "succeed" or "fail" -- so the sheets' own success and failure handling run
+   as they do against the API. Nothing is persisted either way, and the
+   preview route is disabled in production. */
+function previewMyRecordSaveRehearsal(): "fail" | "succeed" | null {
+  try {
+    const outcome = window.sessionStorage.getItem("dos-preview-my-record-save");
+
+    return outcome === "succeed" || outcome === "fail" ? outcome : null;
+  } catch {
+    return null;
+  }
+}
+
+/* USA-270: what a My Record sheet is decides how it may close. Reading a
+   record costs nothing to close; every sheet that holds a form is editable. */
+function myRecordSheetSurfaceKind(sheet: MyRecordSheetState): DosSurfaceKind {
+  if (sheet.kind === "placeholder" || sheet.kind === "timeline" || sheet.kind === "faithfulness" || sheet.kind === "weekly_report" || sheet.kind === "assessment_detail") {
+    return "inspection";
+  }
+
+  if (sheet.kind === "assessment") {
+    return "editable";
+  }
+
+  return sheet.mode === "view" ? "inspection" : "editable";
+}
+
+/* One sheet, one surface: opening another record, or turning a record into its
+   editor, mounts a fresh surface with a fresh baseline and no stale dialog. */
+function myRecordSheetKey(sheet: MyRecordSheetState) {
+  const mode = "mode" in sheet ? sheet.mode : "view";
+  const record = sheet.kind === "encounter" ? sheet.entry ?? sheet.prayerLog
+    : sheet.kind === "journal" ? sheet.entry
+      : sheet.kind === "prayer" ? sheet.log
+        : sheet.kind === "mentor_meeting" ? sheet.meeting ?? sheet.mentor
+          : sheet.kind === "mentor_relationship" ? sheet.mentor
+            : sheet.kind === "prophetic_word" ? sheet.word
+              : sheet.kind === "external_assessment" ? sheet.assessmentResult
+                : sheet.kind === "book" ? sheet.book
+                  : sheet.kind === "chapter_note" ? sheet.note ?? sheet.book
+                    : sheet.kind === "life_plan" ? sheet.plan
+                      : null;
+  const item = sheet.kind === "assessment" || sheet.kind === "assessment_detail" ? sheet.item?.name ?? "" : "";
+  const title = "title" in sheet ? sheet.title ?? "" : "";
+
+  return [sheet.kind, mode, record?.id ?? "", item, title].join(":");
+}
+
 function MyRecordSheetFrame({
   children,
+  kind,
   onClose,
   title,
 }: {
-  children: ReactNode;
+  /* USA-270: the frame hands its content the guarded close (X, Cancel,
+     Escape) and markSaved, so a successful save leaves without a prompt. */
+  children: (surface: { markSaved: () => void; requestClose: () => void }) => ReactNode;
+  kind: DosSurfaceKind;
   onClose: () => void;
   title: string;
 }) {
   const [isMounted, setIsMounted] = useState(false);
+  const panelRef = useRef<HTMLElement | null>(null);
+  /* The shared protection (DosSurfaces): a read-only sheet closes however it
+     is dismissed; an editable one ignores the backdrop, and every deliberate
+     exit asks first only when there is real unsaved work. */
+  const surface = useEditableSurface({ kind, onClose, rootRef: panelRef });
+  const requestClose = surface.requestExit;
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        requestClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   const content = (
-    <div className="fixed inset-0 z-[1100] bg-[#0F172A]/18 backdrop-blur-sm" onMouseDown={onClose} role="presentation">
+    <div className="fixed inset-0 z-[1100] bg-[#0F172A]/18 backdrop-blur-sm" data-dos-my-record-sheet={kind} onMouseDown={backdropMayDismiss(kind) ? onClose : undefined} role="presentation">
       <section
         aria-modal="true"
         className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(15,23,42,0.18)] md:max-w-[560px] md:border-l md:border-[#DCEBFF]"
         onMouseDown={(event) => event.stopPropagation()}
+        ref={panelRef}
         role="dialog"
       >
         <header className="flex min-h-16 items-center justify-between gap-3 border-b border-[#EAF2FF] px-4">
           <h2 className="truncate text-lg font-black text-[#0F172A]">{title}</h2>
-          <button aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onClose} type="button">
+          <button aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={requestClose} type="button">
             <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           </button>
         </header>
         <div className="flex-1 overflow-y-auto bg-[#F8FBFF] p-4 [scrollbar-width:none]">
-          {children}
+          {children({ markSaved: surface.markSaved, requestClose })}
         </div>
       </section>
+      {surface.confirmation}
     </div>
   );
 
@@ -32656,19 +32730,33 @@ function MyRecordWorkspace({
       />
 
       {myRecordSheet ? (
-        <MyRecordSheetFrame onClose={() => setMyRecordSheet(null)} title={myRecordSheetTitle(myRecordSheet)}>
-          <MyRecordSheetContent
-            activeTab={activeMyRecordTab}
-            errorMessage={errorMessage}
-            isSubmitting={isSubmitting}
-            onClose={() => setMyRecordSheet(null)}
-            onDelete={handleMyRecordDelete}
-            onOpenSheet={openMyRecordSheet}
-            onSave={onSave}
-            people={people}
-            record={record}
-            sheet={myRecordSheet}
-          />
+        <MyRecordSheetFrame key={myRecordSheetKey(myRecordSheet)} kind={myRecordSheetSurfaceKind(myRecordSheet)} onClose={() => setMyRecordSheet(null)} title={myRecordSheetTitle(myRecordSheet)}>
+          {({ markSaved, requestClose }) => (
+            <MyRecordSheetContent
+              activeTab={activeMyRecordTab}
+              errorMessage={errorMessage}
+              isSubmitting={isSubmitting}
+              onClose={requestClose}
+              onDelete={handleMyRecordDelete}
+              onOpenSheet={openMyRecordSheet}
+              onSave={async (payload, nextTab) => {
+                const saved = await onSave(payload, nextTab);
+
+                /* The shared save contract: a save that succeeded leaves the
+                   sheet clean at once, so the form's own close that follows is
+                   silent. A failed save changes nothing, so the work stays
+                   protected and every value stays on screen. */
+                if (!exitAfterSaveNeedsConfirmation(saved)) {
+                  markSaved();
+                }
+
+                return saved;
+              }}
+              people={people}
+              record={record}
+              sheet={myRecordSheet}
+            />
+          )}
         </MyRecordSheetFrame>
       ) : null}
     </div>
@@ -39313,6 +39401,22 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setErrorMessage("");
 
     if (isPreview) {
+      const rehearsal = previewMyRecordSaveRehearsal();
+
+      if (rehearsal) {
+        /* A rehearsed outcome for the browser verification; nothing is written. */
+        setIsSubmitting(true);
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        setIsSubmitting(false);
+
+        if (rehearsal === "succeed") {
+          return true;
+        }
+
+        setErrorMessage("Unable to save My Record. Please try again.");
+        return false;
+      }
+
       setErrorMessage("Preview mode is read-only. My Record changes are not saved.");
       return false;
     }
