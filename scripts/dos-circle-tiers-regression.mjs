@@ -151,8 +151,8 @@ assert.ok(manage.includes("onPlace={(next) => place(person.id, next)}"), "a pers
 assert.ok(manage.includes("onPlace(notReviewed)") && /Remove from circles\s*<\/button>/.test(manage), "a person can be removed from placement");
 assert.ok(manage.includes("capacityReport(counts)") && manage.includes("row.remaining") && manage.includes("row.capacity"), "remaining capacity is shown per circle");
 assert.ok(
-  manage.includes("Confirmed: ${decisionLabel(decision)}"),
-  "a confirmed placement says so in words",
+  manage.includes("Confirmed: ${decisionLabel(confirmed)}") && manage.includes("${decisionLabel(decision)} · Not saved"),
+  "a confirmed placement says so in words, and only a persisted one; an unsaved selection says Not saved",
 );
 
 /* Founder decision 4: three distinct states, and the middle one is stored. */
@@ -161,9 +161,16 @@ assert.ok(
     && manage.includes("chosen not to place them"),
   "reviewed-but-deliberately-not-placed is an action a missionary can take",
 );
+/* Founder correction (2026-09-11): the Reviewed and Changed filters are gone.
+   The deliberate state is still stored, still chosen, and still labelled on
+   the row; Unplaced holds it together with never-reviewed. */
 assert.ok(
-  manage.includes('{ label: "Reviewed", value: "reviewed" }'),
-  "the reviewed state is filterable, so it is visibly not the same as never looked at",
+  !manage.includes('value: "reviewed"') && !manage.includes('value: "changed"'),
+  "the misleading Reviewed and Changed filters are gone",
+);
+assert.ok(
+  manage.includes('if (filter === "unplaced") {\n        return !placed;') && manage.includes("decisionLabel(confirmed)"),
+  "Unplaced holds both never-reviewed and deliberately-not-placed people, and each row still says which",
 );
 
 /* Founder decision 6: no automated possibilities in the first release. */
@@ -195,9 +202,8 @@ assert.ok(
 /* Built for 73-120 people: search, filters, and compact rows. */
 assert.ok(manage.includes("<SearchField label=\"Search people to place\""), "the list is searchable");
 assert.ok(
-  manage.includes('{ label: "Confirmed", value: "confirmed" }') && manage.includes('{ label: "Unplaced", value: "unplaced" }')
-    && manage.includes('{ label: "Reviewed", value: "reviewed" }') && manage.includes('{ label: "Changed", value: "changed" }'),
-  "Confirmed, Unplaced, Reviewed and Changed filters exist",
+  manage.includes('{ label: "All", value: "all" },\n  { label: "Confirmed", value: "confirmed" },\n  { label: "Unplaced", value: "unplaced" },\n];'),
+  "the filters are exactly All | Confirmed | Unplaced",
 );
 assert.ok(!manage.includes("No suggest" + "ion"), "the repetitive placeholder copy is gone");
 
@@ -254,6 +260,51 @@ assert.ok(
 assert.ok(
   client.includes("circleSaveKeyRef") && client.includes("operationKey: circleSaveKeyRef.current"),
   "a save carries an operation key so a retry is idempotent",
+);
+/* Founder correction (2026-09-11): save, collapse, and leave. */
+assert.ok(
+  manage.includes("outcome.placements.forEach((row) => next.set(row.personId, row.placement));") && manage.includes("setSavedPlacements(next);")
+    && manage.includes("setDraft(new Map());") && manage.includes("setIsReviewing(false);") && manage.includes("setOpenPersonId(null);"),
+  "a successful save updates the rows from the server's response, clears the draft, ends review, and collapses the open editor",
+);
+assert.ok(
+  manage.includes("useEffect(() => {\n    setSavedPlacements(null);\n  }, [confirmedPlacements]);") && manage.includes("const merged = new Map(confirmedPlacements);"),
+  "the saved rows sit over the server prop until the refresh delivers the same rows, so nothing reverts in between",
+);
+assert.ok(
+  manage.includes("isDirty={() => hasPendingChanges}") && manage.includes("discardCopy={leaveWithoutSavingCopy}") && manage.includes("backDisabled={isSaving}"),
+  "unsaved work is the pending placement changes and nothing else; leaving mid-save waits; the dialog says only unsaved changes are lost",
+);
+assert.ok(
+  manage.includes("if (decision === confirmedOf(personId)) {\n        next.delete(personId);"),
+  "choosing the confirmed value again clears the pending change",
+);
+assert.ok(
+  !manage.includes("No changes to review") && manage.includes("{hasPendingChanges || isSaving ? (") && manage.includes("Review {changes.length} {changes.length === 1 ? \"change\" : \"changes\"}"),
+  "the review footer exists only while there is something to save; nobody must classify everyone before leaving",
+);
+assert.ok(
+  manage.includes('person.fieldVisibility === "secondary" && !placed && !showHousehold') && manage.includes("if (changedIds.has(person.id)) {\n        return true;"),
+  "Household-only people outside a circle stay behind a toggle, confirmed ones stay visible, and a pending edit is never hidden",
+);
+assert.ok(
+  manage.includes("{visiblePeople.length} {visiblePeople.length === 1 ? \"person\" : \"people\"}"),
+  "one result count, the visible list's own length",
+);
+assert.ok(
+  manage.includes("disabled={isSaving}") && manage.includes("if (isSaving) {\n      return;\n    }"),
+  "editing is blocked while a save is in flight, so nothing is silently lost",
+);
+const surfaces = readFileSync(new URL("../src/components/dos/overlays/DosSurfaces.tsx", import.meta.url), "utf8");
+assert.ok(
+  surfaces.includes("getIsDirty: () => (isDirty ? isDirty() : formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current)))"),
+  "the task-screen primitive keeps the snapshot comparison for every screen that does not declare its own unsaved work",
+);
+const unsaved = readFileSync(new URL("../src/lib/dos/unsaved-work.ts", import.meta.url), "utf8");
+assert.ok(
+  unsaved.includes('title: "Leave without saving?"') && unsaved.includes('description: "Only your unsaved changes will be lost. Saved placements will stay."')
+    && unsaved.includes('confirm: "Leave without saving"') && unsaved.includes('cancel: "Keep editing"'),
+  "the leave dialog's wording is the founder's",
 );
 assert.ok(
   client.includes("circleSaveKeyRef.current = null;"),
