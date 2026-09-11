@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, Lock, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Target, Trash2, User, UserPlus, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Target, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -58,7 +58,8 @@ import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
-import { buildDosMinistryReport, dosMinistryFruitEntriesFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
+import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
+import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMinistryFruitEntriesFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
@@ -12167,7 +12168,9 @@ type DashboardNotificationItem = {
   title: string;
 };
 
-type MyRecordLaunchAction = "mentor_meeting" | "prayer_time" | "time_with_god" | "weekly_report";
+/* `mentor_meeting:<id>` opens that saved discipleship meeting (USA-265: from
+   the Person record or the report). */
+type MyRecordLaunchAction = "mentor_meeting" | `mentor_meeting:${string}` | "prayer_time" | "time_with_god" | "weekly_report";
 
 function dashboardDiscipleshipRelationshipLabel(person: DosAppPerson) {
   if (person.discipleshipRelationship === "mentor" || person.discipleshipRelationship === "pastor" || person.discipleshipRelationship === "coach" || person.discipleshipRelationship === "spiritual_parent") {
@@ -28648,16 +28651,40 @@ function MyRecordMentorMeetingForm({
   const isEditing = Boolean(meeting);
   const formRef = useRef<HTMLFormElement | null>(null);
   const activeMentors = mentors.filter((mentor) => mentor.status === "active");
-  const defaultMeetingMentor = meeting?.relationshipId
-    ? activeMentors.find((activeMentor) => activeMentor.id === meeting.relationshipId) ?? null
-    : mentor ?? (activeMentors.length === 1 ? activeMentors[0] : null);
-  const defaultRelationshipId = meeting?.relationshipId ?? defaultMeetingMentor?.id ?? "";
-  const defaultFieldPersonId = meeting?.fieldPersonId ?? defaultMeetingMentor?.fieldPersonId ?? "";
+  /* USA-265 (founder, 2026-09-10): who discipled you is one choice. A meeting
+     being edited, or one logged from a saved relationship, already says who,
+     so it is shown rather than asked again. The server links the Person
+     through the relationship, so there is no separate Field Contact. */
+  const fixedMentor = meeting?.relationshipId
+    ? mentors.find((candidate) => candidate.id === meeting.relationshipId) ?? null
+    : mentor ?? null;
+  const savedMentorPersonIds = new Set(activeMentors.map((candidate) => candidate.fieldPersonId).filter(Boolean));
+  const whoOptions = [
+    ...activeMentors.map((candidate) => ({
+      helper: [myRecordRelationshipLabelText(candidate.relationshipLabel), candidate.meetingRhythm].filter(Boolean).join(" · ") || undefined,
+      label: candidate.mentorName,
+      value: `relationship:${candidate.id}`,
+    })),
+    /* People marked "They are discipling me" who have no saved relationship yet. */
+    ...people
+      .filter((person) => person.roleInMyLife === "mentoring_me" && !savedMentorPersonIds.has(person.id))
+      .map((person) => ({ helper: "Discipling me", label: person.name, value: `person:${person.id}` })),
+    { label: "Someone else", value: "someone_else" },
+  ];
+  const [who, setWho] = useState(() => (whoOptions.length === 2 ? whoOptions[0].value : whoOptions.length === 1 ? "someone_else" : ""));
+  /* Meetings saved before USA-265 may hold text in the separate fields. It is
+     shown under its original label and saved back, never dropped. */
+  const legacyFields = [
+    { label: "What was discussed", name: "discussed", value: meeting?.discussed ?? "" },
+    { label: "Counsel received", name: "counsel_received", value: meeting?.counselReceived ?? "" },
+    { label: "Action steps", name: "action_steps", value: meeting?.actionSteps ?? "" },
+  ].filter((field) => field.value.trim());
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const minutes = Number.parseInt(String(formData.get("minutes_spent") ?? ""), 10);
+    const minutes = Number.parseInt(String(formData.get("meeting_duration_minutes") ?? ""), 10);
+    const choice = fixedMentor ? `relationship:${fixedMentor.id}` : who;
 
     void (async () => {
       const saved = await onSave({
@@ -28665,21 +28692,24 @@ function MyRecordMentorMeetingForm({
         counselReceived: String(formData.get("counsel_received") ?? ""),
         date: String(formData.get("date") ?? todayDateValue()),
         discussed: String(formData.get("discussed") ?? ""),
-        fieldPersonId: String(formData.get("field_person_id") ?? ""),
+        fieldPersonId: choice.startsWith("person:") ? choice.slice("person:".length) : "",
         followUpDate: String(formData.get("follow_up_date") ?? ""),
         kind: "mentor_meeting",
         mentorMeetingId: meeting?.id,
-        mentorName: String(formData.get("mentor_name") ?? ""),
+        mentorName: choice === "someone_else" ? String(formData.get("mentor_name") ?? "") : "",
         minutesSpent: Number.isFinite(minutes) ? minutes : 0,
         notes: String(formData.get("notes") ?? ""),
-        relationshipId: String(formData.get("relationship_id") ?? ""),
+        relationshipId: choice.startsWith("relationship:") ? choice.slice("relationship:".length) : "",
       }, nextTab);
 
       if (saved && !isEditing) {
         formRef.current?.reset();
       }
 
-      if (saved) {
+      /* The shared save contract (unsaved-work.ts): a successful save has
+         persisted the work, so the sheet closes with no discard prompt; a
+         failed save keeps every value on screen. */
+      if (!exitAfterSaveNeedsConfirmation(saved)) {
         onCancel?.();
       }
     })();
@@ -28687,68 +28717,42 @@ function MyRecordMentorMeetingForm({
 
   return (
     <form ref={formRef} className="space-y-5 rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]" onSubmit={handleSubmit}>
-      <DosFormSection icon="people" title="Discipleship Meeting">
-        <DosFormGrid>
-          <DosDateInput defaultValue={meeting?.meetingDate ?? todayDateValue()} label="Date" name="date" />
-          <DosFormField label="Duration">
-            <input className={FieldInputClass()} defaultValue={meeting?.durationMinutes ?? ""} min={0} name="minutes_spent" placeholder="Minutes" type="number" />
-          </DosFormField>
-        </DosFormGrid>
-        {activeMentors.length ? (
-          <FormOptionSelect
-            label="Saved Person Discipling Me"
-            name="relationship_id"
-            defaultValue={defaultRelationshipId}
-            options={[
-              { label: "Enter a name", value: "" },
-              ...activeMentors.map((mentor) => ({
-                helper: [myRecordRelationshipLabelText(mentor.relationshipLabel), mentor.meetingRhythm].filter(Boolean).join(" · ") || undefined,
-                label: mentor.mentorName,
-                value: mentor.id,
-              })),
-            ]}
-          />
+      {/* Date and duration use Log Meeting's controls. */}
+      <DosFormSection icon="calendar" title="Date" variant="label">
+        <DosDateInput ariaLabel="Date" defaultValue={meeting?.meetingDate ?? todayDateValue()} name="date" required />
+      </DosFormSection>
+      <DosFormSection hint="15-minute steps" icon="meetings" title="Duration" variant="label">
+        <MeetingDurationSelector defaultMinutes={meeting?.durationMinutes || 60} />
+      </DosFormSection>
+      <DosFormSection icon="people" title="Who discipled you" variant="label">
+        {fixedMentor ? (
+          <p className="text-[15px] font-semibold text-dos-primary">{fixedMentor.mentorName}</p>
         ) : (
           <>
-            <input name="relationship_id" type="hidden" value="" />
-            <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3 text-sm font-semibold leading-6 text-[#475569]">
-              No one discipling you is saved yet. Add the person first or enter a name.
-            </div>
+            {/* The select shows its first option when nothing is chosen, so an
+                unchosen form offers an explicit placeholder instead of looking
+                as if the first person were selected. */}
+            <CompactOptionSelect label="Who discipled you" onChange={setWho} options={who ? whoOptions : [{ label: "Choose who discipled you", value: "" }, ...whoOptions]} value={who} />
+            {who === "someone_else" ? (
+              <DosFormField label="Their name">
+                <input className={FieldInputClass()} name="mentor_name" placeholder="Their name" required />
+              </DosFormField>
+            ) : null}
           </>
         )}
-        <DosFormField helper={activeMentors.length ? "Use this only if you did not select a saved person." : "Enter the name of the person discipling you for this meeting."} label="Name (if not saved)">
-          <input className={FieldInputClass()} defaultValue={defaultRelationshipId ? "" : meeting?.mentorName ?? ""} name="mentor_name" placeholder="Their name" />
-        </DosFormField>
-        <FormOptionSelect
-          label="Field Contact"
-          name="field_person_id"
-          defaultValue={defaultFieldPersonId}
-          options={[
-            { label: "Not linked", value: "" },
-            ...people.map((person) => ({
-              helper: relationshipLine(person),
-              label: person.name,
-              value: person.id,
-            })),
-          ]}
-        />
-        <DosFormField label="What was discussed?">
-          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.discussed ?? ""} name="discussed" placeholder="Topics, Scripture, life context, or questions." />
-        </DosFormField>
-        <DosFormField label="Counsel Received">
-          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.counselReceived ?? ""} name="counsel_received" placeholder="What counsel or correction was given?" />
-        </DosFormField>
-        <DosFormField label="Action Steps">
-          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.actionSteps ?? ""} name="action_steps" placeholder="What will you obey or follow up on?" />
-        </DosFormField>
-        <DosDateInput defaultValue={meeting?.followUpDate ?? ""} label="Follow-up Date" name="follow_up_date" />
-        <DosFormField label="Notes">
-          <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.notes ?? ""} name="notes" placeholder="Private notes." />
-        </DosFormField>
       </DosFormSection>
+      <DosFormField label="Notes">
+        <VoiceTextarea className={FieldTextareaClass()} defaultValue={meeting?.notes ?? ""} name="notes" placeholder="What stood out, what you are taking away, what to follow up on." />
+      </DosFormField>
+      {legacyFields.map((field) => (
+        <DosFormField key={field.name} label={field.label}>
+          <VoiceTextarea className={FieldTextareaClass()} defaultValue={field.value} name={field.name} />
+        </DosFormField>
+      ))}
+      <DosDateInput defaultValue={meeting?.followUpDate ?? ""} label="Follow-up date" name="follow_up_date" />
       {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <AppButton disabled={isSubmitting} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Meeting" : "Log Discipleship Meeting"}</AppButton>
+        <AppButton disabled={isSubmitting || (!fixedMentor && !who)} tone="black" type="submit">{isSubmitting ? "Saving..." : isEditing ? "Save Meeting" : "Log Discipleship Meeting"}</AppButton>
         {onCancel ? <AppButton disabled={isSubmitting} onClick={onCancel} tone="white" type="button">Cancel</AppButton> : null}
       </div>
     </form>
@@ -29450,7 +29454,6 @@ const myRecordReportRanges = [
   { label: "YTD", value: "ytd" },
 ] as const;
 
-const myRecordFutureSharingRoles = ["Person discipling me", "Spouse", "Board Member", "Accountability Partner", "Pastor", "Custom Viewer"] as const;
 const myRecordFutureShareableSections = [
   "Quiet Time",
   "Prayer",
@@ -31973,11 +31976,13 @@ function MyRecordSheetContent({
         <MyRecordDetailBlock label="Date" value={formatDate(meeting.meetingDate)} />
         <MyRecordDetailBlock label="Duration" value={formatRecordDuration(meeting.durationMinutes)} />
         <MyRecordDetailBlock label="With" value={meeting.mentorName} />
+        <MyRecordDetailBlock label="Notes" value={meeting.notes} />
+        {/* USA-265: new meetings keep one Notes field. Text saved in the earlier
+            separate fields stays visible under its original label. */}
         <MyRecordDetailBlock label="What Was Discussed" value={meeting.discussed} />
         <MyRecordDetailBlock label="Counsel Received" value={meeting.counselReceived} />
         <MyRecordDetailBlock label="Action Steps" value={meeting.actionSteps} />
         <MyRecordDetailBlock label="Follow-up Date" value={meeting.followUpDate ? formatDate(meeting.followUpDate) : null} />
-        <MyRecordDetailBlock label="Notes" value={meeting.notes} />
         <MyRecordEntryActions canDelete onDelete={() => onDelete("mentor_meeting", meeting.id)} onEdit={() => onOpenSheet({ kind: "mentor_meeting", meeting, mode: "edit" })} />
       </div>
     ) : <SectionEmptyState title="Discipleship meeting not found." />;
@@ -32269,7 +32274,6 @@ function MyRecordWorkspace({
   const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
-  const [isShareSettingsOpen, setIsShareSettingsOpen] = useState(false);
   const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
   const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
@@ -32355,12 +32359,16 @@ function MyRecordWorkspace({
       openMyRecordSheet({ kind: "prayer", mode: "new" });
     } else if (launchAction === "mentor_meeting") {
       openMyRecordSheet({ kind: "mentor_meeting", mode: "new" });
+    } else if (launchAction.startsWith("mentor_meeting:")) {
+      const meetingId = launchAction.slice("mentor_meeting:".length);
+
+      openMyRecordSheet({ kind: "mentor_meeting", meeting: record.mentorMeetings.find((mentorMeeting) => mentorMeeting.id === meetingId) ?? null, mode: "view" });
     } else if (launchAction === "weekly_report") {
       openMyRecordSheet({ fruit, kind: "weekly_report", meetings, mode: "view" });
     }
 
     onLaunchActionHandled?.();
-  }, [fruit, launchAction, meetings, onLaunchActionHandled]);
+  }, [fruit, launchAction, meetings, onLaunchActionHandled, record.mentorMeetings]);
 
   function openMyRecordTimelineItem(item: MyRecordTimelineItem) {
     if (item.id.startsWith("encounter-journal-")) {
@@ -32517,49 +32525,15 @@ function MyRecordWorkspace({
 
   return (
     <div className="relative space-y-3 pb-[calc(env(safe-area-inset-bottom)+9rem)] md:space-y-4 md:pb-24">
-      {/* Canonical PageHeader (spec §3, §6): the "← More" pill becomes the
-          header's back control and the Share button becomes the Private chip.
-          The chip still opens the same sharing panel, so nothing about
-          sharing scope changes; Share Settings copy lives in that panel. */}
+      {/* Canonical PageHeader (spec §3, §6): the "← More" pill is the header's
+          back control. USA-265 removed the white Private chip beside the title:
+          it opened a panel promising sharing that does not exist. */}
       <PageHeader
-        action={(
-          <button
-            aria-expanded={isShareSettingsOpen}
-            className="group inline-flex h-11 items-center focus:outline-none"
-            onClick={() => setIsShareSettingsOpen((current) => !current)}
-            type="button"
-          >
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors group-hover:border-dos-blue100 group-focus-visible:ring-2 group-focus-visible:ring-dos-blue group-focus-visible:ring-offset-2">
-              <Lock aria-hidden="true" className="h-3.5 w-3.5 text-dos-secondary" strokeWidth={2} />
-            Private
-            </span>
-          </button>
-        )}
         backLabel="Back to More"
         mobileOnlyBack
         onBack={onBack}
         title="My Record"
       />
-      {isShareSettingsOpen ? (
-        <section className="rounded-[22px] border border-[#DCEBFF] bg-white p-4 shadow-[0_12px_30px_rgba(37,99,235,0.05)]">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#15803D] ring-1 ring-[#BBF7D0]">
-              <Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-black text-[#0F172A]">My Record is private.</p>
-              <p className="mt-1 text-sm leading-6 text-[#64748B]">Future sharing will be section-by-section and controlled by the user.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {myRecordFutureSharingRoles.map((role) => (
-                  <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#64748B]" key={role} style={{ fontFamily: font.rajdhani }}>
-                    {role}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
       <PillRail edgeInset={4} label="My Record sections" onChange={onTabChange} options={myRecordTabs} value={activeMyRecordTab} />
 
       {activeMyRecordTab === "overview" ? (
@@ -35162,6 +35136,8 @@ function PersonDetailOverlay({
   index,
   leaderReflections,
   meetings,
+  discipleshipMeetings,
+  discipleshipRelationships,
   reminders,
   resourceAssignments,
   onBack,
@@ -35193,6 +35169,7 @@ function PersonDetailOverlay({
   onOpenGroup,
   onOpenPrayerResources,
   onOpenMeeting,
+  onOpenDiscipleshipMeeting,
   onLogMeeting,
   onRequestReview,
   onPauseCommitment,
@@ -35228,6 +35205,10 @@ function PersonDetailOverlay({
   index: number;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  /* USA-265: My Record discipleship meetings and their saved relationships.
+     The ones that belong to this person appear with its meetings. */
+  discipleshipMeetings: DosAppUserMentorMeeting[];
+  discipleshipRelationships: DosAppUserMentorRelationship[];
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
   onBack: () => void;
@@ -35262,6 +35243,7 @@ function PersonDetailOverlay({
   onOpenGroup: (groupId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
+  onOpenDiscipleshipMeeting: (meetingId: string) => void;
   onLogMeeting: () => void;
   onRequestReview?: (meeting: DosAppMeeting, type: "quick_review" | "testimony_request") => void;
   onPauseCommitment: (commitment: DosAppPersonCommitment) => void;
@@ -35328,6 +35310,9 @@ function PersonDetailOverlay({
   const personLoggedMeetings = personMeetings
     .filter((meeting) => meeting.meetingStatus === "logged")
     .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
+  const personDiscipleshipMeetings = discipleshipMeetings
+    .filter((meeting) => dosDiscipleshipMeetingPersonId(meeting, discipleshipRelationships) === person.id)
+    .sort((first, second) => dateSortValue(second.meetingDate) - dateSortValue(first.meetingDate));
   const personScheduledMeetings = personMeetings
     .filter((meeting) => meeting.meetingStatus === "scheduled" && isUpcomingDate(meeting.scheduledStartAt ?? meeting.date))
     .sort((first, second) => dateSortValue(first.scheduledStartAt ?? first.date) - dateSortValue(second.scheduledStartAt ?? second.date));
@@ -35419,10 +35404,15 @@ function PersonDetailOverlay({
     reviews: personReviewItems.filter((item) => item.kind === "quick_review"),
     testimonies: personReviewItems.filter((item) => item.kind === "testimony_review"),
   });
-  const lastMeetingDate = [personLoggedMeetings[0]?.date, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
+  const lastMeetingDate = [personLoggedMeetings[0]?.date, personDiscipleshipMeetings[0]?.meetingDate, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
     .filter((date): date is string => Boolean(date))
     .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
   const lastMeeting = personLoggedMeetings[0] ?? null;
+  /* A discipleship meeting at least as recent as the last logged meeting is
+     the last meeting with this person (USA-265). */
+  const lastDiscipleshipMeeting = personDiscipleshipMeetings[0] && (!lastMeeting || dateSortValue(personDiscipleshipMeetings[0].meetingDate) >= dateSortValue(lastMeeting.date))
+    ? personDiscipleshipMeetings[0]
+    : null;
   const nextMeeting = personScheduledMeetings[0] ?? null;
   const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
   const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
@@ -35605,6 +35595,14 @@ function PersonDetailOverlay({
       // On a person's own timeline the person is already known — prefer the
       // meeting's human title ("Coffee") over "Ministered to {name}".
       title: meeting.title?.trim() || meetingActivityTitle(meeting),
+    })),
+    ...personDiscipleshipMeetings.map((meeting) => ({
+      date: meeting.meetingDate,
+      description: [formatRecordDuration(meeting.durationMinutes), "Logged in My Record"].filter(Boolean).join(" · "),
+      id: `history-discipleship-meeting-${meeting.id}`,
+      kind: "meeting" as const,
+      onClick: () => onOpenDiscipleshipMeeting(meeting.id),
+      title: "Discipleship meeting",
     })),
     ...accountabilityCheckIns.map((checkIn) => ({
       date: checkIn.checkInDate,
@@ -35892,7 +35890,17 @@ function PersonDetailOverlay({
 
     return (
       <div className="grid grid-cols-2 gap-2.5 pt-4">
-        {lastMeeting ? (
+        {lastDiscipleshipMeeting ? (
+          <Card onClick={() => onOpenDiscipleshipMeeting(lastDiscipleshipMeeting.id)}>
+            <span className="flex items-start justify-between gap-2">
+              <span className={eyebrowClass}>Last meeting</span>
+              {chevron}
+            </span>
+            <span className={leadClass}>{formatRelativeDate(lastDiscipleshipMeeting.meetingDate)}</span>
+            <span className={bodyClass}>Discipleship meeting</span>
+            {lastDiscipleshipMeeting.durationMinutes ? <span className={metaClass}>{formatLoggedTime(lastDiscipleshipMeeting.durationMinutes)}</span> : null}
+          </Card>
+        ) : lastMeeting ? (
           <Card onClick={() => onOpenMeeting(lastMeeting.id, person.id)}>
             <span className="flex items-start justify-between gap-2">
               <span className={eyebrowClass}>Last meeting</span>
@@ -38526,6 +38534,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     accountabilityCheckIns: data.accountabilityCheckIns,
     accountabilitySchedules: data.accountabilitySchedules,
     disciplingMe: data.myRecord.mentorRelationships,
+    discipleshipMeetings: data.myRecord.mentorMeetings,
     fruit: dosMinistryFruitEntriesFromAppData({
       fruit: data.fruit,
       fruitEvents: data.fruitEvents,
@@ -38542,7 +38551,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     linkedPersonIds: data.identityLinkedPersonIds,
     meetings: data.meetings,
     people,
-  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, people]);
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, people]);
   const reportNow = useMemo(() => new Date(), []);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
@@ -39264,7 +39273,14 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 
   function launchMyRecordAction(action: MyRecordLaunchAction) {
     setMyRecordLaunchAction(action);
-    openMyRecordTab(action === "mentor_meeting" ? "growth" : "overview");
+    openMyRecordTab(action.startsWith("mentor_meeting") ? "growth" : "overview");
+  }
+
+  /* USA-265: a discipleship meeting lives in My Record, so opening one from a
+     Person or the report shows it there. */
+  function openDiscipleshipMeeting(meetingId: string) {
+    setSelectedPersonId(null);
+    launchMyRecordAction(`mentor_meeting:${meetingId}`);
   }
 
   function openSubmittedReview(item: SubmittedReviewListItem) {
@@ -45494,7 +45510,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     <MinistryTimeInvestmentReport
                       input={ministryReportInput}
                       now={reportNow}
-                      onOpenMeeting={openMeetingDetail}
+                      onOpenMeeting={(meetingId, kind) => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId))}
                       onOpenPerson={openPersonDetail}
                     />
                   </div>
@@ -45605,6 +45621,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               index={Math.max(0, people.findIndex((person) => person.id === selectedPerson.id))}
               leaderReflections={data.leaderReflections}
               meetings={data.meetings}
+              discipleshipMeetings={data.myRecord.mentorMeetings}
+              discipleshipRelationships={data.myRecord.mentorRelationships}
               reminders={data.reminders}
               personNames={personNamesById}
               resourceAssignments={selectedPersonResourceAssignments}
@@ -45639,6 +45657,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               openGroupDetail(groupId, selectedPerson.id);
             }}
             onOpenMeeting={(meetingId, recipientPersonId) => openMeetingDetail(meetingId, recipientPersonId, selectedPerson.id)}
+            onOpenDiscipleshipMeeting={openDiscipleshipMeeting}
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPrayerResources={openPrayerResourceLibrary}
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}

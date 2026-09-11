@@ -246,9 +246,12 @@ assert(client.includes("const suppressGlobalFabForMyRecord = activeTab === \"mor
 assert(client.includes("&& !suppressGlobalFabForMyRecord"), "Global floating action visibility should honor the My Record FAB suppression guard.");
 assert(client.includes("isOpen ? <X className=\"h-6 w-6\""), "My Record V2 FAB should render one explicit close button when open.");
 assert(client.includes("right-[max(1rem,calc((100vw-430px)/2+1rem))]"), "My Record FAB should use a shell-aware viewport inset on mobile.");
-assert(client.includes("Share Settings"), "My Record overview should expose Share Settings from the header.");
-assert(client.includes("My Record is private."), "Share Settings should preserve the private-by-default sharing language.");
-assert(client.includes("myRecordFutureSharingRoles.map"), "Share Settings should preserve future sharing roles.");
+/* USA-265 (founder, 2026-09-10): the header's white "Private" chip opened a
+   panel promising sharing roles that do not exist, and read as an unexplained
+   box at the top of My Record. It is removed, as Learning's future-sharing
+   promise was (USA-260). My Record stays private; real sharing arrives with
+   its own control. This replaces the USA-220 assertion that the chip exists. */
+assert(!client.includes("myRecordFutureSharingRoles") && !client.includes("isShareSettingsOpen"), "USA-265: no header panel promises sharing that does not exist.");
 const myRecordWorkspaceSource = client.slice(client.indexOf("function MyRecordWorkspace"), client.indexOf("function GrowthMilestoneRow"));
 /* USA-220 (DOS UI refresh, canonical spec §5.8, Linear "Pilot — My Record")
    retired the daily KPI cards: the Overview is Current + Recent entries with
@@ -264,7 +267,7 @@ assert(myRecordOverviewSource.includes('aria-label="Recent"') && myRecordOvervie
 assert((myRecordOverviewSource.match(/View all/g) ?? []).length === 1, "USA-220: the Overview carries exactly one View all.");
 assert(myRecordWorkspaceSource.includes('assignment.status !== "completed"') && myRecordWorkspaceSource.includes('item.status === "draft"'), "USA-220: Current shows only what production already treats as active (assigned resources not completed, draft assessments); no new aggregate.");
 assert(myRecordWorkspaceSource.includes("<PillRail") && !client.includes("function MyRecordTabBar"), "USA-220: the section rail is the canonical PillRail; the bespoke tab bar is gone.");
-assert(myRecordWorkspaceSource.includes("aria-expanded={isShareSettingsOpen}") && myRecordWorkspaceSource.includes("Private"), "USA-220: the Private chip opens the same sharing panel the Share button did.");
+assert(!/<PageHeader\s+action=/.test(myRecordWorkspaceSource), "USA-265: the My Record header carries no chip beside the title.");
 assert(!myRecordWorkspaceSource.includes("<TabHero"), "My Record overview should use a compact page header instead of the large TabHero card.");
 assert(!myRecordWorkspaceSource.includes("SectionHeading title=\"Quick Actions\""), "My Record overview should not render a visible Quick Actions section.");
 const myRecordFabSource = client.slice(client.indexOf("const myRecordFabItems"), client.indexOf("// TODO: Future: Permission-based My Record sharing"));
@@ -344,10 +347,22 @@ assert(growthPanelSource.includes("activeMentorItems") && growthPanelSource.incl
 assert(client.includes("<MyRecordActionButton onClick={() => onOpenSheet({ kind: \"mentor_meeting\", mentor, mode: \"new\" })} tone=\"blue\">Log Meeting</MyRecordActionButton>"), "Mentor detail should expose Log Meeting without scattering it in the Growth list.");
 assert(growthPanelSource.includes("MyRecordMentorCard"), "Growth should render dedicated mentor relationship cards.");
 assert(client.includes("| { kind: \"mentor_meeting\"; meeting?: DosAppUserMentorMeeting | null; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }"), "Mentor meeting sheets should carry optional selected mentor context.");
-assert(client.includes("const defaultMeetingMentor = meeting?.relationshipId"), "Mentor meeting form should resolve the saved mentor for new and edit flows.");
-assert(client.includes("defaultValue={defaultRelationshipId}"), "Mentor meeting form should submit the selected saved mentor relationship.");
-assert(client.includes("defaultValue={defaultFieldPersonId}"), "Mentor meeting form should keep the linked Field contact aligned with the saved mentor.");
-assert(client.includes("No one discipling you is saved yet. Add the person first or enter a name."), "Discipleship meeting drawer should explain the empty saved relationship state.");
+/* USA-265 (founder, 2026-09-10): Log Discipleship Meeting was cumbersome. It
+   asks who discipled you once (shown, not asked, when the meeting or the
+   relationship already says), links the Person through the relationship rather
+   than a separate Field Contact, uses Log Meeting's date and duration
+   controls, and keeps one Notes field while preserving text saved in the
+   earlier separate fields. These replace the saved-mentor / Field Contact
+   assertions. */
+const mentorMeetingFormSource = client
+  .slice(client.indexOf("function MyRecordMentorMeetingForm("), client.indexOf("function MyRecordPropheticWordForm("))
+  .replace(/\/\*[\s\S]*?\*\//g, "");
+assert(mentorMeetingFormSource.includes("const fixedMentor = meeting?.relationshipId"), "USA-265: a meeting's or relationship's person is shown, not asked again.");
+assert(mentorMeetingFormSource.includes("value: `relationship:${candidate.id}`") && mentorMeetingFormSource.includes("value: `person:${person.id}`") && mentorMeetingFormSource.includes('person.roleInMyLife === "mentoring_me"'), "USA-265: one who-discipled-you choice covers saved relationships and People marked as discipling me.");
+assert(!mentorMeetingFormSource.includes("Field Contact") && !mentorMeetingFormSource.includes('name="field_person_id"'), "USA-265: no separate Field Contact.");
+assert(mentorMeetingFormSource.includes('options={who ? whoOptions : [{ label: "Choose who discipled you", value: "" }, ...whoOptions]}') && mentorMeetingFormSource.includes("disabled={isSubmitting || (!fixedMentor && !who)}"), "USA-265: an unchosen person reads as a placeholder, never as the first person, and cannot be submitted.");
+assert(mentorMeetingFormSource.includes("<MeetingDurationSelector") && mentorMeetingFormSource.includes('<DosDateInput ariaLabel="Date"'), "USA-265: date and duration match Log Meeting.");
+assert((mentorMeetingFormSource.match(/<VoiceTextarea/g) ?? []).length === 2 && mentorMeetingFormSource.includes('name="notes"') && mentorMeetingFormSource.includes("legacyFields.map"), "USA-265: one Notes field; earlier separate-field text renders only when it exists, so saving keeps it.");
 assert(client.includes("Meeting Rhythm") && client.includes("2x/week"), "The discipling relationship should capture frequent meeting rhythm.");
 assert(client.includes("mentorEmail") && client.includes("mentorPhone") && client.includes("meetingRhythm"), "Add Mentor should submit mentor contact and rhythm fields.");
 assert(loader.includes("mentor_email") && loader.includes("mentor_phone") && loader.includes("meeting_rhythm"), "Loader should hydrate mentor contact and rhythm fields.");
