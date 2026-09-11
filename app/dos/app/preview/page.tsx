@@ -503,6 +503,29 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       status: "active",
       updatedAt: daysAgoIso(21),
     },
+    // Production-shaped: Samuel's household. Household only, never reviewed for a
+    // circle, no meetings. Manage circles keeps her behind the Household toggle
+    // until she is placed or edited (2026-09-11).
+    {
+      church: null,
+      createdAt: daysAgoIso(60),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "secondary",
+      id: "demo-person-patty-gaffney",
+      lastActivityAt: daysAgoIso(21),
+      name: "Patty Gaffney",
+      notes: "",
+      phone: "",
+      relationshipContext: "other",
+      relationshipType: "new",
+      relationshipTypeValue: "new",
+      roleInMyLife: "not_active",
+      status: "active",
+      updatedAt: daysAgoIso(21),
+    },
     // Acceptance fixture: a real first discipleship meeting. Philip asked to be
     // discipled during a 2h30m first meeting; the discipleship relationship and
     // monthly cadence are recorded on the Person, homework became
