@@ -126,7 +126,13 @@ export type DosMinistryReportMeeting = {
   meetingStatus: "canceled" | "logged" | "scheduled";
   scheduledEndAt: string | null;
   scheduledStartAt: string | null;
-  source: "connection" | "table";
+  /* "discipleship" is a meeting logged through Log Discipleship Meeting in My
+     Record (`dos_user_mentor_meetings`, USA-265): the missionary was the one
+     being discipled, so the form itself records the direction. */
+  source: "connection" | "discipleship" | "table";
+  /* Entered minutes, for a record that stores a duration rather than a start
+     and end (discipleship meetings). */
+  durationMinutes?: number | null;
   tableRole: string;
   /* True only when the role was stored on the meeting. Production has no
      `table_role` column yet, so the loader's "ministering" is a default
@@ -249,7 +255,7 @@ export type DosMinistryReportRecord =
       kind: "meeting";
       label: string;
       minutes: number | null;
-      open: { id: string; kind: "meeting" };
+      open: { id: string; kind: "discipleship_meeting" | "meeting" };
       role: string;
       shared: boolean;
     }
@@ -496,7 +502,11 @@ export function formatDosMinistryDate(dateKey: string, now = new Date()) {
    Production start times are a synthetic local noon on every logged meeting
    (USA-246 audit), so this is the duration that was entered, never a
    clock-in / clock-out interval. */
-export function dosLoggedMeetingMinutes(meeting: Pick<DosMinistryReportMeeting, "scheduledEndAt" | "scheduledStartAt">) {
+export function dosLoggedMeetingMinutes(meeting: Pick<DosMinistryReportMeeting, "durationMinutes" | "scheduledEndAt" | "scheduledStartAt">) {
+  if (typeof meeting.durationMinutes === "number") {
+    return Number.isFinite(meeting.durationMinutes) && meeting.durationMinutes > 0 ? Math.round(meeting.durationMinutes) : null;
+  }
+
   if (!meeting.scheduledStartAt || !meeting.scheduledEndAt) {
     return null;
   }
@@ -644,11 +654,15 @@ function bucketFromConfirmedDirection(status: Pick<DosMinistryReportRow, "direct
 }
 
 export function dosMinistryClassifyMeeting(
-  meeting: Pick<DosMinistryReportMeeting, "fieldPersonIds" | "tableRole" | "tableRoleRecorded">,
+  meeting: Pick<DosMinistryReportMeeting, "fieldPersonIds" | "tableRole" | "tableRoleRecorded"> & Partial<Pick<DosMinistryReportMeeting, "source">>,
   directionByPersonId: Map<string, Pick<DosMinistryReportRow, "direction" | "directionStatus" | "personName">>,
 ): DosMinistryClassification {
   if (meeting.tableRoleRecorded) {
     const bucket = dosMinistryTimeBucketForRole(meeting.tableRole);
+
+    if (meeting.source === "discipleship") {
+      return { bucket, reason: "Logged in My Record as a discipleship meeting: being discipled" };
+    }
 
     return { bucket, reason: bucket === "received" ? "Role recorded on the meeting: being discipled" : "Role recorded on the meeting" };
   }
@@ -776,7 +790,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   const peopleById = new Map(input.people.map((person) => [person.id, person]));
   const notes: string[] = [];
 
-  const qualifyingMeetings = input.meetings.filter((meeting) => meeting.meetingStatus === "logged" && meeting.source === "table" && inPeriod(dosMinistryReportDateKey(meeting.date), period));
+  const qualifyingMeetings = input.meetings.filter((meeting) => meeting.meetingStatus === "logged" && (meeting.source === "table" || meeting.source === "discipleship") && inPeriod(dosMinistryReportDateKey(meeting.date), period));
   const connectionLogs = input.meetings.filter((meeting) => meeting.meetingStatus === "logged" && meeting.source === "connection" && inPeriod(dosMinistryReportDateKey(meeting.date), period));
   const qualifyingCheckIns = input.checkIns.filter((checkIn) => inPeriod(dosMinistryReportDateKey(checkIn.checkInDate), period));
   const upcomingMeetings = input.meetings.filter((meeting) => meeting.meetingStatus === "scheduled" && (dosMinistryReportDateKey(meeting.date) ?? "") >= today);
@@ -857,9 +871,11 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         date: dosMinistryReportDateKey(meeting.date) ?? period.end,
         id: meeting.id,
         kind: "meeting",
-        label: `${meetingTypeLabel(meeting.type)} · ${meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : "no recorded role"}${others ? ` · with ${others} other${others === 1 ? "" : "s"}` : ""}`,
+        label: meeting.source === "discipleship"
+          ? "Discipleship meeting · Being discipled"
+          : `${meetingTypeLabel(meeting.type)} · ${meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : "no recorded role"}${others ? ` · with ${others} other${others === 1 ? "" : "s"}` : ""}`,
         minutes,
-        open: { id: meeting.id, kind: "meeting" },
+        open: { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" },
         role: meeting.tableRoleRecorded ? meeting.tableRole : "",
         shared: others > 0,
       };
@@ -1306,7 +1322,47 @@ export function dosUpstreamViewers(
 
 /* ---------- adapter from the loaded workspace data ---------- */
 
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilitySchedule, DosAppFruit, DosAppFruitEvent, DosAppGuidedResourceProgress, DosAppMeeting, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppUserMentorRelationship } from "./missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilitySchedule, DosAppFruit, DosAppFruitEvent, DosAppGuidedResourceProgress, DosAppMeeting, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppUserMentorMeeting, DosAppUserMentorRelationship } from "./missionary-app";
+
+/* USA-265: the Person a My Record discipleship meeting belongs to. The
+   meeting's own stored link, else its saved relationship's; never a name
+   match. */
+export function dosDiscipleshipMeetingPersonId(
+  meeting: Pick<DosAppUserMentorMeeting, "fieldPersonId" | "relationshipId">,
+  relationships: ReadonlyArray<Pick<DosAppUserMentorRelationship, "fieldPersonId" | "id">>,
+) {
+  if (meeting.fieldPersonId) {
+    return meeting.fieldPersonId;
+  }
+
+  return meeting.relationshipId ? relationships.find((relationship) => relationship.id === meeting.relationshipId)?.fieldPersonId ?? null : null;
+}
+
+/* A discipleship meeting enters the report as logged time invested in the
+   missionary: the form records that direction. Only the date, duration and
+   Person link are read; notes never enter. */
+export function dosMinistryDiscipleshipMeetings(
+  meetings: ReadonlyArray<DosAppUserMentorMeeting>,
+  relationships: ReadonlyArray<Pick<DosAppUserMentorRelationship, "fieldPersonId" | "id">>,
+): DosMinistryReportMeeting[] {
+  return meetings.map((meeting) => {
+    const personId = dosDiscipleshipMeetingPersonId(meeting, relationships);
+
+    return {
+      date: meeting.meetingDate,
+      durationMinutes: meeting.durationMinutes,
+      fieldPersonIds: personId ? [personId] : [],
+      id: meeting.id,
+      meetingStatus: "logged",
+      scheduledEndAt: null,
+      scheduledStartAt: null,
+      source: "discipleship",
+      tableRole: "being_mentored",
+      tableRoleRecorded: true,
+      type: "discipleship",
+    };
+  });
+}
 
 /* Narrows the loaded workspace objects to the fields above. The narrowing
    is the privacy boundary for the report: whatever else a person, meeting,
@@ -1417,6 +1473,7 @@ export function dosMinistryReportInputFromAppData({
   accountabilityCheckIns,
   accountabilitySchedules,
   disciplingMe,
+  discipleshipMeetings,
   downstream,
   downstreamReadPersonIds,
   fruit,
@@ -1427,6 +1484,8 @@ export function dosMinistryReportInputFromAppData({
   accountabilityCheckIns: DosAppAccountabilityCheckIn[];
   accountabilitySchedules: DosAppAccountabilitySchedule[];
   disciplingMe: DosAppUserMentorRelationship[];
+  /* My Record discipleship meetings (USA-265). */
+  discipleshipMeetings?: DosAppUserMentorMeeting[];
   downstream?: DosResolvedDownstreamRelationship[];
   downstreamReadPersonIds?: string[];
   fruit?: DosMinistryFruitEntry[];
@@ -1451,18 +1510,21 @@ export function dosMinistryReportInputFromAppData({
       status: relationship.status,
     })),
     downstream: downstream ?? [],
-    meetings: meetings.map((meeting) => ({
-      date: meeting.date,
-      fieldPersonIds: meeting.fieldPersonIds,
-      id: meeting.id,
-      meetingStatus: meeting.meetingStatus,
-      scheduledEndAt: meeting.scheduledEndAt,
-      scheduledStartAt: meeting.scheduledStartAt,
-      source: meeting.source,
-      tableRole: meeting.tableRole,
-      tableRoleRecorded: meeting.tableRoleRecorded,
-      type: meeting.type,
-    })),
+    meetings: [
+      ...meetings.map((meeting): DosMinistryReportMeeting => ({
+        date: meeting.date,
+        fieldPersonIds: meeting.fieldPersonIds,
+        id: meeting.id,
+        meetingStatus: meeting.meetingStatus,
+        scheduledEndAt: meeting.scheduledEndAt,
+        scheduledStartAt: meeting.scheduledStartAt,
+        source: meeting.source,
+        tableRole: meeting.tableRole,
+        tableRoleRecorded: meeting.tableRoleRecorded,
+        type: meeting.type,
+      })),
+      ...dosMinistryDiscipleshipMeetings(discipleshipMeetings ?? [], disciplingMe),
+    ],
     people: people.map((person) => ({
       id: person.id,
       name: person.name,

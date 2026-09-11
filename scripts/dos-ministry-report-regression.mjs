@@ -16,8 +16,11 @@ import { readFileSync } from "node:fs";
 import {
   buildDosMinistryReport,
   buildDosSafeMinistrySummary,
+  dosDiscipleshipMeetingPersonId,
   dosLoggedMeetingMinutes,
+  dosMinistryDiscipleshipMeetings,
   dosMinistryFruitEntriesFromAppData,
+  dosMinistryReportInputFromAppData,
   dosMinistryMultiplicationLabel,
   dosMinistryReportFilterOptions,
   dosMinistryRowMatchesFilter,
@@ -493,6 +496,46 @@ assert.deepEqual(dannyBuild([importedFeedback], "custom", { end: day(0), start: 
 const unmarked = dannyBuild([{ ...importedFeedback, legacyForm: null }, nativeReview]);
 assert.ok(unmarked.fruitRows.some((row) => row.id === "review-rev-danny-imported"), "Probe: without legacyForm the fixture would be a Fruit row.");
 assert.equal(unmarked.rows.find((row) => row.personId === "danny").fruitCount, 3, "Probe: and it would be counted.");
+
+// 16c. Discipleship meetings from My Record (USA-265). Shaped on production:
+// Ryan logged three with Dirk and one with Marty through Log Discipleship
+// Meeting, and the report read only logged meetings, so neither row showed
+// anything. The form records the direction (being discipled), so these are
+// time invested in Ryan whatever the Person relationship says. The Person is
+// the stored link, else the saved relationship's, never a name; notes never enter.
+const discipleshipRelationships = [{ fieldPersonId: "dirk", id: "rel-dirk" }, { fieldPersonId: "marty", id: "rel-marty" }];
+const discipleshipFixture = (id, offset, minutes, extra = {}) => ({ actionSteps: "private action", counselReceived: "private counsel", createdAt: null, discussed: "private discussion", durationMinutes: minutes, fieldPersonId: null, followUpDate: null, id, meetingDate: day(offset), mentorName: "Dirk Bond", notes: "private notes", relationshipId: "rel-dirk", updatedAt: null, ...extra });
+const discipleshipMeetings = [
+  discipleshipFixture("dm-dirk-1", 3, 120, { fieldPersonId: "dirk" }),
+  discipleshipFixture("dm-dirk-2", 6, 70),
+  discipleshipFixture("dm-dirk-3", 17, 70, { fieldPersonId: "dirk" }),
+  discipleshipFixture("dm-marty", 4, 120, { fieldPersonId: "marty", mentorName: "Marty Vanderzanden", relationshipId: "rel-marty" }),
+  discipleshipFixture("dm-unlinked", 5, 45, { mentorName: "A visiting pastor", relationshipId: "rel-unknown" }),
+  discipleshipFixture("dm-old", 60, 60, { fieldPersonId: "dirk" }),
+];
+const mappedDiscipleship = dosMinistryDiscipleshipMeetings(discipleshipMeetings, discipleshipRelationships);
+assert.deepEqual(mappedDiscipleship.map((meeting) => [meeting.id, meeting.fieldPersonIds]), [["dm-dirk-1", ["dirk"]], ["dm-dirk-2", ["dirk"]], ["dm-dirk-3", ["dirk"]], ["dm-marty", ["marty"]], ["dm-unlinked", []], ["dm-old", ["dirk"]]], "The Person comes from the stored link, else the saved relationship; an unknown relationship links no one.");
+assert.equal(dosDiscipleshipMeetingPersonId({ fieldPersonId: null, relationshipId: null }, discipleshipRelationships), null, "No link, no Person; names are never matched.");
+assert.ok(mappedDiscipleship.every((meeting) => meeting.source === "discipleship" && meeting.tableRole === "being_mentored" && meeting.tableRoleRecorded && meeting.meetingStatus === "logged"), "Every discipleship meeting is a logged meeting with the recorded direction.");
+assert.ok(!JSON.stringify(mappedDiscipleship).includes("private"), "Notes, discussion, counsel and action steps never enter the report input.");
+assert.equal(dosLoggedMeetingMinutes(mappedDiscipleship[0]), 120, "Entered minutes are the logged duration.");
+assert.equal(dosLoggedMeetingMinutes({ ...mappedDiscipleship[0], durationMinutes: 0 }), null, "A zero duration is missing, never 0m.");
+const martyPerson = { id: "marty", name: "Marty Vanderzanden", relationshipType: "Mentor · Church · Exploring", roleInMyLife: "not_active", status: "new" };
+const withDiscipleship = build("30d", undefined, { meetings: [...meetings, ...mappedDiscipleship], people: [...people, martyPerson] });
+const withoutDiscipleship = build("30d", undefined, { people: [...people, martyPerson] });
+const receivedRow = (result, id) => result.receivedRows.find((row) => row.personId === id);
+assert.equal(receivedRow(withDiscipleship, "dirk").meetingCount - receivedRow(withoutDiscipleship, "dirk").meetingCount, 3, "Dirk's three in-range discipleship meetings count as time invested in Ryan.");
+assert.equal(receivedRow(withDiscipleship, "dirk").loggedMinutes - receivedRow(withoutDiscipleship, "dirk").loggedMinutes, 260);
+assert.equal(receivedRow(withoutDiscipleship, "marty"), undefined, "Before USA-265 Marty had nothing logged.");
+const martyReceived = receivedRow(withDiscipleship, "marty");
+assert.ok(martyReceived && martyReceived.meetingCount === 1 && martyReceived.loggedMinutes === 120, "Marty's meeting is time invested in Ryan even though his Person relationship is not set: the form recorded the direction.");
+assert.deepEqual([martyReceived.records[0].label, martyReceived.records[0].open, martyReceived.records[0].bucketReason], ["Discipleship meeting · Being discipled", { id: "dm-marty", kind: "discipleship_meeting" }, "Logged in My Record as a discipleship meeting: being discipled"], "The record says what it is and opens the discipleship meeting, not a logged meeting.");
+assert.equal(withDiscipleship.totals.receivedMeetings - withoutDiscipleship.totals.receivedMeetings, 5, "Totals count each in-range discipleship meeting once, the unlinked one included.");
+assert.equal(withDiscipleship.totals.uniqueLoggedMinutesReceived - withoutDiscipleship.totals.uniqueLoggedMinutesReceived, 120 + 70 + 70 + 120 + 45);
+assert.equal(withDiscipleship.totals.uniqueLoggedMinutesInvested, withoutDiscipleship.totals.uniqueLoggedMinutesInvested, "Being discipled never adds to time I invested.");
+assert.ok(withoutDiscipleship.notes.some((note) => note.startsWith("1 logged meeting has no linked active person")) && withDiscipleship.notes.some((note) => note.startsWith("2 logged meetings have no linked active person")), "An unlinked discipleship meeting is named in the totals note, not silently dropped.");
+const adaptedDiscipleship = dosMinistryReportInputFromAppData({ accountabilityCheckIns: [], accountabilitySchedules: [], disciplingMe: [{ fieldPersonId: "dirk", id: "rel-dirk", mentorName: "Dirk Bond", status: "active" }], discipleshipMeetings: [discipleshipFixture("dm-adapter", 2, 50)], meetings: [], people: [] });
+assert.deepEqual(adaptedDiscipleship.meetings.map((meeting) => [meeting.id, meeting.source, meeting.fieldPersonIds, meeting.durationMinutes]), [["dm-adapter", "discipleship", ["dirk"], 50]], "The app-data adapter carries My Record discipleship meetings into the report.");
 
 // 17. The revised UI: one table in a scroll container with a sticky Person column; removed sections stay removed; founder wording.
 const reportUiCode = reportUi.replace(/\/\*[\s\S]*?\*\//g, "");
