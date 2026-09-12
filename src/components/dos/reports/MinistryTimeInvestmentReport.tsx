@@ -919,6 +919,7 @@ function ReportDetailSheet({
               ? [
                 { label: dosMinistryTimeBucketLabels.invested, value: report.totals.investedMeetings },
                 { label: dosMinistryTimeBucketLabels.received, value: report.totals.receivedMeetings },
+                { label: "Logged duration", value: formatDosMinistryMinutes(report.totals.uniqueLoggedMinutesInvested + report.totals.uniqueLoggedMinutesReceived) },
                 missing ? { label: "Without a logged duration", value: missing } : null,
                 report.totals.unlinkedMeetings ? { label: "Not linked to a person", value: report.totals.unlinkedMeetings } : null,
                 report.totals.connectionLogs ? { label: "Connection logs, not counted", value: report.totals.connectionLogs } : null,
@@ -929,9 +930,19 @@ function ReportDetailSheet({
                 { label: "People", value: new Set(meetings.flatMap((meeting) => meeting.people.map((person) => person.id))).size },
               ]}
           />
-          {top.id !== "meetings" ? (
-            <p className="mt-2 text-dos-meta text-dos-secondary">A meeting with several people counts once here and appears on each person&apos;s row.</p>
-          ) : null}
+          {/* The two rules a reader needs to reconcile any figure, stated once
+              here rather than repeated across the report (USA-268). */}
+          <p className="mt-2 text-dos-meta text-dos-secondary">
+            {top.id === "meetings"
+              ? "Every meeting is counted once: the two counts above add up to Meetings, and their time adds up to the logged duration."
+              : "A meeting with several people counts once here, and appears on each person's row."}
+          </p>
+          <p className="mt-1 text-dos-meta text-dos-secondary">
+            Person rows credit a shared meeting to each person present, so the rows can add up to more than this figure.
+          </p>
+          <p className="mt-1 text-dos-meta text-dos-secondary">
+            A meeting with no logged duration still counts as a meeting and adds no minutes; that is missing information, not zero.
+          </p>
         </DosDetailSection>
         <DosDetailSection label={top.id === "meetings" ? "Meetings" : "Contributing meetings"}>
           <MeetingList meetings={meetings} now={now} onOpen={(meetingId) => onOpen({ id: meetingId, kind: "meeting" })} />

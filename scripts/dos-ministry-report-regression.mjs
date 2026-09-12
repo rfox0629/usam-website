@@ -205,6 +205,12 @@ for (const bucket of ["invested", "received"]) {
   const listed = report.meetings.filter((meeting) => meeting.bucket === bucket).reduce((sum, meeting) => sum + (meeting.minutes ?? 0), 0);
   assert.equal(listed, bucket === "invested" ? report.totals.uniqueLoggedMinutesInvested : report.totals.uniqueLoggedMinutesReceived, `The ${bucket} metric detail lists exactly the meetings in its total.`);
 }
+/* The unit rules the Meetings detail states (USA-268 follow-up): counts add
+   up to Meetings, minutes add up to the logged duration, and person rows may
+   exceed both because a shared meeting is credited to everyone present. */
+const everyMeetingMinutes = report.meetings.reduce((sum, meeting) => sum + (meeting.minutes ?? 0), 0);
+assert.equal(report.totals.uniqueLoggedMinutesInvested + report.totals.uniqueLoggedMinutesReceived, everyMeetingMinutes, "Invested minutes + received minutes = the logged duration of every meeting in range.");
+assert.equal(report.meetings.filter((meeting) => meeting.minutes === null).length, report.totals.meetingsMissingDuration, "A meeting without a logged duration is counted as a meeting and adds no minutes.");
 assert.equal(report.totals.unlinkedMeetings, 1, "The meeting linked only to an archived person is counted and named in the Meetings detail.");
 assert.equal(report.totals.connectionLogs, 1);
 assert.deepEqual([report.meetings.find((meeting) => meeting.id === "m-archived").bucket, report.meetings.find((meeting) => meeting.id === "m-archived").people], ["invested", []]);

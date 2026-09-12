@@ -74,6 +74,32 @@ Every logged meeting counts exactly once, in one of two totals:
 
 After-figures are computed with this branch's calculation on the audited rows. Regression §17 reproduces them in production shape.
 
+## Where the 15th meeting and the extra hour come from (2026-09-12)
+
+The Aug 12 – Sep 10 change has **two independent causes**, and only one of them is this branch's accounting fix.
+
+| | Meetings | Time invested | Invested in me |
+|---|---|---|---|
+| Founder's screenshot (before) | 14 | 17h 30m | 0m |
+| Recovered by the accounting fix | 14 | **21h** (+3h 30m) | 0m |
+| Plus data entered after that snapshot | **15** | 21h | **1h** |
+
+1. **Recovered time, no new records.** The 4 meetings with New people — Mike Anderson ×2 (30 + 60 min), Lyf Nimmo (60 min), Samuel Gaffney (60 min) — were already in `missionary_tables` and already counted in the Meetings card. They were excluded from every time total, which is why 17h 30m + 3h 30m = 21h with the meeting count unchanged at 14.
+2. **A record created after the snapshot.** The 15th meeting is `dos_user_mentor_meetings.8493acdb-0ed3-4c6b-ab06-a6fd25ea9a31`: meeting date 2026-09-10, stored duration 60 minutes, `field_person_id` → Dirk Bond (`61ec2d81…`, role `mentoring_me`), `relationship_id` → Dirk's saved My Record relationship. **`created_at` = 2026-09-11 00:57:10 UTC**, after the founder's screenshot, and the only row in that table with a September date; the other four were created in July. It is therefore new data, not a recount.
+   - It needed the USA-265 source fix as well. Before #136 the report read no `dos_user_mentor_meetings` row at all, so this meeting would not have appeared even if it had existed earlier.
+   - It is the whole of the 1h "Invested in me" for that range.
+
+**No duplicate-source counting.** The meeting exists only in `dos_user_mentor_meetings`; no `missionary_tables` row in the range links Dirk (his Person id appears in no logged meeting). The report keys meetings by source and id, so a record loaded twice counts once, and logged meetings are never merged with My Record meetings. Regression §17 covers a duplicate load.
+
+Nothing above reads a meeting's notes, and none are quoted here.
+
+## Unit rules (stated in metric detail)
+
+- Time invested meetings + Invested in me meetings = **Meetings**.
+- Their minutes add up to the **logged duration** shown in the Meetings detail.
+- A person's row credits a shared meeting to each person present, so person rows can add up to more than the totals. Rows are never summed and presented as elapsed time.
+- A meeting with no logged duration counts as a meeting and adds no minutes. Missing information is not zero.
+
 ## Remaining data gaps (not fixed in code)
 
 - **Marty Vanderzanden's Person role** is still `not_active`. His discipleship meeting counts as Invested in me because the form records the direction. His row reads New until his role is set on the Person record. That is the USA-265 follow-up.
