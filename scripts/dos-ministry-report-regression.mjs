@@ -659,7 +659,10 @@ const reportsView = client.slice(client.indexOf('activeMoreAppView === "reports"
 assert.ok(reportsView.includes("storageKey={`dos-report-view:${data.workspace.id}`}"), "The report view is remembered per workspace.");
 assert.ok(reportsView.includes("onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}"), "Opening a full Person from Reports records the way back.");
 assert.ok(client.includes("function openRecordFromReports(open: () => void)") && client.includes("appScrollRef.current?.scrollTop ?? 0") && client.includes('dosReturnTo: "reports"'), "The scroll position and a history entry are kept when a record opens from Reports.");
-assert.ok(client.includes('returnLabel={reportsReturn ? "Reports" : null}') && client.includes('returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}') && client.includes('backLabel={reportsReturn ? "Back to Reports" : "Back to More"}'), "Person, meeting, and My Record offer Back to Reports.");
+/* USA-272 moved My Record out of More and into People, so its non-Reports
+   fallback label is now "Back to people". The USA-268 behaviour this asserts
+   is unchanged: a record opened from a report still offers Back to Reports. */
+assert.ok(client.includes('returnLabel={reportsReturn ? "Reports" : null}') && client.includes('returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}') && client.includes('backLabel={reportsReturn ? "Back to Reports" : "Back to people"}'), "Person, meeting, and My Record offer Back to Reports.");
 assert.ok(client.includes("if (reportsReturnRef.current && state?.dosReturnTo !== \"reports\")"), "The browser's Back from that record returns to Reports.");
 assert.ok(client.includes("reportsReturn: { scrollTop: number } | null;") && client.includes("reportsReturn,\n      selectedPersonId,"), "A reload keeps the return context.");
 const selectTabBody = client.slice(client.indexOf("function selectTab(tab: ActiveTab) {"), client.indexOf("setActiveTab(tab);", client.indexOf("function selectTab(tab: ActiveTab) {")));
