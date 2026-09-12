@@ -322,9 +322,22 @@ assert.ok(
   !client.includes("peopleCircleTabsWithCounts") && !client.includes("unplacedPeopleCount"),
   "no count badges or unplaced tally remain on the circle tabs",
 );
+/* USA-272 (founder, 2026-09-11) moved that one number inside the names-list
+   container as a pale-blue badge, and showed it on All only -- under a circle
+   filter it would describe the filter rather than the field. It is still the
+   list's own length, so search and Household move it exactly as before. This
+   replaces the USA-264 assertion that the count sits above the list. */
 assert.ok(
-  client.includes('{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}'),
-  "one visible-result count, taken from the list itself",
+  client.includes('const peopleCountBadgeValue = peopleCircleView === "all" ? visibleCirclePeople.length : null;'),
+  "one visible-result count, taken from the list itself, on All only",
+);
+assert.ok(
+  client.includes("function PeopleCountBadge") && client.includes("bg-dos-blue50") && client.includes("text-dos-blueText"),
+  "the count is a pale-blue badge with a readable dark-blue number",
+);
+assert.ok(
+  !client.includes('{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}'),
+  "no separate count line sits above the list",
 );
 assert.ok(
   !client.includes("the circles overlap by design and cannot be added together")

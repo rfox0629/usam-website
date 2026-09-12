@@ -24,6 +24,37 @@ function assertReadableSection(source, label) {
   assert(!source.includes("text-[#CBD5E1]"), `${label} should not use the disabled slate token for readable content.`);
 }
 
+/* Resolve the DOS text tokens so a token-based assertion still proves the
+   colour is readable, not merely that a class name is spelled correctly.
+   tailwind.config.js is the single source these classes compile from. */
+const tailwindConfig = readFileSync("tailwind.config.js", "utf8");
+const dosColorBlock = sliceBetween(tailwindConfig, "        dos: {", "\n        },");
+
+function dosColor(token) {
+  const match = new RegExp(`\\n\\s*${token}: "(#[0-9A-Fa-f]{6})"`).exec(dosColorBlock);
+  assert(match, `tailwind.config.js should define the dos-${token} colour.`);
+
+  return match[1];
+}
+
+function relativeLuminance(hex) {
+  const channels = [1, 3, 5].map((offset) => {
+    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+/* Contrast against the white sheet these surfaces render on. */
+function assertReadableToken(token, label) {
+  const hex = dosColor(token);
+  const ratio = 1.05 / (relativeLuminance(hex) + 0.05);
+
+  assert(ratio >= 4.5, `${label} use dos-${token} (${hex}), which is ${ratio.toFixed(2)}:1 on white and fails WCAG AA.`);
+}
+
 const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 // USA-211 moved the form primitives and option selects into shared modules; the assertions are unchanged.
 const formPrimitives = readFileSync("src/components/dos/forms/FormPrimitives.tsx", "utf8");
@@ -42,11 +73,20 @@ const prayerAudienceSelect = sliceBetween(client, "function PrayerRequestAudienc
 assert(prayerAudienceSelect.includes("text-[#64748B]"), "Prayer audience helper text should use readable secondary text.");
 assert(!prayerAudienceSelect.includes("font-medium text-[#94A3B8]"), "Prayer audience helper text should not look disabled.");
 
+/* USA-272 rebuilt the My Record read view on the shared DOS text tokens, which
+   `app/dos/AGENTS.md` §3 requires in place of one-off hex values. The
+   guarantee this file exists to protect is unchanged, so it is now asserted
+   against the token's resolved colour rather than against a literal hex: the
+   label and the body must both clear WCAG AA on the white sheet. The tokens
+   are in fact darker than the hexes they replaced (#6B7686 vs #64748B for the
+   label, #0B1220 vs #0F172A for the body). */
 const myRecordDetailBlock = sliceBetween(client, "function MyRecordDetailBlock", "function MyRecordSheetFrame");
-assert(myRecordDetailBlock.includes("text-[#64748B]"), "My Record detail block labels should use readable secondary text.");
-assert(myRecordDetailBlock.includes("text-[#0F172A]"), "My Record detail block values should use primary text.");
-assert(myRecordDetailBlock.includes("[&_li]:text-[#0F172A]"), "My Record detail block lists should keep primary readable text.");
+assert(myRecordDetailBlock.includes("text-dos-eyebrow"), "My Record detail block labels should use the readable eyebrow token.");
+assert(myRecordDetailBlock.includes("text-dos-primary"), "My Record detail block values should use the primary text token.");
+assert(myRecordDetailBlock.includes("[&_li]:text-dos-primary"), "My Record detail block lists should keep primary readable text.");
 assertReadableSection(myRecordDetailBlock, "My Record detail blocks");
+assertReadableToken("eyebrow", "My Record detail block labels");
+assertReadableToken("primary", "My Record detail block values");
 
 const lifePlanSheet = sliceBetween(client, "if (sheet.kind === \"life_plan\")", "if (sheet.kind === \"external_assessment\")");
 assert(lifePlanSheet.includes("label=\"Decision Filters\""), "Life Plan view should render Decision Filters.");

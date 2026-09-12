@@ -205,35 +205,59 @@ assert(!loader.includes("loadFreshCircleData(workspace.id, people, meetings.filt
 
 assert(catalog.includes("getDosAssessmentResources"), "DOS Library catalog should expose assessment resources for My Record.");
 assert(client.includes("getDosAssessmentResources()"), "Client should list assessments from the DOS Library catalog.");
-assert(client.includes("label: \"My Record\""), "Client should expose My Record in DOS navigation/apps.");
+/* USA-272 (founder, 2026-09-11): My Record moved into People. It is reached
+   from the People action row, not from the Apps grid, the More launcher or the
+   desktop sidebar. These replace the USA-220 nav/app-tile assertions. */
+assert(client.includes("<span>My Record</span>"), "USA-272: People exposes My Record in its action row.");
+assert(client.includes("onClick={openMyRecord}"), "USA-272: the People action row opens My Record.");
+assert(!client.includes("label: \"My Record\","), "USA-272: My Record is no longer an Apps-grid or sidebar item.");
+assert(!client.includes("desktopMyRecordNavItem"), "USA-272: the desktop sidebar no longer carries a My Record entry.");
+assert(!/dosMobileMoreLauncherAppLabels = \["My Record"/.test(client), "USA-272: My Record left the mobile More launcher.");
+assert(client.includes("function openMyRecord()"), "USA-272: My Record has one opener that lands inside People.");
+assert(client.includes("setActiveTab(\"people\");") && client.includes("setIsMyRecordOpen(true);"), "USA-272: opening My Record keeps People the active tab, so the bottom nav stays on People.");
 assert(client.includes("function normalizeMoreAppView"), "DOS should normalize More app view state before rendering nested app shells.");
 assert(client.includes("const activeMoreAppView = activeTab === \"more\" ? normalizeMoreAppView(moreAppView) : null;"), "DOS should derive the rendered More shell from the normalized active More view.");
 assert(client.includes("moreAppView={activeMoreAppView}"), "Desktop navigation should receive the same normalized More view used by the content shell.");
 assert(client.includes("key={`more-${activeMoreAppView ?? \"apps\"}`"), "More app shell should remount when switching nested More views.");
 assert(client.includes("activeMoreAppView === \"settings\""), "Settings should render only when the normalized More view is settings.");
-assert(client.includes("activeMoreAppView === \"my_record\""), "My Record should render only when the normalized More view is my_record.");
+assert(!client.includes("activeMoreAppView === \"my_record\""), "USA-272: the More shell no longer renders My Record.");
+assert(client.includes("{isMyRecordOpen ? (\n          <MyRecordWorkspace"), "USA-272: My Record renders inside People, beside the Person record overlay.");
 const moreShellSource = client.slice(client.indexOf("{activeTab === \"more\" ? ("), client.indexOf("{showMobileFloatingActions ? ("));
 assert(moreShellSource.includes("activeMoreAppView === \"settings\""), "More shell should render Settings from activeMoreAppView.");
-assert(moreShellSource.includes("activeMoreAppView === \"my_record\""), "More shell should render My Record from activeMoreAppView.");
 assert(!moreShellSource.includes("moreAppView === \"settings\""), "More shell should not render Settings from raw More view state.");
 assert(!moreShellSource.includes("moreAppView === \"my_record\""), "More shell should not render My Record from raw More view state.");
+/* USA-272: an old deep link or a session saved while My Record was a More app
+   must resolve to the new destination rather than to an empty More view. */
+assert(client.includes("if (nextView === \"my_record\") {\n      openMyRecord();"), "USA-272: any caller still asking More for My Record is redirected to People.");
+assert(client.includes("restored.myRecordOpen === true || restoredMoreApp === \"my_record\""), "USA-272: a saved More/my_record session restores into People.");
+assert(client.includes("myRecordOpen: activeTab === \"people\" && isMyRecordOpen"), "USA-272: the persisted view remembers My Record as a People destination.");
 assert(client.includes("function normalizeMyRecordTab"), "My Record tabs should normalize invalid/stale subtabs.");
-assert(client.includes("const activeMyRecordTab = normalizeMyRecordTab(tab);"), "Invalid My Record subtabs should fall back to Overview inside My Record.");
+assert(client.includes("const activeMyRecordTab = normalizeMyRecordTab(tab);"), "Invalid My Record subtabs should fall back inside My Record.");
+/* USA-272: a retired tab resolves to the view that now holds its content
+   instead of silently dropping the reader on Overview. */
+assert(client.includes("const myRecordLegacyTabDestinations"), "USA-272: retired tabs map to their new destination.");
+[["walk_with_god", "timeline"], ["journal", "timeline"], ["scripture", "timeline"], ["growth", "overview"], ["mentors", "my_life"], ["prayer", "overview"], ["calling", "my_life"], ["legacy", "my_life"], ["assessments", "my_life"], ["learning", "my_life"], ["prophetic_words", "my_life"]].forEach(([from, to]) => {
+  assert(new RegExp(`${from}: "${to}"`).test(client), `USA-272: the retired ${from} tab should resolve to ${to}.`);
+});
 assert(client.includes("if (tab !== activeMyRecordTab)"), "My Record should update stale parent tab state after falling back to Overview.");
-const canonicalTabsSource = client.slice(client.indexOf("const myRecordTabs"), client.indexOf("const prayerRequestViewTabs"));
-assert(canonicalTabsSource.includes("{ label: \"Overview\", value: \"overview\" }"), "Canonical My Record should keep Overview as the first tab.");
-assert(canonicalTabsSource.includes("{ label: \"Walk\", value: \"walk_with_god\" }"), "Canonical My Record should expose Walk as a primary tab.");
-assert(canonicalTabsSource.includes("{ label: \"Growth\", value: \"growth\" }"), "Canonical My Record should expose Growth as a primary tab.");
-assert(canonicalTabsSource.includes("{ label: \"Purpose\", value: \"calling\" }"), "Canonical My Record should expose Purpose as the display label for the calling tab.");
-assert(canonicalTabsSource.includes("{ label: \"Faithfulness\", value: \"legacy\" }"), "Canonical My Record should expose Faithfulness as the display label for the legacy tab.");
-assert(!canonicalTabsSource.includes("{ label: \"Calling\", value: \"calling\" }"), "Canonical My Record should not show Calling as the tab label.");
-assert(!canonicalTabsSource.includes("{ label: \"Legacy\", value: \"legacy\" }"), "Canonical My Record should not show Legacy as the tab label.");
-["Journal", "Prayer", "People Discipling Me", "Assessments", "Timeline", "Scripture", "Learning", "Prophetic Words"].forEach((label) => {
-  assert(!canonicalTabsSource.includes(`label: \"${label}\"`), `Legacy or nested tab ${label} must not be rendered as a top-level My Record tab.`);
+const canonicalTabsSource = client.slice(client.indexOf("const myRecordTabs"), client.indexOf("function normalizeMyRecordTab"));
+/* USA-272 (founder, 2026-09-11): three views, matching the Person record, so
+   someone who knows a People record already knows this one. These replace the
+   USA-220 five-tab assertions. */
+assert(canonicalTabsSource.includes('{ label: "Overview", value: "overview" }'), "USA-272: Overview is the first view.");
+assert(canonicalTabsSource.includes('{ label: "Timeline", value: "timeline" }'), "USA-272: Timeline is the second view.");
+assert(canonicalTabsSource.includes('{ label: "My Life", value: "my_life" }'), "USA-272: My Life is the third view.");
+assert((canonicalTabsSource.match(/value: "/g) ?? []).length === 3, "USA-272: exactly three views -- no horizontally scrolling rail.");
+["Walk", "Growth", "Purpose", "Faithfulness", "Journal", "Prayer", "People Discipling Me", "Assessments", "Scripture", "Learning", "Prophetic Words"].forEach((label) => {
+  assert(!canonicalTabsSource.includes(`label: "${label}"`), `USA-272: ${label} must not be a top-level My Record view.`);
 });
 /* USA-257: Today's Alignment left Home; My Record remains its own destination. */
 assert(!client.includes("Today's Alignment"), "Home no longer renders Today's Alignment (USA-257).");
-assert(client.includes("+ data.myRecord.propheticWords.length"), "Prophetic words should affect only the private My Record activity count.");
+/* USA-272: the Apps-grid tile that showed a private activity count went with
+   the tile. These record types now feed no surfaced count at all, which is a
+   stronger form of the USA-220 guarantee they replace. */
+assert(!client.includes("myRecordActivityCount"), "USA-272: no surfaced count is derived from private My Record data.");
+assert(!client.includes("+ data.myRecord.propheticWords.length"), "USA-272: prophetic words feed no surfaced count.");
 assert(client.includes("Time With God"), "Client should expose Time With God as the unified Walk entry concept.");
 assert(client.includes("Prayer Encounter"), "Client should support explicit prayer-only encounters without rendering an empty Prayer card.");
 assert(client.includes("Reflection"), "Client should keep reflection language inside the unified Encounter model.");
@@ -242,7 +266,7 @@ assert(client.includes("Log Discipleship Meeting"), "Client should expose the di
 assert(client.includes("Take Assessment"), "Client should expose Take Assessment quick action.");
 assert(client.includes("MyRecordSheetFrame"), "V2 should use drawers/sheets for My Record editing.");
 assert(client.includes("MyRecordContextualFloatingActions"), "V2 should expose contextual My Record floating actions.");
-assert(client.includes("const suppressGlobalFabForMyRecord = activeTab === \"more\" && activeMoreAppView === \"my_record\";"), "My Record should explicitly suppress the global app FAB.");
+assert(client.includes("const suppressGlobalFabForMyRecord = isMyRecordOpen;"), "USA-272: My Record suppresses the global app FAB wherever it is reached from.");
 assert(client.includes("&& !suppressGlobalFabForMyRecord"), "Global floating action visibility should honor the My Record FAB suppression guard.");
 assert(client.includes("isOpen ? <X className=\"h-6 w-6\""), "My Record V2 FAB should render one explicit close button when open.");
 assert(client.includes("right-[max(1rem,calc((100vw-430px)/2+1rem))]"), "My Record FAB should use a shell-aware viewport inset on mobile.");
@@ -258,35 +282,70 @@ const myRecordWorkspaceSource = client.slice(client.indexOf("function MyRecordWo
    one View all. The earlier assertion that the Overview includes the KPI
    cards is replaced, deliberately, by the assertions below. */
 assert(!myRecordWorkspaceSource.includes("Today at a Glance"), "USA-220: the Overview no longer carries the daily KPI cards.");
-const myRecordOverviewSource = myRecordWorkspaceSource.slice(
-  myRecordWorkspaceSource.indexOf('{activeMyRecordTab === "overview" ? ('),
-  myRecordWorkspaceSource.indexOf('{activeMyRecordTab === "walk_with_god" ? ('),
-);
-assert(myRecordOverviewSource.includes('aria-label="Current"') && myRecordOverviewSource.includes("{currentItems.length ? ("), "USA-220: the Overview leads with Current, hidden when there is nothing active (D10).");
-assert(myRecordOverviewSource.includes('aria-label="Recent"') && myRecordOverviewSource.includes("timeline.slice(0, 3)"), "USA-220: Recent shows the latest three entries.");
-assert((myRecordOverviewSource.match(/View all/g) ?? []).length === 1, "USA-220: the Overview carries exactly one View all.");
-assert(myRecordWorkspaceSource.includes('assignment.status !== "completed"') && myRecordWorkspaceSource.includes('item.status === "draft"'), "USA-220: Current shows only what production already treats as active (assigned resources not completed, draft assessments); no new aggregate.");
-assert(myRecordWorkspaceSource.includes("<PillRail") && !client.includes("function MyRecordTabBar"), "USA-220: the section rail is the canonical PillRail; the bespoke tab bar is gone.");
+/* USA-272: Overview is the paired meeting cards then three short current-state
+   summaries, on the People record's own sectioned surface. It is not a second
+   timeline and not a dashboard. These replace the USA-220 Current/Recent
+   assertions. */
+const myRecordOverviewSource = client.slice(client.indexOf("function MyRecordOverviewPanel"), client.indexOf("/* USA-272 Timeline"));
+assert(myRecordOverviewSource.includes('<span className={eyebrowClass}>Last meeting</span>') && myRecordOverviewSource.includes('<span className={eyebrowClass}>Upcoming meeting</span>'), "USA-272: Overview leads with the paired Last / Upcoming meeting cards.");
+assert(myRecordOverviewSource.includes('title="Time with God"'), "USA-272: Overview carries a compact Time with God summary.");
+assert(myRecordOverviewSource.includes('title="What I\'m working on"'), "USA-272: Overview carries What I'm working on.");
+assert(myRecordOverviewSource.includes('title="Personal Prayer"'), "USA-272: Overview carries Personal Prayer.");
+assert(myRecordOverviewSource.includes('onClick={onLogTimeWithGod}>+ Log'), "USA-272: Time with God offers a direct + Log.");
+/* The founder's first correction: no mentor roster on Overview. */
+assert(!myRecordOverviewSource.includes("People discipling me") && !myRecordOverviewSource.includes("People Discipling Me"), "USA-272: Overview carries no People discipling me roster.");
+assert(!myRecordOverviewSource.includes("mentorRelationships"), "USA-272: Overview does not render the mentor relationship list.");
+/* The relationships themselves, and the ability to manage them, are retained.
+   Creation alone is not retention: a relationship that can be created but
+   never reopened is an inaccessible collection, so the reachable view-mode
+   entry point is asserted explicitly. */
+assert(client.includes('label: "Add Person Discipling Me"'), "USA-272: the discipling relationship can still be created.");
+assert(client.includes('onOpen={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}'), "USA-272: a saved discipling relationship can be reopened from My Life.");
+assert(client.includes('mentor_relationship", mentor, mode: "edit"') && client.includes('onDelete("mentor_relationship", mentor.id)'), "USA-272: the reopened relationship can still be edited and deleted.");
+assert(/mentors: "my_life"/.test(client), "USA-272: an old mentors link resolves to where the relationships are managed.");
+/* Overview's meeting pair reads personal discipleship meetings -- someone
+   investing in the account holder -- and never reinterprets outgoing meetings
+   as incoming investment. */
+assert(client.includes("const lastMentorMeeting = record.mentorMeetings"), "USA-272: Last meeting comes from the record's own discipleship meetings.");
+assert(!myRecordOverviewSource.includes("meetings.filter"), "USA-272: Overview does not treat outgoing meetings as incoming investment.");
+assert(client.includes("meeting.followUpDate as string) >= today"), "USA-272: Upcoming is a real saved follow-up date, never an inferred appointment.");
+assert(myRecordWorkspaceSource.includes("currentItems") && myRecordWorkspaceSource.includes('assignment.status !== "completed"') && myRecordWorkspaceSource.includes('item.status === "draft"'), "USA-272: What I'm working on shows only what production already treats as active; no new aggregate.");
+/* Every existing per-assignment control survives the move onto Overview. */
+["Continue", "Start", "Complete", "Check-In", "Edit Dates"].forEach((label) => {
+  assert(myRecordWorkspaceSource.includes(`label: "${label}"`), `USA-272: the ${label} action is preserved on What I'm working on.`);
+});
+/* USA-272: the record uses the Person record's own shell -- Segmented views,
+   centred initials and name, back on the left and Edit on the right. */
+assert(myRecordWorkspaceSource.includes("<Segmented") && !myRecordWorkspaceSource.includes("<PillRail"), "USA-272: three fixed views use the canonical Segmented control, not a scrolling rail.");
+assert(!client.includes("function MyRecordTabBar"), "USA-220: the bespoke tab bar is gone.");
+assert(myRecordWorkspaceSource.includes("dosPersonAtmosphereClassName"), "USA-272: My Record carries the same page atmosphere as a Person record.");
+assert(myRecordWorkspaceSource.includes("{initials(recordDisplayName)}") && myRecordWorkspaceSource.includes(">My Record</p>"), "USA-272: the header centres initials and name, labelled My Record.");
+assert(myRecordWorkspaceSource.includes("<ArrowLeft") && myRecordWorkspaceSource.includes(">\n              Edit\n            </button>"), "USA-272: back sits left and Edit right, as on a Person record.");
 assert(!/<PageHeader\s+action=/.test(myRecordWorkspaceSource), "USA-265: the My Record header carries no chip beside the title.");
+/* The shared surface: one white sectioned container, blue eyebrows, hairline
+   rules and aligned actions -- the same classes the People Overview uses. */
+assert(client.includes('function MyRecordSurface') && client.includes('rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4'), "USA-272: My Record uses the People Overview container.");
+assert(client.includes('function MyRecordSection') && client.includes('className="border-b border-dos-rule py-3 last:border-b-0"'), "USA-272: sections are hairline-separated groups, not separated cards.");
+assert(client.includes("function MyRecordSectionRow") && client.includes("<PersonRecordRow onOpen={onOpen}>"), "USA-272: rows reuse the Person record's own row.");
 assert(!myRecordWorkspaceSource.includes("<TabHero"), "My Record overview should use a compact page header instead of the large TabHero card.");
 assert(!myRecordWorkspaceSource.includes("SectionHeading title=\"Quick Actions\""), "My Record overview should not render a visible Quick Actions section.");
 const myRecordFabSource = client.slice(client.indexOf("const myRecordFabItems"), client.indexOf("// TODO: Future: Permission-based My Record sharing"));
 assert(myRecordFabSource.includes('label: "Time With God"'), "My Record FAB should keep one unified Time With God action.");
-assert(myRecordFabSource.includes('label: "Add Person Discipling Me"'), "Growth FAB should own creation of a person discipling me.");
+assert(myRecordFabSource.includes('label: "Add Person Discipling Me"'), "USA-272: My Life owns creation of a person discipling me; the roster left Overview, the relationship did not.");
 assert(myRecordFabSource.includes('label: "Log Discipleship Meeting"'), "My Record FAB should label the relationship meeting as a discipleship meeting.");
 assert(myRecordFabSource.includes('label: "Add Assessment"'), "My Record FAB should label manual assessment-result entry as Add Assessment.");
-assert(myRecordFabSource.includes('label: "Add Book"'), "Growth FAB should label private book creation as Add Book.");
-assert(myRecordFabSource.includes('label: "Add Prophetic Word"'), "Purpose FAB should own prophetic word creation.");
-assert(myRecordFabSource.includes("label: \"Record God's Faithfulness\""), "Faithfulness FAB should use one broad creation action.");
+assert(myRecordFabSource.includes('label: "Add Book"'), "USA-272: My Life labels private book creation as Add Book.");
+assert(myRecordFabSource.includes('label: "Add Prophetic Word"'), "USA-272: My Life owns prophetic word creation.");
+assert(myRecordFabSource.includes("label: \"Record God's Faithfulness\""), "USA-272: My Life keeps one broad faithfulness creation action.");
 assert(!myRecordFabSource.includes('label: "Prayer Encounter"'), "My Record FAB should not duplicate Time With God with Prayer Encounter.");
 assert(!myRecordFabSource.includes('label: "Reflection"'), "My Record FAB should not duplicate Time With God with Reflection.");
-assert(!myRecordFabSource.includes('label: "Prophetic Word"'), "Purpose FAB should use Add Prophetic Word, not a noun-only label.");
-assert(!myRecordFabSource.includes("label: \"God's Faithfulness\""), "Faithfulness FAB should use Record God's Faithfulness, not a noun-only label.");
+assert(!myRecordFabSource.includes("label: \"Prophetic Word\","), "My Record FAB should use Add Prophetic Word, not a noun-only label.");
+assert(!myRecordFabSource.includes("label: \"God's Faithfulness\","), "My Record FAB should use Record God's Faithfulness, not a noun-only label.");
 assert(!myRecordFabSource.includes('label: "Answered Prayer"'), "Faithfulness FAB should not duplicate the same encounter form with Answered Prayer.");
 assert(!myRecordFabSource.includes('label: "Family Milestone"'), "Faithfulness FAB should not include family placeholders.");
 assert(!myRecordFabSource.includes('label: "Ministry Story"'), "Faithfulness FAB should not include ministry story placeholders.");
-assert(!myRecordFabSource.includes('label: "Course"'), "Growth FAB should not show disabled Course placeholders.");
-assert(!myRecordFabSource.includes('label: "Podcast"'), "Growth FAB should not show disabled Podcast placeholders.");
+assert(!myRecordFabSource.includes('label: "Course"'), "My Record FAB should not show disabled Course placeholders.");
+assert(!myRecordFabSource.includes('label: "Podcast"'), "My Record FAB should not show disabled Podcast placeholders.");
 assert(client.includes("type MyRecordRecordKind"), "V2 activity rows should classify records with one shared display kind.");
 assert(client.includes("function MyRecordCompactRecordCard"), "V2 should use one compact activity card pattern across record types.");
 assert(client.includes("items-center gap-2.5 rounded-[16px]") && client.includes("px-3 py-2.5"), "V2 activity cards should stay tight activity rows, not oversized cards.");
@@ -312,40 +371,54 @@ assert(client.includes("id: `encounter-prayer-${log.id}`"), "Legacy prayer logs 
 const encounterTitleSource = client.slice(client.indexOf("function myRecordEncounterTitleForEntry"), client.indexOf("function buildMyRecordEncounters"));
 assert(!encounterTitleSource.includes("return entry.biblePassage"), "Scripture references should stay secondary metadata instead of becoming the Encounter title.");
 assert(client.includes("function myRecordEncounterMeta"), "Encounter cards should expose Scripture and duration as secondary metadata.");
-assert(client.includes("function MyRecordWalkWithGodPanel"), "V2 should group Time With God, filters, history, and timeline under Walk.");
-const walkPanelSource = client.slice(client.indexOf("function MyRecordWalkWithGodPanel"), client.indexOf("function MyRecordGrowthPanel"));
-assert(walkPanelSource.includes("SectionHeading title=\"Time With God\""), "Walk should show Time With God as the history section.");
-assert(!walkPanelSource.includes("Today's Encounter"), "Walk should not show a duplicate latest/today encounter section.");
-assert(!walkPanelSource.includes("Latest Encounter"), "Walk should not show a duplicate latest/today encounter section.");
-assert(!walkPanelSource.includes("Encounter History"), "Walk should rename Encounter History to Time With God.");
-assert(!walkPanelSource.includes("Master Timeline"), "Walk should not show the redundant Master Timeline section.");
-assert(walkPanelSource.includes("MyRecordCompactRecordCard"), "Walk should render compact cards instead of long inline preview cards.");
-assert(walkPanelSource.includes("myRecordEncounterFilters"), "Walk should include Scripture, Prayer, Journal, and Highlights filters.");
-const encounterFilterSource = client.slice(client.indexOf("const myRecordEncounterFilters"), client.indexOf("function myRecordTagEquals"));
-assert(encounterFilterSource.indexOf('{ label: "All", value: "all" }') < encounterFilterSource.indexOf('{ label: "Journal", value: "journal" }'), "Walk filters should keep All first.");
-assert(encounterFilterSource.indexOf('{ label: "Journal", value: "journal" }') < encounterFilterSource.indexOf('{ label: "Scripture", value: "scripture" }'), "Walk filters should put Journal before Scripture.");
-assert(encounterFilterSource.indexOf('{ label: "Scripture", value: "scripture" }') < encounterFilterSource.indexOf('{ label: "Prayer", value: "prayer" }'), "Walk filters should put Scripture before Prayer.");
-assert(encounterFilterSource.indexOf('{ label: "Prayer", value: "prayer" }') < encounterFilterSource.indexOf('{ label: "Highlights", value: "highlights" }'), "Walk filters should put Highlights last.");
-assert(!walkPanelSource.includes("title=\"Quiet Time\""), "Walk should not render a separate Quiet Time summary card.");
-assert(!walkPanelSource.includes("title=\"Journal\""), "Walk should not render a duplicate Journal summary card for the same encounter.");
-assert(!walkPanelSource.includes("title=\"Prayer\""), "Walk should not render an empty Prayer summary card when no prayer-only encounter exists.");
-assert(!walkPanelSource.includes("latestPrayer"), "Walk should not drive an empty Prayer card from latestPrayer.");
-assert(client.includes("function MyRecordGrowthPanel"), "V2 should group Assessments, Learning, and Mentors under Growth.");
-const growthPanelSource = client.slice(client.indexOf("function MyRecordGrowthPanel"), client.indexOf("function MyRecordCallingPanel"));
-assert(growthPanelSource.includes("title=\"Assigned to Me\""), "Growth should label assigned resources as Assigned to Me.");
-assert(growthPanelSource.indexOf("title=\"Assigned to Me\"") < growthPanelSource.indexOf("title=\"People Discipling Me\""), "Growth should show assigned resources separately before people discipling me.");
-assert(growthPanelSource.indexOf("title=\"People Discipling Me\"") < growthPanelSource.indexOf("title=\"Assessments\""), "Growth should show People Discipling Me before Assessments.");
-assert(growthPanelSource.indexOf("title=\"Assessments\"") < growthPanelSource.indexOf("title=\"Learning\""), "Growth should show Assessments before Learning.");
-assert(growthPanelSource.includes("MyRecordResourceAssignmentRow"), "Growth assigned resources should render as compact rows.");
-assert(!growthPanelSource.includes("<ResourceAssignmentCard"), "Growth should not render large resource assignment cards by default.");
-assert(!growthPanelSource.includes("<MyRecordPreviewCard"), "Growth should not render large preview cards by default.");
-assert(!growthPanelSource.includes("+ Add Person Discipling Me"), "Growth should not duplicate the add action outside the floating plus menu.");
-assert(!growthPanelSource.includes("Add External Result"), "Growth should not duplicate assessment creation outside the floating plus menu.");
-assert(!growthPanelSource.includes("Add Book"), "Growth should not duplicate book creation outside the floating plus menu.");
-assert(!growthPanelSource.includes("Recent Mentor Meetings"), "Growth should summarize mentor meetings in mentor rows instead of a disconnected meeting list.");
-assert(growthPanelSource.includes("activeMentorItems") && growthPanelSource.includes("myRecordDateValue(secondDate) - myRecordDateValue(firstDate)"), "Growth mentors should sort by most recent mentor activity.");
-assert(client.includes("<MyRecordActionButton onClick={() => onOpenSheet({ kind: \"mentor_meeting\", mentor, mode: \"new\" })} tone=\"blue\">Log Meeting</MyRecordActionButton>"), "Mentor detail should expose Log Meeting without scattering it in the Growth list.");
-assert(growthPanelSource.includes("MyRecordMentorCard"), "Growth should render dedicated mentor relationship cards.");
+/* USA-272: Walk became the Timeline view -- one dated history across every
+   personal record type, with search and filters. Each row opens the saved
+   record itself; nothing is copied to populate the timeline, and no historical
+   event is invented for a record that keeps no change history. These replace
+   the USA-220 Walk-panel assertions. */
+assert(client.includes("function MyRecordTimelinePanel"), "USA-272: My Record has a Timeline view.");
+const timelinePanelSource = client.slice(client.indexOf("function MyRecordTimelinePanel"), client.indexOf("/* USA-272 My Life"));
+assert(timelinePanelSource.includes('<SearchField label="Search my record"'), "USA-272: the Timeline is searchable.");
+assert(timelinePanelSource.includes("myRecordTimelineFilters"), "USA-272: the Timeline offers useful filters.");
+assert(timelinePanelSource.includes("onOpenItem(item)"), "USA-272: a Timeline row opens the saved record itself.");
+assert(timelinePanelSource.includes("toLocaleDateString(\"en-US\", { month: \"long\", year: \"numeric\" })"), "USA-272: the Timeline groups by month, as the Person record's does.");
+assert(timelinePanelSource.includes("items.filter") && !timelinePanelSource.includes(".map((item) => ({ ...item"), "USA-272: the Timeline filters saved records; it never copies them.");
+const timelineFilterSource = client.slice(client.indexOf("const myRecordTimelineFilters"), client.indexOf("function MyRecordTimelinePanel"));
+["Time with God", "Discipleship", "Prayer", "Prophetic", "Learning", "Faithfulness"].forEach((label) => {
+  assert(timelineFilterSource.includes(`label: "${label}"`), `USA-272: the Timeline should filter by ${label}.`);
+});
+assert(timelineFilterSource.indexOf('label: "All"') < timelineFilterSource.indexOf('label: "Time with God"'), "USA-272: Timeline filters keep All first.");
+/* The unified builder still carries every source type into one history. */
+const timelineBuilderSource = client.slice(client.indexOf("function buildMyRecordTimeline"), client.indexOf("function myRecordMentorMeetingsForRelationship"));
+["encounterItems", "mentorItems", "assessmentItems", "externalAssessmentItems", "propheticWordItems", "learningBookItems", "learningChapterItems", "lifePlanItems"].forEach((source) => {
+  assert(timelineBuilderSource.includes(source), `USA-272: the Timeline should include ${source}.`);
+});
+assert(client.includes("myRecordEncounterFilters"), "USA-220: the encounter filter model is preserved.");
+/* USA-272: Growth's contents were rehoused -- assigned resources onto
+   Overview's "What I'm working on", assessments and learning onto My Life,
+   and the People discipling me roster removed from the daily surface. These
+   replace the USA-220 Growth-panel assertions. */
+assert(!client.includes("function MyRecordGrowthPanel"), "USA-272: the Growth tab is retired.");
+const myLifePanelSource = client.slice(client.indexOf("function MyRecordMyLifePanel"), client.indexOf("function MyRecordSheetContent"));
+assert(myLifePanelSource.indexOf('title="Purpose"') < myLifePanelSource.indexOf('title="Prophetic Words"'), "USA-272: My Life leads with Purpose.");
+assert(myLifePanelSource.indexOf('title="Prophetic Words"') < myLifePanelSource.indexOf("title=\"God's Faithfulness\""), "USA-272: Prophetic Words precedes God's Faithfulness.");
+assert(myLifePanelSource.indexOf("title=\"God's Faithfulness\"") < myLifePanelSource.indexOf('title="Assessments"'), "USA-272: God's Faithfulness precedes Assessments.");
+assert(myLifePanelSource.indexOf('title="Assessments"') < myLifePanelSource.indexOf('title="Learning"'), "USA-272: Assessments precedes Learning.");
+assert(myLifePanelSource.includes('title="People Discipling Me"'), "USA-272: My Life carries the retained People Discipling Me management section.");
+/* My Life is who this person is before God -- never a contact or relationship
+   form, and never a speculative placeholder. */
+["Phone", "Email", "Address", "Birthday", "Relationship Type", "Circle"].forEach((label) => {
+  assert(!myLifePanelSource.includes(`title="${label}"`), `USA-272: My Life must not carry the ${label} contact/relationship section.`);
+});
+assert(!myLifePanelSource.includes("Coming Soon") && !myLifePanelSource.includes("Mission Direction") && !myLifePanelSource.includes("Year in Review"), "USA-272: the speculative Coming Soon placeholders are gone from the daily experience.");
+assert(myLifePanelSource.includes("God's Faithfulness"), "USA-272: God's Faithfulness keeps its full label.");
+/* Purpose keeps the word(s) of the year, the calling and the Life Plan with
+   its filters, priorities, reminder and saved privacy setting. */
+assert(myLifePanelSource.includes("myRecordDefaultWordsOfYear") && myLifePanelSource.includes("myRecordWordsOfYearScripture"), "USA-272: Purpose keeps the Word(s) of the Year.");
+assert(myLifePanelSource.includes('lifePlan.decisionFilters.length') && myLifePanelSource.includes('lifePlan.topPriorities.length') && myLifePanelSource.includes('lifePlan.visibility === "private"'), "USA-272: Purpose shows the Life Plan's filters, priorities and saved privacy setting.");
+assert(myLifePanelSource.includes('name="current_season_focus"'), "USA-272: the record's own saved focus note stays editable.");
+assert(!myLifePanelSource.includes("Add External Result") && !myLifePanelSource.includes("+ New"), "USA-272: creation is not duplicated with ad-hoc section buttons.");
+assert(client.includes("<MyRecordActionButton onClick={() => onOpenSheet({ kind: \"mentor_meeting\", mentor, mode: \"new\" })} tone=\"blue\">Log Meeting</MyRecordActionButton>"), "USA-272: the relationship detail still exposes Log Meeting, so no management capability was lost with the roster.");
 assert(client.includes("| { kind: \"mentor_meeting\"; meeting?: DosAppUserMentorMeeting | null; mentor?: DosAppUserMentorRelationship | null; mode: MyRecordSheetMode }"), "Mentor meeting sheets should carry optional selected mentor context.");
 /* USA-265 (founder, 2026-09-10): Log Discipleship Meeting was cumbersome. It
    asks who discipled you once (shown, not asked, when the meeting or the
@@ -378,19 +451,11 @@ assert(mentorProfileFieldsMigration.includes("add column if not exists mentor_em
 assert(mentorProfileFieldsMigration.includes("add column if not exists mentor_phone"), "Mentor profile migration should add mentor_phone.");
 assert(mentorProfileFieldsMigration.includes("add column if not exists meeting_rhythm"), "Mentor profile migration should add meeting_rhythm.");
 assert(mentorProfileFieldsMigration.includes("Not public profile, Field, Table, Fruit, or circle metric data"), "Mentor profile fields should stay isolated from public and metrics data.");
-assert(client.includes("function MyRecordCallingPanel"), "V2 should group Words, Prophetic Words, and Vision Timeline under Purpose.");
-const callingPanelSource = client.slice(client.indexOf("function MyRecordCallingPanel"), client.indexOf("function MyRecordLegacyPanel"));
-const wordsCardSource = client.slice(client.indexOf("function MyRecordWordsOfYearCard"), client.indexOf("function MyRecordPropheticOverviewCard"));
-assert(wordsCardSource.includes('role="button"'), "Word(s) of the Year should open editing from the compact block itself.");
-assert(!wordsCardSource.includes(">Edit<") && !wordsCardSource.includes("SectionHeading\n        action"), "Word(s) of the Year should not show a separate text Edit action.");
-assert(callingPanelSource.includes("MyRecordLifePlanCard"), "Purpose should render the Life Plan summary card.");
-assert(callingPanelSource.indexOf("title=\"Prophetic Words\"") < callingPanelSource.indexOf("MyRecordLifePlanCard"), "Life Plan should appear below Prophetic Words in Purpose.");
-assert(!callingPanelSource.includes("<MyRecordPreviewCard"), "Purpose should not render large preview cards by default.");
-assert(!callingPanelSource.includes("+ New"), "Purpose should not duplicate creation with section-level + New buttons.");
-assert(!callingPanelSource.includes("action={<button"), "Purpose section headings should not expose text action buttons.");
-assert(callingPanelSource.includes("title=\"Mission Direction\""), "Purpose should keep Mission Direction as a compact section.");
-assert(callingPanelSource.includes("typeLabel=\"Coming Soon\""), "Purpose should show future mission direction as Coming Soon.");
-assert(!callingPanelSource.includes("Future calling timeline for vision moments"), "Purpose Mission Direction should not open a non-working placeholder drawer.");
+/* USA-272: Purpose became a section of My Life. The Word(s) of the Year block
+   and the Life Plan summary are asserted on My Life above; what remains here
+   is that the underlying records and their editors are untouched. */
+assert(!client.includes("function MyRecordCallingPanel"), "USA-272: the Purpose tab is retired.");
+assert(client.includes("Word(s) of the year"), "USA-272: My Life still shows the Word(s) of the Year.");
 assert(client.includes("function MyRecordLifePlanCard"), "Client should include a compact Life Plan summary card.");
 assert(client.includes("typeLabel=\"Private\""), "Life Plan should render as a compact private preview row.");
 assert(client.includes("I am not called to pursue every opportunity. I am called to faithfully steward the vision God has entrusted to me."), "Life Plan should seed Ryan's calling statement from the supplied source text.");
@@ -407,21 +472,21 @@ assert(client.includes("Upload PDF") || client.includes("Original PDF"), "Life P
 assert(client.includes("Parse PDF into Life Plan - Coming Soon"), "Life Plan PDF parsing should remain a Coming Soon CTA.");
 assert(client.includes("Private by default. Eligible for future Share Settings only when the user explicitly shares it."), "Life Plan should preserve private/default share language.");
 assert(client.includes("id: `life-plan-${record.lifePlan.id}`"), "Saved Life Plans should appear in the private My Record timeline.");
-assert(client.includes("function MyRecordLegacyPanel"), "V2 should group God's Faithfulness and Year in Review under Faithfulness.");
-const legacyPanelSource = client.slice(client.indexOf("function MyRecordLegacyPanel"), client.indexOf("function myRecordSheetTitle"));
-assert(!legacyPanelSource.includes("<MyRecordPreviewCard"), "Faithfulness should not render large preview cards by default.");
-assert(!legacyPanelSource.includes("<MyRecordSnapshotTile"), "Faithfulness should use a slim metrics strip instead of metric tiles.");
-assert(!legacyPanelSource.includes("+ New"), "Faithfulness should not duplicate creation with section-level + New buttons.");
-assert(!legacyPanelSource.includes("View all"), "Faithfulness should not add separate View all buttons when rows are clickable.");
-assert(!legacyPanelSource.includes("Family & Impact"), "Faithfulness should not include general Family & Impact metrics.");
-assert(!legacyPanelSource.includes("Ministry Meetings"), "Faithfulness should not include ministry performance metrics.");
-assert(!legacyPanelSource.includes("Fruit Observed"), "Faithfulness should not include fruit performance metrics.");
-assert(!legacyPanelSource.includes("People Ministered To"), "Faithfulness should not include people-count performance metrics.");
-assert(legacyPanelSource.includes("No faithfulness entries yet."), "Faithfulness empty state should use the approved concise title.");
-assert(legacyPanelSource.includes("Record answered prayers, blessings, provision, and moments you want to remember."), "Faithfulness empty state should not include an Add button.");
+/* USA-272: Faithfulness became a section of My Life, and the "Year in Review"
+   Coming Soon card was removed from the daily experience with the founder's
+   direction on speculative features. */
+assert(!client.includes("function MyRecordLegacyPanel"), "USA-272: the Faithfulness tab is retired.");
+/* Checked against the rendered source, so the comment recording why these
+   were removed does not itself trip the assertion. */
+const clientJsx = client.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+assert(!clientJsx.includes("Year in Review"), "USA-272: the Year in Review placeholder is gone.");
+assert(!clientJsx.includes("Vision Timeline"), "USA-272: the Mission Direction / Vision Timeline placeholder is gone.");
+assert(!clientJsx.includes('typeLabel="Coming Soon"'), "USA-272: no Coming Soon card is rendered in the daily My Record experience.");
+["Family & Impact", "Ministry Meetings", "Fruit Observed", "People Ministered To"].forEach((label) => {
+  assert(!myLifePanelSource.includes(label), `USA-272: God's Faithfulness must not carry the ${label} performance metric.`);
+});
+assert(myLifePanelSource.includes("Record answered prayers, blessings, provision and moments worth remembering."), "USA-272: the faithfulness empty state stays descriptive.");
 assert(client.includes("kind: \"timeline\""), "Underlying My Record timeline drawer should remain available outside the Walk tab UI.");
-assert(client.includes("Vision Timeline"), "Purpose should reserve Vision Timeline for future work.");
-assert(client.includes("Year in Review"), "Faithfulness should reserve Year in Review for future work.");
 assert(!client.includes("Family & Impact"), "Family & Impact should be removed from the Faithfulness tab UI.");
 assert(!client.includes("label: \"Abide\""), "Abide should not be added as a left-nav or app-catalog item.");
 assert(!client.includes("label: \"Prophetic Words\", type: \"moreApp\""), "Prophetic Words must not be added to the left nav.");
@@ -446,7 +511,7 @@ assert(client.includes("View Original Report"), "Assessment detail should link t
 assert(client.includes("Short Summary"), "Assessment form should capture a mentor-friendly short summary.");
 assert(client.includes("Eligible for future Share Settings"), "Assessment form should capture future share eligibility without sharing now.");
 assert(client.includes("Do not copy questions, scoring systems, proprietary explanation tables, or copyrighted manuals."), "External assessment UI should prevent proprietary content copying.");
-assert(client.includes("+ data.myRecord.externalAssessmentResults.length"), "External assessment results should affect only the private My Record activity count.");
+assert(!client.includes("+ data.myRecord.externalAssessmentResults.length"), "USA-272: external assessment results feed no surfaced count.");
 assert(client.includes("Learning / Book Notes"), "V2 should include the Learning / Book Notes UI.");
 assert(client.includes("Upload Highlight Image"), "Learning should support optional chapter highlight image uploads.");
 assert(client.includes("Generate Summary from Highlights"), "Learning should expose the future AI summary placeholder CTA.");
@@ -460,7 +525,13 @@ assert(client.includes("shareEligible: book?.shareEligible ?? false"), "A stored
 assert(client.includes("Books Read"), "Learning should show a books read count.");
 assert(client.includes("kind: \"learning_book\""), "Client should save Learning books through the private My Record API.");
 assert(client.includes("kind: \"learning_chapter_note\""), "Client should save Learning chapter notes through the private My Record API.");
-assert(client.includes("+ data.myRecord.learningBooks.reduce"), "Learning data should affect only the private My Record activity count.");
+assert(!client.includes("+ data.myRecord.learningBooks.reduce"), "USA-272: learning data feeds no surfaced count.");
+/* USA-272: My Record is not a person -- it never reaches the People count or
+   circle membership. */
+assert(client.includes("const peopleCountBadgeValue = peopleCircleView === \"all\" ? visibleCirclePeople.length : null;"), "USA-272: the People count is the list's own length, shown on All only.");
+assert(client.includes("function PeopleCountBadge"), "USA-272: the count is a badge inside the names-list container.");
+assert(client.includes('role="status"') && client.includes("in this list`"), "USA-272: the count is informational and labelled, not a button.");
+assert(!client.includes("{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? \"person\" : \"people\"}"), "USA-272: the separate count line above the list is gone.");
 assert(!client.includes("propheticWords.filter((word) => isMyRecordDateInRange"), "Prophetic words should not be added to reports in this pass.");
 assert(!client.includes("label: \"External Assessments\", type: \"moreApp\""), "External assessments must not be added to the left nav.");
 assert(!client.includes("label: \"Learning\", type: \"moreApp\""), "Learning must not be added to the left nav.");
