@@ -55,7 +55,9 @@ assert(lifePlanSheet.includes("label=\"Privacy\""), "Life Plan view should rende
 assert(!lifePlanSheet.includes("text-[#94A3B8]"), "Life Plan sheet should not use pale slate text for readable content.");
 assert(!lifePlanSheet.includes("text-[#CBD5E1]"), "Life Plan sheet should not use disabled slate text for readable content.");
 
-const externalAssessmentForm = sliceBetween(client, "function MyRecordExternalAssessmentForm", "function MyRecordAssessmentsPanel");
+/* USA-272: MyRecordAssessmentsPanel was already unreachable and went with
+   the My Record restructure; MyRecordReportPanel is the next declaration. */
+const externalAssessmentForm = sliceBetween(client, "function MyRecordExternalAssessmentForm", "function MyRecordReportPanel");
 assert(externalAssessmentForm.includes("Store user-owned results and summaries only."), "External assessment form should keep copyright-safe helper copy.");
 assert(externalAssessmentForm.includes("text-[#64748B]\">Do not copy questions"), "External assessment copyright helper should be readable.");
 assert(!externalAssessmentForm.includes("text-[#94A3B8]\">Do not copy questions"), "External assessment copyright helper should not look disabled.");
