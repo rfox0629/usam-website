@@ -93,6 +93,14 @@ The Aug 12 – Sep 10 change has **two independent causes**, and only one of the
 
 Nothing above reads a meeting's notes, and none are quoted here.
 
+## Work from main that this branch integrates (2026-09-12)
+
+Rebased onto `0cf1d99`, so three merged changes are carried rather than re-implemented:
+
+- **USA-265 (#136)** — My Record discipleship meetings are a report source.
+- **USA-269 (#137)** and **USA-270 (#139)** — the shared unsaved-work rule. Reports adds no guard of its own: the My Record meeting editor is an editable surface whose backdrop is inert, whose deliberate exits confirm only when there is real work, and whose successful save re-baselines and leaves silently (`useEditableSurface` / `markSaved`). Rehearsed in the browser through Reports → editor → Back to Reports.
+- **USA-271 (#140)** — recorded group attendance. Re-applied onto the rewritten calculation: `gatheringsAttended` per person and `gatheringsWithAttendance` in the totals, counted once per person per completed in-range gathering, from `present` or `guest` attendance only. It appears in the person detail as its own count and is **never a meeting, never logged duration, and never Fruit**. Regression §17b pins that.
+
 ## Unit rules (stated in metric detail)
 
 - Time invested meetings + Invested in me meetings = **Meetings**.
