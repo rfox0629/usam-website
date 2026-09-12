@@ -176,6 +176,16 @@ function RowDetail({
         <p className="rounded-dos-1 bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText">{row.directionConflict}</p>
       ) : null}
 
+      {/* Group attendance is its own count: distinct gatherings this person was
+          recorded at, never leader time and never multiplied by attendees. */}
+      {row.gatheringsAttended ? (
+        <div>
+          <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Group gatherings</p>
+          <p className="mt-1 text-dos-body font-semibold text-dos-primary">Attended {plural(row.gatheringsAttended, "group gathering")}</p>
+          <p className="text-dos-meta text-dos-secondary">Recorded attendance in this range. Not counted as meetings or as your logged duration.</p>
+        </div>
+      ) : null}
+
       {multiplication ? (
         <div>
           <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Multiplication</p>

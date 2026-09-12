@@ -56,10 +56,10 @@ import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives"
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
-import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMinistryFruitEntriesFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
+import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
@@ -7618,6 +7618,7 @@ function GroupDetailWorkspaceV2({
   onJoinRequestAccepted,
   onJoinRequestResolved,
   onLogAsTable,
+  onOpenGathering,
   onOpenJourney,
   onRemoveMember,
   onSchedule,
@@ -7644,6 +7645,7 @@ function GroupDetailWorkspaceV2({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
+  onOpenGathering: (gathering: GroupGatheringView) => void;
   onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
   onSchedule: () => void;
@@ -7658,7 +7660,10 @@ function GroupDetailWorkspaceV2({
   const nextGathering = nextExpectedGroupGathering(group);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
-  const meetingActionLabel = "Log Gathering";
+  /* The primary action opens the dated gathering record (attendance, what
+     we covered, notes, prayer). The leader's own meeting log lives inside it
+     as an optional detail; it is no longer the front door. */
+  const meetingActionLabel = "Take Attendance";
   const nextGatheringSummary = nextGathering
     ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatGroupGatheringShortDate(nextGathering.startsAt)}${formatGroupGatheringTimeRange(nextGathering) ? ` · ${formatGroupGatheringTimeRange(nextGathering)}` : ""}`
     : "Not scheduled";
@@ -7710,9 +7715,9 @@ function GroupDetailWorkspaceV2({
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
               <GroupQuickAction
-                icon={<Coffee className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
+                icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label={meetingActionLabel}
-                onClick={onLogAsTable}
+                onClick={() => (nextGathering ? onOpenGathering(nextGathering) : onAddOneOffGathering())}
                 tone="primary"
               />
               <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
@@ -7753,6 +7758,7 @@ function GroupDetailWorkspaceV2({
           onCancelGathering={onCancelGathering}
           onEditGathering={onEditGathering}
           onManageSchedule={onSchedule}
+          onOpenGathering={onOpenGathering}
         />
       ) : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
@@ -8798,6 +8804,7 @@ function GroupsWorkspace({
   onJoinRequestAccepted,
   onJoinRequestResolved,
   onLogAsTable,
+  onOpenGathering,
   onOpenGroup,
   onOpenGroupJoinRequests,
   onOpenJourney,
@@ -8835,6 +8842,7 @@ function GroupsWorkspace({
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onLogAsTable: () => void;
+  onOpenGathering: (gathering: GroupGatheringView) => void;
   onOpenGroup: (groupId: string) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenJourney: (personId: string, resourceSlug: string, assignmentId: string | null, hasAssignment: boolean) => void;
@@ -8872,6 +8880,7 @@ function GroupsWorkspace({
           onJoinRequestAccepted={onJoinRequestAccepted}
           onJoinRequestResolved={onJoinRequestResolved}
           onLogAsTable={onLogAsTable}
+          onOpenGathering={onOpenGathering}
           onOpenJourney={onOpenJourney}
           onRemoveMember={onRemoveMember}
           onSchedule={onSchedule}
@@ -11699,6 +11708,382 @@ function GroupSettingsSheet({
   );
 }
 
+/* USA-271: the group gathering record (founder brief, 2026-09-11).
+ *
+ * One dated gathering is one record. Opening it never marks anyone present
+ * and never creates activity; only Save writes, and it writes the same
+ * record however many times it is saved: attendance is one row per attendee
+ * (unique per gathering and person), prayer requests are canonical rows
+ * linked to the gathering, and the gathering itself is completed in place.
+ * Membership is not attendance: nobody is ticked until the leader ticks
+ * them. What the group covered is separate from any member's own Journey
+ * progress, which this screen never touches. */
+type GatheringRecordPrayerDraft = { id: string; personId: string; request: string; title: string };
+
+type GatheringRecordPayload = {
+  attendance: Array<{ notes: string | null; personId: string; status: "guest" | "present" }>;
+  coveredSummary: string;
+  description: string | null;
+  endsAt: string | null;
+  gatheringId: string | null;
+  groupId: string;
+  journeyResourceSlug: string;
+  journeySessionId: string;
+  location: string | null;
+  notes: string;
+  prayerRequests: GatheringRecordPrayerDraft[];
+  startsAt: string;
+  title: string;
+};
+
+type GatheringRecordOutcome =
+  | { gathering: DosAppGroupGathering; prayerRequests: DosAppPrayerRequest[]; status: "saved" }
+  | { message: string; status: "rejected" };
+
+type GatheringJourneyOption = { resource: DosResource; sessions: Array<{ id: string; title: string }> };
+
+function gatheringDurationMinutes(gathering: DosAppGroupGathering) {
+  const start = new Date(gathering.startsAt).getTime();
+  const end = gathering.endsAt ? new Date(gathering.endsAt).getTime() : Number.NaN;
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return 60;
+  }
+
+  return Math.max(15, Math.round((end - start) / 60_000 / 15) * 15);
+}
+
+function GroupGatheringSheet({
+  gathering,
+  group,
+  isPreview,
+  journeyFieldsSupported,
+  journeyOptions,
+  onClose,
+  onLogMeeting,
+  onSave,
+  people,
+}: {
+  gathering: GroupGatheringView;
+  group: DosAppGroup;
+  isPreview: boolean;
+  journeyFieldsSupported: boolean;
+  journeyOptions: GatheringJourneyOption[];
+  onClose: () => void;
+  onLogMeeting: () => void;
+  onSave: (payload: GatheringRecordPayload) => Promise<GatheringRecordOutcome>;
+  people: DosAppPerson[];
+}) {
+  const members = activeGroupMembers(group);
+  const memberPersonIds = new Set(members.map((member) => member.personId));
+  const savedAttendance = gathering.attendance.filter((row) => row.status === "present" || row.status === "guest");
+  const initial = {
+    coveredSummary: gathering.coveredSummary ?? "",
+    date: dateInputValueFromDateTime(gathering.startsAt),
+    durationMinutes: gatheringDurationMinutes(gathering),
+    guestIds: savedAttendance.filter((row) => !memberPersonIds.has(row.personId)).map((row) => row.personId),
+    journeyResourceSlug: gathering.journeyResourceSlug ?? "",
+    journeySessionId: gathering.journeySessionId ?? "",
+    notes: gathering.sharedNotes ?? "",
+    presentIds: savedAttendance.filter((row) => memberPersonIds.has(row.personId)).map((row) => row.personId),
+    startTime: timeInputValueFromDateTime(gathering.startsAt, "18:00"),
+  };
+  const [date, setDate] = useState(initial.date);
+  const [startTime, setStartTime] = useState(initial.startTime);
+  const [durationMinutes, setDurationMinutes] = useState(initial.durationMinutes);
+  const [presentIds, setPresentIds] = useState<string[]>(initial.presentIds);
+  const [guestIds, setGuestIds] = useState<string[]>(initial.guestIds);
+  const [guestQuery, setGuestQuery] = useState("");
+  const [isAddingGuest, setIsAddingGuest] = useState(false);
+  const [coveredSummary, setCoveredSummary] = useState(initial.coveredSummary);
+  const [journeyResourceSlug, setJourneyResourceSlug] = useState(initial.journeyResourceSlug);
+  const [journeySessionId, setJourneySessionId] = useState(initial.journeySessionId);
+  const [notes, setNotes] = useState(initial.notes);
+  const [prayerDrafts, setPrayerDrafts] = useState<GatheringRecordPrayerDraft[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const peopleById = new Map(people.map((person) => [person.id, person]));
+  const existingPrayerRequests = group.prayerRequests.filter((request) => request.gatheringId === gathering.id && request.status !== "archived");
+  const savedByPersonId = new Map(gathering.attendance.map((row) => [row.personId, row]));
+  const selectedJourney = journeyOptions.find((option) => option.resource.slug === journeyResourceSlug) ?? null;
+  const guestCandidates = isAddingGuest
+    ? filteredPeople(people, guestQuery).filter((person) => person.status !== "archived" && !memberPersonIds.has(person.id) && !guestIds.includes(person.id)).slice(0, 6)
+    : [];
+
+  /* Unsaved work is exactly the difference between the draft and the saved
+     record; nothing on this screen is dirty when it opens. */
+  const snapshot = (value: typeof initial) => JSON.stringify({ ...value, guestIds: [...value.guestIds].sort(), presentIds: [...value.presentIds].sort() });
+  const isDirty = snapshot({ coveredSummary, date, durationMinutes, guestIds, journeyResourceSlug, journeySessionId, notes, presentIds, startTime }) !== snapshot(initial) || prayerDrafts.some((draft) => draft.title.trim() || draft.request.trim());
+
+  function togglePresent(personId: string) {
+    setError(null);
+    setPresentIds((current) => (current.includes(personId) ? current.filter((id) => id !== personId) : [...current, personId]));
+  }
+
+  function addGuest(personId: string) {
+    setError(null);
+    setGuestIds((current) => (current.includes(personId) ? current : [...current, personId]));
+    setGuestQuery("");
+    setIsAddingGuest(false);
+  }
+
+  function addPrayerDraft() {
+    setPrayerDrafts((current) => [...current, { id: `prayer-${Date.now()}-${current.length}`, personId: "", request: "", title: "" }]);
+  }
+
+  function updatePrayerDraft(id: string, updates: Partial<GatheringRecordPrayerDraft>) {
+    setPrayerDrafts((current) => current.map((draft) => (draft.id === id ? { ...draft, ...updates } : draft)));
+  }
+
+  async function save() {
+    if (!isDirty || isSaving) {
+      return;
+    }
+
+    const start = new Date(`${date}T${startTime || "18:00"}:00`);
+
+    if (Number.isNaN(start.getTime())) {
+      setError("Choose a valid gathering date and time.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    const outcome = await onSave({
+      attendance: [
+        ...presentIds.map((personId) => ({ notes: savedByPersonId.get(personId)?.notes ?? null, personId, status: "present" as const })),
+        ...guestIds.map((personId) => ({ notes: savedByPersonId.get(personId)?.notes ?? null, personId, status: "guest" as const })),
+      ],
+      coveredSummary: journeyFieldsSupported ? coveredSummary.trim() : "",
+      description: gathering.description,
+      endsAt: new Date(start.getTime() + durationMinutes * 60_000).toISOString(),
+      gatheringId: gathering.derived ? null : gathering.id,
+      groupId: group.id,
+      journeyResourceSlug: journeyFieldsSupported ? journeyResourceSlug : "",
+      journeySessionId: journeyFieldsSupported && journeyResourceSlug ? journeySessionId : "",
+      location: gathering.location,
+      notes: notes.trim(),
+      prayerRequests: prayerDrafts.filter((draft) => draft.title.trim() || draft.request.trim()),
+      startsAt: start.toISOString(),
+      title: gathering.title || group.name,
+    });
+
+    setIsSaving(false);
+
+    if (outcome.status === "rejected") {
+      setError(outcome.message);
+      return;
+    }
+
+    onClose();
+  }
+
+  const presentCount = presentIds.length;
+  const dateLabel = formatGroupGatheringShortDate(gathering.startsAt);
+
+  return (
+    <Sheet description={`${gathering.status === "completed" ? "Recorded" : "Scheduled"} · ${dateLabel}`} isDirty={() => isDirty} kind="editable" onClose={onClose} showEyebrow={false} title={group.name}>
+      <div className="space-y-4">
+        {error ? (
+          <p className="rounded-[18px] border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700" role="alert">{error}</p>
+        ) : null}
+
+        <section aria-label="When" className="grid gap-3 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block min-w-0">
+              <FieldLabel>Date</FieldLabel>
+              <input className={`${FieldInputClass()} bg-white`} name="gathering_date" onChange={(event) => setDate(event.target.value)} type="date" value={date} />
+            </label>
+            <label className="block min-w-0">
+              <FieldLabel>Start time</FieldLabel>
+              <input className={`${FieldTimeInputClass()} bg-white`} name="gathering_start_time" onChange={(event) => setStartTime(event.target.value)} type="time" value={startTime} />
+            </label>
+          </div>
+          <Stepper
+            decrementLabel="15 minutes less"
+            format={(minutes) => formatDurationLabel(minutes) ?? `${minutes}m`}
+            incrementLabel="15 minutes more"
+            label="Duration"
+            min={15}
+            name="gathering_duration_minutes"
+            onChange={setDurationMinutes}
+            step={15}
+            value={durationMinutes}
+          />
+        </section>
+
+        <section aria-label="Attendance">
+          <div className="flex items-center justify-between gap-3">
+            <FieldLabel>Attendance</FieldLabel>
+            <p aria-live="polite" className="text-xs font-bold tabular-nums text-[#64748B]">{presentCount} of {members.length} present</p>
+          </div>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">Tick who was there. Nobody is counted as present until you tick them.</p>
+          <div className="mt-2 grid gap-2">
+            {members.map((member) => {
+              const present = presentIds.includes(member.personId);
+
+              return (
+                <button
+                  aria-pressed={present}
+                  className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-[18px] border px-3 text-left transition-colors ${present ? "border-[#2563EB] bg-[#EBF2FF]" : "border-[#EAF2FF] bg-white hover:border-[#BFDBFE]"}`}
+                  disabled={isSaving}
+                  key={member.id}
+                  onClick={() => togglePresent(member.personId)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-[#0F172A]">{member.personName}</span>
+                    <span className="block text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</span>
+                  </span>
+                  <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${present ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#CBD5E1] bg-white text-transparent"}`}>
+                    <Check aria-hidden="true" className="h-4 w-4" strokeWidth={2.4} />
+                  </span>
+                </button>
+              );
+            })}
+            {!members.length ? <SectionEmptyState text="Add people to this group first." title="No members yet." /> : null}
+          </div>
+
+          {guestIds.length ? (
+            <div className="mt-3 grid gap-2">
+              {guestIds.map((personId) => (
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-white px-3" key={personId}>
+                  <span className="min-w-0 truncate text-sm font-black text-[#0F172A]">{peopleById.get(personId)?.name ?? "Guest"}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <GroupPill tone="blue">Guest</GroupPill>
+                    <button className="text-xs font-bold text-[#64748B] hover:text-[#0F172A]" disabled={isSaving} onClick={() => setGuestIds((current) => current.filter((id) => id !== personId))} type="button">Remove</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Discreet: a guest is a Field person who is not a member. */}
+          {isAddingGuest ? (
+            <div className="mt-3 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
+              <input
+                autoFocus
+                className={`${FieldInputClass()} bg-white`}
+                data-unsaved="ignore"
+                onChange={(event) => setGuestQuery(event.target.value)}
+                placeholder="Search people to add as a guest"
+                type="search"
+                value={guestQuery}
+              />
+              <div className="mt-2 grid gap-1.5">
+                {guestCandidates.map((person) => (
+                  <button className="flex min-h-10 w-full items-center justify-between gap-3 rounded-[14px] border border-[#EAF2FF] bg-white px-3 text-left text-sm font-bold text-[#0F172A] hover:border-[#BFDBFE]" key={person.id} onClick={() => addGuest(person.id)} type="button">
+                    <span className="truncate">{person.name}</span>
+                    <span className="text-xs font-bold text-[#1D4ED8]">Add as guest</span>
+                  </button>
+                ))}
+                {guestQuery.trim() && !guestCandidates.length ? <p className="px-1 text-xs font-semibold text-[#64748B]">Nobody matches. A guest must be a person in your Field first.</p> : null}
+              </div>
+              <button className="mt-2 text-xs font-bold text-[#64748B] hover:text-[#0F172A]" onClick={() => { setIsAddingGuest(false); setGuestQuery(""); }} type="button">Cancel</button>
+            </div>
+          ) : (
+            <button className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" disabled={isSaving} onClick={() => setIsAddingGuest(true)} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Add guest
+            </button>
+          )}
+        </section>
+
+        {journeyFieldsSupported ? (
+          <section aria-label="What we covered" className="grid gap-3">
+            <label className="block">
+              <FieldLabel>What we covered <OptionalTag /></FieldLabel>
+              <input className={FieldInputClass()} name="covered_summary" onChange={(event) => setCoveredSummary(event.target.value)} placeholder="Week 2 · Chapters 2–3" value={coveredSummary} />
+            </label>
+            {journeyOptions.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CompactOptionSelect
+                  label="Journey"
+                  onChange={(value) => { setJourneyResourceSlug(value); setJourneySessionId(""); }}
+                  options={[{ label: "Not linked", value: "" }, ...journeyOptions.map((option) => ({ label: option.resource.title, value: option.resource.slug }))]}
+                  value={journeyResourceSlug}
+                />
+                {selectedJourney?.sessions.length ? (
+                  <CompactOptionSelect
+                    label="Session"
+                    onChange={setJourneySessionId}
+                    options={[{ label: "Not set", value: "" }, ...selectedJourney.sessions.map((session) => ({ label: session.title, value: session.id }))]}
+                    value={journeySessionId}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+            <p className="text-xs font-semibold leading-5 text-[#64748B]">What the group covered. It does not complete anyone&apos;s own Journey, reading, reflection, or homework.</p>
+          </section>
+        ) : null}
+
+        <label className="block">
+          <FieldLabel>Notes <OptionalTag /></FieldLabel>
+          <textarea className={FieldTextareaClass()} name="gathering_notes" onChange={(event) => setNotes(event.target.value)} placeholder="What happened, and anything to carry forward." rows={3} value={notes} />
+        </label>
+
+        <section aria-label="Prayer requests">
+          <div className="flex items-center justify-between gap-3">
+            <FieldLabel>Prayer requests <OptionalTag /></FieldLabel>
+            <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" disabled={isSaving} onClick={addPrayerDraft} type="button">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2.1} />
+              Add prayer request
+            </button>
+          </div>
+          {existingPrayerRequests.length ? (
+            <ul className="mt-2 grid gap-1.5">
+              {existingPrayerRequests.map((request) => (
+                <li className="rounded-[14px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm text-[#0F172A]" key={request.id}>
+                  <span className="font-bold">{request.title}</span>
+                  {request.fieldPersonId && peopleById.get(request.fieldPersonId) ? <span className="text-xs font-semibold text-[#64748B]"> · {peopleById.get(request.fieldPersonId)?.name}</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {prayerDrafts.length ? (
+            <div className="mt-2 grid gap-2">
+              {prayerDrafts.map((draft) => (
+                <div className="grid gap-2 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" key={draft.id}>
+                  <input className={`${FieldInputClass()} bg-white`} name={`prayer_title_${draft.id}`} onChange={(event) => updatePrayerDraft(draft.id, { title: event.target.value })} placeholder="Prayer request" value={draft.title} />
+                  <textarea className={`${FieldTextareaClass()} bg-white`} name={`prayer_request_${draft.id}`} onChange={(event) => updatePrayerDraft(draft.id, { request: event.target.value })} placeholder="Details (optional)" rows={2} value={draft.request} />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CompactOptionSelect
+                      hideLabel
+                      label="For"
+                      onChange={(value) => updatePrayerDraft(draft.id, { personId: value })}
+                      options={[{ label: "The whole group", value: "" }, ...members.map((member) => ({ label: member.personName, value: member.personId })), ...guestIds.map((personId) => ({ label: peopleById.get(personId)?.name ?? "Guest", value: personId }))]}
+                      size="compact"
+                      value={draft.personId}
+                    />
+                    <button className="text-xs font-bold text-[#64748B] hover:text-[#0F172A]" onClick={() => setPrayerDrafts((current) => current.filter((item) => item.id !== draft.id))} type="button">Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {!existingPrayerRequests.length && !prayerDrafts.length ? <p className="mt-1 text-xs font-semibold text-[#64748B]">Requests you add here are listed with this group and this gathering.</p> : null}
+        </section>
+
+        <details className="rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2">
+          <summary className="min-h-9 cursor-pointer py-1.5 text-xs font-black text-[#64748B]">Optional details</summary>
+          <p className="text-xs font-semibold leading-5 text-[#64748B]">Your own meeting time with this group is a separate record. Log it when you want it counted in your Time Investment.</p>
+          <button className="mt-2 inline-flex min-h-9 items-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]" onClick={onLogMeeting} type="button">Log my meeting</button>
+          {isPreview ? <p className="mt-2 text-xs font-semibold text-[#64748B]">Preview: saving keeps this gathering in memory only.</p> : null}
+        </details>
+      </div>
+
+      {isDirty || isSaving ? (
+        <StickyFormFooter>
+          <Button disabled={isSaving} fullWidth onClick={save} variant="primary">
+            {isSaving ? "Saving…" : "Save gathering"}
+          </Button>
+        </StickyFormFooter>
+      ) : null}
+    </Sheet>
+  );
+}
+
 function GroupGatheringFormSheet({
   gathering,
   isSubmitting,
@@ -11870,6 +12255,7 @@ function GroupGatheringsTab({
   onCancelGathering,
   onEditGathering,
   onManageSchedule,
+  onOpenGathering,
 }: {
   group: DosAppGroup;
   isPreview: boolean;
@@ -11877,6 +12263,8 @@ function GroupGatheringsTab({
   onCancelGathering: (gathering: GroupGatheringView) => void;
   onEditGathering: (gathering: GroupGatheringView) => void;
   onManageSchedule: () => void;
+  /* The dated gathering record (USA-271). Absent on the legacy detail. */
+  onOpenGathering?: (gathering: GroupGatheringView) => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const expectedRows = expectedGroupGatherings(group, 4);
@@ -11908,6 +12296,11 @@ function GroupGatheringsTab({
                 })()}
               </div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
+                {onOpenGathering ? (
+                  <button className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#2563EB] px-3 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]" onClick={() => onOpenGathering(nextGathering)} type="button">
+                    Take attendance
+                  </button>
+                ) : null}
                 <button className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50" disabled={isPreview} onClick={() => onEditGathering(nextGathering)} type="button">
                   Edit this gathering
                 </button>
@@ -11955,9 +12348,30 @@ function GroupGatheringsTab({
           </button>
           {showHistory ? (
             <div className="mt-3 grid gap-2">
-              {past.map((gathering) => (
-                <GroupGatheringRow compact gathering={{ ...gathering, derived: false, sourceGatheringId: gathering.id }} key={gathering.id} />
-              ))}
+              {past.map((gathering) => {
+                const view = { ...gathering, derived: false, sourceGatheringId: gathering.id };
+                const row = (
+                  <GroupGatheringRow compact gathering={view}>
+                    {gathering.status === "completed" ? (
+                      <p className="mt-2 text-xs font-bold text-[#2563EB]">{gathering.attendance.filter((entry) => entry.status !== "absent").length} recorded present</p>
+                    ) : null}
+                  </GroupGatheringRow>
+                );
+
+                return onOpenGathering && gathering.status !== "canceled" ? (
+                  <button
+                    aria-label={`Open ${gathering.title} · ${formatGroupGatheringShortDate(gathering.startsAt)}`}
+                    className="w-full rounded-[18px] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    key={gathering.id}
+                    onClick={() => onOpenGathering(view)}
+                    type="button"
+                  >
+                    {row}
+                  </button>
+                ) : (
+                  <div key={gathering.id}>{row}</div>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -21504,7 +21918,7 @@ function MeetingFormContent({
       parts.push(`+${selectedSupportingAttendeeIds.length} supporting`);
     }
 
-    return parts.length ? parts.join(" · ") : "Just the two of you";
+    return parts.length ? parts.join(" · ") : "No ministry team recorded";
   })();
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
   const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
@@ -35276,6 +35690,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onMarkPrayerAnswered,
+  onOpenGathering,
   onOpenGroup,
   onOpenPrayerResources,
   onOpenMeeting,
@@ -35350,6 +35765,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
+  onOpenGathering?: (groupId: string, gatheringId: string) => void;
   onOpenGroup: (groupId: string) => void;
   onOpenPrayerResources: () => void;
   onOpenMeeting: (meetingId: string, recipientPersonId?: string | null) => void;
@@ -35749,13 +36165,16 @@ function PersonDetailOverlay({
       kind: "prayer" as const,
       title: `Answered: ${reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request"}`,
     })),
+    /* One entry per gathering the person was recorded at (the attendance row
+       is unique per gathering and person). Opening it returns to that
+       gathering, subject to the group access the viewer already has. */
     ...personGatheringAttendance.map(({ attendance, gathering, group }) => ({
       date: gathering.completedAt ?? gathering.startsAt,
       description: attendance.notes?.trim() || gathering.sharedNotes?.trim() || `Attended as ${attendance.status === "guest" ? "a guest" : "a member"}.`,
       id: `history-gathering-${gathering.id}-${attendance.id}`,
       kind: "gathering" as const,
-      onClick: () => onOpenGroup(group.id),
-      title: `${group.name}${gathering.title && gathering.title.trim() !== group.name.trim() ? ` · ${gathering.title}` : ""}`,
+      onClick: () => (onOpenGathering ? onOpenGathering(group.id, gathering.id) : onOpenGroup(group.id)),
+      title: `Attended ${group.name} · ${formatGroupGatheringShortDate(gathering.completedAt ?? gathering.startsAt)}`,
     })),
   ].sort((first, second) => (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0));
   // User-facing model: what matters now (Journey), the relationship over
@@ -38218,6 +38637,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: GroupGatheringView | null; groupId: string } | null>(null);
+  /* USA-271: the open gathering record (attendance, notes, prayer). */
+  const [gatheringSheet, setGatheringSheet] = useState<{ gathering: GroupGatheringView; groupId: string } | null>(null);
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
   const [prayerRequestPersonId, setPrayerRequestPersonId] = useState<string | null>(null);
@@ -38658,10 +39079,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
         return { resourceTitle: resource?.title ?? null, sessionTitle: session?.title ?? null };
       },
     }),
+    gatherings: dosMinistryGatheringsFromAppData(groups),
     linkedPersonIds: data.identityLinkedPersonIds,
     meetings: data.meetings,
     people,
-  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, people]);
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, groups, people]);
   const reportNow = useMemo(() => new Date(), []);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
@@ -39991,6 +40413,212 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     }
 
     return settingsSaved;
+  }
+
+  function openGatheringSheet(gathering: GroupGatheringView, groupId?: string) {
+    const resolvedGroupId = groupId ?? selectedGroupId;
+
+    if (!resolvedGroupId) {
+      return;
+    }
+
+    setGatheringSheet({ gathering, groupId: resolvedGroupId });
+  }
+
+  function openGatheringFromTimeline(groupId: string, gatheringId: string, originPersonId: string) {
+    const group = groups.find((candidate) => candidate.id === groupId);
+    const gathering = group?.gatherings.find((candidate) => candidate.id === gatheringId);
+
+    openGroupDetail(groupId, originPersonId, "gatherings");
+
+    if (gathering) {
+      setGatheringSheet({ gathering: { ...gathering, derived: false, sourceGatheringId: gathering.id }, groupId });
+    }
+  }
+
+  /* USA-271: save one gathering record. The response is the saved record,
+     so the screen updates from the server's answer; the refresh that follows
+     delivers the same rows through props. The DB-free preview keeps the
+     gathering in memory and says so. */
+  async function recordGathering(payload: GatheringRecordPayload): Promise<GatheringRecordOutcome> {
+    const group = groups.find((candidate) => candidate.id === payload.groupId);
+    const personNameOf = (personId: string) => people.find((person) => person.id === personId)?.name ?? group?.members.find((member) => member.personId === personId)?.personName ?? "Field person";
+    type SavedAttendance = { firstTimeGuest: boolean; id: string; notes: string | null; personId: string; status: DosAppGroupAttendance["status"] };
+    const toGathering = (base: Partial<DosAppGroupGathering> & { id: string }, attendance: SavedAttendance[]): DosAppGroupGathering => ({
+      actingLeaderPersonId: base.actingLeaderPersonId ?? null,
+      attendance: attendance.map((row) => ({ ...row, gatheringId: base.id, personName: personNameOf(row.personId) })),
+      completedAt: base.completedAt ?? payload.endsAt ?? payload.startsAt,
+      coveredSummary: base.coveredSummary ?? (payload.coveredSummary || null),
+      description: base.description ?? payload.description,
+      endsAt: base.endsAt ?? payload.endsAt,
+      fruitSummary: base.fruitSummary ?? null,
+      id: base.id,
+      journeyResourceSlug: base.journeyResourceSlug ?? (payload.journeyResourceSlug || null),
+      journeySessionId: base.journeySessionId ?? (payload.journeySessionId || null),
+      linkedTableEventId: base.linkedTableEventId ?? null,
+      location: base.location ?? payload.location,
+      ministryEventId: base.ministryEventId ?? null,
+      sharedFollowUp: base.sharedFollowUp ?? null,
+      sharedNotes: base.sharedNotes ?? (payload.notes || null),
+      sharedPrayerSummary: base.sharedPrayerSummary ?? null,
+      startsAt: base.startsAt ?? payload.startsAt,
+      startedAt: base.startedAt ?? payload.startsAt,
+      status: "completed",
+      title: base.title ?? payload.title,
+    });
+    const applyLocally = (saved: DosAppGroupGathering, prayerRequests: DosAppPrayerRequest[]) => {
+      mergeGroupGatherings(payload.groupId, (gatherings) => {
+        const others = gatherings.filter((gathering) => gathering.id !== saved.id);
+
+        return [...others, saved].sort((first, second) => dateSortValue(first.startsAt) - dateSortValue(second.startsAt));
+      });
+      mergeGroupPrayerRequests(payload.groupId, (requests) => {
+        const others = requests.filter((request) => request.gatheringId !== saved.id);
+
+        return [...prayerRequests, ...others].sort((first, second) => dateSortValue(second.createdAt) - dateSortValue(first.createdAt));
+      });
+    };
+    const previewPrayerRequest = (draft: GatheringRecordPayload["prayerRequests"][number], gatheringId: string, index: number): DosAppPrayerRequest => ({
+      answerTestimony: null,
+      answeredAt: null,
+      category: "group",
+      createdAt: new Date(Date.now() + index).toISOString(),
+      createdByPersonId: null,
+      createdByUserId: null,
+      fieldPersonId: draft.personId || null,
+      followUpAt: null,
+      gatheringId,
+      groupId: payload.groupId,
+      id: `preview-prayer-${gatheringId}-${draft.id}`,
+      linkedPersonIds: draft.personId ? [draft.personId] : [],
+      meetingId: null,
+      organizationId: null,
+      personTags: [],
+      priority: "normal",
+      request: draft.request.trim(),
+      source: "dos_group",
+      status: "active",
+      title: draft.title.trim() || "Prayer request",
+      updatedAt: null,
+      urgency: "normal",
+      visibility: "group_leaders",
+      workspaceId: data.workspace.id,
+    });
+
+    if (isPreview) {
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      const existing = payload.gatheringId ? group?.gatherings.find((gathering) => gathering.id === payload.gatheringId) ?? null : null;
+      const id = existing?.id ?? `preview-gathering-${payload.groupId}-${payload.startsAt.slice(0, 10)}`;
+      /* Same rules as the route: one row per person; a person marked before and unmarked now is kept as absent. */
+      const previousAbsent: SavedAttendance[] = (existing?.attendance ?? [])
+        .filter((row) => !payload.attendance.some((mark) => mark.personId === row.personId))
+        .map((row) => ({ firstTimeGuest: row.firstTimeGuest, id: row.id, notes: row.notes, personId: row.personId, status: "absent" as const }));
+      const saved = toGathering({
+        ...(existing ?? {}),
+        completedAt: payload.endsAt ?? payload.startsAt,
+        coveredSummary: payload.coveredSummary || null,
+        endsAt: payload.endsAt,
+        id,
+        journeyResourceSlug: payload.journeyResourceSlug || null,
+        journeySessionId: payload.journeySessionId || null,
+        sharedNotes: payload.notes || null,
+        startedAt: payload.startsAt,
+        startsAt: payload.startsAt,
+        status: "completed",
+      }, [
+        ...payload.attendance.map((mark): SavedAttendance => ({ firstTimeGuest: false, id: existing?.attendance.find((row) => row.personId === mark.personId)?.id ?? `preview-attendance-${id}-${mark.personId}`, notes: mark.notes, personId: mark.personId, status: mark.status })),
+        ...previousAbsent,
+      ]);
+
+      /* Same dedupe as the route: one row per distinct title + details for this gathering. */
+      const existingPrayers = (group?.prayerRequests ?? []).filter((request) => request.gatheringId === id && request.status !== "archived");
+      const seen = new Set(existingPrayers.map((request) => `${request.title.trim().toLowerCase()}|${request.request.trim().toLowerCase()}`));
+      const newPrayers = payload.prayerRequests
+        .filter((draft) => draft.title.trim())
+        .filter((draft) => {
+          const key = `${draft.title.trim().toLowerCase()}|${draft.request.trim().toLowerCase()}`;
+
+          if (seen.has(key)) {
+            return false;
+          }
+
+          seen.add(key);
+
+          return true;
+        })
+        .map((draft, index) => previewPrayerRequest(draft, id, index));
+      const prayerRequests = [...newPrayers, ...existingPrayers];
+
+      applyLocally(saved, prayerRequests);
+      setGroupsNotice(`${group?.name ?? "Gathering"} saved in this preview only. Nothing is stored.`);
+
+      return { gathering: saved, prayerRequests, status: "saved" };
+    }
+
+    try {
+      const response = await fetch("/api/dos/app/groups/gatherings", {
+        body: JSON.stringify({ action: "record", ...payload, gatheringId: payload.gatheringId ?? undefined, workspaceId: data.workspace.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { attendance?: SavedAttendance[]; error?: string; gathering?: Partial<DosAppGroupGathering> & { id: string }; ok?: boolean; prayerRequests?: Array<Partial<DosAppPrayerRequest> & { id: string; title: string }> };
+
+      if (!response.ok || !result.ok || !result.gathering) {
+        return { message: result.error ?? "Unable to save this gathering. Nothing was changed.", status: "rejected" };
+      }
+
+      const saved = toGathering(result.gathering, result.attendance ?? []);
+      const prayerRequests = (result.prayerRequests ?? []).map((row): DosAppPrayerRequest => ({
+        answerTestimony: row.answerTestimony ?? null,
+        answeredAt: row.answeredAt ?? null,
+        category: row.category ?? null,
+        createdAt: row.createdAt ?? new Date().toISOString(),
+        createdByPersonId: row.createdByPersonId ?? null,
+        createdByUserId: row.createdByUserId ?? null,
+        fieldPersonId: row.fieldPersonId ?? null,
+        followUpAt: row.followUpAt ?? null,
+        gatheringId: saved.id,
+        groupId: payload.groupId,
+        id: row.id,
+        linkedPersonIds: row.linkedPersonIds ?? [],
+        meetingId: null,
+        organizationId: null,
+        personTags: [],
+        priority: "normal",
+        request: row.request ?? "",
+        source: row.source ?? "dos_group",
+        status: row.status ?? "active",
+        title: row.title,
+        updatedAt: row.updatedAt ?? null,
+        urgency: "normal",
+        visibility: row.visibility ?? "group_leaders",
+        workspaceId: data.workspace.id,
+      }));
+
+      applyLocally(saved, prayerRequests);
+      setGroupsNotice("Gathering saved.");
+      router.refresh();
+
+      return { gathering: saved, prayerRequests, status: "saved" };
+    } catch {
+      return { message: "DOS could not reach the server, so nothing was saved.", status: "rejected" };
+    }
+  }
+
+  function mergeGroupPrayerRequests(groupId: string, updater: (requests: DosAppPrayerRequest[]) => DosAppPrayerRequest[]) {
+    setGroupOverrides((current) => {
+      const existingOverride = current[groupId] ?? {};
+      const baseGroup = groups.find((candidate) => candidate.id === groupId);
+      const baseRequests = existingOverride.prayerRequests ?? baseGroup?.prayerRequests ?? [];
+
+      return {
+        ...current,
+        [groupId]: {
+          ...existingOverride,
+          prayerRequests: updater(baseRequests),
+        },
+      };
+    });
   }
 
   function mergeGroupGatherings(groupId: string, updater: (gatherings: DosAppGroupGathering[]) => DosAppGroupGathering[]) {
@@ -45165,6 +45793,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     onJoinRequestAccepted={applyGroupJoinRequestResult}
                     onJoinRequestResolved={handleGroupJoinRequestResolved}
                     onLogAsTable={() => openForm("meeting")}
+                    onOpenGathering={(gathering) => openGatheringSheet(gathering)}
                     onOpenGroup={(groupId) => {
                       if (groupId) {
                         openGroupDetail(groupId);
@@ -45817,6 +46446,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onMarkPrayerAnswered={markPrayerReminderAnswered}
+            onOpenGathering={(groupId, gatheringId) => openGatheringFromTimeline(groupId, gatheringId, selectedPerson.id)}
             onOpenGroup={(groupId) => {
               openGroupDetail(groupId, selectedPerson.id);
             }}
@@ -46388,6 +47018,36 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             people={people}
           />
         ) : null}
+
+        {gatheringSheet ? (() => {
+          const sheetGroup = groups.find((candidate) => candidate.id === gatheringSheet.groupId);
+
+          if (!sheetGroup) {
+            return null;
+          }
+
+          const journeySlugs = Array.from(new Set(computeGroupFocusAssignment(sheetGroup, data.resourceAssignments).groupAssignments.map((assignment) => assignment.resourceSlug)));
+          const journeyOptions = journeySlugs
+            .map((slug) => getDosResourceBySlug(slug))
+            .filter((resource): resource is DosResource => Boolean(resource))
+            .map((resource) => ({ resource, sessions: (resource.content?.guidedResource?.sessions ?? []).map((session) => ({ id: session.id, title: session.title })) }));
+          const liveGathering = sheetGroup.gatherings.find((candidate) => candidate.id === gatheringSheet.gathering.id);
+
+          return (
+            <GroupGatheringSheet
+              gathering={liveGathering ? { ...liveGathering, derived: false, sourceGatheringId: liveGathering.id } : gatheringSheet.gathering}
+              group={sheetGroup}
+              isPreview={isPreview}
+              journeyFieldsSupported={data.gatheringJourneyFieldsSupported}
+              journeyOptions={journeyOptions}
+              key={`${gatheringSheet.groupId}-${gatheringSheet.gathering.id}`}
+              onClose={() => setGatheringSheet(null)}
+              onLogMeeting={() => { setGatheringSheet(null); openForm("meeting"); }}
+              onSave={recordGathering}
+              people={people}
+            />
+          );
+        })() : null}
 
         {isGroupInviteOpen && selectedGroup ? (
           <GroupInviteSheet

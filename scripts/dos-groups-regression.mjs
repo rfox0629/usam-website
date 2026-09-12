@@ -475,7 +475,39 @@ for (const tab of ["Overview", "People", "Gatherings", "Settings"]) {
 }
 assertIncludes(appClient, "normalizeGroupV2Tab", "Invalid V2 group tabs must normalize safely.");
 assertIncludes(groupDetailV2Source, "nextExpectedGroupGathering(group)", "Groups V2 detail must derive the next gathering from the recurring rhythm when no occurrence row exists.");
-assertIncludes(groupDetailV2Source, 'const meetingActionLabel = "Log Gathering"', "Groups V2 detail header must use occurrence/log language instead of requiring a pre-generated gathering.");
+/* USA-271 (2026-09-11): the dated gathering record is the primary path; the
+   leader's own meeting log is an optional detail inside it. */
+assertIncludes(groupDetailV2Source, 'const meetingActionLabel = "Take Attendance"', "Groups V2 detail header opens the dated gathering record, not the generic Log Meeting form.");
+assertIncludes(groupDetailV2Source, "nextGathering ? onOpenGathering(nextGathering) : onAddOneOffGathering()", "The primary action opens the next gathering, or offers an unscheduled one.");
+assertNotIncludes(groupDetailV2Source, "onClick={onLogAsTable}", "Log Meeting is no longer the group header's front door.");
+const gatheringSheetSource = appClient.slice(appClient.indexOf("function GroupGatheringSheet("), appClient.indexOf("function GroupGatheringFormSheet("));
+assertIncludes(gatheringSheetSource, "presentIds: savedAttendance.filter((row) => memberPersonIds.has(row.personId))", "The checklist starts from saved attendance only; membership never marks anyone present.");
+assertIncludes(gatheringSheetSource, "Nobody is counted as present until you tick them.", "The screen says so.");
+assertIncludes(gatheringSheetSource, 'kind="editable"', "The gathering record is an editable sheet with unsaved-work protection.");
+assertIncludes(gatheringSheetSource, "isDirty={() => isDirty}", "Unsaved work is the difference between the draft and the saved record.");
+assertIncludes(gatheringSheetSource, "{isDirty || isSaving ? (", "One Save action, only when something changed.");
+assertIncludes(gatheringSheetSource, 'name="gathering_duration_minutes"', "Duration is a compact stepper prefilled from the schedule.");
+assertIncludes(gatheringSheetSource, "Add prayer request", "Prayer requests are repeatable.");
+assertIncludes(gatheringSheetSource, "journeyFieldsSupported ? (", "What we covered and the Journey link render only when the columns exist.");
+assertIncludes(gatheringSheetSource, "It does not complete anyone&apos;s own Journey", "Covered material never completes an individual's Journey.");
+assertIncludes(gatheringSheetSource, "Log my meeting", "The leader's own meeting log remains available as an optional detail.");
+assertNotIncludes(appClient, '"Just the two of you"', "One-to-one wording is gone from the attendee summary.");
+const gatheringsRoute = read("app/api/dos/app/groups/gatherings/route.ts");
+assertIncludes(gatheringsRoute, 'if (action === "record") {', "The gatherings route records one gathering.");
+assertIncludes(gatheringsRoute, '{ onConflict: "gathering_id,person_id" }', "Attendance is one row per person per gathering; a retry cannot duplicate.");
+assertIncludes(gatheringsRoute, '.update({ status: "absent", updated_at: nowIso })', "A person marked earlier and unmarked now is kept as absent, preserving history.");
+assertIncludes(gatheringsRoute, "const seen = new Set((existingPrayers.data ?? []).map((row) =>", "Prayer requests are matched on the gathering before insert, so a retry cannot duplicate them.");
+assertNotIncludes(gatheringsRoute, "fruit_events", "Attendance never creates Ministry Fruit.");
+assertNotIncludes(gatheringsRoute, 'from("missionary_tables")', "Attendance never creates a meeting record.");
+assertIncludes(gatheringsRoute, "isMissingJourneyColumn(written.error)", "The record action tolerates the unapplied Journey columns.");
+assertIncludes(appClient, "title: `Attended ${group.name} · ${formatGroupGatheringShortDate(gathering.completedAt ?? gathering.startsAt)}`", "The Person timeline reads Attended <group> · <date>.");
+assertIncludes(appClient, "onClick: () => (onOpenGathering ? onOpenGathering(group.id, gathering.id) : onOpenGroup(group.id))", "A timeline entry opens that gathering.");
+assertIncludes(appClient, "gatherings: dosMinistryGatheringsFromAppData(groups),", "Reports read attendance through the narrowed adapter.");
+const reportModule = read("src/lib/dos/ministry-report.ts");
+assertIncludes(reportModule, "gatheringsAttended: gatheringsAttendedByPerson.get(person.id)?.size ?? 0,", "Reports count distinct attended gatherings per person.");
+assertIncludes(reportModule, 'gathering.status === "completed" && inPeriod(', "Only completed gatherings in range count; scheduled occurrences never do.");
+assertIncludes(reportModule, 'row.status === "present" || row.status === "guest"', "Only recorded present or guest attendance counts; membership is not attendance.");
+assertIncludes(read("src/lib/dos/missionary-app.ts"), "gatheringJourneyFieldsSupported: groupsResult.data.journeyFieldsSupported,", "The loader reports whether the Journey columns exist instead of assuming them.");
 assertIncludes(groupDetailV2Source, 'label={meetingActionLabel}', "Groups V2 detail header must keep the meeting action primary.");
 assertIncludes(groupDetailV2Source, 'label="Add Person"', "Groups V2 detail header must keep Add Person as a primary action.");
 assertIncludes(groupDetailV2Source, 'aria-label="More group actions"', "Groups V2 detail header must expose a top-right overflow action for secondary actions instead of a stranded third button.");

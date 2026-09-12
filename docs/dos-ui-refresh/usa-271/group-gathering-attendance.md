@@ -1,0 +1,26 @@
+# USA-271 — group gatherings as the attendance workflow
+
+Founder correction of 2026-09-11 (the second half of the brief that produced USA-269). The reproduced case: a leader who met with the Wednesday Men's Group on September 9 had no simple way to say who came. The group's primary action was "Log Gathering", which opened a start/end wizard, offered a "Just the two of you" one-to-one path, and produced nothing a Person timeline or Reports could read as attendance.
+
+## Root cause
+
+The group detail had a gathering *schedule* (`dos_group_gatherings`, status `scheduled`) and an attendance table (`dos_group_attendance`) that nothing wrote to from the main app: the production workspace had 10 scheduled gatherings, 0 attendance rows, and 0 linked meetings. Attendance existed in the schema but not in the workflow, so the only way to record a group meeting was the leader's own meeting log, which counts the leader's time, not who attended.
+
+## Behaviour now
+
+- **Take Attendance** is the group's primary action (mobile and desktop). It opens the next scheduled occurrence in the gathering sheet. Past occurrences on the Gatherings tab open the same sheet; a completed one reads "N recorded present".
+- **Opening creates nothing.** A scheduled occurrence opens with nobody present ("0 of N present"), no Save action, and closing it never warns. Attendance and ministry activity exist only after Save.
+- **The sheet**: date and start time (editable, so a gathering that happened on a different day is recorded on that day), a compact duration prefilled from the group's schedule, the attendance checklist built from the roster (tick who was there; nobody is counted until ticked), a discreet **Add guest**, optional **What we covered** with a Journey link (see below), notes, and repeatable prayer requests. **Save gathering** appears only once something changed; saving shows "Saving…" and closes the sheet with a group notice. An unscheduled gathering is the same sheet started from "Add one-off gathering".
+- **One record.** Saving writes the canonical `dos_group_gatherings` row (status `completed`, `started_at`/`completed_at`) and one `dos_group_attendance` row per person (`UNIQUE(gathering_id, person_id)`, upserted). Retrying a save never duplicates; a person marked earlier and unmarked later is kept as `absent`. Prayer requests are canonical `prayer_requests` rows linked by `gathering_id` and `group_id` (source `dos_group`, visibility `group_leaders`), deduplicated by title and details per gathering, and the route returns the gathering's requests so the open app shows them at once. The leader's separate meeting log is not touched and no meeting is created.
+- **Person timeline** shows "Attended Wednesday Men's Group · September 9" from the attendance row; opening the entry returns to that gathering. An unmarked member gets no entry.
+- **Reports** reads the same rows: "Attended N group gatherings" counts distinct completed gatherings where the person is `present` or `guest`. Leader time is never multiplied by attendance, and attendance is not Ministry Fruit.
+- **Journey link and "What we covered"** describe what the group covered. They never complete anyone's own Journey, reading, reflection, or homework, and the copy says so. Structured chapter progress is not built; the plain summary and the link ship first.
+- "Just the two of you" reads "No ministry team recorded"; the one-to-one path is gone from the gathering flow.
+
+## Data-model decision
+
+Reuse, do not parallel: gathering + attendance + prayer_requests are the record. Two additive nullable columns for the summary and Journey link (`covered_summary`, `journey_resource_slug`, `journey_session_id`) are in `supabase/migrations/20260911160000_dos_group_gathering_covered_journey.sql` (with a rollback file). Per the engineering policy, the migration is **committed but not applied**: the loader probes for the columns and reports `gatheringJourneyFieldsSupported`; when they are missing the sheet hides both fields and the route refuses a payload that carries them (409) rather than dropping data silently. Everything else in this correction works against the existing schema.
+
+## Verification
+
+Typecheck · full DOS aggregate (`test:dos`, groups guard extended) · build · visual suite. Playwright on the production build of the preview fixture at 390 and 1440, 40 checks: primary action is Take Attendance and "Log Gathering" is gone; opening marks nobody and creates no completed gathering; no Save until a change; the duration prefills from the schedule; closing untouched never warns; ticking marks exactly those people; Save appears once, shows Saving…, closes with the notice; the Gatherings tab reads "2 recorded present"; reopening shows the saved attendance, notes and prayer request with no Save until edited; unmarking one person and saving again updates the count without a second gathering; the marked person's timeline has exactly one entry that opens the gathering; the unmarked person has none; Reports reads "Attended 1 group gathering"; no page errors. A signed-in production save was not exercised, and no test memberships, attendance, or Journey completions were created in the production workspace.

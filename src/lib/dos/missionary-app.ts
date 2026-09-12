@@ -504,6 +504,12 @@ export type DosAppGroupGathering = {
   actingLeaderPersonId: string | null;
   attendance: DosAppGroupAttendance[];
   completedAt: string | null;
+  /* What the group covered (2026-09-11). Present only once the
+     covered_summary / journey_* columns exist (see
+     DosAppData.gatheringJourneyFieldsSupported). */
+  coveredSummary?: string | null;
+  journeyResourceSlug?: string | null;
+  journeySessionId?: string | null;
   description: string | null;
   endsAt: string | null;
   fruitSummary: string | null;
@@ -981,6 +987,11 @@ export type DosAppData = {
      could be reached at all ("Not connected" otherwise). Nothing is read from
      the linked person's workspace here. */
   identityLinkedPersonIds: string[];
+  /* 2026-09-11: whether dos_group_gatherings carries covered_summary and the
+     journey_* columns (an additive migration applied only with founder
+     authorization). Until it does, the gathering screen hides those fields
+     rather than pretending to save them. */
+  gatheringJourneyFieldsSupported: boolean;
   commitments: DosAppPersonCommitment[];
   externalCalendarEvents: DosAppExternalCalendarEvent[];
   featureFlags: DosAppFeatureFlags;
@@ -1369,6 +1380,9 @@ type GroupMemberAccessTokenStateRow = {
 type GroupGatheringRow = {
   acting_leader_person_id?: string | null;
   completed_at?: string | null;
+  covered_summary?: string | null;
+  journey_resource_slug?: string | null;
+  journey_session_id?: string | null;
   description: string | null;
   ends_at: string | null;
   fruit_summary?: string | null;
@@ -1411,6 +1425,7 @@ type GroupLoadRows = {
   accessTokenStates: GroupMemberAccessTokenStateRow[];
   attendance: GroupAttendanceRow[];
   gatherings: GroupGatheringRow[];
+  journeyFieldsSupported: boolean;
   groups: GroupRow[];
   identities: GroupMemberIdentityRow[];
   members: GroupMemberRow[];
@@ -2540,6 +2555,12 @@ export function isMissingWorkspaceScopeColumn(error: SupabaseQueryError) {
   return Boolean(error?.message?.includes("workspace_id"));
 }
 
+function isMissingGatheringJourneyColumn(error: { message?: string } | null | undefined) {
+  const message = (error?.message ?? "").toLowerCase();
+
+  return ["covered_summary", "journey_resource_slug", "journey_session_id"].some((column) => message.includes(column));
+}
+
 function isMissingWorkflowTable(error: SupabaseQueryError, tableName: string) {
   const message = error?.message?.toLowerCase() ?? "";
 
@@ -3650,6 +3671,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
     gatherings: [],
     groups: [],
     identities: [],
+    journeyFieldsSupported: false,
     members: [],
     resources: [],
   };
@@ -3696,17 +3718,40 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
   const v2MemberSelect = `${baseMemberSelect}, permissions, title`;
   const baseGatheringSelect = "id, group_id, title, starts_at, ends_at, location, description, status, linked_table_event_id";
   const v2GatheringSelect = `${baseGatheringSelect}, acting_leader_person_id, shared_notes, shared_prayer_summary, shared_follow_up, fruit_summary, ministry_event_id, started_at, completed_at`;
-  const [v2MembersResult, v2GatheringsResult, resourcesResult, identitiesResult, accessTokenStatesResult] = await Promise.all([
+  /* The covered / Journey columns are an additive migration that may not be
+     applied yet; ask for them, and fall back without them when absent. */
+  const journeyGatheringSelect = `${v2GatheringSelect}, covered_summary, journey_resource_slug, journey_session_id`;
+  const loadGatherings = async () => {
+    const withJourney = await supabase
+      .from("dos_group_gatherings")
+      .select(journeyGatheringSelect)
+      .in("group_id", groupIds)
+      .order("starts_at", { ascending: true });
+
+    if (!withJourney.error) {
+      return { journeyFieldsSupported: true, result: withJourney };
+    }
+
+    if (!isMissingGatheringJourneyColumn(withJourney.error)) {
+      return { journeyFieldsSupported: false, result: withJourney };
+    }
+
+    return {
+      journeyFieldsSupported: false,
+      result: await supabase
+        .from("dos_group_gatherings")
+        .select(v2GatheringSelect)
+        .in("group_id", groupIds)
+        .order("starts_at", { ascending: true }),
+    };
+  };
+  const [v2MembersResult, gatheringsLoad, resourcesResult, identitiesResult, accessTokenStatesResult] = await Promise.all([
     supabase
       .from("dos_group_members")
       .select(v2MemberSelect)
       .in("group_id", groupIds)
       .order("joined_at", { ascending: true }),
-    supabase
-      .from("dos_group_gatherings")
-      .select(v2GatheringSelect)
-      .in("group_id", groupIds)
-      .order("starts_at", { ascending: true }),
+    loadGatherings(),
     supabase
       .from("dos_group_resources")
       .select("id, group_id, title, description, url, resource_type, catalog_resource_slug, sort_order, active")
@@ -3732,13 +3777,13 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
         .in("group_id", groupIds)
         .order("joined_at", { ascending: true })
       : Promise.resolve(v2MembersResult),
-    v2GatheringsResult.error && isMissingColumnError(v2GatheringsResult.error)
+    gatheringsLoad.result.error && isMissingColumnError(gatheringsLoad.result.error)
       ? supabase
         .from("dos_group_gatherings")
         .select(baseGatheringSelect)
         .in("group_id", groupIds)
         .order("starts_at", { ascending: true })
-      : Promise.resolve(v2GatheringsResult),
+      : Promise.resolve(gatheringsLoad.result),
   ]);
   const groupResourcesResult = resourcesResult.error && isMissingColumnError(resourcesResult.error)
     ? await supabase
@@ -3801,6 +3846,7 @@ async function loadGroupsForWorkspace(supabase: SupabaseAdminClient, workspaceId
       gatherings: gatheringRows,
       groups: groupRows,
       identities: (groupIdentitiesResult.data ?? []) as GroupMemberIdentityRow[],
+      journeyFieldsSupported: gatheringsLoad.journeyFieldsSupported,
       members: (membersResult.data ?? []) as GroupMemberRow[],
       resources: (groupResourcesResult.data ?? []) as GroupResourceRow[],
     },
@@ -4893,10 +4939,13 @@ export async function loadDosAppData(
         status: mapGroupAttendanceStatus(attendance.status),
       })),
       completedAt: gathering.completed_at ?? null,
+      coveredSummary: gathering.covered_summary ?? null,
       description: gathering.description,
       endsAt: gathering.ends_at,
       fruitSummary: gathering.fruit_summary ?? null,
       id: gathering.id,
+      journeyResourceSlug: gathering.journey_resource_slug ?? null,
+      journeySessionId: gathering.journey_session_id ?? null,
       linkedTableEventId: gathering.linked_table_event_id,
       location: gathering.location,
       ministryEventId: gathering.ministry_event_id ?? null,
@@ -5448,6 +5497,7 @@ export async function loadDosAppData(
       circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
       circlePlacements: await loadConfirmedPlacementsSafely(workspace.id),
       identityLinkedPersonIds: await loadIdentityLinkedPersonIdsSafely(supabase, workspace.id, people.map((person) => person.id)),
+      gatheringJourneyFieldsSupported: groupsResult.data.journeyFieldsSupported,
       commitments,
       externalCalendarEvents,
       featureFlags,
