@@ -664,6 +664,10 @@ assert.ok(client.includes("if (reportsReturnRef.current && state?.dosReturnTo !=
 assert.ok(client.includes("reportsReturn: { scrollTop: number } | null;") && client.includes("reportsReturn,\n      selectedPersonId,"), "A reload keeps the return context.");
 const selectTabBody = client.slice(client.indexOf("function selectTab(tab: ActiveTab) {"), client.indexOf("setActiveTab(tab);", client.indexOf("function selectTab(tab: ActiveTab) {")));
 assert.ok(selectTabBody.includes("clearReportsReturn();"), "Choosing another destination ends the return context.");
+/* A successful save re-enters the app the record lives in (My Record re-opens
+   its own tab). That must not end the return context, or the reader loses the
+   way back to the report after saving. */
+assert.ok(client.includes('if (nextView !== "reports" && nextView !== activeMoreAppView) {\n      clearReportsReturn();'), "Only a move to a different destination ends the return context, so a save keeps Back to Reports.");
 const catalog = client.slice(client.indexOf("const appCatalogSections: DosAppCatalogSection[] = ["), client.indexOf("const mobileAppCatalogItems = appCatalogSections"));
 const comingSoon = catalog.slice(catalog.indexOf('label: "Coming Soon",'));
 const reportsCard = catalog.slice(catalog.indexOf('label: "Reports",'), catalog.indexOf("},", catalog.indexOf('label: "Reports",')));

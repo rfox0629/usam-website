@@ -39831,7 +39831,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   function openMoreApp(view: MoreAppView) {
     const nextView = normalizeMoreAppView(view) ?? "apps";
 
-    if (nextView !== "reports") {
+    /* USA-268: only a deliberate move to a DIFFERENT destination ends the
+       Back to Reports context. Re-entering the app a record already lives in
+       is what a successful save does (My Record re-opens its own tab), and a
+       save must keep the reader's way back to the report. */
+    if (nextView !== "reports" && nextView !== activeMoreAppView) {
       clearReportsReturn();
     }
 
