@@ -6,6 +6,13 @@ import { chromium } from "playwright";
 
 const port = 4187;
 const base = `http://127.0.0.1:${port}`;
+/* DOS_DEMO_NOW pins the fixture's recorded history, so the same rows are on
+   screen on every run. The browser clock is deliberately NOT faked here. This
+   check asserts the app raises no errors, and hydration compares the server's
+   HTML against the first client render: faking the browser's clock to an
+   instant the server is not rendering at makes the two disagree about every
+   date-relative row on Home, so the check would report a mismatch it created
+   itself. Server and browser read the same clock; the fixture stays pinned. */
 const now = "2026-09-04T17:00:00Z";
 const server = spawn("npm", ["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(port)], {
   env: { ...process.env, DOS_DEMO_NOW: now }, detached: true, stdio: "ignore",
@@ -26,9 +33,15 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.clock.install({ time: new Date(now) });
     await page.goto(`${base}/dos/app/preview?demo=dos2026`, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: /Open My 12/ }).first().click();
+    /* People is reached the way each width actually reaches it: the Home
+       circle target on a phone, the sidebar from 768px up, where that target
+       is not rendered at all. */
+    if (width < 768) {
+      await page.getByRole("button", { name: /Open My 12/ }).first().click();
+    } else {
+      await page.getByRole("button", { name: "People", exact: true }).locator("visible=true").first().click();
+    }
     await page.getByRole("tab", { name: /^All\b/ }).click();
     const actions = page.locator('[aria-label="People actions"]');
     await actions.waitFor();

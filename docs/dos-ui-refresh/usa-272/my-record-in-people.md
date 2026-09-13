@@ -63,6 +63,42 @@ Chromium installation step, with screenshots uploaded as workflow artifacts.
 Mac visual baselines describe the pre-reconciliation PR, not these final changes;
 they must not be presented as a fresh byte-for-byte visual pass.
 
+### What CI found, and what the check was fixed to test
+
+The first CI run of `dos-my-record-browser.mjs` failed on `No application
+errors`: two React #418 hydration errors, one per page load. The check had
+been faking the browser's clock to `DOS_DEMO_NOW` while the server rendered
+at the real clock, nine days apart. Hydration compares the server's HTML
+against the *first* client render, so every date-relative row on Home --
+Top Time Investments' rolling 30 days, the accountability due buckets,
+Upcoming -- was computed against one instant on the server and a different
+one in the browser. The check was reporting a disagreement it had created.
+
+`DOS_DEMO_NOW` still pins the fixture's recorded history, so the same rows
+are on screen on every run; the browser clock is no longer faked, so the two
+renders read the same clock. The `No application errors` assertion is
+unchanged and now tests the app rather than the harness. Verified both ways
+against the production build: faked clock, two #418 errors on every load at
+320, 390 and 1440; real clock, none.
+
+The check also never ran past 390px. Its 1440 pass reached People through
+`Open My 12`, the Home circle target, which is `md:hidden` -- at desktop
+widths it does not exist, so the pass timed out before its assertions. It
+now takes the sidebar from 768px up, and 1440 runs its assertions for the
+first time: the action row does not scroll, My Record and Manage circles are
+visible, all three views open, the unsaved-work guard holds, and the legacy
+`view=my_record` URL restores the record.
+
+Separately, this is a real (if narrow) hazard in production and not the
+harness's invention: `reportNow` and the accountability day key are read
+from the wall clock during render, so a server render and a hydration that
+straddle midnight or a 30-day boundary disagree. It predates USA-272 -- it
+arrived with USA-251 (#130) and is on `main` -- and is not fixed here. The
+fix for the two Home surfaces is on `claude/usa-272-pr-142-06jtig`; the
+wider DOS date helpers (`dayOffsetFromToday`, `isUpcomingDate`,
+`nextReminderDate` and the 52 render-time `new Date()` reads around them)
+still need the same treatment.
+
 ## Back preserves search, filters and scroll
 
 My Record mounts as an overlay beside `PersonDetailOverlay`, over the People
