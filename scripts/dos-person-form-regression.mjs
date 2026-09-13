@@ -47,7 +47,21 @@ assert(!/Primary Contact|Household Member|kept selectable for tables/.test(form)
 assert(form.includes('label="How do you know them?"') && form.includes("options={relationshipContextOptions}"), "Context is a dropdown.");
 assert(form.includes('label="How are you connected?"') && form.includes("options={relationshipStageChoiceOptions}"), "Stage is a dropdown.");
 assert(form.includes('label="List visibility"') && form.includes("options={listVisibilityOptions}"), "List visibility is a dropdown.");
-assert(form.includes("Only whether they appear in everyday People. It is not their relationship to you or their place in a household."), "List visibility explains itself.");
+assert(form.includes("Controls whether they appear in your everyday People list."), "List visibility explains itself (USA-274 shortened helper).");
+
+// 2b. USA-274: a clear order, dropdowns that close, a short summary.
+const optionSelect = read("src/components/dos/forms/OptionSelect.tsx");
+const relationshipBlock = between(form, "const stageSelect = (", "const memberVisibilitySelect");
+assert(relationshipBlock.indexOf('label="How are you connected?" step={1}') < relationshipBlock.indexOf('label="How do you know them?" step={2}') && relationshipBlock.indexOf('label="How do you know them?" step={2}') < relationshipBlock.indexOf('label="List visibility"'), "The three questions are numbered in order: connected, know them, visibility.");
+assert(relationshipBlock.includes('step={3}\n      tone="secondary"'), "List visibility is the quieter third step.");
+assert(!relationshipBlock.includes("<DosFormField"), "Relationship selects are not wrapped in a <label>; WebKit reopened a select inside one on tap.");
+assert(client.includes("function PersonRelationshipField(") && !between(client, "function PersonRelationshipField(", "\n}\n").includes("<label"), "The Relationship field layout renders plain text labels.");
+assert(form.includes('<div className="grid gap-2 border-t border-dos-rule pt-4">') && form.includes("const engagementField = showEngagement ?"), "Engagement Level stays gated and is set apart by a rule.");
+assert(form.includes('summary: [stageLabel, contextLabel, personRole === "primary" ? "" : visibilityLabel].filter(Boolean).join(" · "),'), "The Relationship summary is the connection and context, plus visibility only when not the default; no engagement.");
+assert(optionSelect.includes("let closeOpenCompactSelect") && optionSelect.includes("closeOpenCompactSelect?.();"), "Opening a select closes the one open before it.");
+assert(optionSelect.includes('document.addEventListener("pointerdown", closeOnOutsidePress, true);'), "A press outside closes the list without relying on focus.");
+assert(/onClick=\{\(event\) => \{[\s\S]*?event\.preventDefault\(\);\s*onChange\(option\.value\);\s*close\(\);/.test(optionSelect), "Choosing any option, including the selected one, cancels label forwarding and closes the list.");
+assert(optionSelect.includes("z-dos-popover") && optionSelect.includes("scroll-mb-28"), "The list uses the popover layer and scrolls clear of the sticky footer.");
 for (const name of ["name", "phone", "spouse_name", "children_names", "household_members", "field_visibility", "relationship_type_value", "relationship_context"]) {
   assert(form.includes(`<input name="${name}" type="hidden"`), `${name} travels as a plain hidden field.`);
 }

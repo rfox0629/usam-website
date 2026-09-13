@@ -27569,42 +27569,43 @@ function PersonFormContent({
     </>
   );
 
-  /* Three separate settings (USA-244): how you know them (context), how you
-     are connected (relationship stage, stored on the existing relationship
-     type and role), and list visibility (stored field_visibility). */
-  const contextSelect = (
-    <DosFormField labelVariant="sentence" label="How do you know them?">
-      <div className="mt-1.5">
-        <CompactOptionSelect
-          hideLabel
-          label="How do you know them?"
-          onChange={(next) => onRelationshipChange({ ...relationshipModel, relationshipContext: next as RelationshipContextValue })}
-          options={relationshipContextOptions}
-          value={contextValue}
-        />
-      </div>
-    </DosFormField>
-  );
+  /* Three separate settings (USA-244): how you are connected (relationship
+     stage, stored on the existing relationship type and role), how you know
+     them (context), and list visibility (stored field_visibility). USA-274:
+     each is a numbered step so the order reads at a glance; List visibility
+     is the quieter third. The labels are plain text rather than a <label>
+     wrapper -- a select inside a label reopened itself on tap in WebKit. */
   const stageSelect = (
-    <DosFormField labelVariant="sentence" label="How are you connected?">
-      <div className="mt-1.5">
-        <CompactOptionSelect
-          hideLabel
-          label="How are you connected?"
-          onChange={(next) => onRelationshipChange(relationshipModelFromRelationshipType(next as RelationshipTypeValue, relationshipModel))}
-          options={relationshipStageChoiceOptions}
-          value={stageValue}
-        />
-      </div>
-    </DosFormField>
+    <PersonRelationshipField label="How are you connected?" step={1}>
+      <CompactOptionSelect
+        hideLabel
+        label="How are you connected?"
+        onChange={(next) => onRelationshipChange(relationshipModelFromRelationshipType(next as RelationshipTypeValue, relationshipModel))}
+        options={relationshipStageChoiceOptions}
+        value={stageValue}
+      />
+    </PersonRelationshipField>
+  );
+  const contextSelect = (
+    <PersonRelationshipField label="How do you know them?" step={2}>
+      <CompactOptionSelect
+        hideLabel
+        label="How do you know them?"
+        onChange={(next) => onRelationshipChange({ ...relationshipModel, relationshipContext: next as RelationshipContextValue })}
+        options={relationshipContextOptions}
+        value={contextValue}
+      />
+    </PersonRelationshipField>
   );
   const visibilitySelect = (
-    <DosFormField labelVariant="sentence" label="List visibility">
-      <div className="mt-1.5">
-        <CompactOptionSelect hideLabel label="List visibility" onChange={setPersonRole} options={listVisibilityOptions} value={personRole} />
-      </div>
-      <p className="mt-1.5 text-[12.5px] leading-[1.45] text-dos-secondary">Only whether they appear in everyday People. It is not their relationship to you or their place in a household.</p>
-    </DosFormField>
+    <PersonRelationshipField
+      helper="Controls whether they appear in your everyday People list."
+      label="List visibility"
+      step={3}
+      tone="secondary"
+    >
+      <CompactOptionSelect hideLabel label="List visibility" onChange={setPersonRole} options={listVisibilityOptions} value={personRole} />
+    </PersonRelationshipField>
   );
 
   /* A spouse or child is a person of their own with their own visibility.
@@ -27714,8 +27715,10 @@ function PersonFormContent({
     </>
   );
   const notesField = <VoiceTextarea aria-label="Notes" className={FieldTextareaClass(false)} defaultValue={additionalDefaults?.notes} name="notes" />;
+  /* USA-274: set apart by a rule so the advanced control does not read as a
+     fourth setup question. */
   const engagementField = showEngagement ? (
-    <div className="grid gap-2">
+    <div className="grid gap-2 border-t border-dos-rule pt-4">
       <span className="text-dos-label text-dos-secondary">Engagement Level</span>
       <p className="text-[12.5px] leading-[1.45] text-dos-secondary">Advanced: the -3 to +3 engagement framework.</p>
       <RelationshipScorePicker onChange={onScoreChange} value={scoreValue} />
@@ -27780,15 +27783,17 @@ function PersonFormContent({
          visibility, on BOTH forms. It is a property of the relationship, not a
          separate "Advanced" destination. */
       content: (
-        <>
+        <div className="grid gap-4">
           {stageSelect}
           {contextSelect}
           {visibilitySelect}
           {engagementField}
-        </>
+        </div>
       ),
       key: "relationship",
-      summary: [stageLabel, contextLabel, visibilityLabel, showEngagement ? `Engagement ${relationshipScoreLabel(scoreValue)}` : ""].filter(Boolean).join(" · "),
+      /* USA-274: the connection and how you know them. Visibility is added
+         only when it is not the default; engagement stays out of the line. */
+      summary: [stageLabel, contextLabel, personRole === "primary" ? "" : visibilityLabel].filter(Boolean).join(" · "),
       title: "Relationship",
     },
     {
@@ -27864,6 +27869,43 @@ function PersonFormContent({
 }
 
 type PersonEditSectionKey = "basic" | "details" | "household" | "notes" | "reminder" | "relationship" | null;
+
+/* One Relationship question (USA-274): a small blue step number, a readable
+   label that never truncates, then the control. The label is plain text, not
+   a <label> element: the select trigger carries the accessible name, and a
+   select inside a label reopened itself on tap in WebKit. `secondary` sets
+   List visibility apart with a rule and a quieter label and marker. */
+function PersonRelationshipField({
+  children,
+  helper,
+  label,
+  step,
+  tone = "primary",
+}: {
+  children: ReactNode;
+  helper?: string;
+  label: string;
+  step: number;
+  tone?: "primary" | "secondary";
+}) {
+  const isSecondary = tone === "secondary";
+
+  return (
+    <div className={`grid min-w-0 gap-2 ${isSecondary ? "border-t border-dos-rule pt-4" : ""}`}>
+      <span className={`flex items-center gap-2 ${isSecondary ? "text-dos-label text-dos-secondary" : "text-[14.5px] font-semibold leading-5 text-dos-primary"}`}>
+        <span
+          aria-hidden="true"
+          className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${isSecondary ? "border border-dos-blue100 bg-white text-dos-blueText" : "bg-dos-blue100 text-dos-blueText"}`}
+        >
+          {step}
+        </span>
+        {label}
+      </span>
+      {children}
+      {helper ? <p className="text-[12.5px] leading-[1.45] text-dos-secondary">{helper}</p> : null}
+    </div>
+  );
+}
 
 /* One Edit Person section: a 48px header with a one-line summary, and content
    that is hidden rather than unmounted so a collapsed section still submits
