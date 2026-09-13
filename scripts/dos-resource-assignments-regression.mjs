@@ -292,7 +292,7 @@ assertIncludes(client, "`Completed ${resourceAssignmentTitle(assignment)}`", "co
 /* USA-257: the Assigned Resources card left Home until USA-258 proves the
    status source; resource follow-ups still surface through the compact
    Accountability summary (accountabilityDueRows takes resourceAssignments). */
-assertIncludes(client, "accountabilityDueRows(schedules, people, resourceAssignments)", "dashboard has resource follow-up presentation");
+assertIncludes(client, "accountabilityDueRows(schedules, people, resourceAssignments, today)", "dashboard has resource follow-up presentation");
 assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
 assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");
 assertIncludes(client, "resourceAssignmentFollowUpScheduleHeading", "dashboard uses growth follow-up heading");

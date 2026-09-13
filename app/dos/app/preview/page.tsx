@@ -3054,6 +3054,9 @@ export default async function DosAppPreviewPage({
 
   const demoData = buildDosPreviewDemoData({ links: params.links === "active" ? "active" : null });
 
-  // USA-275: Dirk's read-only view of Ryan's connected downline.
-  return <DosMvpAppClient data={params.perspective === "dirk" ? buildDirkPerspectiveData(demoData) : demoData} />;
+  /* USA-275: Dirk's read-only view of Ryan's connected downline. The fixture's
+     pinned instant is also the client's: DOS_DEMO_NOW governs both the recorded
+     history and the rolling windows the app computes from it, so the server
+     HTML and the hydrated render agree. */
+  return <DosMvpAppClient data={params.perspective === "dirk" ? buildDirkPerspectiveData(demoData) : demoData} renderedAt={demoNow().toISOString()} />;
 }
