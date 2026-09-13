@@ -447,10 +447,12 @@ assertIncludes(
 );
 
 assertIncludes(appClient, '"groups"', "Groups must be available as a DOS app view.");
-assertIncludes(appClient, 'label: "My Record"', "My Record must remain a separate desktop navigation item.");
 assertIncludes(appClient, 'label: "Groups"', "Groups must appear under More as its own item.");
 assertIncludes(appClient, 'const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Groups must remain registered in the desktop DOS Apps/More launcher manifest.");
-assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include My Record, Field, Prayer, and the extended DOS app launcher items.");
+/* USA-272: My Record moved into People, so it left both the desktop sidebar
+   and the mobile More launcher manifest. Field, Prayer and the DOS apps are
+   unchanged. */
+assertIncludes(appClient, 'const dosMobileMoreLauncherAppLabels = ["Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const', "Mobile More must include Field, Prayer, and the extended DOS app launcher items.");
 assertIncludes(appClient, "dosDesktopMoreLauncherAppLabelSet.has(item.label)", "Desktop Apps launcher must filter through the desktop manifest instead of an ad hoc label list.");
 assertIncludes(appClient, "dosMobileMoreLauncherAppLabelSet.has(item.label)", "Mobile Apps launcher must filter through the mobile manifest instead of an ad hoc label list.");
 assertIncludes(appClient, 'data-dos-app-card={item.label}', "Apps launcher cards must expose a stable marker for production verification.");

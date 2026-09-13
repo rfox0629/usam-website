@@ -659,7 +659,12 @@ const reportsView = client.slice(client.indexOf('activeMoreAppView === "reports"
 assert.ok(reportsView.includes("storageKey={`dos-report-view:${data.workspace.id}`}"), "The report view is remembered per workspace.");
 assert.ok(reportsView.includes("onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}"), "Opening a full Person from Reports records the way back.");
 assert.ok(client.includes("function openRecordFromReports(open: () => void)") && client.includes("appScrollRef.current?.scrollTop ?? 0") && client.includes('dosReturnTo: "reports"'), "The scroll position and a history entry are kept when a record opens from Reports.");
-assert.ok(client.includes('returnLabel={reportsReturn ? "Reports" : null}') && client.includes('returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}') && client.includes('backLabel={reportsReturn ? "Back to Reports" : "Back to More"}'), "Person, meeting, and My Record offer Back to Reports.");
+/* USA-272: My Record left More for People, so its default back is "Back to
+   people" and its own backLabel prop is gone. It now uses the same
+   returnLabel prop Person and the meeting record use -- one vocabulary for
+   the same return -- and the assertion counts all three. */
+assert.ok((client.match(/returnLabel=\{reportsReturn \? "Reports" : null\}/g) ?? []).length === 2 && client.includes('returnLabel={!meetingOriginPersonId && reportsReturn ? "Reports" : null}'), "Person, meeting, and My Record offer Back to Reports.");
+assert.ok(!client.includes("backLabel={reportsReturn"), "USA-272: My Record no longer carries a bespoke back label.");
 assert.ok(client.includes("if (reportsReturnRef.current && state?.dosReturnTo !== \"reports\")"), "The browser's Back from that record returns to Reports.");
 assert.ok(client.includes("reportsReturn: { scrollTop: number } | null;") && client.includes("reportsReturn,\n      selectedPersonId,"), "A reload keeps the return context.");
 const selectTabBody = client.slice(client.indexOf("function selectTab(tab: ActiveTab) {"), client.indexOf("setActiveTab(tab);", client.indexOf("function selectTab(tab: ActiveTab) {")));

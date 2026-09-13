@@ -322,9 +322,18 @@ assert.ok(
   !client.includes("peopleCircleTabsWithCounts") && !client.includes("unplacedPeopleCount"),
   "no count badges or unplaced tally remain on the circle tabs",
 );
+/* USA-272 keeps USA-264's rule -- one visible-result count, taken from the
+   list itself -- and moves where it is shown: it is now a pale-blue badge
+   inside the list container's upper-right, on All only, instead of a line
+   above the list. Same source, same phrasing to a screen reader. */
 assert.ok(
-  client.includes('{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}'),
+  client.includes('count={peopleCircleView === "all" ? visibleCirclePeople.length : null}')
+    && client.includes('aria-label={`${count} ${count === 1 ? "person" : "people"}`}'),
   "one visible-result count, taken from the list itself",
+);
+assert.ok(
+  !client.includes('{visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}'),
+  "the old count line above the list is gone, so the number is not shown twice",
 );
 assert.ok(
   !client.includes("the circles overlap by design and cannot be added together")

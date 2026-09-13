@@ -218,6 +218,10 @@ type PersistedAppView = {
   /* USA-268: set while a full record opened from Reports is showing, so a
      reload keeps its Back to Reports and the report's scroll position. */
   reportsReturn: { scrollTop: number } | null;
+  /* USA-272: My Record is a view inside People, so "where was I" has to say
+     whether it was open -- otherwise a save's router.refresh() dropped the
+     user back onto the People list. */
+  myRecordOpen: boolean;
   selectedPersonId: string | null;
 };
 
@@ -235,12 +239,24 @@ function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
 
   try {
     const raw = window.sessionStorage.getItem(persistedAppViewKey(workspaceId));
-    const parsed = raw ? JSON.parse(raw) as Partial<PersistedAppView> : {};
+    const parsed = raw ? JSON.parse(raw) as Partial<Omit<PersistedAppView, "moreAppView">> & { moreAppView?: string } : {};
+    const savedMoreAppView = normalizeMoreAppView(parsed.moreAppView as MoreAppView | undefined);
+
+    /* A session that was inside More > My Record when this shipped is carried
+       to the same screen in its new home rather than dropped on the launcher. */
+    if (parsed.moreAppView === "my_record") {
+      return {
+        activeTab: "people", moreAppView: null, myRecordOpen: true,
+        ...(typeof parsed.reportsReturn?.scrollTop === "number" && Number.isFinite(parsed.reportsReturn.scrollTop)
+          ? { reportsReturn: { scrollTop: parsed.reportsReturn.scrollTop } } : {}),
+      };
+    }
 
     return {
+      ...(parsed.myRecordOpen === true ? { myRecordOpen: true } : {}),
       ...(persistedAppViewTabs.has(parsed.activeTab as ActiveTab) ? { activeTab: parsed.activeTab } : {}),
       ...(persistedMeetingsViews.has(parsed.meetingsView as MeetingsView) ? { meetingsView: parsed.meetingsView } : {}),
-      ...(normalizeMoreAppView(parsed.moreAppView) ? { moreAppView: normalizeMoreAppView(parsed.moreAppView) } : {}),
+      ...(savedMoreAppView ? { moreAppView: savedMoreAppView } : {}),
       ...(typeof parsed.selectedPersonId === "string" ? { selectedPersonId: parsed.selectedPersonId } : {}),
       ...(typeof parsed.reportsReturn?.scrollTop === "number" && Number.isFinite(parsed.reportsReturn.scrollTop)
         ? { reportsReturn: { scrollTop: parsed.reportsReturn.scrollTop } }
@@ -274,7 +290,11 @@ type MeetingFlowOrigin =
   | { kind: "meetings" }
   | { kind: "person"; personId: string }
   | { kind: "timeline" };
-type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "my_record" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
+/* USA-272: My Record moved into People, so it is no longer a More app. The
+   value is gone from the union rather than left as an unreachable case, so
+   nothing can route back to the launcher by accident; `readPersistedAppView`
+   migrates a session that was already inside it. */
+type MoreAppView = "apps" | "fruit" | "groups" | "in_season" | "library" | "missionary_profile" | "organizations" | "prayer" | "prayer_team" | "reports" | "settings" | "stewardship" | "support_team" | "table_flow";
 
 const moreAppViewValues = new Set<MoreAppView>([
   "apps",
@@ -283,7 +303,6 @@ const moreAppViewValues = new Set<MoreAppView>([
   "in_season",
   "library",
   "missionary_profile",
-  "my_record",
   "organizations",
   "prayer",
   "prayer_team",
@@ -298,7 +317,12 @@ function normalizeMoreAppView(view: MoreAppView | null | undefined): MoreAppView
   return view && moreAppViewValues.has(view) ? view : null;
 }
 
-type MyRecordTab = "assessments" | "calling" | "growth" | "journal" | "learning" | "legacy" | "mentors" | "overview" | "prayer" | "prophetic_words" | "scripture" | "timeline" | "walk_with_god";
+/* USA-272: the record reads as three views -- Overview, Timeline, My Life --
+   matching Person. Every earlier value stays in the union and is folded onto
+   one of the three by `normalizeMyRecordTab`, so a saved tab, a deep link or a
+   launch action from before this change still lands somewhere real, and
+   nothing that referenced a section by name has to be rewritten. */
+type MyRecordTab = "assessments" | "calling" | "growth" | "journal" | "learning" | "legacy" | "mentors" | "my_life" | "overview" | "prayer" | "prophetic_words" | "scripture" | "timeline" | "walk_with_god";
 type LocalPrayerNeed = {
   createdAt: string;
   id: string;
@@ -596,7 +620,6 @@ type DesktopNavItem =
   | { icon: IconName; label: string; type: "tab"; value: ActiveTab };
 
 const desktopDashboardNavItem: DesktopNavItem = { icon: "apps", label: "Dashboard", type: "tab", value: "home" };
-const desktopMyRecordNavItem: DesktopNavItem = { icon: "people", label: "My Record", type: "moreApp", value: "my_record" };
 
 const desktopNavGroups: ReadonlyArray<{ label: string; items: DesktopNavItem[] }> = [
   {
@@ -7108,7 +7131,9 @@ function DesktopQuickActionButton({
 
 type DosAppCatalogSectionKey = "coming_soon" | "installed" | "missionary";
 const dosDesktopMoreLauncherAppLabels = ["Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
-const dosMobileMoreLauncherAppLabels = ["My Record", "Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
+/* USA-272: My Record left this manifest with the Apps tile. It is reached
+   from People, not from the mobile More launcher. */
+const dosMobileMoreLauncherAppLabels = ["Field", "Prayer", "Groups", "Fruit", "Library", "Reports", "Stewardship", "Testimony Practice"] as const;
 const dosDesktopMoreLauncherAppLabelSet = new Set<string>(dosDesktopMoreLauncherAppLabels);
 const dosMobileMoreLauncherAppLabelSet = new Set<string>(dosMobileMoreLauncherAppLabels);
 
@@ -16436,16 +16461,38 @@ const prayerRequestFilterOptions: ReadonlyArray<SegmentedTabOption<PrayerRequest
   { label: "Private", value: "private" },
 ];
 
+/* Three views, the same shape as Person's Journey / Timeline / Contact:
+   what is true now, the history, and who I am before God. */
 const myRecordTabs: ReadonlyArray<SegmentedTabOption<MyRecordTab>> = [
   { label: "Overview", value: "overview" },
-  { label: "Walk", value: "walk_with_god" },
-  { label: "Growth", value: "growth" },
-  { label: "Purpose", value: "calling" },
-  { label: "Faithfulness", value: "legacy" },
+  { label: "Timeline", value: "timeline" },
+  { label: "My Life", value: "my_life" },
 ];
 
+/* Where each retired section now lives. Walk with God and its journal, prayer
+   and Scripture entries read on Overview, because "how is my walk right now"
+   is the Overview question; Growth, Purpose, Faithfulness, Assessments and
+   Learning are all "who I am and where I am going", so they are My Life. */
+const myRecordTabAliases: Readonly<Record<string, MyRecordTab>> = {
+  assessments: "my_life",
+  calling: "my_life",
+  growth: "my_life",
+  journal: "timeline",
+  learning: "my_life",
+  legacy: "my_life",
+  mentors: "my_life",
+  prayer: "overview",
+  prophetic_words: "my_life",
+  scripture: "timeline",
+  walk_with_god: "timeline",
+};
+
 function normalizeMyRecordTab(tab: MyRecordTab): MyRecordTab {
-  return myRecordTabs.some((item) => item.value === tab) ? tab : "overview";
+  if (myRecordTabs.some((item) => item.value === tab)) {
+    return tab;
+  }
+
+  return myRecordTabAliases[tab] ?? "overview";
 }
 
 const prayerRequestViewTabs: ReadonlyArray<SegmentedTabOption<PrayerRequestView>> = [
@@ -18485,6 +18532,7 @@ function desktopPeopleGridClass(showEngagement: boolean) {
 }
 
 function DesktopPeopleIndex({
+  count = null,
   empty,
   engagementLevelsEnabled,
   items,
@@ -18494,6 +18542,8 @@ function DesktopPeopleIndex({
   startIndex = 0,
   storyCountByPersonId,
 }: {
+  /** People currently listed, shown as the container badge. Null hides it. */
+  count?: number | null;
   empty: string;
   /* The Engagement Levels Advanced Feature, from the one canonical derivation. */
   engagementLevelsEnabled: boolean;
@@ -18514,6 +18564,7 @@ function DesktopPeopleIndex({
 
   return (
     <div className="hidden overflow-hidden rounded-[24px] border border-[#EAF2FF] bg-white shadow-[0_12px_34px_rgba(37,99,235,0.045)] lg:block">
+      {count === null ? null : <div className="px-3 pt-1.5 xl:px-4"><PeopleListCountBadge count={count} /></div>}
       <div className="w-full min-w-0">
         <div className={`grid ${desktopPeopleGridClass(engagementLevelsEnabled)} items-center gap-2 border-b border-[#EFF6FF] bg-[#F8FBFF] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#94A3B8] xl:gap-3 xl:px-4`} style={{ fontFamily: font.rajdhani }}>
           <span>Person</span>
@@ -28243,9 +28294,6 @@ function myRecordLearningBookStatusLabel(value: DosAppUserLearningBookStatus) {
   return myRecordLearningBookStatuses.find((status) => status.value === value)?.label ?? "Reading";
 }
 
-function myRecordBooksReadCount(books: DosAppUserLearningBook[]) {
-  return books.filter((book) => book.status === "finished").length;
-}
 
 function myRecordAssessmentCategory(value: string | null | undefined): Exclude<MyRecordAssessmentLibraryCategory, "All"> {
   const normalized = value?.trim().toLowerCase() ?? "";
@@ -28498,9 +28546,9 @@ function MyRecordDetailBlock({ label, value }: { label: string; value?: ReactNod
   }
 
   return (
-    <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-      <div className="mt-2 whitespace-pre-line text-sm font-medium leading-6 text-[#0F172A] [&_li]:text-[#0F172A]">{value}</div>
+    <div className="border-b border-dos-rule pb-3 last:border-b-0">
+      <p className="text-dos-label text-dos-secondary">{label}</p>
+      <div className="mt-1 whitespace-pre-line text-dos-body leading-6 text-dos-primary [&_li]:text-dos-primary">{value}</div>
     </div>
   );
 }
@@ -28593,21 +28641,22 @@ function MyRecordSheetFrame({
   });
 
   const content = (
-    <div className="fixed inset-0 z-[1100] bg-[#0F172A]/18 backdrop-blur-sm" data-dos-my-record-sheet={kind} onMouseDown={backdropMayDismiss(kind) ? onClose : undefined} role="presentation">
+    <div className="fixed inset-0 z-dos-sheet bg-dos-primary/30" data-dos-my-record-sheet={kind} onMouseDown={backdropMayDismiss(kind) ? onClose : undefined} role="presentation">
       <section
         aria-modal="true"
-        className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(15,23,42,0.18)] md:max-w-[560px] md:border-l md:border-[#DCEBFF]"
+        aria-label={title}
+        className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-dos-float md:max-w-[560px] md:border-l md:border-dos-line"
         onMouseDown={(event) => event.stopPropagation()}
         ref={panelRef}
         role="dialog"
       >
-        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-[#EAF2FF] px-4">
-          <h2 className="truncate text-lg font-black text-[#0F172A]">{title}</h2>
-          <button aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={requestClose} type="button">
+        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-dos-line px-4">
+          <h2 className="truncate text-dos-heading text-dos-primary">{title}</h2>
+          <button aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-dos-line bg-white text-dos-primary" onClick={requestClose} type="button">
             <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto bg-[#F8FBFF] p-4 [scrollbar-width:none]">
+        <div className="flex-1 overflow-y-auto bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] [scrollbar-width:none]">
           {children({ markSaved: surface.markSaved, requestClose })}
         </div>
       </section>
@@ -29763,204 +29812,8 @@ function MyRecordLearningChapterForm({
   );
 }
 
-function MyRecordLearningBookCard({
-  book,
-  isSelected,
-  onSelect,
-}: {
-  book: DosAppUserLearningBook;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
-        isSelected
-          ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
-          : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)] hover:border-[#BFDBFE]"
-      }`}
-      onClick={onSelect}
-      type="button"
-    >
-      <span className="flex min-w-0 items-start justify-between gap-3">
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-black text-[#0F172A]">{book.title}</span>
-          <span className="mt-1 block truncate text-xs font-semibold text-[#64748B]">{book.author || "No author"}</span>
-        </span>
-        <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-          {myRecordLearningBookStatusLabel(book.status)}
-        </span>
-      </span>
-      <span className="mt-3 block text-xs font-bold text-[#64748B]">
-        {book.chapterNotes.length} chapter notes{book.finishedOn ? ` · Finished ${formatDate(book.finishedOn)}` : ""}
-      </span>
-      {book.personalApplication || book.finalSummary ? (
-        <span className="mt-3 line-clamp-2 block text-sm leading-6 text-[#475569]">{book.personalApplication ?? book.finalSummary}</span>
-      ) : null}
-    </button>
-  );
-}
 
-function MyRecordLearningChapterCard({ note }: { note: DosAppUserLearningChapterNote }) {
-  return (
-    <article className="rounded-[20px] border border-[#EAF2FF] bg-white p-3.5 shadow-[0_8px_22px_rgba(37,99,235,0.035)]">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-black text-[#0F172A]">{note.chapterLabel}</p>
-          <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatDate(note.createdAt)}</p>
-        </div>
-        {note.highlightImageUrl ? (
-          <a className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-xs font-bold text-[#1D4ED8]" href={note.highlightImageUrl} rel="noreferrer" target="_blank">
-            View Image
-          </a>
-        ) : null}
-      </div>
-      {note.highlightImageUrl ? (
-        <a className="mt-3 block overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF]" href={note.highlightImageUrl} rel="noreferrer" target="_blank">
-          <img alt={`${note.chapterLabel} highlight`} className="max-h-56 w-full object-cover" src={note.highlightImageUrl} />
-        </a>
-      ) : null}
-      {note.highlights ? (
-        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#0F172A]">{note.highlights}</p>
-      ) : null}
-      {note.notes || note.personalApplication ? (
-        <div className="mt-3 grid gap-2">
-          {note.notes ? <p className="whitespace-pre-line text-sm leading-6 text-[#475569]">{note.notes}</p> : null}
-          {note.personalApplication ? (
-            <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3 text-sm leading-6 text-[#334155]">
-              <span className="font-black text-[#0F172A]">Application:</span> {note.personalApplication}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </article>
-  );
-}
 
-function MyRecordLearningPanel({
-  errorMessage,
-  isSubmitting,
-  nextTab = "learning",
-  onOpenSheet,
-  onSave,
-  record,
-}: {
-  errorMessage: string;
-  isSubmitting: boolean;
-  nextTab?: MyRecordTab;
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
-  record: DosAppUserRecord;
-}) {
-  const [selectedBookId, setSelectedBookId] = useState(record.learningBooks[0]?.id ?? "");
-  const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived");
-  const selectedBook = visibleBooks.find((book) => book.id === selectedBookId) ?? visibleBooks[0] ?? null;
-  const booksRead = myRecordBooksReadCount(record.learningBooks);
-
-  useEffect(() => {
-    if (visibleBooks.length && !visibleBooks.some((book) => book.id === selectedBookId)) {
-      setSelectedBookId(visibleBooks[0].id);
-    }
-  }, [selectedBookId, visibleBooks]);
-
-  return (
-    <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <SectionHeading title="Learning / Book Notes" />
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">Books, notes, highlights, and application.</p>
-          </div>
-          <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "book", mode: "new" })} type="button">
-            <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-            Add Book
-          </button>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 min-[520px]:grid-cols-4">
-          <MyRecordSnapshotTile icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Books Read" value={`${booksRead}`} />
-          <MyRecordSnapshotTile icon={<BookOpen className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="In Progress" value={`${record.learningBooks.filter((book) => book.status === "reading").length}`} />
-          <MyRecordSnapshotTile icon={<StickyNote className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Chapter Notes" value={`${record.learningBooks.reduce((sum, book) => sum + book.chapterNotes.length, 0)}`} />
-          <MyRecordSnapshotTile icon={<Shield className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />} label="Visibility" value="Private" />
-        </div>
-      </section>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
-        <section className="grid gap-3 self-start">
-          {visibleBooks.length ? (
-            visibleBooks.map((book) => (
-              <MyRecordLearningBookCard
-                book={book}
-                isSelected={selectedBook?.id === book.id}
-                key={book.id}
-                onSelect={() => setSelectedBookId(book.id)}
-              />
-            ))
-          ) : (
-            <SectionEmptyState
-              action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>}
-              text="Start a private reading record with chapter notes and application."
-              title="No books added yet."
-            />
-          )}
-        </section>
-        {selectedBook ? (
-          <section className="grid gap-4 self-start">
-            <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <SectionHeading title={selectedBook.title} />
-                  <p className="mt-1 text-sm leading-6 text-[#64748B]">{selectedBook.author || "No author"} · {myRecordLearningBookStatusLabel(selectedBook.status)}</p>
-                </div>
-                <MyRecordEntryActions
-                  onEdit={() => onOpenSheet({ book: selectedBook, kind: "book", mode: "edit" })}
-                  onNew={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "new" })}
-                  onView={() => onOpenSheet({ book: selectedBook, kind: "book", mode: "view" })}
-                />
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <MyRecordDetailBlock label="Personal Application" value={selectedBook.personalApplication} />
-                <MyRecordDetailBlock label="Final Summary" value={selectedBook.finalSummary} />
-              </div>
-            </section>
-            <div className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                <SectionHeading title="Summary Tools" />
-                <button className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#DCEBFF] bg-[#F8FAFC] px-3 text-xs font-bold text-[#64748B]" disabled type="button">
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-                  Generate Summary from Highlights
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>Coming Soon</span>
-                </button>
-              </div>
-            </div>
-            <section className="grid gap-2">
-              <SectionHeading action={<button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "new" })} type="button">+ New</button>} title="Chapter Notes" />
-              {selectedBook.chapterNotes.length ? (
-                <div className="grid gap-3">
-                  {selectedBook.chapterNotes.map((note) => (
-                    <div className="grid gap-2" key={note.id}>
-                      <MyRecordLearningChapterCard note={note} />
-                      <div className="flex gap-2 px-1">
-                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "view", note })} type="button">View</button>
-                        <button className="text-xs font-bold text-[#1D4ED8]" onClick={() => onOpenSheet({ book: selectedBook, kind: "chapter_note", mode: "edit", note })} type="button">Edit</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <SectionEmptyState text="Add chapter highlights, notes, application, and optional highlight photos/screenshots." title="No chapter notes yet." />
-              )}
-            </section>
-          </section>
-        ) : (
-          <SectionEmptyState
-            action={<CompactButton icon="add" onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>Add Book</CompactButton>}
-            text="Book detail, chapter notes, highlight images, application, and final summary will appear here."
-            title="Choose or add a book."
-          />
-        )}
-      </div>
-    </div>
-  );
-}
 
 const myRecordReportRanges = [
   { label: "7 Days", value: "7d" },
@@ -29969,18 +29822,6 @@ const myRecordReportRanges = [
   { label: "YTD", value: "ytd" },
 ] as const;
 
-const myRecordFutureShareableSections = [
-  "Quiet Time",
-  "Prayer",
-  "Journal",
-  "Discipleship Meetings",
-  "Assessments",
-  "Ministry Activity",
-  "Fruit",
-  "Answered Prayers",
-  "Goals",
-  "Next Steps",
-] as const;
 
 type MyRecordReportRange = typeof myRecordReportRanges[number]["value"];
 
@@ -30013,38 +29854,8 @@ function isMyRecordDateInRange(value: string | null | undefined, range: MyRecord
   return Number.isFinite(parsed.getTime()) && parsed >= myRecordRangeStart(range);
 }
 
-function latestMyRecordAssessmentResult(results: DosAppUserAssessmentResult[]) {
-  return [...results].sort((first, second) => myRecordDateValue(second.completedAt) - myRecordDateValue(first.completedAt))[0] ?? null;
-}
 
-function latestMyRecordExternalAssessmentResult(results: DosAppUserExternalAssessmentResult[]) {
-  return [...results].sort((first, second) => {
-    const firstDate = latestMyRecordDate(first.dateTaken, first.createdAt);
-    const secondDate = latestMyRecordDate(second.dateTaken, second.createdAt);
 
-    return myRecordDateValue(secondDate) - myRecordDateValue(firstDate);
-  })[0] ?? null;
-}
-
-function myRecordLatestAssessmentLabel(
-  result: DosAppUserAssessmentResult | null,
-  externalResult: DosAppUserExternalAssessmentResult | null,
-) {
-  if (!result && !externalResult) {
-    return "Not taken";
-  }
-
-  const resultDate = myRecordDateValue(result?.completedAt);
-  const externalDate = myRecordDateValue(latestMyRecordDate(externalResult?.dateTaken, externalResult?.createdAt));
-
-  if (externalResult && externalDate >= resultDate) {
-    return externalResult.resultType
-      ? `${externalResult.assessmentName} · ${externalResult.resultType}`
-      : externalResult.assessmentName;
-  }
-
-  return result ? `${result.assessmentName} · ${Math.round(result.percentage)}%` : "Not taken";
-}
 
 function myRecordAssessmentTrend(result: DosAppUserAssessmentResult, results: DosAppUserAssessmentResult[]) {
   const sameAssessment = results
@@ -30352,54 +30163,6 @@ function MyRecordAssessmentStatusPill({ status }: { status: MyRecordExternalAsse
   );
 }
 
-function MyRecordAssessmentLibraryCard({
-  item,
-  isSelected,
-  onSelect,
-}: {
-  item: MyRecordAssessmentLibraryItem;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      className={`min-w-0 rounded-[22px] border p-4 text-left transition-all ${
-        isSelected
-          ? "border-[#2563EB] bg-[#EBF2FF] shadow-[0_14px_34px_rgba(37,99,235,0.08)]"
-          : "border-[#EAF2FF] bg-white shadow-[0_10px_24px_rgba(37,99,235,0.035)] hover:border-[#BFDBFE]"
-      }`}
-      onClick={onSelect}
-      type="button"
-    >
-      <span className="flex min-w-0 items-start justify-between gap-3">
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-black text-[#0F172A]">{item.name}</span>
-          <span className="mt-1 block text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            {item.category} · {item.typeLabel}
-          </span>
-        </span>
-        <MyRecordAssessmentStatusPill status={item.status} />
-      </span>
-      <span className="mt-3 line-clamp-3 block text-sm leading-6 text-[#475569]">{item.shortSummary}</span>
-      {item.keyResults.length ? (
-        <span className="mt-3 flex flex-wrap gap-1.5">
-          {item.keyResults.slice(0, 4).map((result) => (
-            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" key={result} style={{ fontFamily: font.rajdhani }}>
-              {result}
-            </span>
-          ))}
-        </span>
-      ) : null}
-      <span className="mt-4 flex min-w-0 items-center justify-between gap-3 text-xs font-bold text-[#64748B]">
-        <span>{item.completedDate ? formatDate(item.completedDate) : item.kind === "future" ? "Not started" : "Private"}</span>
-        <span className="inline-flex items-center gap-1 text-[#1D4ED8]">
-          {item.attachmentUrl ? "View report" : item.kind === "future" ? "Add result" : "View details"}
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-        </span>
-      </span>
-    </button>
-  );
-}
 
 function MyRecordAssessmentDetailPanel({
   errorMessage,
@@ -30756,99 +30519,6 @@ function MyRecordExternalAssessmentForm({
   );
 }
 
-function MyRecordAssessmentsPanel({
-  errorMessage,
-  isSubmitting,
-  nextTab = "growth",
-  onOpenSheet,
-  onSave,
-  profileName,
-  record,
-}: {
-  errorMessage: string;
-  isSubmitting: boolean;
-  nextTab?: MyRecordTab;
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
-  profileName: string;
-  record: DosAppUserRecord;
-}) {
-  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
-  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
-  const [selectedCategory, setSelectedCategory] = useState<MyRecordAssessmentLibraryCategory>("All");
-  const [selectedItemId, setSelectedItemId] = useState(libraryItems[0]?.id ?? "");
-  const filteredItems = useMemo(() => (
-    selectedCategory === "All"
-      ? libraryItems
-      : libraryItems.filter((item) => item.category === selectedCategory)
-  ), [libraryItems, selectedCategory]);
-
-  useEffect(() => {
-    if (filteredItems.length && !filteredItems.some((item) => item.id === selectedItemId)) {
-      setSelectedItemId(filteredItems[0].id);
-    }
-  }, [filteredItems, selectedItemId]);
-
-  const selectedItem = libraryItems.find((item) => item.id === selectedItemId) ?? filteredItems[0] ?? libraryItems[0] ?? null;
-
-  return (
-    <div className="grid gap-4">
-      <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <SectionHeading title="Assessment Library" />
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748B]">A private library for how God wired me: DOS assessments, user-owned summaries, and original reports.</p>
-          </div>
-          <button className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[#DCEBFF] bg-white px-3 text-xs font-bold text-[#0F172A]" onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })} type="button">
-            <Plus className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-            Add External Result
-          </button>
-        </div>
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          {myRecordAssessmentLibraryCategories.map((category) => (
-            <button
-              aria-pressed={selectedCategory === category}
-              className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-bold ${
-                selectedCategory === category
-                  ? "border-[#2563EB] bg-[#EBF2FF] text-[#1D4ED8]"
-                  : "border-[#EAF2FF] bg-white text-[#64748B]"
-              }`}
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              type="button"
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </section>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <section className="grid gap-3 self-start">
-          {filteredItems.length ? (
-            filteredItems.map((item) => (
-              <MyRecordAssessmentLibraryCard
-                isSelected={selectedItem?.id === item.id}
-                item={item}
-                key={item.id}
-                onSelect={() => setSelectedItemId(item.id)}
-              />
-            ))
-          ) : (
-            <SectionEmptyState text="Try another category or add a custom result." title="No assessments in this category." />
-          )}
-        </section>
-        <MyRecordAssessmentDetailPanel
-          errorMessage={errorMessage}
-          isSubmitting={isSubmitting}
-          item={selectedItem}
-          nextTab={nextTab}
-          onOpenSheet={onOpenSheet}
-          onSave={onSave}
-        />
-      </div>
-    </div>
-  );
-}
 
 function MyRecordReportPanel({
   fruit,
@@ -30909,18 +30579,15 @@ function MyRecordReportPanel({
   );
 }
 
+
+/* Word(s) of the Year lived on the retired Purpose panel. It is real content
+   the user reads, so it moves into My Life's Purpose section rather than
+   disappearing with the panel. */
 type MyRecordWordOfYear = {
   bullets: string[];
   hebrew: string;
   label: string;
   transliteration: string;
-};
-
-type MyRecordEbenezer = {
-  date: string | null;
-  detail: string | null;
-  id: string;
-  title: string;
 };
 
 const myRecordDefaultWordsOfYear: MyRecordWordOfYear[] = [
@@ -30943,17 +30610,15 @@ const myRecordWordsOfYearScripture = {
   text: "Remain in Me, and I in you.",
 };
 
-function myRecordPropheticOverviewStatus(value: DosAppUserPropheticWordStatus) {
-  if (value === "fulfilled") {
-    return "Fulfilled";
-  }
+type MyRecordEbenezer = {
+  date: string | null;
+  detail: string | null;
+  id: string;
+  title: string;
+};
 
-  if (value === "testing" || value === "confirmed") {
-    return "In Progress";
-  }
 
-  return "Waiting";
-}
+
 
 function buildMyRecordEbenezers(record: DosAppUserRecord, fruit: DosAppFruit[]): MyRecordEbenezer[] {
   const answeredPrayers = record.prayerLogs
@@ -30983,172 +30648,9 @@ function buildMyRecordEbenezers(record: DosAppUserRecord, fruit: DosAppFruit[]):
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
 }
 
-function MyRecordOverviewCard({
-  action,
-  children,
-  className = "",
-  icon,
-  title,
-}: {
-  action?: ReactNode;
-  children: ReactNode;
-  className?: string;
-  icon: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className={`rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)] ${className}`}>
-      <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#15803D] ring-1 ring-[#BBF7D0]">
-            {icon}
-          </span>
-          <SectionHeading title={title} />
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
 
-function MyRecordWordsOfYearCard({
-  isEditing,
-  isSubmitting,
-  onEdit,
-  onSubmit,
-  record,
-}: {
-  isEditing: boolean;
-  isSubmitting: boolean;
-  onEdit: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  record: DosAppUserRecord;
-}) {
-  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
 
-    event.preventDefault();
-    onEdit();
-  }
 
-  return (
-    <section className="grid gap-2">
-      <SectionHeading title="Word(s) of the Year" />
-      <div
-        className="grid cursor-pointer gap-2 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FBFF] md:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)]"
-        onClick={onEdit}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-      >
-        <div className="min-w-0">
-          <p className="truncate text-base font-black leading-5 text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-            {myRecordDefaultWordsOfYear.map((word) => word.label).join(" / ")}
-          </p>
-          <div className="mt-2 grid gap-2 md:grid-cols-2">
-            {myRecordDefaultWordsOfYear.map((word) => (
-              <div className="min-w-0" key={word.label}>
-                <p className="truncate text-xs font-black leading-4 text-[#0F172A]">
-                  {word.label} <span className="font-semibold text-[#64748B]">{word.transliteration}</span> <span className="text-[#15803D]">{word.hebrew}</span>
-                </p>
-                <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[#475569]">{word.bullets.join(" · ")}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-[14px] bg-[#F8FBFF] px-3 py-2">
-          <p className="truncate text-xs font-black text-[#15803D]">{myRecordWordsOfYearScripture.reference}</p>
-          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-4 text-[#0F172A]">"{myRecordWordsOfYearScripture.text}"</p>
-        </div>
-      </div>
-      {record.currentSeasonFocus ? (
-        <p className="rounded-[14px] border border-[#EAF2FF] bg-white px-3 py-2 text-xs font-medium leading-5 text-[#64748B]">
-          <span className="font-black text-[#0F172A]">Saved note:</span> {record.currentSeasonFocus}
-        </p>
-      ) : null}
-      {isEditing ? (
-        <form className="grid gap-3 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] p-3" onSubmit={onSubmit}>
-          <DosFormField label="Words / Focus Note">
-            <input className={FieldInputClass()} defaultValue={record.currentSeasonFocus ?? ""} name="current_season_focus" placeholder="Discipline • Assignment" />
-          </DosFormField>
-          <AppButton disabled={isSubmitting} tone="white" type="submit">{isSubmitting ? "Saving..." : "Save Words"}</AppButton>
-        </form>
-      ) : null}
-    </section>
-  );
-}
-
-function MyRecordPropheticOverviewCard({
-  latestWord,
-  onAdd,
-  onViewAll,
-  totalCount,
-}: {
-  latestWord: DosAppUserPropheticWord | null;
-  onAdd: () => void;
-  onViewAll: () => void;
-  totalCount: number;
-}) {
-  return (
-    <MyRecordOverviewCard
-      action={latestWord ? (
-        <button className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">
-          View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-        </button>
-      ) : null}
-      className="min-h-[220px]"
-      icon={<Mic className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />}
-      title="Prophetic Words"
-    >
-      {latestWord ? (
-        <div className="grid min-h-[142px] content-between gap-4">
-          <div>
-            <p className="text-4xl font-black leading-none text-[#BFDBFE]" style={{ fontFamily: font.oswald }}>"</p>
-            <p className="mt-1 line-clamp-4 text-base font-semibold leading-7 text-[#0F172A]">"{latestWord.wordText}"</p>
-            <p className="mt-3 text-xs font-semibold leading-5 text-[#475569]">
-              {latestWord.givenBy ? `- ${latestWord.givenBy}` : "Prophetic Word"}{latestWord.dateReceived ? ` • ${formatDate(latestWord.dateReceived)}` : ""}
-            </p>
-          </div>
-          <div className="flex min-w-0 items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#475569]">
-              Status: <span className="h-2 w-2 rounded-full bg-[#2563EB]" aria-hidden="true" /> <span className="font-black text-[#0F172A]">{myRecordPropheticOverviewStatus(latestWord.status)}</span>
-            </span>
-            <button className="shrink-0 text-xs font-bold text-[#1D4ED8]" onClick={onViewAll} type="button">View all ({totalCount})</button>
-          </div>
-        </div>
-      ) : (
-        <SectionEmptyState
-          action={<CompactButton icon="add" onClick={onAdd}>Add Prophetic Word</CompactButton>}
-          text="No prophetic words recorded yet."
-          title="Prophetic Words"
-        />
-      )}
-    </MyRecordOverviewCard>
-  );
-}
-
-function MyRecordSnapshotTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-white p-3 text-center">
-      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-        {icon}
-      </span>
-      <p className="mt-3 truncate text-base font-black text-[#0F172A]">{value}</p>
-      <p className="mt-1 text-xs font-semibold leading-4 text-[#475569]">{label}</p>
-    </div>
-  );
-}
 
 function MyRecordActionButton({
   children,
@@ -31335,105 +30837,8 @@ function MyRecordCompactRecordCard({
   return <article className={cardClassName}>{content}</article>;
 }
 
-function MyRecordCompactEmptyRow({
-  action,
-  icon,
-  text,
-  title,
-}: {
-  action?: ReactNode;
-  icon: ReactNode;
-  text?: string;
-  title: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#EAF2FF] bg-white px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black leading-4 text-[#0F172A]">{title}</span>
-        {text ? <span className="mt-1 block truncate text-xs font-medium leading-4 text-[#64748B]">{text}</span> : null}
-      </span>
-      {action ? <span className="shrink-0">{action}</span> : null}
-    </div>
-  );
-}
 
-function MyRecordPreviewCard({
-  badge,
-  body,
-  children,
-  icon,
-  meta,
-  onEdit,
-  onNew,
-  onView,
-  title,
-}: {
-  badge?: string | null;
-  body?: string | null;
-  children?: ReactNode;
-  icon: ReactNode;
-  meta?: string | null;
-  onEdit?: () => void;
-  onNew?: () => void;
-  onView?: () => void;
-  title: string;
-}) {
-  return (
-    <article className="min-w-0 rounded-[22px] border border-[#EAF2FF] bg-white p-4 shadow-[0_12px_28px_rgba(37,99,235,0.04)]">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-5 text-[#0F172A]">{title}</p>
-              {meta ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{meta}</p> : null}
-            </div>
-            {badge ? (
-              <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-[#F8FBFF] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1D4ED8]" style={{ fontFamily: font.rajdhani }}>
-                {badge}
-              </span>
-            ) : null}
-          </div>
-          {body ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#475569]">{body}</p> : null}
-          {children}
-        </div>
-      </div>
-      {(onView || onEdit || onNew) ? (
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          {onView ? <MyRecordActionButton onClick={onView}>View</MyRecordActionButton> : null}
-          {onEdit ? <MyRecordActionButton onClick={onEdit}>Edit</MyRecordActionButton> : null}
-          {onNew ? <MyRecordActionButton onClick={onNew} tone="blue">+ New</MyRecordActionButton> : null}
-        </div>
-      ) : null}
-    </article>
-  );
-}
 
-function MyRecordRecommendedNextStep({
-  action,
-  text,
-}: {
-  action?: ReactNode;
-  text: string;
-}) {
-  return (
-    <section className="flex min-w-0 items-center gap-2.5 rounded-[16px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-[#15803D] ring-1 ring-[#BBF7D0]">
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[10px] font-black uppercase leading-3 tracking-[0.14em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>Recommended Next Step</span>
-        <span className="mt-1 block truncate text-sm font-semibold leading-5 text-[#0F172A]">{text}</span>
-      </span>
-      {action ? <span className="shrink-0">{action}</span> : null}
-    </section>
-  );
-}
 
 type MyRecordTimelineItem = {
   badge: string;
@@ -31461,15 +30866,7 @@ type MyRecordEncounter = {
   title: string;
 };
 
-type MyRecordEncounterFilter = "all" | "highlights" | "journal" | "prayer" | "scripture";
 
-const myRecordEncounterFilters: ReadonlyArray<{ label: string; value: MyRecordEncounterFilter }> = [
-  { label: "All", value: "all" },
-  { label: "Journal", value: "journal" },
-  { label: "Scripture", value: "scripture" },
-  { label: "Prayer", value: "prayer" },
-  { label: "Highlights", value: "highlights" },
-];
 
 function myRecordTagEquals(tag: string, expected: string) {
   return tag.trim().toLowerCase() === expected.trim().toLowerCase();
@@ -31506,9 +30903,6 @@ function myRecordEncounterKind(encounter: MyRecordEncounter): MyRecordRecordKind
   return "time_with_god";
 }
 
-function myRecordEncounterLabel(encounter: MyRecordEncounter) {
-  return myRecordRecordVisual(myRecordEncounterKind(encounter)).label;
-}
 
 function myRecordEncounterMeta(encounter: MyRecordEncounter) {
   return [
@@ -31559,39 +30953,7 @@ function buildMyRecordEncounters(record: DosAppUserRecord, people: DosAppPerson[
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
 }
 
-function myRecordEncounterMatchesFilter(encounter: MyRecordEncounter, filter: MyRecordEncounterFilter) {
-  if (filter === "all") return true;
-  if (filter === "scripture") return Boolean(encounter.biblePassage);
-  if (filter === "prayer") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Prayer"));
-  if (filter === "journal") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Journal"));
-  if (filter === "highlights") return encounter.tags.some((tag) => myRecordTagEquals(tag, "Highlights"));
 
-  return true;
-}
-
-function MyRecordEncounterCard({
-  encounter,
-  onView,
-  titlePrefix,
-}: {
-  encounter: MyRecordEncounter;
-  onEdit?: () => void;
-  onNew?: () => void;
-  onView: () => void;
-  titlePrefix?: string;
-}) {
-  return (
-    <MyRecordCompactRecordCard
-      body={encounter.body}
-      date={encounter.date}
-      kind={myRecordEncounterKind(encounter)}
-      meta={myRecordEncounterMeta(encounter)}
-      onClick={onView}
-      title={titlePrefix ? `${titlePrefix}: ${encounter.title}` : encounter.title}
-      typeLabel={myRecordEncounterLabel(encounter)}
-    />
-  );
-}
 
 function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
   const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => {
@@ -31681,529 +31043,6 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
 
   return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
-}
-
-function MyRecordWalkWithGodPanel({
-  encounters,
-  onOpenSheet,
-}: {
-  encounters: MyRecordEncounter[];
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-}) {
-  const [filter, setFilter] = useState<MyRecordEncounterFilter>("all");
-  const filteredEncounters = encounters.filter((encounter) => myRecordEncounterMatchesFilter(encounter, filter));
-
-  function openEncounter(encounter: MyRecordEncounter, mode: MyRecordSheetMode) {
-    if (encounter.entry) {
-      onOpenSheet({ entry: encounter.entry, kind: "encounter", mode, title: mode === "new" ? "Time With God" : "Time With God" });
-      return;
-    }
-
-    if (encounter.prayerLog) {
-      onOpenSheet({ kind: "encounter", mode, prayerLog: encounter.prayerLog, title: "Prayer Encounter" });
-    }
-  }
-
-  return (
-    <div className="grid gap-3 pb-36 md:pb-6">
-      <section className="grid gap-2">
-        <SectionHeading title="Time With God" />
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {myRecordEncounterFilters.map((item) => (
-            <button
-              aria-pressed={filter === item.value}
-              className={`min-h-7 shrink-0 rounded-full border px-2.5 text-[11px] font-bold ${
-                filter === item.value
-                  ? "border-dos-blue bg-dos-blue50 text-dos-blueText"
-                  : "border-dos-line bg-white text-dos-secondary"
-              }`}
-              key={item.value}
-              onClick={() => setFilter(item.value)}
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        {filteredEncounters.length ? (
-          <div className="grid gap-1.5">
-            {filteredEncounters.map((encounter) => (
-              <MyRecordEncounterCard
-                encounter={encounter}
-                key={encounter.id}
-                onView={() => openEncounter(encounter, "view")}
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Time With God entries will appear here."
-            title={filter === "all" ? "No entries yet." : "No matching entries."}
-          />
-        )}
-      </section>
-    </div>
-  );
-}
-
-function myRecordMentorMeetingsForRelationship(record: DosAppUserRecord, mentor: DosAppUserMentorRelationship) {
-  return record.mentorMeetings
-    .filter((meeting) => meeting.relationshipId === mentor.id || (!meeting.relationshipId && meeting.mentorName === mentor.mentorName))
-    .sort((first, second) => myRecordDateValue(second.meetingDate) - myRecordDateValue(first.meetingDate));
-}
-
-function myRecordMentorNextFollowUpLabel(meetings: DosAppUserMentorMeeting[]) {
-  const today = todayDateValue();
-  const nextFollowUp = meetings
-    .map((meeting) => meeting.followUpDate)
-    .filter((date): date is string => Boolean(date))
-    .filter((date) => date >= today)
-    .sort()[0];
-
-  return nextFollowUp ? formatDate(nextFollowUp) : "—";
-}
-
-function MyRecordResourceAssignmentRow({
-  assignment,
-  onEditDates,
-  onLogCheckIn,
-  onMarkComplete,
-  onMarkInProgress,
-  onOpen,
-  onOpenGuidedResource,
-  onPause,
-}: {
-  assignment: DosAppResourceAssignment;
-  onEditDates?: (assignment: DosAppResourceAssignment) => void;
-  onLogCheckIn?: (assignment: DosAppResourceAssignment) => void;
-  onMarkComplete?: (assignment: DosAppResourceAssignment) => void;
-  onMarkInProgress?: (assignment: DosAppResourceAssignment) => void;
-  onOpen?: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource?: (resource: DosResource, assignmentId?: string | null) => void;
-  onPause?: (assignment: DosAppResourceAssignment) => void;
-}) {
-  const assignedBy = assignment.assignedByUserId ? "DOS user" : "DOS";
-  const resource = resourceAssignmentResource(assignment);
-  const guidedResource = resource && isGuidedResource(resource) ? resource : null;
-  const canOpenGuidedResource = Boolean(guidedResource && onOpenGuidedResource);
-  const hasActions = Boolean(
-    canOpenGuidedResource
-      || (assignment.status === "not_started" && onMarkInProgress)
-      || (assignment.status !== "completed" && onMarkComplete)
-      || (assignment.status !== "completed" && onLogCheckIn)
-      || (assignment.status !== "completed" && onPause)
-      || onEditDates,
-  );
-
-  return (
-    <article className="grid gap-2 rounded-[16px]">
-      <MyRecordCompactRecordCard
-        body={assignment.personalMessage ?? resourceAssignmentFollowUpLabel(assignment)}
-        date={assignment.updatedAt ?? assignment.createdAt ?? assignment.startDate}
-        kind="learning"
-        meta={`${resourceAssignmentTypeLabel(assignment)} · ${resourceAssignmentDueLabel(assignment)} · Assigned by ${assignedBy}`}
-        onClick={onOpen ? () => onOpen(assignment) : undefined}
-        title={resourceAssignmentTitle(assignment)}
-        typeLabel={resourceAssignmentStatusLabels[assignment.status]}
-      />
-      {hasActions ? (
-        <div className="flex flex-wrap gap-1.5 pl-10">
-          {guidedResource && onOpenGuidedResource ? <CompactButton icon="log" onClick={() => onOpenGuidedResource(guidedResource, assignment.id)}>Continue</CompactButton> : null}
-          {assignment.status === "not_started" && onMarkInProgress ? <CompactButton icon="commitment" onClick={() => onMarkInProgress(assignment)}>Start</CompactButton> : null}
-          {assignment.status !== "completed" && onMarkComplete ? <CompactButton icon="commitment" onClick={() => onMarkComplete(assignment)}>Complete</CompactButton> : null}
-          {assignment.status !== "completed" && onLogCheckIn ? <CompactButton icon="log" onClick={() => onLogCheckIn(assignment)}>Check-In</CompactButton> : null}
-          {assignment.status !== "completed" && onPause ? <CompactButton icon="bell" onClick={() => onPause(assignment)}>{assignment.status === "paused" ? "Resume" : "Pause"}</CompactButton> : null}
-          {onEditDates ? <CompactButton icon="settings" onClick={() => onEditDates(assignment)}>Edit Dates</CompactButton> : null}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function MyRecordMentorCard({
-  mentor,
-  meetings,
-  onView,
-}: {
-  mentor: DosAppUserMentorRelationship;
-  meetings: DosAppUserMentorMeeting[];
-  onView: () => void;
-}) {
-  const lastMeeting = meetings[0] ?? null;
-  const nextFollowUp = myRecordMentorNextFollowUpLabel(meetings);
-  const latestContext = lastMeeting?.discussed
-    ?? lastMeeting?.actionSteps
-    ?? lastMeeting?.counselReceived
-    ?? lastMeeting?.notes
-    ?? mentor.notes
-    ?? (mentor.meetingRhythm ? `Rhythm: ${mentor.meetingRhythm}` : "Discipleship relationship");
-
-  return (
-    <MyRecordCompactRecordCard
-      body={latestContext}
-      date={lastMeeting?.meetingDate ?? mentor.updatedAt ?? mentor.createdAt}
-      kind="mentor"
-      meta={[lastMeeting ? (lastMeeting.durationMinutes ? formatRecordDuration(lastMeeting.durationMinutes) : "Recent meeting") : "No meetings yet", nextFollowUp !== "—" ? `Next ${nextFollowUp}` : mentor.meetingRhythm].filter(Boolean).join(" · ")}
-      onClick={onView}
-      title={mentor.mentorName}
-      typeLabel={myRecordRelationshipLabelText(mentor.relationshipLabel)}
-    />
-  );
-}
-
-function MyRecordGrowthPanel({
-  assignments,
-  onEditResourceAssignment,
-  onLogResourceCheckIn,
-  onMarkResourceAssignmentComplete,
-  onMarkResourceAssignmentInProgress,
-  onOpenGuidedResource,
-  onOpenSheet,
-  onPauseResourceAssignment,
-  people,
-  profileName,
-  record,
-}: {
-  assignments: DosAppResourceAssignment[];
-  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
-  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
-  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
-  onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
-  onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-  onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
-  people: DosAppPerson[];
-  profileName: string;
-  record: DosAppUserRecord;
-}) {
-  const includeRyanSeeds = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
-  const libraryItems = useMemo(() => myRecordAssessmentLibraryItems({ includeRyanSeeds, record }), [includeRyanSeeds, record]);
-  const priorityAssessmentItems = useMemo(() => {
-    const priorityNames = ["MCode", "Gregoric Mind Styles"];
-    const priority = libraryItems.filter((item) => priorityNames.some((name) => myRecordAssessmentMatchesName(item.name, name)));
-    const rest = libraryItems.filter((item) => !priority.some((priorityItem) => priorityItem.id === item.id));
-
-    return [...priority, ...rest].slice(0, 4);
-  }, [libraryItems]);
-  const visibleBooks = record.learningBooks.filter((book) => book.status !== "archived").slice(0, 4);
-  const activeMentorItems = record.mentorRelationships
-    .filter((mentor) => mentor.status === "active")
-    .map((mentor) => ({
-      meetings: myRecordMentorMeetingsForRelationship(record, mentor),
-      mentor,
-    }))
-    .sort((first, second) => {
-      const firstDate = first.meetings[0]?.meetingDate ?? first.mentor.updatedAt ?? first.mentor.createdAt;
-      const secondDate = second.meetings[0]?.meetingDate ?? second.mentor.updatedAt ?? second.mentor.createdAt;
-
-      return myRecordDateValue(secondDate) - myRecordDateValue(firstDate);
-    });
-  const activeAssignments = assignments.filter((assignment) => assignment.status !== "completed");
-  const completedAssignments = assignments.filter((assignment) => assignment.status === "completed");
-  const recommendedStep = !priorityAssessmentItems.some((item) => myRecordAssessmentMatchesName(item.name, "MCode"))
-    ? "Add your MCode result so the people discipling you can quickly understand your wiring."
-    : visibleBooks.length === 0
-      ? "Add the first book you are reading and capture one chapter note."
-      : record.mentorMeetings.length === 0
-        ? "Review your latest assessment or book insight with the person discipling you."
-        : "Choose one growth insight to turn into a concrete next step this week.";
-
-  return (
-    <div className="grid gap-3">
-      <section className="grid gap-2">
-        <SectionHeading title="Assigned to Me" />
-        {activeAssignments.length ? (
-          <div className="grid gap-1.5">
-            {activeAssignments.map((assignment) => (
-              <MyRecordResourceAssignmentRow
-                assignment={assignment}
-                key={assignment.id}
-                onEditDates={onEditResourceAssignment}
-                onLogCheckIn={onLogResourceCheckIn}
-                onMarkComplete={onMarkResourceAssignmentComplete}
-                onMarkInProgress={onMarkResourceAssignmentInProgress}
-                onOpenGuidedResource={(resource, assignmentId) => onOpenGuidedResource(resource, assignment.personId, assignmentId)}
-                onPause={onPauseResourceAssignment}
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Current reading plans and growth resources assigned to you will appear here."
-            title="No assignments yet."
-          />
-        )}
-        {completedAssignments.length ? (
-          <details className="rounded-dos-1 border border-dos-line bg-white px-3 py-2">
-            <summary className="cursor-pointer text-dos-eyebrow uppercase text-dos-secondary">
-              Completed Resources ({completedAssignments.length})
-            </summary>
-            <div className="mt-2 grid gap-1.5">
-              {completedAssignments.map((assignment) => (
-                <MyRecordResourceAssignmentRow
-                  assignment={assignment}
-                  key={assignment.id}
-                  onOpen={onEditResourceAssignment}
-                  onOpenGuidedResource={(resource, assignmentId) => onOpenGuidedResource(resource, assignment.personId, assignmentId)}
-                />
-              ))}
-            </div>
-          </details>
-        ) : null}
-      </section>
-      <section className="grid gap-2">
-        <SectionHeading title="People Discipling Me" />
-        {activeMentorItems.length ? (
-          <div className="grid gap-1.5">
-            {activeMentorItems.map(({ meetings, mentor }) => (
-              <MyRecordMentorCard
-                key={mentor.id}
-                meetings={meetings}
-                mentor={mentor}
-                onView={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })}
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="People added through the plus menu will appear here."
-            title="No one discipling you is saved yet."
-          />
-        )}
-      </section>
-      <MyRecordRecommendedNextStep
-        text={recommendedStep}
-      />
-      <section className="grid gap-2">
-        <SectionHeading title="Assessments" />
-        {priorityAssessmentItems.length ? (
-          <div className="grid gap-1.5">
-            {priorityAssessmentItems.map((item) => {
-              const externalResult = item.kind === "external" ? item.result as DosAppUserExternalAssessmentResult | undefined : undefined;
-              const resultSummary = item.keyResults.slice(0, 4).join(" · ");
-              const badge = item.kind === "dos" && item.result && "percentage" in item.result
-                ? `${Math.round(item.result.percentage)}%`
-                : myRecordAssessmentStatusLabel(item.status);
-
-              return (
-                <MyRecordCompactRecordCard
-                  body={item.shortSummary ?? resultSummary}
-                  date={item.completedDate}
-                  kind="assessment"
-                  key={item.id}
-                  meta={[item.category, item.typeLabel].filter(Boolean).join(" · ")}
-                  onClick={() => onOpenSheet({ item, kind: "assessment_detail", mode: "view" })}
-                  title={item.name}
-                  typeLabel={badge}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<BarChart3 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="DOS and third-party results will appear here."
-            title="No assessments yet."
-          />
-        )}
-      </section>
-      <section className="grid gap-2">
-        <SectionHeading title="Learning" />
-        {visibleBooks.length ? (
-          <div className="grid gap-1.5">
-            {visibleBooks.map((book) => (
-              <MyRecordCompactRecordCard
-                body={book.personalApplication ?? book.finalSummary ?? `${book.chapterNotes.length} chapter notes saved.`}
-                date={latestMyRecordDate(book.finishedOn, book.updatedAt, book.startedOn, book.createdAt)}
-                kind="learning"
-                key={book.id}
-                meta={[book.author || "Book Notes", `${book.chapterNotes.length} notes`].join(" · ")}
-                onClick={() => onOpenSheet({ book, kind: "book", mode: "view" })}
-                title={book.title}
-                typeLabel={myRecordLearningBookStatusLabel(book.status)}
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Capture books, chapter notes, highlights, and application."
-            title="No book notes yet."
-          />
-        )}
-      </section>
-    </div>
-  );
-}
-
-function MyRecordLifePlanCard({
-  onView,
-  plan,
-}: {
-  onView: () => void;
-  plan: DosAppUserLifePlan;
-}) {
-  const topPriorities = plan.topPriorities.slice(0, 5);
-  const reviewDate = latestMyRecordDate(plan.lastReviewedDate, plan.updatedAt, plan.createdAt);
-  const guidingStatement = plan.callingStatement
-    ?? "Does this help us train, equip, multiply, or accelerate disciple-makers?";
-  const summary = plan.dailyReminder ?? (topPriorities.length ? `${topPriorities.length} priorities previewed` : "Private focus document");
-
-  return (
-    <MyRecordCompactRecordCard
-      body={guidingStatement}
-      date={reviewDate}
-      kind="life_plan"
-      meta={summary}
-      onClick={onView}
-      title="Life Plan"
-      typeLabel="Private"
-    />
-  );
-}
-
-function MyRecordCallingPanel({
-  errorMessage,
-  isSubmitting,
-  onOpenSheet,
-  onSave,
-  record,
-}: {
-  errorMessage: string;
-  isSubmitting: boolean;
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-  onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
-  record: DosAppUserRecord;
-}) {
-  const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
-  const lifePlan = resolveMyRecordLifePlan(record);
-
-  function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-
-    void (async () => {
-      const saved = await onSave({
-        currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
-        kind: "record",
-      }, "calling");
-
-      if (saved) {
-        setIsWordsEditorOpen(false);
-      }
-    })();
-  }
-
-  return (
-    <div className="grid gap-3">
-      <MyRecordWordsOfYearCard
-        isEditing={isWordsEditorOpen}
-        isSubmitting={isSubmitting}
-        onEdit={() => setIsWordsEditorOpen(true)}
-        onSubmit={handleRecordSubmit}
-        record={record}
-      />
-      <section className="grid gap-2">
-        <SectionHeading title="Prophetic Words" />
-        {record.propheticWords.length ? (
-          <div className="grid gap-1.5">
-            {record.propheticWords.map((word) => (
-              <MyRecordCompactRecordCard
-                body={word.wordText}
-                date={word.dateReceived}
-                kind="prophetic"
-                key={word.id}
-                meta={[word.context, word.givenBy ? `Given by ${word.givenBy}` : null].filter(Boolean).join(" · ")}
-                onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word })}
-                title={word.givenBy ? `Given by ${word.givenBy}` : "Prophetic Word"}
-                typeLabel={myRecordPropheticWordStatusLabel(word.status)}
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Track words, Scripture references, confirmations, fulfillment status, and reflections privately."
-            title="No prophetic words recorded yet."
-          />
-        )}
-      </section>
-      <section className="grid gap-2">
-        <SectionHeading title="Life Plan" />
-        <MyRecordLifePlanCard
-          onView={() => onOpenSheet({ kind: "life_plan", mode: "view", plan: lifePlan })}
-          plan={lifePlan}
-        />
-      </section>
-      <section className="grid gap-2">
-        <SectionHeading title="Mission Direction" />
-        <MyRecordCompactRecordCard
-          body="Vision moments, calling markers, confirmations, and milestones will live here later."
-          kind="timeline"
-          meta={record.currentSeasonFocus || "Future calling timeline"}
-          title="Vision Timeline"
-          typeLabel="Coming Soon"
-        />
-      </section>
-    </div>
-  );
-}
-
-function MyRecordLegacyPanel({
-  ebenezers,
-  onOpenSheet,
-}: {
-  ebenezers: MyRecordEbenezer[];
-  onOpenSheet: (sheet: MyRecordSheetState) => void;
-}) {
-  const faithfulnessCategory = (item: MyRecordEbenezer) => item.id.startsWith("answered-prayer")
-    ? "Answered Prayer"
-    : item.id.startsWith("thanksgiving")
-      ? "Thanksgiving"
-      : "Fruit";
-
-  return (
-    <div className="grid gap-3">
-      <section className="grid gap-2">
-        <SectionHeading title="God's Faithfulness" />
-        {ebenezers.length ? (
-          <div className="grid gap-1.5">
-            {ebenezers.map((item) => (
-              <MyRecordCompactRecordCard
-                body={item.detail}
-                date={item.date}
-                kind="faithfulness"
-                key={item.id}
-                meta={faithfulnessCategory(item)}
-                onClick={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })}
-                title={item.title}
-                typeLabel="Faithfulness"
-              />
-            ))}
-          </div>
-        ) : (
-          <MyRecordCompactEmptyRow
-            icon={<Gift className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-            text="Record answered prayers, blessings, provision, and moments you want to remember."
-            title="No faithfulness entries yet."
-          />
-        )}
-      </section>
-      <section className="grid gap-2">
-        <SectionHeading title="Year in Review" />
-        <MyRecordCompactRecordCard
-          body="Faithfulness, answered prayers, blessings, and meaningful milestones."
-          kind="timeline"
-          meta="Prepared for future reports."
-          title="Year in Review"
-          typeLabel="Coming Soon"
-        />
-      </section>
-    </div>
-  );
 }
 
 function myRecordSheetTitle(sheet: MyRecordSheetState) {
@@ -32739,8 +31578,643 @@ function MyRecordSheetContent({
   return null;
 }
 
+/* USA-272 -- My Record inside People.
+
+   My Record is a Person record whose person is you, so it is built from the
+   Person page's own pieces rather than a parallel set: the same centred
+   identity header, the same Segmented rail, the same LAST/UPCOMING meeting
+   pair, the same single white surface whose sections are separated by
+   hairlines and introduced by an Eyebrow, and the same row typography.
+   Nothing about the stored record changes -- every panel below reads exactly
+   the fields the retired Walk / Growth / Purpose / Faithfulness panels read. */
+
+/* One record row, in Person's Overview typography. */
+function MyRecordSectionRow({
+  meta,
+  onOpen,
+  primary,
+  secondary,
+}: {
+  meta?: string | null;
+  onOpen: () => void;
+  primary: string;
+  secondary?: string | null;
+}) {
+  return (
+    <PersonRecordRow onOpen={onOpen}>
+      <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">{primary}</span>
+      {/* No `block` here: Tailwind's line-clamp needs display:-webkit-box, and
+          a `block` alongside it wins in the stylesheet, so the clamp silently
+          does nothing and a long preview runs down the page. */}
+      {secondary ? <span className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-dos-body">{secondary}</span> : null}
+      {meta ? <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{meta}</span> : null}
+    </PersonRecordRow>
+  );
+}
+
+function MyRecordSectionEmpty({ children }: { children: string }) {
+  return <p className="text-[14.5px] leading-[1.5] text-dos-body">{children}</p>;
+}
+
+/* The one white surface. Sections inside it are hairline-separated, exactly
+   as on a Person. */
+function MyRecordSurface({ children }: { children: ReactNode }) {
+  return <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4">{children}</div>;
+}
+
+function MyRecordSurfaceSection({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <section aria-label={label} className="border-b border-dos-rule py-3 last:border-b-0">
+      {children}
+    </section>
+  );
+}
+
+/* The "+ Add" that sits on a section heading, in Person's own treatment. */
+function MyRecordSectionAction({ children, onClick }: { children: string; onClick: () => void }) {
+  return (
+    <button className="-my-3 flex min-h-11 items-center text-dos-label text-dos-blue" onClick={onClick} type="button">
+      {children}
+    </button>
+  );
+}
+
+/* "View all" appears only when there is more than the section shows. */
+function MyRecordViewAll({ count, onClick, shown }: { count: number; onClick: () => void; shown: number }) {
+  if (count <= shown) {
+    return null;
+  }
+
+  return (
+    <button className="mt-2 text-[13.5px] font-semibold text-dos-blue" onClick={onClick} type="button">
+      {`View all ${count}`}
+    </button>
+  );
+}
+
+function myRecordMentorMeetingsByDateDesc(record: DosAppUserRecord) {
+  return [...record.mentorMeetings].sort((first, second) => myRecordDateValue(second.meetingDate) - myRecordDateValue(first.meetingDate));
+}
+
+/* The upcoming discipleship meeting is only a real saved follow-up date.
+   Nothing is generated: if no meeting carries a future follow-up, the card
+   says so and offers the one action that would create one. */
+function myRecordNextFollowUp(record: DosAppUserRecord) {
+  return [...record.mentorMeetings]
+    .filter((meeting) => meeting.followUpDate && isUpcomingDate(meeting.followUpDate))
+    .sort((first, second) => myRecordDateValue(first.followUpDate) - myRecordDateValue(second.followUpDate))[0] ?? null;
+}
+
+/* LAST / UPCOMING as one matched pair -- the same question asked backwards
+   and forwards. Person's composition, reading My Record's own meetings with
+   the people discipling me. */
+function MyRecordMeetingCards({
+  onLogMeeting,
+  onOpenMeeting,
+  record,
+}: {
+  onLogMeeting: () => void;
+  onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
+  record: DosAppUserRecord;
+}) {
+  const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection";
+  const leadClass = "mt-1.5 block text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary";
+  const bodyClass = "mt-0.5 line-clamp-2 block text-[13.5px] font-semibold leading-[1.35] text-dos-body";
+  const metaClass = "mt-1 block truncate text-dos-meta text-dos-secondary";
+  const chevron = <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />;
+  const lastMeeting = myRecordMentorMeetingsByDateDesc(record)[0] ?? null;
+  const nextFollowUp = myRecordNextFollowUp(record);
+
+  return (
+    <div className="grid grid-cols-2 gap-2.5 pt-4">
+      {lastMeeting ? (
+        <Card onClick={() => onOpenMeeting(lastMeeting)}>
+          <span className="flex items-start justify-between gap-2">
+            <span className={eyebrowClass}>Last meeting</span>
+            {chevron}
+          </span>
+          <span className={leadClass}>{formatRelativeDate(lastMeeting.meetingDate)}</span>
+          <span className={bodyClass}>{lastMeeting.mentorName || "Discipleship meeting"}</span>
+          {lastMeeting.durationMinutes ? <span className={metaClass}>{formatRecordDuration(lastMeeting.durationMinutes)}</span> : null}
+        </Card>
+      ) : (
+        <Card>
+          <span className={eyebrowClass}>Last meeting</span>
+          <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing logged yet.</span>
+          <span className="mt-2.5 block">
+            <PDButton onClick={onLogMeeting}>Log</PDButton>
+          </span>
+        </Card>
+      )}
+      {nextFollowUp ? (
+        <Card onClick={() => onOpenMeeting(nextFollowUp)}>
+          <span className="flex items-start justify-between gap-2">
+            <span className={eyebrowClass}>Upcoming meeting</span>
+            {chevron}
+          </span>
+          <span className={leadClass}>{formatShortDate(nextFollowUp.followUpDate) || upcomingDayLabel(nextFollowUp.followUpDate)}</span>
+          <span className={bodyClass}>{nextFollowUp.mentorName || "Discipleship meeting"}</span>
+          <span className={metaClass}>Follow-up</span>
+        </Card>
+      ) : (
+        <Card>
+          <span className={eyebrowClass}>Upcoming meeting</span>
+          <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
+          <span className="mt-2.5 block">
+            <PDButton onClick={onLogMeeting}>Log</PDButton>
+          </span>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* Overview: the two meetings, then what is true about my walk right now.
+   There is deliberately no roster of the people discipling me -- a list of
+   names answered no question the meeting pair above does not already answer,
+   and each of those people is a Person record in their own right. */
+function MyRecordOverviewPanel({
+  assignments,
+  commitments,
+  commitmentsEnabled,
+  draftAssessments,
+  onEditResourceAssignment,
+  onLogResourceCheckIn,
+  onMarkResourceAssignmentComplete,
+  onMarkResourceAssignmentInProgress,
+  onOpenGuidedResource,
+  onOpenMeeting,
+  onOpenPersonRecord,
+  onOpenSheet,
+  onPauseResourceAssignment,
+  record,
+}: {
+  assignments: DosAppResourceAssignment[];
+  commitments: DosAppPersonCommitment[];
+  commitmentsEnabled: boolean;
+  draftAssessments: MyRecordAssessmentLibraryItem[];
+  onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
+  onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
+  onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
+  onOpenPersonRecord: ((personId: string) => void) | null;
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  record: DosAppUserRecord;
+}) {
+  const encounters = useMemo(
+    () => [...record.journalEntries].sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date)),
+    [record.journalEntries],
+  );
+  const prayerLogs = useMemo(
+    () => [...record.prayerLogs].sort((first, second) => myRecordDateValue(second.prayedAt) - myRecordDateValue(first.prayedAt)),
+    [record.prayerLogs],
+  );
+  const walkTimeline = useMemo(
+    () => buildMyRecordTimeline(record, []).filter((item) => myRecordTimelineFilterOf(item.kind) === "walk"),
+    [record],
+  );
+  /* "Current commitments" is everything actually open right now, in one
+     place: the journeys and assessments the record already treats as active
+     (spec §5.8, D10) plus my own Accountability commitments, which are the
+     canonical DOS commitment and were previously visible only on my Person.
+     Accountability is a workspace capability, so when it is off those rows
+     simply are not there and the section still reads correctly. */
+  const activeCommitments = commitmentsEnabled
+    ? commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused")
+    : [];
+  const openAssignments = assignments.filter((assignment) => assignment.status !== "completed");
+  const currentCount = openAssignments.length + draftAssessments.length + activeCommitments.length;
+
+  return (
+    <>
+      <MyRecordMeetingCards
+        onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}
+        onOpenMeeting={onOpenMeeting}
+        record={record}
+      />
+      <MyRecordSurface>
+        <MyRecordSurfaceSection label="Time with God">
+          <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ Add</MyRecordSectionAction>}>
+            Time with God
+          </Eyebrow>
+          {encounters.length ? (
+            <div className="divide-y divide-dos-rule">
+              {encounters.slice(0, 3).map((entry) => (
+                <MyRecordSectionRow
+                  key={entry.id}
+                  meta={[formatShortDate(entry.date), entry.minutesSpent ? formatRecordDuration(entry.minutesSpent) : null].filter(Boolean).join(" · ")}
+                  onOpen={() => onOpenSheet({ entry, kind: "encounter", mode: "view", title: "Time With God" })}
+                  primary={myRecordEncounterTitleForEntry(entry)}
+                  secondary={myRecordCompactPreview(entry.lordHighlight, entry.notes, entry.prayerResponse)}
+                />
+              ))}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>No time with God recorded yet.</MyRecordSectionEmpty>
+          )}
+          <MyRecordViewAll count={encounters.length} onClick={() => onOpenSheet({ items: walkTimeline, kind: "timeline", mode: "view" })} shown={3} />
+        </MyRecordSurfaceSection>
+
+        <MyRecordSurfaceSection label="Current commitments">
+          <Eyebrow count={currentCount || undefined}>Current commitments</Eyebrow>
+          {currentCount ? (
+            <div className="divide-y divide-dos-rule">
+              {/* A journey keeps every action it had on the retired Growth
+                  panel -- Continue, Start, Check-in, Pause, Complete, Edit
+                  dates -- now in Person's own row-with-actions treatment
+                  rather than a second card style. */}
+              {openAssignments.map((assignment) => {
+                const resource = resourceAssignmentResource(assignment);
+                const guidedResource = resource && isGuidedResource(resource) ? resource : null;
+
+                return (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-1.5 last:pb-1.5" key={assignment.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">{resourceAssignmentTitle(assignment)}</p>
+                      <p className="mt-0.5 text-[12.5px] text-dos-secondary">
+                        {[resourceAssignmentTypeLabel(assignment), assignment.status === "paused" ? "Paused" : resourceAssignmentDueLabel(assignment)].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <span className="flex shrink-0 flex-wrap gap-2">
+                      {guidedResource ? (
+                        <PDButton onClick={() => onOpenGuidedResource(guidedResource, assignment.personId, assignment.id)} tone="solid">Continue</PDButton>
+                      ) : resource ? (
+                        <PDButton href={resource.path}>Open</PDButton>
+                      ) : null}
+                      {assignment.status === "not_started" ? <PDButton onClick={() => onMarkResourceAssignmentInProgress(assignment)}>Start</PDButton> : null}
+                      <PDButton onClick={() => onLogResourceCheckIn(assignment)}>Check-in</PDButton>
+                      <PDButton onClick={() => onPauseResourceAssignment(assignment)}>{assignment.status === "paused" ? "Resume" : "Pause"}</PDButton>
+                      <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
+                      <PDButton onClick={() => onEditResourceAssignment(assignment)}>Edit dates</PDButton>
+                    </span>
+                  </div>
+                );
+              })}
+              {draftAssessments.map((item) => (
+                <MyRecordSectionRow
+                  key={`assessment-${item.id}`}
+                  meta="Assessment · In progress"
+                  onOpen={() => onOpenSheet(item.kind === "external" && item.result && "assessmentName" in item.result
+                    ? { assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" }
+                    : { item, kind: "assessment_detail", mode: "view" })}
+                  primary={item.name}
+                />
+              ))}
+              {activeCommitments.map((commitment) => (
+                <MyRecordSectionRow
+                  key={commitment.id}
+                  meta={[commitment.status === "paused" ? "Paused" : "Active", commitment.targetDate ? `Due ${formatShortDate(commitment.targetDate)}` : null].filter(Boolean).join(" · ")}
+                  onOpen={() => onOpenPersonRecord?.(commitment.personId)}
+                  primary={commitment.title}
+                  secondary={commitment.description}
+                />
+              ))}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>Nothing open right now.</MyRecordSectionEmpty>
+          )}
+        </MyRecordSurfaceSection>
+
+        <MyRecordSurfaceSection label="Personal prayer">
+          <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "prayer", mode: "new" })}>+ Add</MyRecordSectionAction>}>
+            Personal prayer
+          </Eyebrow>
+          {prayerLogs.length ? (
+            <div className="divide-y divide-dos-rule">
+              {prayerLogs.slice(0, 3).map((log) => (
+                <MyRecordSectionRow
+                  key={log.id}
+                  meta={[formatShortDate(log.prayedAt), log.minutesSpent ? formatRecordDuration(log.minutesSpent) : null, log.answeredStatus === "answered" ? "Answered" : null].filter(Boolean).join(" · ")}
+                  onOpen={() => onOpenSheet({ kind: "prayer", log, mode: "view" })}
+                  primary={log.prayerFocus?.trim() || "Prayer"}
+                  secondary={log.notes}
+                />
+              ))}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>No prayer recorded yet.</MyRecordSectionEmpty>
+          )}
+        </MyRecordSurfaceSection>
+      </MyRecordSurface>
+    </>
+  );
+}
+
+type MyRecordTimelineFilter = "all" | "assessment" | "faithfulness" | "learning" | "meeting" | "purpose" | "walk";
+
+const myRecordTimelineFilters: ReadonlyArray<PillRailOption<MyRecordTimelineFilter>> = [
+  { label: "All", value: "all" },
+  { label: "Walk", value: "walk" },
+  { label: "Meetings", value: "meeting" },
+  { label: "Purpose", value: "purpose" },
+  { label: "Faithfulness", value: "faithfulness" },
+  { label: "Assessments", value: "assessment" },
+  { label: "Learning", value: "learning" },
+];
+
+function myRecordTimelineFilterOf(kind: MyRecordRecordKind): MyRecordTimelineFilter {
+  switch (kind) {
+    case "time_with_god":
+    case "prayer":
+    case "reflection":
+      return "walk";
+    case "mentor":
+      return "meeting";
+    case "prophetic":
+    case "life_plan":
+      return "purpose";
+    case "faithfulness":
+      return "faithfulness";
+    case "assessment":
+      return "assessment";
+    case "learning":
+      return "learning";
+    default:
+      return "all";
+  }
+}
+
+/* Timeline: the whole record in one chronological read, searchable and
+   filtered. The month grouping, the rail and the row treatment are Person's
+   Timeline exactly. */
+function MyRecordTimelinePanel({
+  items,
+  onOpenItem,
+}: {
+  items: MyRecordTimelineItem[];
+  onOpenItem: (item: MyRecordTimelineItem) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<MyRecordTimelineFilter>("all");
+  const trimmedQuery = query.trim().toLowerCase();
+  const filtered = items.filter((item) => {
+    if (filter !== "all" && myRecordTimelineFilterOf(item.kind) !== filter) {
+      return false;
+    }
+
+    if (!trimmedQuery) {
+      return true;
+    }
+
+    return [item.title, item.body, item.meta, item.badge]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(trimmedQuery));
+  });
+  const groups: Array<{ entries: MyRecordTimelineItem[]; label: string }> = [];
+
+  filtered.forEach((item) => {
+    const parsed = parseDisplayDate(item.date);
+    const label = parsed ? parsed.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "Earlier";
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.label === label) {
+      lastGroup.entries.push(item);
+    } else {
+      groups.push({ entries: [item], label });
+    }
+  });
+
+  return (
+    <section aria-label="Timeline">
+      {/* Not one grid: PillRail's edge inset is a negative margin, which
+          widens a shared grid track and dragged the search field past the
+          right edge with it. The rail still bleeds to the screen edge; the
+          field stays inside the column. */}
+      <div className="pt-4">
+        <SearchField label="Search my record" onChange={setQuery} placeholder="Search my record" value={query} />
+      </div>
+      <div className="mt-2.5">
+        <PillRail edgeInset={4} label="Timeline filters" onChange={setFilter} options={myRecordTimelineFilters} value={filter} />
+      </div>
+      <p aria-live="polite" className="mt-3 text-[12.5px] font-semibold tabular-nums text-dos-secondary">
+        {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+      </p>
+      {groups.length ? (
+        <div className="mt-3 grid gap-6">
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{group.label}</p>
+              <div className="mt-3 border-l border-[#E3E6EB] pl-5">
+                {group.entries.map((item) => (
+                  <button
+                    className="relative block w-full pb-5 text-left last:pb-0"
+                    key={item.id}
+                    onClick={() => onOpenItem(item)}
+                    type="button"
+                  >
+                    <span className="absolute -left-[34px] top-0.5 flex h-7 w-7 items-center justify-center rounded-full border border-dos-rule bg-white text-dos-blue">
+                      {myRecordRecordVisual(item.kind).icon}
+                    </span>
+                    <p className="text-[12px] font-semibold text-dos-eyebrow">
+                      {item.badge} · {formatDate(item.date)}
+                    </p>
+                    <p className="mt-0.5 text-[14.5px] font-semibold leading-5 text-dos-primary">{item.title}</p>
+                    {item.body ? <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-dos-eyebrow">{item.body}</p> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-[13.5px] leading-[1.55] text-dos-eyebrow">
+          {items.length
+            ? "Nothing matches this search or filter."
+            : "Time with God, discipleship meetings, prophetic words, assessments and learning appear here as your record grows."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/* My Life: one continuous sectioned container -- Purpose, Prophetic Words,
+   God's Faithfulness, Assessments, Learning. Every row opens the same record
+   sheet it always did. */
+function MyRecordMyLifePanel({
+  assessmentItems,
+  ebenezers,
+  onOpenSheet,
+  record,
+}: {
+  assessmentItems: MyRecordAssessmentLibraryItem[];
+  ebenezers: MyRecordEbenezer[];
+  onOpenSheet: (sheet: MyRecordSheetState) => void;
+  record: DosAppUserRecord;
+}) {
+  const [expandedCollections, setExpandedCollections] = useState<Record<string, boolean>>({});
+  function toggleCollection(key: string) {
+    setExpandedCollections((current) => ({ ...current, [key]: !current[key] }));
+  }
+  const lifePlan = resolveMyRecordLifePlan(record);
+  const propheticWords = useMemo(
+    () => [...record.propheticWords].sort((first, second) => myRecordDateValue(second.dateReceived) - myRecordDateValue(first.dateReceived)),
+    [record.propheticWords],
+  );
+  const books = useMemo(
+    () => [...record.learningBooks].sort((first, second) => myRecordDateValue(latestMyRecordDate(second.finishedOn, second.updatedAt, second.startedOn, second.createdAt)) - myRecordDateValue(latestMyRecordDate(first.finishedOn, first.updatedAt, first.startedOn, first.createdAt))),
+    [record.learningBooks],
+  );
+  /* Recorded assessments only: the library's "future" placeholders advertise
+     instruments that are not here yet, and this section is the record. */
+  const recordedAssessments = assessmentItems.filter((item) => item.kind !== "future");
+
+  return (
+    <MyRecordSurface>
+      <MyRecordSurfaceSection label="Purpose">
+        <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "life_plan", mode: record.lifePlan ? "edit" : "new", plan: lifePlan })}>{record.lifePlan ? "Edit" : "+ Add"}</MyRecordSectionAction>}>
+          Purpose
+        </Eyebrow>
+        {lifePlan.callingStatement?.trim() ? (
+          <p className="text-[14.5px] leading-[1.55] text-dos-primary">{lifePlan.callingStatement}</p>
+        ) : (
+          <MyRecordSectionEmpty>No calling statement written yet.</MyRecordSectionEmpty>
+        )}
+        {/* Word(s) of the Year, carried over from the retired Purpose panel. */}
+        <div className="mt-3">
+          <Eyebrow tone="sub">Word(s) of the Year</Eyebrow>
+          <dl className="grid gap-2.5 sm:grid-cols-2">
+            {myRecordDefaultWordsOfYear.map((word) => (
+              <div key={word.label}>
+                <dt className="text-[15px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
+                  {word.label}
+                  <span className="ml-2 align-middle text-[14px] font-semibold text-dos-secondary" lang="he">{word.hebrew}</span>
+                </dt>
+                <dd className="mt-0.5 text-[12.5px] text-dos-secondary">
+                  {[word.transliteration, ...word.bullets].join(" · ")}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-[13px] leading-[1.5] text-dos-body">
+            <span className="font-semibold text-dos-primary">{myRecordWordsOfYearScripture.reference}</span>
+            {` — ${myRecordWordsOfYearScripture.text}`}
+          </p>
+        </div>
+        <div className="mt-2 divide-y divide-dos-rule">
+          <MyRecordSectionRow
+            meta={lifePlan.lastReviewedDate ? `Last reviewed ${formatShortDate(lifePlan.lastReviewedDate)}` : "Not reviewed yet"}
+            onOpen={() => onOpenSheet({ kind: "life_plan", mode: "view", plan: lifePlan })}
+            primary="Life plan"
+            secondary={myRecordLifePlanPriorityText(record.lifePlan) || null}
+          />
+        </div>
+      </MyRecordSurfaceSection>
+
+      <MyRecordSurfaceSection label="Prophetic Words">
+        <Eyebrow
+          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "new" })}>+ Add</MyRecordSectionAction>}
+          count={propheticWords.length || undefined}
+        >
+          Prophetic Words
+        </Eyebrow>
+        {propheticWords.length ? (
+          <div className="divide-y divide-dos-rule">
+            {(expandedCollections.prophetic ? propheticWords : propheticWords.slice(0, 3)).map((word) => (
+              <MyRecordSectionRow
+                key={word.id}
+                meta={[formatShortDate(word.dateReceived), word.givenBy, myRecordPropheticWordStatusLabel(word.status)].filter(Boolean).join(" · ")}
+                onOpen={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word })}
+                primary={myRecordCompactPreview(word.wordText) || "Prophetic word"}
+                secondary={word.notes}
+              />
+            ))}
+          </div>
+        ) : (
+          <MyRecordSectionEmpty>No prophetic words recorded yet.</MyRecordSectionEmpty>
+        )}
+        {propheticWords.length > 3 ? <MyRecordSectionAction onClick={() => toggleCollection("prophetic")}>{expandedCollections.prophetic ? "Show less" : `View all ${propheticWords.length}`}</MyRecordSectionAction> : null}
+      </MyRecordSurfaceSection>
+
+      <MyRecordSurfaceSection label="God's Faithfulness">
+        <Eyebrow
+          action={<MyRecordSectionAction onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" })}>+ Add</MyRecordSectionAction>}
+          count={ebenezers.length || undefined}
+        >
+          God&apos;s Faithfulness
+        </Eyebrow>
+        {ebenezers.length ? (
+          <div className="divide-y divide-dos-rule">
+            {ebenezers.slice(0, 3).map((ebenezer) => (
+              <MyRecordSectionRow
+                key={ebenezer.id}
+                meta={formatShortDate(ebenezer.date)}
+                onOpen={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })}
+                primary={ebenezer.title}
+                secondary={ebenezer.detail}
+              />
+            ))}
+          </div>
+        ) : (
+          <MyRecordSectionEmpty>Answered prayers and testimonies collect here.</MyRecordSectionEmpty>
+        )}
+        <MyRecordViewAll count={ebenezers.length} onClick={() => onOpenSheet({ ebenezers, kind: "faithfulness", mode: "view" })} shown={3} />
+      </MyRecordSurfaceSection>
+
+      <MyRecordSurfaceSection label="Assessments">
+        <Eyebrow
+          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>+ Add</MyRecordSectionAction>}
+          count={recordedAssessments.length || undefined}
+        >
+          Assessments
+        </Eyebrow>
+        {recordedAssessments.length ? (
+          <div className="divide-y divide-dos-rule">
+            {(expandedCollections.assessments ? recordedAssessments : recordedAssessments.slice(0, 4)).map((item) => (
+              <MyRecordSectionRow
+                key={item.id}
+                meta={[item.category, item.completedDate ? formatShortDate(item.completedDate) : null, myRecordAssessmentStatusLabel(item.status)].filter(Boolean).join(" · ")}
+                onOpen={() => onOpenSheet({ item, kind: "assessment_detail", mode: "view" })}
+                primary={item.name}
+                secondary={item.shortSummary}
+              />
+            ))}
+          </div>
+        ) : (
+          <MyRecordSectionEmpty>No assessments recorded yet.</MyRecordSectionEmpty>
+        )}
+        {recordedAssessments.length > 4 ? <MyRecordSectionAction onClick={() => toggleCollection("assessments")}>{expandedCollections.assessments ? "Show less" : `View all ${recordedAssessments.length} assessments`}</MyRecordSectionAction> : null}
+      </MyRecordSurfaceSection>
+
+      <MyRecordSurfaceSection label="Learning">
+        <Eyebrow
+          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>+ Add</MyRecordSectionAction>}
+          count={books.length || undefined}
+        >
+          Learning
+        </Eyebrow>
+        {books.length ? (
+          <div className="divide-y divide-dos-rule">
+            {(expandedCollections.learning ? books : books.slice(0, 4)).map((book) => (
+              <MyRecordSectionRow
+                key={book.id}
+                meta={[book.author, myRecordLearningBookStatusLabel(book.status), book.chapterNotes.length ? `${book.chapterNotes.length} chapter ${book.chapterNotes.length === 1 ? "note" : "notes"}` : null].filter(Boolean).join(" · ")}
+                onOpen={() => onOpenSheet({ book, kind: "book", mode: "view" })}
+                primary={book.title}
+                secondary={book.personalApplication}
+              />
+            ))}
+          </div>
+        ) : (
+          <MyRecordSectionEmpty>No books recorded yet.</MyRecordSectionEmpty>
+        )}
+        {books.length > 4 ? <MyRecordSectionAction onClick={() => toggleCollection("learning")}>{expandedCollections.learning ? "Show less" : `View all ${books.length} books`}</MyRecordSectionAction> : null}
+      </MyRecordSurfaceSection>
+      <MyRecordSurfaceSection label="People discipling me">
+        <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>+ Add</MyRecordSectionAction>}>People discipling me</Eyebrow>
+        {record.mentorRelationships.length ? record.mentorRelationships.map((mentor) => (
+          <MyRecordSectionRow key={mentor.id} primary={mentor.mentorName} meta={mentor.meetingRhythm} onOpen={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })} />
+        )) : <MyRecordSectionEmpty>No relationships recorded yet.</MyRecordSectionEmpty>}
+      </MyRecordSurfaceSection>
+    </MyRecordSurface>
+  );
+}
+
 function MyRecordWorkspace({
-  backLabel = "Back to More",
+  commitments,
+  commitmentsEnabled,
   errorMessage,
   fruit,
   isSubmitting,
@@ -32753,6 +32227,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
+  onOpenPersonRecord,
   onPauseResourceAssignment,
   onQuickTab,
   onSave,
@@ -32762,11 +32237,11 @@ function MyRecordWorkspace({
   record,
   reminders,
   resourceAssignments,
+  returnLabel = null,
   tab,
 }: {
-  /* USA-268: "Back to Reports" when a discipleship meeting was opened from
-     Reports; the back control then shows on desktop too. */
-  backLabel?: string;
+  commitments: DosAppPersonCommitment[];
+  commitmentsEnabled: boolean;
   errorMessage: string;
   fruit: DosAppFruit[];
   isSubmitting: boolean;
@@ -32779,6 +32254,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onOpenPersonRecord: ((personId: string) => void) | null;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
@@ -32788,66 +32264,43 @@ function MyRecordWorkspace({
   record: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  /* USA-268: "Reports" when a discipleship meeting was opened from Reports,
+     so Back returns there. The same prop Person and the meeting record use. */
+  returnLabel?: string | null;
   tab: MyRecordTab;
 }) {
-  const encounters = useMemo(() => buildMyRecordEncounters(record, people), [people, record]);
   const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
-  const [isWordsEditorOpen, setIsWordsEditorOpen] = useState(false);
+  const recordScrollRef = useRef<HTMLDivElement>(null);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
   const [myRecordSheet, setMyRecordSheet] = useState<MyRecordSheetState | null>(null);
-  const latestPrayer = record.prayerLogs[0] ?? null;
-  const latestMentorMeeting = record.mentorMeetings[0] ?? null;
-  const latestAssessment = useMemo(() => latestMyRecordAssessmentResult(record.assessmentResults), [record.assessmentResults]);
-  const latestExternalAssessment = useMemo(() => latestMyRecordExternalAssessmentResult(record.externalAssessmentResults), [record.externalAssessmentResults]);
-  const latestAssessmentLabel = myRecordLatestAssessmentLabel(latestAssessment, latestExternalAssessment);
   const lifePlan = resolveMyRecordLifePlan(record);
+  const recordDisplayName = record.displayName?.trim() || profileName;
   const totalQuietMinutes = record.journalEntries.reduce((sum, entry) => sum + entry.minutesSpent, 0);
   const totalPrayerMinutes = record.prayerLogs.reduce((sum, log) => sum + log.minutesSpent, 0);
   const ebenezers = useMemo(() => buildMyRecordEbenezers(record, fruit), [fruit, record]);
-  const namesById = useMemo(() => personNameById(people), [people]);
   /* CURRENT (spec §5.8, D10): exactly what production already treats as
      active. Resources assigned to me that are not completed, and assessments
      still in draft. No new aggregate; hidden when empty. */
   const includeRyanSeedsForCurrent = /\bryan\b/i.test([profileName, record.displayName].filter(Boolean).join(" "));
-  const draftAssessments = useMemo(
-    () => myRecordAssessmentLibraryItems({ includeRyanSeeds: includeRyanSeedsForCurrent, record }).filter((item) => item.status === "draft"),
+  const assessmentLibraryItems = useMemo(
+    () => myRecordAssessmentLibraryItems({ includeRyanSeeds: includeRyanSeedsForCurrent, record }),
     [includeRyanSeedsForCurrent, record],
   );
-  const currentItems: Array<{ id: string; onOpen: () => void; secondary: string; title: string }> = [
-    ...resourceAssignments
-      .filter((assignment) => assignment.status !== "completed")
-      .map((assignment) => {
-        const resource = resourceAssignmentResource(assignment);
+  const draftAssessments = useMemo(() => assessmentLibraryItems.filter((item) => item.status === "draft"), [assessmentLibraryItems]);
 
-        return {
-          id: `assignment-${assignment.id}`,
-          onOpen: () => {
-            if (resource && isGuidedResource(resource)) {
-              onOpenGuidedResource(resource, assignment.personId, assignment.id);
-              return;
-            }
+  function scrollRecordToTop() {
+    requestAnimationFrame(() => {
+      const scrollContainer = recordScrollRef.current;
 
-            onEditResourceAssignment(assignment);
-          },
-          secondary: [resourceAssignmentTypeLabel(assignment), assignment.status === "paused" ? "Paused" : resourceAssignmentDueLabel(assignment)].filter(Boolean).join(" · "),
-          title: resourceAssignmentTitle(assignment),
-        };
-      }),
-    ...draftAssessments.map((item) => ({
-      id: `assessment-${item.id}`,
-      onOpen: () => {
-        if (item.kind === "external" && item.result && "assessmentName" in item.result) {
-          openMyRecordSheet({ assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" });
-          return;
-        }
+      if (!scrollContainer) {
+        return;
+      }
 
-        onTabChange("growth");
-      },
-      secondary: "Assessment · In progress",
-      title: item.name,
-    })),
-  ];
+      scrollContainer.scrollTop = 0;
+      scrollContainer.scrollLeft = 0;
+    });
+  }
 
   useEffect(() => {
     setIsMyRecordFabOpen(false);
@@ -32976,23 +32429,7 @@ function MyRecordWorkspace({
     })();
   }
 
-  function handleRecordSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-
-    void (async () => {
-      const saved = await onSave({
-        currentSeasonFocus: String(formData.get("current_season_focus") ?? ""),
-        displayName: profileName,
-        kind: "record",
-      }, "overview");
-
-      if (saved) {
-        setIsWordsEditorOpen(false);
-      }
-    })();
-  }
-
+  /* One creation menu per view, matching what that view is for. */
   const myRecordFabItems: MyRecordContextualAction[] = (() => {
     const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
     const addMentor = () => openMyRecordSheet({ kind: "mentor_relationship", mode: "new" });
@@ -33001,38 +32438,29 @@ function MyRecordWorkspace({
     const propheticWord = () => openMyRecordSheet({ kind: "prophetic_word", mode: "new" });
     const book = () => openMyRecordSheet({ kind: "book", mode: "new" });
     const faithfulness = () => openMyRecordSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" });
+    const prayer = () => openMyRecordSheet({ kind: "prayer", mode: "new" });
 
-    if (activeMyRecordTab === "walk_with_god") {
-      return [
-        { icon: "library", label: "Time With God", onClick: encounter },
-      ];
-    }
-
-    if (activeMyRecordTab === "growth") {
-      return [
-        { icon: "people", label: "Add Person Discipling Me", onClick: addMentor },
-        { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
-        { icon: "library", label: "Add Assessment", onClick: assessment },
-        { icon: "library", label: "Add Book", onClick: book },
-      ];
-    }
-
-    if (activeMyRecordTab === "calling") {
+    if (activeMyRecordTab === "my_life") {
       return [
         { icon: "prayer", label: "Add Prophetic Word", onClick: propheticWord },
+        { icon: "fruit", label: "Record God's Faithfulness", onClick: faithfulness },
+        { icon: "library", label: "Add Assessment", onClick: assessment },
+        { icon: "library", label: "Add Book", onClick: book },
+        { icon: "people", label: "Add Person Discipling Me", onClick: addMentor },
       ];
     }
 
-    if (activeMyRecordTab === "legacy") {
+    if (activeMyRecordTab === "timeline") {
       return [
-        { icon: "fruit", label: "Record God's Faithfulness", onClick: faithfulness },
+        { icon: "library", label: "Time With God", onClick: encounter },
+        { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
       ];
     }
 
     return [
       { icon: "library", label: "Time With God", onClick: encounter },
+      { icon: "prayer", label: "Log Prayer", onClick: prayer },
       { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
-      { icon: "library", label: "Add Assessment", onClick: assessment },
     ];
   })();
 
@@ -33043,107 +32471,119 @@ function MyRecordWorkspace({
   // TODO: Future: AI accountability summaries, mentor summaries, board reports, growth insights, assessment trend analysis, prayer reminders, and personal discipleship coaching.
 
   return (
-    <div className="relative space-y-3 pb-[calc(env(safe-area-inset-bottom)+9rem)] md:space-y-4 md:pb-24">
-      {/* Canonical PageHeader (spec §3, §6): the "← More" pill is the header's
-          back control. USA-265 removed the white Private chip beside the title:
-          it opened a panel promising sharing that does not exist. */}
-      <PageHeader
-        backLabel={backLabel}
-        mobileOnlyBack={backLabel === "Back to More"}
-        onBack={onBack}
-        title="My Record"
-      />
-      <PillRail edgeInset={4} label="My Record sections" onChange={onTabChange} options={myRecordTabs} value={activeMyRecordTab} />
-
-      {activeMyRecordTab === "overview" ? (
-        /* Overview = Current + Recent + a single view-all action (spec §5.8).
-           The daily KPI cards were retired by USA-220. */
-        <div className="space-y-4 pb-36 md:pb-6">
-          {currentItems.length ? (
-            <section aria-label="Current">
-              <Eyebrow count={currentItems.length}>Current</Eyebrow>
-              <div className="rounded-dos-2 border border-dos-line bg-white px-4">
-                {currentItems.map((item) => (
-                  <Row
-                    chevron
-                    key={item.id}
-                    leading={<IconTile><BookOpen aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.9} /></IconTile>}
-                    onClick={item.onOpen}
-                    primary={item.title}
-                    secondary={item.secondary}
-                  />
-                ))}
+    /* USA-272: the Person overlay shell, exactly. It sits over the People
+       list rather than replacing it, which is what lets Back restore the
+       search, the circle filter and the scroll position without My Record
+       having to remember any of them. */
+    <div
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosPersonAtmosphereClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14`}
+      ref={recordScrollRef}
+    >
+      <div className="mx-auto w-full max-w-[1080px]">
+        <header>
+          {/* The same control row as a Person: back on the left, the record's
+              one administrative action on the right. */}
+          <div className="-mx-4 flex items-center justify-between px-2 md:mx-0 md:px-0">
+            <button
+              aria-label={activeMyRecordTab === "overview" ? `Back to ${returnLabel ?? "people"}` : "Back to overview"}
+              className={`flex h-11 items-center justify-center gap-1.5 rounded-full text-dos-primary transition-colors hover:bg-[#F3F4F6] ${returnLabel && activeMyRecordTab === "overview" ? "px-2.5 text-[13.5px] font-semibold" : "w-11"}`}
+              onClick={() => {
+                if (activeMyRecordTab === "overview") {
+                  onBack();
+                } else {
+                  onTabChange("overview");
+                  scrollRecordToTop();
+                }
+              }}
+              type="button"
+            >
+              <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={2} />
+              {returnLabel && activeMyRecordTab === "overview" ? <span>{returnLabel}</span> : null}
+            </button>
+            <button
+              className="flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-[13.5px] font-semibold text-dos-secondary transition-colors hover:bg-[#F3F4F6] hover:text-dos-primary"
+              onClick={() => openMyRecordSheet({ kind: "life_plan", mode: record.lifePlan ? "edit" : "new", plan: lifePlan })}
+              type="button"
+            >
+              <Pencil className="h-[15px] w-[15px]" aria-hidden="true" strokeWidth={1.9} />
+              Edit
+            </button>
+          </div>
+          {/* Identity reads down the centre line, as on a Person. */}
+          <div className="mt-1 flex flex-col items-center pb-4 text-center">
+            <span
+              aria-hidden="true"
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,#EAF0FC_0%,#D3DFF7_100%)] text-[18px] font-bold leading-none tracking-[0.01em] text-[#1B3EA0] shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-[rgba(27,62,160,0.16)]"
+            >
+              {initials(recordDisplayName)}
+            </span>
+            <h2 className="mt-2.5 max-w-full truncate text-[25px] font-bold leading-[1.1] tracking-[-0.02em] text-dos-primary">
+              {recordDisplayName}
+            </h2>
+            <p className="mt-1 text-[13px] font-semibold leading-[1.3] text-dos-secondary">My Record · Private</p>
+            {totalQuietMinutes || totalPrayerMinutes ? (
+              <p className="mt-0.5 text-[12.5px] font-semibold leading-[1.3] text-dos-eyebrow">
+                {[totalQuietMinutes ? `${formatRecordDuration(totalQuietMinutes)} with God` : null, totalPrayerMinutes ? `${formatRecordDuration(totalPrayerMinutes)} in prayer` : null].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
+          </div>
+          <div className="mx-auto w-full max-w-[600px] pb-1 lg:mx-0 lg:max-w-[936px]">
+            <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
+              <div className="min-w-0 lg:flex-1">
+                <Segmented
+                  label="My Record views"
+                  onChange={(view) => {
+                    onTabChange(view);
+                    scrollRecordToTop();
+                  }}
+                  options={myRecordTabs}
+                  value={activeMyRecordTab}
+                />
               </div>
-            </section>
-          ) : null}
-          <section aria-label="Recent">
-            <Eyebrow action={<button className="-my-3 flex min-h-11 items-center text-dos-label text-dos-blue" onClick={() => openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" })} type="button">View all</button>}>Recent</Eyebrow>
-            {timeline.length ? (
-              <div className="grid gap-1.5">
-                {timeline.slice(0, 3).map((item) => (
-                  <MyRecordCompactRecordCard
-                    body={item.body}
-                    date={item.date}
-                    kind={item.kind}
-                    key={item.id}
-                    meta={item.meta}
-                    onClick={() => openMyRecordTimelineItem(item)}
-                    title={item.title}
-                    typeLabel={item.badge}
-                  />
-                ))}
-              </div>
-            ) : (
-              <MyRecordCompactEmptyRow
-                action={<MyRecordActionButton onClick={() => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ New</MyRecordActionButton>}
-                icon={<Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                text="Time with God, people discipling you, assessments, and words collect here."
-                title="No personal activity yet."
-              />
-            )}
-          </section>
-        </div>
-      ) : null}
+              <div aria-hidden="true" className="hidden lg:block lg:w-[292px] lg:shrink-0 xl:w-[308px]" />
+            </div>
+          </div>
+        </header>
 
-      {activeMyRecordTab === "walk_with_god" ? (
-        <MyRecordWalkWithGodPanel
-          encounters={encounters}
-          onOpenSheet={openMyRecordSheet}
-        />
-      ) : null}
+        <article aria-label="My Record" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
+          <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
+            <div className="min-w-0 lg:flex-1">
+              {activeMyRecordTab === "overview" ? (
+                <MyRecordOverviewPanel
+                  assignments={resourceAssignments}
+                  commitments={commitments}
+                  commitmentsEnabled={commitmentsEnabled}
+                  draftAssessments={draftAssessments}
+                  onEditResourceAssignment={onEditResourceAssignment}
+                  onLogResourceCheckIn={onLogResourceCheckIn}
+                  onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
+                  onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
+                  onOpenGuidedResource={onOpenGuidedResource}
+                  onOpenMeeting={(meeting) => openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
+                  onOpenPersonRecord={onOpenPersonRecord}
+                  onOpenSheet={openMyRecordSheet}
+                  onPauseResourceAssignment={onPauseResourceAssignment}
+                  record={record}
+                />
+              ) : null}
 
-      {activeMyRecordTab === "growth" ? (
-        <MyRecordGrowthPanel
-          assignments={resourceAssignments}
-          onEditResourceAssignment={onEditResourceAssignment}
-          onLogResourceCheckIn={onLogResourceCheckIn}
-          onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
-          onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
-          onOpenGuidedResource={onOpenGuidedResource}
-          onOpenSheet={openMyRecordSheet}
-          onPauseResourceAssignment={onPauseResourceAssignment}
-          people={people}
-          profileName={profileName}
-          record={record}
-        />
-      ) : null}
+              {activeMyRecordTab === "timeline" ? (
+                <MyRecordTimelinePanel items={timeline} onOpenItem={openMyRecordTimelineItem} />
+              ) : null}
 
-      {activeMyRecordTab === "calling" ? (
-        <MyRecordCallingPanel
-          errorMessage={errorMessage}
-          isSubmitting={isSubmitting}
-          onOpenSheet={openMyRecordSheet}
-          onSave={onSave}
-          record={record}
-        />
-      ) : null}
-
-      {activeMyRecordTab === "legacy" ? (
-        <MyRecordLegacyPanel
-          ebenezers={ebenezers}
-          onOpenSheet={openMyRecordSheet}
-        />
-      ) : null}
+              {activeMyRecordTab === "my_life" ? (
+                <MyRecordMyLifePanel
+                  assessmentItems={assessmentLibraryItems}
+                  ebenezers={ebenezers}
+                  onOpenSheet={openMyRecordSheet}
+                  record={record}
+                />
+              ) : null}
+            </div>
+            <div aria-hidden="true" className="hidden lg:block lg:w-[292px] lg:shrink-0 xl:w-[308px]" />
+          </div>
+        </article>
+      </div>
 
       <MyRecordContextualFloatingActions
         isOpen={isMyRecordFabOpen}
@@ -34125,7 +33565,6 @@ function DesktopNavigation({
       <nav className="mt-5 grid gap-5" aria-label="DOS sections">
         <div className="grid gap-1.5">
           {renderNavButton(desktopDashboardNavItem, "dashboard")}
-          {renderNavButton(desktopMyRecordNavItem, "my-record")}
         </div>
         {desktopNavGroups.map((group) => (
           <div key={group.label}>
@@ -34254,8 +33693,27 @@ function FieldPersonRow({
   );
 }
 
+/* USA-272: how many people this list is showing, as a small pale-blue circle
+   in the container's own upper-right. It sits in reserved space at the top of
+   the container rather than floating over the first row, whose right edge
+   already carries a Log control and a chevron. */
+function PeopleListCountBadge({ count }: { count: number }) {
+  return (
+    <div className="flex h-9 items-center justify-end">
+      <span
+        aria-label={`${count} ${count === 1 ? "person" : "people"}`}
+        className="flex h-7 min-w-7 items-center justify-center rounded-full bg-dos-blue100 px-2 text-[12px] font-bold tabular-nums leading-none text-dos-blueText"
+        role="status"
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
 function FieldPeopleList({
   circleKeyByPersonId,
+  count = null,
   empty,
   items,
   latestMeetingDateByPersonId,
@@ -34263,6 +33721,8 @@ function FieldPeopleList({
   onOpenPerson,
 }: {
   circleKeyByPersonId: Map<string, string>;
+  /** People currently listed, shown as the container badge. Null hides it. */
+  count?: number | null;
   empty: string;
   items: CircleListItem[];
   latestMeetingDateByPersonId: Map<string, string | null>;
@@ -34271,6 +33731,8 @@ function FieldPeopleList({
 }) {
   return (
     <div className="rounded-dos-2 border border-dos-line bg-white px-4">
+      {count === null ? null : <PeopleListCountBadge count={count} />}
+      <div>
       {items.length ? items.map(({ person }) => {
         const circleKey = circleKeyByPersonId.get(person.id);
 
@@ -34287,6 +33749,7 @@ function FieldPeopleList({
       }) : (
         <p className="py-4 text-dos-body text-dos-secondary">{empty}</p>
       )}
+      </div>
     </div>
   );
 }
@@ -38491,6 +37954,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const [groupOriginPersonId, setGroupOriginPersonId] = useState<string | null>(null);
   const [pendingGroupJoinRequestCounts, setPendingGroupJoinRequestCounts] = useState<Record<string, number>>({});
   const [prayerWorkspaceTab, setPrayerWorkspaceTab] = useState<PrayerWorkspaceTab>("prayers");
+  /* USA-272: My Record is a view inside People, opened over the list the same
+     way a Person is, so People stays the selected tab and the list underneath
+     keeps its search, circle filter and scroll position for the way back. */
+  const [isMyRecordOpen, setIsMyRecordOpen] = useState(false);
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -38738,6 +38205,10 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       setReportsReturn(restored.reportsReturn);
     }
 
+    if (restored.myRecordOpen && restoredTab === "people") {
+      setIsMyRecordOpen(true);
+    }
+
     setIsViewRestored(true);
   }, [data.workspace.id]);
 
@@ -38760,10 +38231,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       meetingsCalendarDate: selectedMeetingsCalendarDate,
       meetingsView,
       moreAppView: activeTab === "more" ? moreAppView : null,
+      myRecordOpen: activeTab === "people" && isMyRecordOpen,
       reportsReturn,
       selectedPersonId,
     });
-  }, [activeTab, data.workspace.id, isViewRestored, meetingsView, moreAppView, people, reportsReturn, selectedMeetingsCalendarDate, selectedPersonId]);
+  }, [activeTab, data.workspace.id, isMyRecordOpen, isViewRestored, meetingsView, moreAppView, people, reportsReturn, selectedMeetingsCalendarDate, selectedPersonId]);
 
   /* Desktop has no launcher screen (spec §5.7, v1.1): the sidebar is the
      launcher, and the More grid mounts only on the mobile tab. So landing on
@@ -38963,6 +38435,11 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const myRecordResourceAssignments = useMemo(() => (
     myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
   ), [data.resourceAssignments, myRecordPerson]);
+  /* USA-272: my own Accountability commitments, read from the same canonical
+     store the Person page reads. My Record shows them; it never writes them. */
+  const myRecordCommitments = useMemo(() => (
+    myRecordPerson ? data.commitments.filter((commitment) => commitment.personId === myRecordPerson.id) : []
+  ), [data.commitments, myRecordPerson]);
   const selectedPrayerResource = useMemo(() => (
     selectedPrayerResourceSlug ? getDosPrayerResourceBySlug(selectedPrayerResourceSlug) : null
   ), [selectedPrayerResourceSlug]);
@@ -39461,6 +38938,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
+    if (searchParams.get("view") === "my_record") {
+      setActiveTab("people");
+      setMoreAppView(null);
+      setIsMyRecordOpen(true);
+      setMyRecordTab(normalizeMyRecordTab((searchParams.get("tab") ?? "overview") as MyRecordTab));
+      return;
+    }
     if (searchParams.get("view") !== "library") {
       const requestedView = normalizeMoreAppView(searchParams.get("view") as MoreAppView | null);
 
@@ -39797,6 +39281,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 	    setActiveTab(tab);
 	    setMoreAppView(null);
     setLibraryResourceView(null);
+    setIsMyRecordOpen(false);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -39846,9 +39331,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setActiveTab("more");
 	    setMoreAppView(nextView);
     setLibraryResourceView(null);
-    if (nextView === "my_record") {
-      setMyRecordTab((current) => normalizeMyRecordTab(current));
-    }
+    setIsMyRecordOpen(false);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -39875,14 +39358,46 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setIsUsamApplicationOpen(false);
   }
 
+  /* USA-272: My Record opens over the People list rather than replacing the
+     tab, so the list keeps its search, circle filter and scroll position and
+     Back simply uncovers it. Nothing here touches peopleQuery,
+     peopleCircleView, showSecondaryFieldPeople or the scroll container --
+     that is exactly what makes Back a return rather than a reset. */
   function openMyRecordTab(tab: MyRecordTab) {
-    openMoreApp("my_record");
+    if (activeTab !== "people" || !isMyRecordOpen) {
+      pulseTabTransition();
+    }
+
+    setActiveTab("people");
+    setMoreAppView(null);
+    setLibraryResourceView(null);
+    setIsMyRecordOpen(true);
     setMyRecordTab(normalizeMyRecordTab(tab));
+    clearReportsReturn();
+    setErrorMessage("");
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setIsAppsSearchOpen(false);
+    setIsPrayerSearchOpen(false);
+    setIsActivitySheetOpen(false);
+    setIsUpcomingSheetOpen(false);
+    setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
+    setLoggingScheduledMeetingId(null);
+    setSelectedReminderId(null);
+    setSelectedPersonId(null);
+    setPostMeetingFollowUpId(null);
+    setIsUsamApplicationOpen(false);
+  }
+
+  function closeMyRecord() {
+    setIsMyRecordOpen(false);
+    setMyRecordLaunchAction(null);
   }
 
   function launchMyRecordAction(action: MyRecordLaunchAction) {
     setMyRecordLaunchAction(action);
-    openMyRecordTab(action.startsWith("mentor_meeting") ? "growth" : "overview");
+    openMyRecordTab(action.startsWith("mentor_meeting") ? "my_life" : "overview");
   }
 
   /* USA-265: a discipleship meeting lives in My Record, so opening one from a
@@ -40889,6 +40404,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
 	  function openPeopleCircle(circle: PeopleCircleView = "all") {
 	    setActiveTab("people");
 	    setMoreAppView(null);
+	    setIsMyRecordOpen(false);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -41091,6 +40607,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     setGroupOriginPersonId(null);
     setActiveTab("people");
     setMoreAppView(null);
+    setIsMyRecordOpen(false);
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -45135,26 +44652,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       : isUsamApplicationPending
         ? "Pending"
         : "Optional";
-  const myRecordActivityCount = data.myRecord.journalEntries.length
-    + data.myRecord.prayerLogs.length
-    + data.myRecord.mentorMeetings.length
-    + data.myRecord.assessmentResults.length
-    + data.myRecord.externalAssessmentResults.length
-    + data.myRecord.propheticWords.length
-    + data.myRecord.learningBooks.reduce((sum, book) => sum + 1 + book.chapterNotes.length, 0);
   const appCatalogSections: DosAppCatalogSection[] = [
     {
       description: "Core DOS rhythms that are already available in this workspace.",
       label: "Installed",
       items: [
-        {
-          description: "Your walk, growth, purpose, and faithfulness.",
-          icon: <User className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
-          label: "My Record",
-          onClick: () => openMoreApp("my_record"),
-          section: "installed",
-          status: myRecordActivityCount ? `${myRecordActivityCount} entries` : "Private",
-        },
+        /* USA-272: My Record is not listed here. It is one of the three
+           People actions, so the launcher would be a second doorway to a
+           screen that already has one -- and the one place it belongs is
+           beside the people it is about. */
         {
           description: "People God has entrusted to your care.",
           icon: <Users className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />,
@@ -45306,12 +44812,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const testimonyReviewFruitFormAction = {
     onPreview: () => handlePreviewFruitForm("testimony_review"),
   };
+  /* USA-272: the three-view record. Time with God and prayer read on
+     Overview; the people discipling me, assessments and prophetic words are
+     My Life. */
   const myRecordQuickActionTabs = {
-    assessment: "growth" as MyRecordTab,
-    mentor: "growth" as MyRecordTab,
-    prayer: "walk_with_god" as MyRecordTab,
-    prophetic: "calling" as MyRecordTab,
-    quietTime: "walk_with_god" as MyRecordTab,
+    assessment: "my_life" as MyRecordTab,
+    mentor: "my_life" as MyRecordTab,
+    prayer: "overview" as MyRecordTab,
+    prophetic: "my_life" as MyRecordTab,
+    quietTime: "overview" as MyRecordTab,
   };
   const mobileFloatingActionItems: MobileFloatingActionItem[] = activeTab === "meetings"
     ? [
@@ -45360,7 +44869,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
           { icon: "upload", label: "Import", onClick: runDesktopAction(() => setIsPeopleImportOpen(true)) },
         ]
       : [];
-  const suppressGlobalFabForMyRecord = activeTab === "more" && activeMoreAppView === "my_record";
+  const suppressGlobalFabForMyRecord = activeTab === "people" && isMyRecordOpen;
   const suppressGlobalFabForLibrary = activeTab === "more" && activeMoreAppView === "library";
   /* USA-246: Links has its own single create action; no floating plus beside it. */
   const suppressGlobalFabForLinks = activeTab === "meetings" && meetingsView === "links";
@@ -45570,13 +45079,21 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     rail; from sm up, where My 120 is on screen, it sits inline
                     immediately after it. */}
                 <PillRail edgeInset={4} fit label="Field circles" onChange={setPeopleCircleView} options={peopleCircleTabs} value={peopleCircleView} />
-                {/* One discreet row: how many people the list is showing right
-                    now, then the two list controls. The number is the list's own
-                    length, so search, circle and Household all move it together. */}
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <p aria-live="polite" className="mr-auto text-[13px] font-semibold tabular-nums text-dos-secondary">
-                    {visibleCirclePeople.length} {visibleCirclePeople.length === 1 ? "person" : "people"}
-                  </p>
+                {/* USA-272: one action row -- My Record, Household, Manage
+                    circles. My Record leads it because it is the one entry
+                    about the person doing the stewarding; the count that used
+                    to sit here is now a badge inside the list itself, where
+                    the thing it counts actually is. */}
+                {/* All actions remain visible at narrow widths, without horizontal scrolling. */}
+                <div aria-label="People actions" className="flex min-w-0 flex-wrap items-center gap-2 pb-0.5">
+                  <button
+                    className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                    onClick={() => openMyRecordTab("overview")}
+                    type="button"
+                  >
+                    <User aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    <span>My Record</span>
+                  </button>
                   {secondaryFieldPeopleCount ? (
                     <button
                       aria-label={showSecondaryFieldPeople
@@ -45614,12 +45131,18 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     {peopleImportMessage.text}
                   </p>
                 ) : null}
+                {/* USA-272: the count now belongs to the list, so it rides
+                    inside the list container's upper-right as a small
+                    pale-blue circle. It is shown for All only -- on a circle
+                    the rail already names what you are looking at, and a
+                    second number beside it read as a second filter. */}
                 <div className="mt-3">
                   {visibleCirclePeople.length ? (
                     <>
                       <div className="lg:hidden">
                         <FieldPeopleList
                           circleKeyByPersonId={fieldCircleKeyByPersonId}
+                          count={peopleCircleView === "all" ? visibleCirclePeople.length : null}
                           empty={peopleCircleContent.empty}
                           items={visibleCirclePeople}
                           latestMeetingDateByPersonId={latestMeetingDateByPersonId}
@@ -45628,6 +45151,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         />
                       </div>
                       <DesktopPeopleIndex
+                        count={peopleCircleView === "all" ? visibleCirclePeople.length : null}
                         empty={peopleCircleContent.empty}
                         engagementLevelsEnabled={engagementLevelsEnabled}
                         items={visibleCirclePeople}
@@ -45860,34 +45384,6 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     enabledByKey={{ engagementLevels: engagementLevelsEnabled }}
                     isSubmitting={isSubmitting}
                     onToggle={toggleAdvancedFeature}
-                  />
-                ) : null}
-
-                {activeMoreAppView === "my_record" ? (
-                  <MyRecordWorkspace
-                    backLabel={reportsReturn ? "Back to Reports" : "Back to More"}
-                    errorMessage={errorMessage}
-                    fruit={data.fruit}
-                    isSubmitting={isSubmitting}
-                    launchAction={myRecordLaunchAction}
-                    meetings={data.meetings}
-                    onBack={() => (reportsReturn ? backToReports() : setMoreAppView(null))}
-                    onEditResourceAssignment={openResourceAssignmentEdit}
-                    onLaunchActionHandled={() => setMyRecordLaunchAction(null)}
-                    onLogResourceCheckIn={openResourceAssignmentCheckIn}
-                    onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
-                    onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
-                    onOpenGuidedResource={openJourneyForPerson}
-                    onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
-                    onQuickTab={setMyRecordTab}
-                    onSave={submitMyRecord}
-                    onTabChange={setMyRecordTab}
-                    people={people}
-                    profileName={profileName}
-                    record={data.myRecord}
-                    reminders={data.reminders}
-                    resourceAssignments={myRecordResourceAssignments}
-                    tab={myRecordTab}
                   />
                 ) : null}
 
@@ -46515,6 +46011,40 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
             onLogMeeting={() => openForm("meeting")}
             onLogMeetingForPerson={openMeetingForPerson}
             onOpenPerson={openPersonDetail}
+          />
+        ) : null}
+
+        {/* USA-272: My Record is a People view. It overlays the list the
+            same way a Person does, so People stays the selected tab and the
+            list keeps its search, circle filter and scroll for the way back. */}
+        {activeTab === "people" && isMyRecordOpen && !selectedPerson ? (
+          <MyRecordWorkspace
+            commitments={myRecordCommitments}
+            commitmentsEnabled={commitmentsEnabled}
+            errorMessage={errorMessage}
+            fruit={data.fruit}
+            isSubmitting={isSubmitting}
+            launchAction={myRecordLaunchAction}
+            meetings={data.meetings}
+            onBack={() => (reportsReturn ? backToReports() : closeMyRecord())}
+            onEditResourceAssignment={openResourceAssignmentEdit}
+            onLaunchActionHandled={() => setMyRecordLaunchAction(null)}
+            onLogResourceCheckIn={openResourceAssignmentCheckIn}
+            onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
+            onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
+            onOpenGuidedResource={openJourneyForPerson}
+            onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
+            onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
+            onQuickTab={setMyRecordTab}
+            onSave={submitMyRecord}
+            onTabChange={setMyRecordTab}
+            people={people}
+            profileName={profileName}
+            record={data.myRecord}
+            reminders={data.reminders}
+            resourceAssignments={myRecordResourceAssignments}
+            returnLabel={reportsReturn ? "Reports" : null}
+            tab={myRecordTab}
           />
         ) : null}
 
