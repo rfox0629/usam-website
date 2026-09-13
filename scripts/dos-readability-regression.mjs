@@ -43,9 +43,9 @@ assert(prayerAudienceSelect.includes("text-[#64748B]"), "Prayer audience helper 
 assert(!prayerAudienceSelect.includes("font-medium text-[#94A3B8]"), "Prayer audience helper text should not look disabled.");
 
 const myRecordDetailBlock = sliceBetween(client, "function MyRecordDetailBlock", "function MyRecordSheetFrame");
-assert(myRecordDetailBlock.includes("text-[#64748B]"), "My Record detail block labels should use readable secondary text.");
-assert(myRecordDetailBlock.includes("text-[#0F172A]"), "My Record detail block values should use primary text.");
-assert(myRecordDetailBlock.includes("[&_li]:text-[#0F172A]"), "My Record detail block lists should keep primary readable text.");
+assert(myRecordDetailBlock.includes("text-dos-secondary"), "My Record detail block labels should use the shared readable secondary token.");
+assert(myRecordDetailBlock.includes("text-dos-primary"), "My Record detail block values should use the shared primary token.");
+assert(myRecordDetailBlock.includes("[&_li]:text-dos-primary"), "My Record detail block lists should keep primary readable text.");
 assertReadableSection(myRecordDetailBlock, "My Record detail blocks");
 
 const lifePlanSheet = sliceBetween(client, "if (sheet.kind === \"life_plan\")", "if (sheet.kind === \"external_assessment\")");

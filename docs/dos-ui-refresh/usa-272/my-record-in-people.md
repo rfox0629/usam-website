@@ -10,7 +10,7 @@ the Person page's own pieces rather than a parallel set.
 | Before | After |
 |---|---|
 | More → My Record, plus a desktop sidebar item and an Apps tile | People → **My Record**, first in the action row |
-| People action controls: Household, Manage circles | **My Record · Household · Manage circles**, one row that scrolls when it cannot fit |
+| People action controls: Household, Manage circles | **My Record · Household · Manage circles**, wrapping when needed so every action remains visible |
 | "13 people" as a line above the list | a small pale-blue circular badge inside the list container, upper-right, **All only** |
 | Overview / Walk / Growth / Purpose / Faithfulness (PillRail) | **Overview / Timeline / My Life** (Segmented, as on a Person) |
 | "← More" PageHeader | Person's control row, centred identity, and Segmented rail |
@@ -43,7 +43,25 @@ grouped by month with Person's Timeline row treatment.
 ### My Life
 **One continuous sectioned container**: Purpose (calling statement, Word(s) of
 the Year, Life plan), Prophetic Words, God's Faithfulness, Assessments,
-Learning. Every row opens the same record sheet it always did.
+Learning, with retained People discipling me management below. Every row opens the same record sheet it always did. Collections expand in place to expose all saved rows.
+
+## Merge reconciliation
+
+PR #142 is the consolidated implementation, retaining its current commitments
+and retired-code cleanup. The final review carried over #141's accessible
+relationship management and non-scrolling action row. It also fixes prophetic
+View all (previously opened only the first word), restores full assessment/book
+collections, preserves Reports context in legacy saved sessions, and restores
+legacy `view=my_record` URLs. Read-only fields use shared readable tokens and
+prose sections rather than one oversized box per field. The shared unsaved-work
+guard and all persistence/API paths remain unchanged.
+
+Local final validation: DOS aggregate passed; production build and typecheck
+passed. Browser binaries are unavailable in this environment and their CDN
+download failed, so final browser validation runs in CI using the existing
+Chromium installation step, with screenshots uploaded as workflow artifacts.
+Mac visual baselines describe the pre-reconciliation PR, not these final changes;
+they must not be presented as a fresh byte-for-byte visual pass.
 
 ## Back preserves search, filters and scroll
 

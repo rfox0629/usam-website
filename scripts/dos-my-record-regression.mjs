@@ -248,7 +248,7 @@ assert(client.includes("setIsMyRecordOpen(false);"), "USA-272: leaving People, o
 //    inside More > My Record is carried to the new home rather than dropped.
 assert(client.includes("myRecordOpen: boolean;"), "USA-272: the persisted view records whether My Record was open.");
 assert(client.includes('myRecordOpen: activeTab === "people" && isMyRecordOpen,'), "USA-272: My Record's open state is persisted with the rest of the view.");
-assert(client.includes('if (parsed.moreAppView === "my_record") {') && client.includes('return { activeTab: "people", moreAppView: null, myRecordOpen: true };'), "USA-272: an old persisted More > My Record session migrates to People > My Record.");
+assert(client.includes('if (parsed.moreAppView === "my_record") {') && client.includes('activeTab: "people", moreAppView: null, myRecordOpen: true,'), "USA-272: an old persisted More > My Record session migrates to People > My Record.");
 
 // 4. The People action row, and the count as a badge on the list itself.
 const peopleTabSource = client.slice(client.indexOf('{activeTab === "people" ? ('), client.indexOf('{activeTab === "meetings" ? ('));
@@ -315,6 +315,13 @@ assert(timelineFiltersSource.indexOf('{ label: "All", value: "all" }') === timel
 
 // 9. My Life: one continuous sectioned container.
 const myLifePanelSource = client.slice(client.indexOf("function MyRecordMyLifePanel"), client.indexOf("function MyRecordWorkspace"));
+assert(client.includes('aria-label="People actions" className="flex min-w-0 flex-wrap'), "People actions must wrap instead of hiding controls behind horizontal scrolling.");
+assert(myLifePanelSource.includes('record.mentorRelationships.map') && myLifePanelSource.includes('kind: "mentor_relationship", mentor, mode: "view"'), "Saved discipleship relationships must remain accessible for viewing and editing.");
+for (const key of ["prophetic", "assessments", "learning"]) {
+  assert(myLifePanelSource.includes(`expandedCollections.${key}`) && myLifePanelSource.includes(`toggleCollection("${key}")`), `The ${key} collection must expose every saved row, not just the preview.`);
+}
+assert(!myLifePanelSource.includes('word: propheticWords[0]'), "View all must not open only the first prophetic word.");
+assert(client.includes('searchParams.get("view") === "my_record"'), "Legacy My Record URLs must open the relocated record.");
 assert((myLifePanelSource.match(/<MyRecordSurface>/g) ?? []).length === 1, "USA-272: My Life is one continuous container, not a stack of cards.");
 ["Purpose", "Prophetic Words", "God's Faithfulness", "Assessments", "Learning"].forEach((label) => {
   assert(myLifePanelSource.includes(`label="${label}"`), `USA-272: My Life includes the ${label} section.`);

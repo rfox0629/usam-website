@@ -245,7 +245,11 @@ function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
     /* A session that was inside More > My Record when this shipped is carried
        to the same screen in its new home rather than dropped on the launcher. */
     if (parsed.moreAppView === "my_record") {
-      return { activeTab: "people", moreAppView: null, myRecordOpen: true };
+      return {
+        activeTab: "people", moreAppView: null, myRecordOpen: true,
+        ...(typeof parsed.reportsReturn?.scrollTop === "number" && Number.isFinite(parsed.reportsReturn.scrollTop)
+          ? { reportsReturn: { scrollTop: parsed.reportsReturn.scrollTop } } : {}),
+      };
     }
 
     return {
@@ -16473,14 +16477,14 @@ const myRecordTabAliases: Readonly<Record<string, MyRecordTab>> = {
   assessments: "my_life",
   calling: "my_life",
   growth: "my_life",
-  journal: "overview",
+  journal: "timeline",
   learning: "my_life",
   legacy: "my_life",
   mentors: "my_life",
   prayer: "overview",
   prophetic_words: "my_life",
-  scripture: "overview",
-  walk_with_god: "overview",
+  scripture: "timeline",
+  walk_with_god: "timeline",
 };
 
 function normalizeMyRecordTab(tab: MyRecordTab): MyRecordTab {
@@ -28542,9 +28546,9 @@ function MyRecordDetailBlock({ label, value }: { label: string; value?: ReactNod
   }
 
   return (
-    <div className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-      <div className="mt-2 whitespace-pre-line text-sm font-medium leading-6 text-[#0F172A] [&_li]:text-[#0F172A]">{value}</div>
+    <div className="border-b border-dos-rule pb-3 last:border-b-0">
+      <p className="text-dos-label text-dos-secondary">{label}</p>
+      <div className="mt-1 whitespace-pre-line text-dos-body leading-6 text-dos-primary [&_li]:text-dos-primary">{value}</div>
     </div>
   );
 }
@@ -28637,21 +28641,22 @@ function MyRecordSheetFrame({
   });
 
   const content = (
-    <div className="fixed inset-0 z-[1100] bg-[#0F172A]/18 backdrop-blur-sm" data-dos-my-record-sheet={kind} onMouseDown={backdropMayDismiss(kind) ? onClose : undefined} role="presentation">
+    <div className="fixed inset-0 z-dos-sheet bg-dos-primary/30" data-dos-my-record-sheet={kind} onMouseDown={backdropMayDismiss(kind) ? onClose : undefined} role="presentation">
       <section
         aria-modal="true"
-        className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-[0_28px_90px_rgba(15,23,42,0.18)] md:max-w-[560px] md:border-l md:border-[#DCEBFF]"
+        aria-label={title}
+        className="ml-auto flex h-full w-full flex-col overflow-hidden bg-white shadow-dos-float md:max-w-[560px] md:border-l md:border-dos-line"
         onMouseDown={(event) => event.stopPropagation()}
         ref={panelRef}
         role="dialog"
       >
-        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-[#EAF2FF] px-4">
-          <h2 className="truncate text-lg font-black text-[#0F172A]">{title}</h2>
-          <button aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={requestClose} type="button">
+        <header className="flex min-h-16 items-center justify-between gap-3 border-b border-dos-line px-4">
+          <h2 className="truncate text-dos-heading text-dos-primary">{title}</h2>
+          <button aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-dos-line bg-white text-dos-primary" onClick={requestClose} type="button">
             <X className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto bg-[#F8FBFF] p-4 [scrollbar-width:none]">
+        <div className="flex-1 overflow-y-auto bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] [scrollbar-width:none]">
           {children({ markSaved: surface.markSaved, requestClose })}
         </div>
       </section>
@@ -32039,6 +32044,10 @@ function MyRecordMyLifePanel({
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   record: DosAppUserRecord;
 }) {
+  const [expandedCollections, setExpandedCollections] = useState<Record<string, boolean>>({});
+  function toggleCollection(key: string) {
+    setExpandedCollections((current) => ({ ...current, [key]: !current[key] }));
+  }
   const lifePlan = resolveMyRecordLifePlan(record);
   const propheticWords = useMemo(
     () => [...record.propheticWords].sort((first, second) => myRecordDateValue(second.dateReceived) - myRecordDateValue(first.dateReceived)),
@@ -32103,7 +32112,7 @@ function MyRecordMyLifePanel({
         </Eyebrow>
         {propheticWords.length ? (
           <div className="divide-y divide-dos-rule">
-            {propheticWords.slice(0, 3).map((word) => (
+            {(expandedCollections.prophetic ? propheticWords : propheticWords.slice(0, 3)).map((word) => (
               <MyRecordSectionRow
                 key={word.id}
                 meta={[formatShortDate(word.dateReceived), word.givenBy, myRecordPropheticWordStatusLabel(word.status)].filter(Boolean).join(" · ")}
@@ -32116,11 +32125,7 @@ function MyRecordMyLifePanel({
         ) : (
           <MyRecordSectionEmpty>No prophetic words recorded yet.</MyRecordSectionEmpty>
         )}
-        <MyRecordViewAll
-          count={propheticWords.length}
-          onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "view", word: propheticWords[0] })}
-          shown={3}
-        />
+        {propheticWords.length > 3 ? <MyRecordSectionAction onClick={() => toggleCollection("prophetic")}>{expandedCollections.prophetic ? "Show less" : `View all ${propheticWords.length}`}</MyRecordSectionAction> : null}
       </MyRecordSurfaceSection>
 
       <MyRecordSurfaceSection label="God's Faithfulness">
@@ -32157,7 +32162,7 @@ function MyRecordMyLifePanel({
         </Eyebrow>
         {recordedAssessments.length ? (
           <div className="divide-y divide-dos-rule">
-            {recordedAssessments.slice(0, 4).map((item) => (
+            {(expandedCollections.assessments ? recordedAssessments : recordedAssessments.slice(0, 4)).map((item) => (
               <MyRecordSectionRow
                 key={item.id}
                 meta={[item.category, item.completedDate ? formatShortDate(item.completedDate) : null, myRecordAssessmentStatusLabel(item.status)].filter(Boolean).join(" · ")}
@@ -32170,6 +32175,7 @@ function MyRecordMyLifePanel({
         ) : (
           <MyRecordSectionEmpty>No assessments recorded yet.</MyRecordSectionEmpty>
         )}
+        {recordedAssessments.length > 4 ? <MyRecordSectionAction onClick={() => toggleCollection("assessments")}>{expandedCollections.assessments ? "Show less" : `View all ${recordedAssessments.length} assessments`}</MyRecordSectionAction> : null}
       </MyRecordSurfaceSection>
 
       <MyRecordSurfaceSection label="Learning">
@@ -32181,7 +32187,7 @@ function MyRecordMyLifePanel({
         </Eyebrow>
         {books.length ? (
           <div className="divide-y divide-dos-rule">
-            {books.slice(0, 4).map((book) => (
+            {(expandedCollections.learning ? books : books.slice(0, 4)).map((book) => (
               <MyRecordSectionRow
                 key={book.id}
                 meta={[book.author, myRecordLearningBookStatusLabel(book.status), book.chapterNotes.length ? `${book.chapterNotes.length} chapter ${book.chapterNotes.length === 1 ? "note" : "notes"}` : null].filter(Boolean).join(" · ")}
@@ -32194,6 +32200,13 @@ function MyRecordMyLifePanel({
         ) : (
           <MyRecordSectionEmpty>No books recorded yet.</MyRecordSectionEmpty>
         )}
+        {books.length > 4 ? <MyRecordSectionAction onClick={() => toggleCollection("learning")}>{expandedCollections.learning ? "Show less" : `View all ${books.length} books`}</MyRecordSectionAction> : null}
+      </MyRecordSurfaceSection>
+      <MyRecordSurfaceSection label="People discipling me">
+        <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>+ Add</MyRecordSectionAction>}>People discipling me</Eyebrow>
+        {record.mentorRelationships.length ? record.mentorRelationships.map((mentor) => (
+          <MyRecordSectionRow key={mentor.id} primary={mentor.mentorName} meta={mentor.meetingRhythm} onOpen={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })} />
+        )) : <MyRecordSectionEmpty>No relationships recorded yet.</MyRecordSectionEmpty>}
       </MyRecordSurfaceSection>
     </MyRecordSurface>
   );
@@ -38925,6 +38938,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   }, [searchParams]);
 
   useEffect(() => {
+    if (searchParams.get("view") === "my_record") {
+      setActiveTab("people");
+      setMoreAppView(null);
+      setIsMyRecordOpen(true);
+      setMyRecordTab(normalizeMyRecordTab((searchParams.get("tab") ?? "overview") as MyRecordTab));
+      return;
+    }
     if (searchParams.get("view") !== "library") {
       const requestedView = normalizeMoreAppView(searchParams.get("view") as MoreAppView | null);
 
@@ -45064,13 +45084,8 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                     about the person doing the stewarding; the count that used
                     to sit here is now a badge inside the list itself, where
                     the thing it counts actually is. */}
-                {/* Three controls do not fit on a 390px phone, and wrapping
-                    split them 2 + 1, which read as two rows of unrelated
-                    controls. It stays one row and scrolls when it must --
-                    the same behaviour as the circle rail directly above it,
-                    with the same edge inset so the first control lines up
-                    with the list below. */}
-                <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:flex-wrap md:px-0">
+                {/* All actions remain visible at narrow widths, without horizontal scrolling. */}
+                <div aria-label="People actions" className="flex min-w-0 flex-wrap items-center gap-2 pb-0.5">
                   <button
                     className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
                     onClick={() => openMyRecordTab("overview")}

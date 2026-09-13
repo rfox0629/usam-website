@@ -82,6 +82,16 @@ jobs:
       - name: Smoke test
         run: npm run smoke
 
+      - name: My Record navigation and unsaved-work browser checks (USA-272)
+        run: node scripts/dos-my-record-browser.mjs
+
+      - name: Upload My Record browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-record-browser-evidence
+          path: test-results/usa-272/
+
       - name: Upload smoke artifacts
         if: failure()
         uses: actions/upload-artifact@v4
