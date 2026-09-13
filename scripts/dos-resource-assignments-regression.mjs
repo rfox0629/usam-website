@@ -321,7 +321,10 @@ assertIncludes(client, "dueDate: \"\"", "Assignment launch must intentionally st
 assertIncludes(client, "followUpCadence: \"none\"", "Group assignment launch must not create per-participant due reminders by default.");
 assertIncludes(client, "reuseExistingResourceAssignment", "duplicate warning offers explicit existing-assignment reuse");
 assertIncludes(client, "openLeaderJourneyProgress(personId, resource.slug, assignmentId ?? null)", "Person profile opens leader progress by assignment instance instead of editable private participant fields.");
-assertIncludes(client, "onOpenGuidedResource(guidedResource, assignment.id)", "My Record assignment rows must open the exact assignment instance.");
+/* USA-272: My Record's journey rows moved onto the Overview and now call the
+   same three-argument form the Person rows use, so the person travels with
+   the assignment instead of being inferred. */
+assertIncludes(client, "onOpenGuidedResource(guidedResource, assignment.personId, assignment.id)", "My Record assignment rows must open the exact assignment instance.");
 assertIncludes(client, "onOpenGuidedResource(resource, assignment.personId, assignment.id)", "Person assignment rows must open the exact assignment instance.");
 assertIncludes(client, "Read Online", "assignment card keeps online reading action");
 assertIncludes(client, "Download PDF", "Library card keeps PDF action");

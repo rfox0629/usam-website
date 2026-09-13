@@ -43,9 +43,9 @@ assert(prayerAudienceSelect.includes("text-[#64748B]"), "Prayer audience helper 
 assert(!prayerAudienceSelect.includes("font-medium text-[#94A3B8]"), "Prayer audience helper text should not look disabled.");
 
 const myRecordDetailBlock = sliceBetween(client, "function MyRecordDetailBlock", "function MyRecordSheetFrame");
-assert(myRecordDetailBlock.includes("text-[#64748B]"), "My Record detail block labels should use readable secondary text.");
-assert(myRecordDetailBlock.includes("text-[#0F172A]"), "My Record detail block values should use primary text.");
-assert(myRecordDetailBlock.includes("[&_li]:text-[#0F172A]"), "My Record detail block lists should keep primary readable text.");
+assert(myRecordDetailBlock.includes("text-dos-secondary"), "My Record detail block labels should use the shared readable secondary token.");
+assert(myRecordDetailBlock.includes("text-dos-primary"), "My Record detail block values should use the shared primary token.");
+assert(myRecordDetailBlock.includes("[&_li]:text-dos-primary"), "My Record detail block lists should keep primary readable text.");
 assertReadableSection(myRecordDetailBlock, "My Record detail blocks");
 
 const lifePlanSheet = sliceBetween(client, "if (sheet.kind === \"life_plan\")", "if (sheet.kind === \"external_assessment\")");
@@ -55,7 +55,9 @@ assert(lifePlanSheet.includes("label=\"Privacy\""), "Life Plan view should rende
 assert(!lifePlanSheet.includes("text-[#94A3B8]"), "Life Plan sheet should not use pale slate text for readable content.");
 assert(!lifePlanSheet.includes("text-[#CBD5E1]"), "Life Plan sheet should not use disabled slate text for readable content.");
 
-const externalAssessmentForm = sliceBetween(client, "function MyRecordExternalAssessmentForm", "function MyRecordAssessmentsPanel");
+/* USA-272: MyRecordAssessmentsPanel was already unreachable and went with
+   the My Record restructure; MyRecordReportPanel is the next declaration. */
+const externalAssessmentForm = sliceBetween(client, "function MyRecordExternalAssessmentForm", "function MyRecordReportPanel");
 assert(externalAssessmentForm.includes("Store user-owned results and summaries only."), "External assessment form should keep copyright-safe helper copy.");
 assert(externalAssessmentForm.includes("text-[#64748B]\">Do not copy questions"), "External assessment copyright helper should be readable.");
 assert(!externalAssessmentForm.includes("text-[#94A3B8]\">Do not copy questions"), "External assessment copyright helper should not look disabled.");

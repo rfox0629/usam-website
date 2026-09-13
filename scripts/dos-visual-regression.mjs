@@ -59,7 +59,11 @@ const scenes = [
   { name: "library", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); } },
   { name: "library-resource", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); await page.getByText("Kitchen Table Gospel", { exact: true }).first().click(); } },
   { name: "prayer", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Prayer/, false); } },
-  { name: "my-record", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /My Record/, false); } },
+  /* USA-272: My Record is reached from People's action row, not from More.
+     Its three views are each worth a baseline -- they are the whole screen. */
+  { name: "my-record", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, /^All\b/); await clickButton(page, "My Record"); } },
+  { name: "my-record-timeline", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, /^All\b/); await clickButton(page, "My Record"); await clickButton(page, "Timeline"); } },
+  { name: "my-record-my-life", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, /^All\b/); await clickButton(page, "My Record"); await clickButton(page, "My Life"); } },
   /* Meetings moved to the canonical Segmented rail (USA-246), which is a
      group of buttons rather than a tablist, so this scene selects the segment
      by its button role. The Person and Groups rails are still PillRails. */
@@ -180,6 +184,13 @@ async function main() {
         });
         window.scrollTo(0, 0);
       });
+      /* Park the pointer off-screen before the shot. Otherwise the cursor
+         stays wherever the last click landed and whatever sits under it
+         renders in its :hover state -- so an unrelated layout change one
+         screen earlier can move the pointer onto a different row and fail a
+         baseline that is otherwise identical (seen on person-record after
+         USA-272 moved the People list down). */
+      await page.mouse.move(-10, -10);
       await page.waitForTimeout(200);
 
       const fileName = `${scene.viewport}--${scene.name}.png`;
