@@ -1,0 +1,168 @@
+production_version,name,local_file_on_main,relation,content_vs_ledger,rollback_file,destructive_statements,objects_defined,objects_present,classification
+20260501185143,missionary_profiles_foundation,20260501164602_missionary_profiles_foundation.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260501203837,create_admin_users_allowlist,20260501201146_create_admin_users_allowlist.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260501203857,create_financial_freedom_inquiries,20260501202545_create_financial_freedom_inquiries.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260501204036,optimize_admin_rls_policies,20260501203951_optimize_admin_rls_policies.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260501204151,optimize_admin_rls_jwt_select,20260501204109_optimize_admin_rls_jwt_select.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260501214245,add_financial_freedom_consent_fields,20260501214201_add_financial_freedom_consent_fields.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260501214744,harden_financial_freedom_updated_at_function,20260501214715_harden_financial_freedom_updated_at_function.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260501215741,create_financial_freedom_uploads,20260501215702_create_financial_freedom_uploads.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260507162211,dos_foundation_schema,20260507162211_dos_foundation_schema.sql,same_version,IDENTICAL,,,,,already reconciled
+20260507162735,dos_foundation_advisor_cleanup,20260507162735_dos_foundation_advisor_cleanup.sql,same_version,IDENTICAL,,,,,already reconciled
+20260507191335,dos_relationship_insights,20260507141016_dos_relationship_insights.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260507203700,dos_lightweight_meeting_logging,20260507202645_dos_lightweight_meeting_logging.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260507212003,dos_meeting_outcome_markers,20260507211938_dos_meeting_outcome_markers.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260508123452,dos_discussion_guides_manual_movement,20260508123130_dos_discussion_guides_manual_movement.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260511235105,create_support_commitments_for_donor_intake,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260512000859,add_support_flyer_fields,20260511190906_add_support_flyer_fields.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260512122826,restore_form_submissions_inbox,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260512124235,giving_reconciliation_foundation,20260512073507_giving_reconciliation_foundation.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513150034,command_center_workspace_ids,20260507021718_command_center_workspace_ids.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513163252,dos_meetings_discipleship_engine,20260513162212_dos_meetings_discipleship_engine.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513163633,missionary_workspace_mvp_meeting_types_guarded,20260513163633_missionary_workspace_mvp_meeting_types_guarded.sql,same_version,IDENTICAL,,,,,already reconciled
+20260513200806,restore_prayer_team_signup_tables,20260513201000_restore_prayer_team_signup_tables.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513200945,prayer_team_signup_advisor_cleanup,20260513202000_prayer_team_signup_advisor_cleanup.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513202001,dos_quick_reviews,20260513190000_dos_quick_reviews.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513202254,restore_prayer_team_operational_columns,20260513212000_restore_prayer_team_operational_columns.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513202838,add_dos_quick_review_fk_indexes,20260513202819_add_dos_quick_review_fk_indexes.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513204317,add_quick_review_fruit_moderation_statuses,20260513203424_add_quick_review_fruit_moderation_statuses.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260513204740,prayer_partner_application_lifecycle,20260513224500_prayer_partner_application_lifecycle.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260514170223,build_financial_intake_system,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260514190043,create_aligned_insights_inquiries,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260529173245,dos_field_people_household_mvp,20260529173245_dos_field_people_household_mvp.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260530171012,dos_prayer_logs,20260530171012_dos_prayer_logs.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260531200145,dos_circle_relationship_intelligence,20260526121446_dos_circle_relationship_intelligence.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260531201235,dos_calendar_reminders_mvp,20260531201235_dos_calendar_reminders_mvp.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260531201359,dos_calendar_reminders_mvp_fk_indexes,20260531201359_dos_calendar_reminders_mvp_fk_indexes.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260601174954,dos_calendar_google_read_import,20260601174954_dos_calendar_google_read_import.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260601180618,dos_calendar_read_import_fk_indexes,20260601180618_dos_calendar_read_import_fk_indexes.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260601184834,usam_application_workflow,20260601184834_usam_application_workflow.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260601191526,dos_setup_household_placeholders,20260601191526_dos_setup_household_placeholders.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260601205200,link_ryan_brooke_usam_profile,20260601205200_link_ryan_brooke_usam_profile.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260605132928,allow_four_questions_conversation_flow,20260605132928_allow_four_questions_conversation_flow.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260605164908,usam_application_photos_bucket,20260605164908_usam_application_photos_bucket.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260606194623,usam_application_review_statuses,20260606194623_usam_application_review_statuses.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260627153000,public_profile_slug_fox_family,20260627153000_public_profile_slug_fox_family.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260627210000,dos_household_members_are_people,20260627210000_dos_household_members_are_people.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260629135120,dos_prayer_public_profile_bridge,20260629135120_dos_prayer_public_profile_bridge.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260629212205,show_prayer_team_count,20260629212205_show_prayer_team_count.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260630132126,canonical_person_prayer_partners,20260630132126_canonical_person_prayer_partners.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260701125400,prayer_partner_canonical_context,20260701125400_prayer_partner_canonical_context.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260703141054,dos_assessment_results,20260703141054_dos_assessment_results.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260703144217,quick_review_name_rating_metadata,20260703144217_quick_review_name_rating_metadata.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260704033834,dos_my_record,20260704033834_dos_my_record.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260704171602,dos_my_record_prophetic_words,20260704171602_dos_my_record_prophetic_words.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260704172801,dos_my_record_external_assessment_results,20260704172801_dos_my_record_external_assessment_results.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260706013016,dos_household_team_members_people,20260706013016_dos_household_team_members_people.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260706153343,dos_my_record_assessment_library_fields,20260706153343_dos_my_record_assessment_library_fields.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260706155318,dos_my_record_learning_books,20260706155318_dos_my_record_learning_books.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260707034007,dos_private_groups,20260707034007_dos_private_groups.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260707132434,dos_unified_prayer_context,20260707132434_dos_unified_prayer_context.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260707171021,seed_ryan_dos_groups,20260707171021_seed_ryan_dos_groups.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260707220719,dos_my_record_mentor_profile_fields,20260707220719_dos_my_record_mentor_profile_fields.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260708002057,dos_my_record_life_plan,20260708002057_dos_my_record_life_plan.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260708151213,dos_table_invitations,20260708151213_dos_table_invitations.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260709160043,dos_group_join_requests,20260709160043_dos_group_join_requests.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260711021920,dos_commitments_accountability,20260711021920_dos_commitments_accountability.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260712235050,dos_groups_simplification_shared_leadership,20260712235050_dos_groups_simplification_shared_leadership.sql,same_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260713022111,dos_identity_shared_leadership,20260713022111_dos_identity_shared_leadership.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260713113226,dos_resource_assignments,20260713113226_dos_resource_assignments.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260717143757,dos_public_groups_member_portal_foundation,20260717143757_dos_public_groups_member_portal_foundation.sql,same_version,IDENTICAL_NORMALIZED,,,,,already reconciled
+20260728035152,communications_resend_subscribers,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260806111433,dos_person_merge_records,20260806111227_dos_person_merge_records.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260807151800,dos_journey_assignment_context,20260807151800_dos_journey_assignment_context.sql,same_version,IDENTICAL,,,,,already reconciled
+20260807152600,harden_person_merge_audit_access,20260807152600_harden_person_merge_audit_access.sql,same_version,IDENTICAL,,,,,already reconciled
+20260813235304,operations_v1_submission_review_fields,20260813235304_operations_v1_submission_review_fields.sql,same_version,IDENTICAL,,,,,already reconciled
+20260818163529,usa_174_operations_launch_safety_fundraising_finance,20260818162143_usa_174_operations_launch_safety_fundraising_finance.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260818214747,usa_174_pco_giving_import,20260818230000_usa_174_pco_giving_import.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260818215448,usa_174_pco_donation_id_unique_constraint,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260819134249,usa_174_map_pco_general_fund,20260819140000_usa_174_map_pco_general_fund.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260819152409,usa_181_finance_v2_foundation,20260819160000_usa_181_finance_v2_foundation.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260819152449,usa_181_compliance_rule_registry_seed,20260819161000_usa_181_compliance_rule_registry_seed.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260819184237,usa_181_tax_period_validation,20260819170000_usa_181_tax_period_validation.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260819190106,usa_180_pco_people,20260819190000_usa_180_pco_people.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260819201847,usa_182_canonical_operations_documents,20260819210000_usa_182_canonical_operations_documents.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260819203833,usa_182_partner_document_visibility,20260819220000_usa_182_partner_document_visibility.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260821120000,usa_167_join_v2_application_drafts,20260821120000_usa_167_join_v2_application_drafts.sql,same_version,LEDGER_EMPTY,,,,,already reconciled
+20260903143613,usa_168_measurable_accountability_progress,20260903030000_usa_168_measurable_accountability_progress.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260903164128,usa_168_accountability_target_kind,20260903160000_usa_168_accountability_target_kind.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260903171158,usa_168_subject_only_progress_updates,20260903180000_usa_168_subject_only_progress_updates.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260903211935,operations_communications_newsletter_workflow,20260903220000_operations_communications_newsletter_workflow.sql,same_name_other_version,IDENTICAL,,,,,rename local file to production version (no SQL runs)
+20260904010157,usa_168_explicit_count_progress,20260903220000_usa_168_explicit_count_progress.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260908190059,usa_246_planned_vs_actual_meeting_time,20260908180000_usa_246_planned_vs_actual_meeting_time.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260909014931,usa_246_booking_write_path,20260909090000_usa_246_booking_write_path.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260909021813,usa_246_booking_host_availability,20260909120000_usa_246_booking_host_availability.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+20260910010115,usa_247_circle_placements,20260909180000_usa_247_circle_placements.sql,same_name_other_version,DIFFERENT,,,,,schema-drift review required before any history change
+20260910010221,usa_247_circle_placements_revoke_anon,,no_local_file,NO_FILE,,,,,restore exact SQL from supabase_migrations.schema_migrations.statements
+20260910151053,dos_person_feedback_import,20260910150000_dos_person_feedback_import.sql,same_name_other_version,IDENTICAL_NORMALIZED,,,,,rename local file to production version (no SQL runs)
+,create_prayer_command_center,20260501223000_create_prayer_command_center.sql,local_only,,,drop policy,7,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,missionary_profile_features,20260504162820_missionary_profile_features.sql,local_only,,,update public.missionary_households set,15,15,objects present: candidate for repair --status applied after review
+,missionary_images_storage_bucket,20260504163724_missionary_images_storage_bucket.sql,local_only,,,drop policy,5,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,prayer_team_system,20260504172302_prayer_team_system.sql,local_only,,,drop policy; drop trigger,22,12,PARTIALLY present: schema-drift review required
+,missionary_fruit_items,20260505144117_missionary_fruit_items.sql,local_only,,,drop policy; drop trigger,10,10,objects present: candidate for repair --status applied after review
+,support_major_gift_system,20260505145337_support_major_gift_system.sql,local_only,,,drop policy; drop trigger,16,12,PARTIALLY present: schema-drift review required
+,add_missionary_profile_photo_toggle,20260505150838_add_missionary_profile_photo_toggle.sql,local_only,,,,1,1,objects present: candidate for repair --status applied after review
+,add_missionary_profile_serving_scope,20260505151233_add_missionary_profile_serving_scope.sql,local_only,,,drop constraint,3,3,objects present: candidate for repair --status applied after review
+,add_missionary_profile_positioning,20260505151644_add_missionary_profile_positioning.sql,local_only,,,drop constraint,4,4,objects present: candidate for repair --status applied after review
+,sync_missionary_household_visibility,20260505152100_sync_missionary_household_visibility.sql,local_only,,,update public.missionary_households set,,,"no extractable objects; data-only statements, manual review"
+,missionary_team_members,20260505161300_missionary_team_members.sql,local_only,,,drop policy; drop trigger,6,6,objects present: candidate for repair --status applied after review
+,seed_ryan_fox_team_members,20260505162714_seed_ryan_fox_team_members.sql,local_only,,,,,,"no extractable objects; data-only statements, manual review"
+,create_support_commitments,20260505163304_create_support_commitments.sql,local_only,,,drop policy; drop trigger,9,9,objects present: candidate for repair --status applied after review
+,form_submissions_prayer_operations,20260505174500_form_submissions_prayer_operations.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.prayer_partners       set; update public.prayer_partners set; update public.prayer_requests       set; update public.prayer_requests set,49,43,PARTIALLY present: schema-drift review required
+,add_prayer_request_form_submission_type,20260505193000_add_prayer_request_form_submission_type.sql,local_only,,,drop constraint; drop policy,1,1,objects present: candidate for repair --status applied after review
+,form_submissions_assigned_team_public_forms,20260505203000_form_submissions_assigned_team_public_forms.sql,local_only,,,drop constraint; drop policy; update public.form_submissions set,6,6,objects present: candidate for repair --status applied after review
+,global_team_public_numbers,20260505211500_global_team_public_numbers.sql,local_only,,,drop constraint; update public.missionary_team_members     set; update public.missionary_team_members   set,,,"no extractable objects; data-only statements, manual review"
+,update_support_team_submission_workflow,20260505214500_update_support_team_submission_workflow.sql,local_only,,,drop constraint; drop policy; update public.form_submissions set,2,2,objects present: candidate for repair --status applied after review
+,expand_prayer_team_operations_hub,20260505221500_expand_prayer_team_operations_hub.sql,local_only,,,drop constraint; update public.prayer_partners set; update public.prayer_requests set,46,42,PARTIALLY present: schema-drift review required
+,ensure_missionary_team_members,20260505231032_ensure_missionary_team_members.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.missionary_team_members     set; update public.missionary_team_members set,18,18,objects present: candidate for repair --status applied after review
+,reserve_team_public_number_0001,20260505232245_reserve_team_public_number_0001.sql,local_only,,,delete from; drop constraint; update public.missionary_team_members     set,,,"no extractable objects; data-only statements, manual review"
+,add_join_mission_interest_form_type,20260505233000_add_join_mission_interest_form_type.sql,local_only,,,drop constraint; drop policy,1,1,objects present: candidate for repair --status applied after review
+,add_missionary_profile_story_versions,20260505233732_add_missionary_profile_story_versions.sql,local_only,,,update public.missionary_households set,2,2,objects present: candidate for repair --status applied after review
+,add_missionary_encounters,20260505234217_add_missionary_encounters.sql,local_only,,,drop trigger,18,18,objects present: candidate for repair --status applied after review
+,add_missionary_profile_review_form_type,20260505234500_add_missionary_profile_review_form_type.sql,local_only,,,drop constraint; drop policy,1,1,objects present: candidate for repair --status applied after review
+,system_access_codes,20260506022146_system_access_codes.sql,local_only,,,drop trigger,4,4,objects present: candidate for repair --status applied after review
+,system_access_codes_type_active,20260506023500_system_access_codes_type_active.sql,local_only,,,drop constraint; drop trigger; update public.system_access_codes set; update public.system_access_codes set,10,10,objects present: candidate for repair --status applied after review
+,ensure_prayer_team_tables,20260506025711_ensure_prayer_team_tables.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.prayer_partners set; update public.prayer_requests set,60,58,PARTIALLY present: schema-drift review required
+,ensure_form_submissions_table,20260506030136_ensure_form_submissions_table.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.form_submissions set,28,28,objects present: candidate for repair --status applied after review
+,admin_access_permissions,20260506121842_admin_access_permissions.sql,local_only,,,drop constraint; drop policy; update public.admin_users set,8,8,objects present: candidate for repair --status applied after review
+,ensure_missionary_story_versions,20260506144308_ensure_missionary_story_versions.sql,local_only,,,update public.missionary_households set,2,2,objects present: candidate for repair --status applied after review
+,missionary_tables_encounters_fruit_pipeline,20260506170846_missionary_tables_encounters_fruit_pipeline.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.missionary_encounters set,17,17,objects present: candidate for repair --status applied after review
+,missionary_fruit_review_flow,20260506173235_missionary_fruit_review_flow.sql,local_only,,,drop constraint,4,4,objects present: candidate for repair --status applied after review
+,command_center_field_people,20260506180150_command_center_field_people.sql,local_only,,,drop policy; drop trigger,8,8,objects present: candidate for repair --status applied after review
+,command_center_tables_structure,20260506181043_command_center_tables_structure.sql,local_only,,,drop constraint,2,2,objects present: candidate for repair --status applied after review
+,command_center_review_fruit_connections,20260506181808_command_center_review_fruit_connections.sql,local_only,,,drop constraint; drop policy; drop trigger,33,33,objects present: candidate for repair --status applied after review
+,ensure_missionary_field_people,20260507010809_ensure_missionary_field_people.sql,local_only,,,drop policy; drop trigger; update public.missionary_field_people set,24,24,objects present: candidate for repair --status applied after review
+,align_missionary_field_people,20260507014013_align_missionary_field_people.sql,local_only,,,drop constraint; drop policy; drop trigger; update public.missionary_field_people set,24,24,objects present: candidate for repair --status applied after review
+,ensure_missionary_workspace_visibility_columns,20260509114750_ensure_missionary_workspace_visibility_columns.sql,local_only,,,update public.missionary_field_people set; update public.missionary_fruit_items set; update public.missionary_households set; update public.missionary_tables set,35,35,objects present: candidate for repair --status applied after review
+,support_commitment_pending_giving_setup,20260511173247_support_commitment_pending_giving_setup.sql,local_only,,,drop constraint; drop policy; update public.support_commitments set,6,6,objects present: candidate for repair --status applied after review
+,normalize_major_gift_statuses,20260511183318_normalize_major_gift_statuses.sql,local_only,,,drop constraint; drop policy; update public.major_gift_inquiries set,1,1,objects present: candidate for repair --status applied after review
+,missionary_workspace_mvp_meeting_types,20260511184759_missionary_workspace_mvp_meeting_types.sql,local_only,,,drop constraint,4,2,PARTIALLY present: schema-drift review required
+,missionary_profile_page_views,20260513143000_missionary_profile_page_views.sql,local_only,,,,12,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,support_experience_flow_settings,20260513151500_support_experience_flow_settings.sql,local_only,,,update public.missionary_support_settings set,4,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,reviews_fruit_mvp_foundation,20260526154500_reviews_fruit_mvp_foundation.sql,local_only,,,drop constraint; drop policy; drop trigger,19,19,objects present: candidate for repair --status applied after review
+,fruit_intelligence_metadata,20260526171500_fruit_intelligence_metadata.sql,local_only,,,,5,5,objects present: candidate for repair --status applied after review
+,reviews_fruit_moderation_controls,20260526193000_reviews_fruit_moderation_controls.sql,local_only,,,drop constraint,6,6,objects present: candidate for repair --status applied after review
+,fix_fruit_generation_key_unique,20260526225607_fix_fruit_generation_key_unique.sql,local_only,,,drop index,1,1,objects present: candidate for repair --status applied after review
+,align_dos_review_link_type,20260526231500_align_dos_review_link_type.sql,local_only,,,drop constraint,,,"no extractable objects; data-only statements, manual review"
+,dos_relationship_stewardship_model,20260528161719_dos_relationship_stewardship_model.sql,local_only,,,drop constraint; update public.missionary_field_people set,3,3,objects present: candidate for repair --status applied after review
+,renumber_ryan_brooke_household_people,20260612204920_renumber_ryan_brooke_household_people.sql,local_only,,,update public.missionary_people     set,,,"no extractable objects; data-only statements, manual review"
+,dos_ministry_event_model,20260625175625_dos_ministry_event_model.sql,local_only,,,delete from; drop policy; drop trigger; update public.missionary_tables set,37,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,guard_explicit_dos_fruit_sources,20260625192547_guard_explicit_dos_fruit_sources.sql,local_only,,,delete from; drop constraint; update public.fruit_events set,,,"no extractable objects; data-only statements, manual review"
+,dos_review_request_tokens,20260625192634_dos_review_request_tokens.sql,local_only,,,drop constraint; drop index; update public.dos_review_links set,16,16,objects present: candidate for repair --status applied after review
+,quick_review_feedback_storage,20260626204234_quick_review_feedback_storage.sql,local_only,,,drop constraint,6,6,objects present: candidate for repair --status applied after review
+,support_submission_profile_routing,20260627201625_support_submission_profile_routing.sql,local_only,,,drop constraint; drop trigger; update public.major_gift_inquiries set; update public.support_commitments set,15,15,objects present: candidate for repair --status applied after review
+,dos_person_field_visibility,20260629134616_dos_person_field_visibility.sql,local_only,,,update public.missionary_field_people set,3,3,objects present: candidate for repair --status applied after review
+,dos_table_discipleship_roles,20260702194002_dos_table_discipleship_roles.sql,local_only,,,drop constraint; update public.missionary_tables set,11,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,partners_documents_library,20260709180000_partners_documents_library.sql,local_only,,,,3,3,objects present: candidate for repair --status applied after review
+,dos_guided_resource_progress,20260713160238_dos_guided_resource_progress.sql,local_only,,,drop constraint; drop policy; drop trigger,10,8,PARTIALLY present: schema-drift review required
+,dos_group_location_and_recurrence,20260810120000_dos_group_location_and_recurrence.sql,local_only,,,,4,0,NOT APPLIED in production: product decision (apply as new migration or archive)
+,dos_guided_resource_progress_assignment_instances,20260811225500_dos_guided_resource_progress_assignment_instances.sql,local_only,,,,1,1,objects present: candidate for repair --status applied after review
+,usa_246_planned_vs_actual_meeting_time_rollback,20260908180000_usa_246_planned_vs_actual_meeting_time_rollback.sql,local_only,,yes,drop column; drop constraint; drop index,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,usa_246_booking_write_path_rollback,20260909090000_usa_246_booking_write_path_rollback.sql,local_only,,yes,drop column; drop constraint; drop function; drop index,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,usa_246_booking_host_availability_rollback,20260909120000_usa_246_booking_host_availability_rollback.sql,local_only,,yes,update public.missionary_field_people        set; update public.missionary_tables set,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,usa_247_circle_placements_rollback,20260909180000_usa_247_circle_placements_rollback.sql,local_only,,yes,drop constraint; drop function; drop policy; drop table,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,dos_person_feedback_import_rollback,20260910150000_dos_person_feedback_import_rollback.sql,local_only,,yes,drop constraint; drop index,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,dos_group_gathering_covered_journey,20260911160000_dos_group_gathering_covered_journey.sql,local_only,,,,3,0,pending; founder authorization not yet given
+,dos_group_gathering_covered_journey_rollback,20260911160000_dos_group_gathering_covered_journey_rollback.sql,local_only,,yes,drop column,3,0,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+,usa_275_discipleship_connections,20260913180000_usa_275_discipleship_connections.sql,local_only,,,drop trigger,17,0,"USA-275: pending, founder-approved"
+,usa_275_discipleship_connections_rollback,20260913180000_usa_275_discipleship_connections_rollback.sql,local_only,,yes,drop function; drop table; drop trigger,17,0,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
